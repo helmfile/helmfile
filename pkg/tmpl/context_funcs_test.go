@@ -12,6 +12,57 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCreateFuncMap(t *testing.T) {
+	currentVal := disableInsecureFeatures
+
+	{
+		disableInsecureFeatures = false
+		ctx := &Context{basePath: "."}
+		funcMaps := ctx.createFuncMap()
+		args := make([]interface{}, 0)
+		outputExec, _ := funcMaps["exec"].(func(command string, args []interface{}, inputs ...string) (string, error))("ls", args)
+		require.Contains(t, outputExec, "context.go")
+	}
+
+	disableInsecureFeatures = currentVal
+}
+
+func TestCreateFuncMap_DisabledInsecureFeatures(t *testing.T) {
+	currentVal := disableInsecureFeatures
+
+	{
+		disableInsecureFeatures = true
+		ctx := &Context{basePath: "."}
+		funcMaps := ctx.createFuncMap()
+		args := make([]interface{}, 0)
+		_, err1 := funcMaps["exec"].(func(command string, args []interface{}, inputs ...string) (string, error))("ls", args)
+		require.ErrorIs(t, err1, DisableInsecureFeaturesErr)
+		_, err2 := funcMaps["readFile"].(func(filename string) (string, error))("context_funcs_test.go")
+		require.ErrorIs(t, err2, DisableInsecureFeaturesErr)
+	}
+
+	disableInsecureFeatures = currentVal
+}
+
+func TestCreateFuncMap_SkipInsecureTemplateFunctions(t *testing.T) {
+	currentVal := skipInsecureTemplateFunctions
+
+	{
+		skipInsecureTemplateFunctions = true
+		ctx := &Context{basePath: "."}
+		funcMaps := ctx.createFuncMap()
+		args := make([]interface{}, 0)
+		actual1, err1 := funcMaps["exec"].(func(command string, args []interface{}, inputs ...string) (string, error))("ls", args)
+		require.Equal(t, "", actual1)
+		require.ErrorIs(t, err1, nil)
+		actual2, err2 := funcMaps["readFile"].(func(filename string) (string, error))("context_funcs_test.go")
+		require.Equal(t, "", actual2)
+		require.ErrorIs(t, err2, nil)
+	}
+
+	skipInsecureTemplateFunctions = currentVal
+}
+
 func TestReadFile(t *testing.T) {
 	expected := `foo:
   bar: BAR

@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/roboll/helmfile/pkg/envvar"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -65,7 +66,7 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 	}
 
 	// Support explicit helm3 opt-in via environment variable
-	if os.Getenv("HELMFILE_HELM3") != "" && ver.Major() < 3 {
+	if os.Getenv(envvar.EnvHelm3) != "" && ver.Major() < 3 {
 		return *semver.MustParse("v3.0.0"), nil
 	}
 

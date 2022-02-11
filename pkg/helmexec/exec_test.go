@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/roboll/helmfile/pkg/envvar"
 
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
@@ -794,13 +795,13 @@ func Test_IsHelm3(t *testing.T) {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
 
-	os.Setenv("HELMFILE_HELM3", "1")
+	os.Setenv(envvar.EnvHelm3, "1")
 	helm2Runner = mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
 	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsHelm3() {
-		t.Error("helmexec.IsHelm3() - Helm3 not detected when HELMFILE_HELM3 is set")
+		t.Errorf("helmexec.IsHelm3() - Helm3 not detected when %s is set", envvar.EnvHelm3)
 	}
-	os.Setenv("HELMFILE_HELM3", "")
+	os.Setenv(envvar.EnvHelm3, "")
 }
 
 func Test_GetVersion(t *testing.T) {

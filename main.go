@@ -7,6 +7,7 @@ import (
 
 	"github.com/roboll/helmfile/pkg/app"
 	"github.com/roboll/helmfile/pkg/app/version"
+	"github.com/roboll/helmfile/pkg/envvar"
 	"github.com/roboll/helmfile/pkg/helmexec"
 	"github.com/roboll/helmfile/pkg/maputil"
 	"github.com/roboll/helmfile/pkg/state"
@@ -1010,7 +1011,7 @@ func (c configImpl) Logger() *zap.SugaredLogger {
 func (c configImpl) Env() string {
 	env := c.c.GlobalString("environment")
 	if env == "" {
-		env = os.Getenv("HELMFILE_ENVIRONMENT")
+		env = os.Getenv(envvar.EnvEnvironment)
 		if env == "" {
 			env = state.DefaultEnv
 		}

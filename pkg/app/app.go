@@ -669,13 +669,12 @@ func (a *App) visitStateFiles(fileOrDir string, opts LoadOpts, do func(string, s
 
 		a.Logger.Debugf("processing file \"%s\" in directory \"%s\"", file, dir)
 
-		err := a.within(dir, func() error {
-			absd, err := a.abs(dir)
-			if err != nil {
-				return err
-			}
-
-			return do(file, absd)
+		absd, errAbsDir := a.abs(dir)
+		if errAbsDir != nil {
+			return errAbsDir
+		}
+		err := a.within(absd, func() error {
+			return do(file, dir)
 		})
 		if err != nil {
 			return appError(fmt.Sprintf("in %s/%s", dir, file), err)
