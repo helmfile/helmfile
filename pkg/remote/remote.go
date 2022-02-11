@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-getter"
@@ -14,6 +15,12 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
+
+var disableInsecureFeatures bool
+
+func init() {
+	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv("DISABLE_INSECURE_FEATURES"))
+}
 
 func CacheDir() string {
 	dir, err := os.UserCacheDir()
@@ -274,6 +281,9 @@ func (g *GoGetter) Get(wd, src, dst string) error {
 }
 
 func NewRemote(logger *zap.SugaredLogger, homeDir string, readFile func(string) ([]byte, error), dirExists func(string) bool, fileExists func(string) bool) *Remote {
+	if disableInsecureFeatures {
+		panic("Remote sources are disabled due to 'DISABLE_INSECURE_FEATURES'")
+	}
 	remote := &Remote{
 		Logger:     logger,
 		Home:       homeDir,
