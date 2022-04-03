@@ -1,7 +1,6 @@
 package state
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -20,7 +19,7 @@ import (
 func createFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {
 	c := &StateCreator{
 		logger:   logger,
-		readFile: ioutil.ReadFile,
+		readFile: os.ReadFile,
 		abs:      filepath.Abs,
 
 		DeleteFile: os.Remove,

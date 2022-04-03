@@ -34,7 +34,7 @@ type Remote struct {
 	Getter Getter
 
 	// ReadFile is the implementation of the file reader that reads a local file from the specified path.
-	// Inject any implementation of your choice, like an im-memory impl for testing, ioutil.ReadFile for the real-world use.
+	// Inject any implementation of your choice, like an im-memory impl for testing, os.ReadFile for the real-world use.
 	ReadFile   func(string) ([]byte, error)
 	DirExists  func(string) bool
 	FileExists func(string) bool

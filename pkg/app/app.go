@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -87,7 +86,7 @@ func New(conf ConfigProvider) *App {
 }
 
 func Init(app *App) *App {
-	app.readFile = ioutil.ReadFile
+	app.readFile = os.ReadFile
 	app.deleteFile = os.Remove
 	app.glob = filepath.Glob
 	app.abs = filepath.Abs
