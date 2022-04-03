@@ -2,7 +2,7 @@ package tmpl
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 
 	"fmt"
 	"strings"
@@ -27,11 +27,11 @@ func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath st
 
 func NewFirstPassRenderer(basePath string, data interface{}) *FileRenderer {
 	return &FileRenderer{
-		ReadFile: ioutil.ReadFile,
+		ReadFile: os.ReadFile,
 		Context: &Context{
 			preRender: true,
 			basePath:  basePath,
-			readFile:  ioutil.ReadFile,
+			readFile:  os.ReadFile,
 		},
 		Data: data,
 	}

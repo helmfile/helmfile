@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +33,7 @@ func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error)
 
 	workDir := os.Getenv("HELMFILE_TEMPDIR")
 	if workDir == "" {
-		workDir, err = ioutil.TempDir(os.TempDir(), "helmfile")
+		workDir, err = os.MkdirTemp(os.TempDir(), "helmfile")
 		if err != nil {
 			panic(err)
 		}

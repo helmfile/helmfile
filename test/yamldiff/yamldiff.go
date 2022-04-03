@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"strings"
@@ -79,9 +79,9 @@ func unmarshal(filename string) (interface{}, error) {
 	var contents []byte
 	var err error
 	if filename == "-" {
-		contents, err = ioutil.ReadAll(os.Stdin)
+		contents, err = io.ReadAll(os.Stdin)
 	} else {
-		contents, err = ioutil.ReadFile(filename)
+		contents, err = os.ReadFile(filename)
 	}
 	if err != nil {
 		return nil, err

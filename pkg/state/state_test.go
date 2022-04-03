@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1798,7 +1797,7 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 	var generatedDir string
 	tempDir := func(dir, prefix string) (string, error) {
 		var err error
-		generatedDir, err = ioutil.TempDir(dir, prefix)
+		generatedDir, err = os.MkdirTemp(dir, prefix)
 		if err != nil {
 			return "", err
 		}
@@ -1815,7 +1814,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 `)
 			filename := filepath.Join(generatedDir, "requirements.lock")
 			logger.Debugf("test: writing %s: %s", filename, content)
-			return ioutil.WriteFile(filename, content, 0644)
+			return os.WriteFile(filename, content, 0644)
 		}
 		return generatedDir, nil
 	}

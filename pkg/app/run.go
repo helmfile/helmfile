@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
@@ -52,7 +51,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	// Create tmp directory and bail immediately if it fails
 	var dir string
 	if len(opts.OutputDir) == 0 {
-		tempDir, err := ioutil.TempDir("", "helmfile*")
+		tempDir, err := os.MkdirTemp("", "helmfile*")
 		if err != nil {
 			return err
 		}

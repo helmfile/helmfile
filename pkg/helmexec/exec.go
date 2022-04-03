@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -293,7 +292,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 			decFilename = absPath + decSuffix
 		}
 
-		secretBytes, err := ioutil.ReadFile(decFilename)
+		secretBytes, err := os.ReadFile(decFilename)
 		if err != nil {
 			secret.err = err
 			return "", err
@@ -323,7 +322,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		tempFile = func(content []byte) (string, error) {
 			dir := filepath.Dir(name)
 			extension := filepath.Ext(name)
-			tmpFile, err := ioutil.TempFile(dir, "secret*"+extension)
+			tmpFile, err := os.CreateTemp(dir, "secret*"+extension)
 			if err != nil {
 				return "", err
 			}
@@ -442,7 +441,7 @@ func (helm *execer) ChartPull(chart string, flags ...string) error {
 		ociChartURLSplit := strings.Split(chart, ":")
 		ociChartURL := fmt.Sprintf("oci://%s", ociChartURLSplit[0])
 		ociChartTag := ociChartURLSplit[1]
-		tempDir, err := ioutil.TempDir("", "chart*")
+		tempDir, err := os.MkdirTemp("", "chart*")
 		if err != nil {
 			return err
 		}

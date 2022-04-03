@@ -1,7 +1,6 @@
 package app
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -24,7 +23,7 @@ func assertEqualsToSnapshot(t *testing.T, name string, data string) {
 		return
 	}
 
-	wantData, err := ioutil.ReadFile(snapshotFileName)
+	wantData, err := os.ReadFile(snapshotFileName)
 	if err != nil {
 		t.Fatalf(
 			"Snapshot file %q does not exist. Rerun this test with `HELMFILE_UPDATE_SNAPSHOT=1 go test -v -run %s %s` to create the snapshot",
@@ -53,7 +52,7 @@ func update(t *testing.T, snapshotFileName string, data []byte) {
 		t.Fatalf("%v", err)
 	}
 
-	if err := ioutil.WriteFile(snapshotFileName, data, 0644); err != nil {
+	if err := os.WriteFile(snapshotFileName, data, 0644); err != nil {
 		t.Fatalf("%v", err)
 	}
 }

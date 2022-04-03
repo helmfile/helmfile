@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -1499,7 +1498,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 			return []error{err}
 		}
 
-		if err := ioutil.WriteFile(outputValuesFile, buf.Bytes(), 0644); err != nil {
+		if err := os.WriteFile(outputValuesFile, buf.Bytes(), 0644); err != nil {
 			return []error{fmt.Errorf("writing values file %s: %w", outputValuesFile, err)}
 		}
 
@@ -2285,7 +2284,7 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 	if len(errs) == 0 {
 		tempDir := st.tempDir
 		if tempDir == nil {
-			tempDir = ioutil.TempDir
+			tempDir = os.MkdirTemp
 		}
 		_, err := st.updateDependenciesInTempDir(helm, tempDir)
 		if err != nil {
@@ -2785,7 +2784,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 				return nil, err
 			}
 
-			path, err := ioutil.TempFile(os.TempDir(), "helmfile-embdedded-secrets-*.yaml.enc")
+			path, err := os.CreateTemp(os.TempDir(), "helmfile-embdedded-secrets-*.yaml.enc")
 			if err != nil {
 				return nil, err
 			}
@@ -2794,7 +2793,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 				_ = os.Remove(path.Name())
 			}()
 
-			if err := ioutil.WriteFile(path.Name(), bs, 0644); err != nil {
+			if err := os.WriteFile(path.Name(), bs, 0644); err != nil {
 				return nil, err
 			}
 

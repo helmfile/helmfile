@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -273,8 +272,8 @@ type chartDependencyManager struct {
 func NewChartDependencyManager(name string, logger *zap.SugaredLogger) *chartDependencyManager {
 	return &chartDependencyManager{
 		Name:      name,
-		readFile:  ioutil.ReadFile,
-		writeFile: ioutil.WriteFile,
+		readFile:  os.ReadFile,
+		writeFile: os.WriteFile,
 		logger:    logger,
 	}
 }

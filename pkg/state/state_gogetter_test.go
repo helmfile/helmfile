@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -31,7 +30,7 @@ func TestGoGetter(t *testing.T) {
 	for i, tc := range testcases {
 		test := tc
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			d, err := ioutil.TempDir("", "testgogetter")
+			d, err := os.MkdirTemp("", "testgogetter")
 			if err != nil {
 				panic(err)
 			}
@@ -39,7 +38,7 @@ func TestGoGetter(t *testing.T) {
 
 			st := &HelmState{
 				logger:   logger,
-				readFile: ioutil.ReadFile,
+				readFile: os.ReadFile,
 				basePath: d,
 			}
 
