@@ -9,6 +9,8 @@ RUN make static-linux
 
 FROM alpine:3.13
 
+LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
+
 RUN apk add --no-cache ca-certificates git bash curl jq
 
 ARG HELM_VERSION="v3.7.2"

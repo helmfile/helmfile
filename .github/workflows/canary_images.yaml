@@ -1,0 +1,58 @@
+name: Publish Canary Images
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - .github/workflows/ci.yml
+      - .github/workflows/lock.yml
+      - "docs/**"
+      - "hack/**"
+      - "**.md"
+      - ".gitignore"
+      - "Makefile"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    name: Build and Publish Canary Images
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USER }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Docker Environment
+        id: vars
+        uses: ./.github/actions/setup-docker-environment
+        with:
+          # username: ${{ env.DOCKERHUB_USERNAME }}
+          # password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+          ghcr_username: ${{ github.actor }}
+          ghcr_password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v2
+        with:
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:canary
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and Push (debian stable-slim)
+        uses: docker/build-push-action@v2
+        with:
+          file: Dockerfile.debian
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}-debian-stable-slim:canary
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
