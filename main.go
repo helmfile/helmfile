@@ -1011,7 +1011,7 @@ func (c configImpl) Logger() *zap.SugaredLogger {
 func (c configImpl) Env() string {
 	env := c.c.GlobalString("environment")
 	if env == "" {
-		env = os.Getenv(envvar.EnvEnvironment)
+		env = os.Getenv(envvar.Environment)
 		if env == "" {
 			env = state.DefaultEnv
 		}

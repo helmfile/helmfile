@@ -1,8 +1,8 @@
 package envvar
 
-const EnvDisableInsecureFeatures = "HELMFILE_DISABLE_INSECURE_FEATURES"
-const EnvSkipInsecureFeaturesTemplate = "HELMFILE_SKIP_INSECURE_FEATURES_TEMPLATE"
-const EnvExperimental = "HELMFILE_EXPERIMENTAL" // environment variable for experimental features, expecting "true" lower case
-const EnvEnvironment = "HELMFILE_ENVIRONMENT"
-const EnvTempDir = "HELMFILE_TEMPDIR"
-const EnvHelm3 = "HELMFILE_HELM3"
+const DisableInsecureFeatures = "HELMFILE_DISABLE_INSECURE_FEATURES"
+const SkipInsecureTemplateFunctions = "HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS"
+const Experimental = "HELMFILE_EXPERIMENTAL" // environment variable for experimental features, expecting "true" lower case
+const Environment = "HELMFILE_ENVIRONMENT"
+const TempDir = "HELMFILE_TEMPDIR"
+const Helm3 = "HELMFILE_HELM3"

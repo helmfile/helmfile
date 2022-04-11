@@ -20,7 +20,7 @@ import (
 
 type Values = map[string]interface{}
 
-var DisableInsecureFeaturesErr = DisableInsecureFeaturesError{envvar.EnvDisableInsecureFeatures + " is active, insecure function calls are disabled"}
+var DisableInsecureFeaturesErr = DisableInsecureFeaturesError{envvar.DisableInsecureFeatures + " is active, insecure function calls are disabled"}
 
 type DisableInsecureFeaturesError struct {
 	err string
@@ -31,13 +31,13 @@ func (e DisableInsecureFeaturesError) Error() string {
 }
 
 var (
-	disableInsecureFeatures      bool
-	skipInsecureFeaturesTemplate bool
+	disableInsecureFeatures       bool
+	skipInsecureTemplateFunctions bool
 )
 
 func init() {
-	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.EnvDisableInsecureFeatures))
-	skipInsecureFeaturesTemplate, _ = strconv.ParseBool(os.Getenv(envvar.EnvSkipInsecureFeaturesTemplate))
+	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
+	skipInsecureTemplateFunctions, _ = strconv.ParseBool(os.Getenv(envvar.SkipInsecureTemplateFunctions))
 }
 
 func (c *Context) createFuncMap() template.FuncMap {
@@ -57,7 +57,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"fetchSecretValue": fetchSecretValue,
 		"expandSecretRefs": fetchSecretValues,
 	}
-	if c.preRender || skipInsecureFeaturesTemplate {
+	if c.preRender || skipInsecureTemplateFunctions {
 		// disable potential side-effect template calls
 		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
 			return "", nil

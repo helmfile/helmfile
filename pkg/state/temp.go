@@ -32,7 +32,7 @@ func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error)
 		panic(err)
 	}
 
-	workDir := os.Getenv(envvar.EnvTempDir)
+	workDir := os.Getenv(envvar.TempDir)
 	if workDir == "" {
 		workDir, err = os.MkdirTemp(os.TempDir(), "helmfile")
 	} else {

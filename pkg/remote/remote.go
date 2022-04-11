@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
+	"github.com/roboll/helmfile/pkg/envvar"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -19,7 +20,7 @@ import (
 var disableInsecureFeatures bool
 
 func init() {
-	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv("DISABLE_INSECURE_FEATURES"))
+	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
 }
 
 func CacheDir() string {

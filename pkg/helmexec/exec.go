@@ -66,7 +66,7 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 	}
 
 	// Support explicit helm3 opt-in via environment variable
-	if os.Getenv(envvar.EnvHelm3) != "" && ver.Major() < 3 {
+	if os.Getenv(envvar.Helm3) != "" && ver.Major() < 3 {
 		return *semver.MustParse("v3.0.0"), nil
 	}
 

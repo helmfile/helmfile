@@ -795,13 +795,13 @@ func Test_IsHelm3(t *testing.T) {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
 
-	os.Setenv(envvar.EnvHelm3, "1")
+	os.Setenv(envvar.Helm3, "1")
 	helm2Runner = mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
 	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsHelm3() {
-		t.Errorf("helmexec.IsHelm3() - Helm3 not detected when %s is set", envvar.EnvHelm3)
+		t.Errorf("helmexec.IsHelm3() - Helm3 not detected when %s is set", envvar.Helm3)
 	}
-	os.Setenv(envvar.EnvHelm3, "")
+	os.Setenv(envvar.Helm3, "")
 }
 
 func Test_GetVersion(t *testing.T) {

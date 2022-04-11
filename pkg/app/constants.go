@@ -15,9 +15,9 @@ const (
 )
 
 func experimentalModeEnabled() bool {
-	return os.Getenv(envvar.EnvExperimental) == "true"
+	return os.Getenv(envvar.Experimental) == "true"
 }
 
 func isExplicitSelectorInheritanceEnabled() bool {
-	return experimentalModeEnabled() || strings.Contains(os.Getenv(envvar.EnvExperimental), ExperimentalSelectorExplicit)
+	return experimentalModeEnabled() || strings.Contains(os.Getenv(envvar.Experimental), ExperimentalSelectorExplicit)
 }
