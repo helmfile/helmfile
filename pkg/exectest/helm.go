@@ -159,6 +159,13 @@ func (helm *Helm) Lint(name, chart string, flags ...string) error {
 	return nil
 }
 func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.sync(helm.ReleasesMutex, func() {
+		helm.Releases = append(helm.Releases, Release{Name: name, Flags: flags})
+	})
+
 	return nil
 }
 func (helm *Helm) ChartPull(chart string, flags ...string) error {

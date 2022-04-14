@@ -2469,6 +2469,75 @@ func (a applyConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
 }
 
+// Template config
+
+type templateConfig struct {
+	args                   string
+	values                 []string
+	set                    []string
+	outputDirTemplate      string
+	validate               bool
+	skipDeps               bool
+	skipCleanup            bool
+	skipTests              bool
+	outputDir              string
+	includeCRDs            bool
+	includeNeeds           bool
+	includeTransitiveNeeds bool
+	concurrency            int
+}
+
+func (t templateConfig) Args() string {
+	return t.args
+}
+
+func (t templateConfig) Values() []string {
+	return t.values
+}
+
+func (t templateConfig) Set() []string {
+	return t.set
+}
+
+func (t templateConfig) OutputDirTemplate() string {
+	return t.outputDirTemplate
+}
+
+func (t templateConfig) Validate() bool {
+	return t.validate
+}
+
+func (t templateConfig) SkipDeps() bool {
+	return t.skipDeps
+}
+
+func (t templateConfig) SkipCleanup() bool {
+	return t.skipCleanup
+}
+
+func (t templateConfig) SkipTests() bool {
+	return t.skipTests
+}
+
+func (t templateConfig) OutputDir() string {
+	return t.outputDir
+}
+
+func (t templateConfig) IncludeCRDs() bool {
+	return t.includeCRDs
+}
+func (t templateConfig) IncludeNeeds() bool {
+	return t.includeNeeds
+}
+
+func (t templateConfig) IncludeTransitiveNeeds() bool {
+	return t.includeTransitiveNeeds
+}
+
+func (t templateConfig) Concurrency() int {
+	return t.concurrency
+}
+
 type depsConfig struct {
 	skipRepos              bool
 	includeTransitiveNeeds bool
@@ -2747,6 +2816,202 @@ releases:
 			}
 		}
 
+	}
+}
+
+const releaseNameTemplate = "`{{ .Release.Name }}`"
+
+func TestTemplate(t *testing.T) {
+	type fields struct {
+		skipDeps               bool
+		includeNeeds           bool
+		includeTransitiveNeeds bool
+		includeCRDs            bool
+	}
+	testcases := []struct {
+		name        string
+		loc         string
+		fields      fields
+		ns          string
+		concurrency int
+		error       string
+		files       map[string]string
+		selectors   []string
+		lists       map[exectest.ListKey]string
+		diffs       map[exectest.DiffKey]error
+		templates   []exectest.Release
+		log         string
+	}{
+		{
+			name: "template_releases_with_dependency",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  chart: stable/mychart2
+  namespace: application
+- name: foo
+  chart: stable/mychart1
+  needs:
+  - application/bar
+`,
+			},
+			templates: []exectest.Release{
+				{Name: "bar", Flags: []string{"--namespace", "application"}},
+				{Name: "foo", Flags: []string{}},
+			},
+		},
+		{
+			name: "template_releases_with_template_in_dependency",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+{{ $bar := "bar" }}
+
+releases:
+- name: bar
+  chart: stable/mychart2
+  namespace: application
+- name: foo
+  chart: stable/mychart1
+  needs:
+  - application/{{ $bar }}
+`,
+			},
+			templates: []exectest.Release{
+				{Name: "bar", Flags: []string{"--namespace", "application"}},
+				{Name: "foo", Flags: []string{}},
+			},
+		},
+		{
+			name: "template_a_single_release_with_dependency",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  chart: stable/mychart2
+  namespace: application
+- name: foo
+  chart: stable/mychart1
+  needs:
+  - application/bar
+`,
+			},
+			selectors: []string{"name=foo"},
+			templates: []exectest.Release{
+				{Name: "foo", Flags: []string{}},
+			},
+		},
+	}
+
+	for i := range testcases {
+		tc := testcases[i]
+		t.Run(tc.name, func(t *testing.T) {
+			wantTemplate := tc.templates
+
+			var helm = &exectest.Helm{
+				DiffMutex:     &sync.Mutex{},
+				ChartsMutex:   &sync.Mutex{},
+				ReleasesMutex: &sync.Mutex{},
+			}
+
+			bs := &bytes.Buffer{}
+
+			func() {
+				logReader, logWriter := io.Pipe()
+
+				logFlushed := &sync.WaitGroup{}
+				// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
+				logFlushed.Add(1)
+				go func() {
+					scanner := bufio.NewScanner(logReader)
+					for scanner.Scan() {
+						bs.Write(scanner.Bytes())
+						bs.WriteString("\n")
+					}
+					logFlushed.Done()
+				}()
+
+				defer func() {
+					// This is here to avoid data-trace on bytes buffer `bs` to capture logs
+					if err := logWriter.Close(); err != nil {
+						panic(err)
+					}
+					logFlushed.Wait()
+				}()
+
+				logger := helmexec.NewLogger(logWriter, "debug")
+
+				valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+				if err != nil {
+					t.Errorf("unexpected error creating vals runtime: %v", err)
+				}
+
+				app := appWithFs(&App{
+					OverrideHelmBinary:  DefaultHelmBinary,
+					glob:                filepath.Glob,
+					abs:                 filepath.Abs,
+					OverrideKubeContext: "default",
+					Env:                 "default",
+					Logger:              logger,
+					helms: map[helmKey]helmexec.Interface{
+						createHelmKey("helm", "default"): helm,
+					},
+					valsRuntime: valsRuntime,
+				}, tc.files)
+
+				if tc.ns != "" {
+					app.Namespace = tc.ns
+				}
+
+				if tc.selectors != nil {
+					app.Selectors = tc.selectors
+				}
+
+				templateErr := app.Template(templateConfig{
+					// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
+					concurrency:            tc.concurrency,
+					skipDeps:               tc.fields.skipDeps,
+					includeNeeds:           tc.fields.includeNeeds,
+					includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
+					includeCRDs:            tc.fields.includeCRDs,
+				})
+
+				if tc.error == "" && templateErr != nil {
+					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, templateErr)
+				} else if tc.error != "" && templateErr == nil {
+					t.Fatalf("expected error did not occur for data defined at %s", tc.loc)
+				} else if tc.error != "" && templateErr != nil && tc.error != templateErr.Error() {
+					t.Fatalf("invalid error: expected %q, got %q", tc.error, templateErr.Error())
+				}
+
+				if len(wantTemplate) > len(helm.Releases) {
+					t.Fatalf("insufficient number of templates: got %d, want %d", len(helm.Releases), len(wantTemplate))
+				}
+
+				for relIdx := range wantTemplate {
+					if wantTemplate[relIdx].Name != helm.Releases[relIdx].Name {
+						t.Errorf("releases[%d].name: got %q, want %q", relIdx, helm.Releases[relIdx].Name, wantTemplate[relIdx].Name)
+					}
+					for flagIdx := range wantTemplate[relIdx].Flags {
+						if wantTemplate[relIdx].Flags[flagIdx] != helm.Releases[relIdx].Flags[flagIdx] {
+							t.Errorf("releaes[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Releases[relIdx].Flags[flagIdx], wantTemplate[relIdx].Flags[flagIdx])
+						}
+					}
+				}
+			}()
+
+			if tc.log != "" {
+				actual := bs.String()
+
+				diff, exists := testhelper.Diff(tc.log, actual, 3)
+				if exists {
+					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
+				}
+			}
+		})
 	}
 }
 

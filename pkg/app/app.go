@@ -1830,6 +1830,24 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		}
 	}
 
+	// We need to forcefully traverse release dependencies to be able to template single release with dependencies
+	// We don't want to use a full list to prevent Helmfile becomes too slow when there are many releases
+	batches, err = st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: true, IncludeTransitiveNeeds: true, SkipNeeds: false})
+	if err != nil {
+		return false, []error{err}
+	}
+
+	var traversedReleasesWithNeeds []state.ReleaseSpec
+	for _, rs := range batches {
+		for _, r := range rs {
+			traversedReleasesWithNeeds = append(traversedReleasesWithNeeds, r.ReleaseSpec)
+		}
+	}
+
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	// withDAG require dependencies to be present, in case of strict selector we should include them anyway
+	st.Releases = traversedReleasesWithNeeds
+
 	var toRender []state.ReleaseSpec
 
 	releasesDisabled := map[string]state.ReleaseSpec{}
@@ -1844,9 +1862,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	}
 
 	var errs []error
-
-	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = selectedReleasesWithNeeds
 
 	args := argparser.GetArgs(c.Args(), st)
 
