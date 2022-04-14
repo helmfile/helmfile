@@ -92,6 +92,7 @@ type HelmState struct {
 	ReleaseSetSpec `yaml:",inline"`
 
 	logger *zap.SugaredLogger
+	remote *remote.Remote
 
 	readFile          func(string) ([]byte, error)
 	removeFile        func(string) error
@@ -2759,8 +2760,20 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 	for _, v := range release.Values {
 		switch typedValue := v.(type) {
 		case string:
-			path := st.storage().normalizePath(release.ValuesPathPrefix + typedValue)
-			values = append(values, path)
+			var localPath string
+
+			if remote.IsRemote(typedValue) {
+				var err error
+				localPath, err = st.remote.Locate(typedValue)
+
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				localPath = st.storage().normalizePath(release.ValuesPathPrefix + typedValue)
+			}
+
+			values = append(values, localPath)
 		default:
 			values = append(values, v)
 		}

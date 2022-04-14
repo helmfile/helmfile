@@ -88,6 +88,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	state.FilePath = file
 	state.basePath = baseDir
+	state.remote = c.remote
 
 	decoder := yaml.NewDecoder(bytes.NewReader(content))
 	if !c.Strict {
