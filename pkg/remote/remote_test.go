@@ -161,6 +161,78 @@ func TestRemote_SShGitHub(t *testing.T) {
 	}
 }
 
+func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
+	cleanfs := map[string]string{
+		CacheDir(): "",
+	}
+	cachefs := map[string]string{
+		filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0_sshkey=redacted/releases/kiam.yaml"): "foo: bar",
+	}
+
+	type testcase struct {
+		files          map[string]string
+		expectCacheHit bool
+	}
+
+	testcases := []testcase{
+		{files: cleanfs, expectCacheHit: false},
+		{files: cachefs, expectCacheHit: true},
+	}
+
+	for i := range testcases {
+		testcase := testcases[i]
+
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			testfs := testhelper.NewTestFs(testcase.files)
+
+			hit := true
+
+			get := func(wd, src, dst string) error {
+				if wd != CacheDir() {
+					return fmt.Errorf("unexpected wd: %s", wd)
+				}
+				if src != "git::ssh://git@github.com/cloudposse/helmfiles.git?ref=0.40.0&sshkey=ZWNkc2Etc2hhMi1uaXN0cDI1NiBBQUFBRTJWalpITmhMWE5vWVRJdGJtbHpkSEF5TlRZQUFBQUlibWx6ZEhBeU5UWUFBQUJCQkJTU3dOY2xoVzQ2Vm9VR3dMQ3JscVRHYUdOVWdRVUVEUEptc1ZzdUViL2RBNUcrQk9YMWxGaUVMYU9HQ2F6bS9KQkR2V3Y2Y0ZDQUtVRjVocVJOUjdJPSA=" {
+					return fmt.Errorf("unexpected src: %s", src)
+				}
+
+				hit = false
+
+				return nil
+			}
+
+			getter := &testGetter{
+				get: get,
+			}
+			remote := &Remote{
+				Logger:     helmexec.NewLogger(os.Stderr, "debug"),
+				Home:       CacheDir(),
+				Getter:     getter,
+				ReadFile:   testfs.ReadFile,
+				FileExists: testfs.FileExistsAt,
+				DirExists:  testfs.DirectoryExistsAt,
+			}
+
+			url := "git::ssh://git@github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=0.40.0&sshkey=ZWNkc2Etc2hhMi1uaXN0cDI1NiBBQUFBRTJWalpITmhMWE5vWVRJdGJtbHpkSEF5TlRZQUFBQUlibWx6ZEhBeU5UWUFBQUJCQkJTU3dOY2xoVzQ2Vm9VR3dMQ3JscVRHYUdOVWdRVUVEUEptc1ZzdUViL2RBNUcrQk9YMWxGaUVMYU9HQ2F6bS9KQkR2V3Y2Y0ZDQUtVRjVocVJOUjdJPSA="
+			file, err := remote.Locate(url)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0_sshkey=redacted/releases/kiam.yaml")
+			if file != expectedFile {
+				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
+			}
+
+			if testcase.expectCacheHit && !hit {
+				t.Errorf("unexpected result: unexpected cache miss")
+			}
+			if !testcase.expectCacheHit && hit {
+				t.Errorf("unexpected result: unexpected cache hit")
+			}
+		})
+	}
+}
+
 func TestParse(t *testing.T) {
 	type testcase struct {
 		input                            string

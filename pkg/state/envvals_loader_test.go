@@ -49,6 +49,24 @@ func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	}
 }
 
+// Fetch Environment values from remote
+func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.0"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]interface{}{
+		"name": string("value"),
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf(diff)
+	}
+}
+
 // See https://github.com/roboll/helmfile/issues/1150
 func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	l := newLoader()

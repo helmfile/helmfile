@@ -2,11 +2,11 @@ package state
 
 import (
 	"fmt"
+	"github.com/roboll/helmfile/pkg/remote"
+	"go.uber.org/zap"
 	"net/url"
 	"path/filepath"
 	"sort"
-
-	"go.uber.org/zap"
 )
 
 type Storage struct {
@@ -14,6 +14,7 @@ type Storage struct {
 
 	FilePath string
 
+	readFile func(string) ([]byte, error)
 	basePath string
 	glob     func(string) ([]string, error)
 }
@@ -30,7 +31,17 @@ func NewStorage(forFile string, logger *zap.SugaredLogger, glob func(string) ([]
 func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string) ([]string, bool, error) {
 	title := fmt.Sprintf("%s file", tpe)
 
-	files, err := st.ExpandPaths(path)
+	var files []string
+	var err error
+	if remote.IsRemote(path) {
+		r := remote.NewRemote(st.logger, "", st.readFile, directoryExistsAt, fileExistsAt)
+
+		fetchedDir, _ := r.Fetch(path, "values")
+		files = []string{fetchedDir}
+	} else {
+		files, err = st.ExpandPaths(path)
+	}
+
 	if err != nil {
 		return nil, false, err
 	}

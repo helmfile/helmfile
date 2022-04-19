@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -186,7 +187,11 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 	replacer := strings.NewReplacer(":", "", "//", "_", "/", "_", ".", "_")
 	dirKey := replacer.Replace(srcDir)
 	if len(query) > 0 {
-		paramsKey := strings.Replace(query, "&", "_", -1)
+		q, _ := neturl.ParseQuery(query)
+		if q.Has("sshkey") {
+			q.Set("sshkey", "redacted")
+		}
+		paramsKey := strings.Replace(q.Encode(), "&", "_", -1)
 		cacheKey = fmt.Sprintf("%s.%s", dirKey, paramsKey)
 	} else {
 		cacheKey = dirKey
