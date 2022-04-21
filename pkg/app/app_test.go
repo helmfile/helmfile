@@ -2871,6 +2871,7 @@ backend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 				{Name: "frontend-v1", Flags: []string{}},
 			},
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -3049,6 +3050,7 @@ DELETED RELEASES:
 NAME
 frontend-v1
 backend-v1
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -3114,6 +3116,7 @@ releases:
 			deleted:     []exectest.Release{},
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -3172,6 +3175,7 @@ baz    stable/mychart3
 bar    stable/mychart2          
 foo    stable/mychart1          
 
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -3218,6 +3222,7 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 			deleted:     []exectest.Release{},
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -3280,6 +3285,7 @@ baz    stable/mychart3     3.1.0
 bar    stable/mychart2     3.1.0
 foo    stable/mychart1          
 
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -3326,6 +3332,7 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 			deleted:     []exectest.Release{},
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -3388,6 +3395,7 @@ baz    stable/mychart3     3.1.0
 bar    stable/mychart2     3.1.0
 foo    stable/mychart1          
 
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -3594,6 +3602,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -3653,6 +3662,7 @@ NAME   CHART             VERSION
 foo    stable/mychart1          
 bar    stable/mychart2          
 
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -3911,6 +3921,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -3992,6 +4003,7 @@ NAME               CHART           VERSION
 external-secrets   incubator/raw          
 my-release         incubator/raw          
 
+changing working directory back to "/path/to"
 `,
 		},
 		{
@@ -4038,6 +4050,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -4101,6 +4114,7 @@ merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
 err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+changing working directory back to "/path/to"
 `,
 		},
 		{
@@ -4140,6 +4154,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -4202,6 +4217,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 0 release(s) matching app=test_non_existent found in helmfile.yaml
 
+changing working directory back to "/path/to"
 `,
 		},
 		//
@@ -4233,6 +4249,7 @@ releases:
 			concurrency: 1,
 			error:       `in ./helmfile.yaml: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -4268,6 +4285,7 @@ merged environment: &{default map[] map[]}
 1 release(s) matching name=foo found in helmfile.yaml
 
 err: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+changing working directory back to "/path/to"
 `,
 		},
 		{
@@ -4295,6 +4313,7 @@ releases:
 			concurrency: 1,
 			error:       "in ./helmfile.yaml: release(s) \"default//foo\" depend(s) on an undefined release \"default/ns1/bar\". Perhaps you made a typo in \"needs\" or forgot defining a release named \"bar\" with appropriate \"namespace\" and \"kubeContext\"?",
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -4330,6 +4349,7 @@ merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
 err: release(s) "default//foo" depend(s) on an undefined release "default/ns1/bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
+changing working directory back to "/path/to"
 `,
 		},
 		{
@@ -4361,6 +4381,7 @@ releases:
 			concurrency: 1,
 			error:       "in ./helmfile.yaml: found 2 duplicate releases with ID \"default//foo\"",
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -4402,6 +4423,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 
 merged environment: &{default map[] map[]}
 err: found 2 duplicate releases with ID "default//foo"
+changing working directory back to "/path/to"
 `,
 		},
 	}
@@ -4560,6 +4582,7 @@ releases:
 				"/path/to/charts/example/Chart.yaml": `foo: FOO`,
 			},
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -4591,6 +4614,7 @@ merged environment: &{default map[] map[]}
 There are no repositories defined in your helmfile.yaml.
 This means helmfile cannot update your dependencies or create a lock file.
 See https://github.com/roboll/helmfile/issues/878 for more information.
+changing working directory back to "/path/to"
 `,
 			charts: []string{"/path/to/charts/example"},
 		},

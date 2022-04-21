@@ -205,6 +205,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -286,6 +287,7 @@ NAME               CHART           VERSION
 external-secrets   incubator/raw          
 my-release         incubator/raw          
 
+changing working directory back to "/path/to"
 `,
 		})
 	})
@@ -328,6 +330,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -414,6 +417,7 @@ kubernetes-external-secrets   incubator/raw
 external-secrets              incubator/raw          
 my-release                    incubator/raw          
 
+changing working directory back to "/path/to"
 `,
 		})
 	})
@@ -452,6 +456,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -530,6 +535,7 @@ serviceC   my/chart
 serviceB   my/chart          
 serviceA   my/chart          
 
+changing working directory back to "/path/to"
 `,
 		})
 	})
@@ -580,6 +586,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -673,6 +680,7 @@ my-release         incubator/raw
 DELETED RELEASES:
 NAME
 kubernetes-external-secrets
+changing working directory back to "/path/to"
 `,
 		})
 	})
@@ -721,6 +729,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -804,6 +813,7 @@ NAME               CHART           VERSION
 external-secrets   incubator/raw          
 my-release         incubator/raw          
 
+changing working directory back to "/path/to"
 `,
 		})
 	})
@@ -842,6 +852,7 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -904,6 +915,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 0 release(s) matching app=test_non_existent found in helmfile.yaml
 
+changing working directory back to "/path/to"
 `,
 		})
 	})

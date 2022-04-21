@@ -321,6 +321,7 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 				{Name: "logging", Flags: []string{}},
 			},
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -481,6 +482,7 @@ servicemesh
 database
 front-proxy
 logging
+changing working directory back to "/path/to"
 `,
 		})
 	})
@@ -527,6 +529,7 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 				{Name: "logging", Flags: []string{}},
 			},
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -661,6 +664,7 @@ release "logging" processed
 DELETED RELEASES:
 NAME
 logging
+changing working directory back to "/path/to"
 `,
 		})
 	})
@@ -682,6 +686,7 @@ logging
 				{Name: "frontend-v1", Flags: []string{}},
 			},
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -730,6 +735,7 @@ DELETED RELEASES:
 NAME
 frontend-v1
 backend-v1
+changing working directory back to "/path/to"
 `,
 		})
 	})
@@ -752,6 +758,7 @@ backend-v1
 				{Name: "frontend-v1", Flags: []string{}},
 			},
 			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -800,6 +807,7 @@ DELETED RELEASES:
 NAME
 frontend-v1
 backend-v1
+changing working directory back to "/path/to"
 `,
 		})
 	})
