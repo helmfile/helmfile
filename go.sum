@@ -479,8 +479,8 @@ github.com/frankban/quicktest v1.14.3/go.mod h1:mgiwOwqx65TmIk1wJ6Q7wvnVMocbUork
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
 github.com/fsnotify/fsnotify v1.5.1/go.mod h1:T3375wBYaZdLLcVNkcVbzGHY7f1l/uK5T5Ai1i3InKU=
-github.com/fujiwara/tfstate-lookup v0.4.0 h1:AaubXvolethCndWpZ+c/Sibm6J4SCIlSxcxvn6cYon4=
-github.com/fujiwara/tfstate-lookup v0.4.0/go.mod h1:F56Bz3W497ZJA0ijFLVgcYeAVuhtbzvV6/hMtu6f2Ek=
+github.com/fujiwara/tfstate-lookup v0.4.2 h1:RmhlHIMLVqNWHxaBasap+L5LO7pKorAbpIVQrktYCzY=
+github.com/fujiwara/tfstate-lookup v0.4.2/go.mod h1:F56Bz3W497ZJA0ijFLVgcYeAVuhtbzvV6/hMtu6f2Ek=
 github.com/fullsailor/pkcs7 v0.0.0-20190404230743-d7302db945fa/go.mod h1:KnogPXtdwXqoenmZCw6S+25EAm2MkxbG0deNDu4cbSA=
 github.com/fvbommel/sortorder v1.0.1/go.mod h1:uk88iVf1ovNn1iLfgUVU2F9o5eO30ui720w+kxuqRs0=
 github.com/garyburd/redigo v0.0.0-20150301180006-535138d7bcd7/go.mod h1:NR3MbYisc3/PwhQ00EMzDiPmrwpPxAn5GI05/YaO1SY=
@@ -1225,8 +1225,8 @@ github.com/variantdev/chartify v0.9.5 h1:vCOKsHrPRC8R1symO+i8uKyLYbdrfmSWHmMFBFW
 github.com/variantdev/chartify v0.9.5/go.mod h1:A0nQmb+ihiBJrrbgofs1t7QVeit+/llT0vJhvkj7U0Q=
 github.com/variantdev/dag v1.1.0 h1:xodYlSng33KWGvIGMpKUyLcIZRXKiNUx612mZJqYrDg=
 github.com/variantdev/dag v1.1.0/go.mod h1:pH1TQsNSLj2uxMo9NNl9zdGy01Wtn+/2MT96BrKmVyE=
-github.com/variantdev/vals v0.15.0 h1:ZkY+K4IxqEenfVNbgTayVXW0JKdYdEBqGIarrDs0htI=
-github.com/variantdev/vals v0.15.0/go.mod h1:ukzB+TvLOhnQSrRLwiJwQetj6SH8c23LFgN3qnDZYnw=
+github.com/variantdev/vals v0.16.2 h1:JXfDgN8c43Ivjgxv65H6xm+yGoqZIVwU8SFqTomtNbg=
+github.com/variantdev/vals v0.16.2/go.mod h1:Ep/8LogNlULIuKkas4y5M206QfLg//y43mX7qVVVwdk=
 github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf/go.mod h1:+SR5DhBJrl6ZM7CoCKvpw5BKroDKQ+PJqOg65H/2ktk=
 github.com/vishvananda/netlink v1.1.0/go.mod h1:cTgwzPIzzgDAYoQrMm0EdrjRUBkTqKYppBueQtXaqoE=
 github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852/go.mod h1:twkDnbuQxJYemMlGd4JFIcuhgX83tXhKS2B/PRMpOho=

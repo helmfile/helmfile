@@ -26,7 +26,7 @@ require (
 	github.com/urfave/cli v1.22.5
 	github.com/variantdev/chartify v0.9.5
 	github.com/variantdev/dag v1.1.0
-	github.com/variantdev/vals v0.15.0
+	github.com/variantdev/vals v0.16.2
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -63,7 +63,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/fujiwara/tfstate-lookup v0.4.0 // indirect
+	github.com/fujiwara/tfstate-lookup v0.4.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
