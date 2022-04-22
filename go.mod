@@ -27,7 +27,7 @@ require (
 	github.com/variantdev/chartify v0.9.5
 	github.com/variantdev/dag v1.1.0
 	github.com/variantdev/vals v0.15.0
-	go.uber.org/multierr v1.6.0
+	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/yaml.v2 v2.4.0
