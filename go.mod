@@ -1,4 +1,4 @@
-module github.com/roboll/helmfile
+module github.com/helmfile/helmfile
 
 go 1.17
 
