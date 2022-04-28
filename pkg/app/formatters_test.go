@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/roboll/helmfile/pkg/testutil"
+	"github.com/helmfile/helmfile/pkg/testutil"
 )
 
 // TestFormatAsTable tests the FormatAsTable function.

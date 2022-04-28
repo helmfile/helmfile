@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/roboll/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/environment"
 )
 
 // TemplateSpec defines the structure of a reusable and composable template for helm releases.
