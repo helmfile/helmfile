@@ -45,6 +45,10 @@ func addDiffSubcommand(cliApp *cli.App) {
 				Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
 			},
 			cli.BoolFlag{
+				Name:  "include-transitive-needs",
+				Usage: `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`,
+			},
+			cli.BoolFlag{
 				Name:  "skip-diff-on-install",
 				Usage: "Skips running helm-diff on releases being newly installed on this apply. Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all",
 			},

@@ -17,28 +17,29 @@ import (
 )
 
 type diffConfig struct {
-	args              string
-	values            []string
-	retainValuesFiles bool
-	set               []string
-	validate          bool
-	skipCRDs          bool
-	skipDeps          bool
-	includeTests      bool
-	includeNeeds      bool
-	skipNeeds         bool
-	suppress          []string
-	suppressSecrets   bool
-	showSecrets       bool
-	suppressDiff      bool
-	noColor           bool
-	context           int
-	diffOutput        string
-	concurrency       int
-	detailedExitcode  bool
-	interactive       bool
-	skipDiffOnInstall bool
-	logger            *zap.SugaredLogger
+	args                   string
+	values                 []string
+	retainValuesFiles      bool
+	set                    []string
+	validate               bool
+	skipCRDs               bool
+	skipDeps               bool
+	includeTests           bool
+	skipNeeds              bool
+	includeNeeds           bool
+	includeTransitiveNeeds bool
+	suppress               []string
+	suppressSecrets        bool
+	showSecrets            bool
+	suppressDiff           bool
+	noColor                bool
+	context                int
+	diffOutput             string
+	concurrency            int
+	detailedExitcode       bool
+	interactive            bool
+	skipDiffOnInstall      bool
+	logger                 *zap.SugaredLogger
 }
 
 func (a diffConfig) Args() string {
@@ -69,12 +70,16 @@ func (a diffConfig) IncludeTests() bool {
 	return a.includeTests
 }
 
+func (a diffConfig) SkipNeeds() bool {
+	return a.skipNeeds
+}
+
 func (a diffConfig) IncludeNeeds() bool {
 	return a.includeNeeds
 }
 
-func (a diffConfig) SkipNeeds() bool {
-	return a.skipNeeds
+func (a diffConfig) IncludeTransitiveNeeds() bool {
+	return a.includeTransitiveNeeds
 }
 
 func (a diffConfig) Suppress() []string {
