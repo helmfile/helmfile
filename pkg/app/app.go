@@ -1323,7 +1323,31 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		}
 	}
 
-	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
+	var releasesWithPreApply []state.ReleaseSpec
+	for _, r := range toApplyWithNeeds {
+		release := r
+		if len(release.Hooks) > 0 {
+			for _, hook := range release.Hooks {
+				if slices.Contains(hook.Events, "preapply") {
+					releasesWithPreApply = append(releasesWithPreApply, release)
+				}
+			}
+		}
+	}
+
+	if len(releasesWithPreApply) > 0 {
+		msg := "Releases with preapply hooks: \n"
+		if infoMsg != nil {
+			msg = fmt.Sprintf("%s%s", *infoMsg, msg)
+		}
+		infoMsg = &msg
+	}
+	for _, release := range releasesWithPreApply {
+		tmp := fmt.Sprintf("%s  %s (%s)", *infoMsg, release.Name, release.Chart)
+		infoMsg = &tmp
+	}
+
+	if releasesToBeDeleted == nil && releasesToBeUpdated == nil && releasesWithPreApply == nil {
 		if infoMsg != nil {
 			logger := c.Logger()
 			logger.Infof("")
@@ -1351,6 +1375,12 @@ Do you really want to apply?
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
+		for _, release := range st.Releases {
+			if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
+				syncErrs = append(syncErrs, err)
+			}
+		}
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
