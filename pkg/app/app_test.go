@@ -2360,6 +2360,10 @@ type applyConfig struct {
 	logger                 *zap.SugaredLogger
 	wait                   bool
 	waitForJobs            bool
+
+	// template-only options
+	includeCRDs, skipTests       bool
+	outputDir, outputDirTemplate string
 }
 
 func (a applyConfig) Args() string {
@@ -2468,6 +2472,23 @@ func (a applyConfig) RetainValuesFiles() bool {
 
 func (a applyConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
+}
+
+// helmfile-template-only flags
+
+func (a applyConfig) IncludeCRDs() bool {
+	return a.includeCRDs
+}
+
+func (a applyConfig) SkipTests() bool {
+	return a.skipTests
+}
+
+func (a applyConfig) OutputDir() string {
+	return a.outputDir
+}
+func (a applyConfig) OutputDirTemplate() string {
+	return a.outputDirTemplate
 }
 
 type depsConfig struct {

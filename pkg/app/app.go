@@ -1793,7 +1793,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		var errs []error
 
 		if len(toRender) > 0 {
-			_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: c.SkipNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				opts := &state.TemplateOpts{
 					Set:               c.Set(),
 					IncludeCRDs:       c.IncludeCRDs(),

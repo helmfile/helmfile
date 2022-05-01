@@ -27,6 +27,7 @@ type Helm struct {
 	Releases             []Release
 	Deleted              []Release
 	Linted               []Release
+	Templated            []Release
 	Lists                map[ListKey]string
 	Diffs                map[DiffKey]error
 	Diffed               []Release
@@ -164,6 +165,10 @@ func (helm *Helm) Lint(name, chart string, flags ...string) error {
 	return nil
 }
 func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.Templated = append(helm.Templated, Release{Name: name, Flags: flags})
 	return nil
 }
 func (helm *Helm) ChartPull(chart string, flags ...string) error {
