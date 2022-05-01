@@ -30,13 +30,13 @@ func TestTemplate(t *testing.T) {
 		ns        string
 		error     string
 		selectors []string
-		linted    []exectest.Release
+		templated []exectest.Release
 	}
 
 	check := func(t *testing.T, tc testcase) {
 		t.Helper()
 
-		wantLints := tc.linted
+		wantTemplates := tc.templated
 
 		var helm = &exectest.Helm{
 			FailOnUnexpectedList: true,
@@ -167,7 +167,7 @@ releases:
 				t.Fatalf("unexpected error: want (-), got (+): %s", d)
 			}
 
-			require.Equal(t, wantLints, helm.Templated)
+			require.Equal(t, wantTemplates, helm.Templated)
 		}()
 
 		testNameComponents := strings.Split(t.Name(), "/")
@@ -212,7 +212,7 @@ releases:
 				skipNeeds: true,
 			},
 			selectors: []string{"app=test"},
-			linted: []exectest.Release{
+			templated: []exectest.Release{
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
 				{Name: "my-release", Flags: []string{"--namespace", "default"}},
 			},
@@ -227,7 +227,7 @@ releases:
 			},
 			error:     ``,
 			selectors: []string{"app=test"},
-			linted: []exectest.Release{
+			templated: []exectest.Release{
 				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
 				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
@@ -245,7 +245,7 @@ releases:
 			},
 			error:     ``,
 			selectors: []string{"app=test"},
-			linted: []exectest.Release{
+			templated: []exectest.Release{
 				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
@@ -315,7 +315,7 @@ releases:
 	t.Run("bad selector", func(t *testing.T) {
 		check(t, testcase{
 			selectors: []string{"app=test_non_existent"},
-			linted:    nil,
+			templated: nil,
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
 		})
 	})
