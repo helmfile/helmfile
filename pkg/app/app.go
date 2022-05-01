@@ -1376,7 +1376,8 @@ Do you really want to apply?
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-		for _, release := range st.Releases {
+		for _, release := range releasesWithPreApply {
+			a.Logger.Infof("\nRunning preapply hook for %s:", release.Name)
 			if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
 				syncErrs = append(syncErrs, err)
 			}
