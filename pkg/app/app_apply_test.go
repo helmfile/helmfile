@@ -137,7 +137,7 @@ func TestApply_2(t *testing.T) {
 				}
 				for flagIdx := range wantUpgrades[relIdx].Flags {
 					if wantUpgrades[relIdx].Flags[flagIdx] != helm.Releases[relIdx].Flags[flagIdx] {
-						t.Errorf("releaes[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Releases[relIdx].Flags[flagIdx], wantUpgrades[relIdx].Flags[flagIdx])
+						t.Errorf("releases[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Releases[relIdx].Flags[flagIdx], wantUpgrades[relIdx].Flags[flagIdx])
 					}
 				}
 			}
@@ -1289,6 +1289,36 @@ releases:
 			},
 			selectors: []string{"name=foo"},
 			upgraded:  []exectest.Release{},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			error: "",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+		})
+	})
+
+	t.Run("apply release with preapply hook", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["preapply"]
+    command: echo
+    showlogs: true
+    args: ["foo"]
+`,
+			},
+			selectors: []string{"name=foo"},
+			upgraded: []exectest.Release{
+				{Name: "foo"},
+			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
