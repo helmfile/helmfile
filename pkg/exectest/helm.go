@@ -115,6 +115,11 @@ func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart string, 
 	if helm.DiffMutex != nil {
 		helm.DiffMutex.Unlock()
 	}
+
+	if helm.Diffs == nil {
+		return nil
+	}
+
 	key := DiffKey{Name: name, Chart: chart, Flags: strings.Join(flags, "")}
 	err, ok := helm.Diffs[key]
 	if !ok && helm.FailOnUnexpectedDiff {
@@ -138,6 +143,11 @@ func (helm *Helm) DeleteRelease(context helmexec.HelmContext, name string, flags
 }
 func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
 	key := ListKey{Filter: filter, Flags: strings.Join(flags, "")}
+
+	if helm.Lists == nil {
+		return "dummy non-empty helm-list output", nil
+	}
+
 	res, ok := helm.Lists[key]
 	if !ok && helm.FailOnUnexpectedList {
 		return "", fmt.Errorf("unexpected list key: %v", key)
