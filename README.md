@@ -1163,6 +1163,7 @@ Hooks associated to `presync` events are triggered before each release is applie
 This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
 `preapply` hooks will trigger everytime a release is applied, indifferent if there is changes to the release or not.
+If both `preapply` and `presync` is specified for the same hook only one of them will be executed.
 
 `preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
 

@@ -1,8 +1,13 @@
 
+hook[prepare] logs | foo
+hook[prepare] logs | 
+
 Running preapply hook for foo:
 
 hook[preapply] logs | foo
 hook[preapply] logs | 
+hook[echo]: already executed by "preapply", skipping "presync"
+
 
 UPDATED RELEASES:
 NAME   CHART           VERSION
