@@ -1330,6 +1330,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 			for _, hook := range release.Hooks {
 				if slices.Contains(hook.Events, "preapply") {
 					releasesWithPreApply = append(releasesWithPreApply, release)
+					break
 				}
 			}
 		}
@@ -1380,6 +1381,7 @@ Do you really want to apply?
 			a.Logger.Infof("\nRunning preapply hook for %s:", release.Name)
 			if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
 				syncErrs = append(syncErrs, err)
+				continue
 			}
 		}
 
