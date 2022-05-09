@@ -10,6 +10,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/roboll/helmfile/pkg/envvar"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func createTempValuesFile(release *ReleaseSpec, data interface{}) (*os.File, error) {
@@ -86,5 +87,5 @@ func HashObject(obj interface{}) (string, error) {
 
 	sum := fmt.Sprint(hash.Sum32())
 
-	return SafeEncodeString(sum), nil
+	return rand.SafeEncodeString(sum), nil
 }
