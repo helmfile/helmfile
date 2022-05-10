@@ -8,7 +8,7 @@ require (
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/go-test/deep v1.0.7
+	github.com/go-test/deep v1.0.8
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.7
 	github.com/gosuri/uitable v0.0.4
@@ -20,7 +20,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mattn/go-isatty v0.0.14
 	github.com/r3labs/diff v1.1.0
-	github.com/spf13/cobra v1.3.0
+  github.com/spf13/cobra v1.4.0
 	github.com/stretchr/testify v1.7.1
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.22.5
