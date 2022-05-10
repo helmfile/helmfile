@@ -868,7 +868,7 @@ tillerNs: INLINE_TILLER_NS_2
 		Namespace:           "",
 		Selectors:           []string{},
 		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		FileOrDir:           "/path/to/helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)
