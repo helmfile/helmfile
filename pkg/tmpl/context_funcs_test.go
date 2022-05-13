@@ -267,3 +267,14 @@ func TestExec(t *testing.T) {
 	_, err = ctx.Exec("bash", []interface{}{"-c", "exit 1"}, "")
 	require.Error(t, err, "Expected error to be returned when executing command with non-zero exit code")
 }
+
+func TestSetEnv(t *testing.T) {
+	testEnvName := "testkey"
+	_, isExists := os.LookupEnv(testEnvName)
+	require.Falsef(t, isExists, "Expected environment variable %s to not exist", testEnvName)
+
+	SetEnv(testEnvName, "testvalue")
+
+	require.Equalf(t, "testvalue", os.Getenv(testEnvName), "Expected environment variable %s to be set to %s", testEnvName, "testvalue")
+
+}

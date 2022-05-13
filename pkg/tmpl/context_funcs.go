@@ -32,6 +32,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"getOrNil":         getOrNil,
 		"tpl":              c.Tpl,
 		"required":         Required,
+		"setEnv":           SetEnv,
 		"fetchSecretValue": fetchSecretValue,
 		"expandSecretRefs": fetchSecretValues,
 	}
@@ -250,7 +251,6 @@ func RequiredEnv(name string) (string, error) {
 	if val, exists := os.LookupEnv(name); exists && len(val) > 0 {
 		return val, nil
 	}
-
 	return "", fmt.Errorf("required env var `%s` is not set", name)
 }
 
@@ -264,4 +264,12 @@ func Required(warn string, val interface{}) (interface{}, error) {
 	}
 
 	return val, nil
+}
+
+// SetEnv sets an environment variable.
+func SetEnv(name string, value interface{}) error {
+	if err := os.Setenv(name, fmt.Sprintf("%v", value)); err != nil {
+		return fmt.Errorf("failed to set env var `%s`: %w", name, err)
+	}
+	return nil
 }
