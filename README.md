@@ -349,6 +349,7 @@ Helmfile uses [Go templates](https://godoc.org/text/template) for templating you
 We also added the following functions:
 
 - `requiredEnv`
+- `setEnv`
 - `exec`
 - `readFile`
 - `toYaml`
