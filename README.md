@@ -38,7 +38,7 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ## Configuration
 
-**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.92.1](https://github.com/roboll/helmfile/tree/v0.92.1).
+**CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.143.4](https://github.com/helmfile/helmfile/tree/v0.143.4).
 
 The default name for a helmfile is `helmfile.yaml`:
 
@@ -360,9 +360,7 @@ We also added the following functions:
 - `fetchSecretValue`
 - `expandSecretRefs`
 
-We also added one special template function: `requiredEnv`.
-The `requiredEnv` function allows you to declare a particular environment variable as required for template rendering.
-If the environment variable is unset or empty, the template rendering will fail with an error message.
+More details on each function can be found at ["Template Functions" page in our documentation](./docs/templating_funcs.md).
 
 ## Using environment variables
 
@@ -398,7 +396,7 @@ If you wish to treat your enviroment variables as strings always, even if they a
 
 ## Installation
 
-- download one of [releases](https://github.com/roboll/helmfile/releases) or
+- download one of [releases](https://github.com/helmfile/helmfile/tags) or
 - [run as a container](#running-as-a-container) or
 - Archlinux: install via `pacman -S helmfile` or from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) or
 - openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`, or
@@ -1125,6 +1123,16 @@ mysetting: |
 ```
 
 The possibility is endless. Try importing values from your golang app, bash script, jsonnet, or anything!
+
+Then `execEnvs` same as `exec`, but it can receive a dict as the envs.  
+
+A usual usage of `execEnvs` would look like this:  
+
+```yaml
+mysetting: |
+{{ execEnvs (dict "envkey" "envValue") "./mycmd" (list "arg1" "arg2" "--flag1") | indent 2 }}
+```
+
 
 ## Hooks
 

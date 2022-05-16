@@ -2349,6 +2349,7 @@ type applyConfig struct {
 	showSecrets            bool
 	suppressDiff           bool
 	noColor                bool
+	color                  bool
 	context                int
 	diffOutput             string
 	concurrency            int
@@ -2429,7 +2430,7 @@ func (a applyConfig) SuppressDiff() bool {
 }
 
 func (a applyConfig) Color() bool {
-	return false
+	return a.color
 }
 
 func (a applyConfig) NoColor() bool {
