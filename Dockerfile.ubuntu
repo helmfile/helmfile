@@ -68,7 +68,7 @@ RUN set -x && \
     tar zxvf age-${AGE_VERSION}-linux-amd64.tar.gz && \
     mv age/age /usr/local/bin/age && \
     mv age/age-keygen /usr/local/bin/age-keygen && \
-    rm -rf age-${AGE_VERSION}-linux-amd64.tar.gz age \
+    rm -rf age-${AGE_VERSION}-linux-amd64.tar.gz age
 
 RUN helm plugin install https://github.com/databus23/helm-diff --version v3.3.1 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0 && \

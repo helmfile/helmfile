@@ -42,6 +42,7 @@ func init() {
 
 func (c *Context) createFuncMap() template.FuncMap {
 	funcMap := template.FuncMap{
+		"execEnvs":         c.ExecEnvs,
 		"exec":             c.Exec,
 		"isFile":           c.IsFile,
 		"readFile":         c.ReadFile,
@@ -79,7 +80,8 @@ func (c *Context) createFuncMap() template.FuncMap {
 	return funcMap
 }
 
-func (c *Context) Exec(command string, args []interface{}, inputs ...string) (string, error) {
+// TODO: in the next major version, remove this function.
+func (c *Context) ExecEnvs(envs map[string]string, command string, args []interface{}, inputs ...string) (string, error) {
 	var input string
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -97,6 +99,12 @@ func (c *Context) Exec(command string, args []interface{}, inputs ...string) (st
 
 	cmd := exec.Command(command, strArgs...)
 	cmd.Dir = c.basePath
+	if envs != nil {
+		cmd.Env = os.Environ()
+		for k, v := range envs {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
 
 	g := errgroup.Group{}
 
@@ -148,6 +156,10 @@ func (c *Context) Exec(command string, args []interface{}, inputs ...string) (st
 	}
 
 	return string(bytes), nil
+}
+
+func (c *Context) Exec(command string, args []interface{}, inputs ...string) (string, error) {
+	return c.ExecEnvs(nil, command, args, inputs...)
 }
 
 func (c *Context) IsFile(filename string) (bool, error) {

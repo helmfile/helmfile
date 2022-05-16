@@ -93,7 +93,7 @@ which can be included in the temporary chart.
 
 After all, Helmfile just installs the temporary chart like standard charts, which allows you to manage everything with Helmfile regardless of each app is declared using a Helm chart or a kustomization.
 
-Please also see [test/advanced/helmfile.yaml](https://github.com/roboll/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of kustomization support and more.
+Please also see [test/advanced/helmfile.yaml](https://github.com/helmfile/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of kustomization support and more.
 
 ### Adhoc Kustomization of Helm charts
 
@@ -147,7 +147,7 @@ Please note that the second `data` field `bar` is coming from the strategic-merg
 
 There's also `releases[].jsonPatches` that works similarly to `strategicMergePatches` but has additional capability to remove fields.
 
-Please also see [test/advanced/helmfile.yaml](https://github.com/roboll/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of patching support and more.
+Please also see [test/advanced/helmfile.yaml](https://github.com/helmfile/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of patching support and more.
 
 #### `transformers`
 

@@ -11,9 +11,9 @@ conditions for your present and future Contributions submitted to the `helmfile`
 Locate your `GOPATH`, usually `~/go`, and run:
 
 ```console
-$ go get github.com/roboll/helmfile
+$ go get github.com/helmfile/helmfile
 
-$ cd $GOPATH/src/github.com/roboll/helmfile
+$ cd $GOPATH/src/github.com/helmfile/helmfile
 
 $ git checkout -b your-shiny-new-feature origin/master
 
