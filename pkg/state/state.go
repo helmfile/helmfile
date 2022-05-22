@@ -2536,6 +2536,8 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-validation")
 	}
 
+	flags = st.appendApiVersionsFlags(flags, release)
+
 	flags = st.appendConnectionFlags(flags, helm, release)
 
 	var err error
