@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"text/tabwriter"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/plugins"
