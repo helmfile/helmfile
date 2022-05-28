@@ -1614,6 +1614,53 @@ func TestHelmState_DiffReleases(t *testing.T) {
 	}
 }
 
+func TestHelmState_DiffFlags(t *testing.T) {
+	tests := []struct {
+		name          string
+		releases      []ReleaseSpec
+		helm          *exectest.Helm
+		wantDiffFlags []string
+	}{
+		{
+			name: "release with api version and kubeversion",
+			releases: []ReleaseSpec{
+				{
+					Name:        "releaseName",
+					Chart:       "foo",
+					KubeVersion: "1.21",
+					ApiVersions: []string{"helmfile.test/v1", "helmfile.test/v2"},
+				},
+			},
+			helm:          &exectest.Helm{},
+			wantDiffFlags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "1.21"},
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
+			}
+			for j := range tt.releases {
+				flags, _, errs := state.flagsForDiff(tt.helm, &tt.releases[j], false, 1)
+				if errs != nil {
+					t.Errorf("unexpected error: %v", errs)
+				}
+				if !reflect.DeepEqual(flags, tt.wantDiffFlags) {
+					t.Errorf("HelmState.flagsForDiff() for [%s][%s] = %v, want %v", tt.name, tt.releases[j].Name, flags, tt.wantDiffFlags)
+				}
+			}
+
+		})
+	}
+
+}
+
 func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 	tests := []struct {
 		name                    string
