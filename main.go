@@ -5,12 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/roboll/helmfile/pkg/app"
-	"github.com/roboll/helmfile/pkg/app/version"
-	"github.com/roboll/helmfile/pkg/envvar"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/maputil"
-	"github.com/roboll/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/app"
+	"github.com/helmfile/helmfile/pkg/app/version"
+	"github.com/helmfile/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
@@ -441,6 +441,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "include-transitive-needs",
 					Usage: `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`,
+				},
+				cli.BoolFlag{
+					Name:  "validate",
+					Usage: `ADVANCED CONFIGURATION: When sync is going to involve helm-template as a part of the "chartify" process, it might fail due to missing .Capabilities. This flag makes instructs helmfile to pass --validate to helm-template so it populates .Capabilities and validates your manifests against the Kubernetes cluster you are currently pointing at. Note that this requiers access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions`,
 				},
 				cli.BoolFlag{
 					Name:  "wait",

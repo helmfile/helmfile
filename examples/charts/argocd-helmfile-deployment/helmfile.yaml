@@ -1,5 +1,5 @@
 #   What is a helmfile? Read here...
-#   https://github.com/roboll/helmfile
+#   https://github.com/helmfile/helmfile
 
 # Before deployment, export the required env vars
 # export HELM_SECRETS_DRIVER=vault

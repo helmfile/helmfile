@@ -2,7 +2,7 @@ ORG     ?= $(shell basename $(realpath ..))
 PKGS    := $(shell go list ./... | grep -v /vendor/)
 
 build:
-	go build -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	go build -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: build
 
 generate:
@@ -40,15 +40,15 @@ integration/vagrant:
 .PHONY: integration/vagrant
 
 cross:
-	env CGO_ENABLED=0 gox -parallel 4 -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -parallel 4 -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: cross
 
 static-linux:
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=readonly go build -o "dist/helmfile_linux_amd64" -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=readonly go build -o "dist/helmfile_linux_amd64" -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: static-linux
 
 install:
-	env CGO_ENABLED=0 go install -ldflags '-X github.com/roboll/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 go install -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
 .PHONY: install
 
 clean:

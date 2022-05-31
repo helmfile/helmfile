@@ -4,7 +4,7 @@ By contributing to `helmfile`, you accept and agree to the following DCO and lic
 conditions for your present and future Contributions submitted to the `helmfile` project.
 
 [DCO](https://developercertificate.org/)
-[License](https://github.com/roboll/helmfile/blob/master/LICENSE)
+[License](https://github.com/helmfile/helmfile/blob/master/LICENSE)
 
 # Developing helmfile
 

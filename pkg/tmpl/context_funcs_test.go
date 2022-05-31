@@ -319,9 +319,9 @@ func TestExec(t *testing.T) {
 	require.Error(t, err, "Expected error to be returned when executing command with non-zero exit code")
 }
 
-// TestExecEnvs tests that ExecEnvs returns the expected output.
+// TestEnvExec tests that EnvExec returns the expected output.
 // TODO: in the next major version, this test should be removed.
-func TestExecEnvs(t *testing.T) {
+func TestEnvExec(t *testing.T) {
 	ctx := &Context{basePath: "."}
 
 	expected := "foo"
@@ -329,14 +329,20 @@ func TestExecEnvs(t *testing.T) {
 	testKey := "testkey"
 
 	// test that the command is executed with environment variables
-	output, err := ctx.ExecEnvs(map[string]string{testKey: "foo"}, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+	output, err := ctx.EnvExec(map[string]interface{}{testKey: "foo"}, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 
 	require.Nilf(t, err, "Expected no error to be returned when executing command with environment variables")
 
 	require.Equalf(t, expected, output, "Expected %s to be returned when executing command with environment variables", expected)
 
+	// test that the command is executed with invalid environment variables
+	output, err = ctx.EnvExec(map[string]interface{}{testKey: 123}, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+
+	require.Errorf(t, err, "Expected error to be returned when executing command with invalid environment variables")
+	require.Emptyf(t, output, "Expected empty string to be returned when executing command with invalid environment variables")
+
 	// test that the command is executed with no environment variables
-	output, err = ctx.ExecEnvs(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+	output, err = ctx.EnvExec(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 	require.Nilf(t, err, "Expected no error to be returned when executing command with no environment variables")
 
 	require.Emptyf(t, output, "Expected empty string to be returned when executing command with no environment variables")
@@ -344,7 +350,7 @@ func TestExecEnvs(t *testing.T) {
 	// test that the command is executed with os environment variables
 	os.Setenv(testKey, "foo")
 	defer os.Unsetenv(testKey)
-	output, err = ctx.ExecEnvs(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+	output, err = ctx.EnvExec(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 
 	require.Nilf(t, err, "Expected no error to be returned when executing command with environment variables")
 

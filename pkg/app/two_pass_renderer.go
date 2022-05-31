@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/roboll/helmfile/pkg/environment"
-	"github.com/roboll/helmfile/pkg/state"
-	"github.com/roboll/helmfile/pkg/tmpl"
+	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
 func prependLineNumbers(text string) string {

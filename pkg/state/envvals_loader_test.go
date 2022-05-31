@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/roboll/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/remote"
 	"go.uber.org/zap"
 )
 

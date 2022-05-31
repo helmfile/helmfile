@@ -13,11 +13,11 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"github.com/roboll/helmfile/pkg/argparser"
-	"github.com/roboll/helmfile/pkg/helmexec"
-	"github.com/roboll/helmfile/pkg/plugins"
-	"github.com/roboll/helmfile/pkg/remote"
-	"github.com/roboll/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/argparser"
+	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/plugins"
+	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 )
@@ -79,9 +79,6 @@ func New(conf ConfigProvider) *App {
 		FileOrDir:           conf.FileOrDir(),
 		ValuesFiles:         conf.StateValuesFiles(),
 		Set:                 conf.StateValuesSet(),
-		//helmExecer: helmexec.New(conf.HelmBinary(), conf.Logger(), conf.KubeContext(), &helmexec.ShellRunner{
-		//	Logger: conf.Logger(),
-		//}),
 	})
 }
 
@@ -363,6 +360,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			Validate:               c.Validate(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})

@@ -85,6 +85,8 @@ type SyncConfigProvider interface {
 	Wait() bool
 	WaitForJobs() bool
 
+	Validate() bool
+
 	SkipNeeds() bool
 	IncludeNeeds() bool
 	IncludeTransitiveNeeds() bool

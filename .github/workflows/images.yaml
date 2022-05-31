@@ -1,4 +1,4 @@
-name: Publish Canary Images
+name: Images
 
 on:
   push:
@@ -19,11 +19,11 @@ on:
 
 jobs:
   build-test:
-    if: ${{ github.ref != 'refs/heads/main' }}
+    if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    name: Build Images
+    name: Build
     strategy:
       matrix:
        include:
@@ -40,12 +40,12 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
   build:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    name: Build and Publish Canary Images
+    name: Build and Publish
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USER }}
     steps:
@@ -70,7 +70,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:canary
+            ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -81,6 +81,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}-debian-stable-slim:canary
+            ghcr.io/${{ github.repository }}-debian-stable-slim:${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

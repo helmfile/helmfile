@@ -13,8 +13,8 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
-	"github.com/roboll/helmfile/pkg/envvar"
-	"github.com/roboll/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -42,7 +42,7 @@ func init() {
 
 func (c *Context) createFuncMap() template.FuncMap {
 	funcMap := template.FuncMap{
-		"execEnvs":         c.ExecEnvs,
+		"envExec":          c.EnvExec,
 		"exec":             c.Exec,
 		"isFile":           c.IsFile,
 		"readFile":         c.ReadFile,
@@ -63,6 +63,9 @@ func (c *Context) createFuncMap() template.FuncMap {
 		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
 			return "", nil
 		}
+		funcMap["envExec"] = func(map[string]interface{}, string, []interface{}, ...string) (string, error) {
+			return "", nil
+		}
 		funcMap["readFile"] = func(string) (string, error) {
 			return "", nil
 		}
@@ -81,7 +84,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 }
 
 // TODO: in the next major version, remove this function.
-func (c *Context) ExecEnvs(envs map[string]string, command string, args []interface{}, inputs ...string) (string, error) {
+func (c *Context) EnvExec(envs map[string]interface{}, command string, args []interface{}, inputs ...string) (string, error) {
 	var input string
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -94,6 +97,18 @@ func (c *Context) ExecEnvs(envs map[string]string, command string, args []interf
 			strArgs[i] = fmt.Sprintf("%v", a)
 		default:
 			return "", fmt.Errorf("unexpected type of arg \"%s\" in args %v at index %d", reflect.TypeOf(a), args, i)
+		}
+	}
+
+	envsLen := len(envs)
+	strEnvs := make(map[string]string, envsLen)
+
+	for k, v := range envs {
+		switch v.(type) {
+		case string:
+			strEnvs[k] = fmt.Sprintf("%v", v)
+		default:
+			return "", fmt.Errorf("unexpected type of env \"%s\" in envs %v at index %s", reflect.TypeOf(v), envs, k)
 		}
 	}
 
@@ -159,7 +174,7 @@ func (c *Context) ExecEnvs(envs map[string]string, command string, args []interf
 }
 
 func (c *Context) Exec(command string, args []interface{}, inputs ...string) (string, error) {
-	return c.ExecEnvs(nil, command, args, inputs...)
+	return c.EnvExec(nil, command, args, inputs...)
 }
 
 func (c *Context) IsFile(filename string) (bool, error) {

@@ -6,7 +6,7 @@ body:
       value: |
         Before opening a bug report, please search for the behaviour in the existing issues.
 
-        Go ahead to https://github.com/roboll/helmfile/search?q=&type= and fill in the error message you received from Helmfile or the keywords you think appropriate.
+        Go ahead to https://github.com/helmfile/helmfile/search?q=&type= and fill in the error message you received from Helmfile or the keywords you think appropriate.
   - type: markdown
     id: thankyou
     attributes:

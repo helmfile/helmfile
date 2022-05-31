@@ -15,6 +15,13 @@ The `exec` function allows you to run a command, returning the stdout of the com
 {{ $cmdOutpot := exec "./mycmd" (list "arg1" "arg2" "--flag1") }}
 ```
 
+#### `envExec`
+The `envExec` function allows you to run a command with environment variables declared on-the-fly in addition to existing environment variables, returning the stdout of the command. When the command fails, the template rendering will fail with an error message.
+
+```yaml
+{{ $cmdOutpot := envExec (dict "envKey" "envValue") "./mycmd" (list "arg1" "arg2" "--flag1") }}
+```
+
 #### `readFile`
 The `readFile` function allows you to read a file and return its content as the function output. On failure, the template rendering will fail with an error message.
 
@@ -78,7 +85,7 @@ The `fetchSecretValue` function parses the argument as a [vals](https://github.c
 {{ $fetchSecretValue :=  fetchSecretValue "secret/path" }}
 ```
 
-### `expandSecretRefs`
+#### `expandSecretRefs`
 The `expandSecretRefs` function takes an object as the argument and expands every [vals](https://github.com/variantdev/vals) secret reference URL embedded in the object's values. See ["Remote Secrets" page in our documentation](./templating_funcs.md) for more information.
 
 ```yaml

@@ -6,10 +6,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/roboll/helmfile/pkg/environment"
-	"github.com/roboll/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/remote"
 
-	"github.com/roboll/helmfile/pkg/testhelper"
+	"github.com/helmfile/helmfile/pkg/testhelper"
 	"go.uber.org/zap"
 
 	"github.com/stretchr/testify/require"
