@@ -43,7 +43,21 @@ body:
       description: What happened?
     validations:
       required: true
-  - type: input
+  - type: textarea
+    id: helmfile-yaml
+    attributes:
+      label: Example helmfile.yaml
+      description: "Please provide an example helmfile.yaml that can be used to reproduce the issue locally."
+    validations:
+      required: true
+  - type: textarea
+    id: helmfile-error
+    attributes:
+      label: "Error message you've seen (if any)"
+      description: "Please provide the error message emitted by Helmfile."
+    validations:
+      required: true
+- type: input
     id: repo
     attributes:
       label: Steps to reproduce
