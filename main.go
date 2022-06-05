@@ -618,4 +618,3 @@ func main() {
 		os.Exit(3)
 	}
 }
-
