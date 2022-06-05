@@ -15,20 +15,6 @@ func main() {
 	rootCmd := cmd.RootCommand()
 	subCommands := []cli.Command{
 		{
-			Name:  "repos",
-			Usage: "sync repositories from state file (helm repo add && helm repo update)",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "args",
-					Value: "",
-					Usage: "pass args to helm exec",
-				},
-			},
-			Action: cmd.Action(func(a *app.App, c config.ConfigImpl) error {
-				return a.Repos(c)
-			}),
-		},
-		{
 			Name:  "charts",
 			Usage: "DEPRECATED: sync releases from state file (helm upgrade --install)",
 			Flags: []cli.Flag{

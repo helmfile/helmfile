@@ -26,6 +26,7 @@ func RootCommand() *cli.App {
 
 	// add subcommands
 	addDepsSubcommand(cliApp)
+	addReposSubcommand(cliApp)
 
 	return cliApp
 }
