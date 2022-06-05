@@ -16,7 +16,7 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(filename), "..", "..", "..", "..")
 	helmfileBin := filepath.Join(projectRoot, "helmfile")
-	testdataDir := "testdata"
+	testdataDir := "testdata/snapshot"
 
 	entries, err := os.ReadDir(testdataDir)
 	require.NoError(t, err)

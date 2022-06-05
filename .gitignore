@@ -10,3 +10,4 @@ vendor/
 .vagrant/
 *.lock
 test/integration/.gnupg/
+.vscode/launch.json

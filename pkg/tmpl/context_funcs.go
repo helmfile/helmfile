@@ -203,6 +203,10 @@ func (c *Context) ReadFile(filename string) (string, error) {
 		path = filepath.Join(c.basePath, filename)
 	}
 
+	if c.readFile == nil {
+		return "", fmt.Errorf("readFile is not implemented")
+	}
+
 	bytes, err := c.readFile(path)
 	if err != nil {
 		return "", err
