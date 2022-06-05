@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/roboll/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
