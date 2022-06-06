@@ -27,6 +27,9 @@ func RootCommand() *cli.App {
 	// add subcommands
 	addDepsSubcommand(cliApp)
 	addReposSubcommand(cliApp)
+	addChartsSubcommand(cliApp)
+	addDiffSubcommand(cliApp)
+	addTemplateSubcommand(cliApp)
 
 	return cliApp
 }
