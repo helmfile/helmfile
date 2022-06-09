@@ -26,7 +26,7 @@ require (
 	github.com/urfave/cli v1.22.9
 	github.com/variantdev/chartify v0.9.5
 	github.com/variantdev/dag v1.1.0
-	github.com/variantdev/vals v0.16.2
+	github.com/variantdev/vals v0.17.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -55,6 +55,7 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
+	github.com/a8m/envsubst v1.3.0 // indirect
 	github.com/alecthomas/participle v0.4.2-0.20191220090139-9fbceec1d131 // indirect
 	github.com/aws/aws-sdk-go v1.40.28 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
