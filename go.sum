@@ -136,6 +136,8 @@ github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 h1:d+Bc7a5rLufV
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
+github.com/a8m/envsubst v1.3.0 h1:GmXKmVssap0YtlU3E230W98RWtWCyIZzjtf1apWWyAg=
+github.com/a8m/envsubst v1.3.0/go.mod h1:MVUTQNGQ3tsjOOtKCNd+fl8RzhsXcDvvAEzkhGtlsbY=
 github.com/alecthomas/go-thrift v0.0.0-20170109061633-7914173639b2/go.mod h1:CxCgO+NdpMdi9SsTlGbc0W+/UNxO3I0AabOEJZ3w61w=
 github.com/alecthomas/kong v0.2.1/go.mod h1:+inYUSluD+p4L8KdviBSgzcqEjUQOfC5fQDRFuc36lI=
 github.com/alecthomas/participle v0.4.2-0.20191220090139-9fbceec1d131 h1:iPgE4wTIM/fgSreWdpxnKXxaGOgGwfPqc2aVPq2BFSU=
@@ -744,8 +746,8 @@ github.com/variantdev/chartify v0.9.5 h1:vCOKsHrPRC8R1symO+i8uKyLYbdrfmSWHmMFBFW
 github.com/variantdev/chartify v0.9.5/go.mod h1:A0nQmb+ihiBJrrbgofs1t7QVeit+/llT0vJhvkj7U0Q=
 github.com/variantdev/dag v1.1.0 h1:xodYlSng33KWGvIGMpKUyLcIZRXKiNUx612mZJqYrDg=
 github.com/variantdev/dag v1.1.0/go.mod h1:pH1TQsNSLj2uxMo9NNl9zdGy01Wtn+/2MT96BrKmVyE=
-github.com/variantdev/vals v0.16.2 h1:JXfDgN8c43Ivjgxv65H6xm+yGoqZIVwU8SFqTomtNbg=
-github.com/variantdev/vals v0.16.2/go.mod h1:Ep/8LogNlULIuKkas4y5M206QfLg//y43mX7qVVVwdk=
+github.com/variantdev/vals v0.17.1 h1:rVsLLypqlDDdYoIzcokuwCrK3KmIrWf9gw9UMUPhTXQ=
+github.com/variantdev/vals v0.17.1/go.mod h1:5cIECRpxdR6SEjKhMaB77xAnv4NKpgdLBdpS0XZUkzw=
 github.com/vishvananda/netlink v1.1.0/go.mod h1:cTgwzPIzzgDAYoQrMm0EdrjRUBkTqKYppBueQtXaqoE=
 github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df/go.mod h1:JP3t17pCcGlemwknint6hfoeCVQrEMVwxRLRjXpq+BU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
