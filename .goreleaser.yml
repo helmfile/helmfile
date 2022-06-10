@@ -1,0 +1,18 @@
+project_name: helmfile
+builds:
+  - id: helmfile
+    main: .
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X github.com/helmfile/helmfile/pkg/app/version.Version={{.Version}}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - "386"
+changelog:
+  use: github-native
