@@ -1,4 +1,5 @@
 processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -104,3 +105,4 @@ merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
 err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+changing working directory back to "/path/to"

@@ -1,4 +1,5 @@
 processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -114,3 +115,4 @@ processing releases in group 1/4: default/kube-system/logging
 processing releases in group 2/4: default/kube-system/kubernetes-external-secrets
 processing releases in group 3/4: default/default/external-secrets
 processing releases in group 4/4: default/default/my-release
+changing working directory back to "/path/to"

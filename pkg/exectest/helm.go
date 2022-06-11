@@ -15,6 +15,10 @@ type ListKey struct {
 	Flags  string
 }
 
+func (k ListKey) String() string {
+	return fmt.Sprintf("listkey(filter=%s,flags=%s)", k.Filter, k.Flags)
+}
+
 type DiffKey struct {
 	Name  string
 	Chart string
@@ -150,7 +154,11 @@ func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...str
 
 	res, ok := helm.Lists[key]
 	if !ok && helm.FailOnUnexpectedList {
-		return "", fmt.Errorf("unexpected list key: %v", key)
+		var keys []string
+		for k := range helm.Lists {
+			keys = append(keys, k.String())
+		}
+		return "", fmt.Errorf("unexpected list key: %v in %v", key, strings.Join(keys, ", "))
 	}
 	return res, nil
 }
