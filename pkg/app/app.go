@@ -1326,27 +1326,25 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	var releasesWithPreApply []state.ReleaseSpec
 	for _, r := range toApplyWithNeeds {
 		release := r
-		if len(release.Hooks) > 0 {
-			for _, hook := range release.Hooks {
-				if slices.Contains(hook.Events, "preapply") {
-					releasesWithPreApply = append(releasesWithPreApply, release)
-					break
-				}
+		for _, hook := range release.Hooks {
+			if slices.Contains(hook.Events, "preapply") {
+				releasesWithPreApply = append(releasesWithPreApply, release)
+				break
 			}
 		}
 	}
 
-	if len(releasesWithPreApply) > 0 {
-		msg := "Releases with preapply hooks: \n"
-		if infoMsg != nil {
-			msg = fmt.Sprintf("%s%s", *infoMsg, msg)
-		}
-		infoMsg = &msg
-	}
-	for _, release := range releasesWithPreApply {
-		tmp := fmt.Sprintf("%s  %s (%s)", *infoMsg, release.Name, release.Chart)
-		infoMsg = &tmp
-	}
+	// if len(releasesWithPreApply) > 0 {
+	// 	msg := "Releases with preapply hooks: \n"
+	// 	if infoMsg != nil {
+	// 		msg = fmt.Sprintf("%s%s", *infoMsg, msg)
+	// 	}
+	// 	infoMsg = &msg
+	// }
+	// for _, release := range releasesWithPreApply {
+	// 	tmp := fmt.Sprintf("%s  %s (%s)", *infoMsg, release.Name, release.Chart)
+	// 	infoMsg = &tmp
+	// }
 
 	if releasesToBeDeleted == nil && releasesToBeUpdated == nil && releasesWithPreApply == nil {
 		if infoMsg != nil {
