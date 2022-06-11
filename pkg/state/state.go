@@ -19,7 +19,6 @@ import (
 
 	"github.com/imdario/mergo"
 	"github.com/variantdev/chartify"
-	"golang.org/x/exp/slices"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
@@ -2266,15 +2265,6 @@ func (st *HelmState) TriggerPreapplyEvent(r *ReleaseSpec, helmfileCommand string
 
 func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string) (bool, error) {
 
-	var stateRelease ReleaseSpec
-
-	for id, release := range st.Releases {
-		if release.Name == r.Name {
-			stateRelease = st.Releases[id]
-			break
-		}
-	}
-
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
@@ -2292,17 +2282,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		"HelmfileCommand": helmfileCmd,
 	}
 
-	executed, err := bus.Trigger(evt, evtErr, data)
-
-	if executed {
-		for id, hook := range stateRelease.Hooks {
-			if slices.Contains(hook.Events, evt) {
-				stateRelease.Hooks[id].Executed = true
-			}
-		}
-	}
-
-	return executed, err
+	return bus.Trigger(evt, evtErr, data)
 }
 
 // ResolveDeps returns a copy of this helmfile state with the concrete chart version numbers filled in for remote chart dependencies

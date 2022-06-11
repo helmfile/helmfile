@@ -11,7 +11,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 )
 
 type Hook struct {
@@ -21,7 +20,6 @@ type Hook struct {
 	Kubectl  map[string]string `yaml:"kubectlApply,omitempty"`
 	Args     []string          `yaml:"args"`
 	ShowLogs bool              `yaml:"showlogs"`
-	Executed bool              `yaml:"-"`
 }
 
 type event struct {
@@ -74,10 +72,6 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 			}
 		}
 
-		if slices.Contains(hook.Events, "preapply") && evt == "presync" && hook.Executed {
-			bus.Logger.Infof("hook[%s]: already executed by \"preapply\", skipping \"%s\"\n", name, evt)
-			continue
-		}
 		if hook.Kubectl != nil {
 			if hook.Command != "" {
 				bus.Logger.Warnf("warn: ignoring command '%s' given within a kubectlApply hook", hook.Command)
