@@ -30,6 +30,19 @@ func RootCommand() *cli.App {
 	addChartsSubcommand(cliApp)
 	addDiffSubcommand(cliApp)
 	addTemplateSubcommand(cliApp)
+	addWriteValuesSubcommand(cliApp)
+	addLintSubcommand(cliApp)
+	addFetchSubcommand(cliApp)
+	addSyncSubcommand(cliApp)
+	addApplySubcommand(cliApp)
+	addStatusSubcommand(cliApp)
+	addDeleteSubcommand(cliApp)
+	addDestroySubcommand(cliApp)
+	addTestSubcommand(cliApp)
+	addBuildSubcommand(cliApp)
+	addListSubcommand(cliApp)
+	addCacheSubcommand(cliApp)
+	addVersionSubcommand(cliApp)
 
 	return cliApp
 }
