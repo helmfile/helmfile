@@ -1,0 +1,16 @@
+
+hook[prepare] logs | foo
+hook[prepare] logs | 
+
+Running preapply hook for foo:
+
+hook[preapply] logs | foo
+hook[preapply] logs | 
+
+hook[presync] logs | foo
+hook[presync] logs | 
+
+UPDATED RELEASES:
+NAME   CHART           VERSION
+foo    incubator/raw          
+

@@ -29,9 +29,11 @@ require (
 	github.com/variantdev/vals v0.17.1
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.21.0
+	golang.org/x/exp v0.0.0-20220518171630-0b5c67f07fdf
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apimachinery v0.23.4
+	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 )
 
 require (
@@ -64,6 +66,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
+	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/fujiwara/tfstate-lookup v0.4.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -143,7 +146,6 @@ require (
 
 require (
 	cloud.google.com/go/secretmanager v1.3.0 // indirect
-	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c // indirect
 	github.com/pierrec/lz4 v2.3.0+incompatible // indirect

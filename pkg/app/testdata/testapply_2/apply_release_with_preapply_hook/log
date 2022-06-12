@@ -1,0 +1,68 @@
+processing file "helmfile.yaml" in directory "."
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: foo
+ 3:   chart: incubator/raw
+ 4:   namespace: default
+ 5:   labels:
+ 6:     app: test
+ 7:   hooks:
+ 8:   - events: ["preapply"]
+ 9:     command: echo
+10:     showlogs: true
+11:     args: ["foo"]
+12: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: foo
+ 3:   chart: incubator/raw
+ 4:   namespace: default
+ 5:   labels:
+ 6:     app: test
+ 7:   hooks:
+ 8:   - events: ["preapply"]
+ 9:     command: echo
+10:     showlogs: true
+11:     args: ["foo"]
+12: 
+
+merged environment: &{default map[] map[]}
+1 release(s) matching name=foo found in helmfile.yaml
+
+Affected releases are:
+  foo (incubator/raw) UPDATED
+Releases with preapply hooks: 
+  foo (incubator/raw)
+
+Running preapply hook for foo:
+hook[echo]: stateFilePath=helmfile.yaml, basePath=.
+hook[echo]: triggered by event "preapply"
+
+echo:XlBWj> foo
+hook[echo]: foo
+
+
+
+hook[preapply] logs | foo
+hook[preapply] logs | 
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     default/default/foo
+
+processing releases in group 1/1: default/default/foo
+getting deployed release version failed:unexpected list key: {^foo$ --kube-contextdefault--deleting--deployed--failed--pending}
+
+UPDATED RELEASES:
+NAME   CHART           VERSION
+foo    incubator/raw          
+

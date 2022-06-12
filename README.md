@@ -1149,6 +1149,7 @@ Once `events` are triggered, associated `hooks` are executed, by running the `co
 Currently supported `events` are:
 
 - `prepare`
+- `preapply`
 - `presync`
 - `preuninstall`
 - `postuninstall`
@@ -1160,6 +1161,8 @@ Hooks associated to `prepare` events are triggered after each release in your he
 
 Hooks associated to `presync` events are triggered before each release is applied to the remote cluster.
 This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+
+`preapply` hooks will trigger everytime a release is applied, indifferent if there is changes to the release or not.
 
 `preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
 

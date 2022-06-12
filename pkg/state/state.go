@@ -2247,7 +2247,12 @@ func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfile
 	return st.triggerReleaseEvent("postsync", evtErr, r, helmfileCommand)
 }
 
+func (st *HelmState) TriggerPreapplyEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("preapply", nil, r, helmfileCommand)
+}
+
 func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string) (bool, error) {
+
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
@@ -2264,6 +2269,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		"Release":         r,
 		"HelmfileCommand": helmfileCmd,
 	}
+
 	return bus.Trigger(evt, evtErr, data)
 }
 
