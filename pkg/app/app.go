@@ -768,7 +768,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		go func() {
 			sig := <-sigs
 
-			errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
+			errs := []error{fmt.Errorf("received [%s] to shutdown ", sig)}
 			_ = context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}.clean(errs)
 			// See http://tldp.org/LDP/abs/html/exitcodes.html
 			switch sig {
@@ -1298,28 +1298,9 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		}
 	}
 
-	var releasesWithPreApply []state.ReleaseSpec
-	for _, r := range toApplyWithNeeds {
-		release := r
-		for _, hook := range release.Hooks {
-			if slices.Contains(hook.Events, "preapply") {
-				releasesWithPreApply = append(releasesWithPreApply, release)
-				break
-			}
-		}
-	}
+	releasesWithPreApply := getReleasesWithPreApply(toApplyWithNeeds)
 
-	if len(releasesWithPreApply) > 0 {
-		msg := "Releases with preapply hooks: \n"
-		if infoMsg != nil {
-			msg = fmt.Sprintf("%s%s", *infoMsg, msg)
-		}
-		infoMsg = &msg
-	}
-	for _, release := range releasesWithPreApply {
-		tmp := fmt.Sprintf("%s  %s (%s)", *infoMsg, release.Name, release.Chart)
-		infoMsg = &tmp
-	}
+	infoMsg = preApplyInfoMsg(releasesWithPreApply, infoMsg)
 
 	if releasesToBeDeleted == nil && releasesToBeUpdated == nil && releasesWithPreApply == nil {
 		if infoMsg != nil {
@@ -2000,6 +1981,35 @@ func fileExists(path string) (bool, error) {
 func directoryExistsAt(path string) bool {
 	fileInfo, err := os.Stat(path)
 	return err == nil && fileInfo.Mode().IsDir()
+}
+
+func getReleasesWithPreApply(releases []state.ReleaseSpec) []state.ReleaseSpec {
+	var releasesWithPreApply []state.ReleaseSpec
+	for _, r := range releases {
+		release := r
+		for _, hook := range release.Hooks {
+			if slices.Contains(hook.Events, "preapply") {
+				releasesWithPreApply = append(releasesWithPreApply, release)
+				break
+			}
+		}
+	}
+	return releasesWithPreApply
+}
+
+func preApplyInfoMsg(releasesWithPreApply []state.ReleaseSpec, infoMsg *string) *string {
+	if len(releasesWithPreApply) > 0 {
+		msg := "Releases with preapply hooks: \n"
+		if infoMsg != nil {
+			msg = fmt.Sprintf("%s%s", *infoMsg, msg)
+		}
+		infoMsg = &msg
+	}
+	for _, release := range releasesWithPreApply {
+		tmp := fmt.Sprintf("%s  %s (%s)\n", *infoMsg, release.Name, release.Chart)
+		infoMsg = &tmp
+	}
+	return infoMsg
 }
 
 type Error struct {
