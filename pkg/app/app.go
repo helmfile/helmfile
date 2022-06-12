@@ -2001,7 +2001,7 @@ func preApplyInfoMsg(releasesWithPreApply []state.ReleaseSpec, infoMsg *string) 
 	if len(releasesWithPreApply) > 0 {
 		msg := "Releases with preapply hooks: \n"
 		if infoMsg != nil {
-			msg = fmt.Sprintf("%s%s", *infoMsg, msg)
+			msg = fmt.Sprintf("%s\n%s", *infoMsg, msg)
 		}
 		infoMsg = &msg
 	}
