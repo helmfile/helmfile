@@ -9,10 +9,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
+	"github.com/stretchr/testify/require"
 	"github.com/variantdev/vals"
+	"k8s.io/utils/pointer"
 )
 
 func TestApply_hooks(t *testing.T) {
@@ -263,5 +267,176 @@ releases:
 			logLevel:    "info",
 		})
 	})
+}
 
+func TestGetReleasesWithPreApply(t *testing.T) {
+	tests := []struct {
+		releases         []state.ReleaseSpec
+		preApplyreleases []state.ReleaseSpec
+	}{
+		{
+			[]state.ReleaseSpec{
+				{
+					Chart:     "foo/bar",
+					Name:      "foobar",
+					Namespace: "foobar",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"prepare",
+								"preapply",
+							},
+						},
+					},
+				},
+				{
+					Chart:     "foo/foo",
+					Name:      "foo",
+					Namespace: "foo",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"prepare",
+								"presync",
+							},
+						},
+					},
+				},
+				{
+					Chart:     "bar/bar",
+					Name:      "bar",
+					Namespace: "bar",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"preapply",
+							},
+						},
+					},
+				},
+			},
+			[]state.ReleaseSpec{
+				{
+					Chart:     "foo/bar",
+					Name:      "foobar",
+					Namespace: "foobar",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"prepare",
+								"preapply",
+							},
+						},
+					},
+				},
+				{
+					Chart:     "bar/bar",
+					Name:      "bar",
+					Namespace: "bar",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"preapply",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		preApply := getReleasesWithPreApply(test.releases)
+		require.Equal(t, test.preApplyreleases, preApply)
+	}
+}
+
+func TestPreApplyInfoMsg(t *testing.T) {
+	tests := []struct {
+		preApplyreleases []state.ReleaseSpec
+		infoMsg          *string
+		expected         *string
+	}{
+		{
+			[]state.ReleaseSpec{
+				{
+					Chart:     "foo/bar",
+					Name:      "foobar",
+					Namespace: "foobar",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"prepare",
+								"preapply",
+							},
+						},
+					},
+				},
+				{
+					Chart:     "bar/bar",
+					Name:      "bar",
+					Namespace: "bar",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"preapply",
+							},
+						},
+					},
+				},
+			},
+			pointer.String("infoMsg\n"),
+			pointer.String(`infoMsg
+
+Releases with preapply hooks: 
+  foobar (foo/bar)
+  bar (bar/bar)
+`),
+		},
+		{
+			[]state.ReleaseSpec{
+				{
+					Chart:     "foo/bar",
+					Name:      "foobar",
+					Namespace: "foobar",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"prepare",
+								"preapply",
+							},
+						},
+					},
+				},
+				{
+					Chart:     "bar/bar",
+					Name:      "bar",
+					Namespace: "bar",
+					Hooks: []event.Hook{
+						{
+							Events: []string{
+								"preapply",
+							},
+						},
+					},
+				},
+			},
+			pointer.String(""),
+			pointer.String(`
+Releases with preapply hooks: 
+  foobar (foo/bar)
+  bar (bar/bar)
+`),
+		},
+		{
+			[]state.ReleaseSpec{},
+			pointer.String(""),
+			pointer.String(""),
+		},
+	}
+
+	for _, test := range tests {
+		infoMsg := preApplyInfoMsg(test.preApplyreleases, test.infoMsg)
+		require.Equal(t, *test.expected, *infoMsg)
+	}
 }
