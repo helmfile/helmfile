@@ -19,7 +19,7 @@ func RootCommand() *cli.App {
 	cliApp := cli.NewApp()
 	cliApp.Name = "helmfile"
 	cliApp.Usage = ""
-	cliApp.Version = version.Version
+	cliApp.Version = version.GetVersion()
 	cliApp.EnableBashCompletion = true
 	cliApp.Before = configureLogging
 	setRootCommandFlags(cliApp)
