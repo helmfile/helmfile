@@ -500,8 +500,9 @@ func (a *App) Test(c TestConfigProvider) error {
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
+			ForceDownload: false,
+			SkipRepos:     true,
+			SkipDeps:      true,
 		}, func() {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
