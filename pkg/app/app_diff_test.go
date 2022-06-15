@@ -36,7 +36,7 @@ func TestDiffWithNeeds(t *testing.T) {
 	check := func(t *testing.T, tc testcase) {
 		t.Helper()
 
-		wantTemplates := tc.diffed
+		wantDiffs := tc.diffed
 
 		var helm = &exectest.Helm{
 			FailOnUnexpectedList: true,
@@ -149,7 +149,7 @@ releases:
 				app.Selectors = tc.selectors
 			}
 
-			tmplErr := app.Diff(applyConfig{
+			diffErr := app.Diff(applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency:            1,
 				logger:                 logger,
@@ -159,15 +159,15 @@ releases:
 			})
 
 			var gotErr string
-			if tmplErr != nil {
-				gotErr = tmplErr.Error()
+			if diffErr != nil {
+				gotErr = diffErr.Error()
 			}
 
 			if d := cmp.Diff(tc.error, gotErr); d != "" {
 				t.Fatalf("unexpected error: want (-), got (+): %s", d)
 			}
 
-			require.Equal(t, wantTemplates, helm.Diffed)
+			require.Equal(t, wantDiffs, helm.Diffed)
 		}()
 
 		testNameComponents := strings.Split(t.Name(), "/")
@@ -195,7 +195,7 @@ releases:
 
 		diff, exists := testhelper.Diff(wantLog, gotLog, 3)
 		if exists {
-			t.Errorf("unexpected log:\nDIFF\n%s\nEOD", diff)
+			t.Errorf("unexpected log:\nDIFF\n%s\nEOD\nPlease remove %s and rerun the test to recapture this test snapshot", diff, wantLogFile)
 		}
 	}
 
@@ -257,63 +257,63 @@ releases:
 	// TODO It seems liek helmfile-diff doesn't fail on disabled need, which is different from helmfile-lint and helmfile-template
 	// that fails in a same situation.
 
-	// t.Run("include-needs fail on disabled direct need", func(t *testing.T) {
-	// 	check(t, testcase{
-	// 		fields: fields{
-	// 			skipNeeds:    false,
-	// 			includeNeeds: true,
-	// 		},
-	// 		selectors: []string{"name=test2"},
-	// 		error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
-	// 	})
-	// })
+	t.Run("include-needs fail on disabled direct need", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
+			selectors: []string{"name=test2"},
+			error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+		})
+	})
 
-	// t.Run("include-needs fail on disabled transitive need", func(t *testing.T) {
-	// 	check(t, testcase{
-	// 		fields: fields{
-	// 			skipNeeds:    false,
-	// 			includeNeeds: true,
-	// 		},
-	// 		selectors: []string{"name=test3"},
-	// 		error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
-	// 	})
-	// })
+	t.Run("include-needs fail on disabled transitive need", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
+			selectors: []string{"name=test3"},
+			error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+		})
+	})
 
-	// t.Run("include-transitive-needs fail on disabled transitive need", func(t *testing.T) {
-	// 	check(t, testcase{
-	// 		fields: fields{
-	// 			skipNeeds:              false,
-	// 			includeNeeds:           false,
-	// 			includeTransitiveNeeds: true,
-	// 		},
-	// 		selectors: []string{"name=test3"},
-	// 		error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
-	// 	})
-	// })
+	t.Run("include-transitive-needs fail on disabled transitive need", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds:              false,
+				includeNeeds:           false,
+				includeTransitiveNeeds: true,
+			},
+			selectors: []string{"name=test3"},
+			error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+		})
+	})
 
-	// t.Run("include-needs with include-transitive-needs fail on disabled direct need", func(t *testing.T) {
-	// 	check(t, testcase{
-	// 		fields: fields{
-	// 			skipNeeds:              false,
-	// 			includeNeeds:           true,
-	// 			includeTransitiveNeeds: true,
-	// 		},
-	// 		selectors: []string{"name=test2"},
-	// 		error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
-	// 	})
-	// })
+	t.Run("include-needs with include-transitive-needs fail on disabled direct need", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds:              false,
+				includeNeeds:           true,
+				includeTransitiveNeeds: true,
+			},
+			selectors: []string{"name=test2"},
+			error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+		})
+	})
 
-	// t.Run("include-needs with include-transitive-needs fail on disabled transitive need", func(t *testing.T) {
-	// 	check(t, testcase{
-	// 		fields: fields{
-	// 			skipNeeds:              false,
-	// 			includeNeeds:           true,
-	// 			includeTransitiveNeeds: true,
-	// 		},
-	// 		selectors: []string{"name=test3"},
-	// 		error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
-	// 	})
-	// })
+	t.Run("include-needs with include-transitive-needs fail on disabled transitive need", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds:              false,
+				includeNeeds:           true,
+				includeTransitiveNeeds: true,
+			},
+			selectors: []string{"name=test3"},
+			error:     `in ./helmfile.yaml: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+		})
+	})
 
 	t.Run("bad selector", func(t *testing.T) {
 		check(t, testcase{

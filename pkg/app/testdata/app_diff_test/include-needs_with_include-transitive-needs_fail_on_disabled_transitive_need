@@ -102,13 +102,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 44: 
 
 merged environment: &{default map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
+3 release(s) matching name=test3 found in helmfile.yaml
 
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
-
-processing releases in group 1/2: default/default/external-secrets
-processing releases in group 2/2: default/default/my-release
+err: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
 changing working directory back to "/path/to"
