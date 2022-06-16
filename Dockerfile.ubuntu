@@ -11,12 +11,12 @@ RUN make static-linux
 
 # -----------------------------------------------------------------------------
 
-FROM ubuntu:20.10
+FROM ubuntu:20.04
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
-RUN apt update -qq && \
-    apt install --no-install-recommends -y \
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
       ca-certificates \
       git bash curl jq wget openssh-client && \
     rm -rf /var/lib/apt/lists/*
@@ -60,7 +60,7 @@ ENV SOPS_VERSION="v3.7.3"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO https://github.com/mozilla/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64 && \
     chmod +x sops-${SOPS_VERSION}.linux.amd64  && \
-    mv sops-${SOPS_VERSION}.linux.amd64  /usr/local/bin/sops \
+    mv sops-${SOPS_VERSION}.linux.amd64  /usr/local/bin/sops
 
 ENV AGE_VERSION="v1.0.0"
 RUN set -x && \
