@@ -21,7 +21,7 @@ on:
 
 jobs:
   build-test:
-    if: github.ref startsWith(github.ref, 'refs/pull/')
+    if: startsWith(github.ref, 'refs/pull/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
