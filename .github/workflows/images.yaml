@@ -1,6 +1,8 @@
 name: Images
 
 on:
+  pull_request:
+    branches: [ main ]
   push:
     branches:
       - main
@@ -19,7 +21,7 @@ on:
 
 jobs:
   build-test:
-    if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+    if: github.ref startsWith(github.ref, 'refs/pull/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,6 +31,7 @@ jobs:
        include:
          - dockerfile: Dockerfile
          - dockerfile: Dockerfile.debian
+         - dockerfile: Dockerfile.ubuntu
     steps:
       - name: Checkout
         uses: actions/checkout@v3
