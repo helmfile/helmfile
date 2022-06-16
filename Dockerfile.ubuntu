@@ -11,18 +11,18 @@ RUN make static-linux
 
 # -----------------------------------------------------------------------------
 
-FROM ubuntu:20.10
+FROM ubuntu:20.04
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
-RUN apt update -qq && \
-    apt install --no-install-recommends -y \
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
       ca-certificates \
       git bash curl jq wget openssh-client && \
     rm -rf /var/lib/apt/lists/*
 
-ARG HELM_VERSION="v3.8.2"
-ARG HELM_SHA256="6cb9a48f72ab9ddfecab88d264c2f6508ab3cd42d9c09666be16a7bf006bed7b"
+ARG HELM_VERSION="v3.9.0"
+ARG HELM_SHA256="1484ffb0c7a608d8069470f48b88d729e88c41a1b6602f145231e8ea7b43b50a"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
 
@@ -60,7 +60,7 @@ ENV SOPS_VERSION="v3.7.3"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO https://github.com/mozilla/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64 && \
     chmod +x sops-${SOPS_VERSION}.linux.amd64  && \
-    mv sops-${SOPS_VERSION}.linux.amd64  /usr/local/bin/sops \
+    mv sops-${SOPS_VERSION}.linux.amd64  /usr/local/bin/sops
 
 ENV AGE_VERSION="v1.0.0"
 RUN set -x && \

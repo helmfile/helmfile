@@ -17,8 +17,8 @@ LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
 RUN apk add --no-cache ca-certificates git bash curl jq openssh-client
 
-ARG HELM_VERSION="v3.8.2"
-ARG HELM_SHA256="6cb9a48f72ab9ddfecab88d264c2f6508ab3cd42d9c09666be16a7bf006bed7b"
+ARG HELM_VERSION="v3.9.0"
+ARG HELM_SHA256="1484ffb0c7a608d8069470f48b88d729e88c41a1b6602f145231e8ea7b43b50a"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
 
