@@ -128,145 +128,6 @@ backend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 			concurrency: 1,
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: database
- 3:   chart: charts/mysql
- 4:   needs:
- 5:   - logging
- 6: - name: frontend-v1
- 7:   chart: charts/frontend
- 8:   installed: false
- 9:   needs:
-10:   - servicemesh
-11:   - logging
-12:   - backend-v1
-13: - name: frontend-v2
-14:   chart: charts/frontend
-15:   needs:
-16:   - servicemesh
-17:   - logging
-18:   - backend-v2
-19: - name: frontend-v3
-20:   chart: charts/frontend
-21:   needs:
-22:   - servicemesh
-23:   - logging
-24:   - backend-v2
-25: - name: backend-v1
-26:   chart: charts/backend
-27:   installed: false
-28:   needs:
-29:   - servicemesh
-30:   - logging
-31:   - database
-32:   - anotherbackend
-33: - name: backend-v2
-34:   chart: charts/backend
-35:   needs:
-36:   - servicemesh
-37:   - logging
-38:   - database
-39:   - anotherbackend
-40: - name: anotherbackend
-41:   chart: charts/anotherbackend
-42:   needs:
-43:   - servicemesh
-44:   - logging
-45:   - database
-46: - name: servicemesh
-47:   chart: charts/istio
-48:   needs:
-49:   - logging
-50: - name: logging
-51:   chart: charts/fluent-bit
-52: - name: front-proxy
-53:   chart: stable/envoy
-54: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: database
- 3:   chart: charts/mysql
- 4:   needs:
- 5:   - logging
- 6: - name: frontend-v1
- 7:   chart: charts/frontend
- 8:   installed: false
- 9:   needs:
-10:   - servicemesh
-11:   - logging
-12:   - backend-v1
-13: - name: frontend-v2
-14:   chart: charts/frontend
-15:   needs:
-16:   - servicemesh
-17:   - logging
-18:   - backend-v2
-19: - name: frontend-v3
-20:   chart: charts/frontend
-21:   needs:
-22:   - servicemesh
-23:   - logging
-24:   - backend-v2
-25: - name: backend-v1
-26:   chart: charts/backend
-27:   installed: false
-28:   needs:
-29:   - servicemesh
-30:   - logging
-31:   - database
-32:   - anotherbackend
-33: - name: backend-v2
-34:   chart: charts/backend
-35:   needs:
-36:   - servicemesh
-37:   - logging
-38:   - database
-39:   - anotherbackend
-40: - name: anotherbackend
-41:   chart: charts/anotherbackend
-42:   needs:
-43:   - servicemesh
-44:   - logging
-45:   - database
-46: - name: servicemesh
-47:   chart: charts/istio
-48:   needs:
-49:   - logging
-50: - name: logging
-51:   chart: charts/fluent-bit
-52: - name: front-proxy
-53:   chart: stable/envoy
-54: 
-
-merged environment: &{default map[] map[]}
-10 release(s) found in helmfile.yaml
-
-Affected releases are:
-  anotherbackend (charts/anotherbackend) UPDATED
-  backend-v1 (charts/backend) DELETED
-  backend-v2 (charts/backend) UPDATED
-  database (charts/mysql) UPDATED
-  front-proxy (stable/envoy) UPDATED
-  frontend-v1 (charts/frontend) DELETED
-  frontend-v3 (charts/frontend) UPDATED
-  logging (charts/fluent-bit) UPDATED
-  servicemesh (charts/istio) UPDATED
-
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// noop: no changes
@@ -330,51 +191,6 @@ releases:
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: mychart3
- 4: - name: foo
- 5:   chart: mychart1
- 6:   needs:
- 7:   - bar
- 8: - name: bar
- 9:   chart: mychart2
-10: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: mychart3
- 4: - name: foo
- 5:   chart: mychart1
- 6:   needs:
- 7:   - bar
- 8: - name: bar
- 9:   chart: mychart2
-10: 
-
-merged environment: &{default map[] map[]}
-3 release(s) found in helmfile.yaml
-
-Affected releases are:
-  bar (mychart2) UPDATED
-  baz (mychart3) UPDATED
-  foo (mychart1) UPDATED
-
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// upgrades
@@ -518,7 +334,7 @@ releases:
 			upgraded: []exectest.Release{},
 		},
 		{
-			name: "helm2: upgrade when tns1/foo needs tns2/bar",
+			name: "helm2 upgrade when tns1 foo needs tns2 bar",
 			loc:  location(),
 
 			files: map[string]string{
@@ -545,7 +361,7 @@ releases:
 			upgraded: []exectest.Release{},
 		},
 		{
-			name: "helm2: upgrade when tns2/bar needs tns1/foo",
+			name: "helm2 upgrade when tns2 bar needs tns1 foo",
 			loc:  location(),
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
@@ -571,57 +387,9 @@ releases:
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   chart: mychart2
- 4:   namespace: ns2
- 5:   tillerNamespace: tns2
- 6:   needs:
- 7:   - tns1/foo
- 8: - name: foo
- 9:   chart: mychart1
-10:   namespace: ns1
-11:   tillerNamespace: tns1
-12: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   chart: mychart2
- 4:   namespace: ns2
- 5:   tillerNamespace: tns2
- 6:   needs:
- 7:   - tns1/foo
- 8: - name: foo
- 9:   chart: mychart1
-10:   namespace: ns1
-11:   tillerNamespace: tns1
-12: 
-
-merged environment: &{default map[] map[]}
-2 release(s) found in helmfile.yaml
-
-Affected releases are:
-  bar (mychart2) UPDATED
-  foo (mychart1) UPDATED
-
-changing working directory back to "/path/to"
-`,
 		},
 		{
-			name: "helm3: upgrade when ns2/bar needs ns1/foo",
+			name: "helm3 upgrade when ns2 bar needs ns1 foo",
 			loc:  location(),
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
@@ -645,50 +413,6 @@ releases:
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   chart: mychart2
- 4:   namespace: ns2
- 5:   needs:
- 6:   - ns1/foo
- 7: - name: foo
- 8:   chart: mychart1
- 9:   namespace: ns1
-10: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   chart: mychart2
- 4:   namespace: ns2
- 5:   needs:
- 6:   - ns1/foo
- 7: - name: foo
- 8:   chart: mychart1
- 9:   namespace: ns1
-10: 
-
-merged environment: &{default map[] map[]}
-2 release(s) found in helmfile.yaml
-
-Affected releases are:
-  bar (mychart2) UPDATED
-  foo (mychart1) UPDATED
-
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// deletes: deleting all releases in the correct order
@@ -910,7 +634,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least one change",
+			error:            `in ./helmfile.yaml: release "bar" depends on "foo" which does not match the selectors. Please add a selector like "--selector name=foo", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			diffs: map[exectest.DiffKey]error{
 				{Name: "bar", Chart: "mychart2", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				{Name: "foo", Chart: "mychart1", Flags: "--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -1002,76 +726,6 @@ releases:
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			error:       "Identified at least one change",
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-merged environment: &{default map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
-
-Affected releases are:
-  external-secrets (incubator/raw) UPDATED
-  my-release (incubator/raw) UPDATED
-
-changing working directory back to "/path/to"
-`,
 		},
 		{
 			name:  "upgrades with good selector with --skip-needs=false",
@@ -1480,6 +1134,8 @@ changing working directory back to "/path/to"
 				if exists {
 					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
 				}
+			} else {
+				testhelper.RequireLog(t, "app_diff_test_2", bs)
 			}
 		})
 	}
