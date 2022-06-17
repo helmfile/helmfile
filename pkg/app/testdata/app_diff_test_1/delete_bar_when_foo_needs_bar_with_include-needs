@@ -1,0 +1,48 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   chart: mychart2
+ 4:   installed: false
+ 5: - name: foo
+ 6:   chart: mychart1
+ 7:   needs:
+ 8:   - bar
+ 9: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   chart: mychart2
+ 4:   installed: false
+ 5: - name: foo
+ 6:   chart: mychart1
+ 7:   needs:
+ 8:   - bar
+ 9: 
+
+merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     default//bar
+2     default//foo
+
+processing releases in group 1/2: default//bar
+processing releases in group 2/2: default//foo
+Affected releases are:
+  bar (mychart2) DELETED
+  foo (mychart1) UPDATED
+
+changing working directory back to "/path/to"

@@ -1,0 +1,54 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: foo
+ 3:   chart: mychart1
+ 4:   namespace: ns1
+ 5:   tillerNamespace: tns1
+ 6:   needs:
+ 7:   - tns2/bar
+ 8: - name: bar
+ 9:   chart: mychart2
+10:   namespace: ns2
+11:   tillerNamespace: tns2
+12: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: foo
+ 3:   chart: mychart1
+ 4:   namespace: ns1
+ 5:   tillerNamespace: tns1
+ 6:   needs:
+ 7:   - tns2/bar
+ 8: - name: bar
+ 9:   chart: mychart2
+10:   namespace: ns2
+11:   tillerNamespace: tns2
+12: 
+
+merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     default/tns2/bar
+2     default/tns1/foo
+
+processing releases in group 1/2: default/tns2/bar
+processing releases in group 2/2: default/tns1/foo
+Affected releases are:
+  bar (mychart2) UPDATED
+  foo (mychart1) UPDATED
+
+changing working directory back to "/path/to"
