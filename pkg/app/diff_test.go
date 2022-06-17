@@ -140,7 +140,8 @@ func (a diffConfig) RetainValuesFiles() bool {
 
 func TestDiff(t *testing.T) {
 	type flags struct {
-		skipNeeds bool
+		skipNeeds    bool
+		includeNeeds bool
 	}
 
 	testcases := []struct {
@@ -931,7 +932,77 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least one change",
+			error:            `in ./helmfile.yaml: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			diffs: map[exectest.DiffKey]error{
+				{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
+`,
+				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{},
+			deleted:  []exectest.Release{},
+		},
+		{
+			name: "delete bar when foo needs bar with include-needs",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  chart: mychart2
+  installed: false
+- name: foo
+  chart: mychart1
+  needs:
+  - bar
+`,
+			},
+			detailedExitcode: true,
+			flags: flags{
+				includeNeeds: true,
+			},
+			error: "Identified at least one change",
+			diffs: map[exectest.DiffKey]error{
+				{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
+`,
+				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{},
+			deleted:  []exectest.Release{},
+		},
+		{
+			name: "delete bar when foo needs bar with skip-needs",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  chart: mychart2
+  installed: false
+- name: foo
+  chart: mychart1
+  needs:
+  - bar
+`,
+			},
+			detailedExitcode: true,
+			flags: flags{
+				skipNeeds: true,
+			},
+			error: "Identified at least one change",
 			diffs: map[exectest.DiffKey]error{
 				{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -961,6 +1032,76 @@ releases:
   needs:
   - foo
 `,
+			},
+			detailedExitcode: true,
+			error:            `in ./helmfile.yaml: release "default//bar" depends on "default//foo" which does not match the selectors. Please add a selector like "--selector name=foo", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			diffs: map[exectest.DiffKey]error{
+				{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
+`,
+				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{},
+			deleted:  []exectest.Release{},
+		},
+		{
+			name: "delete foo when bar needs foo with include-needs",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: mychart1
+  installed: false
+- name: bar
+  chart: mychart2
+  needs:
+  - foo
+`,
+			},
+			flags: flags{
+				includeNeeds: true,
+			},
+			detailedExitcode: true,
+			error:            "Identified at least one change",
+			diffs: map[exectest.DiffKey]error{
+				{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
+`,
+				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{},
+			deleted:  []exectest.Release{},
+		},
+		{
+			name: "delete foo when bar needs foo with skip-needs",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: mychart1
+  installed: false
+- name: bar
+  chart: mychart2
+  needs:
+  - foo
+`,
+			},
+			flags: flags{
+				skipNeeds: true,
 			},
 			detailedExitcode: true,
 			error:            "Identified at least one change",
@@ -1547,6 +1688,7 @@ changing working directory back to "/path/to"
 					logger:           logger,
 					detailedExitcode: tc.detailedExitcode,
 					skipNeeds:        tc.flags.skipNeeds,
+					includeNeeds:     tc.flags.includeNeeds,
 				})
 
 				var diffErrStr string

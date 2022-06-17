@@ -1464,17 +1464,17 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		updated, deleted map[string]state.ReleaseSpec
 	)
 
-	ok, errs := a.withNeeds(r, c, func(st *state.HelmState, toDiff []state.ReleaseSpec, _ map[string]state.ReleaseSpec) []error {
+	ok, errs := a.withNeeds(r, c, func(st *state.HelmState, toDiff []state.ReleaseSpec, disabled map[string]state.ReleaseSpec) []error {
 		helm := r.helm
 
 		var rels []state.ReleaseSpec
 
-		if len(toDiff) > 0 {
+		if len(st.Releases) > 0 {
 			// toDiff already contains the direct and transitive needs depending on the DAG options.
 			// That's why we don't pass in `IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()` here.
 			// Otherwise, in case include-needs=true, it will include the needs of needs, which results in unexpectedly introducing transitive needs,
 			// even if include-transitive-needs=true is unspecified.
-			_, errs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toDiff, Reverse: false, SkipNeeds: c.SkipNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, errs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toDiff, Reverse: false, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				rels = append(rels, subst.Releases...)
 				return nil
 			}))
@@ -1494,6 +1494,10 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			NoColor:           c.NoColor(),
 			Set:               c.Set(),
 			SkipDiffOnInstall: c.SkipDiffOnInstall(),
+		}
+
+		for _, d := range disabled {
+			rels = append(rels, d)
 		}
 
 		st.Releases = rels
