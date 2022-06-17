@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 
@@ -170,33 +168,7 @@ releases:
 			require.Equal(t, wantDiffs, helm.Diffed)
 		}()
 
-		testNameComponents := strings.Split(t.Name(), "/")
-		testBaseName := strings.ToLower(
-			strings.ReplaceAll(
-				testNameComponents[len(testNameComponents)-1],
-				" ",
-				"_",
-			),
-		)
-		wantLogFileDir := filepath.Join("testdata", "app_diff_test")
-		wantLogFile := filepath.Join(wantLogFileDir, testBaseName)
-		wantLogData, err := os.ReadFile(wantLogFile)
-		updateLogFile := err != nil
-		wantLog := string(wantLogData)
-		gotLog := bs.String()
-		if updateLogFile {
-			if err := os.MkdirAll(wantLogFileDir, 0755); err != nil {
-				t.Fatalf("unable to create directory %q: %v", wantLogFileDir, err)
-			}
-			if err := os.WriteFile(wantLogFile, bs.Bytes(), 0644); err != nil {
-				t.Fatalf("unable to update lint log snapshot: %v", err)
-			}
-		}
-
-		diff, exists := testhelper.Diff(wantLog, gotLog, 3)
-		if exists {
-			t.Errorf("unexpected log:\nDIFF\n%s\nEOD\nPlease remove %s and rerun the test to recapture this test snapshot", diff, wantLogFile)
-		}
+		testhelper.RequireLog(t, "app_diff_test", bs)
 	}
 
 	t.Run("fail on unselected need by default", func(t *testing.T) {
