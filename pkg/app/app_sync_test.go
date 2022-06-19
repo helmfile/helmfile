@@ -202,6 +202,14 @@ releases:
 				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^my-release$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
@@ -278,14 +286,12 @@ GROUP RELEASES
 2     default/default/my-release
 
 processing releases in group 1/2: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
-external-secrets   incubator/raw          
-my-release         incubator/raw          
+external-secrets   incubator/raw     3.1.0
+my-release         incubator/raw     3.1.0
 
 changing working directory back to "/path/to"
 `,
@@ -327,6 +333,17 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+kubernetes-external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^my-release$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
@@ -405,17 +422,14 @@ GROUP RELEASES
 3     default/default/my-release
 
 processing releases in group 1/3: default/kube-system/kubernetes-external-secrets
-getting deployed release version failed:unexpected list key: {^kubernetes-external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/3: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 3/3: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME                          CHART           VERSION
-kubernetes-external-secrets   incubator/raw          
-external-secrets              incubator/raw          
-my-release                    incubator/raw          
+kubernetes-external-secrets   incubator/raw     3.1.0
+external-secrets              incubator/raw     3.1.0
+my-release                    incubator/raw     3.1.0
 
 changing working directory back to "/path/to"
 `,
@@ -453,6 +467,17 @@ releases:
 			},
 			selectors: []string{"name=serviceA"},
 			upgraded:  []exectest.Release{},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^serviceC$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+serviceC 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	chart-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^serviceB$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+serviceB 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	chart-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^serviceA$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+serviceA 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	chart-3.1.0	3.1.0      	default
+				`,
+			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
@@ -523,17 +548,14 @@ GROUP RELEASES
 3     default//serviceA
 
 processing releases in group 1/3: default//serviceC
-getting deployed release version failed:unexpected list key: {^serviceC$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/3: default//serviceB
-getting deployed release version failed:unexpected list key: {^serviceB$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 3/3: default//serviceA
-getting deployed release version failed:unexpected list key: {^serviceA$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME       CHART      VERSION
-serviceC   my/chart          
-serviceB   my/chart          
-serviceA   my/chart          
+serviceC   my/chart     3.1.0
+serviceB   my/chart     3.1.0
+serviceA   my/chart     3.1.0
 
 changing working directory back to "/path/to"
 `,
@@ -578,10 +600,15 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
-				// delete frontend-v1 and backend-v1
 				{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-^kubernetes-external-secrets$ 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
-`,
+kubernetes-external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^my-release$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -667,14 +694,12 @@ GROUP RELEASES
 2     default/default/my-release
 
 processing releases in group 1/2: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
-external-secrets   incubator/raw          
-my-release         incubator/raw          
+external-secrets   incubator/raw     3.1.0
+my-release         incubator/raw     3.1.0
 
 
 DELETED RELEASES:
@@ -725,6 +750,12 @@ releases:
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
 				{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlags}: ``,
+				{Filter: "^external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^my-release$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -804,14 +835,12 @@ GROUP RELEASES
 2     default/default/my-release
 
 processing releases in group 1/2: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
-external-secrets   incubator/raw          
-my-release         incubator/raw          
+external-secrets   incubator/raw     3.1.0
+my-release         incubator/raw     3.1.0
 
 changing working directory back to "/path/to"
 `,

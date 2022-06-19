@@ -1,0 +1,38 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   chart: mychart2
+ 4:   installed: false
+ 5: - name: foo
+ 6:   chart: mychart1
+ 7:   needs:
+ 8:   - bar
+ 9: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: bar
+ 3:   chart: mychart2
+ 4:   installed: false
+ 5: - name: foo
+ 6:   chart: mychart1
+ 7:   needs:
+ 8:   - bar
+ 9: 
+
+merged environment: &{default map[] map[]}
+2 release(s) found in helmfile.yaml
+
+err: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+changing working directory back to "/path/to"

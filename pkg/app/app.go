@@ -200,7 +200,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		}
 
 		return matched, criticalErrs
-	}, false)
+	}, c.IncludeTransitiveNeeds())
 
 	if err != nil {
 		return err
@@ -318,7 +318,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, c.IncludeTransitiveNeeds())
 
 	if err != nil {
 		return err
@@ -1459,126 +1459,75 @@ Do you really want to delete?
 }
 
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
-	st := r.state
+	var (
+		infoMsg          *string
+		updated, deleted map[string]state.ReleaseSpec
+	)
 
-	selectedReleases, deduplicatedReleases, err := a.getSelectedReleases(r, false)
-	if err != nil {
-		return nil, false, false, []error{err}
-	}
+	ok, errs := a.withNeeds(r, c, true, func(st *state.HelmState) []error {
+		helm := r.helm
 
-	if len(selectedReleases) == 0 {
-		return nil, false, false, nil
-	}
+		helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+		var errs []error
 
-	opts := &state.DiffOpts{
-		Context:           c.Context(),
-		Output:            c.DiffOutput(),
-		Color:             c.Color(),
-		NoColor:           c.NoColor(),
-		Set:               c.Set(),
-		SkipDiffOnInstall: c.SkipDiffOnInstall(),
-	}
-
-	st.Releases = deduplicatedReleases
-
-	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: false})
-	if err != nil {
-		return nil, false, false, []error{err}
-	}
-
-	var toDiffWithNeeds []state.ReleaseSpec
-
-	for _, rs := range plan {
-		for _, r := range rs {
-			toDiffWithNeeds = append(toDiffWithNeeds, r.ReleaseSpec)
+		opts := &state.DiffOpts{
+			Context:           c.Context(),
+			Output:            c.DiffOutput(),
+			Color:             c.Color(),
+			NoColor:           c.NoColor(),
+			Set:               c.Set(),
+			SkipDiffOnInstall: c.SkipDiffOnInstall(),
 		}
-	}
 
-	// Diff only targeted releases
+		filtered := &Run{
+			state: st,
+			helm:  helm,
+			ctx:   r.ctx,
+			Ask:   r.Ask,
+		}
+		infoMsg, updated, deleted, errs = filtered.diff(true, c.DetailedExitcode(), c, opts)
 
-	st.Releases = toDiffWithNeeds
+		return errs
+	})
 
-	filtered := &Run{
-		state: st,
-		helm:  r.helm,
-		ctx:   r.ctx,
-		Ask:   r.Ask,
-	}
-
-	infoMsg, updated, deleted, errs := filtered.diff(true, c.DetailedExitcode(), c, opts)
-
-	return infoMsg, true, len(deleted) > 0 || len(updated) > 0, errs
+	return infoMsg, ok, len(deleted) > 0 || len(updated) > 0, errs
 }
 
 func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
-	st := r.state
-	helm := r.helm
-
-	allReleases := st.GetReleasesWithOverrides()
-
-	selectedReleases, _, err := a.getSelectedReleases(r, false)
-	if err != nil {
-		return false, nil, []error{err}
-	}
-	if len(selectedReleases) == 0 {
-		return false, nil, nil
-	}
-
-	// Do build deps and prepare only on selected releases so that we won't waste time
-	// on running various helm commands on unnecessary releases
-	st.Releases = selectedReleases
-
-	var toLint []state.ReleaseSpec
-	for _, r := range selectedReleases {
-		if r.Installed != nil && !*r.Installed {
-			continue
-		}
-		toLint = append(toLint, r)
-	}
-
-	var errs []error
-
-	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = allReleases
-
-	args := argparser.GetArgs(c.Args(), st)
-
-	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
-	helm.SetExtraArgs()
-
-	if len(args) > 0 {
-		helm.SetExtraArgs(args...)
-	}
-
 	var deferredLintErrs []error
 
-	if len(toLint) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toLint, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			opts := &state.LintOpts{
-				Set:         c.Set(),
-				SkipCleanup: c.SkipCleanup(),
-			}
-			lintErrs := subst.LintReleases(helm, c.Values(), args, c.Concurrency(), opts)
-			if len(lintErrs) == 1 {
-				if err, ok := lintErrs[0].(helmexec.ExitError); ok {
-					if err.Code > 0 {
-						deferredLintErrs = append(deferredLintErrs, err)
+	ok, errs := a.withNeeds(r, c, false, func(st *state.HelmState) []error {
+		helm := r.helm
 
-						return nil
-					}
+		args := argparser.GetArgs(c.Args(), st)
+
+		// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
+		helm.SetExtraArgs()
+
+		if len(args) > 0 {
+			helm.SetExtraArgs(args...)
+		}
+
+		opts := &state.LintOpts{
+			Set:         c.Set(),
+			SkipCleanup: c.SkipCleanup(),
+		}
+		lintErrs := st.LintReleases(helm, c.Values(), args, c.Concurrency(), opts)
+		if len(lintErrs) == 1 {
+			if err, ok := lintErrs[0].(helmexec.ExitError); ok {
+				if err.Code > 0 {
+					deferredLintErrs = append(deferredLintErrs, err)
+
+					return nil
 				}
 			}
-
-			return lintErrs
-		}))
-
-		if len(templateErrs) > 0 {
-			errs = append(errs, templateErrs...)
 		}
-	}
-	return true, deferredLintErrs, errs
+
+		return lintErrs
+	})
+
+	return ok, deferredLintErrs, errs
 }
 
 func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
@@ -1795,10 +1744,33 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 }
 
 func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
-	st := r.state
-	helm := r.helm
+	return a.withNeeds(r, c, false, func(st *state.HelmState) []error {
+		helm := r.helm
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+		args := argparser.GetArgs(c.Args(), st)
+
+		// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
+		helm.SetExtraArgs()
+
+		if len(args) > 0 {
+			helm.SetExtraArgs(args...)
+		}
+
+		opts := &state.TemplateOpts{
+			Set:               c.Set(),
+			IncludeCRDs:       c.IncludeCRDs(),
+			OutputDirTemplate: c.OutputDirTemplate(),
+			SkipCleanup:       c.SkipCleanup(),
+			SkipTests:         c.SkipTests(),
+		}
+		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
+	})
+}
+
+func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state.HelmState) []error) (bool, []error) {
+	st := r.state
+
+	selectedReleases, deduplicated, err := a.getSelectedReleases(r, false)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1810,9 +1782,14 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
 	// even if we provided `SelectedReleases: selectedReleases`.
 	// See https://github.com/roboll/helmfile/issues/1818 for more context.
-	st.Releases = selectedAndNeededReleases
+	st.Releases = deduplicated
 
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(), SkipNeeds: !c.IncludeNeeds()})
+	includeNeeds := c.IncludeNeeds()
+	if c.IncludeTransitiveNeeds() {
+		includeNeeds = true
+	}
+
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: includeNeeds, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(), SkipNeeds: c.SkipNeeds()})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1838,36 +1815,34 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		}
 	}
 
-	var errs []error
+	var rels []state.ReleaseSpec
 
-	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
-	st.Releases = selectedReleasesWithNeeds
-
-	args := argparser.GetArgs(c.Args(), st)
-
-	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
-	helm.SetExtraArgs()
-
-	if len(args) > 0 {
-		helm.SetExtraArgs(args...)
+	// toRender already contains the direct and transitive needs depending on the DAG options.
+	// That's why we don't pass in `IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()` here.
+	// Otherwise, in case include-needs=true, it will include the needs of needs, which results in unexpectedly introducing transitive needs,
+	// even if include-transitive-needs=true is unspecified.
+	if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: c.SkipNeeds(), IncludeNeeds: includeNeeds}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		rels = append(rels, subst.Releases...)
+		return nil
+	})); len(errs) > 0 {
+		return false, errs
 	}
 
-	if len(toRender) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			opts := &state.TemplateOpts{
-				Set:               c.Set(),
-				IncludeCRDs:       c.IncludeCRDs(),
-				OutputDirTemplate: c.OutputDirTemplate(),
-				SkipCleanup:       c.SkipCleanup(),
-				SkipTests:         c.SkipTests(),
-			}
-			return subst.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
-		}))
-
-		if len(templateErrs) > 0 {
-			errs = append(errs, templateErrs...)
+	if includeDisabled {
+		for _, d := range releasesDisabled {
+			rels = append(rels, d)
 		}
 	}
+
+	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
+	// and we don't fail on dependenciese on disabled releases.
+	// In diff, we need to diff on disabled releases to show to-be-uninstalled releases.
+	// In lint and template, we'd need to run respective helm commands only on enabled releases,
+	// without failing on disabled releases.
+	st.Releases = rels
+
+	errs := f(st)
+
 	return true, errs
 }
 

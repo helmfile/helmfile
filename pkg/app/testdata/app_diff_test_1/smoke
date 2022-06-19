@@ -1,0 +1,151 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: database
+ 3:   chart: charts/mysql
+ 4:   needs:
+ 5:   - logging
+ 6: - name: frontend-v1
+ 7:   chart: charts/frontend
+ 8:   installed: false
+ 9:   needs:
+10:   - servicemesh
+11:   - logging
+12:   - backend-v1
+13: - name: frontend-v2
+14:   chart: charts/frontend
+15:   needs:
+16:   - servicemesh
+17:   - logging
+18:   - backend-v2
+19: - name: frontend-v3
+20:   chart: charts/frontend
+21:   needs:
+22:   - servicemesh
+23:   - logging
+24:   - backend-v2
+25: - name: backend-v1
+26:   chart: charts/backend
+27:   installed: false
+28:   needs:
+29:   - servicemesh
+30:   - logging
+31:   - database
+32:   - anotherbackend
+33: - name: backend-v2
+34:   chart: charts/backend
+35:   needs:
+36:   - servicemesh
+37:   - logging
+38:   - database
+39:   - anotherbackend
+40: - name: anotherbackend
+41:   chart: charts/anotherbackend
+42:   needs:
+43:   - servicemesh
+44:   - logging
+45:   - database
+46: - name: servicemesh
+47:   chart: charts/istio
+48:   needs:
+49:   - logging
+50: - name: logging
+51:   chart: charts/fluent-bit
+52: - name: front-proxy
+53:   chart: stable/envoy
+54: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: database
+ 3:   chart: charts/mysql
+ 4:   needs:
+ 5:   - logging
+ 6: - name: frontend-v1
+ 7:   chart: charts/frontend
+ 8:   installed: false
+ 9:   needs:
+10:   - servicemesh
+11:   - logging
+12:   - backend-v1
+13: - name: frontend-v2
+14:   chart: charts/frontend
+15:   needs:
+16:   - servicemesh
+17:   - logging
+18:   - backend-v2
+19: - name: frontend-v3
+20:   chart: charts/frontend
+21:   needs:
+22:   - servicemesh
+23:   - logging
+24:   - backend-v2
+25: - name: backend-v1
+26:   chart: charts/backend
+27:   installed: false
+28:   needs:
+29:   - servicemesh
+30:   - logging
+31:   - database
+32:   - anotherbackend
+33: - name: backend-v2
+34:   chart: charts/backend
+35:   needs:
+36:   - servicemesh
+37:   - logging
+38:   - database
+39:   - anotherbackend
+40: - name: anotherbackend
+41:   chart: charts/anotherbackend
+42:   needs:
+43:   - servicemesh
+44:   - logging
+45:   - database
+46: - name: servicemesh
+47:   chart: charts/istio
+48:   needs:
+49:   - logging
+50: - name: logging
+51:   chart: charts/fluent-bit
+52: - name: front-proxy
+53:   chart: stable/envoy
+54: 
+
+merged environment: &{default map[] map[]}
+10 release(s) found in helmfile.yaml
+
+processing 5 groups of releases in this order:
+GROUP RELEASES
+1     default//logging, default//front-proxy
+2     default//database, default//servicemesh
+3     default//anotherbackend
+4     default//backend-v2
+5     default//frontend-v2, default//frontend-v3
+
+processing releases in group 1/5: default//logging, default//front-proxy
+processing releases in group 2/5: default//database, default//servicemesh
+processing releases in group 3/5: default//anotherbackend
+processing releases in group 4/5: default//backend-v2
+processing releases in group 5/5: default//frontend-v2, default//frontend-v3
+Affected releases are:
+  anotherbackend (charts/anotherbackend) UPDATED
+  backend-v1 (charts/backend) DELETED
+  backend-v2 (charts/backend) UPDATED
+  database (charts/mysql) UPDATED
+  front-proxy (stable/envoy) UPDATED
+  frontend-v1 (charts/frontend) DELETED
+  frontend-v3 (charts/frontend) UPDATED
+  logging (charts/fluent-bit) UPDATED
+  servicemesh (charts/istio) UPDATED
+
+changing working directory back to "/path/to"

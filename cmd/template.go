@@ -50,6 +50,10 @@ func addTemplateSubcommand(cliApp *cli.App) {
 				Usage: "skip tests from templated output",
 			},
 			cli.BoolFlag{
+				Name:  "skip-needs",
+				Usage: `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`,
+			},
+			cli.BoolFlag{
 				Name:  "include-needs",
 				Usage: `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided`,
 			},

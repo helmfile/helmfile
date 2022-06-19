@@ -15,6 +15,10 @@ type ListKey struct {
 	Flags  string
 }
 
+func (k ListKey) String() string {
+	return fmt.Sprintf("listkey(filter=%s,flags=%s)", k.Filter, k.Flags)
+}
+
 type DiffKey struct {
 	Name  string
 	Chart string
@@ -26,6 +30,8 @@ type Helm struct {
 	Repo                 []string
 	Releases             []Release
 	Deleted              []Release
+	Linted               []Release
+	Templated            []Release
 	Lists                map[ListKey]string
 	Diffs                map[DiffKey]error
 	Diffed               []Release
@@ -113,6 +119,11 @@ func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart string, 
 	if helm.DiffMutex != nil {
 		helm.DiffMutex.Unlock()
 	}
+
+	if helm.Diffs == nil {
+		return nil
+	}
+
 	key := DiffKey{Name: name, Chart: chart, Flags: strings.Join(flags, "")}
 	err, ok := helm.Diffs[key]
 	if !ok && helm.FailOnUnexpectedDiff {
@@ -136,9 +147,18 @@ func (helm *Helm) DeleteRelease(context helmexec.HelmContext, name string, flags
 }
 func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
 	key := ListKey{Filter: filter, Flags: strings.Join(flags, "")}
+
+	if helm.Lists == nil {
+		return "dummy non-empty helm-list output", nil
+	}
+
 	res, ok := helm.Lists[key]
 	if !ok && helm.FailOnUnexpectedList {
-		return "", fmt.Errorf("unexpected list key: %v", key)
+		var keys []string
+		for k := range helm.Lists {
+			keys = append(keys, k.String())
+		}
+		return "", fmt.Errorf("unexpected list key: %v in %v", key, strings.Join(keys, ", "))
 	}
 	return res, nil
 }
@@ -156,9 +176,17 @@ func (helm *Helm) Fetch(chart string, flags ...string) error {
 	return nil
 }
 func (helm *Helm) Lint(name, chart string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.Linted = append(helm.Linted, Release{Name: name, Flags: flags})
 	return nil
 }
 func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.Templated = append(helm.Templated, Release{Name: name, Flags: flags})
 	return nil
 }
 func (helm *Helm) ChartPull(chart string, flags ...string) error {

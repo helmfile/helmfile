@@ -2360,6 +2360,10 @@ type applyConfig struct {
 	logger                 *zap.SugaredLogger
 	wait                   bool
 	waitForJobs            bool
+
+	// template-only options
+	includeCRDs, skipTests       bool
+	outputDir, outputDirTemplate string
 }
 
 func (a applyConfig) Args() string {
@@ -2468,6 +2472,23 @@ func (a applyConfig) RetainValuesFiles() bool {
 
 func (a applyConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
+}
+
+// helmfile-template-only flags
+
+func (a applyConfig) IncludeCRDs() bool {
+	return a.includeCRDs
+}
+
+func (a applyConfig) SkipTests() bool {
+	return a.skipTests
+}
+
+func (a applyConfig) OutputDir() string {
+	return a.outputDir
+}
+func (a applyConfig) OutputDirTemplate() string {
+	return a.outputDirTemplate
 }
 
 type depsConfig struct {
@@ -2850,11 +2871,32 @@ releases:
 			},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
+				{Filter: "^logging$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+logging 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
+`,
+				{Filter: "^front-proxy$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
+`,
+				{Filter: "^database$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
+`,
+				{Filter: "^servicemesh$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
+`,
+				{Filter: "^anotherbackend$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
+`,
 				{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
+frontend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
+`,
+				{Filter: "^frontend-v3$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
 				{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 backend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
+`,
+				{Filter: "^backend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
 			},
 			// Disable concurrency to avoid in-deterministic result
@@ -2871,188 +2913,6 @@ backend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 			deleted: []exectest.Release{
 				{Name: "frontend-v1", Flags: []string{}},
 			},
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: database
- 3:   chart: charts/mysql
- 4:   needs:
- 5:   - logging
- 6: - name: frontend-v1
- 7:   chart: charts/frontend
- 8:   installed: false
- 9:   needs:
-10:   - servicemesh
-11:   - logging
-12:   - backend-v1
-13: - name: frontend-v2
-14:   chart: charts/frontend
-15:   needs:
-16:   - servicemesh
-17:   - logging
-18:   - backend-v2
-19: - name: frontend-v3
-20:   chart: charts/frontend
-21:   needs:
-22:   - servicemesh
-23:   - logging
-24:   - backend-v2
-25: - name: backend-v1
-26:   chart: charts/backend
-27:   installed: false
-28:   needs:
-29:   - servicemesh
-30:   - logging
-31:   - database
-32:   - anotherbackend
-33: - name: backend-v2
-34:   chart: charts/backend
-35:   needs:
-36:   - servicemesh
-37:   - logging
-38:   - database
-39:   - anotherbackend
-40: - name: anotherbackend
-41:   chart: charts/anotherbackend
-42:   needs:
-43:   - servicemesh
-44:   - logging
-45:   - database
-46: - name: servicemesh
-47:   chart: charts/istio
-48:   needs:
-49:   - logging
-50: - name: logging
-51:   chart: charts/fluent-bit
-52: - name: front-proxy
-53:   chart: stable/envoy
-54: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: database
- 3:   chart: charts/mysql
- 4:   needs:
- 5:   - logging
- 6: - name: frontend-v1
- 7:   chart: charts/frontend
- 8:   installed: false
- 9:   needs:
-10:   - servicemesh
-11:   - logging
-12:   - backend-v1
-13: - name: frontend-v2
-14:   chart: charts/frontend
-15:   needs:
-16:   - servicemesh
-17:   - logging
-18:   - backend-v2
-19: - name: frontend-v3
-20:   chart: charts/frontend
-21:   needs:
-22:   - servicemesh
-23:   - logging
-24:   - backend-v2
-25: - name: backend-v1
-26:   chart: charts/backend
-27:   installed: false
-28:   needs:
-29:   - servicemesh
-30:   - logging
-31:   - database
-32:   - anotherbackend
-33: - name: backend-v2
-34:   chart: charts/backend
-35:   needs:
-36:   - servicemesh
-37:   - logging
-38:   - database
-39:   - anotherbackend
-40: - name: anotherbackend
-41:   chart: charts/anotherbackend
-42:   needs:
-43:   - servicemesh
-44:   - logging
-45:   - database
-46: - name: servicemesh
-47:   chart: charts/istio
-48:   needs:
-49:   - logging
-50: - name: logging
-51:   chart: charts/fluent-bit
-52: - name: front-proxy
-53:   chart: stable/envoy
-54: 
-
-merged environment: &{default map[] map[]}
-10 release(s) found in helmfile.yaml
-
-Affected releases are:
-  anotherbackend (charts/anotherbackend) UPDATED
-  backend-v1 (charts/backend) DELETED
-  backend-v2 (charts/backend) UPDATED
-  database (charts/mysql) UPDATED
-  front-proxy (stable/envoy) UPDATED
-  frontend-v1 (charts/frontend) DELETED
-  frontend-v3 (charts/frontend) UPDATED
-  logging (charts/fluent-bit) UPDATED
-  servicemesh (charts/istio) UPDATED
-
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default//frontend-v1
-2     default//backend-v1
-
-processing releases in group 1/2: default//frontend-v1
-processing releases in group 2/2: default//backend-v1
-processing 5 groups of releases in this order:
-GROUP RELEASES
-1     default//logging, default//front-proxy
-2     default//database, default//servicemesh
-3     default//anotherbackend
-4     default//backend-v2
-5     default//frontend-v3
-
-processing releases in group 1/5: default//logging, default//front-proxy
-getting deployed release version failed:unexpected list key: {^logging$ --kube-contextdefault--deleting--deployed--failed--pending}
-getting deployed release version failed:unexpected list key: {^front-proxy$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/5: default//database, default//servicemesh
-getting deployed release version failed:unexpected list key: {^database$ --kube-contextdefault--deleting--deployed--failed--pending}
-getting deployed release version failed:unexpected list key: {^servicemesh$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 3/5: default//anotherbackend
-getting deployed release version failed:unexpected list key: {^anotherbackend$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 4/5: default//backend-v2
-getting deployed release version failed:unexpected list key: {^backend-v2$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 5/5: default//frontend-v3
-getting deployed release version failed:unexpected list key: {^frontend-v3$ --kube-contextdefault--deleting--deployed--failed--pending}
-
-UPDATED RELEASES:
-NAME             CHART                   VERSION
-logging          charts/fluent-bit              
-front-proxy      stable/envoy                   
-database         charts/mysql                   
-servicemesh      charts/istio                   
-anotherbackend   charts/anotherbackend          
-backend-v2       charts/backend                 
-frontend-v3      charts/frontend                
-
-
-DELETED RELEASES:
-NAME
-frontend-v1
-backend-v1
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// noop: no changes
@@ -3116,68 +2976,6 @@ releases:
 			},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: stable/mychart3
- 4: - name: foo
- 5:   chart: stable/mychart1
- 6:   needs:
- 7:   - bar
- 8: - name: bar
- 9:   chart: stable/mychart2
-10: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: stable/mychart3
- 4: - name: foo
- 5:   chart: stable/mychart1
- 6:   needs:
- 7:   - bar
- 8: - name: bar
- 9:   chart: stable/mychart2
-10: 
-
-merged environment: &{default map[] map[]}
-3 release(s) found in helmfile.yaml
-
-Affected releases are:
-  bar (stable/mychart2) UPDATED
-  baz (stable/mychart3) UPDATED
-  foo (stable/mychart1) UPDATED
-
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default//baz, default//bar
-2     default//foo
-
-processing releases in group 1/2: default//baz, default//bar
-getting deployed release version failed:unexpected list key: {^baz$ --kube-contextdefault--deleting--deployed--failed--pending}
-getting deployed release version failed:unexpected list key: {^bar$ --kube-contextdefault--deleting--deployed--failed--pending}
-processing releases in group 2/2: default//foo
-getting deployed release version failed:unexpected list key: {^foo$ --kube-contextdefault--deleting--deployed--failed--pending}
-
-UPDATED RELEASES:
-NAME   CHART             VERSION
-baz    stable/mychart3          
-bar    stable/mychart2          
-foo    stable/mychart1          
-
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// install with upgrade
@@ -3600,6 +3398,14 @@ releases:
 				{Name: "foo", Flags: []string{"--tiller-namespace", "tns1", "--kube-context", "default", "--namespace", "ns1"}},
 				{Name: "bar", Flags: []string{"--tiller-namespace", "tns2", "--kube-context", "default", "--namespace", "ns2"}},
 			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: "--tiller-namespacetns1" + helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
+`,
+				{Filter: "^bar$", Flags: "--tiller-namespacetns2" + helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
@@ -3654,14 +3460,12 @@ GROUP RELEASES
 2     default/tns2/bar
 
 processing releases in group 1/2: default/tns1/foo
-getting deployed release version failed:unexpected list key: {^foo$ --tiller-namespacetns1--kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/tns2/bar
-getting deployed release version failed:unexpected list key: {^bar$ --tiller-namespacetns2--kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME   CHART             VERSION
-foo    stable/mychart1          
-bar    stable/mychart2          
+foo    stable/mychart1     3.1.0
+bar    stable/mychart2     3.1.0
 
 changing working directory back to "/path/to"
 `,
@@ -3919,6 +3723,14 @@ releases:
 				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+				{Filter: "^my-release$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
@@ -3995,14 +3807,12 @@ GROUP RELEASES
 2     default/default/my-release
 
 processing releases in group 1/2: default/default/external-secrets
-getting deployed release version failed:unexpected list key: {^external-secrets$ --kube-contextdefault--deleting--deployed--failed--pending}
 processing releases in group 2/2: default/default/my-release
-getting deployed release version failed:unexpected list key: {^my-release$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
 NAME               CHART           VERSION
-external-secrets   incubator/raw          
-my-release         incubator/raw          
+external-secrets   incubator/raw     3.1.0
+my-release         incubator/raw     3.1.0
 
 changing working directory back to "/path/to"
 `,
@@ -4551,6 +4361,8 @@ changing working directory back to "/path/to"
 				if exists {
 					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
 				}
+			} else {
+				assertEqualsToSnapshot(t, "log", bs.String())
 			}
 		})
 	}
