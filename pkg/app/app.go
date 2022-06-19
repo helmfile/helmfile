@@ -1770,7 +1770,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state.HelmState) []error) (bool, []error) {
 	st := r.state
 
-	selectedReleases, deduplicated, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	selectedReleases, deduplicated, err := a.getSelectedReleases(r, false)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1784,7 +1784,12 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 	// See https://github.com/roboll/helmfile/issues/1818 for more context.
 	st.Releases = deduplicated
 
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(), SkipNeeds: c.SkipNeeds()})
+	includeNeeds := c.IncludeNeeds()
+	if c.IncludeTransitiveNeeds() {
+		includeNeeds = true
+	}
+
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: includeNeeds, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(), SkipNeeds: c.SkipNeeds()})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1816,7 +1821,7 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 	// That's why we don't pass in `IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()` here.
 	// Otherwise, in case include-needs=true, it will include the needs of needs, which results in unexpectedly introducing transitive needs,
 	// even if include-transitive-needs=true is unspecified.
-	if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+	if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: c.SkipNeeds(), IncludeNeeds: includeNeeds}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 		rels = append(rels, subst.Releases...)
 		return nil
 	})); len(errs) > 0 {
