@@ -10,7 +10,6 @@ import (
 
 // TestGetArgs tests the GetArgs function
 func TestGetArgs(t *testing.T) {
-
 	tests := []struct {
 		args     string
 		expected string
@@ -86,6 +85,5 @@ func TestSetArg(t *testing.T) {
 			require.NotContainsf(t, ap.flags, test.flag, "expected flag %s to be not set", test.flag)
 			require.NotContainsf(t, ap.m, test.flag, "expected m %s to be not set", test.flag)
 		}
-
 	}
 }

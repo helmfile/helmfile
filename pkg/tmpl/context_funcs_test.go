@@ -104,6 +104,7 @@ func TestReadFile_PassAbsPath(t *testing.T) {
 
 func TestToYaml_UnsupportedNestedMapKey(t *testing.T) {
 	expected := ``
+	// nolint: unconvert
 	vals := Values(map[string]interface{}{
 		"foo": map[interface{}]interface{}{
 			"bar": "BAR",
@@ -125,6 +126,7 @@ func TestToYaml(t *testing.T) {
 	expected := `foo:
   bar: BAR
 `
+	// nolint: unconvert
 	vals := Values(map[string]interface{}{
 		"foo": map[string]interface{}{
 			"bar": "BAR",
@@ -143,6 +145,7 @@ func TestFromYaml(t *testing.T) {
 	raw := `foo:
   bar: BAR
 `
+	// nolint: unconvert
 	expected := Values(map[string]interface{}{
 		"foo": map[string]interface{}{
 			"bar": "BAR",
@@ -276,7 +279,6 @@ func TestRequired(t *testing.T) {
 
 // TestRequiredEnv tests that RequiredEnv returns an error if the environment variable is not set.
 func TestRequiredEnv(t *testing.T) {
-
 	// test that the environment variable is not set
 	envKey := "HelmFile"
 	envVal, err := RequiredEnv(envKey)
@@ -298,7 +300,6 @@ func TestRequiredEnv(t *testing.T) {
 	envVal, err = RequiredEnv(envKey)
 	require.Nilf(t, err, "Expected no error to be returned when environment variable %s is set to a non-empty string", envKey)
 	require.Equalf(t, expected, envVal, "Expected %s to be returned when environment variable %s is set to a non-empty string", expected, envKey)
-
 }
 
 // TestExec tests that Exec returns the expected output.

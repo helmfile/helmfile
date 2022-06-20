@@ -51,7 +51,7 @@ func addSyncSubcommand(cliApp *cli.App) {
 			},
 			cli.BoolFlag{
 				Name:  "validate",
-				Usage: `ADVANCED CONFIGURATION: When sync is going to involve helm-template as a part of the "chartify" process, it might fail due to missing .Capabilities. This flag makes instructs helmfile to pass --validate to helm-template so it populates .Capabilities and validates your manifests against the Kubernetes cluster you are currently pointing at. Note that this requiers access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions`,
+				Usage: `ADVANCED CONFIGURATION: When sync is going to involve helm-template as a part of the "chartify" process, it might fail due to missing .Capabilities. This flag makes instructs helmfile to pass --validate to helm-template so it populates .Capabilities and validates your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions`,
 			},
 			cli.BoolFlag{
 				Name:  "wait",

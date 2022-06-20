@@ -11,19 +11,19 @@ import (
 
 // TestIsExplicitSelectorInheritanceEnabled tests the isExplicitSelectorInheritanceEnabled function
 func TestIsExplicitSelectorInheritanceEnabled(t *testing.T) {
-	//env var ExperimentalEnvVar is not set
+	// env var ExperimentalEnvVar is not set
 	require.Empty(t, os.Getenv(envvar.Experimental))
 	require.False(t, isExplicitSelectorInheritanceEnabled())
 
-	//check for env var ExperimentalEnvVar set to true
+	// check for env var ExperimentalEnvVar set to true
 	t.Setenv(envvar.Experimental, "true")
 	require.True(t, isExplicitSelectorInheritanceEnabled())
 
-	//check for env var ExperimentalEnvVar set to anything
+	// check for env var ExperimentalEnvVar set to anything
 	t.Setenv(envvar.Experimental, "anything")
 	require.False(t, isExplicitSelectorInheritanceEnabled())
 
-	//check for env var ExperimentalEnvVar set to ExperimentalSelectorExplicit
+	// check for env var ExperimentalEnvVar set to ExperimentalSelectorExplicit
 	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
 	require.True(t, isExplicitSelectorInheritanceEnabled())
 
@@ -34,15 +34,15 @@ func TestIsExplicitSelectorInheritanceEnabled(t *testing.T) {
 
 // TestExperimentalModeEnabled tests the experimentalModeEnabled function
 func TestExperimentalModeEnabled(t *testing.T) {
-	//env var ExperimentalEnvVar is not set
+	// env var ExperimentalEnvVar is not set
 	require.Empty(t, os.Getenv(envvar.Experimental))
 	require.False(t, experimentalModeEnabled())
 
-	//check for env var ExperimentalEnvVar set to anything
+	// check for env var ExperimentalEnvVar set to anything
 	t.Setenv(envvar.Experimental, "anything")
 	require.False(t, experimentalModeEnabled())
 
-	//check for env var ExperimentalEnvVar set to true
+	// check for env var ExperimentalEnvVar set to true
 	t.Setenv(envvar.Experimental, "true")
 	require.True(t, experimentalModeEnabled())
 }

@@ -75,7 +75,7 @@ func TestGenerateID(t *testing.T) {
 
 	for id, n := range ids {
 		if n > 1 {
-			t.Fatalf("too many occurences of %s: %d", id, n)
+			t.Fatalf("too many occurrences of %s: %d", id, n)
 		}
 	}
 }

@@ -22,6 +22,7 @@ const (
 	DefaultHelmBinary = "helm"
 )
 
+// nolint: golint
 type StateLoadError struct {
 	msg   string
 	Cause error
@@ -231,7 +232,6 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		}
 
 		if len(envSpec.Secrets) > 0 {
-
 			var envSecretFiles []string
 			for _, urlOrPath := range envSpec.Secrets {
 				resolved, skipped, err := st.storage().resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath)
@@ -305,6 +305,7 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 					results <- secretResult{secret.id, nil, err, secret.path}
 					continue
 				}
+				// nolint: staticcheck
 				defer func() {
 					if err := c.DeleteFile(decFile); err != nil {
 						c.logger.Warnf("removing decrypted file %s: %w", decFile, err)

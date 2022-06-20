@@ -51,7 +51,7 @@ func GetArgs(args string, state *state.HelmState) []string {
 					value := argVal[1]
 					argsMap.SetArg(arg, value, false)
 				} else {
-					//check if next value is arg to flag
+					// check if next value is arg to flag
 					if index+1 < len(argsVals) {
 						nextVal := argsVals[index+1]
 						if strings.HasPrefix(nextVal, "--") {

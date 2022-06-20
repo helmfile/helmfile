@@ -93,15 +93,15 @@ func run(cmd *cobra.Command, args []string) {
 		for _, p := range ps.list {
 			switch {
 			case p.left != nil && p.right == nil:
-				fmt.Fprintf(os.Stderr, "Only in %s: %s\n", leftPath, p.left.getId())
+				fmt.Fprintf(os.Stderr, "Only in %s: %s\n", leftPath, p.left.getID())
 				exitCode = 1
 			case p.left == nil && p.right != nil:
-				fmt.Fprintf(os.Stderr, "Only in %s: %s\n", rightPath, p.right.getId())
+				fmt.Fprintf(os.Stderr, "Only in %s: %s\n", rightPath, p.right.getID())
 				exitCode = 1
 			default:
 				diff := deep.Equal(p.left, p.right)
 				if diff != nil {
-					id := p.left.getId()
+					id := p.left.getID()
 					fmt.Fprintf(os.Stderr, "< %s %s\n", id, leftPath)
 					fmt.Fprintf(os.Stderr, "> %s %s\n", id, rightPath)
 					for _, d := range diff {
@@ -160,7 +160,9 @@ func readManifest(path string) ([]resource, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	decoder := yaml.NewYAMLToJSONDecoder(f)
 	resources := []resource{}
 	for {
@@ -179,7 +181,7 @@ func readManifest(path string) ([]resource, error) {
 	return resources, nil
 }
 
-func (res resource) getId() string {
+func (res resource) getID() string {
 	meta, err := res.getMeta()
 	if err != nil {
 		return fmt.Sprintf("%v", res)
@@ -202,7 +204,6 @@ func (res resource) getId() string {
 	}
 	gvk := strings.Join([]string{gv, k}, "_")
 	return strings.Join([]string{gvk, ns, nm}, "|")
-
 }
 
 // lifted from kustomize/kyaml/kio/filters/merge3.go
@@ -267,7 +268,6 @@ func (p *pair) add(node resource, source diffSource) error {
 		return fmt.Errorf("unknown diff source value: %s", source)
 	}
 	return nil
-
 }
 
 func main() {

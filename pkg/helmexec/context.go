@@ -18,12 +18,10 @@ func (context *HelmContext) GetTillerlessArgs(helm *execer) []string {
 	if context.Tillerless && !helm.IsHelm3() {
 		if context.TillerNamespace != "" {
 			return []string{"tiller", "run", context.TillerNamespace, "--", helm.helmBinary}
-		} else {
-			return []string{"tiller", "run", "--", helm.helmBinary}
 		}
-	} else {
-		return []string{}
+		return []string{"tiller", "run", "--", helm.helmBinary}
 	}
+	return []string{}
 }
 
 func (context *HelmContext) getTillerlessEnv() map[string]string {
@@ -41,7 +39,6 @@ func (context *HelmContext) getTillerlessEnv() map[string]string {
 			}
 		}
 		return result
-	} else {
-		return map[string]string{}
 	}
+	return map[string]string{}
 }

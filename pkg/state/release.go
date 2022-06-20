@@ -102,7 +102,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
 				}
 
-				s, err := renderer.RenderTemplateContentToBuffer([]byte(serialized))
+				s, err := renderer.RenderTemplateContentToBuffer(serialized)
 				if err != nil {
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, serialized, err)
 				}

@@ -55,7 +55,9 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		if err != nil {
 			return err
 		}
-		defer os.RemoveAll(tempDir)
+		defer func() {
+			_ = os.RemoveAll(tempDir)
+		}()
 		dir = tempDir
 	} else {
 		dir = opts.OutputDir

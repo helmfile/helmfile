@@ -10,6 +10,7 @@ type TextRenderer interface {
 	RenderTemplateText(text string) (string, error)
 }
 
+// nolint: golint
 func NewTextRenderer(readFile func(filename string) ([]byte, error), basePath string, data interface{}) *templateTextRenderer {
 	return &templateTextRenderer{
 		ReadText: readFile,

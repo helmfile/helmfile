@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-
 	rootCmd := cmd.RootCommand()
 	err := rootCmd.Run(os.Args)
 	if err != nil {

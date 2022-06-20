@@ -17,7 +17,6 @@ type result struct {
 }
 
 func (st *HelmState) scatterGather(concurrency int, items int, produceInputs func(), receiveInputsAndProduceIntermediates func(int), aggregateIntermediates func()) {
-
 	if concurrency < 1 || concurrency > items {
 		concurrency = items
 	}
@@ -53,7 +52,6 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 
 func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int,
 	do func(ReleaseSpec, int) error) []error {
-
 	return st.iterateOnReleases(helm, concurrency, st.Releases, do)
 }
 
@@ -144,7 +142,6 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 
 	d := dag.New()
 	for i, r := range releases {
-
 		id := ReleaseToID(&r.ReleaseSpec)
 
 		idToReleases[id] = append(idToReleases[id], r)

@@ -1,8 +1,9 @@
 package environment
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 // See https://github.com/roboll/helmfile/issues/1150

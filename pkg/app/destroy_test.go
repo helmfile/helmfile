@@ -148,11 +148,12 @@ func TestDestroy(t *testing.T) {
 				logger:      logger,
 			})
 
-			if tc.error == "" && destroyErr != nil {
+			switch {
+			case tc.error == "" && destroyErr != nil:
 				t.Fatalf("unexpected error: %v", destroyErr)
-			} else if tc.error != "" && destroyErr == nil {
+			case tc.error != "" && destroyErr == nil:
 				t.Fatal("expected error did not occur")
-			} else if tc.error != "" && destroyErr != nil && tc.error != destroyErr.Error() {
+			case tc.error != "" && destroyErr != nil && tc.error != destroyErr.Error():
 				t.Fatalf("invalid error: expected %q, got %q", tc.error, destroyErr.Error())
 			}
 

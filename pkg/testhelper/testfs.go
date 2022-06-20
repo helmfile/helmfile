@@ -73,7 +73,7 @@ func (f *TestFs) ReadFile(filename string) ([]byte, error) {
 		return []byte(nil), os.ErrNotExist
 	}
 
-	f.fileReaderCalls += 1
+	f.fileReaderCalls++
 
 	f.successfulReads = append(f.successfulReads, filename)
 

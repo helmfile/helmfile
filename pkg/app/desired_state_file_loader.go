@@ -77,7 +77,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, errors.New("err: Cannot use option --kube-context and set attribute kubeContext.")
 		}
 		st.OverrideKubeContext = ld.overrideKubeContext
-		// HelmDefaults.KubeContext is also overriden in here
+		// HelmDefaults.KubeContext is also overridden in here
 		// to set default release value properly.
 		st.HelmDefaults.KubeContext = ld.overrideKubeContext
 	}

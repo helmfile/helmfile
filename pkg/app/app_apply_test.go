@@ -1275,7 +1275,7 @@ foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 		})
 	})
 
-	t.Run("select non existant release with --allow-no-matching-release", func(t *testing.T) {
+	t.Run("select non existent release with --allow-no-matching-release", func(t *testing.T) {
 		check(t, testcase{
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `

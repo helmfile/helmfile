@@ -7,7 +7,7 @@ import (
 )
 
 func isLocalChart(chart string) bool {
-	regex, _ := regexp.Compile("^[.]?./")
+	regex := regexp.MustCompile("^[.]?./")
 	matched := regex.MatchString(chart)
 	if matched {
 		return true

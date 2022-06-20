@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// App is the main application object.
 type App struct {
 	OverrideKubeContext string
 	OverrideHelmBinary  string
@@ -552,8 +553,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 			SkipRepos: true,
 			SkipDeps:  true,
 		}, func() {
-
-			//var releases m
+			// var releases m
 			for _, r := range run.state.Releases {
 				labels := ""
 				if r.Labels == nil {
@@ -805,7 +805,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 						Reverse:           defOpts.Reverse,
 						RetainValuesFiles: defOpts.RetainValuesFiles,
 					}
-					//assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
+					// assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
 					if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
 						optsForNestedState.Selectors = opts.Selectors
 					} else {
@@ -915,7 +915,7 @@ func printBatches(batches [][]state.Release) string {
 		fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
 	}
 
-	w.Flush()
+	_ = w.Flush()
 
 	return buf.String()
 }
@@ -1092,11 +1092,12 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 
 	var helmfileDir string
 	if specifiedPath != "" {
-		if a.fileExistsAt(specifiedPath) {
+		switch {
+		case a.fileExistsAt(specifiedPath):
 			return []string{specifiedPath}, nil
-		} else if a.directoryExistsAt(specifiedPath) {
+		case a.directoryExistsAt(specifiedPath):
 			helmfileDir = specifiedPath
-		} else {
+		default:
 			return []string{}, fmt.Errorf("specified state file %s is not found", specifiedPath)
 		}
 	} else {
@@ -1113,15 +1114,16 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 			defaultFile = DeprecatedHelmfile
 		}
 
-		if a.directoryExistsAt(DefaultHelmfileDirectory) {
+		switch {
+		case a.directoryExistsAt(DefaultHelmfileDirectory):
 			if defaultFile != "" {
 				return []string{}, fmt.Errorf("configuration conlict error: you can have either %s or %s, but not both", defaultFile, DefaultHelmfileDirectory)
 			}
 
 			helmfileDir = DefaultHelmfileDirectory
-		} else if defaultFile != "" {
+		case defaultFile != "":
 			return []string{defaultFile}, nil
-		} else {
+		default:
 			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml} or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile)
 		}
 	}
@@ -1944,6 +1946,7 @@ func directoryExistsAt(path string) bool {
 	return err == nil && fileInfo.Mode().IsDir()
 }
 
+// Error is a wrapper around an error that adds context to the error.
 type Error struct {
 	msg string
 
@@ -2084,7 +2087,10 @@ func (a *App) CleanCacheDir(c ListConfigProvider) error {
 	}
 	for _, e := range dirs {
 		fmt.Printf("- %s\n", e.Name())
-		os.RemoveAll(filepath.Join(remote.CacheDir(), e.Name()))
+		err := os.RemoveAll(filepath.Join(remote.CacheDir(), e.Name()))
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -873,7 +873,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
 					m.Unlock()
 					installedVersion, err := st.getDeployedVersion(context, helm, release)
-					if err != nil { //err is not really impacting so just log it
+					if err != nil { // err is not really impacting so just log it
 						st.logger.Debugf("getting deployed release version failed:%v", err)
 					} else {
 						release.installedVersion = installedVersion
@@ -1121,6 +1121,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
 				if !opts.SkipCleanup {
+					// nolint: staticcheck
 					defer clean()
 				}
 				if err != nil {
@@ -1350,7 +1351,6 @@ func (o *TemplateOpts) Apply(opts *TemplateOpts) {
 // TemplateReleases wrapper for executing helm template on the releases
 func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int,
 	validate bool, opt ...TemplateOpt) []error {
-
 	opts := &TemplateOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
@@ -2100,7 +2100,7 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		// Strip off just the last portion for the name stable/newrelic would give newrelic
 		chartSplit := strings.Split(r.Chart, "/")
 		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
-		//Merge CommonLabels into release labels
+		// Merge CommonLabels into release labels
 		for k, v := range commonLabels {
 			r.Labels[k] = v
 		}
@@ -2579,7 +2579,6 @@ func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
 }
 
 func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec) []string {
-
 	if len(r.ApiVersions) != 0 {
 		for _, a := range r.ApiVersions {
 			flags = append(flags, "--api-versions", a)
@@ -2745,7 +2744,9 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 			if err != nil {
 				return generatedFiles, err
 			}
-			defer valfile.Close()
+			defer func() {
+				_ = valfile.Close()
+			}()
 
 			if _, err := valfile.Write(yamlBytes); err != nil {
 				return generatedFiles, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
@@ -2759,10 +2760,14 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 			if err != nil {
 				return generatedFiles, err
 			}
-			defer valfile.Close()
+			defer func() {
+				_ = valfile.Close()
+			}()
 
 			encoder := yaml.NewEncoder(valfile)
-			defer encoder.Close()
+			defer func() {
+				_ = encoder.Close()
+			}()
 
 			if err := encoder.Encode(typedValue); err != nil {
 				return generatedFiles, err
@@ -3031,13 +3036,13 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 }
 
 func escape(value string) string {
-	intermediate := strings.Replace(value, "{", "\\{", -1)
-	intermediate = strings.Replace(intermediate, "}", "\\}", -1)
-	return strings.Replace(intermediate, ",", "\\,", -1)
+	intermediate := strings.ReplaceAll(value, "{", "\\{")
+	intermediate = strings.ReplaceAll(intermediate, "}", "\\}")
+	return strings.ReplaceAll(intermediate, ",", "\\,")
 }
 
-//MarshalYAML will ensure we correctly marshal SubHelmfileSpec structure correctly so it can be unmarshalled at some
-//future time
+// MarshalYAML will ensure we correctly marshal SubHelmfileSpec structure correctly so it can be unmarshalled at some
+// future time
 func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
 	type SubHelmfileSpecTmp struct {
 		Path               string        `yaml:"path,omitempty"`
@@ -3053,10 +3058,9 @@ func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
 	}, nil
 }
 
-//UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
-//this is required to keep allowing string scalar for defining helmfile
+// UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
+// this is required to keep allowing string scalar for defining helmfile
 func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
-
 	var tmp interface{}
 	if err := unmarshal(&tmp); err != nil {
 		return err
@@ -3081,12 +3085,12 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 		hf.SelectorsInherited = subHelmfileSpecTmp.SelectorsInherited
 		hf.Environment = subHelmfileSpecTmp.Environment
 	}
-	//since we cannot make sur the "console" string can be red after the "path" we must check we don't have
-	//a SubHelmfileSpec with only selector and no path
+	// since we cannot make sur the "console" string can be red after the "path" we must check we don't have
+	// a SubHelmfileSpec with only selector and no path
 	if hf.Selectors != nil && hf.Path == "" {
 		return fmt.Errorf("found 'selectors' definition without path: %v", hf.Selectors)
 	}
-	//also exclude SelectorsInherited to true and explicit selectors
+	// also exclude SelectorsInherited to true and explicit selectors
 	if hf.SelectorsInherited && len(hf.Selectors) > 0 {
 		return fmt.Errorf("you cannot use 'SelectorsInherited: true' along with and explicit selector for path: %v", hf.Path)
 	}

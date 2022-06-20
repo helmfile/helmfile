@@ -32,6 +32,7 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 	return mock.output, mock.err
 }
 
+// nolint: golint
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 	execer := New("helm", logger, kubeContext, &mockRunner{})
 	return execer
@@ -816,14 +817,14 @@ func Test_GetVersion(t *testing.T) {
 	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	ver := helm.GetVersion()
 	if ver.Major != 2 || ver.Minor != 16 || ver.Patch != 1 {
-		t.Error(fmt.Sprintf("helmexec.GetVersion - did not detect correct Helm2 version; it was: %+v", ver))
+		t.Errorf("helmexec.GetVersion - did not detect correct Helm2 version; it was: %+v", ver)
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a\n")}
 	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	ver = helm.GetVersion()
 	if ver.Major != 3 || ver.Minor != 2 || ver.Patch != 4 {
-		t.Error(fmt.Sprintf("helmexec.GetVersion - did not detect correct Helm3 version; it was: %+v", ver))
+		t.Errorf("helmexec.GetVersion - did not detect correct Helm3 version; it was: %+v", ver)
 	}
 }
 
