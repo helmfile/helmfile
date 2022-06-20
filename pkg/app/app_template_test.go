@@ -262,7 +262,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			templated: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string(nil)},
+				{Name: "test2", Flags: []string(nil)},
 			},
 		})
 	})
@@ -275,8 +275,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string(nil)},
-				exectest.Release{Name: "test3", Flags: []string(nil)},
+				{Name: "test2", Flags: []string(nil)},
+				{Name: "test3", Flags: []string(nil)},
 			},
 		})
 	})
@@ -290,8 +290,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string(nil)},
-				exectest.Release{Name: "test3", Flags: []string(nil)},
+				{Name: "test2", Flags: []string(nil)},
+				{Name: "test3", Flags: []string(nil)},
 			},
 		})
 	})
@@ -305,7 +305,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			templated: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string(nil)},
+				{Name: "test2", Flags: []string(nil)},
 			},
 		})
 	})
@@ -319,8 +319,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string(nil)},
-				exectest.Release{Name: "test3", Flags: []string(nil)},
+				{Name: "test2", Flags: []string(nil)},
+				{Name: "test3", Flags: []string(nil)},
 			},
 		})
 	})

@@ -262,7 +262,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			linted: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string{}},
+				{Name: "test2", Flags: []string{}},
 			},
 		})
 	})
@@ -275,8 +275,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			linted: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string{}},
-				exectest.Release{Name: "test3", Flags: []string{}},
+				{Name: "test2", Flags: []string{}},
+				{Name: "test3", Flags: []string{}},
 			},
 		})
 	})
@@ -290,8 +290,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			linted: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string{}},
-				exectest.Release{Name: "test3", Flags: []string{}},
+				{Name: "test2", Flags: []string{}},
+				{Name: "test3", Flags: []string{}},
 			},
 		})
 	})
@@ -305,7 +305,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			linted: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string{}},
+				{Name: "test2", Flags: []string{}},
 			},
 		})
 	})
@@ -319,8 +319,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			linted: []exectest.Release{
-				exectest.Release{Name: "test2", Flags: []string{}},
-				exectest.Release{Name: "test3", Flags: []string{}},
+				{Name: "test2", Flags: []string{}},
+				{Name: "test3", Flags: []string{}},
 			},
 		})
 	})
