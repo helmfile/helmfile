@@ -21,7 +21,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14
 	github.com/r3labs/diff v1.1.0
 	github.com/spf13/cobra v1.4.0
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.7.3
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.22.9
 	github.com/variantdev/chartify v0.9.5
@@ -115,7 +115,6 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/ulikunitz/xz v0.5.8 // indirect
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a // indirect
 	go.mozilla.org/sops/v3 v3.7.1 // indirect
