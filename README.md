@@ -1409,7 +1409,7 @@ git commit -m 'some message'
 git push origin $BRANCH
 ```
 
-> Note that `$(pwd)` is necessary when `hemlfile.yaml` has one or more sub-helmfiles in nested directories,
+> Note that `$(pwd)` is necessary when `helmfile.yaml` has one or more sub-helmfiles in nested directories,
 > because setting a relative file path in `--output-dir` or `--output-dir-template` results in each sub-helmfile render
 > to the directory relative to the specified path.
 
