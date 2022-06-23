@@ -21,7 +21,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14
 	github.com/r3labs/diff v1.1.0
 	github.com/spf13/cobra v1.4.0
-	github.com/stretchr/testify v1.7.3
+	github.com/stretchr/testify v1.7.4
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/urfave/cli v1.22.9
 	github.com/variantdev/chartify v0.9.5
