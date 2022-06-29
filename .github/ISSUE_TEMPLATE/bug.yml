@@ -57,7 +57,7 @@ body:
       description: "Please provide the error message emitted by Helmfile."
     validations:
       required: true
-- type: input
+  - type: input
     id: repo
     attributes:
       label: Steps to reproduce
