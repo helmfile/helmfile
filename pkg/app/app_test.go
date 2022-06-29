@@ -637,8 +637,7 @@ releases:
 		{label: "name=doesnotexists", expectedReleases: []string{"zipkin", "prometheus", "grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
 	}
 
-	os.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
-	defer os.Unsetenv(envvar.Experimental)
+	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd EmbeddedSelectors")
 
@@ -687,8 +686,7 @@ releases:
 		{label: "name!=grafana", expectedReleases: []string{"grafana", "zipkin", "mongodb"}, expectErr: false},
 	}
 
-	os.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
-	defer os.Unsetenv(envvar.Experimental)
+	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd 3leveldeep")
 
@@ -749,8 +747,7 @@ releases:
 		{label: "select!=foo", expectedReleases: []string{"grafana", "prometheus", "zipkin", "prometheus", "zipkin", "mongodb"}, expectErr: false},
 	}
 
-	os.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
-	defer os.Unsetenv(envvar.Experimental)
+	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd inherits")
 

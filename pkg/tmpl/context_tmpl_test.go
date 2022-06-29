@@ -2,7 +2,6 @@ package tmpl
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 )
@@ -234,10 +233,7 @@ func Test_renderTemplateToString(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			for k, v := range tt.args.envs {
-				err := os.Setenv(k, v)
-				if err != nil {
-					t.Error("renderTemplateToString() could not set env var for testing")
-				}
+				t.Setenv(k, v)
 			}
 			got, err := renderTemplateToString(tt.args.s, tt.args.data)
 			if (err != nil) != tt.wantErr {

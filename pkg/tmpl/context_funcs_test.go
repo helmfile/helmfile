@@ -3,7 +3,6 @@ package tmpl
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -286,7 +285,7 @@ func TestRequiredEnv(t *testing.T) {
 	require.Emptyf(t, envVal, "Expected empty string to be returned when environment variable %s is not set", envKey)
 
 	// test that the environment variable is set to an empty string
-	os.Setenv(envKey, "")
+	t.Setenv(envKey, "")
 	envVal, err = RequiredEnv(envKey)
 
 	require.NotNilf(t, err, "Expected error to be returned when environment variable %s is set to an empty string", envKey)
@@ -294,10 +293,8 @@ func TestRequiredEnv(t *testing.T) {
 
 	// test that the environment variable is set to a non-empty string
 	expected := "helmfile"
-	os.Setenv(envKey, expected)
+	t.Setenv(envKey, expected)
 
-	// Unset the environment variable
-	defer os.Unsetenv(envKey)
 	envVal, err = RequiredEnv(envKey)
 	require.Nilf(t, err, "Expected no error to be returned when environment variable %s is set to a non-empty string", envKey)
 	require.Equalf(t, expected, envVal, "Expected %s to be returned when environment variable %s is set to a non-empty string", expected, envKey)
@@ -348,8 +345,7 @@ func TestEnvExec(t *testing.T) {
 	require.Emptyf(t, output, "Expected empty string to be returned when executing command with no environment variables")
 
 	// test that the command is executed with os environment variables
-	os.Setenv(testKey, "foo")
-	defer os.Unsetenv(testKey)
+	t.Setenv(testKey, "foo")
 	output, err = ctx.EnvExec(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 
 	require.Nilf(t, err, "Expected no error to be returned when executing command with environment variables")
