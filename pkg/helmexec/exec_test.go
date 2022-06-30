@@ -362,10 +362,7 @@ func Test_DecryptSecret(t *testing.T) {
 
 	_, err := helm.DecryptSecret(HelmContext{}, "secretName")
 	if err != nil {
-		if _, ok := err.(*os.PathError); ok {
-		} else {
-			t.Errorf("Error: %v", err)
-		}
+		t.Errorf("Error: %v", err)
 	}
 	cwd, err := filepath.Abs(".")
 	if err != nil {
@@ -404,14 +401,27 @@ func Test_DecryptSecretWithGotmpl(t *testing.T) {
 	}
 
 	secretName := "secretName.yaml.gotmpl"
-	_, decryptErr := helm.DecryptSecret(HelmContext{}, secretName)
+	_, err := helm.DecryptSecret(HelmContext{}, secretName)
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
 	cwd, err := filepath.Abs(".")
 	if err != nil {
 		t.Errorf("Error: %v", err)
 	}
 
-	expected := fmt.Sprintf(`%s/%s.yaml.dec`, cwd, secretName)
-	if d := cmp.Diff(expected, decryptErr.(*os.PathError).Path); d != "" {
+	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName.yaml.gotmpl
+Decrypting secret %s/secretName.yaml.gotmpl
+exec: helm --kube-context dev secrets view %s/secretName.yaml.gotmpl
+Decrypted %s/secretName.yaml.gotmpl into %s
+`, cwd, cwd, cwd, cwd, tmpFilePath)
+	if err != nil {
+		if _, ok := err.(*os.PathError); ok {
+		} else {
+			t.Errorf("Error: %v", err)
+		}
+	}
+	if d := cmp.Diff(expected, buffer.String()); d != "" {
 		t.Errorf("helmexec.DecryptSecret(): want (-), got (+):\n%s", d)
 	}
 }
