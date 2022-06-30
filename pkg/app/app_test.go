@@ -3025,7 +3025,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: baz
  3:   chart: stable/mychart3
@@ -3038,7 +3038,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 10: - name: bar
 11:   chart: stable/mychart2
 12:   disableValidation: true
-13:
+13: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -3046,7 +3046,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: baz
  3:   chart: stable/mychart3
@@ -3059,7 +3059,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 10: - name: bar
 11:   chart: stable/mychart2
 12:   disableValidation: true
-13:
+13: 
 
 merged environment: &{default map[] map[]}
 3 release(s) found in helmfile.yaml
@@ -3082,7 +3082,7 @@ UPDATED RELEASES:
 NAME   CHART             VERSION
 baz    stable/mychart3     3.1.0
 bar    stable/mychart2     3.1.0
-foo    stable/mychart1
+foo    stable/mychart1          
 
 changing working directory back to "/path/to"
 `,
@@ -3135,7 +3135,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: baz
  3:   chart: stable/mychart3
@@ -3148,7 +3148,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 10: - name: bar
 11:   chart: stable/mychart2
 12:   disableValidation: true
-13:
+13: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -3156,7 +3156,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: baz
  3:   chart: stable/mychart3
@@ -3169,7 +3169,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 10: - name: bar
 11:   chart: stable/mychart2
 12:   disableValidation: true
-13:
+13: 
 
 merged environment: &{default map[] map[]}
 3 release(s) found in helmfile.yaml
@@ -3192,7 +3192,7 @@ UPDATED RELEASES:
 NAME   CHART             VERSION
 baz    stable/mychart3     3.1.0
 bar    stable/mychart2     3.1.0
-foo    stable/mychart1
+foo    stable/mychart1          
 
 changing working directory back to "/path/to"
 `,
@@ -3413,7 +3413,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: bar
  3:   chart: stable/mychart2
@@ -3425,7 +3425,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
  9:   chart: stable/mychart1
 10:   namespace: ns1
 11:   tillerNamespace: tns1
-12:
+12: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -3433,7 +3433,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: bar
  3:   chart: stable/mychart2
@@ -3445,7 +3445,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  9:   chart: stable/mychart1
 10:   namespace: ns1
 11:   tillerNamespace: tns1
-12:
+12: 
 
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
@@ -3738,14 +3738,14 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
- 1:
- 2:
+ 0: 
+ 1: 
+ 2: 
  3: releases:
  4: - name: kubernetes-external-secrets
  5:   chart: incubator/raw
  6:   namespace: kube-system
- 7:
+ 7: 
  8: - name: external-secrets
  9:   chart: incubator/raw
 10:   namespace: default
@@ -3753,7 +3753,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 12:     app: test
 13:   needs:
 14:   - kube-system/kubernetes-external-secrets
-15:
+15: 
 16: - name: my-release
 17:   chart: incubator/raw
 18:   namespace: default
@@ -3761,7 +3761,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 20:     app: test
 21:   needs:
 22:   - default/external-secrets
-23:
+23: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -3769,14 +3769,14 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
- 1:
- 2:
+ 0: 
+ 1: 
+ 2: 
  3: releases:
  4: - name: kubernetes-external-secrets
  5:   chart: incubator/raw
  6:   namespace: kube-system
- 7:
+ 7: 
  8: - name: external-secrets
  9:   chart: incubator/raw
 10:   namespace: default
@@ -3784,7 +3784,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 12:     app: test
 13:   needs:
 14:   - kube-system/kubernetes-external-secrets
-15:
+15: 
 16: - name: my-release
 17:   chart: incubator/raw
 18:   namespace: default
@@ -3792,7 +3792,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 20:     app: test
 21:   needs:
 22:   - default/external-secrets
-23:
+23: 
 
 merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
@@ -3865,14 +3865,14 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
- 1:
- 2:
+ 0: 
+ 1: 
+ 2: 
  3: releases:
  4: - name: kubernetes-external-secrets
  5:   chart: incubator/raw
  6:   namespace: kube-system
- 7:
+ 7: 
  8: - name: external-secrets
  9:   chart: incubator/raw
 10:   namespace: default
@@ -3880,7 +3880,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 12:     app: test
 13:   needs:
 14:   - kube-system/kubernetes-external-secrets
-15:
+15: 
 16: - name: my-release
 17:   chart: incubator/raw
 18:   namespace: default
@@ -3888,7 +3888,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 20:     app: test
 21:   needs:
 22:   - default/external-secrets
-23:
+23: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -3896,14 +3896,14 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
- 1:
- 2:
+ 0: 
+ 1: 
+ 2: 
  3: releases:
  4: - name: kubernetes-external-secrets
  5:   chart: incubator/raw
  6:   namespace: kube-system
- 7:
+ 7: 
  8: - name: external-secrets
  9:   chart: incubator/raw
 10:   namespace: default
@@ -3911,7 +3911,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 12:     app: test
 13:   needs:
 14:   - kube-system/kubernetes-external-secrets
-15:
+15: 
 16: - name: my-release
 17:   chart: incubator/raw
 18:   namespace: default
@@ -3919,7 +3919,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 20:     app: test
 21:   needs:
 22:   - default/external-secrets
-23:
+23: 
 
 merged environment: &{default map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
@@ -3969,14 +3969,14 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
- 1:
- 2:
+ 0: 
+ 1: 
+ 2: 
  3: releases:
  4: - name: kubernetes-external-secrets
  5:   chart: incubator/raw
  6:   namespace: kube-system
- 7:
+ 7: 
  8: - name: external-secrets
  9:   chart: incubator/raw
 10:   namespace: default
@@ -3984,7 +3984,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 12:     app: test
 13:   needs:
 14:   - kube-system/kubernetes-external-secrets
-15:
+15: 
 16: - name: my-release
 17:   chart: incubator/raw
 18:   namespace: default
@@ -3992,7 +3992,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 20:     app: test
 21:   needs:
 22:   - default/external-secrets
-23:
+23: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -4000,14 +4000,14 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
- 1:
- 2:
+ 0: 
+ 1: 
+ 2: 
  3: releases:
  4: - name: kubernetes-external-secrets
  5:   chart: incubator/raw
  6:   namespace: kube-system
- 7:
+ 7: 
  8: - name: external-secrets
  9:   chart: incubator/raw
 10:   namespace: default
@@ -4015,7 +4015,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 12:     app: test
 13:   needs:
 14:   - kube-system/kubernetes-external-secrets
-15:
+15: 
 16: - name: my-release
 17:   chart: incubator/raw
 18:   namespace: default
@@ -4023,7 +4023,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 20:     app: test
 21:   needs:
 22:   - default/external-secrets
-23:
+23: 
 
 merged environment: &{default map[] map[]}
 0 release(s) matching app=test_non_existent found in helmfile.yaml
@@ -4064,7 +4064,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: bar
  3:   namespace: ns1
@@ -4073,7 +4073,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
  6:   chart: mychart1
  7:   needs:
  8:   - ns1/bar
- 9:
+ 9: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -4081,7 +4081,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: bar
  3:   namespace: ns1
@@ -4090,7 +4090,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  6:   chart: mychart1
  7:   needs:
  8:   - ns1/bar
- 9:
+ 9: 
 
 merged environment: &{default map[] map[]}
 1 release(s) matching name=foo found in helmfile.yaml
@@ -4128,7 +4128,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: baz
  3:   namespace: ns1
@@ -4137,7 +4137,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
  6:   chart: mychart1
  7:   needs:
  8:   - ns1/bar
- 9:
+ 9: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -4145,7 +4145,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: baz
  3:   namespace: ns1
@@ -4154,7 +4154,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  6:   chart: mychart1
  7:   needs:
  8:   - ns1/bar
- 9:
+ 9: 
 
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
@@ -4196,7 +4196,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: bar
  3:   namespace: ns1
@@ -4209,7 +4209,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 10:   chart: mychart1
 11:   needs:
 12:   - ns1/bar
-13:
+13: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -4217,7 +4217,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: bar
  3:   namespace: ns1
@@ -4230,7 +4230,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 10:   chart: mychart1
 11:   needs:
 12:   - ns1/bar
-13:
+13: 
 
 merged environment: &{default map[] map[]}
 err: found 2 duplicate releases with ID "default//foo"
@@ -4399,14 +4399,14 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: repositories:
  2: - name: bitnami
  3:   url: https://charts.bitnami.com/bitnami/
  4: releases:
  5: - name: example
  6:   chart: /path/to/charts/example
- 7:
+ 7: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -4414,14 +4414,14 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: repositories:
  2: - name: bitnami
  3:   url: https://charts.bitnami.com/bitnami/
  4: releases:
  5: - name: example
  6:   chart: /path/to/charts/example
- 7:
+ 7: 
 
 merged environment: &{default map[] map[]}
 There are no repositories defined in your helmfile.yaml.
@@ -4654,10 +4654,10 @@ releases:
 	})
 
 	expected := `NAME      	NAMESPACE	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
-myrelease1	         	true   	false    	common:label,id:myrelease1	mychart1
-myrelease2	         	false  	true     	common:label              	mychart1
-myrelease3	         	true   	true     	                          	mychart1
-myrelease4	         	true   	true     	id:myrelease1             	mychart1
+myrelease1	         	true   	false    	common:label,id:myrelease1	mychart1	       
+myrelease2	         	false  	true     	common:label              	mychart1	       
+myrelease3	         	true   	true     	                          	mychart1	       
+myrelease4	         	true   	true     	id:myrelease1             	mychart1	       
 `
 
 	assert.Equal(t, expected, out)
