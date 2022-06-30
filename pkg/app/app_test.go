@@ -3342,7 +3342,7 @@ releases:
 			},
 		},
 		{
-			name: "helm2: upgrade when tns1/foo needs tns2/bar",
+			name: "helm2 upgrade when tns1/foo needs tns2/bar",
 			loc:  location(),
 
 			files: map[string]string{
