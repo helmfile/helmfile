@@ -377,9 +377,11 @@ func Test_DecryptSecret(t *testing.T) {
 	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName
 Decrypting secret %s/secretName
 exec: helm --kube-context dev secrets view %s/secretName
+Decrypted %s/secretName into %s
 Preparing to decrypt secret %s/secretName
 Found secret in cache %s/secretName
-`, cwd, cwd, cwd, cwd, cwd)
+Decrypted %s/secretName into %s
+`, cwd, cwd, cwd, cwd, tmpFilePath, cwd, cwd, cwd, tmpFilePath)
 	if err != nil {
 		if _, ok := err.(*os.PathError); ok {
 		} else {
