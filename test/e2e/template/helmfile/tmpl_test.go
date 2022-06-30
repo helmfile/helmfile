@@ -26,16 +26,9 @@ type tmplTestCase struct {
 }
 
 // setEnvs sets the environment variables for the test case
-func (t *tmplTestCase) setEnvs() {
+func (t *tmplTestCase) setEnvs(tt *testing.T) {
 	for k, v := range t.envs {
-		os.Setenv(k, v)
-	}
-}
-
-// unSetEnvs unsets the environment variables for the test case
-func (t *tmplTestCase) unSetEnvs() {
-	for k := range t.envs {
-		os.Unsetenv(k)
+		tt.Setenv(k, v)
 	}
 }
 
@@ -235,8 +228,7 @@ func TestTmplStrings(t *testing.T) {
 
 	for _, tc := range tmplE2eTest.tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.setEnvs()
-			defer tc.unSetEnvs()
+			tc.setEnvs(t)
 			tmpl, err := tmpl.Parse(tc.tmplString)
 			require.Nilf(t, err, "error parsing template: %v", err)
 

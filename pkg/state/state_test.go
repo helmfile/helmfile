@@ -987,10 +987,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			for k, v := range tt.envs {
-				err := os.Setenv(k, v)
-				if err != nil {
-					t.Error("HelmState.SyncRepos() could not set env var for testing")
-				}
+				t.Setenv(k, v)
 			}
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{

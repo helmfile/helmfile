@@ -736,14 +736,13 @@ func Test_getTillerlessEnv(t *testing.T) {
 		t.Errorf("getTillerlessEnv() KUBECONFIG\nactual = %s\nexpect = nil", val)
 	}
 
-	os.Setenv("KUBECONFIG", "toto")
+	t.Setenv("KUBECONFIG", "toto")
 	actual = context.getTillerlessEnv()
 	cwd, _ := os.Getwd()
 	expected := path.Join(cwd, "toto")
 	if val, found := actual["KUBECONFIG"]; !found || val != expected {
 		t.Errorf("getTillerlessEnv() KUBECONFIG\nactual = %s\nexpect = %s", val, expected)
 	}
-	os.Unsetenv("KUBECONFIG")
 }
 
 func Test_mergeEnv(t *testing.T) {
@@ -795,13 +794,12 @@ func Test_IsHelm3(t *testing.T) {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
 
-	os.Setenv(envvar.Helm3, "1")
+	t.Setenv(envvar.Helm3, "1")
 	helm2Runner = mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
 	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsHelm3() {
 		t.Errorf("helmexec.IsHelm3() - Helm3 not detected when %s is set", envvar.Helm3)
 	}
-	os.Setenv(envvar.Helm3, "")
 }
 
 func Test_GetVersion(t *testing.T) {

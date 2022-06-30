@@ -94,11 +94,9 @@ func TestGetTillerlessEnv(t *testing.T) {
 		hc := &HelmContext{
 			Tillerless: test.tillerless,
 		}
-		os.Setenv(kubeconfigEnv, test.kubeconfig)
+		t.Setenv(kubeconfigEnv, test.kubeconfig)
 		result := hc.getTillerlessEnv()
 		require.Equalf(t, test.expected, result, "expected result %s, received result %s", test.expected, result)
 
 	}
-	defer os.Unsetenv(kubeconfigEnv)
-
 }
