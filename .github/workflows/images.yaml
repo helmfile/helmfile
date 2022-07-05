@@ -9,6 +9,8 @@ on:
       - "image/**"
       - "*image"
       - "image*"
+    tags:
+      - 'v*'
     paths-ignore:
       - .github/workflows/ci.yml
       - .github/workflows/lock.yml
