@@ -672,7 +672,7 @@ func (a *App) visitStateFiles(fileOrDir string, opts LoadOpts, do func(string, s
 			return errAbsDir
 		}
 		err := a.within(absd, func() error {
-			return do(file, dir)
+			return do(file, absd)
 		})
 		if err != nil {
 			return appError(fmt.Sprintf("in %s/%s", dir, file), err)
