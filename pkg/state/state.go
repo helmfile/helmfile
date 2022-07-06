@@ -39,6 +39,7 @@ const (
 	EmptyTimeout = -1
 )
 
+// ReleaseSetSpec is release set spec
 type ReleaseSetSpec struct {
 	DefaultHelmBinary string `yaml:"helmBinary,omitempty"`
 
@@ -79,6 +80,7 @@ type ReleaseSetSpec struct {
 	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
 }
 
+// PullCommand is a command to pull a chart
 type PullCommand struct {
 	ChartRef     string
 	responseChan chan error
@@ -120,6 +122,7 @@ type SubHelmfileSpec struct {
 	Environment SubhelmfileEnvironmentSpec
 }
 
+// SubhelmfileEnvironmentSpec is the environment spec for a subhelmfile
 type SubhelmfileEnvironmentSpec struct {
 	OverrideValues []interface{} `yaml:"values,omitempty"`
 }
@@ -321,7 +324,7 @@ type ReleaseSpec struct {
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
-// This is useful to redirect helm commands like `helm template`, `helm diff`, and `helm upgrade --install` to
+// This is useful to redirect helm commands like `helm template`, `helm dependency update`, `helm diff`, and `helm upgrade --install` to
 // our modified version of the chart, in case the user configured Helmfile to do modify the chart before being passed to Helm.
 func (r ReleaseSpec) ChartPathOrName() string {
 	if r.ChartPath != "" {
@@ -351,11 +354,19 @@ type AffectedReleases struct {
 	Failed   []*ReleaseSpec
 }
 
+// DefaultEnv is the default environment to use for helm commands
 const DefaultEnv = "default"
 
+// MissingFileHandlerError is the error returned when a file is missing
 const MissingFileHandlerError = "Error"
+
+// MissingFileHandlerInfo is the info returned when a file is missing
 const MissingFileHandlerInfo = "Info"
+
+// MissingFileHandlerWarn is the warning returned when a file is missing
 const MissingFileHandlerWarn = "Warn"
+
+// MissingFileHandlerDebug is the debug returned when a file is missing
 const MissingFileHandlerDebug = "Debug"
 
 func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
@@ -2294,8 +2305,8 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 	var errs []error
 
 	for _, release := range releases {
-		if st.directoryExistsAt(release.Chart) {
-			if err := helm.UpdateDeps(release.Chart); err != nil {
+		if st.directoryExistsAt(release.ChartPathOrName()) {
+			if err := helm.UpdateDeps(release.ChartPathOrName()); err != nil {
 				errs = append(errs, err)
 			}
 		} else {
