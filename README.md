@@ -617,7 +617,7 @@ A few rules to clear up this ambiguity:
 - Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
 - Relative paths referenced on the command line are relative to the current working directory the user is in
 
-For additional context, take a look at [paths examples](PATHS.md).
+For additional context, take a look at [paths examples](docs/paths.md).
 
 ## Labels Overview
 
