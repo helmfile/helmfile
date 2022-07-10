@@ -416,10 +416,7 @@ exec: helm --kube-context dev secrets view %s/secretName.yaml.gotmpl
 Decrypted %s/secretName.yaml.gotmpl into %s
 `, cwd, cwd, cwd, cwd, tmpFilePath)
 	if err != nil {
-		if _, ok := err.(*os.PathError); ok {
-		} else {
-			t.Errorf("Error: %v", err)
-		}
+		t.Errorf("Error: %v", err)
 	}
 	if d := cmp.Diff(expected, buffer.String()); d != "" {
 		t.Errorf("helmexec.DecryptSecret(): want (-), got (+):\n%s", d)
