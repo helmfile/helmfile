@@ -17,6 +17,7 @@ nav:
   - Home: index.md
   - Getting Started:
     - Paths Overview: paths.md
+    - Templating Funs: templating_funcs.md
   - Advanced Features:
     - Best Practices Guide: writing-helmfile.md
     - Advanced Features: advanced-features.md

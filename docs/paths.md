@@ -10,7 +10,7 @@ A few rules to clear up this ambiguity:
 
 ### Examples
 
-There are several examples that we can go through in the [`/examples`](examples) folder which demonstrate this.
+There are several examples that we can go through in the [`/examples`](../examples/) folder which demonstrate this.
 
 **Local Execution**
 

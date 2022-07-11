@@ -7,12 +7,12 @@
   "MD041": false
 } -->
 
-<div align="center">
+<div align="center" markdown="1">
 
 # Helmfile
 
 [![Tests](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml?query=branch%3Amain)
-[![Docker Repository on Quay](https://quay.io/repository/roboll/helmfile/status "Docker Repository on Quay")](https://quay.io/repository/roboll/helmfile)
+[![Docker Repository on Quay](https://quay.io/repository/roboll/helmfile/status "Docker Repository on Quay")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
 [![Slack Community #helmfile](https://slack.sweetops.com/badge.svg)](https://slack.sweetops.com)
 [![Documentation](https://readthedocs.org/projects/helmfile/badge/?version=latest&style=flat)](https://helmfile.readthedocs.io/en/latest/)
 
@@ -25,7 +25,7 @@ Deploy Kubernetes Helm Charts
 
 March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see roboll/helmfile#1824 for more information.
 
-Even though Helmfile is used in production environments [across multiple organizations](USERS.md), it is still in its early stage of development, hence versioned 0.x.
+Even though Helmfile is used in production environments [across multiple organizations](users.md), it is still in its early stage of development, hence versioned 0.x.
 
 Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be backward-incompatible changes for every release.
 
@@ -375,7 +375,7 @@ We also added the following functions:
 - `fetchSecretValue`
 - `expandSecretRefs`
 
-More details on each function can be found at ["Template Functions" page in our documentation](./docs/templating_funcs.md).
+More details on each function can be found at ["Template Functions" page in our documentation](templating_funcs.md).
 
 ## Using environment variables
 
@@ -617,7 +617,7 @@ A few rules to clear up this ambiguity:
 - Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
 - Relative paths referenced on the command line are relative to the current working directory the user is in
 
-For additional context, take a look at [paths examples](PATHS.md).
+For additional context, take a look at [paths examples](docs/paths.md).
 
 ## Labels Overview
 
