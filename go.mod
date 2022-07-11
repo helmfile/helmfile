@@ -13,7 +13,7 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.6.2
-	github.com/hashicorp/go-version v1.4.0
+	github.com/hashicorp/go-version v1.6.0
 	github.com/imdario/mergo v0.3.13
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/kylelemons/godebug v1.1.0
