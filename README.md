@@ -12,7 +12,7 @@
 # Helmfile
 
 [![Tests](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml?query=branch%3Amain)
-[![Docker Repository on Quay](https://quay.io/repository/roboll/helmfile/status "Docker Repository on Quay")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
+[![Container Image Repository on GHCR](https://ghcr-badge.herokuapp.com/helmfile/helmfile/latest_tag?trim=major&label=image%20latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
 [![Slack Community #helmfile](https://slack.sweetops.com/badge.svg)](https://slack.sweetops.com)
 [![Documentation](https://readthedocs.org/projects/helmfile/badge/?version=latest&style=flat)](https://helmfile.readthedocs.io/en/latest/)
 
@@ -365,6 +365,7 @@ We also added the following functions:
 
 - `requiredEnv`
 - `exec`
+- `envExec`
 - `readFile`
 - `toYaml`
 - `fromYaml`
@@ -375,7 +376,7 @@ We also added the following functions:
 - `fetchSecretValue`
 - `expandSecretRefs`
 
-More details on each function can be found at ["Template Functions" page in our documentation](templating_funcs.md).
+More details on each function can be found at ["Template Functions" page in our documentation](docs/templating_funcs.md).
 
 ## Using environment variables
 
@@ -420,27 +421,27 @@ If you wish to treat your enviroment variables as strings always, even if they a
 
 ### Running as a container
 
-The [Helmfile Docker images are available in Quay](https://quay.io/roboll/helmfile). There is no `latest` tag, since the `0.x` versions can contain breaking changes, so make sure you pick the right tag. Example using `helmfile 0.135.0`:
+The [Helmfile Docker images are available in GHCR](https://github.com/helmfile/helmfile/pkgs/container/helmfile). There is no `latest` tag, since the `0.x` versions can contain breaking changes, so make sure you pick the right tag. Example using `helmfile 0.145.2`:
 
 ```sh-session
 # helm 2
-$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:v0.135.0 helmfile sync
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.145.2 helmfile sync
 
 # helm 3
-$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:helm3-v0.135.0 helmfile sync
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:helm3-v0.145.2 helmfile sync
 ```
 
 You can also use shims to make calling the binaries easier:
 
 ```sh-session
 # helm 2
-$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:v0.135.0 helmfile "$@"' |
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.145.2 helmfile "$@"' |
     tee helmfile
 $ chmod +x helmfile
 $ ./helmfile sync
 
 # helm 3
-$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd quay.io/roboll/helmfile:helm3-v0.135.0 helmfile "$@"' |
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:helm3-v0.145.2 helmfile "$@"' |
     tee helmfile
 $ chmod +x helmfile
 $ ./helmfile sync
@@ -1328,7 +1329,7 @@ Use the [Helmfile Best Practices Guide](/docs/writing-helmfile.md) to write adva
 
 We also have dedicated documentation on the following topics which might interest you:
 
-- [Shared Configurations Across Teams](/docs/shared-configuration-across-teams.md)
+- [Shared Configurations Across Teams](docs/shared-configuration-across-teams.md)
 
 Or join our friendly slack community in the [`#helmfile`](https://slack.sweetops.com) channel to ask questions and get help. Check out our [slack archive](https://archive.sweetops.com/helmfile/) for good examples of how others are using it.
 
