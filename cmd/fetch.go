@@ -3,30 +3,36 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-func addFetchSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:  "fetch",
-		Usage: "fetch charts from state file",
-		Flags: []cli.Flag{
-			cli.IntFlag{
-				Name:  "concurrency",
-				Value: 0,
-				Usage: "maximum number of concurrent downloads of release charts",
-			},
-			cli.BoolFlag{
-				Name:  "skip-deps",
-				Usage: `skip running "helm repo update" and "helm dependency build"`,
-			},
-			cli.StringFlag{
-				Name:  "output-dir",
-				Usage: "directory to store charts (default: temporary directory which is deleted when the command terminates)",
-			},
+// NewFetchCmd returm build subcmd
+func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	fetchOptions := config.NewFetchOptions()
+	fetchImpl := config.NewFetchImpl(globalCfg, fetchOptions)
+
+	cmd := &cobra.Command{
+		Use:   "fetch",
+		Short: "Fetch charts from state file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(fetchImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := fetchImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(fetchImpl)
+			return toCLIError(fetchImpl.GlobalImpl, a.Fetch(fetchImpl))
 		},
-		Action: Action(func(a *app.App, c config.ConfigImpl) error {
-			return a.Fetch(c)
-		}),
-	})
+	}
+
+	f := cmd.Flags()
+	f.IntVar(&fetchOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
+	f.BoolVar(&fetchOptions.SkipDeps, "skip-deps", fetchOptions.SkipDeps, `skip running "helm repo update" and "helm dependency build"`)
+	f.StringVar(&fetchOptions.OutputDir, "output-dir", fetchOptions.OutputDir, "directory to store charts (default: temporary directory which is deleted when the command terminates)")
+
+	return cmd
 }

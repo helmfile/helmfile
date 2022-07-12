@@ -3,27 +3,34 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-func addStatusSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:  "status",
-		Usage: "retrieve status of releases in state file",
-		Flags: []cli.Flag{
-			cli.IntFlag{
-				Name:  "concurrency",
-				Value: 0,
-				Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
-			},
-			cli.StringFlag{
-				Name:  "args",
-				Value: "",
-				Usage: "pass args to helm exec",
-			},
+// NewStatusCmd returm build subcmd
+func NewStatusCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	statusOptions := config.NewStatusOptions()
+	statusImpl := config.NewStatusImpl(globalCfg, statusOptions)
+
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Retrieve status of releases in state file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(statusImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := statusImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(statusImpl)
+			return toCLIError(statusImpl.GlobalImpl, a.Status(statusImpl))
 		},
-		Action: Action(func(a *app.App, c config.ConfigImpl) error {
-			return a.Status(c)
-		}),
-	})
+	}
+
+	f := cmd.Flags()
+	f.StringVar(&statusOptions.Args, "args", statusOptions.Args, "pass args to helm exec")
+
+	return cmd
 }

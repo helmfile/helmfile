@@ -3,33 +3,66 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-var cacheInfoSubcommand = cli.Command{
-	Name:  "info",
-	Usage: "cache info",
-	Action: Action(func(a *app.App, c config.ConfigImpl) error {
-		return a.ShowCacheDir(c)
-	}),
-}
+func NewCacheInfoSubcommand(cacheImpl *config.CacheImpl) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "info",
+		Short: "cache info",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(cacheImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
 
-var cacheCleanupSubcommand = cli.Command{
-	Name:  "cleanup",
-	Usage: "clean up cache directory",
-	Action: Action(func(a *app.App, c config.ConfigImpl) error {
-		return a.CleanCacheDir(c)
-	}),
-}
+			if err := cacheImpl.ValidateConfig(); err != nil {
+				return err
+			}
 
-func addCacheSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:      "cache",
-		Usage:     "cache management",
-		ArgsUsage: "[command]",
-		Subcommands: []cli.Command{
-			cacheCleanupSubcommand,
-			cacheInfoSubcommand,
+			a := app.New(cacheImpl)
+			return toCLIError(cacheImpl.GlobalImpl, a.ShowCacheDir(cacheImpl))
 		},
-	})
+	}
+
+	return cmd
+}
+
+func NewCacheCleanupSubcommand(cacheImpl *config.CacheImpl) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cleanup",
+		Short: "clean up cache directory",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(cacheImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := cacheImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(cacheImpl)
+			return toCLIError(cacheImpl.GlobalImpl, a.CleanCacheDir(cacheImpl))
+		},
+	}
+	return cmd
+}
+
+// NewCacheCmd returm cache subcmd
+func NewCacheCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	cacheOptions := config.NewCacheOptions()
+	cacheImpl := config.NewCacheImpl(globalCfg, cacheOptions)
+
+	cmd := &cobra.Command{
+		Use:   "cache",
+		Short: "Cache management",
+	}
+
+	cmd.AddCommand(
+		NewCacheCleanupSubcommand(cacheImpl),
+		NewCacheInfoSubcommand(cacheImpl),
+	)
+
+	return cmd
 }

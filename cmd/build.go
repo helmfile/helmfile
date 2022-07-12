@@ -3,21 +3,34 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-func addBuildSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:  "build",
-		Usage: "output compiled helmfile state(s) as YAML",
-		Flags: []cli.Flag{
-			cli.BoolFlag{
-				Name:  "embed-values",
-				Usage: "Read all the values files for every release and embed into the output helmfile.yaml",
-			},
+// NewBuildCmd returm build subcmd
+func NewBuildCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	buildOptions := config.NewBuildOptions()
+	buildImpl := config.NewBuildImpl(globalCfg, buildOptions)
+
+	cmd := &cobra.Command{
+		Use:   "build",
+		Short: "Build all resources from state file only when there are changes",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(buildImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := buildImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(buildImpl)
+			return toCLIError(buildImpl.GlobalImpl, a.PrintState(buildImpl))
 		},
-		Action: Action(func(a *app.App, c config.ConfigImpl) error {
-			return a.PrintState(c)
-		}),
-	})
+	}
+
+	f := cmd.Flags()
+	f.BoolVar(&buildOptions.EmbedValues, "embed-values", false, "Read all the values files for every release and embed into the output helmfile.yaml")
+
+	return cmd
 }

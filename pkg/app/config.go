@@ -232,3 +232,5 @@ type interactive interface {
 type ListConfigProvider interface {
 	Output() string
 }
+
+type CacheConfigProvider interface{}

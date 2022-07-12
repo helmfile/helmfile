@@ -2059,7 +2059,7 @@ func (c context) wrapErrs(errs ...error) error {
 	return nil
 }
 
-func (a *App) ShowCacheDir(c ListConfigProvider) error {
+func (a *App) ShowCacheDir(c CacheConfigProvider) error {
 	fmt.Printf("Cache directory: %s\n", remote.CacheDir())
 
 	if !directoryExistsAt(remote.CacheDir()) {
@@ -2076,7 +2076,7 @@ func (a *App) ShowCacheDir(c ListConfigProvider) error {
 	return nil
 }
 
-func (a *App) CleanCacheDir(c ListConfigProvider) error {
+func (a *App) CleanCacheDir(c CacheConfigProvider) error {
 	if !directoryExistsAt(remote.CacheDir()) {
 		return nil
 	}
