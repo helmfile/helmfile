@@ -101,8 +101,10 @@ templates:
 
 releases:
 - name: heapster
+  version: 0.3.2
   <<: *default
 - name: kubernetes-dashboard
+  version: 0.10.0
   <<: *default
 ```
 
