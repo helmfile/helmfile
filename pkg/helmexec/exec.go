@@ -281,37 +281,13 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		helm.logger.Infof("Decrypting secret %v", absPath)
 		preArgs := context.GetTillerlessArgs(helm)
 		env := context.getTillerlessEnv()
-		out, err := helm.exec(append(append(preArgs, "secrets", "dec", absPath), flags...), env)
-		helm.info(out)
+		secretBytes, err := helm.exec(append(append(preArgs, "secrets", "view", absPath), flags...), env)
 		if err != nil {
 			secret.err = err
 			return "", err
 		}
 
-		// HELM_SECRETS_DEC_SUFFIX is used by the helm-secrets plugin to define the output file
-		decSuffix := os.Getenv("HELM_SECRETS_DEC_SUFFIX")
-		if len(decSuffix) == 0 {
-			decSuffix = ".yaml.dec"
-		}
-
-		// helm secrets replaces the extension with its suffix ONLY when the extension is ".yaml"
-		var decFilename string
-		if strings.HasSuffix(absPath, ".yaml") {
-			decFilename = strings.Replace(absPath, ".yaml", decSuffix, 1)
-		} else {
-			decFilename = absPath + decSuffix
-		}
-
-		secretBytes, err := os.ReadFile(decFilename)
-		if err != nil {
-			secret.err = err
-			return "", err
-		}
 		secret.bytes = secretBytes
-
-		if err := os.Remove(decFilename); err != nil {
-			return "", err
-		}
 
 	} else {
 		// Cache hit
