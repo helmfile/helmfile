@@ -2,11 +2,13 @@ package state
 
 import (
 	"fmt"
-	"github.com/helmfile/helmfile/pkg/remote"
-	"go.uber.org/zap"
 	"net/url"
 	"path/filepath"
 	"sort"
+
+	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/remote"
 )
 
 type Storage struct {

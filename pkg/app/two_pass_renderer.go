@@ -51,8 +51,7 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environmen
 	// create preliminary state, as we may have an environment. Tolerate errors.
 	prestate, err := c.ParseAndLoad([]byte(sanitized), baseDir, filename, r.env, false, firstPassEnv)
 	if err != nil && r.logger != nil {
-		switch err.(type) {
-		case *state.StateLoadError:
+		if _, ok := err.(*state.StateLoadError); ok {
 			r.logger.Debugf("could not deduce `environment:` block, configuring only .Environment.Name. error: %v", err)
 		}
 		r.logger.Debugf("error in first-pass rendering: result of \"%s\":\n%s", filename, prependLineNumbers(yamlBuf.String()))

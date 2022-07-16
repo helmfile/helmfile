@@ -201,7 +201,6 @@ func TestHelmState_executeTemplates(t *testing.T) {
 }
 
 func TestHelmState_recursiveRefsTemplates(t *testing.T) {
-
 	tests := []struct {
 		name  string
 		input ReleaseSpec

@@ -242,5 +242,4 @@ func TestTmplStrings(t *testing.T) {
 			require.Equal(t, tc.output, tplResult.String())
 		})
 	}
-
 }

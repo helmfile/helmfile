@@ -130,7 +130,9 @@ func (c *Context) EnvExec(envs map[string]interface{}, command string, args []in
 		}
 
 		g.Go(func() error {
-			defer stdin.Close()
+			defer func() {
+				_ = stdin.Close()
+			}()
 
 			size := len(input)
 

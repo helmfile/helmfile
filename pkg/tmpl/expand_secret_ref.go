@@ -8,7 +8,7 @@ import (
 	"github.com/variantdev/vals"
 )
 
-//to generate mock run mockgen -source=expand_secret_ref.go -destination=expand_secrets_mock.go -package=tmpl
+// to generate mock run mockgen -source=expand_secret_ref.go -destination=expand_secrets_mock.go -package=tmpl
 type valClient interface {
 	Eval(template map[string]interface{}) (map[string]interface{}, error)
 }

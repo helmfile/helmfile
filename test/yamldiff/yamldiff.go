@@ -113,10 +113,10 @@ func computeDiff(formatter aurora.Aurora, a interface{}, b interface{}) (string,
 		switch {
 		case strings.HasPrefix(s, "+"):
 			diffs = append(diffs, formatter.Bold(formatter.Green(s)).String())
-			ndiffs += 1
+			ndiffs++
 		case strings.HasPrefix(s, "-"):
 			diffs = append(diffs, formatter.Bold(formatter.Red(s)).String())
-			ndiffs += 1
+			ndiffs++
 		default:
 			diffs = append(diffs, s)
 		}

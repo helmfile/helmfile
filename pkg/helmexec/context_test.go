@@ -52,7 +52,6 @@ func TestGetTillerlessArgs(t *testing.T) {
 			version:    *sr,
 		}
 		require.Equalf(t, test.expected, hc.GetTillerlessArgs(he), "expected result %s, received result %s", test.expected, hc.GetTillerlessArgs(he))
-
 	}
 }
 
@@ -97,6 +96,5 @@ func TestGetTillerlessEnv(t *testing.T) {
 		t.Setenv(kubeconfigEnv, test.kubeconfig)
 		result := hc.getTillerlessEnv()
 		require.Equalf(t, test.expected, result, "expected result %s, received result %s", test.expected, result)
-
 	}
 }

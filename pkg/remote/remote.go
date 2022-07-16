@@ -103,8 +103,7 @@ func (r *Remote) Locate(urlOrPath string) (string, error) {
 	}
 	fetched, err := r.Fetch(urlOrPath)
 	if err != nil {
-		switch err.(type) {
-		case InvalidURLError:
+		if _, ok := err.(InvalidURLError); ok {
 			return urlOrPath, nil
 		}
 		return "", err
@@ -134,8 +133,7 @@ func IsRemote(goGetterSrc string) bool {
 func Parse(goGetterSrc string) (*Source, error) {
 	items := strings.Split(goGetterSrc, "::")
 	var getter string
-	switch len(items) {
-	case 2:
+	if len(items) == 2 {
 		getter = items[0]
 		goGetterSrc = items[1]
 	}
@@ -199,7 +197,7 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 		if q.Has("sshkey") {
 			q.Set("sshkey", "redacted")
 		}
-		paramsKey := strings.Replace(q.Encode(), "&", "_", -1)
+		paramsKey := strings.ReplaceAll(q.Encode(), "&", "_")
 		cacheKey = fmt.Sprintf("%s.%s", dirKey, paramsKey)
 	} else {
 		cacheKey = dirKey

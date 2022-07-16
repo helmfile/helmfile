@@ -9,9 +9,10 @@ import (
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
+// nolint: golint
 type ConfigImpl struct {
 	c *cli.Context
 
@@ -239,10 +240,10 @@ func (c ConfigImpl) Color() bool {
 	// we can't rely on helm-diff's ability to auto-detect term for color output.
 	// See https://github.com/roboll/helmfile/issues/2043
 
-	term := terminal.IsTerminal(int(os.Stdout.Fd()))
+	terminal := term.IsTerminal(int(os.Stdout.Fd()))
 	// https://github.com/databus23/helm-diff/issues/281
 	dumb := os.Getenv("TERM") == "dumb"
-	return term && !dumb
+	return terminal && !dumb
 }
 
 func (c ConfigImpl) NoColor() bool {

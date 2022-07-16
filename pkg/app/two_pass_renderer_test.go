@@ -31,7 +31,6 @@ func makeLoader(files map[string]string, env string) (*desiredStateLoader, *test
 }
 
 func TestReadFromYaml_MakeEnvironmentHasNoSideEffects(t *testing.T) {
-
 	yamlContent := []byte(`
 environments:
   staging:
@@ -71,7 +70,6 @@ releases:
 }
 
 func TestReadFromYaml_RenderTemplate(t *testing.T) {
-
 	defaultValuesYaml := `
 releaseName: "hello"
 conditionalReleaseTag: "yes"
@@ -159,7 +157,6 @@ releases:
 // even if the pre-render disables the readFile and exec functions.
 // This does not apply to .gotmpl files, which is a nice side-effect.
 func TestReadFromYaml_RenderTemplateWithGotmpl(t *testing.T) {
-
 	defaultValuesYamlGotmpl := `
 releaseName: {{ readFile "nonIgnoredFile" }}
 `

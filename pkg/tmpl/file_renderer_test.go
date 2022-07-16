@@ -2,9 +2,10 @@ package tmpl
 
 import (
 	"fmt"
-	"github.com/helmfile/helmfile/pkg/environment"
 	"reflect"
 	"testing"
+
+	"github.com/helmfile/helmfile/pkg/environment"
 )
 
 var emptyEnvTmplData = map[string]interface{}{
@@ -50,8 +51,7 @@ func TestRenderToBytes_Yaml(t *testing.T) {
 `
 	valuesFile := "values.yaml"
 	r := NewFileRenderer(func(filename string) ([]byte, error) {
-		switch filename {
-		case valuesFile:
+		if filename == valuesFile {
 			return []byte(valuesYamlContent), nil
 		}
 		return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", valuesFile, filename)

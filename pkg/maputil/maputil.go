@@ -10,57 +10,57 @@ func CastKeysToStrings(s interface{}) (map[string]interface{}, error) {
 	switch src := s.(type) {
 	case map[interface{}]interface{}:
 		for k, v := range src {
-			var str_k string
-			switch typed_k := k.(type) {
+			var strK string
+			switch typedK := k.(type) {
 			case string:
-				str_k = typed_k
+				strK = typedK
 			default:
-				return nil, fmt.Errorf("unexpected type of key in map: expected string, got %T: value=%v, map=%v", typed_k, typed_k, src)
+				return nil, fmt.Errorf("unexpected type of key in map: expected string, got %T: value=%v, map=%v", typedK, typedK, src)
 			}
 
-			casted_v, err := recursivelyStringifyMapKey(v)
+			castedV, err := recursivelyStringifyMapKey(v)
 			if err != nil {
 				return nil, err
 			}
 
-			new[str_k] = casted_v
+			new[strK] = castedV
 		}
 	case map[string]interface{}:
 		for k, v := range src {
-			casted_v, err := recursivelyStringifyMapKey(v)
+			castedV, err := recursivelyStringifyMapKey(v)
 			if err != nil {
 				return nil, err
 			}
 
-			new[k] = casted_v
+			new[k] = castedV
 		}
 	}
 	return new, nil
 }
 
 func recursivelyStringifyMapKey(v interface{}) (interface{}, error) {
-	var casted_v interface{}
-	switch typed_v := v.(type) {
+	var castedV interface{}
+	switch typedV := v.(type) {
 	case map[interface{}]interface{}, map[string]interface{}:
-		tmp, err := CastKeysToStrings(typed_v)
+		tmp, err := CastKeysToStrings(typedV)
 		if err != nil {
 			return nil, err
 		}
-		casted_v = tmp
+		castedV = tmp
 	case []interface{}:
 		a := []interface{}{}
-		for i := range typed_v {
-			res, err := recursivelyStringifyMapKey(typed_v[i])
+		for i := range typedV {
+			res, err := recursivelyStringifyMapKey(typedV[i])
 			if err != nil {
 				return nil, err
 			}
 			a = append(a, res)
 		}
-		casted_v = a
+		castedV = a
 	default:
-		casted_v = typed_v
+		castedV = typedV
 	}
-	return casted_v, nil
+	return castedV, nil
 }
 
 type arg interface {
@@ -169,7 +169,7 @@ func ParseKey(key string) []string {
 			r = append(r, part)
 			part = ""
 		} else {
-			part = part + string(rune)
+			part += string(rune)
 		}
 	}
 	if len(part) > 0 {

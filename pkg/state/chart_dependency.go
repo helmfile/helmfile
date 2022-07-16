@@ -206,7 +206,9 @@ func (st *HelmState) updateDependenciesInTempDir(shell helmexec.DependencyUpdate
 	if err != nil {
 		return nil, fmt.Errorf("unable to create dir: %v", err)
 	}
-	defer os.RemoveAll(d)
+	defer func() {
+		_ = os.RemoveAll(d)
+	}()
 
 	return updateDependencies(st, shell, unresolved, filename, d)
 }
@@ -219,9 +221,9 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 	}
 
 	unresolved := &UnresolvedDependencies{deps: map[string][]unresolvedChartDependency{}}
-	//if err := unresolved.Add("stable/envoy", "https://kubernetes-charts.storage.googleapis.com", ""); err != nil {
-	//	panic(err)
-	//}
+	// if err := unresolved.Add("stable/envoy", "https://kubernetes-charts.storage.googleapis.com", ""); err != nil {
+	//	 panic(err)
+	// }
 
 	for _, r := range st.Releases {
 		repo, chart, ok := resolveRemoteChart(r.Chart)
@@ -269,6 +271,7 @@ type chartDependencyManager struct {
 	writeFile func(string, []byte, os.FileMode) error
 }
 
+// nolint: golint
 func NewChartDependencyManager(name string, logger *zap.SugaredLogger) *chartDependencyManager {
 	return &chartDependencyManager{
 		Name:      name,
@@ -324,7 +327,6 @@ func (m *chartDependencyManager) updateHelm2(shell helmexec.DependencyUpdater, w
 }
 
 func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *UnresolvedDependencies, shell helmexec.DependencyUpdater, wd string) (*ResolvedDependencies, error) {
-
 	// Generate `requirements.lock` of the temporary local chart by coping `<basename>.lock`
 	lockFile := m.lockFileName()
 

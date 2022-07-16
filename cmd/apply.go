@@ -26,7 +26,7 @@ func addApplySubcommand(cliApp *cli.App) {
 			},
 			cli.BoolFlag{
 				Name:  "validate",
-				Usage: "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requiers access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions",
+				Usage: "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions",
 			},
 			cli.IntFlag{
 				Name:  "context",

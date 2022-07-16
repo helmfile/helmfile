@@ -83,7 +83,10 @@ func HashObject(obj interface{}) (string, error) {
 		DisableMethods: true,
 		SpewKeys:       true,
 	}
-	printer.Fprintf(hash, "%#v", obj)
+	_, err := printer.Fprintf(hash, "%#v", obj)
+	if err != nil {
+		return "", err
+	}
 
 	sum := fmt.Sprint(hash.Sum32())
 

@@ -612,7 +612,7 @@ releases:
     whatever: yes
 `,
 	}
-	//Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
+	// Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
 	legacyTestcases := []struct {
 		label            string
 		expectedReleases []string
@@ -626,7 +626,7 @@ releases:
 	}
 	runFilterSubHelmFilesTests(legacyTestcases, files, t, "1st EmbeddedSelectors")
 
-	//Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
+	// Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
 	desiredTestcases := []struct {
 		label            string
 		expectedReleases []string
@@ -640,7 +640,6 @@ releases:
 	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd EmbeddedSelectors")
-
 }
 
 func TestVisitDesiredStatesWithReleasesFiltered_InheritedSelectors_3leveldeep(t *testing.T) {
@@ -665,7 +664,7 @@ releases:
   chart: stable/grafana
 `,
 	}
-	//Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
+	// Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
 	legacyTestcases := []struct {
 		label            string
 		expectedReleases []string
@@ -676,7 +675,7 @@ releases:
 	}
 	runFilterSubHelmFilesTests(legacyTestcases, files, t, "1st 3leveldeep")
 
-	//Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
+	// Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
 	desiredTestcases := []struct {
 		label            string
 		expectedReleases []string
@@ -689,7 +688,6 @@ releases:
 	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd 3leveldeep")
-
 }
 
 func TestVisitDesiredStatesWithReleasesFiltered_InheritedSelectors_inherits(t *testing.T) {
@@ -724,7 +722,7 @@ releases:
     select: foo
 `,
 	}
-	//Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
+	// Check with legacy behavior, that is when no explicit selector then sub-helmfiles inherits from command line selector
 	legacyTestcases := []struct {
 		label            string
 		expectedReleases []string
@@ -736,7 +734,7 @@ releases:
 	}
 	runFilterSubHelmFilesTests(legacyTestcases, files, t, "1st inherits")
 
-	//Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
+	// Check with experimental behavior, that is when no explicit selector then sub-helmfiles do no inherit from any selector
 	desiredTestcases := []struct {
 		label            string
 		expectedReleases []string
@@ -750,7 +748,6 @@ releases:
 	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd inherits")
-
 }
 
 func runFilterSubHelmFilesTests(testcases []struct {
@@ -801,7 +798,6 @@ func runFilterSubHelmFilesTests(testcases []struct {
 			t.Errorf("[%s]unexpected releases for selector %s: expected=%v, actual=%v", testName, testcase.label, testcase.expectedReleases, actual)
 		}
 	}
-
 }
 
 func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedNestedStateAdditionalEnvValues(t *testing.T) {
@@ -2257,8 +2253,8 @@ type configImpl struct {
 	includeTransitiveNeeds bool
 }
 
-func (a configImpl) Selectors() []string {
-	return a.selectors
+func (c configImpl) Selectors() []string {
+	return c.selectors
 }
 
 func (c configImpl) Set() []string {
@@ -2399,16 +2395,16 @@ func (a applyConfig) SkipDeps() bool {
 	return a.skipDeps
 }
 
-func (c applyConfig) SkipNeeds() bool {
-	return c.skipNeeds
+func (a applyConfig) SkipNeeds() bool {
+	return a.skipNeeds
 }
 
-func (c applyConfig) IncludeNeeds() bool {
-	return c.includeNeeds
+func (a applyConfig) IncludeNeeds() bool {
+	return a.includeNeeds
 }
 
-func (c applyConfig) IncludeTransitiveNeeds() bool {
-	return c.includeTransitiveNeeds
+func (a applyConfig) IncludeTransitiveNeeds() bool {
+	return a.includeTransitiveNeeds
 }
 
 func (a applyConfig) IncludeTests() bool {
@@ -2765,7 +2761,6 @@ releases:
 				t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
 			}
 		}
-
 	}
 }
 
@@ -4312,11 +4307,12 @@ changing working directory back to "/path/to"
 					skipDiffOnInstall: tc.skipDiffOnInstall,
 					skipNeeds:         tc.fields.skipNeeds,
 				})
-				if tc.error == "" && applyErr != nil {
+				switch {
+				case tc.error == "" && applyErr != nil:
 					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, applyErr)
-				} else if tc.error != "" && applyErr == nil {
+				case tc.error != "" && applyErr == nil:
 					t.Fatalf("expected error did not occur for data defined at %s", tc.loc)
-				} else if tc.error != "" && applyErr != nil && tc.error != applyErr.Error() {
+				case tc.error != "" && applyErr != nil && tc.error != applyErr.Error():
 					t.Fatalf("invalid error: expected %q, got %q", tc.error, applyErr.Error())
 				}
 
@@ -4433,7 +4429,6 @@ changing working directory back to "/path/to"
 	for i := range testcases {
 		tc := testcases[i]
 		t.Run(tc.name, func(t *testing.T) {
-
 			var helm = &exectest.Helm{
 				DiffMutex:     &sync.Mutex{},
 				ChartsMutex:   &sync.Mutex{},
@@ -4483,12 +4478,12 @@ changing working directory back to "/path/to"
 					skipRepos:              false,
 					includeTransitiveNeeds: false,
 				})
-
-				if tc.error == "" && depsErr != nil {
+				switch {
+				case tc.error == "" && depsErr != nil:
 					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, depsErr)
-				} else if tc.error != "" && depsErr == nil {
+				case tc.error != "" && depsErr == nil:
 					t.Fatalf("expected error did not occur for data defined at %s", tc.loc)
-				} else if tc.error != "" && depsErr != nil && tc.error != depsErr.Error() {
+				case tc.error != "" && depsErr != nil && tc.error != depsErr.Error():
 					t.Fatalf("invalid error: expected %q, got %q", tc.error, depsErr.Error())
 				}
 

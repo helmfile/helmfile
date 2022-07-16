@@ -1244,7 +1244,6 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 					t.Fatalf("unexpected error(s): expected=0, got=%d: %v", len(errs), errs)
 				}
 			}
-
 		})
 	}
 }
@@ -1392,7 +1391,6 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 }
 
 func testEq(a []*ReleaseSpec, b []*exectest.Release) bool {
-
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
 		return false
@@ -1473,7 +1471,7 @@ func TestGetDeployedVersion(t *testing.T) {
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
 			}
-			//simulate the helm.list call result
+			// simulate the helm.list call result
 			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$", Flags: "--deleting--deployed--failed--pending"}] = tt.listResult
 
 			affectedReleases := AffectedReleases{}
@@ -1652,10 +1650,8 @@ func TestHelmState_DiffFlags(t *testing.T) {
 					t.Errorf("HelmState.flagsForDiff() for [%s][%s] = %v, want %v", tt.name, tt.releases[j].Name, flags, tt.wantDiffFlags)
 				}
 			}
-
 		})
 	}
-
 }
 
 func TestHelmState_SyncReleasesCleanup(t *testing.T) {

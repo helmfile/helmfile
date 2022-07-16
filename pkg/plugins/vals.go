@@ -1,8 +1,9 @@
 package plugins
 
 import (
-	"github.com/variantdev/vals"
 	"sync"
+
+	"github.com/variantdev/vals"
 )
 
 const (

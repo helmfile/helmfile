@@ -9,7 +9,6 @@ import (
 
 // TestFormatAsTable tests the FormatAsTable function.
 func TestFormatAsTable(t *testing.T) {
-
 	h := []*HelmRelease{
 		{
 			Name:      "test",
@@ -78,5 +77,4 @@ func TestFormatAsJson(t *testing.T) {
 	if result != string(expectd) {
 		t.Errorf("FormatAsJson() = %v, want %v", result, string(expectd))
 	}
-
 }

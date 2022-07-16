@@ -2,8 +2,9 @@ package tmpl
 
 import (
 	"bytes"
-	"github.com/Masterminds/sprig/v3"
 	"text/template"
+
+	"github.com/Masterminds/sprig/v3"
 )
 
 func (c *Context) CreateFuncMap() template.FuncMap {

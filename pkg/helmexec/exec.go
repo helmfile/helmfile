@@ -74,7 +74,6 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 }
 
 func getHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
-
 	// Autodetect from `helm version`
 	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil)
 	if err != nil {
@@ -84,15 +83,16 @@ func getHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
 	return parseHelmVersion(string(outBytes))
 }
 
-func redactedUrl(chart string) string {
-	chartUrl, err := url.ParseRequestURI(chart)
+func redactedURL(chart string) string {
+	chartURL, err := url.ParseRequestURI(chart)
 	if err != nil {
 		return chart
 	}
-	return chartUrl.Redacted()
+	return chartURL.Redacted()
 }
 
 // New for running helm commands
+// nolint: golint
 func New(helmBinary string, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	// TODO: proper error handling
 	version, err := getHelmVersion(helmBinary, runner)
@@ -206,7 +206,7 @@ func (helm *execer) UpdateDeps(chart string) error {
 }
 
 func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
-	helm.logger.Infof("Upgrading release=%v, chart=%v", name, redactedUrl(chart))
+	helm.logger.Infof("Upgrading release=%v, chart=%v", name, redactedURL(chart))
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 
@@ -270,7 +270,6 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 	// Cache miss
 	if !ok {
-
 		secret = &decryptedSecret{}
 		helm.decryptedSecrets[absPath] = secret
 
@@ -288,7 +287,6 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		}
 
 		secret.bytes = secretBytes
-
 	} else {
 		// Cache hit
 		helm.logger.Debugf("Found secret in cache %v", absPath)
@@ -312,7 +310,9 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 			if err != nil {
 				return "", err
 			}
-			defer tmpFile.Close()
+			defer func() {
+				_ = tmpFile.Close()
+			}()
 
 			_, err = tmpFile.Write(content)
 			if err != nil {
@@ -334,7 +334,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 }
 
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
-	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedUrl(chart))
+	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedURL(chart))
 	var args []string
 	if helm.IsHelm3() {
 		args = []string{"template", name, chart}
@@ -373,9 +373,9 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 
 func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	if context.Writer != nil {
-		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, redactedUrl(chart))
+		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, redactedURL(chart))
 	} else {
-		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedUrl(chart))
+		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedURL(chart))
 	}
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
@@ -390,14 +390,12 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 		}
 	}
 	if detailedExitcodeEnabled {
-		switch e := err.(type) {
-		case ExitError:
-			if e.ExitStatus() == 2 {
-				if !(suppressDiff) {
-					helm.write(context.Writer, out)
-				}
-				return err
+		e, ok := err.(ExitError)
+		if ok && e.ExitStatus() == 2 {
+			if !(suppressDiff) {
+				helm.write(context.Writer, out)
 			}
+			return err
 		}
 	} else if !(suppressDiff) {
 		helm.write(context.Writer, out)
@@ -413,7 +411,7 @@ func (helm *execer) Lint(name, chart string, flags ...string) error {
 }
 
 func (helm *execer) Fetch(chart string, flags ...string) error {
-	helm.logger.Infof("Fetching %v", redactedUrl(chart))
+	helm.logger.Infof("Fetching %v", redactedURL(chart))
 	out, err := helm.exec(append([]string{"fetch", chart}, flags...), map[string]string{})
 	helm.info(out)
 	return err
@@ -432,7 +430,9 @@ func (helm *execer) ChartPull(chart string, flags ...string) error {
 		if err != nil {
 			return err
 		}
-		defer os.RemoveAll(tempDir)
+		defer func() {
+			_ = os.RemoveAll(tempDir)
+		}()
 		helmArgs = []string{"fetch", ociChartURL, "--version", ociChartTag, "--destination", tempDir}
 	} else {
 		helmArgs = []string{"chart", "pull", chart}

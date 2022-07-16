@@ -119,7 +119,6 @@ func setRootCommandFlags(cliApp *cli.App) {
 			Usage: "Request confirmation before attempting to modify clusters",
 		},
 	}
-
 }
 
 func toCliError(c *cli.Context, err error) error {
@@ -153,7 +152,7 @@ func configureLogging(c *cli.Context) error {
 	}
 	logger = helmexec.NewLogger(os.Stderr, logLevel)
 	if c.App.Metadata == nil {
-		// Auto-initialised in 1.19.0
+		// Auto-initialized in 1.19.0
 		// https://github.com/urfave/cli/blob/master/CHANGELOG.md#1190---2016-11-19
 		c.App.Metadata = make(map[string]interface{})
 	}

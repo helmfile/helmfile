@@ -19,5 +19,4 @@ func TestLoadOptsDeepCopy(t *testing.T) {
 
 	// Check that the new struct is not the same as the old one.
 	require.Equal(t, lOld, lNew, "DeepCopy should return a copy of the LoadOpts struct")
-
 }
