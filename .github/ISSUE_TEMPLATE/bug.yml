@@ -65,6 +65,14 @@ body:
     validations:
       required: true
   - type: input
+    id: helmfile_working_ver
+    attributes:
+      label: Working Helmfile Version
+      description: "Please provide the highest version number of Helmfile that doesn't result in the above problem."
+      placeholder: "Run `helmfile version` to print it."
+    validations:
+      required: true
+  - type: input
     id: discussion
     attributes:
       label: Relevant discussion
