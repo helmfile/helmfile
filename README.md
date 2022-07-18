@@ -69,6 +69,10 @@ Let's start with a simple `helmfile` and gradually improve it to fit your use-ca
 Suppose the `helmfile.yaml` representing the desired state of your helm releases looks like:
 
 ```yaml
+repositories:
+ - name: prometheus-community
+   url: https://prometheus-community.github.io/helm-charts
+
 releases:
 - name: prom-norbac-ubuntu
   namespace: prometheus
