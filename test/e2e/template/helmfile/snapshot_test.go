@@ -76,7 +76,7 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 				chartifyTempDir = "chartify_temp"
 			}
 
-			// We set the envvar probided by chartify, CHARTIFY_TEMPDIR, to make the tempdir static.
+			// We set the envvar provided by chartify, CHARTIFY_TEMPDIR, to make the tempdir static.
 			chartifyTempDir = filepath.Join(wd, chartifyTempDir)
 			t.Setenv("CHARTIFY_TEMPDIR", chartifyTempDir)
 			// Ensure there's no dangling and remaining tempdir from the previous run
@@ -97,7 +97,7 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 				containerName := "helmfile_docker_registry"
 
 				hostPort := config.LocalDockerRegistry.Port
-				if hostPort < 0 {
+				if hostPort <= 0 {
 					hostPort = 5000
 				}
 
@@ -136,10 +136,10 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 				t.Logf("Output from %v: %s", args, string(got))
 			}
 
+			require.NoError(t, err, "Unable to run helmfile with args %v", args)
+
 			gotStr := string(got)
 			gotStr = strings.ReplaceAll(gotStr, fmt.Sprintf("chart=%s", wd), "chart=$WD")
-
-			require.NoError(t, err, "Unable to run helmfile with args %v", args)
 
 			if stat, _ := os.Stat(outputFile); stat != nil {
 				want, err := os.ReadFile(outputFile)
@@ -149,6 +149,7 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 				// To update the test golden image(output.yaml), just remove it and rerun this test.
 				// We automatically capture the output to `output.yaml` in the test case directory
 				// when the output.yaml doesn't exist.
+				t.Log("generate output.yaml file and write captured output to it")
 				require.NoError(t, os.WriteFile(outputFile, []byte(gotStr), 0664))
 			}
 		})
@@ -181,8 +182,8 @@ func execHelm(t *testing.T, args ...string) string {
 	cmd := []string{"helm"}
 	cmd = append(cmd, args...)
 	c := strings.Join(cmd, " ")
-	docker := exec.Command("helm", args...)
-	out, err := docker.CombinedOutput()
+	helm := exec.Command("helm", args...)
+	out, err := helm.CombinedOutput()
 	if err != nil {
 		t.Logf("%s: %s", c, string(out))
 		t.Fatalf("Unable to run %s: %v", c, err)
