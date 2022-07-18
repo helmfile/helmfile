@@ -1,0 +1,23 @@
+Building dependency release=foo, chart=$WD/temp1/foo
+Templating release=foo, chart=$WD/temp1/foo
+---
+# Source: raw/templates/charts/dep/templates/resources.yaml
+# Source: raw/charts/dep/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-2
+  namespace: default
+data:
+  bar: BAR
+---
+# Source: raw/templates/resources.yaml
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-1
+  namespace: default
+data:
+  foo: FOO
+
