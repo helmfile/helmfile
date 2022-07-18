@@ -297,3 +297,18 @@ dependencies:
 ```
 
 Please read https://github.com/roboll/helmfile/issues/1762#issuecomment-816341251 for more details.
+
+#### OCI chart dependencies
+
+With Helmfile version v0.146.0 or later, you can add OCI chart to chart dependencies.
+
+An example `helmfile.yaml` that adds a OCI chart dependency to the release `foo` looks like the below:
+
+```
+releases:
+- name: foo
+  chart: ./path/to/foo
+  dependencies:
+  - chart: oci://my-oci-registry/helm-repo/envoy
+    version: 1.5
+```
