@@ -3,26 +3,35 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-func addDepsSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:  "deps",
-		Usage: "update charts based on their requirements",
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "args",
-				Value: "",
-				Usage: "pass args to helm exec",
-			},
-			cli.BoolFlag{
-				Name:  "skip-repos",
-				Usage: `skip running "helm repo update" before running "helm dependency build"`,
-			},
+// NewDepsCmd returm build subcmd
+func NewDepsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	depsOptions := config.NewDepsOptions()
+	depsImpl := config.NewDepsImpl(globalCfg, depsOptions)
+
+	cmd := &cobra.Command{
+		Use:   "deps",
+		Short: "Update charts based on their requirements",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(depsImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := depsImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(depsImpl)
+			return toCLIError(depsImpl.GlobalImpl, a.Deps(depsImpl))
 		},
-		Action: Action(func(a *app.App, c config.ConfigImpl) error {
-			return a.Deps(c)
-		}),
-	})
+	}
+
+	f := cmd.Flags()
+	f.StringVar(&depsOptions.Args, "args", depsOptions.Args, "pass args to helm exec")
+	f.BoolVar(&depsOptions.SkipRepos, "skip-deps", depsOptions.SkipRepos, `skip running "helm repo update" and "helm dependency build"`)
+
+	return cmd
 }

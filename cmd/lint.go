@@ -3,39 +3,38 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-func addLintSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:  "lint",
-		Usage: "lint charts from state file (helm lint)",
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "args",
-				Value: "",
-				Usage: "pass args to helm exec",
-			},
-			cli.StringSliceFlag{
-				Name:  "set",
-				Usage: "additional values to be merged into the command",
-			},
-			cli.StringSliceFlag{
-				Name:  "values",
-				Usage: "additional value files to be merged into the command",
-			},
-			cli.IntFlag{
-				Name:  "concurrency",
-				Value: 0,
-				Usage: "maximum number of concurrent downloads of release charts",
-			},
-			cli.BoolFlag{
-				Name:  "skip-deps",
-				Usage: `skip running "helm repo update" and "helm dependency build"`,
-			},
+// NewLintCmd returm build subcmd
+func NewLintCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	lintOptions := config.NewLintOptions()
+	lintImpl := config.NewLintImpl(globalCfg, lintOptions)
+
+	cmd := &cobra.Command{
+		Use:   "lint",
+		Short: "Lint charts from state file (helm lint)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(lintImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := lintImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(lintImpl)
+			return toCLIError(lintImpl.GlobalImpl, a.Lint(lintImpl))
 		},
-		Action: Action(func(a *app.App, c config.ConfigImpl) error {
-			return a.Lint(c)
-		}),
-	})
+	}
+
+	f := cmd.Flags()
+	f.IntVar(&lintOptions.Concurrency, "concurrency", 0, "maximum number of concurrent downloads of release charts")
+	f.BoolVar(&lintOptions.SkipDeps, "skip-deps", lintOptions.SkipDeps, `skip running "helm repo update" and "helm dependency build"`)
+	f.StringVar(&lintOptions.Args, "args", lintOptions.Args, "pass args to helm exec")
+	f.StringArrayVar(&lintOptions.Set, "set", lintOptions.Set, "additional values to be merged into the command")
+	f.StringArrayVar(&lintOptions.Values, "values", lintOptions.Values, "additional value files to be merged into the command")
+
+	return cmd
 }

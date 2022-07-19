@@ -1,17 +1,22 @@
 package cmd
 
 import (
-	"github.com/urfave/cli"
+	"fmt"
+
+	"github.com/helmfile/helmfile/pkg/app/version"
+	"github.com/spf13/cobra"
 )
 
-func addVersionSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:      "version",
-		Usage:     "Show the version for Helmfile.",
-		ArgsUsage: "[command]",
-		Action: func(c *cli.Context) error {
-			cli.ShowVersion(c)
+// NewVersionCmd returm build subcmd
+func NewVersionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Show the version for Helmfile.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("Helmfile version " + version.GetVersion())
 			return nil
 		},
-	})
+	}
+
+	return cmd
 }

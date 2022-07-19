@@ -3,26 +3,35 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-func addListSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:  "list",
-		Usage: "list releases defined in state file",
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "output",
-				Value: "",
-				Usage: "output releases list as a json string",
-			},
-			cli.BoolFlag{
-				Name:  "keep-temp-dir",
-				Usage: "Keep temporary directory",
-			},
+// NewListCmd returm build subcmd
+func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	listOptions := config.NewListOptions()
+	listImpl := config.NewListImpl(globalCfg, listOptions)
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List releases defined in state file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(listImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := listImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(listImpl)
+			return toCLIError(listImpl.GlobalImpl, a.ListReleases(listImpl))
 		},
-		Action: Action(func(a *app.App, c config.ConfigImpl) error {
-			return a.ListReleases(c)
-		}),
-	})
+	}
+
+	f := cmd.Flags()
+	f.BoolVar(&listOptions.KeepTempDir, "keep-temp-dir", listOptions.KeepTempDir, "Keep temporary directory")
+	f.StringVar(&listOptions.Output, "output", listOptions.Output, "output releases list as a json string")
+
+	return cmd
 }

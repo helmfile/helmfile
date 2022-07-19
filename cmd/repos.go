@@ -3,22 +3,34 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-func addReposSubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:  "repos",
-		Usage: "sync repositories from state file (helm repo add && helm repo update)",
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "args",
-				Value: "",
-				Usage: "pass args to helm exec",
-			},
+// NewReposCmd returm build subcmd
+func NewReposCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	reposOptions := config.NewReposOptions()
+	reposImpl := config.NewReposImpl(globalCfg, reposOptions)
+
+	cmd := &cobra.Command{
+		Use:   "repos",
+		Short: "Repos releases defined in state file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(reposImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := reposImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(reposImpl)
+			return toCLIError(reposImpl.GlobalImpl, a.Repos(reposImpl))
 		},
-		Action: Action(func(a *app.App, c config.ConfigImpl) error {
-			return a.Repos(c)
-		}),
-	})
+	}
+
+	f := cmd.Flags()
+	f.StringVar(&reposOptions.Args, "args", reposOptions.Args, "pass args to helm exec")
+
+	return cmd
 }

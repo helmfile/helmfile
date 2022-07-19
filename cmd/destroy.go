@@ -3,31 +3,36 @@ package cmd
 import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-func addDestroySubcommand(cliApp *cli.App) {
-	cliApp.Commands = append(cliApp.Commands, cli.Command{
-		Name:  "destroy",
-		Usage: "deletes and then purges releases",
-		Flags: []cli.Flag{
-			cli.IntFlag{
-				Name:  "concurrency",
-				Value: 0,
-				Usage: "maximum number of concurrent helm processes to run, 0 is unlimited",
-			},
-			cli.StringFlag{
-				Name:  "args",
-				Value: "",
-				Usage: "pass args to helm exec",
-			},
-			cli.BoolFlag{
-				Name:  "skip-deps",
-				Usage: `skip running "helm repo update" and "helm dependency build"`,
-			},
+// NewDestroyCmd returm build subcmd
+func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	destroyOptions := config.NewDestroyOptions()
+	destroyImpl := config.NewDestroyImpl(globalCfg, destroyOptions)
+
+	cmd := &cobra.Command{
+		Use:   "destroy",
+		Short: "Destroys and then purges releases",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.NewUrfaveCliConfigImplIns(destroyImpl.GlobalImpl)
+			if err != nil {
+				return err
+			}
+
+			if err := destroyImpl.ValidateConfig(); err != nil {
+				return err
+			}
+
+			a := app.New(destroyImpl)
+			return toCLIError(destroyImpl.GlobalImpl, a.Destroy(destroyImpl))
 		},
-		Action: Action(func(a *app.App, c config.ConfigImpl) error {
-			return a.Destroy(c)
-		}),
-	})
+	}
+
+	f := cmd.Flags()
+	f.StringVar(&destroyOptions.Args, "args", destroyOptions.Args, "pass args to helm exec")
+	f.IntVar(&destroyOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
+	f.BoolVar(&destroyOptions.SkipDeps, "skip-deps", destroyOptions.SkipDeps, `skip running "helm repo update" and "helm dependency build"`)
+
+	return cmd
 }
