@@ -1243,8 +1243,8 @@ github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtX
 github.com/urfave/cli v1.22.2/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/urfave/cli v1.22.9 h1:cv3/KhXGBGjEXLC4bH0sLuJ9BewaAbpk5oyMOveu4pw=
 github.com/urfave/cli v1.22.9/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
-github.com/variantdev/chartify v0.10.0 h1:Sxf07QBoZ54WlAyw35fcFA0lSyMtv62SQah0JPGrvI0=
-github.com/variantdev/chartify v0.10.0/go.mod h1:A0nQmb+ihiBJrrbgofs1t7QVeit+/llT0vJhvkj7U0Q=
+github.com/variantdev/chartify v0.10.2 h1:CAMlSE4kBl8ft/Xl4ob+eyFZ2KV5evkiMEI43M4CaKs=
+github.com/variantdev/chartify v0.10.2/go.mod h1:A0nQmb+ihiBJrrbgofs1t7QVeit+/llT0vJhvkj7U0Q=
 github.com/variantdev/dag v1.1.0 h1:xodYlSng33KWGvIGMpKUyLcIZRXKiNUx612mZJqYrDg=
 github.com/variantdev/dag v1.1.0/go.mod h1:pH1TQsNSLj2uxMo9NNl9zdGy01Wtn+/2MT96BrKmVyE=
 github.com/variantdev/vals v0.18.0 h1:25eOKvHVPoU9fLA3Du0chT8d6iJybCkc/9ixg1cZwHA=
