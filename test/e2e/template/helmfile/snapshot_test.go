@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/variantdev/chartify/helmtesting"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,6 +22,10 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 			Enabled bool `yaml:"enabled"`
 			Port    int  `yaml:"port"`
 		} `yaml:"localDockerRegistry"`
+		LocalChartRepoServer struct {
+			Enabled bool `yaml:"enabled"`
+			Port    int  `yaml:"port"`
+		} `yaml:"localChartRepoServer"`
 		ChartifyTempDir string   `yaml:"chartifyTempDir"`
 		HelmfileArgs    []string `yaml:"helmfileArgs"`
 	}
@@ -122,10 +127,17 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 				}
 			}
 
+			if config.LocalChartRepoServer.Enabled {
+				helmtesting.StartChartRepoServer(t, helmtesting.ChartRepoServerConfig{
+					Port:      config.LocalChartRepoServer.Port,
+					ChartsDir: chartsDir,
+				})
+			}
+
 			inputFile := filepath.Join(testdataDir, name, "input.yaml")
 			outputFile := filepath.Join(testdataDir, name, "output.yaml")
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
 
 			args := []string{"-f", inputFile}
