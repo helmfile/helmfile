@@ -121,4 +121,6 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	The name of a release can be used as a label. --selector name=myrelease`)
 	fs.BoolVar(&globalOptions.AllowNoMatchingRelease, "allow-no-matching-release", globalOptions.AllowNoMatchingRelease, `Do not exit with an error code if the provided selector has no matching releases.`)
 	fs.BoolVarP(&globalOptions.Interactive, "interactive", "i", globalOptions.Interactive, "Request confirmation before attempting to modify clusters")
+	// avoid 'pflag: help requested' error (#251)
+	fs.BoolP("help", "h", false, "help for helmfile")
 }
