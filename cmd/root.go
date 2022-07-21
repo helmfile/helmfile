@@ -104,7 +104,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
 	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", app.DefaultHelmBinary, "Path to the helm binary")
 	fs.StringVarP(&globalOptions.File, "file", "f", globalOptions.File, "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference")
-	fs.StringVarP(&globalOptions.Environment, "env", "e", globalOptions.Environment, `specify the environment name. defaults to "default"`)
+	fs.StringVarP(&globalOptions.Environment, "environment", "e", globalOptions.Environment, `specify the environment name. defaults to "default"`)
 	fs.StringArrayVarP(&globalOptions.StateValuesSet, "state-values-set", "s", globalOptions.StateValuesSet, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	fs.StringArrayVarP(&globalOptions.StateValuesFile, "state-values-file", "", globalOptions.StateValuesFile, "specify state values in a YAML file")
 	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", globalOptions.Quiet, "Silence output. Equivalent to log-level warn")
