@@ -88,12 +88,10 @@ func (c *Context) createFuncMap() template.FuncMap {
 			return "", DisableInsecureFeaturesErr
 		}
 		funcMap["readDir"] = func(string) ([]string, error) {
-			var paths []string
-			return paths, DisableInsecureFeaturesErr
+			return nil, DisableInsecureFeaturesErr
 		}
 		funcMap["listDir"] = func(string) ([]string, error) {
-			var paths []string
-			return paths, DisableInsecureFeaturesErr
+			return nil, DisableInsecureFeaturesErr
 		}
 	}
 
