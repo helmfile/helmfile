@@ -164,7 +164,7 @@ func TestListDir(t *testing.T) {
 		"sampleDirectory/file1.yaml",
 		"sampleDirectory/file2.yaml",
 		"sampleDirectory/file3.yaml",
-		"sampleDirector/folder1",
+		"sampleDirectory/folder1",
 	}
 	var expectedArray []string
 	if runtime.GOOS == "windows" {
