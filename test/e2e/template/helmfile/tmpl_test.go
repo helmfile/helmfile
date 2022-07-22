@@ -222,6 +222,7 @@ func TestTmplStrings(t *testing.T) {
 	c := &tmpl.Context{}
 	c.SetBasePath(".")
 	c.SetReadFile(os.ReadFile)
+	c.SetReadDir(os.ReadDir)
 	tmpl := template.New("stringTemplateTest").Funcs(c.CreateFuncMap())
 
 	tmplE2eTest.load()

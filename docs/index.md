@@ -368,7 +368,7 @@ We also added the following functions:
 - `envExec`
 - `readFile`
 - `readDir`
-- `readDirs`
+- `listDir`
 - `toYaml`
 - `fromYaml`
 - `setValueAtPath`
@@ -682,7 +682,7 @@ In addition to built-in ones, the following custom template functions are availa
 
 - `readFile` reads the specified local file and generate a golang string
 - `readDir` reads the files within provided directory path. (folders are excluded)
-- `readDirs` reads the directories within provided directory path. (files are excluded)
+- `listDir` lists the files and directories within provided directory path
 - `fromYaml` reads a golang string and generates a map
 - `setValueAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
 - `toYaml` marshals a map into a string

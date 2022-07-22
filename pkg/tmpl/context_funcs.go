@@ -47,7 +47,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"isFile":           c.IsFile,
 		"readFile":         c.ReadFile,
 		"readDir":          c.ReadDir,
-		"readDirs":         c.ReadDirs,
+		"listDir":          c.ListDir,
 		"toYaml":           ToYaml,
 		"fromYaml":         FromYaml,
 		"setValueAtPath":   SetValueAtPath,
@@ -70,6 +70,14 @@ func (c *Context) createFuncMap() template.FuncMap {
 		funcMap["readFile"] = func(string) (string, error) {
 			return "", nil
 		}
+		funcMap["readDir"] = func(string) ([]string, error) {
+			var paths []string
+			return paths, nil
+		}
+		funcMap["listDir"] = func(string) ([]string, error) {
+			var paths []string
+			return paths, nil
+		}
 	}
 	if disableInsecureFeatures {
 		// disable insecure functions
@@ -78,6 +86,14 @@ func (c *Context) createFuncMap() template.FuncMap {
 		}
 		funcMap["readFile"] = func(string) (string, error) {
 			return "", DisableInsecureFeaturesErr
+		}
+		funcMap["readDir"] = func(string) ([]string, error) {
+			var paths []string
+			return paths, DisableInsecureFeaturesErr
+		}
+		funcMap["listDir"] = func(string) ([]string, error) {
+			var paths []string
+			return paths, DisableInsecureFeaturesErr
 		}
 	}
 
@@ -221,11 +237,11 @@ func (c *Context) ReadDir(path string) ([]string, error) {
 	return c.ReadFromDir(path, false)
 }
 
-func (c *Context) ReadDirs(path string) ([]string, error) {
+func (c *Context) ListDir(path string) ([]string, error) {
 	return c.ReadFromDir(path, true)
 }
 
-func (c *Context) ReadFromDir(path string, readFolders bool) ([]string, error) {
+func (c *Context) ReadFromDir(path string, includeDirs bool) ([]string, error) {
 	var contextPath string
 	if filepath.IsAbs(path) {
 		contextPath = path
@@ -233,14 +249,14 @@ func (c *Context) ReadFromDir(path string, readFolders bool) ([]string, error) {
 		contextPath = filepath.Join(c.basePath, path)
 	}
 
-	entries, err := os.ReadDir(contextPath)
+	entries, err := c.readDir(contextPath)
 	if err != nil {
 		return nil, fmt.Errorf("ReadDir %q: %w", contextPath, err)
 	}
 
 	var paths []string
 	for _, entry := range entries {
-		if (!entry.IsDir() && readFolders) || (entry.IsDir() && !readFolders) {
+		if entry.IsDir() && !includeDirs {
 			continue
 		}
 		paths = append(paths, filepath.Join(path, entry.Name()))
