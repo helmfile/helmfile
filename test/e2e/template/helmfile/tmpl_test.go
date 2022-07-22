@@ -103,6 +103,46 @@ var readFileTestCases = []tmplTestCase{
 	},
 }
 
+var readDirTestCases = []tmplTestCase{
+	{
+		name: "readDir",
+		tmplString: `{{ range $index,$item := readDir "./testdata/tmpl/sample_folder/" }}
+             {{- $itemSplit := splitList  "/" $item -}}
+			 {{- if contains "\\" $item -}}
+			 {{- $itemSplit = splitList "\\" $item -}}
+			 {{- end -}}
+			 {{- $itemValue := $itemSplit | last -}}
+			 {{- $itemValue -}}
+			 {{- end -}}`,
+		output: "file1.txtfile2.txt",
+	},
+	{
+		name:       "readDirWithError",
+		tmplString: `{{ readFile "./testdata/tmpl/sample_folder_error/" }}`,
+		wantErr:    true,
+	},
+}
+
+var listDirTestCases = []tmplTestCase{
+	{
+		name: "listDir",
+		tmplString: `{{ range $index,$item := listDir "./testdata/tmpl/sample_folder/" }}
+		{{- $itemSplit := splitList  "/" $item -}}
+		{{- if contains "\\" $item -}}
+		{{- $itemSplit = splitList "\\" $item -}}
+		{{- end -}}
+		{{- $itemValue := $itemSplit | last -}}
+		{{- $itemValue -}}
+		{{- end -}}`,
+		output: "file1.txtfile2.txtsub_folder",
+	},
+	{
+		name:       "listDirWithError",
+		tmplString: `{{ listDir "./testdata/tmpl/sample_folder_error/" }}`,
+		wantErr:    true,
+	},
+}
+
 var toYamlTestCases = []tmplTestCase{
 	{
 		data: map[string]string{
@@ -208,6 +248,8 @@ func (t *tmplE2e) load() {
 	t.append(envExecTestCases...)
 	t.append(execTestCases...)
 	t.append(readFileTestCases...)
+	t.append(readDirTestCases...)
+	t.append(listDirTestCases...)
 	t.append(toYamlTestCases...)
 	t.append(fromYamlTestCases...)
 	t.append(setValueAtPathTestCases...)
