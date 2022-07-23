@@ -1143,6 +1143,18 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 	}{
 		{
 			name: "should install",
+			repos: []RepositorySpec{
+				{
+					Name:            "name",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "",
+					Password:        "",
+					PassCredentials: "",
+					SkipTLSVerify:   "true",
+				},
+			},
 			release: ReleaseSpec{
 				Name:  "foo",
 				Chart: "../../foo-bar",
@@ -2414,5 +2426,72 @@ func TestReverse(t *testing.T) {
 		if got := st.Releases[i].Name; got != want {
 			t.Errorf("release at %d has incorrect name: want %q, got %q", i, want, got)
 		}
+	}
+}
+func TestHelmState_getOCIChart(t *testing.T) {
+	no := false
+	tests := []struct {
+		name          string
+		release       ReleaseSpec
+		repos         []RepositorySpec
+		listResult    string
+		expectedError string
+	}{
+		{
+			name: "not oci",
+			repos: []RepositorySpec{
+				{
+					Name: "name",
+					URL:  "http://example.com/",
+				},
+			},
+			release: ReleaseSpec{
+				Name: "foo",
+			},
+			listResult:    ``,
+			expectedError: ``,
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				basePath: ".",
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: tt.repos,
+					Releases:     []ReleaseSpec{tt.release},
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]interface{}{},
+			}
+			fs := testhelper.NewTestFs(map[string]string{})
+			state = injectFs(state, fs)
+			helm := &exectest.Helm{
+				Lists: map[exectest.ListKey]string{},
+			}
+			//simulate the helm.list call result
+			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$"}] = tt.listResult
+
+			affectedReleases := AffectedReleases{}
+			errs := state.getOCIChart(&affectedReleases, helm, []string{}, 1)
+
+			if tt.expectedError != "" {
+				if len(errs) == 0 {
+					t.Fatalf("expected error not occurred: expected=%s, got none", tt.expectedError)
+				}
+				if len(errs) != 1 {
+					t.Fatalf("too many errors: expected %d, got %d: %v", 1, len(errs), errs)
+				}
+				err := errs[0]
+				if err.Error() != tt.expectedError {
+					t.Fatalf("unexpected error: expected=%s, got=%v", tt.expectedError, err)
+				}
+			} else {
+				if len(errs) > 0 {
+					t.Fatalf("unexpected error(s): expected=0, got=%d: %v", len(errs), errs)
+				}
+			}
+		})
 	}
 }
