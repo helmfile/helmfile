@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -675,17 +676,57 @@ exec: helm --kube-context dev fetch https://example_user:example_password@repo.e
 func Test_ChartPull(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
-	err := helm.ChartPull("chart", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
-	expected := `Pulling chart
+	tests := []struct {
+		name        string
+		helmBin     string
+		helmVersion string
+		chartName   string
+		chartFlags  []string
+		listResult  string
+	}{
+		{
+			name:        "less then v3.7.0",
+			helmBin:     "helm",
+			helmVersion: "v3.6.0",
+			chartName:   "chart",
+			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
+			listResult: `Pulling chart
 Exporting chart
-exec: helm --kube-context dev chart pull chart --version 1.2.3 --untar --untardir /tmp/dir
-`
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
+`,
+		},
+		{
+			name:        "more then v3.7.0",
+			helmBin:     "helm",
+			helmVersion: "v3.9.0",
+			chartName:   "repo/helm-charts:0.14.0",
+			chartFlags:  []string{"--untardir", "/tmp/dir"},
+			listResult: `Pulling repo/helm-charts:0.14.0
+Exporting repo/helm-charts:0.14.0
+exec: helm --kube-context dev fetch oci://repo/helm-charts --version 0.14.0 --destination [\w/]+ --untardir /tmp/dir
+`,
+		},
 	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.ChartPull()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			buffer.Reset()
+			helm := &execer{
+				helmBinary:  tt.helmBin,
+				version:     *semver.MustParse(tt.helmVersion),
+				logger:      logger,
+				kubeContext: "dev",
+				runner:      &mockRunner{},
+			}
+			err := helm.ChartPull(tt.chartName, tt.chartFlags...)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			isMatch, _ := regexp.MatchString(tt.listResult, buffer.String())
+			if !isMatch {
+				t.Errorf("helmexec.ChartPull()\nactual = %v\nexpect = %v", buffer.String(), tt.listResult)
+			}
+		})
 	}
 }
 
