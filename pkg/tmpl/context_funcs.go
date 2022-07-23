@@ -71,12 +71,10 @@ func (c *Context) createFuncMap() template.FuncMap {
 			return "", nil
 		}
 		funcMap["readDir"] = func(string) ([]string, error) {
-			var paths []string
-			return paths, nil
+			return []string{}, nil
 		}
 		funcMap["listDir"] = func(string) ([]string, error) {
-			var paths []string
-			return paths, nil
+			return []string{}, nil
 		}
 	}
 	if disableInsecureFeatures {
