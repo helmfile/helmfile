@@ -692,16 +692,60 @@ exec: helm --kube-context dev chart pull chart --version 1.2.3 --untar --untardi
 func Test_ChartExport(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
-	err := helm.ChartExport("chart", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
-	expected := `Exporting chart
-exec: helm --kube-context dev chart export chart --destination --version 1.2.3 --untar --untardir /tmp/dir
-`
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	tests := []struct {
+		name          string
+		helmBin       string
+		helmVersion   string
+		chartName     string
+		chartPath     string
+		chartFlags    []string
+		listResult    string
+		expectedError string
+	}{
+		{
+			name:        "",
+			helmBin:     "helm",
+			helmVersion: "v3.6.0",
+			chartName:   "chart",
+			chartPath:   "path1",
+			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
+			listResult: `Exporting chart
+exec: helm --kube-context dev chart export chart --destination path1 --untar --untardir /tmp/dir
+`,
+			expectedError: "",
+		},
+		{
+			name:        "",
+			helmBin:     "helm",
+			helmVersion: "v3.9.0",
+			chartName:   "repo/helm-charts:0.14.0",
+			chartPath:   "path1",
+			chartFlags:  []string{"--untardir", "/tmp/dir"},
+			listResult: `Exporting repo/helm-charts:0.14.0
+exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --untar --destination path1 --untardir /tmp/dir
+`,
+			expectedError: "",
+		},
 	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.ChartExport()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			buffer.Reset()
+			helm := &execer{
+				helmBinary:  tt.helmBin,
+				version:     *semver.MustParse(tt.helmVersion),
+				logger:      logger,
+				kubeContext: "dev",
+				runner:      &mockRunner{},
+			}
+			err := helm.ChartExport(tt.chartName, tt.chartPath, tt.chartFlags...)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if buffer.String() != tt.listResult {
+				t.Errorf("helmexec.ChartExport()\nactual = %v\nexpect = %v", buffer.String(), tt.listResult)
+			}
+		})
 	}
 }
 
