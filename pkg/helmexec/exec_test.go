@@ -843,3 +843,42 @@ func Test_IsVersionAtLeast(t *testing.T) {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 is atleast 3.2")
 	}
 }
+
+func Test_resolveOciChart(t *testing.T) {
+	tests := []struct {
+		name        string
+		chartPath   string
+		ociChartURL string
+		ociChartTag string
+	}{
+		{
+			name:        "normal",
+			chartPath:   "chart/nginx:v1",
+			ociChartURL: "oci://chart/nginx",
+			ociChartTag: "v1",
+		},
+		{
+			name:        "contains the port",
+			chartPath:   "chart:5000/nginx:v1",
+			ociChartURL: "oci://chart:5000/nginx",
+			ociChartTag: "v1",
+		},
+		{
+			name:        "no tag",
+			chartPath:   "chart:5000/nginx",
+			ociChartURL: "oci://chart:5000/nginx",
+			ociChartTag: "",
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			url, tag := resolveOciChart(tt.chartPath)
+			if tt.ociChartURL != url || tt.ociChartTag != tag {
+				actual := fmt.Sprintf("ociChartURL->%s  ociChartTag->%s", url, tag)
+				expected := fmt.Sprintf("ociChartURL->%s ociChartTag->%s", tt.ociChartURL, tt.ociChartTag)
+				t.Errorf("resolveOciChart()\nactual = %v\nexpect = %v", actual, expected)
+			}
+		})
+	}
+}

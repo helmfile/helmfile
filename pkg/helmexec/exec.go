@@ -423,9 +423,7 @@ func (helm *execer) ChartPull(chart string, flags ...string) error {
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
 	var helmArgs []string
 	if helmVersionConstraint.Check(&helm.version) {
-		ociChartURLSplit := strings.Split(chart, ":")
-		ociChartURL := fmt.Sprintf("oci://%s", ociChartURLSplit[0])
-		ociChartTag := ociChartURLSplit[1]
+		ociChartURL, ociChartTag := resolveOciChart(chart)
 		tempDir, err := os.MkdirTemp("", "chart*")
 		if err != nil {
 			return err
@@ -447,9 +445,7 @@ func (helm *execer) ChartExport(chart string, path string, flags ...string) erro
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
 	var helmArgs []string
 	if helmVersionConstraint.Check(&helm.version) {
-		ociChartURLSplit := strings.Split(chart, ":")
-		ociChartURL := fmt.Sprintf("oci://%s", ociChartURLSplit[0])
-		ociChartTag := ociChartURLSplit[1]
+		ociChartURL, ociChartTag := resolveOciChart(chart)
 		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--untar"}
 	} else {
 		helmArgs = []string{"chart", "export", chart}
@@ -545,4 +541,22 @@ func (helm *execer) GetVersion() Version {
 func (helm *execer) IsVersionAtLeast(versionStr string) bool {
 	ver := semver.MustParse(versionStr)
 	return helm.version.Equal(ver) || helm.version.GreaterThan(ver)
+}
+
+func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
+	var urlTagIndex int
+	// Get the last : index
+	// e.g.,
+	// 1. registry:443/helm-charts
+	// 2. registry/helm-charts:latest
+	// 3. registry:443/helm-charts:latest
+	if strings.LastIndex(ociChart, ":") <= strings.LastIndex(ociChart, "/") {
+		urlTagIndex = len(ociChart)
+		ociChartTag = ""
+	} else {
+		urlTagIndex = strings.LastIndex(ociChart, ":")
+		ociChartTag = ociChart[urlTagIndex+1:]
+	}
+	ociChartURL = fmt.Sprintf("oci://%s", ociChart[:urlTagIndex])
+	return ociChartURL, ociChartTag
 }
