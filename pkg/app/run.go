@@ -77,10 +77,23 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	for i := range r.state.Releases {
 		rel := &r.state.Releases[i]
 
+		var ns string
+		if (*(*r).state).ReleaseSetSpec.OverrideNamespace != "" {
+			ns = (*(*r).state).ReleaseSetSpec.OverrideNamespace
+		} else {
+			ns = rel.Namespace
+		}
+
+		var kubeCtx string
+		if (*(*r).state).ReleaseSetSpec.OverrideKubeContext != "" {
+			kubeCtx = (*(*r).state).ReleaseSetSpec.OverrideKubeContext
+		} else {
+			kubeCtx = rel.KubeContext
+		}
 		key := state.PrepareChartKey{
 			Name:        rel.Name,
-			Namespace:   rel.Namespace,
-			KubeContext: rel.KubeContext,
+			Namespace:   ns,
+			KubeContext: kubeCtx,
 		}
 		if chart := releaseToChart[key]; chart != rel.Chart {
 			// In this case we assume that the chart is downloaded and modified by Helmfile and chartify.
