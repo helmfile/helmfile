@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,7 +48,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"isFile":           c.IsFile,
 		"readFile":         c.ReadFile,
 		"readDir":          c.ReadDir,
-		"listDir":          c.ListDir,
+		"readDirEntries":   c.ReadDirEntries,
 		"toYaml":           ToYaml,
 		"fromYaml":         FromYaml,
 		"setValueAtPath":   SetValueAtPath,
@@ -73,8 +74,8 @@ func (c *Context) createFuncMap() template.FuncMap {
 		funcMap["readDir"] = func(string) ([]string, error) {
 			return []string{}, nil
 		}
-		funcMap["listDir"] = func(string) ([]string, error) {
-			return []string{}, nil
+		funcMap["readDirEntries"] = func(string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{}, nil
 		}
 	}
 	if disableInsecureFeatures {
@@ -88,7 +89,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		funcMap["readDir"] = func(string) ([]string, error) {
 			return nil, DisableInsecureFeaturesErr
 		}
-		funcMap["listDir"] = func(string) ([]string, error) {
+		funcMap["readDirEntries"] = func(string) ([]string, error) {
 			return nil, DisableInsecureFeaturesErr
 		}
 	}
@@ -230,14 +231,6 @@ func (c *Context) ReadFile(filename string) (string, error) {
 }
 
 func (c *Context) ReadDir(path string) ([]string, error) {
-	return c.ReadFromDir(path, false)
-}
-
-func (c *Context) ListDir(path string) ([]string, error) {
-	return c.ReadFromDir(path, true)
-}
-
-func (c *Context) ReadFromDir(path string, includeDirs bool) ([]string, error) {
 	var contextPath string
 	if filepath.IsAbs(path) {
 		contextPath = path
@@ -252,13 +245,27 @@ func (c *Context) ReadFromDir(path string, includeDirs bool) ([]string, error) {
 
 	var paths []string
 	for _, entry := range entries {
-		if entry.IsDir() && !includeDirs {
+		if entry.IsDir() {
 			continue
 		}
 		paths = append(paths, filepath.Join(path, entry.Name()))
 	}
 
 	return paths, nil
+}
+
+func (c *Context) ReadDirEntries(path string) ([]fs.DirEntry, error) {
+	var contextPath string
+	if filepath.IsAbs(path) {
+		contextPath = path
+	} else {
+		contextPath = filepath.Join(c.basePath, path)
+	}
+	entries, err := c.readDir(contextPath)
+	if err != nil {
+		return nil, fmt.Errorf("ReadDirEntries %q: %w", contextPath, err)
+	}
+	return entries, nil
 }
 
 func (c *Context) Tpl(text string, data interface{}) (string, error) {

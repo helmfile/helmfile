@@ -147,30 +147,12 @@ func TestReadDir(t *testing.T) {
 	}
 }
 
-func TestListDir(t *testing.T) {
+func TestReadDirEntries(t *testing.T) {
 	result := []fs.DirEntry{
 		&entry{name: "file1.yaml"},
 		&entry{name: "file2.yaml"},
 		&entry{name: "file3.yaml"},
 		&entry{name: "folder1", isDir: true},
-	}
-	expectedArrayWindows := []string{
-		"sampleDirectory\\file1.yaml",
-		"sampleDirectory\\file2.yaml",
-		"sampleDirectory\\file3.yaml",
-		"sampleDirectory\\folder1",
-	}
-	expectedArrayUnix := []string{
-		"sampleDirectory/file1.yaml",
-		"sampleDirectory/file2.yaml",
-		"sampleDirectory/file3.yaml",
-		"sampleDirectory/folder1",
-	}
-	var expectedArray []string
-	if runtime.GOOS == "windows" {
-		expectedArray = expectedArrayWindows
-	} else {
-		expectedArray = expectedArrayUnix
 	}
 
 	expectedDirname := "sampleDirectory"
@@ -181,12 +163,12 @@ func TestListDir(t *testing.T) {
 		return result, nil
 	}}
 
-	actual, err := ctx.ListDir(expectedDirname)
+	actual, err := ctx.ReadDirEntries(expectedDirname)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if !reflect.DeepEqual(actual, expectedArray) {
-		t.Errorf("unexpected result: expected=%v, actual=%v", expectedArray, actual)
+	if !reflect.DeepEqual(actual, result) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", result, actual)
 	}
 }
 

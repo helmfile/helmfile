@@ -123,22 +123,26 @@ var readDirTestCases = []tmplTestCase{
 	},
 }
 
-var listDirTestCases = []tmplTestCase{
+var readDirEntriesTestCases = []tmplTestCase{
 	{
-		name: "listDir",
-		tmplString: `{{ range $index,$item := listDir "./testdata/tmpl/sample_folder/" }}
-		{{- $itemSplit := splitList  "/" $item -}}
-		{{- if contains "\\" $item -}}
-		{{- $itemSplit = splitList "\\" $item -}}
-		{{- end -}}
-		{{- $itemValue := $itemSplit | last -}}
-		{{- $itemValue -}}
+		name: "readDirEntries",
+		tmplString: `{{ range $index,$item := readDirEntries "./testdata/tmpl/sample_folder/" }}
+		{{- $item.Name -}}
 		{{- end -}}`,
 		output: "file1.txtfile2.txtsub_folder",
 	},
 	{
-		name:       "listDirWithError",
-		tmplString: `{{ listDir "./testdata/tmpl/sample_folder_error/" }}`,
+		name: "readDirEntriesOnlyFolders",
+		tmplString: `{{ range $index,$item := readDirEntries "./testdata/tmpl/sample_folder/" }}
+		{{- if $item.IsDir -}}
+		{{- $item.Name -}}
+		{{- end -}}
+		{{- end -}}`,
+		output: "sub_folder",
+	},
+	{
+		name:       "readDirEntriesWithError",
+		tmplString: `{{ readDirEntries "./testdata/tmpl/sample_folder_error/" }}`,
 		wantErr:    true,
 	},
 }
@@ -249,7 +253,7 @@ func (t *tmplE2e) load() {
 	t.append(execTestCases...)
 	t.append(readFileTestCases...)
 	t.append(readDirTestCases...)
-	t.append(listDirTestCases...)
+	t.append(readDirEntriesTestCases...)
 	t.append(toYamlTestCases...)
 	t.append(fromYamlTestCases...)
 	t.append(setValueAtPathTestCases...)
