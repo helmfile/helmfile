@@ -367,6 +367,8 @@ We also added the following functions:
 - `exec`
 - `envExec`
 - `readFile`
+- `readDir`
+- `readDirEntries`
 - `toYaml`
 - `fromYaml`
 - `setValueAtPath`
@@ -679,6 +681,8 @@ You can use go's text/template expressions in `helmfile.yaml` and `values.yaml.g
 In addition to built-in ones, the following custom template functions are available:
 
 - `readFile` reads the specified local file and generate a golang string
+- `readDir` reads the files within provided directory path. (folders are excluded)
+- `readDirEntries` Returns a list of [https://pkg.go.dev/os#DirEntry](DirEntry) within provided directory path
 - `fromYaml` reads a golang string and generates a map
 - `setValueAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
 - `toYaml` marshals a map into a string

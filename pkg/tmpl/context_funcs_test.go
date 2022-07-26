@@ -3,8 +3,10 @@ package tmpl
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -79,6 +81,94 @@ func TestReadFile(t *testing.T) {
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected result: expected=%v, actual=%v", expected, actual)
+	}
+}
+
+type entry struct {
+	name  string
+	fType fs.FileMode
+	isDir bool
+}
+
+func (e *entry) Name() string {
+	return e.name
+}
+
+func (e *entry) IsDir() bool {
+	return e.isDir
+}
+
+func (e *entry) Type() fs.FileMode {
+	return e.fType
+}
+
+func (e *entry) Info() (fs.FileInfo, error) {
+	return nil, fmt.Errorf("You should not call this method")
+}
+
+func TestReadDir(t *testing.T) {
+	result := []fs.DirEntry{
+		&entry{name: "file1.yaml"},
+		&entry{name: "file2.yaml"},
+		&entry{name: "file3.yaml"},
+		&entry{name: "folder1", isDir: true},
+	}
+	expectedArrayWindows := []string{
+		"sampleDirectory\\file1.yaml",
+		"sampleDirectory\\file2.yaml",
+		"sampleDirectory\\file3.yaml",
+	}
+	expectedArrayUnix := []string{
+		"sampleDirectory/file1.yaml",
+		"sampleDirectory/file2.yaml",
+		"sampleDirectory/file3.yaml",
+	}
+	var expectedArray []string
+	if runtime.GOOS == "windows" {
+		expectedArray = expectedArrayWindows
+	} else {
+		expectedArray = expectedArrayUnix
+	}
+
+	expectedDirname := "sampleDirectory"
+	ctx := &Context{basePath: ".", readDir: func(dirname string) ([]fs.DirEntry, error) {
+		if dirname != expectedDirname {
+			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedDirname, dirname)
+		}
+		return result, nil
+	}}
+
+	actual, err := ctx.ReadDir(expectedDirname)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(actual, expectedArray) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", expectedArray, actual)
+	}
+}
+
+func TestReadDirEntries(t *testing.T) {
+	result := []fs.DirEntry{
+		&entry{name: "file1.yaml"},
+		&entry{name: "file2.yaml"},
+		&entry{name: "file3.yaml"},
+		&entry{name: "folder1", isDir: true},
+	}
+
+	expectedDirname := "sampleDirectory"
+	ctx := &Context{basePath: ".", readDir: func(dirname string) ([]fs.DirEntry, error) {
+		if dirname != expectedDirname {
+			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedDirname, dirname)
+		}
+		return result, nil
+	}}
+
+	actual, err := ctx.ReadDirEntries(expectedDirname)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(actual, result) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", result, actual)
 	}
 }
 

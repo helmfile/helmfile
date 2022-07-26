@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,6 +48,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"isFile":           c.IsFile,
 		"readFile":         c.ReadFile,
 		"readDir":          c.ReadDir,
+		"readDirEntries":   c.ReadDirEntries,
 		"toYaml":           ToYaml,
 		"fromYaml":         FromYaml,
 		"setValueAtPath":   SetValueAtPath,
@@ -69,6 +71,12 @@ func (c *Context) createFuncMap() template.FuncMap {
 		funcMap["readFile"] = func(string) (string, error) {
 			return "", nil
 		}
+		funcMap["readDir"] = func(string) ([]string, error) {
+			return []string{}, nil
+		}
+		funcMap["readDirEntries"] = func(string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{}, nil
+		}
 	}
 	if disableInsecureFeatures {
 		// disable insecure functions
@@ -77,6 +85,12 @@ func (c *Context) createFuncMap() template.FuncMap {
 		}
 		funcMap["readFile"] = func(string) (string, error) {
 			return "", DisableInsecureFeaturesErr
+		}
+		funcMap["readDir"] = func(string) ([]string, error) {
+			return nil, DisableInsecureFeaturesErr
+		}
+		funcMap["readDirEntries"] = func(string) ([]string, error) {
+			return nil, DisableInsecureFeaturesErr
 		}
 	}
 
@@ -224,20 +238,34 @@ func (c *Context) ReadDir(path string) ([]string, error) {
 		contextPath = filepath.Join(c.basePath, path)
 	}
 
-	entries, err := os.ReadDir(contextPath)
+	entries, err := c.readDir(contextPath)
 	if err != nil {
 		return nil, fmt.Errorf("ReadDir %q: %w", contextPath, err)
 	}
 
-	var filenames []string
+	var paths []string
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		filenames = append(filenames, filepath.Join(path, entry.Name()))
+		paths = append(paths, filepath.Join(path, entry.Name()))
 	}
 
-	return filenames, nil
+	return paths, nil
+}
+
+func (c *Context) ReadDirEntries(path string) ([]fs.DirEntry, error) {
+	var contextPath string
+	if filepath.IsAbs(path) {
+		contextPath = path
+	} else {
+		contextPath = filepath.Join(c.basePath, path)
+	}
+	entries, err := c.readDir(contextPath)
+	if err != nil {
+		return nil, fmt.Errorf("ReadDirEntries %q: %w", contextPath, err)
+	}
+	return entries, nil
 }
 
 func (c *Context) Tpl(text string, data interface{}) (string, error) {
