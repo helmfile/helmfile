@@ -103,6 +103,50 @@ var readFileTestCases = []tmplTestCase{
 	},
 }
 
+var readDirTestCases = []tmplTestCase{
+	{
+		name: "readDir",
+		tmplString: `{{ range $index,$item := readDir "./testdata/tmpl/sample_folder/" }}
+             {{- $itemSplit := splitList  "/" $item -}}
+			 {{- if contains "\\" $item -}}
+			 {{- $itemSplit = splitList "\\" $item -}}
+			 {{- end -}}
+			 {{- $itemValue := $itemSplit | last -}}
+			 {{- $itemValue -}}
+			 {{- end -}}`,
+		output: "file1.txtfile2.txt",
+	},
+	{
+		name:       "readDirWithError",
+		tmplString: `{{ readFile "./testdata/tmpl/sample_folder_error/" }}`,
+		wantErr:    true,
+	},
+}
+
+var readDirEntriesTestCases = []tmplTestCase{
+	{
+		name: "readDirEntries",
+		tmplString: `{{ range $index,$item := readDirEntries "./testdata/tmpl/sample_folder/" }}
+		{{- $item.Name -}}
+		{{- end -}}`,
+		output: "file1.txtfile2.txtsub_folder",
+	},
+	{
+		name: "readDirEntriesOnlyFolders",
+		tmplString: `{{ range $index,$item := readDirEntries "./testdata/tmpl/sample_folder/" }}
+		{{- if $item.IsDir -}}
+		{{- $item.Name -}}
+		{{- end -}}
+		{{- end -}}`,
+		output: "sub_folder",
+	},
+	{
+		name:       "readDirEntriesWithError",
+		tmplString: `{{ readDirEntries "./testdata/tmpl/sample_folder_error/" }}`,
+		wantErr:    true,
+	},
+}
+
 var toYamlTestCases = []tmplTestCase{
 	{
 		data: map[string]string{
@@ -208,6 +252,8 @@ func (t *tmplE2e) load() {
 	t.append(envExecTestCases...)
 	t.append(execTestCases...)
 	t.append(readFileTestCases...)
+	t.append(readDirTestCases...)
+	t.append(readDirEntriesTestCases...)
 	t.append(toYamlTestCases...)
 	t.append(fromYamlTestCases...)
 	t.append(setValueAtPathTestCases...)
@@ -222,6 +268,7 @@ func TestTmplStrings(t *testing.T) {
 	c := &tmpl.Context{}
 	c.SetBasePath(".")
 	c.SetReadFile(os.ReadFile)
+	c.SetReadDir(os.ReadDir)
 	tmpl := template.New("stringTemplateTest").Funcs(c.CreateFuncMap())
 
 	tmplE2eTest.load()
