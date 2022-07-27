@@ -29,8 +29,7 @@ Helmfile is a declarative spec for deploying helm charts. It lets you...
 * Apply CI/CD to configuration changes.
 * Periodically sync to avoid skew in environments.
 
-To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
-tes to `helm` - as a result, `helm` must be installed.
+To avoid upgrades for each iteration of `helm`, the `helmfile` executable delegates to `helm` - as a result, `helm` must be installed.
 
 ## Highlights
 
