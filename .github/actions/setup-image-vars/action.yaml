@@ -1,0 +1,35 @@
+name: "Setup Image Variables"
+
+inputs:
+  dockerfile:
+    required: true
+
+outputs:
+  tag:
+    description: "The tag if run against a tag, otherwise 'canary'"
+    value: ${{ steps.vars.outputs.tag }}
+  suffix:
+    description: "The suffix for the image package name (if any)"
+    value: ${{ steps.vars.outputs.suffix }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get reference and suffix
+      id: vars
+      shell: bash
+      env:
+        DOCKERFILE: ${{ inputs.dockerfile }}
+      run: |
+        TAG=${GITHUB_REF##*/}
+        if [[ $GITHUB_REF == refs/heads/main ]]; then
+            TAG=canary
+        elif [[ $GITHUB_REF == refs/pull/*/merge ]]; then
+            TAG=pullrequest  # this 'tag' is just used for caching
+        fi
+        echo ::set-output name=tag::${TAG:-canary}
+        SUFFIX=${DOCKERFILE##Dockerfile}
+        if [[ "${SUFFIX}" == "."* ]]; then
+            SUFFIX=${SUFFIX//./-}  # convert dots into dashes
+        fi
+        echo ::set-output name=suffix::${SUFFIX}
