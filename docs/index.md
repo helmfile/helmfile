@@ -489,7 +489,7 @@ USAGE:
    helmfile [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.138.6
+   0.145.2
 
 COMMANDS:
    deps          update charts based on their requirements
@@ -499,6 +499,7 @@ COMMANDS:
    template      template releases from state file against env (helm template)
    write-values  write values files for releases. Similar to `helmfile template`, write values files instead of manifests.
    lint          lint charts from state file (helm lint)
+   fetch         fetch charts from state file
    sync          sync all resources from state file (repos, releases and chart deps)
    apply         apply all resources from state file only when there are changes
    status        retrieve status of releases in state file
@@ -507,7 +508,7 @@ COMMANDS:
    test          test releases from state file (helm test)
    build         output compiled helmfile state(s) as YAML
    list          list releases defined in state file
-   fetch         fetch charts from state file
+   cache         cache management
    version       Show the version for Helmfile.
    help, h       Shows a list of commands or help for one command
 
@@ -520,9 +521,11 @@ GLOBAL OPTIONS:
    --quiet, -q                             Silence output. Equivalent to log-level warn
    --kube-context value                    Set kubectl context. Uses current context by default
    --debug                                 Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
+   --color                                 Output with color
    --no-color                              Output without color
    --log-level value                       Set log level, default info
    --namespace value, -n value             Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
+   --chart value, -c value                 Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}
    --selector value, -l value              Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
                                            A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                            --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
