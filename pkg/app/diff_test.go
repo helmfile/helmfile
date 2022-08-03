@@ -160,6 +160,7 @@ func TestDiff(t *testing.T) {
 		upgraded          []exectest.Release
 		deleted           []exectest.Release
 		log               string
+		overrideContext   string
 	}{
 		//
 		// complex test cases for smoke testing
@@ -338,6 +339,58 @@ releases:
 			diffs: map[exectest.DiffKey]error{
 				{Name: "bar", Chart: "mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			upgraded: []exectest.Release{},
+		},
+		{
+			name:            "upgrade when foo needs bar with context override",
+			loc:             location(),
+			overrideContext: "hello/world",
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+helmDefaults:
+  kubeContext: hello/world
+releases:
+- name: bar
+  chart: mychart2
+- name: foo
+  chart: mychart1
+  needs:
+  - bar
+`,
+			},
+			detailedExitcode: true,
+			error:            "Identified at least one change",
+			diffs: map[exectest.DiffKey]error{
+				{Name: "bar", Chart: "mychart2", Flags: "--kube-contexthello/world--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-contexthello/world--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			upgraded: []exectest.Release{},
+		},
+		{
+			name:            "upgrade when releaseB needs releaseA with AWS context",
+			loc:             location(),
+			overrideContext: "arn:aws:eks:us-east-1:1234567890:cluster/myekscluster",
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: releaseA
+  chart: mychart1
+  namespace: namespaceA
+  kubeContext: arn:aws:eks:us-east-1:1234567890:cluster/myekscluster
+- name: releaseB
+  chart: mychart2
+  namespace: namespaceA
+  kubeContext: arn:aws:eks:us-east-1:1234567890:cluster/myekscluster
+  needs:
+    - arn:aws:eks:us-east-1:1234567890:cluster/myekscluster/namespaceA/releaseA
+`,
+			},
+			detailedExitcode: true,
+			error:            "Identified at least one change",
+			diffs: map[exectest.DiffKey]error{
+				{Name: "releaseB", Chart: "mychart2", Flags: "--kube-contextarn:aws:eks:us-east-1:1234567890:cluster/myekscluster--namespacenamespaceA--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "releaseA", Chart: "mychart1", Flags: "--kube-contextarn:aws:eks:us-east-1:1234567890:cluster/myekscluster--namespacenamespaceA--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 		},
@@ -1291,15 +1344,20 @@ changing working directory back to "/path/to"
 					t.Errorf("unexpected error creating vals runtime: %v", err)
 				}
 
+				overrideKubeContext := "default"
+				if tc.overrideContext != "" {
+					overrideKubeContext = tc.overrideContext
+				}
+
 				app := appWithFs(&App{
 					OverrideHelmBinary:  DefaultHelmBinary,
 					glob:                filepath.Glob,
 					abs:                 filepath.Abs,
-					OverrideKubeContext: "default",
+					OverrideKubeContext: overrideKubeContext,
 					Env:                 "default",
 					Logger:              logger,
 					helms: map[helmKey]helmexec.Interface{
-						createHelmKey("helm", "default"): helm,
+						createHelmKey("helm", overrideKubeContext): helm,
 					},
 					valsRuntime: valsRuntime,
 				}, tc.files)
