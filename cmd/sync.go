@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSyncCmd returm build subcmd
+// NewSyncCmd returns sync subcmd
 func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	syncOptions := config.NewSyncOptions()
 	syncImpl := config.NewSyncImpl(globalCfg, syncOptions)

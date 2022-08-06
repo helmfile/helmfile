@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewChartsCmd returm build subcmd
+// NewChartsCmd returns charts subcmd
 func NewChartsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	chartsOptions := config.NewChartsOptions()
 	chartsImpl := config.NewChartsImpl(globalCfg, chartsOptions)

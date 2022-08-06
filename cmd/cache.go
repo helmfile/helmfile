@@ -49,7 +49,7 @@ func NewCacheCleanupSubcommand(cacheImpl *config.CacheImpl) *cobra.Command {
 	return cmd
 }
 
-// NewCacheCmd returm cache subcmd
+// NewCacheCmd returns cache subcmd
 func NewCacheCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	cacheOptions := config.NewCacheOptions()
 	cacheImpl := config.NewCacheImpl(globalCfg, cacheOptions)

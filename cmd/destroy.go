@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDestroyCmd returm build subcmd
+// NewDestroyCmd returns destroy subcmd
 func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	destroyOptions := config.NewDestroyOptions()
 	destroyImpl := config.NewDestroyImpl(globalCfg, destroyOptions)

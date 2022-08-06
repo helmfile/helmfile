@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewBuildCmd returm build subcmd
+// NewBuildCmd returns build subcmd
 func NewBuildCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	buildOptions := config.NewBuildOptions()
 	buildImpl := config.NewBuildImpl(globalCfg, buildOptions)

@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewLintCmd returm build subcmd
+// NewLintCmd returns lint subcmd
 func NewLintCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	lintOptions := config.NewLintOptions()
 	lintImpl := config.NewLintImpl(globalCfg, lintOptions)
