@@ -31,10 +31,10 @@ func NewLintCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.IntVar(&lintOptions.Concurrency, "concurrency", 0, "maximum number of concurrent downloads of release charts")
-	f.BoolVar(&lintOptions.SkipDeps, "skip-deps", lintOptions.SkipDeps, `skip running "helm repo update" and "helm dependency build"`)
-	f.StringVar(&lintOptions.Args, "args", lintOptions.Args, "pass args to helm exec")
-	f.StringArrayVar(&lintOptions.Set, "set", lintOptions.Set, "additional values to be merged into the command")
-	f.StringArrayVar(&lintOptions.Values, "values", lintOptions.Values, "additional value files to be merged into the command")
+	f.BoolVar(&lintOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
+	f.StringVar(&lintOptions.Args, "args", "", "pass args to helm exec")
+	f.StringArrayVar(&lintOptions.Set, "set", nil, "additional values to be merged into the command")
+	f.StringArrayVar(&lintOptions.Values, "values", nil, "additional value files to be merged into the command")
 
 	return cmd
 }
