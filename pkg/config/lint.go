@@ -12,6 +12,13 @@ type LintOptions struct {
 	Set []string
 	// Values is the values flags to pass to helm lint
 	Values []string
+	// SkipNeeds is the skip needs flag
+	SkipNeeds bool
+	// IncludeNeeds is the include needs flag
+	IncludeNeeds bool
+	// IncludeTransitiveNeeds is the include transitive needs flag
+	IncludeTransitiveNeeds bool
+	// SkipDeps is the skip deps flag
 }
 
 // NewLintOptions creates a new Apply
@@ -34,46 +41,50 @@ func NewLintImpl(g *GlobalImpl, b *LintOptions) *LintImpl {
 }
 
 // Concurrency returns the concurrency
-func (c *LintImpl) Concurrency() int {
-	return c.LintOptions.Concurrency
+func (l *LintImpl) Concurrency() int {
+	return l.LintOptions.Concurrency
 }
 
 // SkipDeps returns the skip deps
-func (c *LintImpl) SkipDeps() bool {
-	return c.LintOptions.SkipDeps
+func (l *LintImpl) SkipDeps() bool {
+	return l.LintOptions.SkipDeps
 }
 
 // Args returns the args
-func (c *LintImpl) Args() string {
-	return c.LintOptions.Args
+func (l *LintImpl) Args() string {
+	return l.LintOptions.Args
 }
 
 // Set returns the Set
-func (c *LintImpl) Set() []string {
-	return c.LintOptions.Set
+func (l *LintImpl) Set() []string {
+	return l.LintOptions.Set
 }
 
 // Values returns the Values
-func (c *LintImpl) Values() []string {
-	return c.LintOptions.Values
+func (l *LintImpl) Values() []string {
+	return l.LintOptions.Values
 }
 
 // SkipCleanUp returns the skip clean up
-func (c *LintImpl) SkipCleanup() bool {
-	return false
-}
-
-// SkipNeeds returns the skip needs
-func (c *LintImpl) SkipNeeds() bool {
+func (l *LintImpl) SkipCleanup() bool {
 	return false
 }
 
 // IncludeNeeds returns the include needs
-func (c *LintImpl) IncludeNeeds() bool {
-	return false
+func (l *LintImpl) IncludeNeeds() bool {
+	return l.LintOptions.IncludeNeeds || l.LintOptions.IncludeTransitiveNeeds
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs
-func (c *LintImpl) IncludeTransitiveNeeds() bool {
+func (l *LintImpl) IncludeTransitiveNeeds() bool {
+	return l.LintOptions.IncludeTransitiveNeeds
+}
+
+// SkipNeeds returns the skip needs
+func (l *LintImpl) SkipNeeds() bool {
+	if !l.LintOptions.IncludeNeeds {
+		return l.LintOptions.SkipNeeds
+	}
+
 	return false
 }
