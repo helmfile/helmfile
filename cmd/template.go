@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewTemplateCmd returm build subcmd
+// NewTemplateCmd returm template subcmd
 func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	templateOptions := config.NewTemplateOptions()
 	templateImpl := config.NewTemplateImpl(globalCfg, templateOptions)

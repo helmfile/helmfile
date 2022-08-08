@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewTestCmd returm build subcmd
+// NewTestCmd returns test subcmd
 func NewTestCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	testOptions := config.NewTestOptions()
 	testImpl := config.NewTestImpl(globalCfg, testOptions)

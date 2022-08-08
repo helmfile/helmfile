@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDeleteCmd returm build subcmd
+// NewDeleteCmd returns delete subcmd
 func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	deleteOptions := config.NewDeleteOptions()
 	deleteImpl := config.NewDeleteImpl(globalCfg, deleteOptions)

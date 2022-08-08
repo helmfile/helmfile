@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDepsCmd returm build subcmd
+// NewDepsCmd returns deps subcmd
 func NewDepsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	depsOptions := config.NewDepsOptions()
 	depsImpl := config.NewDepsImpl(globalCfg, depsOptions)

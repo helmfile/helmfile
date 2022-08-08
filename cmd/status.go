@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewStatusCmd returm build subcmd
+// NewStatusCmd returns status subcmd
 func NewStatusCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	statusOptions := config.NewStatusOptions()
 	statusImpl := config.NewStatusImpl(globalCfg, statusOptions)

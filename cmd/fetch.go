@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewFetchCmd returm build subcmd
+// NewFetchCmd returns diff subcmd
 func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	fetchOptions := config.NewFetchOptions()
 	fetchImpl := config.NewFetchImpl(globalCfg, fetchOptions)

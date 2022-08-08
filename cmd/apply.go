@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewApplyCmd returm apply subcmd
+// NewApplyCmd returns apply subcmd
 func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	applyOptions := &config.ApplyOptions{}
 	applyImpl := config.NewApplyImpl(globalCfg, applyOptions)

@@ -399,7 +399,9 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 		}
 
 		if len(components) > 2 {
-			kubecontext = components[len(components)-3]
+			// Join all ID components except last 2 (namespace and name) into kubecontext.
+			// Should be safe because resource names do not contain slashes.
+			kubecontext = strings.Join(components[:len(components)-2], "/")
 		} else {
 			kubecontext = spec.KubeContext
 		}
