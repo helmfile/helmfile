@@ -30,7 +30,7 @@ func NewStatusCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&statusOptions.Args, "args", statusOptions.Args, "pass args to helm exec")
+	f.StringVar(&statusOptions.Args, "args", "", "pass args to helm exec")
 
 	return cmd
 }

@@ -30,8 +30,8 @@ func NewDepsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&depsOptions.Args, "args", depsOptions.Args, "pass args to helm exec")
-	f.BoolVar(&depsOptions.SkipRepos, "skip-deps", depsOptions.SkipRepos, `skip running "helm repo update" and "helm dependency build"`)
+	f.StringVar(&depsOptions.Args, "args", "", "pass args to helm exec")
+	f.BoolVar(&depsOptions.SkipRepos, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 
 	return cmd
 }

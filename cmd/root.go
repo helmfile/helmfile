@@ -103,24 +103,24 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
 	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", app.DefaultHelmBinary, "Path to the helm binary")
-	fs.StringVarP(&globalOptions.File, "file", "f", globalOptions.File, "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference")
-	fs.StringVarP(&globalOptions.Environment, "environment", "e", globalOptions.Environment, `specify the environment name. defaults to "default"`)
-	fs.StringArrayVarP(&globalOptions.StateValuesSet, "state-values-set", "s", globalOptions.StateValuesSet, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
-	fs.StringArrayVarP(&globalOptions.StateValuesFile, "state-values-file", "", globalOptions.StateValuesFile, "specify state values in a YAML file")
-	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", globalOptions.Quiet, "Silence output. Equivalent to log-level warn")
-	fs.StringVar(&globalOptions.KubeContext, "kube-context", globalOptions.KubeContext, "Set kubectl context. Uses current context by default")
-	fs.BoolVar(&globalOptions.Debug, "debug", globalOptions.Debug, "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect")
-	fs.BoolVar(&globalOptions.Color, "color", globalOptions.Color, "Output with color")
-	fs.BoolVar(&globalOptions.NoColor, "no-color", globalOptions.NoColor, "Output without color")
-	fs.StringVar(&globalOptions.LogLevel, "log-level", globalOptions.LogLevel, "Set log level, default info")
-	fs.StringVar(&globalOptions.Namespace, "namespace", globalOptions.Namespace, "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}")
-	fs.StringVar(&globalOptions.Chart, "chart", globalOptions.Chart, "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}")
-	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", globalOptions.Selector, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
+	fs.StringVarP(&globalOptions.File, "file", "f", "", "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference")
+	fs.StringVarP(&globalOptions.Environment, "environment", "e", "", `specify the environment name. defaults to "default"`)
+	fs.StringArrayVarP(&globalOptions.StateValuesSet, "state-values-set", "s", nil, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	fs.StringArrayVarP(&globalOptions.StateValuesFile, "state-values-file", "", nil, "specify state values in a YAML file")
+	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, "Silence output. Equivalent to log-level warn")
+	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", "Set kubectl context. Uses current context by default")
+	fs.BoolVar(&globalOptions.Debug, "debug", false, "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect")
+	fs.BoolVar(&globalOptions.Color, "color", false, "Output with color")
+	fs.BoolVar(&globalOptions.NoColor, "no-color", false, "Output without color")
+	fs.StringVar(&globalOptions.LogLevel, "log-level", "info", "Set log level, default info")
+	fs.StringVar(&globalOptions.Namespace, "namespace", "", "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}")
+	fs.StringVar(&globalOptions.Chart, "chart", "", "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}")
+	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
 	A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
 	--selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
 	The name of a release can be used as a label. --selector name=myrelease`)
-	fs.BoolVar(&globalOptions.AllowNoMatchingRelease, "allow-no-matching-release", globalOptions.AllowNoMatchingRelease, `Do not exit with an error code if the provided selector has no matching releases.`)
-	fs.BoolVarP(&globalOptions.Interactive, "interactive", "i", globalOptions.Interactive, "Request confirmation before attempting to modify clusters")
+	fs.BoolVar(&globalOptions.AllowNoMatchingRelease, "allow-no-matching-release", false, `Do not exit with an error code if the provided selector has no matching releases.`)
+	fs.BoolVarP(&globalOptions.Interactive, "interactive", "i", false, "Request confirmation before attempting to modify clusters")
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")
 }
