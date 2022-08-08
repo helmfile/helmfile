@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDiffCmd returm build subcmd
+// NewDiffCmd returns diff subcmd
 func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	diffOptions := config.NewDiffOptions()
 	diffImpl := config.NewDiffImpl(globalCfg, diffOptions)

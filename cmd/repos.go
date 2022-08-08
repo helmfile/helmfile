@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewReposCmd returm build subcmd
+// NewReposCmd returns repos subcmd
 func NewReposCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	reposOptions := config.NewReposOptions()
 	reposImpl := config.NewReposImpl(globalCfg, reposOptions)

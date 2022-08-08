@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewWriteValuesCmd returm build subcmd
+// NewWriteValuesCmd returns write subcmd
 func NewWriteValuesCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	writeValuesOptions := config.NewWriteValuesOptions()
 	writeValuesImpl := config.NewWriteValuesImpl(globalCfg, writeValuesOptions)

@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewListCmd returm build subcmd
+// NewListCmd returns list subcmd
 func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	listOptions := config.NewListOptions()
 	listImpl := config.NewListImpl(globalCfg, listOptions)
