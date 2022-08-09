@@ -42,6 +42,8 @@ type ApplyOptions struct {
 	SuppressSecrets bool
 	// SuppressDiff is true if the diff should be suppressed
 	ShowSecrets bool
+	// NoHooks skips checking for hooks
+	NoHooks bool
 	// SkipDeps is true if the running "helm repo update" and "helm dependency build" should be skipped
 	SuppressDiff bool
 	// ShowSecrets is true if the secrets should be shown
@@ -131,6 +133,11 @@ func (a *ApplyImpl) RetainValuesFiles() bool {
 // ShowSecrets returns the show secrets.
 func (a *ApplyImpl) ShowSecrets() bool {
 	return a.ApplyOptions.ShowSecrets
+}
+
+// NoHooks skips hooks.
+func (a *ApplyImpl) NoHooks() bool {
+	return a.ApplyOptions.NoHooks
 }
 
 // SkipCRDs returns the skip crds.

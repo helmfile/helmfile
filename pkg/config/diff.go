@@ -24,6 +24,8 @@ type DiffOptions struct {
 	SkipDiffOnInstall bool
 	// ShowSecrets is the show secrets flag
 	ShowSecrets bool
+	// NoHooks skips hooks during diff
+	NoHooks bool
 	// Suppress is the suppress flag
 	Suppress []string
 	// SuppressSecrets is the suppress secrets flag
@@ -129,6 +131,11 @@ func (t *DiffImpl) IncludeTests() bool {
 // ShowSecrets returns the show secrets
 func (t *DiffImpl) ShowSecrets() bool {
 	return t.DiffOptions.ShowSecrets
+}
+
+// NoHooks skips hooks.
+func (t *DiffImpl) NoHooks() bool {
+	return t.DiffOptions.NoHooks
 }
 
 // ShowCRDs returns the show crds

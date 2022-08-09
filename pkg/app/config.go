@@ -52,6 +52,7 @@ type ApplyConfigProvider interface {
 	Suppress() []string
 	SuppressSecrets() bool
 	ShowSecrets() bool
+	NoHooks() bool
 	SuppressDiff() bool
 
 	DetailedExitcode() bool
@@ -108,6 +109,7 @@ type DiffConfigProvider interface {
 	Suppress() []string
 	SuppressSecrets() bool
 	ShowSecrets() bool
+	NoHooks() bool
 	SuppressDiff() bool
 	SkipDiffOnInstall() bool
 

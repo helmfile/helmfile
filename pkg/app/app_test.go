@@ -2310,6 +2310,7 @@ type applyConfig struct {
 	suppress               []string
 	suppressSecrets        bool
 	showSecrets            bool
+	noHooks                bool
 	suppressDiff           bool
 	noColor                bool
 	color                  bool
@@ -2390,6 +2391,10 @@ func (a applyConfig) SuppressSecrets() bool {
 
 func (a applyConfig) ShowSecrets() bool {
 	return a.showSecrets
+}
+
+func (a applyConfig) NoHooks() bool {
+	return a.noHooks
 }
 
 func (a applyConfig) SuppressDiff() bool {
