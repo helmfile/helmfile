@@ -21,7 +21,7 @@ type Interface interface {
 	DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error
 	TemplateRelease(name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
-	ChartPull(chart string, flags ...string) error
+	ChartPull(chart string, path string, flags ...string) error
 	ChartExport(chart string, path string, flags ...string) error
 	Lint(name, chart string, flags ...string) error
 	ReleaseStatus(context HelmContext, name string, flags ...string) error

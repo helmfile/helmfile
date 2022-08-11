@@ -418,21 +418,15 @@ func (helm *execer) Fetch(chart string, flags ...string) error {
 	return err
 }
 
-func (helm *execer) ChartPull(chart string, flags ...string) error {
-	helm.logger.Infof("Pulling %v", chart)
-	helm.logger.Infof("Exporting %v", chart)
-	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
+func (helm *execer) ChartPull(chart string, path string, flags ...string) error {
 	var helmArgs []string
+	helm.logger.Infof("Pulling %v", chart)
+	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
 	if helmVersionConstraint.Check(&helm.version) {
+		// in the 3.7.0 version, the chart pull has been replaced with helm pull
+		// https://github.com/helm/helm/releases/tag/v3.7.0
 		ociChartURL, ociChartTag := resolveOciChart(chart)
-		tempDir, err := os.MkdirTemp("", "chart*")
-		if err != nil {
-			return err
-		}
-		defer func() {
-			_ = os.RemoveAll(tempDir)
-		}()
-		helmArgs = []string{"fetch", ociChartURL, "--version", ociChartTag, "--destination", tempDir}
+		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--destination", path}
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
 	}
@@ -442,16 +436,16 @@ func (helm *execer) ChartPull(chart string, flags ...string) error {
 }
 
 func (helm *execer) ChartExport(chart string, path string, flags ...string) error {
-	helm.logger.Infof("Exporting %v", chart)
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
-	var helmArgs []string
 	if helmVersionConstraint.Check(&helm.version) {
-		ociChartURL, ociChartTag := resolveOciChart(chart)
-		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--untar"}
-	} else {
-		helmArgs = []string{"chart", "export", chart}
+		// in the 3.7.0 version, the chart export has been removed
+		// https://github.com/helm/helm/releases/tag/v3.7.0
+		return nil
 	}
-	out, err := helm.exec(append(append(helmArgs, "--destination", path), flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
+	var helmArgs []string
+	helm.logger.Infof("Exporting %v", chart)
+	helmArgs = []string{"chart", "export", chart, "--destination", path}
+	out, err := helm.exec(append(helmArgs, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
 	helm.info(out)
 	return err
 }

@@ -2518,7 +2518,7 @@ func (helm *mockHelmExec) TemplateRelease(name, chart string, flags ...string) e
 	return nil
 }
 
-func (helm *mockHelmExec) ChartPull(chart string, flags ...string) error {
+func (helm *mockHelmExec) ChartPull(chart string, path string, flags ...string) error {
 	return nil
 }
 

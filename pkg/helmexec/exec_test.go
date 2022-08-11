@@ -681,6 +681,7 @@ func Test_ChartPull(t *testing.T) {
 		helmBin     string
 		helmVersion string
 		chartName   string
+		chartPath   string
 		chartFlags  []string
 		listResult  string
 	}{
@@ -689,9 +690,9 @@ func Test_ChartPull(t *testing.T) {
 			helmBin:     "helm",
 			helmVersion: "v3.6.0",
 			chartName:   "chart",
+			chartPath:   "path1",
 			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
 			listResult: `Pulling chart
-Exporting chart
 exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
 `,
 		},
@@ -700,10 +701,10 @@ exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
 			helmBin:     "helm",
 			helmVersion: "v3.9.0",
 			chartName:   "repo/helm-charts:0.14.0",
+			chartPath:   "path1",
 			chartFlags:  []string{"--untardir", "/tmp/dir"},
 			listResult: `Pulling repo/helm-charts:0.14.0
-Exporting repo/helm-charts:0.14.0
-exec: helm --kube-context dev fetch oci://repo/helm-charts --version 0.14.0 --destination [\w/]+ --untardir /tmp/dir
+exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untardir /tmp/dir
 `,
 		},
 	}
@@ -718,7 +719,7 @@ exec: helm --kube-context dev fetch oci://repo/helm-charts --version 0.14.0 --de
 				kubeContext: "dev",
 				runner:      &mockRunner{},
 			}
-			err := helm.ChartPull(tt.chartName, tt.chartFlags...)
+			err := helm.ChartPull(tt.chartName, tt.chartPath, tt.chartFlags...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -752,18 +753,6 @@ func Test_ChartExport(t *testing.T) {
 			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
 			listResult: `Exporting chart
 exec: helm --kube-context dev chart export chart --destination path1 --untar --untardir /tmp/dir
-`,
-			expectedError: "",
-		},
-		{
-			name:        "",
-			helmBin:     "helm",
-			helmVersion: "v3.9.0",
-			chartName:   "repo/helm-charts:0.14.0",
-			chartPath:   "path1",
-			chartFlags:  []string{"--untardir", "/tmp/dir"},
-			listResult: `Exporting repo/helm-charts:0.14.0
-exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --untar --destination path1 --untardir /tmp/dir
 `,
 			expectedError: "",
 		},
