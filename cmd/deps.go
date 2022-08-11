@@ -15,7 +15,7 @@ func NewDepsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "deps",
 		Short: "Update charts based on their requirements",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(depsImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(depsImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

@@ -15,7 +15,7 @@ func NewReposCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "repos",
 		Short: "Repos releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(reposImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(reposImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

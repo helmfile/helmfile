@@ -15,7 +15,7 @@ func NewStatusCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "status",
 		Short: "Retrieve status of releases in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(statusImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(statusImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

@@ -15,7 +15,7 @@ func NewTestCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "test",
 		Short: "Test charts from state file (helm test)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(testImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(testImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

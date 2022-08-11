@@ -15,7 +15,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "diff",
 		Short: "Diff releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(diffImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(diffImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

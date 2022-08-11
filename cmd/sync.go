@@ -15,7 +15,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "sync",
 		Short: "Sync releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(syncImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(syncImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

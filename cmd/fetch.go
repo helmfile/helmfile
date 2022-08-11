@@ -15,7 +15,7 @@ func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "fetch",
 		Short: "Fetch charts from state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(fetchImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(fetchImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
