@@ -7,8 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/variantdev/dag/pkg/dag"
+
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 type result struct {
@@ -55,6 +56,7 @@ func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency 
 	return st.iterateOnReleases(helm, concurrency, st.Releases, do)
 }
 
+// nolint: unparam
 func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, inputs []ReleaseSpec,
 	do func(ReleaseSpec, int) error) []error {
 	var errs []error

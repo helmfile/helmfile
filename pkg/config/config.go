@@ -5,11 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/helmfile/helmfile/pkg/maputil"
-	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"golang.org/x/term"
+
+	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/state"
 )
 
 // nolint: golint

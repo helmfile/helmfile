@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/tmpl"

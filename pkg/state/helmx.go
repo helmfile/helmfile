@@ -5,9 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/variantdev/chartify"
+
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
-	"github.com/variantdev/chartify"
 )
 
 type Dependency struct {
@@ -16,6 +17,7 @@ type Dependency struct {
 	Alias   string `yaml:"alias"`
 }
 
+// nolint: unparam
 func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) ([]string, error) {
 	for _, adopt := range release.Adopt {
 		flags = append(flags, "--adopt", adopt)

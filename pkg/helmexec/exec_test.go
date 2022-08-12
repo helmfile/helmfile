@@ -11,11 +11,11 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/helmfile/helmfile/pkg/envvar"
-
 	"github.com/Masterminds/semver/v3"
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 // Mocking the command-line runner

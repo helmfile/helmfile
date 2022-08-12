@@ -4,8 +4,9 @@
 package tmpl
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockvalClient is a mock of valClient interface

@@ -18,18 +18,17 @@ import (
 	"text/template"
 
 	"github.com/imdario/mergo"
+	"github.com/tatsushid/go-prettytable"
 	"github.com/variantdev/chartify"
+	"github.com/variantdev/vals"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
-
-	"github.com/tatsushid/go-prettytable"
-	"github.com/variantdev/vals"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -1301,6 +1300,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	return temp, nil
 }
 
+// nolint: unparam
 func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult) error {
 	// NOTES:
 	// 1. `helm dep build` fails when it was run concurrency on the same chart.

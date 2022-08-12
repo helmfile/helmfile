@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/helmfile/helmfile/pkg/remote"
 	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/remote"
 )
 
 func newLoader() *EnvironmentValuesLoader {

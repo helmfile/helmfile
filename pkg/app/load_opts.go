@@ -1,8 +1,9 @@
 package app
 
 import (
-	"github.com/helmfile/helmfile/pkg/state"
 	"gopkg.in/yaml.v2"
+
+	"github.com/helmfile/helmfile/pkg/state"
 )
 
 type LoadOpts struct {

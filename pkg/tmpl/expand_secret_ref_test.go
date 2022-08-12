@@ -2,11 +2,10 @@ package tmpl
 
 import (
 	"errors"
+	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"testing"
 )
 
 func Test_fetchSecretValue(t *testing.T) {

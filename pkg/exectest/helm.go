@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 

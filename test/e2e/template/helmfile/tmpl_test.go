@@ -6,8 +6,9 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/stretchr/testify/require"
+
+	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
 type tmplTestCase struct {

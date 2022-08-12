@@ -1,9 +1,10 @@
 package environment
 
 import (
-	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/imdario/mergo"
 	"gopkg.in/yaml.v2"
+
+	"github.com/helmfile/helmfile/pkg/maputil"
 )
 
 type Environment struct {

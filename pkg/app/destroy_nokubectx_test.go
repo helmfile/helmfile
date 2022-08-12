@@ -8,10 +8,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/variantdev/vals"
+
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-	"github.com/variantdev/vals"
 )
 
 func TestDestroy_2(t *testing.T) {

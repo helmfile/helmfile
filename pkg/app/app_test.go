@@ -15,22 +15,17 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/helmfile/helmfile/pkg/envvar"
-
-	"github.com/helmfile/helmfile/pkg/remote"
-	"github.com/helmfile/helmfile/pkg/testutil"
-
 	"github.com/stretchr/testify/assert"
-
-	"github.com/helmfile/helmfile/pkg/exectest"
-
 	"github.com/variantdev/vals"
+	"go.uber.org/zap"
 
+	"github.com/helmfile/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-
-	"go.uber.org/zap"
+	"github.com/helmfile/helmfile/pkg/testutil"
 )
 
 func appWithFs(app *App, files map[string]string) *App {

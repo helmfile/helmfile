@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/helmfile/helmfile/pkg/app"
-	"github.com/helmfile/helmfile/pkg/app/version"
-	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/app"
+	"github.com/helmfile/helmfile/pkg/app/version"
+	"github.com/helmfile/helmfile/pkg/config"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 var logger *zap.SugaredLogger

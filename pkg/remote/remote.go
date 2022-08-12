@@ -12,10 +12,11 @@ import (
 
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
-	"github.com/helmfile/helmfile/pkg/envvar"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+
+	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 var disableInsecureFeatures bool

@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/helmfile/helmfile/pkg/plugins"
 	"github.com/variantdev/vals"
+
+	"github.com/helmfile/helmfile/pkg/plugins"
 )
 
 // to generate mock run mockgen -source=expand_secret_ref.go -destination=expand_secrets_mock.go -package=tmpl

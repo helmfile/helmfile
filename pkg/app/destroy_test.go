@@ -8,11 +8,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/variantdev/vals"
+	"go.uber.org/zap"
+
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-	"github.com/variantdev/vals"
-	"go.uber.org/zap"
 )
 
 const (

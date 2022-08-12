@@ -48,7 +48,7 @@ func resolveRemoteChart(repoAndChart string) (string, string, bool) {
 
 // normalizeChart allows for the distinction between a file path reference and repository references.
 // - Any single (or double character) followed by a `/` will be considered a local file reference and
-// 	 be constructed relative to the `base path`.
+// be constructed relative to the `base path`.
 // - Everything else is assumed to be an absolute path or an actual <repository>/<chart> reference.
 func normalizeChart(basePath, chart string) string {
 	if !isLocalChart(chart) || chart[0] == '/' {

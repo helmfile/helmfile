@@ -14,9 +14,10 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/helmexec"
-	"golang.org/x/sync/errgroup"
 )
 
 type Values = map[string]interface{}

@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/spf13/cobra"
 )
 
 func NewCacheInfoSubcommand(cacheImpl *config.CacheImpl) *cobra.Command {

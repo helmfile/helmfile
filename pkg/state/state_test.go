@@ -8,10 +8,11 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/variantdev/vals"
+
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-	"github.com/variantdev/vals"
 )
 
 var logger = helmexec.NewLogger(os.Stdout, "warn")
@@ -1841,6 +1842,7 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 		if err != nil {
 			return "", err
 		}
+		// nolint: unparam
 		helm.UpdateDepsCallbacks[generatedDir] = func(chart string) error {
 			content := []byte(`dependencies:
 - name: envoy

@@ -7,15 +7,15 @@ import (
 	"io"
 	"os"
 
-	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/remote"
-
-	"github.com/helmfile/helmfile/pkg/environment"
-	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/imdario/mergo"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+
+	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/remote"
 )
 
 const (
@@ -221,6 +221,7 @@ func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmSta
 	return layers[0], nil
 }
 
+// nolint: unparam
 func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv *environment.Environment, readFile func(string) ([]byte, error), glob func(string) ([]string, error)) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
