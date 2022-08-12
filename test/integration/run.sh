@@ -17,7 +17,7 @@ if [[ ! -d "${dir}" ]]; then dir="${PWD}"; fi
 # GLOBALS -----------------------------------------------------------------------------------------------------------
 
 test_ns="helmfile-tests-$(date +"%Y%m%d-%H%M%S")"
-helmfile="./helmfile --namespace=${test_ns}"
+helmfile="./helmfile ${EXTRA_HELMFILE_FLAGS} --namespace=${test_ns}"
 helm="helm --kube-context=minikube"
 kubectl="kubectl --context=minikube --namespace=${test_ns}"
 helm_dir="${PWD}/${dir}/.helm"

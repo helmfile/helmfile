@@ -26,6 +26,7 @@ type decryptedSecret struct {
 
 type execer struct {
 	helmBinary           string
+	enableLiveOutput     bool
 	version              semver.Version
 	runner               Runner
 	logger               *zap.SugaredLogger
@@ -76,7 +77,7 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 
 func getHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
 	// Autodetect from `helm version`
-	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil)
+	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil, false)
 	if err != nil {
 		return semver.Version{}, fmt.Errorf("error determining helm version: %w", err)
 	}
@@ -94,7 +95,7 @@ func redactedURL(chart string) string {
 
 // New for running helm commands
 // nolint: golint
-func New(helmBinary string, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
+func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	// TODO: proper error handling
 	version, err := getHelmVersion(helmBinary, runner)
 	if err != nil {
@@ -102,6 +103,7 @@ func New(helmBinary string, logger *zap.SugaredLogger, kubeContext string, runne
 	}
 	return &execer{
 		helmBinary:       helmBinary,
+		enableLiveOutput: enableLiveOutput,
 		version:          version,
 		logger:           logger,
 		kubeContext:      kubeContext,
@@ -116,6 +118,10 @@ func (helm *execer) SetExtraArgs(args ...string) {
 
 func (helm *execer) SetHelmBinary(bin string) {
 	helm.helmBinary = bin
+}
+
+func (helm *execer) SetEnableLiveOutput(enableLiveOutput bool) {
+	helm.enableLiveOutput = enableLiveOutput
 }
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
@@ -158,7 +164,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 			args = append(args, "--insecure-skip-tls-verify")
 		}
 		helm.logger.Infof("Adding repo %v %v", name, repository)
-		out, err = helm.exec(args, map[string]string{})
+		out, err = helm.exec(args, map[string]string{}, nil)
 	default:
 		helm.logger.Errorf("ERROR: unknown type '%v' for repository %v", managed, name)
 		out = nil
@@ -170,7 +176,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 
 func (helm *execer) UpdateRepo() error {
 	helm.logger.Info("Updating repo")
-	out, err := helm.exec([]string{"repo", "update"}, map[string]string{})
+	out, err := helm.exec([]string{"repo", "update"}, map[string]string{}, nil)
 	helm.info(out)
 	return err
 }
@@ -194,14 +200,14 @@ func (helm *execer) RegistryLogin(repository string, username string, password s
 
 func (helm *execer) BuildDeps(name, chart string) error {
 	helm.logger.Infof("Building dependency release=%v, chart=%v", name, chart)
-	out, err := helm.exec([]string{"dependency", "build", chart}, map[string]string{})
+	out, err := helm.exec([]string{"dependency", "build", chart}, map[string]string{}, nil)
 	helm.info(out)
 	return err
 }
 
 func (helm *execer) UpdateDeps(chart string) error {
 	helm.logger.Infof("Updating dependency %v", chart)
-	out, err := helm.exec([]string{"dependency", "update", chart}, map[string]string{})
+	out, err := helm.exec([]string{"dependency", "update", chart}, map[string]string{}, nil)
 	helm.info(out)
 	return err
 }
@@ -217,7 +223,7 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
 	}
 
-	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", "--reset-values", name, chart), flags...), env)
+	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", "--reset-values", name, chart), flags...), env, nil)
 	helm.write(nil, out)
 	return err
 }
@@ -226,7 +232,7 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 	helm.logger.Infof("Getting status %v", name)
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
-	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env)
+	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
 }
@@ -242,7 +248,8 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 		args = []string{"list", filter}
 	}
 
-	out, err := helm.exec(append(append(preArgs, args...), flags...), env)
+	enableLiveOutput := false
+	out, err := helm.exec(append(append(preArgs, args...), flags...), env, &enableLiveOutput)
 	// In v2 we have been expecting `helm list FILTER` prints nothing.
 	// In v3 helm still prints the header like `NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION`,
 	// which confuses helmfile's existing logic that treats any non-empty output from `helm list` is considered as the indication
@@ -281,7 +288,8 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		helm.logger.Infof("Decrypting secret %v", absPath)
 		preArgs := context.GetTillerlessArgs(helm)
 		env := context.getTillerlessEnv()
-		secretBytes, err := helm.exec(append(append(preArgs, "secrets", "view", absPath), flags...), env)
+		enableLiveOutput := false
+		secretBytes, err := helm.exec(append(append(preArgs, "secrets", "view", absPath), flags...), env, &enableLiveOutput)
 		if err != nil {
 			secret.err = err
 			return "", err
@@ -343,7 +351,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		args = []string{"template", chart, "--name", name}
 	}
 
-	out, err := helm.exec(append(args, flags...), map[string]string{})
+	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
 	var outputToFile bool
 
@@ -380,7 +388,12 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 	}
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
-	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--reset-values", "--allow-unreleased", name, chart), flags...), env)
+	var overrideEnableLiveOutput *bool = nil
+	if suppressDiff {
+		enableLiveOutput := false
+		overrideEnableLiveOutput = &enableLiveOutput
+	}
+	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--reset-values", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
 	// Do our best to write STDOUT only when diff existed
 	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
 	detailedExitcodeEnabled := false
@@ -406,14 +419,14 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 
 func (helm *execer) Lint(name, chart string, flags ...string) error {
 	helm.logger.Infof("Linting release=%v, chart=%v", name, chart)
-	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{})
+	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{}, nil)
 	helm.write(nil, out)
 	return err
 }
 
 func (helm *execer) Fetch(chart string, flags ...string) error {
 	helm.logger.Infof("Fetching %v", redactedURL(chart))
-	out, err := helm.exec(append([]string{"fetch", chart}, flags...), map[string]string{})
+	out, err := helm.exec(append([]string{"fetch", chart}, flags...), map[string]string{}, nil)
 	helm.info(out)
 	return err
 }
@@ -436,7 +449,7 @@ func (helm *execer) ChartPull(chart string, flags ...string) error {
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
 	}
-	out, err := helm.exec(append(helmArgs, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
+	out, err := helm.exec(append(helmArgs, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
 	helm.info(out)
 	return err
 }
@@ -451,7 +464,7 @@ func (helm *execer) ChartExport(chart string, path string, flags ...string) erro
 	} else {
 		helmArgs = []string{"chart", "export", chart}
 	}
-	out, err := helm.exec(append(append(helmArgs, "--destination", path), flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
+	out, err := helm.exec(append(append(helmArgs, "--destination", path), flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
 	helm.info(out)
 	return err
 }
@@ -460,7 +473,7 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 	helm.logger.Infof("Deleting %v", name)
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
-	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env)
+	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
 }
@@ -470,12 +483,12 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	preArgs := context.GetTillerlessArgs(helm)
 	env := context.getTillerlessEnv()
 	args := []string{"test", name}
-	out, err := helm.exec(append(append(preArgs, args...), flags...), env)
+	out, err := helm.exec(append(append(preArgs, args...), flags...), env, nil)
 	helm.write(nil, out)
 	return err
 }
 
-func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
+func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
 	cmdargs := args
 	if len(helm.extra) > 0 {
 		cmdargs = append(cmdargs, helm.extra...)
@@ -485,7 +498,11 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	outBytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env)
+	enableLiveOutput := helm.enableLiveOutput
+	if overrideEnableLiveOutput != nil {
+		enableLiveOutput = *overrideEnableLiveOutput
+	}
+	outBytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env, enableLiveOutput)
 	return outBytes, err
 }
 
@@ -507,7 +524,7 @@ func (helm *execer) azcli(name string) ([]byte, error) {
 	cmdargs := append(strings.Split("acr helm repo add --name", " "), name)
 	cmd := fmt.Sprintf("exec: az %s", strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	outBytes, err := helm.runner.Execute("az", cmdargs, map[string]string{})
+	outBytes, err := helm.runner.Execute("az", cmdargs, map[string]string{}, false)
 	helm.logger.Debugf("%s: %s", cmd, outBytes)
 	return outBytes, err
 }

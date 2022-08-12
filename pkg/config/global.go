@@ -44,6 +44,8 @@ type GlobalOptions struct {
 	AllowNoMatchingRelease bool
 	// logger is the logger to use.
 	logger *zap.SugaredLogger
+	// EnableLiveOutput Show live output from the Helm binary stdout/stderr into Helmfile own stdout/stderr
+	EnableLiveOutput bool
 }
 
 // Logger returns the logger to use.
@@ -118,6 +120,11 @@ func (g *GlobalImpl) RawStateValuesSet() []string {
 // StateValuesFiles returns the state values files
 func (g *GlobalImpl) StateValuesFiles() []string {
 	return g.GlobalOptions.StateValuesFile
+}
+
+// EnableLiveOutput return when to pipe the stdout and stderr from Helm live to the helmfile stdout
+func (g *GlobalImpl) EnableLiveOutput() bool {
+	return g.GlobalOptions.EnableLiveOutput
 }
 
 // Logger returns the logger

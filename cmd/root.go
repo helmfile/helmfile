@@ -121,6 +121,8 @@ A release must match all labels in a group in order to be used. Multiple groups 
 "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
 The name of a release can be used as a label: "--selector name=myrelease"`)
 	fs.BoolVar(&globalOptions.AllowNoMatchingRelease, "allow-no-matching-release", false, `Do not exit with an error code if the provided selector has no matching releases.`)
+	fs.BoolVar(&globalOptions.EnableLiveOutput, "enable-live-output", globalOptions.EnableLiveOutput, `Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
+	It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.`)
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")
 }

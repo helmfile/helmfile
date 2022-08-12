@@ -54,11 +54,19 @@ jobs:
       matrix:
        include:
          - helm-version: v3.4.2
+           extra-helmfile-flags: ""
          - helm-version: v3.5.4
+           extra-helmfile-flags: ""
          - helm-version: v3.6.3
+           extra-helmfile-flags: ""
          - helm-version: v3.7.2
+           extra-helmfile-flags: ""
          - helm-version: v3.8.2
+           extra-helmfile-flags: ""
          - helm-version: v3.9.0
+           extra-helmfile-flags: ""
+         - helm-version: v3.9.0
+           extra-helmfile-flags: "--enable-live-output"
     steps:
     - uses: actions/checkout@v2
     - name: Cache libraries
@@ -98,4 +106,5 @@ jobs:
       env:
         HELMFILE_HELM3: 1
         TERM: xterm
+        EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
       run: make integration
