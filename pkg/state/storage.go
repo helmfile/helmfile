@@ -38,8 +38,14 @@ func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string) ([]
 	if remote.IsRemote(path) {
 		r := remote.NewRemote(st.logger, "", st.readFile, directoryExistsAt, fileExistsAt)
 
-		fetchedDir, _ := r.Fetch(path, "values")
-		files = []string{fetchedDir}
+		fetchedFilePath, err := r.Fetch(path, "values")
+		if err != nil {
+			return nil, false, err
+		}
+
+		if fileExistsAt(fetchedFilePath) {
+			files = []string{fetchedFilePath}
+		}
 	} else {
 		files, err = st.ExpandPaths(path)
 	}
