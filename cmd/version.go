@@ -3,8 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/helmfile/helmfile/pkg/app/version"
 	"github.com/spf13/cobra"
+
+	"github.com/helmfile/helmfile/pkg/app/version"
 )
 
 // NewVersionCmd returns version subcmd

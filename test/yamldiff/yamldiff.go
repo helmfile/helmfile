@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-
 	"strings"
 
 	"github.com/jessevdk/go-flags"

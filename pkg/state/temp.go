@@ -9,8 +9,9 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/helmfile/helmfile/pkg/envvar"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 func createTempValuesFile(release *ReleaseSpec, data interface{}) (*os.File, error) {
@@ -30,7 +31,7 @@ func createTempValuesFile(release *ReleaseSpec, data interface{}) (*os.File, err
 func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error) {
 	id, err := generateValuesID(release, data)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	workDir := os.Getenv(envvar.TempDir)
@@ -40,14 +41,14 @@ func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error)
 		err = os.MkdirAll(workDir, os.FileMode(0700))
 	}
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	d := filepath.Join(workDir, id)
 
 	_, err = os.Stat(d)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		panic(err)
+		return nil, err
 	}
 
 	return &d, nil

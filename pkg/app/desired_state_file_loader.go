@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/imdario/mergo"
+	"github.com/variantdev/vals"
+	"go.uber.org/zap"
+
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
-	"github.com/imdario/mergo"
-	"github.com/variantdev/vals"
-	"go.uber.org/zap"
 )
 
 const (

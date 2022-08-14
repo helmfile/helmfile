@@ -6,13 +6,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/helmfile/helmfile/pkg/environment"
-	"github.com/helmfile/helmfile/pkg/remote"
-
-	"github.com/helmfile/helmfile/pkg/testhelper"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/stretchr/testify/require"
+	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/testhelper"
 )
 
 func createFromYaml(content []byte, file string, env string, logger *zap.SugaredLogger) (*HelmState, error) {

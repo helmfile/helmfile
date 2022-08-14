@@ -4,8 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/stretchr/testify/require"
+
+	"github.com/helmfile/helmfile/pkg/state"
 )
 
 // TestGetArgs tests the GetArgs function

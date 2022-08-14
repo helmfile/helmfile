@@ -4,9 +4,10 @@ import (
 	"errors"
 	"os"
 
-	"github.com/helmfile/helmfile/pkg/state"
 	"go.uber.org/zap"
 	"golang.org/x/term"
+
+	"github.com/helmfile/helmfile/pkg/state"
 )
 
 // GlobalOptions is the global configuration for the Helmfile CLI.

@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/imdario/mergo"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
+
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
-	"github.com/imdario/mergo"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 )
 
 type EnvironmentValuesLoader struct {

@@ -2,9 +2,8 @@ package tmpl
 
 import (
 	"bytes"
-	"os"
-
 	"fmt"
+	"os"
 	"strings"
 )
 

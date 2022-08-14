@@ -5,15 +5,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/helmfile/helmfile/pkg/remote"
+	"gopkg.in/yaml.v2"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-
-	"gopkg.in/yaml.v2"
 )
 
+// nolint: unparam
 func makeLoader(files map[string]string, env string) (*desiredStateLoader, *testhelper.TestFs) {
 	testfs := testhelper.NewTestFs(files)
 	logger := helmexec.NewLogger(os.Stdout, "debug")

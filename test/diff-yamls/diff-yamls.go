@@ -137,6 +137,7 @@ type meta struct {
 	namespace  string
 }
 
+// nolint: unparam
 func (res resource) getMeta() (meta, error) {
 	if len(res) == 0 {
 		return meta{}, nil

@@ -9,11 +9,12 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	goversion "github.com/hashicorp/go-version"
-	"github.com/helmfile/helmfile/pkg/app/version"
-	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/r3labs/diff"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+
+	"github.com/helmfile/helmfile/pkg/app/version"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 type ChartMeta struct {
@@ -97,6 +98,7 @@ type ResolvedDependencies struct {
 	deps map[string][]ResolvedChartDependency
 }
 
+// nolint: unparam
 func (d *ResolvedDependencies) add(dep ResolvedChartDependency) error {
 	deps := d.deps[dep.ChartName]
 	if deps == nil {

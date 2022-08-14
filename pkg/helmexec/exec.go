@@ -12,9 +12,10 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/helmfile/helmfile/pkg/envvar"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 type decryptedSecret struct {

@@ -5,8 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/stretchr/testify/require"
+
+	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 // TestIsExplicitSelectorInheritanceEnabled tests the isExplicitSelectorInheritanceEnabled function

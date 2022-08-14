@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
+
 	"github.com/helmfile/helmfile/pkg/environment"
 )
 

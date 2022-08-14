@@ -13,13 +13,14 @@ import (
 	"syscall"
 	"text/tabwriter"
 
+	"github.com/variantdev/vals"
+	"go.uber.org/zap"
+
 	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/plugins"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
-	"github.com/variantdev/vals"
-	"go.uber.org/zap"
 )
 
 // App is the main application object.
@@ -920,6 +921,7 @@ func printBatches(batches [][]state.Release) string {
 	return buf.String()
 }
 
+// nolint: unparam
 func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.SugaredLogger, opts state.PlanOptions, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
 	batches, err := templated.PlanReleases(opts)
 	if err != nil {

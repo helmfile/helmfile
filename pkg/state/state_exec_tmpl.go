@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/helmfile/helmfile/pkg/tmpl"
 	"gopkg.in/yaml.v2"
+
+	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
 func (st *HelmState) Values() map[string]interface{} {

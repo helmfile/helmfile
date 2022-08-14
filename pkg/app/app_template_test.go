@@ -11,11 +11,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
+	"github.com/variantdev/vals"
+
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-	"github.com/stretchr/testify/require"
-	"github.com/variantdev/vals"
 )
 
 func TestTemplate(t *testing.T) {

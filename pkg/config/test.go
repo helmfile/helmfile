@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/spf13/cobra"
+
+	"github.com/helmfile/helmfile/pkg/state"
 )
 
 // TestOptions is the options for the build command

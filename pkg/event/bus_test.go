@@ -5,9 +5,10 @@ import (
 	"io"
 	"testing"
 
-	"github.com/helmfile/helmfile/pkg/environment"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/helmfile/helmfile/pkg/environment"
 )
 
 type runner struct {

@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/urfave/cli"
+
 	"github.com/helmfile/helmfile/cmd"
 	"github.com/helmfile/helmfile/pkg/config"
-	"github.com/urfave/cli"
 )
 
 func warning(format string, v ...interface{}) {
