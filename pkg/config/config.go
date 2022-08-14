@@ -3,12 +3,7 @@ package config
 import (
 	"strings"
 
-	"github.com/urfave/cli"
-	"go.uber.org/zap"
-	"golang.org/x/term"
-
 	"github.com/helmfile/helmfile/pkg/maputil"
-	"github.com/helmfile/helmfile/pkg/state"
 )
 
 func NewCLIConfigImpl(g *GlobalImpl) error {
