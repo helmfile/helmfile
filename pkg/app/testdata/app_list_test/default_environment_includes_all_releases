@@ -1,0 +1,199 @@
+processing file "helmfile_1.yaml" in directory "/path/to/helmfile.d"
+changing working directory to "/path/to/helmfile.d"
+first-pass rendering starting for "helmfile_1.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile_1.yaml.part.0":
+ 0: 
+ 1: environments:
+ 2:   development: {}
+ 3:   shared: {}
+ 4: 
+ 5: releases:
+ 6: - name: logging
+ 7:   chart: incubator/raw
+ 8:   namespace: kube-system
+ 9: 
+10: - name: kubernetes-external-secrets
+11:   chart: incubator/raw
+12:   namespace: kube-system
+13:   needs:
+14:   - kube-system/logging
+15: 
+16: - name: external-secrets
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - kube-system/kubernetes-external-secrets
+23: 
+24: - name: my-release
+25:   chart: incubator/raw
+26:   namespace: default
+27:   labels:
+28:     app: test
+29:   needs:
+30:   - default/external-secrets
+31: 
+32: 
+33: # Disabled releases are treated as missing
+34: - name: disabled
+35:   chart: incubator/raw
+36:   namespace: kube-system
+37:   installed: false
+38: 
+39: - name: test2
+40:   chart: incubator/raw
+41:   needs:
+42:   - kube-system/disabled
+43: 
+44: - name: test3
+45:   chart: incubator/raw
+46:   needs:
+47:   - test2
+48: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile_1.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile_1.yaml.part.0":
+ 0: 
+ 1: environments:
+ 2:   development: {}
+ 3:   shared: {}
+ 4: 
+ 5: releases:
+ 6: - name: logging
+ 7:   chart: incubator/raw
+ 8:   namespace: kube-system
+ 9: 
+10: - name: kubernetes-external-secrets
+11:   chart: incubator/raw
+12:   namespace: kube-system
+13:   needs:
+14:   - kube-system/logging
+15: 
+16: - name: external-secrets
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - kube-system/kubernetes-external-secrets
+23: 
+24: - name: my-release
+25:   chart: incubator/raw
+26:   namespace: default
+27:   labels:
+28:     app: test
+29:   needs:
+30:   - default/external-secrets
+31: 
+32: 
+33: # Disabled releases are treated as missing
+34: - name: disabled
+35:   chart: incubator/raw
+36:   namespace: kube-system
+37:   installed: false
+38: 
+39: - name: test2
+40:   chart: incubator/raw
+41:   needs:
+42:   - kube-system/disabled
+43: 
+44: - name: test3
+45:   chart: incubator/raw
+46:   needs:
+47:   - test2
+48: 
+
+merged environment: &{default map[] map[]}
+changing working directory back to "/path/to"
+processing file "helmfile_2.yaml" in directory "/path/to/helmfile.d"
+changing working directory to "/path/to/helmfile.d"
+first-pass rendering starting for "helmfile_2.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile_2.yaml.part.0":
+ 0: 
+ 1: environments:
+ 2:   test: {}
+ 3:   shared: {}
+ 4: 
+ 5: repositories:
+ 6: - name: bitnami
+ 7:   url: https://charts.bitnami.com/bitnami
+ 8: 
+ 9: releases:
+10: - name: cache
+11:   namespace: my-app
+12:   chart: bitnami/redis
+13:   version: 17.0.7
+14:   labels:
+15:     app: test
+16: 
+17: - name: database
+18:   namespace: my-app
+19:   chart: bitnami/postgres
+20:   version: 11.6.22
+21: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile_2.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile_2.yaml.part.0":
+ 0: 
+ 1: environments:
+ 2:   test: {}
+ 3:   shared: {}
+ 4: 
+ 5: repositories:
+ 6: - name: bitnami
+ 7:   url: https://charts.bitnami.com/bitnami
+ 8: 
+ 9: releases:
+10: - name: cache
+11:   namespace: my-app
+12:   chart: bitnami/redis
+13:   version: 17.0.7
+14:   labels:
+15:     app: test
+16: 
+17: - name: database
+18:   namespace: my-app
+19:   chart: bitnami/postgres
+20:   version: 11.6.22
+21: 
+
+merged environment: &{default map[] map[]}
+changing working directory back to "/path/to"
+processing file "helmfile_3.yaml" in directory "/path/to/helmfile.d"
+changing working directory to "/path/to/helmfile.d"
+first-pass rendering starting for "helmfile_3.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile_3.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: global
+ 3:   chart: incubator/raw
+ 4:   namespace: kube-system
+ 5: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile_3.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile_3.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: global
+ 3:   chart: incubator/raw
+ 4:   namespace: kube-system
+ 5: 
+
+merged environment: &{default map[] map[]}
+changing working directory back to "/path/to"

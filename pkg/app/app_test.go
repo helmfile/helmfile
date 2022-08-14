@@ -39,6 +39,12 @@ func appWithFs(app *App, files map[string]string) *App {
 }
 
 func injectFs(app *App, fs *testhelper.TestFs) *App {
+	if app.Set == nil {
+		// Consistent behavior with NewGlobalImpl.
+		// Doesn't really belong here, but simplest place for it until some refactoring happens
+		app.Set = make(map[string]interface{})
+	}
+
 	app.readFile = fs.ReadFile
 	app.glob = fs.Glob
 	app.abs = fs.Abs
