@@ -15,7 +15,7 @@ func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "destroy",
 		Short: "Destroys and then purges releases",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(destroyImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(destroyImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

@@ -15,7 +15,7 @@ func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "template",
 		Short: "Template releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(templateImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(templateImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

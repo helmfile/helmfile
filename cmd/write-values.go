@@ -15,7 +15,7 @@ func NewWriteValuesCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "write-values",
 		Short: "Write values files for releases. Similar to `helmfile template`, write values files instead of manifests.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(writeValuesImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(writeValuesImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

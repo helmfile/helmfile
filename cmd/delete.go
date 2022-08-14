@@ -15,7 +15,7 @@ func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "delete",
 		Short: "DEPRECATED: delete releases from state file (helm delete)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(deleteImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(deleteImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

@@ -15,7 +15,7 @@ func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "list",
 		Short: "List releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(listImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(listImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

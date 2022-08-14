@@ -15,7 +15,7 @@ func NewChartsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "charts",
 		Short: "DEPRECATED: sync releases from state file (helm upgrade --install)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(chartsImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(chartsImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
