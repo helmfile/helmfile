@@ -16,7 +16,7 @@ func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "list",
 		Short: "List releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(listImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(listImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -31,8 +31,8 @@ func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.BoolVar(&listOptions.KeepTempDir, "keep-temp-dir", listOptions.KeepTempDir, "Keep temporary directory")
-	f.StringVar(&listOptions.Output, "output", listOptions.Output, "output releases list as a json string")
+	f.BoolVar(&listOptions.KeepTempDir, "keep-temp-dir", false, "Keep temporary directory")
+	f.StringVar(&listOptions.Output, "output", "", "output releases list as a json string")
 
 	return cmd
 }

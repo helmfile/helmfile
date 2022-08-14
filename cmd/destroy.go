@@ -16,7 +16,7 @@ func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "destroy",
 		Short: "Destroys and then purges releases",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(destroyImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(destroyImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -31,9 +31,9 @@ func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&destroyOptions.Args, "args", destroyOptions.Args, "pass args to helm exec")
+	f.StringVar(&destroyOptions.Args, "args", "", "pass args to helm exec")
 	f.IntVar(&destroyOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
-	f.BoolVar(&destroyOptions.SkipDeps, "skip-deps", destroyOptions.SkipDeps, `skip running "helm repo update" and "helm dependency build"`)
+	f.BoolVar(&destroyOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 
 	return cmd
 }

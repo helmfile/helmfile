@@ -16,7 +16,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "sync",
 		Short: "Sync releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(syncImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(syncImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -32,8 +32,8 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&syncOptions.Args, "args", "", "pass args to helm sync")
-	f.StringArrayVar(&syncOptions.Set, "set", []string{}, "additional values to be merged into the command")
-	f.StringArrayVar(&syncOptions.Values, "values", []string{}, "additional value files to be merged into the command")
+	f.StringArrayVar(&syncOptions.Set, "set", nil, "additional values to be merged into the command")
+	f.StringArrayVar(&syncOptions.Values, "values", nil, "additional value files to be merged into the command")
 	f.IntVar(&syncOptions.Concurrency, "concurrency", 0, "maximum number of concurrent downloads of release charts")
 	f.BoolVar(&syncOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the sync of available API versions")
 	f.BoolVar(&syncOptions.SkipNeeds, "skip-needs", false, `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`)

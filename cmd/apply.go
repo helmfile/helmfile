@@ -16,7 +16,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "apply",
 		Short: "Apply all resources from state file only when there are changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(applyImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(applyImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -31,7 +31,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringSliceVar(&applyImpl.ApplyOptions.Values, "values", []string{}, "additional value files to be merged into the command")
+	f.StringSliceVar(&applyImpl.ApplyOptions.Values, "values", nil, "additional value files to be merged into the command")
 	f.IntVar(&applyImpl.ApplyOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&applyImpl.ApplyOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions")
 	f.IntVar(&applyImpl.ApplyOptions.Context, "context", 0, "output NUM lines of context around changes")
@@ -46,7 +46,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyImpl.ApplyOptions.IncludeTransitiveNeeds, "include-transitive-needs", false, `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`)
 	f.BoolVar(&applyImpl.ApplyOptions.SkipDiffOnInstall, "skip-diff-on-install", false, "Skips running helm-diff on releases being newly installed on this apply. Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all0")
 	f.BoolVar(&applyImpl.ApplyOptions.IncludeTests, "include-tests", false, "enable the diffing of the helm test hooks")
-	f.StringArrayVar(&applyImpl.ApplyOptions.Suppress, "suppress", []string{}, "suppress specified Kubernetes objects in the diff output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
+	f.StringArrayVar(&applyImpl.ApplyOptions.Suppress, "suppress", nil, "suppress specified Kubernetes objects in the diff output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
 	f.BoolVar(&applyImpl.ApplyOptions.SuppressSecrets, "suppress-secrets", false, "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases")
 	f.BoolVar(&applyImpl.ApplyOptions.ShowSecrets, "show-secrets", false, "do not redact secret values in the diff output. should be used for debug purpose only")
 	f.BoolVar(&applyImpl.ApplyOptions.SuppressDiff, "suppress-diff", false, "suppress diff in the output. Usable in new installs")

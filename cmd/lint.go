@@ -16,7 +16,7 @@ func NewLintCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "lint",
 		Short: "Lint charts from state file (helm lint)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(lintImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(lintImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

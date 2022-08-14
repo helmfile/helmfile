@@ -987,7 +987,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		envvals = append(envvals, v)
 	}
 
-	if a.Set != nil {
+	if len(a.Set) > 0 {
 		envvals = append(envvals, a.Set)
 	}
 

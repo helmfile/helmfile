@@ -16,7 +16,7 @@ func NewBuildCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "build",
 		Short: "Build all resources from state file only when there are changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(buildImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(buildImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

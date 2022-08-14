@@ -16,7 +16,7 @@ func NewChartsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "charts",
 		Short: "DEPRECATED: sync releases from state file (helm upgrade --install)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(chartsImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(chartsImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -31,9 +31,9 @@ func NewChartsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&chartsOptions.Args, "args", chartsOptions.Args, "pass args to helm exec")
-	f.StringArrayVar(&chartsOptions.Set, "set", chartsOptions.Set, "additional values to be merged into the command")
-	f.StringArrayVar(&chartsOptions.Values, "values", chartsOptions.Values, "additional value files to be merged into the command")
+	f.StringVar(&chartsOptions.Args, "args", "", "pass args to helm exec")
+	f.StringArrayVar(&chartsOptions.Set, "set", nil, "additional values to be merged into the command")
+	f.StringArrayVar(&chartsOptions.Values, "values", nil, "additional value files to be merged into the command")
 	f.IntVar(&chartsOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 
 	return cmd

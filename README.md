@@ -55,10 +55,10 @@ Note that we will try our best to document any backward incompatibility. And in 
 
 ## Installation
 
-* download one of [releases](https://github.com/helmfile/helmfile/releases) or
-* [run as a container](https://helmfile.readthedocs.io/en/latest/#running-as-a-container) or
-* Archlinux: install via `pacman -S helmfile` or from [AUR](https://aur.archlinux.org/packages/kubernetes-helmfile-bin/) or
-* openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`, or
+* download one of [releases](https://github.com/helmfile/helmfile/releases)
+* [run as a container](https://helmfile.readthedocs.io/en/latest/#running-as-a-container)
+* Archlinux: install via `pacman -S helmfile`
+* openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`
 * Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 * macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
 

@@ -12,7 +12,7 @@ func NewCacheInfoSubcommand(cacheImpl *config.CacheImpl) *cobra.Command {
 		Use:   "info",
 		Short: "cache info",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(cacheImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(cacheImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -34,7 +34,7 @@ func NewCacheCleanupSubcommand(cacheImpl *config.CacheImpl) *cobra.Command {
 		Use:   "cleanup",
 		Short: "clean up cache directory",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(cacheImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(cacheImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}

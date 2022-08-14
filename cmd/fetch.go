@@ -16,7 +16,7 @@ func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "fetch",
 		Short: "Fetch charts from state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(fetchImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(fetchImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -32,8 +32,8 @@ func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.IntVar(&fetchOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
-	f.BoolVar(&fetchOptions.SkipDeps, "skip-deps", fetchOptions.SkipDeps, `skip running "helm repo update" and "helm dependency build"`)
-	f.StringVar(&fetchOptions.OutputDir, "output-dir", fetchOptions.OutputDir, "directory to store charts (default: temporary directory which is deleted when the command terminates)")
+	f.BoolVar(&fetchOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
+	f.StringVar(&fetchOptions.OutputDir, "output-dir", "", "directory to store charts (default: temporary directory which is deleted when the command terminates)")
 
 	return cmd
 }

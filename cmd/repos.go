@@ -16,7 +16,7 @@ func NewReposCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "repos",
 		Short: "Repos releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(reposImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(reposImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -31,7 +31,7 @@ func NewReposCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&reposOptions.Args, "args", reposOptions.Args, "pass args to helm exec")
+	f.StringVar(&reposOptions.Args, "args", "", "pass args to helm exec")
 
 	return cmd
 }

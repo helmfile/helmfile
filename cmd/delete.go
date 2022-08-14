@@ -16,7 +16,7 @@ func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "delete",
 		Short: "DEPRECATED: delete releases from state file (helm delete)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(deleteImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(deleteImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -31,10 +31,10 @@ func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&deleteOptions.Args, "args", deleteOptions.Args, "pass args to helm exec")
+	f.StringVar(&deleteOptions.Args, "args", "", "pass args to helm exec")
 	f.IntVar(&deleteOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
-	f.BoolVar(&deleteOptions.Purge, "purge", deleteOptions.Purge, "purge releases i.e. free release names and histories")
-	f.BoolVar(&deleteOptions.SkipDeps, "skip-deps", deleteOptions.SkipDeps, `skip running "helm repo update" and "helm dependency build"`)
+	f.BoolVar(&deleteOptions.Purge, "purge", false, "purge releases i.e. free release names and histories")
+	f.BoolVar(&deleteOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 
 	return cmd
 }

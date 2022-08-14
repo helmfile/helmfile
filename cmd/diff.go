@@ -16,7 +16,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "diff",
 		Short: "Diff releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.NewUrfaveCliConfigImplIns(diffImpl.GlobalImpl)
+			err := config.NewCLIConfigImpl(diffImpl.GlobalImpl)
 			if err != nil {
 				return err
 			}
@@ -32,8 +32,8 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&diffOptions.Args, "args", "", "pass args to helm diff")
-	f.StringArrayVar(&diffOptions.Set, "set", []string{}, "additional values to be merged into the command")
-	f.StringArrayVar(&diffOptions.Values, "values", []string{}, "additional value files to be merged into the command")
+	f.StringArrayVar(&diffOptions.Set, "set", nil, "additional values to be merged into the command")
+	f.StringArrayVar(&diffOptions.Values, "values", nil, "additional value files to be merged into the command")
 	f.IntVar(&diffOptions.Concurrency, "concurrency", 0, "maximum number of concurrent downloads of release charts")
 	f.BoolVar(&diffOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the diff of available API versions")
 	f.BoolVar(&diffOptions.SkipNeeds, "skip-needs", false, `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`)
@@ -47,7 +47,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&diffOptions.Context, "context", 0, "output NUM lines of context around changes")
 	f.StringVar(&diffOptions.Output, "output", "", "output format for diff plugin")
 	f.BoolVar(&diffOptions.SuppressSecrets, "suppress-secrets", false, "suppress secrets in the output. highly recommended to specify on CI/CD use-cases")
-	f.StringArrayVar(&diffOptions.Suppress, "suppress", []string{}, "suppress specified Kubernetes objects in the output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
+	f.StringArrayVar(&diffOptions.Suppress, "suppress", nil, "suppress specified Kubernetes objects in the output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
 
 	return cmd
 }
