@@ -22,18 +22,18 @@ on:
       - "Makefile"
 
 jobs:
-  build-test:
-    if: startsWith(github.ref, 'refs/pull/')
+  build:
+    name: Build
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    name: Build
+      packages: write
     strategy:
       matrix:
-       include:
-         - dockerfile: Dockerfile
-         - dockerfile: Dockerfile.debian
-         - dockerfile: Dockerfile.ubuntu
+        dockerfile:
+          - Dockerfile
+          - Dockerfile.debian-stable-slim
+          - Dockerfile.ubuntu
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -43,29 +43,14 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-
-      - name: Build
-        uses: docker/build-push-action@v3
         with:
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
+          version: latest
 
-  build:
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    name: Build and Publish
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Setup Docker Environment
+      - name: Set up Image Variables
         id: vars
-        uses: ./.github/actions/setup-docker-environment
+        uses: ./.github/actions/setup-image-vars
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
@@ -74,24 +59,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push
-        uses: docker/build-push-action@v2
+      - name: Build / Push
+        uses: docker/build-push-action@v3
         with:
-          file: Dockerfile
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and Push (debian stable-slim)
-        uses: docker/build-push-action@v2
-        with:
-          file: Dockerfile.debian
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}-debian-stable-slim:${{ steps.vars.outputs.tag }}
+            ghcr.io/${{ github.repository }}${{ steps.vars.outputs.suffix }}:${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
