@@ -48,6 +48,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           file: ${{ matrix.dockerfile }}
+          build-args: --build-arg TAG=${{ github.ref }}
           platforms: linux/amd64,linux/arm64
 
   build:
@@ -79,6 +80,7 @@ jobs:
         with:
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
+          build-args: --build-arg TAG=${{ github.ref }}
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
@@ -90,6 +92,7 @@ jobs:
         with:
           file: Dockerfile.debian
           platforms: linux/amd64,linux/arm64
+          build-args: --build-arg TAG=${{ github.ref }}
           push: true
           tags: |
             ghcr.io/${{ github.repository }}-debian-stable-slim:${{ steps.vars.outputs.tag }}

@@ -1,5 +1,8 @@
 FROM golang:1.18.0-alpine as builder
 
+ARG TAG=0.0.0-dev
+ENV TAG=$TAG
+
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
 
