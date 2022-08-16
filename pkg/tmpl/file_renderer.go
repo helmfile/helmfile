@@ -19,7 +19,7 @@ func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath st
 		Context: &Context{
 			basePath: basePath,
 			readFile: readFile,
-            readDir:  os.ReadDir,
+			readDir:  os.ReadDir,
 		},
 		Data: data,
 	}
@@ -32,7 +32,7 @@ func NewFirstPassRenderer(basePath string, data interface{}) *FileRenderer {
 			preRender: true,
 			basePath:  basePath,
 			readFile:  os.ReadFile,
-            readDir:   os.ReadDir,
+			readDir:   os.ReadDir,
 		},
 		Data: data,
 	}

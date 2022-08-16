@@ -1,8 +1,8 @@
 package helmfile
 
 import (
-    "fmt"
 	"bytes"
+	"fmt"
 	"os"
 	"testing"
 	"text/template"
@@ -265,32 +265,31 @@ func (t *tmplE2e) load() {
 
 var tmplE2eTest = tmplE2e{}
 
-
 func TestFileRendering(t *testing.T) {
 
 	tmplE2eTest.load()
 
 	for _, tc := range tmplE2eTest.tcs {
 
-        t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			tc.setEnvs(t)
-            tempDir, _ := os.MkdirTemp("./testdata", "test")
-            defer os.RemoveAll(tempDir)
+			tempDir, _ := os.MkdirTemp("./testdata", "test")
+			defer os.RemoveAll(tempDir)
 
-            filename := fmt.Sprintf("%s/%s.gotmpl", tempDir, tc.name)
-            os.WriteFile(filename, []byte(tc.tmplString), 0644)
-            fileRenderer := tmpl.NewFileRenderer(os.ReadFile, ".", tc.data)
-            tmpl_bytes, err := fileRenderer.RenderToBytes(filename);
+			filename := fmt.Sprintf("%s/%s.gotmpl", tempDir, tc.name)
+			os.WriteFile(filename, []byte(tc.tmplString), 0644)
+			fileRenderer := tmpl.NewFileRenderer(os.ReadFile, ".", tc.data)
+			tmpl_bytes, err := fileRenderer.RenderToBytes(filename)
 
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
-            tmpl := string(tmpl_bytes);
+			tmpl := string(tmpl_bytes)
 			require.Equal(t, tc.output, tmpl)
 		})
-    }
+	}
 }
 
 // TestTmplStrings tests the template string
