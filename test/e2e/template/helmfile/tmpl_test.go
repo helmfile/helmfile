@@ -266,11 +266,9 @@ func (t *tmplE2e) load() {
 var tmplE2eTest = tmplE2e{}
 
 func TestFileRendering(t *testing.T) {
-
 	tmplE2eTest.load()
 
 	for _, tc := range tmplE2eTest.tcs {
-
 		t.Run(tc.name, func(t *testing.T) {
 			tc.setEnvs(t)
 			tempDir, _ := os.MkdirTemp("./testdata", "test")
