@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"path/filepath"
 	"sync"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/variantdev/vals"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
+	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
@@ -1060,8 +1060,7 @@ changing working directory back to "/path/to"
 
 				app := appWithFs(&App{
 					OverrideHelmBinary:  DefaultHelmBinary,
-					glob:                filepath.Glob,
-					abs:                 filepath.Abs,
+					fs:                  ffs.DefaultFileSystem(),
 					OverrideKubeContext: "",
 					Env:                 "default",
 					Logger:              logger,

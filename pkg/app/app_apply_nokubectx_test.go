@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"path/filepath"
 	"sync"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/variantdev/vals"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
@@ -90,8 +90,7 @@ func TestApply_3(t *testing.T) {
 
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
-				glob:                filepath.Glob,
-				abs:                 filepath.Abs,
+				fs:                  filesystem.DefaultFileSystem(),
 				OverrideKubeContext: "",
 				Env:                 "default",
 				Logger:              logger,

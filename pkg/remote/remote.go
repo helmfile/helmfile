@@ -17,6 +17,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 var disableInsecureFeatures bool
@@ -43,11 +44,9 @@ type Remote struct {
 	// Getter is the underlying implementation of getter used for fetching remote files
 	Getter Getter
 
-	// ReadFile is the implementation of the file reader that reads a local file from the specified path.
+	// Filesystem abstraction
 	// Inject any implementation of your choice, like an im-memory impl for testing, os.ReadFile for the real-world use.
-	ReadFile   func(string) ([]byte, error)
-	DirExists  func(string) bool
-	FileExists func(string) bool
+	fs *filesystem.FileSystem
 }
 
 func (r *Remote) Unmarshal(src string, dst interface{}) error {
@@ -87,7 +86,7 @@ func (r *Remote) GetBytes(goGetterSrc string) ([]byte, error) {
 		return nil, err
 	}
 
-	bytes, err := r.ReadFile(f)
+	bytes, err := r.fs.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %v", err)
 	}
@@ -99,7 +98,7 @@ func (r *Remote) GetBytes(goGetterSrc string) ([]byte, error) {
 // If the argument was an URL, it fetches the remote directory contained within the URL,
 // and returns the path to the file in the fetched directory
 func (r *Remote) Locate(urlOrPath string) (string, error) {
-	if r.FileExists(urlOrPath) || r.DirExists(urlOrPath) {
+	if r.fs.FileExistsAt(urlOrPath) || r.fs.DirectoryExistsAt(urlOrPath) {
 		return urlOrPath, nil
 	}
 	fetched, err := r.Fetch(urlOrPath)
@@ -217,11 +216,11 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 	r.Logger.Debugf("cached dir: %s", cacheDirPath)
 
 	{
-		if r.FileExists(cacheDirPath) {
+		if r.fs.FileExistsAt(cacheDirPath) {
 			return "", fmt.Errorf("%s is not directory. please remove it so that variant could use it for dependency caching", getterDst)
 		}
 
-		if r.DirExists(cacheDirPath) {
+		if r.fs.DirectoryExistsAt(cacheDirPath) {
 			cached = true
 		}
 	}
@@ -285,17 +284,15 @@ func (g *GoGetter) Get(wd, src, dst string) error {
 	return nil
 }
 
-func NewRemote(logger *zap.SugaredLogger, homeDir string, readFile func(string) ([]byte, error), dirExists func(string) bool, fileExists func(string) bool) *Remote {
+func NewRemote(logger *zap.SugaredLogger, homeDir string, fs *filesystem.FileSystem) *Remote {
 	if disableInsecureFeatures {
 		panic("Remote sources are disabled due to 'DISABLE_INSECURE_FEATURES'")
 	}
 	remote := &Remote{
-		Logger:     logger,
-		Home:       homeDir,
-		Getter:     &GoGetter{Logger: logger},
-		ReadFile:   readFile,
-		DirExists:  dirExists,
-		FileExists: fileExists,
+		Logger: logger,
+		Home:   homeDir,
+		Getter: &GoGetter{Logger: logger},
+		fs:     fs,
 	}
 
 	if remote.Home == "" {

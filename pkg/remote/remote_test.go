@@ -55,12 +55,10 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 				get: get,
 			}
 			remote := &Remote{
-				Logger:     helmexec.NewLogger(os.Stderr, "debug"),
-				Home:       CacheDir(),
-				Getter:     getter,
-				ReadFile:   testfs.ReadFile,
-				FileExists: testfs.FileExistsAt,
-				DirExists:  testfs.DirectoryExistsAt,
+				Logger: helmexec.NewLogger(os.Stderr, "debug"),
+				Home:   CacheDir(),
+				Getter: getter,
+				fs:     testfs.ToFileSystem(),
 			}
 
 			// FYI, go-getter in the `dir` mode accepts URL like the below. So helmfile expects URLs similar to it:
@@ -133,12 +131,10 @@ func TestRemote_SShGitHub(t *testing.T) {
 				get: get,
 			}
 			remote := &Remote{
-				Logger:     helmexec.NewLogger(os.Stderr, "debug"),
-				Home:       CacheDir(),
-				Getter:     getter,
-				ReadFile:   testfs.ReadFile,
-				FileExists: testfs.FileExistsAt,
-				DirExists:  testfs.DirectoryExistsAt,
+				Logger: helmexec.NewLogger(os.Stderr, "debug"),
+				Home:   CacheDir(),
+				Getter: getter,
+				fs:     testfs.ToFileSystem(),
 			}
 
 			url := "git::ssh://git@github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=0.40.0"
@@ -205,12 +201,10 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 				get: get,
 			}
 			remote := &Remote{
-				Logger:     helmexec.NewLogger(os.Stderr, "debug"),
-				Home:       CacheDir(),
-				Getter:     getter,
-				ReadFile:   testfs.ReadFile,
-				FileExists: testfs.FileExistsAt,
-				DirExists:  testfs.DirectoryExistsAt,
+				Logger: helmexec.NewLogger(os.Stderr, "debug"),
+				Home:   CacheDir(),
+				Getter: getter,
+				fs:     testfs.ToFileSystem(),
 			}
 
 			url := "git::ssh://git@github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=0.40.0&sshkey=ZWNkc2Etc2hhMi1uaXN0cDI1NiBBQUFBRTJWalpITmhMWE5vWVRJdGJtbHpkSEF5TlRZQUFBQUlibWx6ZEhBeU5UWUFBQUJCQkJTU3dOY2xoVzQ2Vm9VR3dMQ3JscVRHYUdOVWdRVUVEUEptc1ZzdUViL2RBNUcrQk9YMWxGaUVMYU9HQ2F6bS9KQkR2V3Y2Y0ZDQUtVRjVocVJOUjdJPSA="

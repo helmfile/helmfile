@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -17,19 +18,19 @@ import (
 type EnvironmentValuesLoader struct {
 	storage *Storage
 
-	readFile func(string) ([]byte, error)
+	fs *filesystem.FileSystem
 
 	logger *zap.SugaredLogger
 
 	remote *remote.Remote
 }
 
-func NewEnvironmentValuesLoader(storage *Storage, readFile func(string) ([]byte, error), logger *zap.SugaredLogger, remote *remote.Remote) *EnvironmentValuesLoader {
+func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, logger *zap.SugaredLogger, remote *remote.Remote) *EnvironmentValuesLoader {
 	return &EnvironmentValuesLoader{
-		storage:  storage,
-		readFile: readFile,
-		logger:   logger,
-		remote:   remote,
+		storage: storage,
+		fs:      fs,
+		logger:  logger,
+		remote:  remote,
 	}
 }
 
@@ -64,7 +65,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				}
 
 				tmplData := NewEnvironmentTemplateData(env, "", map[string]interface{}{})
-				r := tmpl.NewFileRenderer(ld.readFile, filepath.Dir(f), tmplData)
+				r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
 				bytes, err := r.RenderToBytes(f)
 				if err != nil {
 					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)

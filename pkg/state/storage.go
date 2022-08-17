@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/remote"
 )
 
@@ -16,17 +17,16 @@ type Storage struct {
 
 	FilePath string
 
-	readFile func(string) ([]byte, error)
 	basePath string
-	glob     func(string) ([]string, error)
+	fs       *filesystem.FileSystem
 }
 
-func NewStorage(forFile string, logger *zap.SugaredLogger, glob func(string) ([]string, error)) *Storage {
+func NewStorage(forFile string, logger *zap.SugaredLogger, fs *filesystem.FileSystem) *Storage {
 	return &Storage{
 		FilePath: forFile,
 		basePath: filepath.Dir(forFile),
 		logger:   logger,
-		glob:     glob,
+		fs:       fs,
 	}
 }
 
@@ -36,14 +36,14 @@ func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string) ([]
 	var files []string
 	var err error
 	if remote.IsRemote(path) {
-		r := remote.NewRemote(st.logger, "", st.readFile, directoryExistsAt, fileExistsAt)
+		r := remote.NewRemote(st.logger, "", st.fs)
 
 		fetchedFilePath, err := r.Fetch(path, "values")
 		if err != nil {
 			return nil, false, err
 		}
 
-		if fileExistsAt(fetchedFilePath) {
+		if st.fs.FileExistsAt(fetchedFilePath) {
 			files = []string{fetchedFilePath}
 		}
 	} else {
@@ -92,7 +92,7 @@ func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string) ([]
 func (st *Storage) ExpandPaths(globPattern string) ([]string, error) {
 	result := []string{}
 	absPathPattern := st.normalizePath(globPattern)
-	matches, err := st.glob(absPathPattern)
+	matches, err := st.fs.Glob(absPathPattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
 	}

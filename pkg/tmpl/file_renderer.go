@@ -3,43 +3,43 @@ package tmpl
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
+
+	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 type FileRenderer struct {
-	ReadFile func(string) ([]byte, error)
-	Context  *Context
-	Data     interface{}
+	fs      *filesystem.FileSystem
+	Context *Context
+	Data    interface{}
 }
 
-func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath string, data interface{}) *FileRenderer {
+func NewFileRenderer(fs *filesystem.FileSystem, basePath string, data interface{}) *FileRenderer {
 	return &FileRenderer{
-		ReadFile: readFile,
+		fs: fs,
 		Context: &Context{
 			basePath: basePath,
-			readFile: readFile,
-			readDir:  os.ReadDir,
+			fs:       fs,
 		},
 		Data: data,
 	}
 }
 
 func NewFirstPassRenderer(basePath string, data interface{}) *FileRenderer {
+	fs := filesystem.DefaultFileSystem()
 	return &FileRenderer{
-		ReadFile: os.ReadFile,
+		fs: fs,
 		Context: &Context{
 			preRender: true,
 			basePath:  basePath,
-			readFile:  os.ReadFile,
-			readDir:   os.ReadDir,
+			fs:        fs,
 		},
 		Data: data,
 	}
 }
 
 func (r *FileRenderer) RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {
-	content, err := r.ReadFile(file)
+	content, err := r.fs.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (r *FileRenderer) RenderToBytes(path string) ([]byte, error) {
 		yamlBytes = yamlBuf.Bytes()
 	} else {
 		var err error
-		yamlBytes, err = r.ReadFile(path)
+		yamlBytes, err = r.fs.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load [%s]: %v", path, err)
 		}

@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 type runner struct {
@@ -154,7 +155,7 @@ func TestTrigger(t *testing.T) {
 			Namespace:     "myns",
 			Env:           environment.Environment{Name: "prod"},
 			Logger:        zeLogger,
-			ReadFile:      readFile,
+			Fs:            &ffs.FileSystem{ReadFile: readFile},
 		}
 
 		bus.Runner = &runner{}

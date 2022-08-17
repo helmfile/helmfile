@@ -3,10 +3,10 @@ package state
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 	"testing"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 )
@@ -73,7 +73,7 @@ func TestStorage_resolveFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := NewStorage(cacheDir, helmexec.NewLogger(os.Stderr, "debug"), filepath.Glob)
+			st := NewStorage(cacheDir, helmexec.NewLogger(os.Stderr, "debug"), filesystem.DefaultFileSystem())
 
 			files, skipped, err := st.resolveFile(tt.args.missingFileHandler, tt.args.title, tt.args.path)
 			if (err != nil) != tt.wantErr {

@@ -11,6 +11,7 @@ import (
 	"github.com/variantdev/vals"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
@@ -19,10 +20,7 @@ var logger = helmexec.NewLogger(os.Stdout, "warn")
 var valsRuntime, _ = vals.New(vals.Options{CacheSize: 32})
 
 func injectFs(st *HelmState, fs *testhelper.TestFs) *HelmState {
-	st.glob = fs.Glob
-	st.readFile = fs.ReadFile
-	st.fileExists = fs.FileExists
-	st.directoryExistsAt = fs.DirectoryExistsAt
+	st.fs = fs.ToFileSystem()
 	return st
 }
 
@@ -1715,17 +1713,17 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: tt.releases,
 				},
-				logger:      logger,
-				valsRuntime: valsRuntime,
-				removeFile: func(f string) error {
-					numRemovedFiles += 1
-					return nil
-				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
 			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: FOO`,
 			})
+			testfs.DeleteFile = func(f string) error {
+				numRemovedFiles += 1
+				return nil
+			}
 			state = injectFs(state, testfs)
 			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
@@ -1802,18 +1800,18 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: tt.releases,
 				},
-				logger:      logger,
-				valsRuntime: valsRuntime,
-				removeFile: func(f string) error {
-					numRemovedFiles += 1
-					return nil
-				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
 			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: bar
 `,
 			})
+			testfs.DeleteFile = func(f string) error {
+				numRemovedFiles += 1
+				return nil
+			}
 			state = injectFs(state, testfs)
 			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, []string{}, false, false, false, false); len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
@@ -1960,11 +1958,13 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 			},
 		},
 		logger: logger,
-		readFile: func(f string) ([]byte, error) {
-			if f != "helmfile.lock" {
-				return nil, fmt.Errorf("stub: unexpected file: %s", f)
-			}
-			return nil, os.ErrNotExist
+		fs: &filesystem.FileSystem{
+			ReadFile: func(f string) ([]byte, error) {
+				if f != "helmfile.lock" {
+					return nil, fmt.Errorf("stub: unexpected file: %s", f)
+				}
+				return nil, os.ErrNotExist
+			},
 		},
 	}
 
@@ -2053,17 +2053,19 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 					Releases: tt.releases,
 				},
 				logger: logger,
-				fileExists: func(f string) (bool, error) {
-					if f != "foo.yaml" {
-						return false, fmt.Errorf("unexpected file: %s", f)
-					}
-					return true, nil
-				},
-				readFile: func(f string) ([]byte, error) {
-					if f != "foo.yaml" {
-						return nil, fmt.Errorf("unexpected file: %s", f)
-					}
-					return []byte{}, nil
+				fs: &filesystem.FileSystem{
+					FileExists: func(f string) (bool, error) {
+						if f != "foo.yaml" {
+							return false, fmt.Errorf("unexpected file: %s", f)
+						}
+						return true, nil
+					},
+					ReadFile: func(f string) ([]byte, error) {
+						if f != "foo.yaml" {
+							return nil, fmt.Errorf("unexpected file: %s", f)
+						}
+						return []byte{}, nil
+					},
 				},
 			}
 			errs := state.ReleaseStatuses(tt.helm, 1)

@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/argparser"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/plugins"
 	"github.com/helmfile/helmfile/pkg/remote"
@@ -39,16 +40,7 @@ type App struct {
 
 	FileOrDir string
 
-	readFile          func(string) ([]byte, error)
-	deleteFile        func(string) error
-	fileExists        func(string) (bool, error)
-	glob              func(string) ([]string, error)
-	abs               func(string) (string, error)
-	fileExistsAt      func(string) bool
-	directoryExistsAt func(string) bool
-
-	getwd func() (string, error)
-	chdir func(string) error
+	fs *filesystem.FileSystem
 
 	remote *remote.Remote
 
@@ -81,20 +73,11 @@ func New(conf ConfigProvider) *App {
 		FileOrDir:           conf.FileOrDir(),
 		ValuesFiles:         conf.StateValuesFiles(),
 		Set:                 conf.StateValuesSet(),
+		fs:                  filesystem.DefaultFileSystem(),
 	})
 }
 
 func Init(app *App) *App {
-	app.readFile = os.ReadFile
-	app.deleteFile = os.Remove
-	app.glob = filepath.Glob
-	app.abs = filepath.Abs
-	app.getwd = os.Getwd
-	app.chdir = os.Chdir
-	app.fileExistsAt = fileExistsAt
-	app.fileExists = fileExists
-	app.directoryExistsAt = directoryExistsAt
-
 	var err error
 	app.valsRuntime, err = plugins.ValsInstance()
 	if err != nil {
@@ -619,19 +602,19 @@ func (a *App) within(dir string, do func() error) error {
 		return do()
 	}
 
-	prev, err := a.getwd()
+	prev, err := a.fs.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed getting current working direcotyr: %v", err)
 	}
 
-	absDir, err := a.abs(dir)
+	absDir, err := a.fs.Abs(dir)
 	if err != nil {
 		return err
 	}
 
 	a.Logger.Debugf("changing working directory to \"%s\"", absDir)
 
-	if err := a.chdir(absDir); err != nil {
+	if err := a.fs.Chdir(absDir); err != nil {
 		return fmt.Errorf("failed changing working directory to \"%s\": %v", absDir, err)
 	}
 
@@ -639,7 +622,7 @@ func (a *App) within(dir string, do func() error) error {
 
 	a.Logger.Debugf("changing working directory back to \"%s\"", prev)
 
-	if chdirBackErr := a.chdir(prev); chdirBackErr != nil {
+	if chdirBackErr := a.fs.Chdir(prev); chdirBackErr != nil {
 		if appErr != nil {
 			a.Logger.Warnf("%v", appErr)
 		}
@@ -658,7 +641,7 @@ func (a *App) visitStateFiles(fileOrDir string, opts LoadOpts, do func(string, s
 	for _, relPath := range desiredStateFiles {
 		var file string
 		var dir string
-		if a.directoryExistsAt(relPath) {
+		if a.fs.DirectoryExistsAt(relPath) {
 			file = relPath
 			dir = relPath
 		} else {
@@ -668,7 +651,7 @@ func (a *App) visitStateFiles(fileOrDir string, opts LoadOpts, do func(string, s
 
 		a.Logger.Debugf("processing file \"%s\" in directory \"%s\"", file, dir)
 
-		absd, errAbsDir := a.abs(dir)
+		absd, errAbsDir := a.fs.Abs(dir)
 		if errAbsDir != nil {
 			return errAbsDir
 		}
@@ -690,20 +673,15 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 	}
 
 	ld := &desiredStateLoader{
-		readFile:          a.readFile,
-		deleteFile:        a.deleteFile,
-		fileExists:        a.fileExists,
-		directoryExistsAt: a.directoryExistsAt,
-		env:               a.Env,
-		namespace:         a.Namespace,
-		chart:             a.Chart,
-		logger:            a.Logger,
-		abs:               a.abs,
-		remote:            a.remote,
+		fs:        a.fs,
+		env:       a.Env,
+		namespace: a.Namespace,
+		chart:     a.Chart,
+		logger:    a.Logger,
+		remote:    a.remote,
 
 		overrideKubeContext: a.OverrideKubeContext,
 		overrideHelmBinary:  a.OverrideHelmBinary,
-		glob:                a.glob,
 		getHelm:             a.getHelm,
 		valsRuntime:         a.valsRuntime,
 	}
@@ -995,7 +973,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		opts.Environment.OverrideValues = envvals
 	}
 
-	a.remote = remote.NewRemote(a.Logger, "", a.readFile, a.directoryExistsAt, a.fileExistsAt)
+	a.remote = remote.NewRemote(a.Logger, "", a.fs)
 
 	f := converge
 	if opts.Filter {
@@ -1095,18 +1073,18 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 	var helmfileDir string
 	if specifiedPath != "" {
 		switch {
-		case a.fileExistsAt(specifiedPath):
+		case a.fs.FileExistsAt(specifiedPath):
 			return []string{specifiedPath}, nil
-		case a.directoryExistsAt(specifiedPath):
+		case a.fs.DirectoryExistsAt(specifiedPath):
 			helmfileDir = specifiedPath
 		default:
 			return []string{}, fmt.Errorf("specified state file %s is not found", specifiedPath)
 		}
 	} else {
 		var defaultFile string
-		if a.fileExistsAt(DefaultHelmfile) {
+		if a.fs.FileExistsAt(DefaultHelmfile) {
 			defaultFile = DefaultHelmfile
-		} else if a.fileExistsAt(DeprecatedHelmfile) {
+		} else if a.fs.FileExistsAt(DeprecatedHelmfile) {
 			log.Printf(
 				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
 				DeprecatedHelmfile,
@@ -1117,7 +1095,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		}
 
 		switch {
-		case a.directoryExistsAt(DefaultHelmfileDirectory):
+		case a.fs.DirectoryExistsAt(DefaultHelmfileDirectory):
 			if defaultFile != "" {
 				return []string{}, fmt.Errorf("configuration conlict error: you can have either %s or %s, but not both", defaultFile, DefaultHelmfileDirectory)
 			}
@@ -1130,7 +1108,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		}
 	}
 
-	files, err := a.glob(filepath.Join(helmfileDir, "*.y*ml"))
+	files, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml"))
 	if err != nil {
 		return []string{}, err
 	}
@@ -1926,28 +1904,6 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 	return true, errs
 }
 
-func fileExistsAt(path string) bool {
-	fileInfo, err := os.Stat(path)
-	return err == nil && fileInfo.Mode().IsRegular()
-}
-
-func fileExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-}
-
-func directoryExistsAt(path string) bool {
-	fileInfo, err := os.Stat(path)
-	return err == nil && fileInfo.Mode().IsDir()
-}
-
 // Error is a wrapper around an error that adds context to the error.
 type Error struct {
 	msg string
@@ -2064,10 +2020,10 @@ func (c context) wrapErrs(errs ...error) error {
 func (a *App) ShowCacheDir(c CacheConfigProvider) error {
 	fmt.Printf("Cache directory: %s\n", remote.CacheDir())
 
-	if !directoryExistsAt(remote.CacheDir()) {
+	if !a.fs.DirectoryExistsAt(remote.CacheDir()) {
 		return nil
 	}
-	dirs, err := os.ReadDir(remote.CacheDir())
+	dirs, err := a.fs.ReadDir(remote.CacheDir())
 	if err != nil {
 		return err
 	}
@@ -2079,7 +2035,7 @@ func (a *App) ShowCacheDir(c CacheConfigProvider) error {
 }
 
 func (a *App) CleanCacheDir(c CacheConfigProvider) error {
-	if !directoryExistsAt(remote.CacheDir()) {
+	if !a.fs.DirectoryExistsAt(remote.CacheDir()) {
 		return nil
 	}
 	fmt.Printf("Cleaning up cache directory: %s\n", remote.CacheDir())

@@ -146,8 +146,8 @@ func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {
 
 	depMan := NewChartDependencyManager(filename, st.logger)
 
-	if st.readFile != nil {
-		depMan.readFile = st.readFile
+	if st.fs.ReadFile != nil {
+		depMan.readFile = st.fs.ReadFile
 	}
 
 	return resolveDependencies(st, depMan, unresolved)
