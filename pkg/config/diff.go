@@ -108,7 +108,7 @@ func (t *DiffImpl) Values() []string {
 
 // Context returns the context
 func (t *DiffImpl) Context() int {
-	return 0
+	return t.DiffOptions.Context
 }
 
 // DetailedExitCode returns the detailed exit code
