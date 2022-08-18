@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -95,6 +96,7 @@ type HelmState struct {
 	logger *zap.SugaredLogger
 
 	readFile          func(string) ([]byte, error)
+	readDir           func(string) ([]fs.DirEntry, error)
 	removeFile        func(string) error
 	fileExists        func(string) (bool, error)
 	glob              func(string) ([]string, error)
@@ -2631,7 +2633,7 @@ func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplat
 }
 
 func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
-	r := tmpl.NewFileRenderer(st.readFile, dir, nil)
+	r := tmpl.NewFileRenderer(st.readFile, st.readDir, dir, nil)
 
 	return r.Context.CreateFuncMap()
 }
@@ -2639,7 +2641,7 @@ func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
 func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
 	templateData := st.newReleaseTemplateData(release)
 
-	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), templateData)
+	r := tmpl.NewFileRenderer(st.readFile, st.readDir, filepath.Dir(path), templateData)
 	rawBytes, err := r.RenderToBytes(path)
 	if err != nil {
 		return nil, err

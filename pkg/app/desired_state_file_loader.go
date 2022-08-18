@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 
 	"github.com/imdario/mergo"
@@ -29,6 +30,7 @@ type desiredStateLoader struct {
 	chart     string
 
 	readFile          func(string) ([]byte, error)
+	readDir           func(string) ([]fs.DirEntry, error)
 	deleteFile        func(string) error
 	fileExists        func(string) (bool, error)
 	abs               func(string) (string, error)
@@ -51,7 +53,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, fmt.Errorf("bug: opts.CalleePath was nil: f=%s, opts=%v", f, opts)
 		}
 		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.glob)
-		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile, ld.logger, ld.remote)
+		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile, ld.readDir, ld.logger, ld.remote)
 		handler := state.MissingFileHandlerError
 		vals, err := envld.LoadEnvironmentValues(&handler, args, &environment.EmptyEnvironment)
 		if err != nil {

@@ -2,6 +2,7 @@ package tmpl
 
 import (
 	"fmt"
+	"io/fs"
 	"reflect"
 	"testing"
 
@@ -31,6 +32,9 @@ func TestRenderToBytes_Gotmpl(t *testing.T) {
 			return []byte(dataFileContent), nil
 		}
 		return nil, fmt.Errorf("unexpected filename: expected=%v or %v, actual=%s", dataFile, valuesTmplFile, filename)
+	}, func(path string) ([]fs.DirEntry, error) {
+		t.Fatalf("This test is supposed to NOT call readDir")
+		return nil, nil
 	}, "", emptyEnvTmplData)
 	buf, err := r.RenderToBytes(valuesTmplFile)
 	if err != nil {
@@ -55,6 +59,9 @@ func TestRenderToBytes_Yaml(t *testing.T) {
 			return []byte(valuesYamlContent), nil
 		}
 		return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", valuesFile, filename)
+	}, func(s string) ([]fs.DirEntry, error) {
+		t.Fatalf("This test is supposed to NOT call readDir")
+		return nil, nil
 	}, "", emptyEnvTmplData)
 	buf, err := r.RenderToBytes(valuesFile)
 	if err != nil {

@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"io/fs"
 	"path/filepath"
 
 	"github.com/imdario/mergo"
@@ -18,16 +19,18 @@ type EnvironmentValuesLoader struct {
 	storage *Storage
 
 	readFile func(string) ([]byte, error)
+	readDir  func(string) ([]fs.DirEntry, error)
 
 	logger *zap.SugaredLogger
 
 	remote *remote.Remote
 }
 
-func NewEnvironmentValuesLoader(storage *Storage, readFile func(string) ([]byte, error), logger *zap.SugaredLogger, remote *remote.Remote) *EnvironmentValuesLoader {
+func NewEnvironmentValuesLoader(storage *Storage, readFile func(string) ([]byte, error), readDir func(string) ([]fs.DirEntry, error), logger *zap.SugaredLogger, remote *remote.Remote) *EnvironmentValuesLoader {
 	return &EnvironmentValuesLoader{
 		storage:  storage,
 		readFile: readFile,
+		readDir:  readDir,
 		logger:   logger,
 		remote:   remote,
 	}
@@ -64,7 +67,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				}
 
 				tmplData := NewEnvironmentTemplateData(env, "", map[string]interface{}{})
-				r := tmpl.NewFileRenderer(ld.readFile, filepath.Dir(f), tmplData)
+				r := tmpl.NewFileRenderer(ld.readFile, ld.readDir, filepath.Dir(f), tmplData)
 				bytes, err := r.RenderToBytes(f)
 				if err != nil {
 					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)

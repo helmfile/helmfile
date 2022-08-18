@@ -29,7 +29,7 @@ func newLoader() *EnvironmentValuesLoader {
 	readFile := func(s string) ([]byte, error) { return []byte{}, nil }
 	dirExists := func(d string) bool { return false }
 	fileExists := func(f string) bool { return false }
-	return NewEnvironmentValuesLoader(storage, os.ReadFile, sugar, remote.NewRemote(sugar, "/tmp", readFile, dirExists, fileExists))
+	return NewEnvironmentValuesLoader(storage, os.ReadFile, os.ReadDir, sugar, remote.NewRemote(sugar, "/tmp", readFile, dirExists, fileExists))
 }
 
 // See https://github.com/roboll/helmfile/pull/1169

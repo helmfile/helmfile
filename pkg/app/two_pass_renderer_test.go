@@ -23,6 +23,7 @@ func makeLoader(files map[string]string, env string) (*desiredStateLoader, *test
 		namespace:  "namespace",
 		logger:     helmexec.NewLogger(os.Stdout, "debug"),
 		readFile:   testfs.ReadFile,
+		readDir:    testfs.ReadDir,
 		fileExists: testfs.FileExists,
 		abs:        testfs.Abs,
 		glob:       testfs.Glob,

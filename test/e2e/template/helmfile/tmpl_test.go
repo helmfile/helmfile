@@ -276,7 +276,7 @@ func TestFileRendering(t *testing.T) {
 
 			filename := fmt.Sprintf("%s/%s.gotmpl", tempDir, tc.name)
 			os.WriteFile(filename, []byte(tc.tmplString), 0644)
-			fileRenderer := tmpl.NewFileRenderer(os.ReadFile, ".", tc.data)
+			fileRenderer := tmpl.NewFileRenderer(os.ReadFile, os.ReadDir, ".", tc.data)
 			tmpl_bytes, err := fileRenderer.RenderToBytes(filename)
 
 			if tc.wantErr {

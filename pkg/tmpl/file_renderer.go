@@ -3,6 +3,7 @@ package tmpl
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 )
@@ -13,13 +14,13 @@ type FileRenderer struct {
 	Data     interface{}
 }
 
-func NewFileRenderer(readFile func(filename string) ([]byte, error), basePath string, data interface{}) *FileRenderer {
+func NewFileRenderer(readFile func(filename string) ([]byte, error), readDir func(string) ([]fs.DirEntry, error), basePath string, data interface{}) *FileRenderer {
 	return &FileRenderer{
 		ReadFile: readFile,
 		Context: &Context{
 			basePath: basePath,
 			readFile: readFile,
-			readDir:  os.ReadDir,
+			readDir:  readDir,
 		},
 		Data: data,
 	}
