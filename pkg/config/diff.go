@@ -118,7 +118,7 @@ func (t *DiffImpl) DetailedExitcode() bool {
 
 // Output returns the output
 func (t *DiffImpl) DiffOutput() string {
-	return ""
+	return t.DiffOptions.Output
 }
 
 // IncludeTests returns the include tests
