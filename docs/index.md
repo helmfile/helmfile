@@ -486,58 +486,57 @@ Iterate on the `helmfile.yaml` by referencing:
 ## CLI Reference
 
 ```
-NAME:
-   helmfile
+Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot
 
-USAGE:
-   helmfile [global options] command [command options] [arguments...]
+Usage:
+  helmfile [command]
 
-VERSION:
-   0.145.2
+Available Commands:
+  apply        Apply all resources from state file only when there are changes
+  build        Build all resources from state file only when there are changes
+  cache        Cache management
+  charts       DEPRECATED: sync releases from state file (helm upgrade --install)
+  completion   Generate the autocompletion script for the specified shell
+  delete       DEPRECATED: delete releases from state file (helm delete)
+  deps         Update charts based on their requirements
+  destroy      Destroys and then purges releases
+  diff         Diff releases defined in state file
+  fetch        Fetch charts from state file
+  help         Help about any command
+  lint         Lint charts from state file (helm lint)
+  list         List releases defined in state file
+  repos        Repos releases defined in state file
+  status       Retrieve status of releases in state file
+  sync         Sync releases defined in state file
+  template     Template releases defined in state file
+  test         Test charts from state file (helm test)
+  version      Show the version for Helmfile.
+  write-values Write values files for releases. Similar to `helmfile template`, write values files instead of manifests.
 
-COMMANDS:
-   deps          update charts based on their requirements
-   repos         sync repositories from state file (helm repo add && helm repo update)
-   charts        DEPRECATED: sync releases from state file (helm upgrade --install)
-   diff          diff releases from state file against env (helm diff)
-   template      template releases from state file against env (helm template)
-   write-values  write values files for releases. Similar to `helmfile template`, write values files instead of manifests.
-   lint          lint charts from state file (helm lint)
-   fetch         fetch charts from state file
-   sync          sync all resources from state file (repos, releases and chart deps)
-   apply         apply all resources from state file only when there are changes
-   status        retrieve status of releases in state file
-   delete        DEPRECATED: delete releases from state file (helm delete)
-   destroy       deletes and then purges releases
-   test          test releases from state file (helm test)
-   build         output compiled helmfile state(s) as YAML
-   list          list releases defined in state file
-   cache         cache management
-   version       Show the version for Helmfile.
-   help, h       Shows a list of commands or help for one command
+Flags:
+      --allow-no-matching-release   Do not exit with an error code if the provided selector has no matching releases.
+  -c, --chart string                Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}
+      --color                       Output with color
+      --debug                       Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
+  -e, --environment string          specify the environment name. defaults to "default"
+  -f, --file helmfile.yaml          load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
+  -b, --helm-binary string          Path to the helm binary (default "helm")
+  -h, --help                        help for helmfile
+  -i, --interactive                 Request confirmation before attempting to modify clusters
+      --kube-context string         Set kubectl context. Uses current context by default
+      --log-level string            Set log level, default info (default "info")
+  -n, --namespace string            Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
+      --no-color                    Output without color
+  -q, --quiet                       Silence output. Equivalent to log-level warn
+  -l, --selector strings            Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
+                                        A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
+                                        --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
+                                        The name of a release can be used as a label. --selector name=myrelease
+      --state-values-file strings   specify state values in a YAML file
+      --state-values-set strings    set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+  -v, --version                     version for helmfile
 
-GLOBAL OPTIONS:
-   --helm-binary value, -b value           path to helm binary (default: "helm")
-   --file helmfile.yaml, -f helmfile.yaml  load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
-   --environment value, -e value           specify the environment name. defaults to "default"
-   --state-values-set value                set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
-   --state-values-file value               specify state values in a YAML file
-   --quiet, -q                             Silence output. Equivalent to log-level warn
-   --kube-context value                    Set kubectl context. Uses current context by default
-   --debug                                 Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
-   --color                                 Output with color
-   --no-color                              Output without color
-   --log-level value                       Set log level, default info
-   --namespace value, -n value             Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
-   --chart value, -c value                 Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}
-   --selector value, -l value              Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
-                                           A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
-                                           --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
-                                           The name of a release can be used as a label. --selector name=myrelease
-   --allow-no-matching-release             Do not exit with an error code if the provided selector has no matching releases.
-   --interactive, -i                       Request confirmation before attempting to modify clusters
-   --help, -h                              show help
-   --version, -v                           print the version
+Use "helmfile [command] --help" for more information about a command.
 ```
 
 ### sync
@@ -1378,7 +1377,7 @@ If you want to enable all experimental features set the env var to `HELMFILE_EXP
 
 ## `bash` and `zsh` completion
 
-Copy `autocomplete/helmfile_bash_autocomplete` or `autocomplete/helmfile_zsh_autocomplete` (depending on your shell of choice) to directory where you keep other shell completion scripts to make sure it is sourced.
+helmfile completion --help
 
 ## Examples
 
