@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
@@ -27,14 +28,9 @@ type desiredStateLoader struct {
 	env       string
 	namespace string
 	chart     string
+	fs        *filesystem.FileSystem
 
-	readFile          func(string) ([]byte, error)
-	deleteFile        func(string) error
-	fileExists        func(string) (bool, error)
-	abs               func(string) (string, error)
-	glob              func(string) ([]string, error)
-	directoryExistsAt func(string) bool
-	getHelm           func(*state.HelmState) helmexec.Interface
+	getHelm func(*state.HelmState) helmexec.Interface
 
 	remote      *remote.Remote
 	logger      *zap.SugaredLogger
@@ -50,8 +46,8 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		if opts.CalleePath == "" {
 			return nil, fmt.Errorf("bug: opts.CalleePath was nil: f=%s, opts=%v", f, opts)
 		}
-		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.glob)
-		envld := state.NewEnvironmentValuesLoader(storage, ld.readFile, ld.logger, ld.remote)
+		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.fs)
+		envld := state.NewEnvironmentValuesLoader(storage, ld.fs, ld.logger, ld.remote)
 		handler := state.MissingFileHandlerError
 		vals, err := envld.LoadEnvironmentValues(&handler, args, &environment.EmptyEnvironment)
 		if err != nil {
@@ -120,7 +116,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 		f = filepath.Join(baseDir, file)
 	}
 
-	fileBytes, err := ld.readFile(f)
+	fileBytes, err := ld.fs.ReadFile(f)
 	if err != nil {
 		return nil, err
 	}
@@ -166,8 +162,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.readFile, a.fileExists, a.abs, a.glob, a.directoryExistsAt, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote)
-	c.DeleteFile = a.deleteFile
+	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote)
 	c.LoadFile = a.loadFile
 	return c
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+
+	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 func TestRenderTemplate_Values(t *testing.T) {
@@ -14,12 +16,12 @@ func TestRenderTemplate_Values(t *testing.T) {
   bar: FOO_BAR
 `
 	expectedFilename := "values.yaml"
-	ctx := &Context{readFile: func(filename string) ([]byte, error) {
+	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
 		}
 		return []byte(valuesYamlContent), nil
-	}}
+	}}}
 	buf, err := ctx.RenderTemplateToBuffer(`{{ readFile "values.yaml" | fromYaml | setValueAtPath "foo.bar" "FOO_BAR" | toYaml }}`)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -43,12 +45,12 @@ func TestRenderTemplate_WithData(t *testing.T) {
 			"bar": "FOO_BAR",
 		},
 	}
-	ctx := &Context{readFile: func(filename string) ([]byte, error) {
+	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
 		}
 		return []byte(valuesYamlContent), nil
-	}}
+	}}}
 	buf, err := ctx.RenderTemplateToBuffer(valuesYamlContent, data)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -68,12 +70,12 @@ func TestRenderTemplate_AccessingMissingKeyWithGetOrNil(t *testing.T) {
 `
 	expectedFilename := "values.yaml"
 	data := map[string]interface{}{}
-	ctx := &Context{readFile: func(filename string) ([]byte, error) {
+	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
 		}
 		return []byte(valuesYamlContent), nil
-	}}
+	}}}
 	buf, err := ctx.RenderTemplateToBuffer(valuesYamlContent, data)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -93,12 +95,12 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 `
 	expectedFilename := "values.yaml"
 	data := map[string]interface{}{}
-	ctx := &Context{readFile: func(filename string) ([]byte, error) {
+	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
 		}
 		return []byte(valuesYamlContent), nil
-	}}
+	}}}
 	buf, err := ctx.RenderTemplateToBuffer(valuesYamlContent, data)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -110,9 +112,9 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 }
 
 func renderTemplateToString(s string, data ...interface{}) (string, error) {
-	ctx := &Context{readFile: func(filename string) ([]byte, error) {
+	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected call to readFile: filename=%s", filename)
-	}}
+	}}}
 	tplString, err := ctx.RenderTemplateToBuffer(s, data...)
 	if err != nil {
 		return "", err

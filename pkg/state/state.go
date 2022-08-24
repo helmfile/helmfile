@@ -26,6 +26,7 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -92,14 +93,9 @@ type HelmState struct {
 
 	ReleaseSetSpec `yaml:",inline"`
 
-	logger *zap.SugaredLogger
-
-	readFile          func(string) ([]byte, error)
-	removeFile        func(string) error
-	fileExists        func(string) (bool, error)
-	glob              func(string) ([]string, error)
-	tempDir           func(string, string) (string, error)
-	directoryExistsAt func(string) bool
+	logger  *zap.SugaredLogger
+	fs      *filesystem.FileSystem
+	tempDir func(string, string) (string, error)
 
 	valsRuntime vals.Evaluator
 
@@ -553,7 +549,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 						errs = append(errs, newReleaseFailedError(release, err))
 					}
 
-					ok, err := st.fileExists(valfile)
+					ok, err := st.fs.FileExists(valfile)
 					if err != nil {
 						errs = append(errs, newReleaseFailedError(release, err))
 					} else if !ok {
@@ -1118,7 +1114,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					}
 				}
 
-				isLocal := st.directoryExistsAt(normalizeChart(st.basePath, chartName))
+				isLocal := st.fs.DirectoryExistsAt(normalizeChart(st.basePath, chartName))
 
 				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
 				if !opts.SkipCleanup {
@@ -1172,7 +1168,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
 					// explicitly skipped.
 					buildDeps = !skipDeps
-				} else if normalizedChart := normalizeChart(st.basePath, chartPath); st.directoryExistsAt(normalizedChart) {
+				} else if normalizedChart := normalizeChart(st.basePath, chartPath); st.fs.DirectoryExistsAt(normalizedChart) {
 					// At this point, we are sure that chartPath is a local directory containing either:
 					// - A remote chart fetched by go-getter or
 					// - A local chart
@@ -1505,7 +1501,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 		for _, f := range append(generatedFiles, additionalValues...) {
 			src := map[string]interface{}{}
 
-			srcBytes, err := st.readFile(f)
+			srcBytes, err := st.fs.ReadFile(f)
 			if err != nil {
 				return []error{fmt.Errorf("reading %s: %w", f, err)}
 			}
@@ -2236,7 +2232,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		Chart:         st.OverrideChart,
 		Env:           st.Env,
 		Logger:        st.logger,
-		ReadFile:      st.readFile,
+		Fs:            st.fs,
 	}
 	data := map[string]interface{}{
 		"HelmfileCommand": helmfileCmd,
@@ -2269,7 +2265,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Chart:         st.OverrideChart,
 		Env:           st.Env,
 		Logger:        st.logger,
-		ReadFile:      st.readFile,
+		Fs:            st.fs,
 	}
 	vals := st.Values()
 	data := map[string]interface{}{
@@ -2307,7 +2303,7 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 	var errs []error
 
 	for _, release := range releases {
-		if st.directoryExistsAt(release.ChartPathOrName()) {
+		if st.fs.DirectoryExistsAt(release.ChartPathOrName()) {
 			if err := helm.UpdateDeps(release.ChartPathOrName()); err != nil {
 				errs = append(errs, err)
 			}
@@ -2631,7 +2627,7 @@ func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplat
 }
 
 func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
-	r := tmpl.NewFileRenderer(st.readFile, dir, nil)
+	r := tmpl.NewFileRenderer(st.fs, dir, nil)
 
 	return r.Context.CreateFuncMap()
 }
@@ -2639,7 +2635,7 @@ func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
 func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
 	templateData := st.newReleaseTemplateData(release)
 
-	r := tmpl.NewFileRenderer(st.readFile, filepath.Dir(path), templateData)
+	r := tmpl.NewFileRenderer(st.fs, filepath.Dir(path), templateData)
 	rawBytes, err := r.RenderToBytes(path)
 	if err != nil {
 		return nil, err
@@ -2673,8 +2669,8 @@ func (st *HelmState) storage() *Storage {
 	return &Storage{
 		FilePath: st.FilePath,
 		basePath: st.basePath,
-		glob:     st.glob,
 		logger:   st.logger,
+		fs:       st.fs,
 	}
 }
 
@@ -2710,7 +2706,7 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 
 func (st *HelmState) removeFiles(files []string) {
 	for _, f := range files {
-		if err := st.removeFile(f); err != nil {
+		if err := st.fs.DeleteFile(f); err != nil {
 			st.logger.Warnf("Removing %s: %v", err)
 		} else {
 			st.logger.Debugf("Removed %s", f)

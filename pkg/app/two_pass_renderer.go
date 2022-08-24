@@ -124,7 +124,7 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	}
 
 	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals)
-	secondPassRenderer := tmpl.NewFileRenderer(r.readFile, baseDir, tmplData)
+	secondPassRenderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
 	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
 		if r.logger != nil {

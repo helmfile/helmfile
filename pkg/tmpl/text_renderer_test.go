@@ -1,10 +1,11 @@
 package tmpl
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 // TestTextRenderer tests the text renderer.
@@ -12,7 +13,7 @@ func TestNewTextRenderer(t *testing.T) {
 	tData := map[string]interface{}{
 		"foo": "bar",
 	}
-	tr := NewTextRenderer(os.ReadFile, ".", tData)
+	tr := NewTextRenderer(filesystem.DefaultFileSystem(), ".", tData)
 	require.Equal(t, tData, tr.Data)
 	require.Equal(t, ".", tr.Context.basePath)
 }
@@ -22,7 +23,7 @@ func TestTextRender(t *testing.T) {
 	tData := map[string]interface{}{
 		"foot": "bart",
 	}
-	tr := NewTextRenderer(os.ReadFile, ".", tData)
+	tr := NewTextRenderer(filesystem.DefaultFileSystem(), ".", tData)
 
 	tests := []struct {
 		text    string

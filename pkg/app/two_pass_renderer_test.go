@@ -17,16 +17,13 @@ import (
 func makeLoader(files map[string]string, env string) (*desiredStateLoader, *testhelper.TestFs) {
 	testfs := testhelper.NewTestFs(files)
 	logger := helmexec.NewLogger(os.Stdout, "debug")
-	r := remote.NewRemote(logger, testfs.Cwd, testfs.ReadFile, testfs.DirectoryExistsAt, testfs.FileExistsAt)
+	r := remote.NewRemote(logger, testfs.Cwd, testfs.ToFileSystem())
 	return &desiredStateLoader{
-		env:        env,
-		namespace:  "namespace",
-		logger:     helmexec.NewLogger(os.Stdout, "debug"),
-		readFile:   testfs.ReadFile,
-		fileExists: testfs.FileExists,
-		abs:        testfs.Abs,
-		glob:       testfs.Glob,
-		remote:     r,
+		env:       env,
+		namespace: "namespace",
+		logger:    helmexec.NewLogger(os.Stdout, "debug"),
+		fs:        testfs.ToFileSystem(),
+		remote:    r,
 	}, testfs
 }
 

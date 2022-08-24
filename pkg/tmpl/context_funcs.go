@@ -220,11 +220,11 @@ func (c *Context) ReadFile(filename string) (string, error) {
 		path = filepath.Join(c.basePath, filename)
 	}
 
-	if c.readFile == nil {
+	if c.fs.ReadFile == nil {
 		return "", fmt.Errorf("readFile is not implemented")
 	}
 
-	bytes, err := c.readFile(path)
+	bytes, err := c.fs.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
@@ -239,7 +239,7 @@ func (c *Context) ReadDir(path string) ([]string, error) {
 		contextPath = filepath.Join(c.basePath, path)
 	}
 
-	entries, err := c.readDir(contextPath)
+	entries, err := c.fs.ReadDir(contextPath)
 	if err != nil {
 		return nil, fmt.Errorf("ReadDir %q: %w", contextPath, err)
 	}
@@ -262,7 +262,7 @@ func (c *Context) ReadDirEntries(path string) ([]fs.DirEntry, error) {
 	} else {
 		contextPath = filepath.Join(c.basePath, path)
 	}
-	entries, err := c.readDir(contextPath)
+	entries, err := c.fs.ReadDir(contextPath)
 	if err != nil {
 		return nil, fmt.Errorf("ReadDirEntries %q: %w", contextPath, err)
 	}

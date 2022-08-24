@@ -1,13 +1,12 @@
 package state
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 
+	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/remote"
 )
 
@@ -22,14 +21,11 @@ func newLoader() *EnvironmentValuesLoader {
 	storage := &Storage{
 		FilePath: "./helmfile.yaml",
 		basePath: ".",
-		glob:     filepath.Glob,
+		fs:       ffs.DefaultFileSystem(),
 		logger:   sugar,
 	}
 
-	readFile := func(s string) ([]byte, error) { return []byte{}, nil }
-	dirExists := func(d string) bool { return false }
-	fileExists := func(f string) bool { return false }
-	return NewEnvironmentValuesLoader(storage, os.ReadFile, sugar, remote.NewRemote(sugar, "/tmp", readFile, dirExists, fileExists))
+	return NewEnvironmentValuesLoader(storage, storage.fs, sugar, remote.NewRemote(sugar, "/tmp", storage.fs))
 }
 
 // See https://github.com/roboll/helmfile/pull/1169

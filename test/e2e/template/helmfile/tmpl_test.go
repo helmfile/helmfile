@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
@@ -276,7 +277,7 @@ func TestFileRendering(t *testing.T) {
 
 			filename := fmt.Sprintf("%s/%s.gotmpl", tempDir, tc.name)
 			os.WriteFile(filename, []byte(tc.tmplString), 0644)
-			fileRenderer := tmpl.NewFileRenderer(os.ReadFile, ".", tc.data)
+			fileRenderer := tmpl.NewFileRenderer(filesystem.DefaultFileSystem(), ".", tc.data)
 			tmpl_bytes, err := fileRenderer.RenderToBytes(filename)
 
 			if tc.wantErr {
@@ -294,8 +295,7 @@ func TestFileRendering(t *testing.T) {
 func TestTmplStrings(t *testing.T) {
 	c := &tmpl.Context{}
 	c.SetBasePath(".")
-	c.SetReadFile(os.ReadFile)
-	c.SetReadDir(os.ReadDir)
+	c.SetFileSystem(filesystem.DefaultFileSystem())
 	tmpl := template.New("stringTemplateTest").Funcs(c.CreateFuncMap())
 
 	tmplE2eTest.load()

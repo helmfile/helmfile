@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/imdario/mergo"
 	"github.com/variantdev/vals"
@@ -13,6 +12,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
@@ -43,12 +43,7 @@ func (e *UndefinedEnvError) Error() string {
 type StateCreator struct {
 	logger *zap.SugaredLogger
 
-	readFile          func(string) ([]byte, error)
-	fileExists        func(string) (bool, error)
-	abs               func(string) (string, error)
-	glob              func(string) ([]string, error)
-	DeleteFile        func(string) error
-	directoryExistsAt func(string) bool
+	fs *filesystem.FileSystem
 
 	valsRuntime vals.Evaluator
 
@@ -63,17 +58,12 @@ type StateCreator struct {
 	remote *remote.Remote
 }
 
-func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error), fileExists func(string) (bool, error), abs func(string) (string, error), glob func(string) ([]string, error), directoryExistsAt func(string) bool, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote) *StateCreator {
 	return &StateCreator{
 		logger: logger,
 
-		readFile:          readFile,
-		fileExists:        fileExists,
-		abs:               abs,
-		glob:              glob,
-		directoryExistsAt: directoryExistsAt,
-
 		Strict:      true,
+		fs:          fs,
 		valsRuntime: valsRuntime,
 		getHelm:     getHelm,
 
@@ -87,6 +77,7 @@ func NewCreator(logger *zap.SugaredLogger, readFile func(string) ([]byte, error)
 func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, error) {
 	var state HelmState
 
+	state.fs = c.fs
 	state.FilePath = file
 	state.basePath = baseDir
 
@@ -132,12 +123,6 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 	}
 
 	state.logger = c.logger
-
-	state.readFile = c.readFile
-	state.removeFile = os.Remove
-	state.fileExists = c.fileExists
-	state.glob = c.glob
-	state.directoryExistsAt = c.directoryExistsAt
 	state.valsRuntime = c.valsRuntime
 
 	return &state, nil
@@ -147,7 +132,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *environment.Environment, failOnMissingEnv bool) (*HelmState, error) {
 	state := *target
 
-	e, err := c.loadEnvValues(&state, env, failOnMissingEnv, ctxEnv, c.readFile, c.glob)
+	e, err := c.loadEnvValues(&state, env, failOnMissingEnv, ctxEnv)
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
@@ -222,7 +207,7 @@ func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmSta
 }
 
 // nolint: unparam
-func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv *environment.Environment, readFile func(string) ([]byte, error), glob func(string) ([]string, error)) (*environment.Environment, error) {
+func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv *environment.Environment) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
@@ -245,7 +230,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 
 				envSecretFiles = append(envSecretFiles, resolved...)
 			}
-			if err = c.scatterGatherEnvSecretFiles(st, envSecretFiles, envVals, readFile); err != nil {
+			if err = c.scatterGatherEnvSecretFiles(st, envSecretFiles, envVals); err != nil {
 				return nil, err
 			}
 		}
@@ -268,7 +253,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	return newEnv, nil
 }
 
-func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]interface{}, readFile func(string) ([]byte, error)) error {
+func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]interface{}) error {
 	var errs []error
 
 	helm := c.getHelm(st)
@@ -308,11 +293,11 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 				}
 				// nolint: staticcheck
 				defer func() {
-					if err := c.DeleteFile(decFile); err != nil {
+					if err := c.fs.DeleteFile(decFile); err != nil {
 						c.logger.Warnf("removing decrypted file %s: %w", decFile, err)
 					}
 				}()
-				bytes, err := readFile(decFile)
+				bytes, err := c.fs.ReadFile(decFile)
 				if err != nil {
 					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
 					continue
@@ -367,7 +352,7 @@ func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []int
 	var envVals map[string]interface{}
 
 	valuesEntries := append([]interface{}{}, entries...)
-	ld := NewEnvironmentValuesLoader(st.storage(), st.readFile, st.logger, remote)
+	ld := NewEnvironmentValuesLoader(st.storage(), st.fs, st.logger, remote)
 	var err error
 	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries, ctxEnv)
 	if err != nil {

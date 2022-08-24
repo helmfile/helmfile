@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 func TestCreateFuncMap(t *testing.T) {
@@ -62,17 +64,23 @@ func TestCreateFuncMap_SkipInsecureTemplateFunctions(t *testing.T) {
 	skipInsecureTemplateFunctions = currentVal
 }
 
+func newFSExpecting(expectedFilename string, expected string) *filesystem.FileSystem {
+	return filesystem.FromFileSystem(filesystem.FileSystem{
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename != expectedFilename {
+				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+			}
+			return []byte(expected), nil
+		},
+	})
+}
+
 func TestReadFile(t *testing.T) {
 	expected := `foo:
   bar: BAR
 `
 	expectedFilename := "values.yaml"
-	ctx := &Context{basePath: ".", readFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(expected), nil
-	}}
+	ctx := &Context{basePath: ".", fs: newFSExpecting(expectedFilename, expected)}
 	actual, err := ctx.ReadFile(expectedFilename)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
@@ -125,12 +133,12 @@ func TestReadDir(t *testing.T) {
 	}
 
 	expectedDirname := "sampleDirectory"
-	ctx := &Context{basePath: ".", readDir: func(dirname string) ([]fs.DirEntry, error) {
+	ctx := &Context{basePath: ".", fs: filesystem.FromFileSystem(filesystem.FileSystem{ReadDir: func(dirname string) ([]fs.DirEntry, error) {
 		if dirname != expectedDirname {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedDirname, dirname)
 		}
 		return result, nil
-	}}
+	}})}
 
 	actual, err := ctx.ReadDir(expectedDirname)
 	require.NoError(t, err)
@@ -146,12 +154,12 @@ func TestReadDirEntries(t *testing.T) {
 	}
 
 	expectedDirname := "sampleDirectory"
-	ctx := &Context{basePath: ".", readDir: func(dirname string) ([]fs.DirEntry, error) {
+	ctx := &Context{basePath: ".", fs: filesystem.FromFileSystem(filesystem.FileSystem{ReadDir: func(dirname string) ([]fs.DirEntry, error) {
 		if dirname != expectedDirname {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedDirname, dirname)
 		}
 		return result, nil
-	}}
+	}})}
 
 	actual, err := ctx.ReadDirEntries(expectedDirname)
 	require.NoError(t, err)
@@ -163,12 +171,7 @@ func TestReadFile_PassAbsPath(t *testing.T) {
   bar: BAR
 `
 	expectedFilename, _ := filepath.Abs("values.yaml")
-	ctx := &Context{basePath: ".", readFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(expected), nil
-	}}
+	ctx := &Context{basePath: ".", fs: newFSExpecting(expectedFilename, expected)}
 	actual, err := ctx.ReadFile(expectedFilename)
 	require.NoError(t, err)
 	require.Equal(t, actual, expected)

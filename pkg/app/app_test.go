@@ -21,6 +21,7 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/exectest"
+	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
@@ -40,14 +41,7 @@ func injectFs(app *App, fs *testhelper.TestFs) *App {
 		app.Set = make(map[string]interface{})
 	}
 
-	app.readFile = fs.ReadFile
-	app.glob = fs.Glob
-	app.abs = fs.Abs
-	app.getwd = fs.Getwd
-	app.chdir = fs.Chdir
-	app.fileExistsAt = fs.FileExistsAt
-	app.fileExists = fs.FileExists
-	app.directoryExistsAt = fs.DirectoryExistsAt
+	app.fs = fs.ToFileSystem()
 	return app
 }
 
@@ -1529,12 +1523,11 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 		}
 		return yamlContent, nil
 	}
+	fs := ffs.FromFileSystem(ffs.FileSystem{ReadFile: readFile})
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		readFile:            readFile,
-		glob:                filepath.Glob,
-		abs:                 filepath.Abs,
+		fs:                  fs,
 		Env:                 "default",
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 	}
@@ -1593,16 +1586,11 @@ helmDefaults:
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		readFile:            testFs.ReadFile,
-		glob:                testFs.Glob,
-		abs:                 testFs.Abs,
-		directoryExistsAt:   testFs.DirectoryExistsAt,
-		fileExistsAt:        testFs.FileExistsAt,
-		fileExists:          testFs.FileExists,
+		fs:                  testFs.ToFileSystem(),
 		Env:                 "default",
 		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
 	}
-	app.remote = remote.NewRemote(app.Logger, "", app.readFile, app.directoryExistsAt, app.fileExistsAt)
+	app.remote = remote.NewRemote(app.Logger, "", app.fs)
 
 	expectNoCallsToHelm(app)
 
@@ -1683,14 +1671,11 @@ helmDefaults:
 	})
 	app := &App{
 		OverrideHelmBinary: DefaultHelmBinary,
-		readFile:           testFs.ReadFile,
-		fileExists:         testFs.FileExists,
-		glob:               testFs.Glob,
-		abs:                testFs.Abs,
+		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
-	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
 	expectNoCallsToHelm(app)
 
@@ -1762,14 +1747,11 @@ foo: FOO
 	})
 	app := &App{
 		OverrideHelmBinary: DefaultHelmBinary,
-		readFile:           testFs.ReadFile,
-		fileExists:         testFs.FileExists,
-		glob:               testFs.Glob,
-		abs:                testFs.Abs,
+		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
-	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
 	expectNoCallsToHelm(app)
 
@@ -1828,14 +1810,11 @@ foo: FOO
 	})
 	app := &App{
 		OverrideHelmBinary: DefaultHelmBinary,
-		readFile:           testFs.ReadFile,
-		fileExists:         testFs.FileExists,
-		glob:               testFs.Glob,
-		abs:                testFs.Abs,
+		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
-	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
 	expectNoCallsToHelm(app)
 
@@ -1912,14 +1891,11 @@ helmDefaults:
 	})
 	app := &App{
 		OverrideHelmBinary: DefaultHelmBinary,
-		readFile:           testFs.ReadFile,
-		fileExists:         testFs.FileExists,
-		glob:               testFs.Glob,
-		abs:                testFs.Abs,
+		fs:                 testFs.ToFileSystem(),
 		Env:                "test",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
-	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
 	expectNoCallsToHelm(app)
 
@@ -1988,13 +1964,11 @@ releases:
 	})
 	app := &App{
 		OverrideHelmBinary: DefaultHelmBinary,
-		readFile:           testFs.ReadFile,
-		glob:               testFs.Glob,
-		abs:                testFs.Abs,
+		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
-	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
 	expectNoCallsToHelm(app)
 
@@ -2046,14 +2020,12 @@ releases:
 	})
 	app := &App{
 		OverrideHelmBinary: DefaultHelmBinary,
-		readFile:           testFs.ReadFile,
-		glob:               testFs.Glob,
-		abs:                testFs.Abs,
+		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
 		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 	}
 
-	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 	expectNoCallsToHelm(app)
 
 	st, err := app.loadDesiredStateFromYaml(statePath, LoadOpts{Reverse: true})
@@ -2103,13 +2075,11 @@ releases:
 		})
 		app := &App{
 			OverrideHelmBinary: DefaultHelmBinary,
-			readFile:           testFs.ReadFile,
-			glob:               testFs.Glob,
-			abs:                testFs.Abs,
+			fs:                 testFs.ToFileSystem(),
 			Env:                "default",
 			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 		}
-		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
 		opts := LoadOpts{
 			CalleePath: statePath,
@@ -2217,13 +2187,11 @@ services:
 		})
 		app := &App{
 			OverrideHelmBinary: DefaultHelmBinary,
-			readFile:           testFs.ReadFile,
-			glob:               testFs.Glob,
-			abs:                testFs.Abs,
+			fs:                 testFs.ToFileSystem(),
 			Env:                "default",
 			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
 		}
-		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, testFs.ReadFile, testFs.DirectoryExistsAt, testFs.FileExistsAt)
+		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
 		expectNoCallsToHelm(app)
 
@@ -2656,8 +2624,7 @@ releases:
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
-		glob:                filepath.Glob,
-		abs:                 filepath.Abs,
+		fs:                  ffs.DefaultFileSystem(),
 		OverrideKubeContext: "default",
 		Env:                 "default",
 		Logger:              logger,
@@ -2729,8 +2696,6 @@ releases:
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
-		glob:                filepath.Glob,
-		abs:                 filepath.Abs,
 		OverrideKubeContext: "default",
 		Env:                 "default",
 		Logger:              logger,
@@ -2740,6 +2705,8 @@ releases:
 		Namespace:   "testNamespace",
 		valsRuntime: valsRuntime,
 	}, files)
+
+	fmt.Printf("CRAFTED APP WITH %p\n", app.fs.DirectoryExistsAt)
 
 	if err := app.Template(configImpl{}); err != nil {
 		t.Fatalf("%v", err)
@@ -4282,8 +4249,7 @@ changing working directory back to "/path/to"
 
 				app := appWithFs(&App{
 					OverrideHelmBinary:  DefaultHelmBinary,
-					glob:                filepath.Glob,
-					abs:                 filepath.Abs,
+					fs:                  ffs.DefaultFileSystem(),
 					OverrideKubeContext: "default",
 					Env:                 "default",
 					Logger:              logger,
@@ -4465,8 +4431,7 @@ changing working directory back to "/path/to"
 
 				app := appWithFs(&App{
 					OverrideHelmBinary:  DefaultHelmBinary,
-					glob:                filepath.Glob,
-					abs:                 filepath.Abs,
+					fs:                  ffs.DefaultFileSystem(),
 					OverrideKubeContext: "default",
 					Env:                 "default",
 					Logger:              logger,
@@ -4523,8 +4488,7 @@ releases:
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
-		glob:                filepath.Glob,
-		abs:                 filepath.Abs,
+		fs:                  ffs.DefaultFileSystem(),
 		OverrideKubeContext: "default",
 		Env:                 "default",
 		Logger:              logger,
@@ -4570,8 +4534,7 @@ releases:
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
-		glob:                filepath.Glob,
-		abs:                 filepath.Abs,
+		fs:                  ffs.DefaultFileSystem(),
 		OverrideKubeContext: "default",
 		Env:                 "default",
 		Logger:              logger,
@@ -4631,8 +4594,7 @@ releases:
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
-		glob:                filepath.Glob,
-		abs:                 filepath.Abs,
+		fs:                  ffs.DefaultFileSystem(),
 		OverrideKubeContext: "default",
 		Env:                 "default",
 		Logger:              logger,
@@ -4693,8 +4655,7 @@ releases:
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
-		glob:                filepath.Glob,
-		abs:                 filepath.Abs,
+		fs:                  ffs.DefaultFileSystem(),
 		OverrideKubeContext: "default",
 		Env:                 "default",
 		Logger:              logger,

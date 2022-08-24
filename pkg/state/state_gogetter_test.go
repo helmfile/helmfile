@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
@@ -39,7 +40,7 @@ func TestGoGetter(t *testing.T) {
 
 			st := &HelmState{
 				logger:   logger,
-				readFile: os.ReadFile,
+				fs:       filesystem.DefaultFileSystem(),
 				basePath: d,
 			}
 

@@ -1,5 +1,9 @@
 package tmpl
 
+import (
+	"github.com/helmfile/helmfile/pkg/filesystem"
+)
+
 type templateTextRenderer struct {
 	ReadText func(string) ([]byte, error)
 	Context  *Context
@@ -11,12 +15,12 @@ type TextRenderer interface {
 }
 
 // nolint: golint
-func NewTextRenderer(readFile func(filename string) ([]byte, error), basePath string, data interface{}) *templateTextRenderer {
+func NewTextRenderer(fs *filesystem.FileSystem, basePath string, data interface{}) *templateTextRenderer {
 	return &templateTextRenderer{
-		ReadText: readFile,
+		ReadText: fs.ReadFile,
 		Context: &Context{
 			basePath: basePath,
-			readFile: readFile,
+			fs:       fs,
 		},
 		Data: data,
 	}

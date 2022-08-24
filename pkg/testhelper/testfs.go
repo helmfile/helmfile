@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 type TestFs struct {
@@ -13,6 +15,7 @@ type TestFs struct {
 	files map[string]string
 
 	GlobFixtures map[string][]string
+	DeleteFile   func(string) error
 
 	fileReaderCalls int
 	successfulReads []string
@@ -34,7 +37,24 @@ func NewTestFs(files map[string]string) *TestFs {
 		successfulReads: []string{},
 
 		GlobFixtures: map[string][]string{},
+		DeleteFile:   func(string) (ret error) { return },
 	}
+}
+
+func (f *TestFs) ToFileSystem() *ffs.FileSystem {
+	curfs := ffs.FileSystem{
+		FileExistsAt:      f.FileExistsAt,
+		FileExists:        f.FileExists,
+		DirectoryExistsAt: f.DirectoryExistsAt,
+		ReadFile:          f.ReadFile,
+		Glob:              f.Glob,
+		Getwd:             f.Getwd,
+		Chdir:             f.Chdir,
+		Abs:               f.Abs,
+		DeleteFile:        f.DeleteFile,
+	}
+	trfs := ffs.FromFileSystem(curfs)
+	return trfs
 }
 
 func (f *TestFs) FileExistsAt(path string) bool {

@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
@@ -35,9 +36,9 @@ type Bus struct {
 	Chart         string
 
 	Env environment.Environment
+	Fs  *filesystem.FileSystem
 
-	ReadFile func(string) ([]byte, error)
-	Logger   *zap.SugaredLogger
+	Logger *zap.SugaredLogger
 }
 
 func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}) (bool, error) {
@@ -100,7 +101,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 		for k, v := range context {
 			data[k] = v
 		}
-		render := tmpl.NewTextRenderer(bus.ReadFile, bus.BasePath, data)
+		render := tmpl.NewTextRenderer(bus.Fs, bus.BasePath, data)
 
 		bus.Logger.Debugf("hook[%s]: triggered by event \"%s\"\n", name, evt)
 
