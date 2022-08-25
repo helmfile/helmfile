@@ -10,6 +10,7 @@ information to this file.
 | Organization | Workload | More Info | Location | Added |
 |---|---|---|---|---|
 | [reddit.com](https://www.reddit.com/) | production | [GitHub issue](https://github.com/roboll/helmfile/issues/96#issue-312012249), [Talk](https://www.slideshare.net/GregoryTaylor11/helm-at-reddit-from-local-dev-staging-to-production) | San Francisco, CA | April 2018 |
+| [gitlab.com](https://gitlab.com/) | production | [Gitlab Project](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/tree/master) | * | August 2022 |
 | [ricardo.ch](https://www.ricardo.ch/) | production | We're deploying our complete application platform using Helmfile. | Zug, Switzerland | April 2018 |
 | [Hellofresh](https://engineering.hellofresh.com/) | production | We've been using helmfile in production since April 2018 for deploying all our infrastructure applications | Berlin, Germany | April 2018 |
 | [Cherre](https://cherre.com/) | production | We have no public posts about using Helmfile, but we have been using it for a long time now | New York, NY | October 2018 |
