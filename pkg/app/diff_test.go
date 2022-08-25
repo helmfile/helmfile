@@ -1167,7 +1167,6 @@ merged environment: &{default map[] map[]}
 0 release(s) matching app=test_non_existent found in helmfile.yaml
 
 changing working directory back to "/path/to"
-
 `,
 		},
 		{
@@ -1194,11 +1193,10 @@ releases:
 				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded:    []exectest.Release{},
-			error:       "in ./helmfile.yaml: unexpected diff with key: {kubernetes-external-secrets incubator/raw --kube-contextdefault--namespacekube-system--detailed-exitcode}",
+			error:       "in ./helmfile.yaml: unexpected diff with key: {kubernetes-external-secrets incubator/raw --kube-contextdefault--namespacekube-system--detailed-exitcode--no-hooks}",
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
@@ -1244,9 +1242,9 @@ GROUP RELEASES
 1     default/kube-system/kubernetes-external-secrets
 
 processing releases in group 1/1: default/kube-system/kubernetes-external-secrets
-err: release "kubernetes-external-secrets" in "helmfile.yaml" failed: unexpected diff with key: {kubernetes-external-secrets incubator/raw --kube-contextdefault--namespacekube-system--detailed-exitcode}
+err: release "kubernetes-external-secrets" in "helmfile.yaml" failed: unexpected diff with key: {kubernetes-external-secrets incubator/raw --kube-contextdefault--namespacekube-system--detailed-exitcode--no-hooks}
 changing working directory back to "/path/to"
-			`,
+`,
 		},
 		//
 		// error cases
@@ -1462,6 +1460,7 @@ changing working directory back to "/path/to"
 					detailedExitcode: tc.detailedExitcode,
 					skipNeeds:        tc.flags.skipNeeds,
 					includeNeeds:     tc.flags.includeNeeds,
+					noHooks:          tc.flags.noHooks,
 				})
 
 				var diffErrStr string
