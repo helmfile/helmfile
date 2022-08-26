@@ -4,4 +4,4 @@ helmDefaults:
   timeout: 300
 releases:
 - name: argo-cd-crds
-  chart: git::https://github.com/argoproj/argo-helm.git@charts/argo-cd/crds?ref=argocd-notifications-1.8.1
+  chart: git::https://github.com/helmfile/testdata.git@argo-cd/crds?ref=main
