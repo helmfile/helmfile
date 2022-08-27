@@ -280,6 +280,10 @@ Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
 
+Do you really want to sync?
+  Helmfile will sync all your releases, as shown above.
+
+
 processing 2 groups of releases in this order:
 GROUP RELEASES
 1     default/default/external-secrets
@@ -415,6 +419,10 @@ Affected releases are:
   kubernetes-external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
 
+Do you really want to sync?
+  Helmfile will sync all your releases, as shown above.
+
+
 processing 3 groups of releases in this order:
 GROUP RELEASES
 1     default/kube-system/kubernetes-external-secrets
@@ -540,6 +548,10 @@ Affected releases are:
   serviceA (my/chart) UPDATED
   serviceB (my/chart) UPDATED
   serviceC (my/chart) UPDATED
+
+Do you really want to sync?
+  Helmfile will sync all your releases, as shown above.
+
 
 processing 3 groups of releases in this order:
 GROUP RELEASES
@@ -682,6 +694,10 @@ Affected releases are:
   external-secrets (incubator/raw) UPDATED
   kubernetes-external-secrets (incubator/raw) DELETED
   my-release (incubator/raw) UPDATED
+
+Do you really want to sync?
+  Helmfile will sync all your releases, as shown above.
+
 
 processing 1 groups of releases in this order:
 GROUP RELEASES
@@ -828,6 +844,10 @@ merged environment: &{default map[] map[]}
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
+
+Do you really want to sync?
+  Helmfile will sync all your releases, as shown above.
+
 
 processing 2 groups of releases in this order:
 GROUP RELEASES
