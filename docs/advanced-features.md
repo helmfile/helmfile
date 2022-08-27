@@ -97,7 +97,7 @@ Please also see [test/advanced/helmfile.yaml](https://github.com/helmfile/helmfi
 
 ### Adhoc Kustomization of Helm charts
 
-With Helmfile's integration with Helmfile, not only deploying Kustomization as a Helm chart, you can kustomize charts before installation.
+With Helmfile's integration with Kustomize, not only deploying Kustomization as a Helm chart, you can kustomize charts before installation.
 
 Currently, Helmfile allows you to set the following fields for kustomizing the chart:
 
@@ -153,11 +153,11 @@ Please also see [test/advanced/helmfile.yaml](https://github.com/helmfile/helmfi
 
 You can set `transformers` to apply [Kustomize's transformers](https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead).
 
-Each item can be a path to a YAML or go template file, or an embedded transformer declaration as a YAML hash.
+Each item can be a path to a YAML or Go template file, or an embedded transformer declaration as a YAML hash.
 
 It's often used to add common labels and annotations to your resources.
 
-In the below example. we add common annotations and labels every resource rendered from the `aws-load-balancer-controller` chart:
+In the below example, we add common annotations and labels every resource rendered from the `aws-load-balancer-controller` chart:
 
 ```yaml
 releases:
@@ -187,7 +187,7 @@ releases:
       create: true
 ```
 
-As explained earlier, `transformers` can be not only a list of embedded transformers, but also YAML or go template files, or a mix of those three kinds.
+As explained earlier, `transformers` can be not only a list of embedded transformers, but also YAML or Go template files, or a mix of those three kinds.
 
 ```yaml
 transformers:
@@ -217,7 +217,7 @@ With Helmfile, you can add chart dependencies to a Helm chart without forking it
 
 An example `helmfile.yaml` that adds a `stable/envoy` dependency to the release `foo` looks like the below:
 
-```
+```yaml
 repositories:
 - name: stable
   url: https://charts.helm.sh/stable
@@ -230,18 +230,18 @@ releases:
     version: 1.5
 ```
 
-When Helmfile encounters `releases[].dependencies`, it creates a another temporary chart from `./path/to/foo` and adds the following `dependencies` to the `Chart.yaml`, so that you don't need to fork the chart.
+When Helmfile encounters `releases[].dependencies`, it creates another temporary chart from `./path/to/foo` and adds the following `dependencies` to the `Chart.yaml`, so that you don't need to fork the chart.
 
-```
+```yaml
 dependencies:
 - name: envoy
   repo: https://charts.helm.sh/stable
   condition: envoy.enabled
 ```
 
-A Helm chart can have two or more dependencies for the same chart with different `alias`es. To give your dependency an `alias`, defien it like you would do in a standard `Chart.yaml`:
+A Helm chart can have two or more dependencies for the same chart with different `alias`es. To give your dependency an `alias`, define it like you would do in a standard `Chart.yaml`:
 
-```
+```yaml
 repositories:
 - name: stable
   url: https://charts.helm.sh/stable
@@ -261,7 +261,7 @@ releases:
 which will tweaks the temporary chart's `Chart.yaml` to have:
 
 
-```
+```yaml
 dependencies:
 - alias: bar
   name: envoy
@@ -278,7 +278,7 @@ Please see #649 for more context around this feature.
 After the support for adhoc dependency to local chart (#1765),
 you can even write local file paths relative to `helmfile.yaml` in `chart`:
 
-```
+```yaml
 releases:
 - name: foo
   chart: ./path/to/foo
@@ -288,7 +288,7 @@ releases:
 
 Internally, Helmfile creates another temporary chart from the local chart `./path/to/foo`, and modifies the chart's `Chart.yaml` dependencies to look like:
 
-```
+```yaml
 dependencies:
 - alias: bar
   name: bar
@@ -304,7 +304,7 @@ With Helmfile version v0.146.0 or later, you can add OCI chart to chart dependen
 
 An example `helmfile.yaml` that adds a OCI chart dependency to the release `foo` looks like the below:
 
-```
+```yaml
 releases:
 - name: foo
   chart: ./path/to/foo
