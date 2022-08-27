@@ -1661,11 +1661,13 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	infoMsg := fmt.Sprintf(`Affected releases are:
 %s
+`, strings.Join(names, "\n"))
 
+	confMsg := fmt.Sprintf(`%s
 Do you really want to sync?
   Helmfile will sync all your releases, as shown above.
 
-`, strings.Join(names, "\n"))
+`, infoMsg)
 
 	interactive := c.Interactive()
 	if !interactive {
@@ -1681,7 +1683,7 @@ Do you really want to sync?
 
 	affectedReleases := state.AffectedReleases{}
 
-	if !interactive || interactive && r.askForConfirmation(infoMsg) {
+	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		if len(releasesToDelete) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
