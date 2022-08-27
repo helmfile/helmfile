@@ -91,6 +91,7 @@ type SyncConfigProvider interface {
 	DAGConfig
 
 	concurrencyConfig
+	interactive
 	loggingConfig
 }
 
