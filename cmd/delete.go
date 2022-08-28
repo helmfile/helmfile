@@ -35,6 +35,7 @@ func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&deleteOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&deleteOptions.Purge, "purge", false, "purge releases i.e. free release names and histories")
 	f.BoolVar(&deleteOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
+	f.BoolVarP(&deleteOptions.Interactive, "interactive", "i", false, "Request confirmation before attempting to modify clusters")
 
 	return cmd
 }

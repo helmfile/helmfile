@@ -1297,7 +1297,7 @@ Do you really want to apply?
 		a.Logger.Debug(*infoMsg)
 	}
 
-	syncErrs := []error{}
+	applyErrs := []error{}
 
 	affectedReleases := state.AffectedReleases{}
 
@@ -1325,7 +1325,7 @@ Do you really want to apply?
 			}))
 
 			if len(deletionErrs) > 0 {
-				syncErrs = append(syncErrs, deletionErrs...)
+				applyErrs = append(applyErrs, deletionErrs...)
 			}
 		}
 
@@ -1354,13 +1354,13 @@ Do you really want to apply?
 			}))
 
 			if len(updateErrs) > 0 {
-				syncErrs = append(syncErrs, updateErrs...)
+				applyErrs = append(applyErrs, updateErrs...)
 			}
 		}
 	}
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return true, true, syncErrs
+	return true, true, applyErrs
 }
 
 func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {
@@ -1663,7 +1663,16 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 %s
 `, strings.Join(names, "\n"))
 
-	a.Logger.Info(infoMsg)
+	confMsg := fmt.Sprintf(`%s
+Do you really want to sync?
+  Helmfile will sync all your releases, as shown above.
+
+`, infoMsg)
+
+	interactive := c.Interactive()
+	if !interactive {
+		a.Logger.Debug(infoMsg)
+	}
 
 	var errs []error
 
@@ -1674,51 +1683,53 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	affectedReleases := state.AffectedReleases{}
 
-	if len(releasesToDelete) > 0 {
-		_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			var rs []state.ReleaseSpec
+	if !interactive || interactive && r.askForConfirmation(confMsg) {
+		if len(releasesToDelete) > 0 {
+			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+				var rs []state.ReleaseSpec
 
-			for _, r := range subst.Releases {
-				release := r
-				if r2, ok := releasesToDelete[state.ReleaseToID(&release)]; ok {
-					rs = append(rs, r2)
+				for _, r := range subst.Releases {
+					release := r
+					if r2, ok := releasesToDelete[state.ReleaseToID(&release)]; ok {
+						rs = append(rs, r2)
+					}
 				}
+
+				subst.Releases = rs
+
+				return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
+			}))
+
+			if len(deletionErrs) > 0 {
+				errs = append(errs, deletionErrs...)
 			}
-
-			subst.Releases = rs
-
-			return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
-		}))
-
-		if len(deletionErrs) > 0 {
-			errs = append(errs, deletionErrs...)
 		}
-	}
 
-	if len(releasesToUpdate) > 0 {
-		_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-			var rs []state.ReleaseSpec
+		if len(releasesToUpdate) > 0 {
+			_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+				var rs []state.ReleaseSpec
 
-			for _, r := range subst.Releases {
-				release := r
-				if _, ok := releasesToDelete[state.ReleaseToID(&release)]; !ok {
-					rs = append(rs, release)
+				for _, r := range subst.Releases {
+					release := r
+					if _, ok := releasesToDelete[state.ReleaseToID(&release)]; !ok {
+						rs = append(rs, release)
+					}
 				}
+
+				subst.Releases = rs
+
+				opts := &state.SyncOpts{
+					Set:         c.Set(),
+					SkipCRDs:    c.SkipCRDs(),
+					Wait:        c.Wait(),
+					WaitForJobs: c.WaitForJobs(),
+				}
+				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
+			}))
+
+			if len(syncErrs) > 0 {
+				errs = append(errs, syncErrs...)
 			}
-
-			subst.Releases = rs
-
-			opts := &state.SyncOpts{
-				Set:         c.Set(),
-				SkipCRDs:    c.SkipCRDs(),
-				Wait:        c.Wait(),
-				WaitForJobs: c.WaitForJobs(),
-			}
-			return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
-		}))
-
-		if len(syncErrs) > 0 {
-			errs = append(errs, syncErrs...)
 		}
 	}
 	affectedReleases.DisplayAffectedReleases(c.Logger())

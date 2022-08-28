@@ -610,7 +610,7 @@ func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helme
 }
 
 func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
-	detected := []ReleaseSpec{}
+	deleted := []ReleaseSpec{}
 	for i := range releases {
 		release := releases[i]
 
@@ -618,14 +618,15 @@ func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, r
 			installed, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
 			if err != nil {
 				return nil, err
-			} else if installed {
+			}
+			if installed {
 				// Otherwise `release` messed up(https://github.com/roboll/helmfile/issues/554)
 				r := release
-				detected = append(detected, r)
+				deleted = append(deleted, r)
 			}
 		}
 	}
-	return detected, nil
+	return deleted, nil
 }
 
 func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {

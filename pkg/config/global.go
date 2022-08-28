@@ -42,8 +42,6 @@ type GlobalOptions struct {
 	Selector []string
 	// AllowNoMatchingRelease is not exit with an error code if the provided selector has no matching releases.
 	AllowNoMatchingRelease bool
-	// Interactive is true if the user should be prompted for input.
-	Interactive bool
 	// logger is the logger to use.
 	logger *zap.SugaredLogger
 }
@@ -120,11 +118,6 @@ func (g *GlobalImpl) RawStateValuesSet() []string {
 // StateValuesFiles returns the state values files
 func (g *GlobalImpl) StateValuesFiles() []string {
 	return g.GlobalOptions.StateValuesFile
-}
-
-// Interactive return interactive mode
-func (g *GlobalImpl) Interactive() bool {
-	return g.GlobalOptions.Interactive
 }
 
 // Logger returns the logger

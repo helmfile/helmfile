@@ -8,6 +8,8 @@ type DestroyOptions struct {
 	Concurrency int
 	// SkipDeps is the skip deps flag
 	SkipDeps bool
+	// Interactive is true if the user should be prompted for input.
+	Interactive bool
 }
 
 // NewDestroyOptions creates a new Apply
@@ -42,4 +44,9 @@ func (c *DestroyImpl) Args() string {
 // SkipDeps returns the skip deps
 func (c *DestroyImpl) SkipDeps() bool {
 	return c.DestroyOptions.SkipDeps
+}
+
+// Interactive returns the Interactive
+func (c *DestroyImpl) Interactive() bool {
+	return c.DestroyOptions.Interactive
 }
