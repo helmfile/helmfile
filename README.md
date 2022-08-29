@@ -118,7 +118,7 @@ Helmfile has been used by many users in production:
 
 * [gitlab.com](https://gitlab.com)
 * [reddit.com](https://reddit.com)
-* [Jenkins OSS](https://jenkins.io)
+* [Jenkins](https://jenkins.io)
 * ...
 
 For more users, please see: [Users](https://helmfile.readthedocs.io/en/latest/users/)
