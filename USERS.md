@@ -34,4 +34,5 @@ information to this file.
 | [IKEA US](https://www.ikea.com) | production | We started using Helmfile this year to shrink the boilerplate involved in deploying or microservices to cloud Kubernetes clusters. | Utrecht, Netherlands |  April 2021 |
 | [ShareGate](https://www.sharegate.com) | production | Used to deploy and sync our kubernetes workloads in Azure, using Azure Pipelines and custom extensions to [install](https://marketplace.visualstudio.com/items?itemName=GSoft.HelmfileInstaller) and [execute](https://marketplace.visualstudio.com/items?itemName=GSoft.HelmfileRunner) the cli. | Montreal, Canada |  June 2021 |
 | [subshell](https://subshell.com) | production | We're using helmfile since 2021 to deploy all our Kubernetes workloads into our clusters. We love helmfile for its simplicity and power. Thank you! | Hamburg, Germany | August 2022 |
+| [Norddeutscher Rundfunk](https://www.ndr.de) | production | Using Helmfile since 2020 to deploy workloads to several similar clusters (dev, qa, prod, test, etc.) for sites tagesschau.de and sportschau.de. Thank you so much for your awesome work! | Hamburg, Germany | August 2022 |
 <!-- TABLE_END -->
