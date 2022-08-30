@@ -33,4 +33,5 @@ information to this file.
 | [The Hyve](https://www.thehyve.nl) | production | We've been using Helmfile since 2019 to deploy [Radar-base applications](https://github.com/RADAR-base/RADAR-Kubernetes). [Blog Post](https://www.thehyve.nl/articles/kubernetes-added-to-radar-base) | Utrecht, Netherlands |  April 2021 |
 | [IKEA US](https://www.ikea.com) | production | We started using Helmfile this year to shrink the boilerplate involved in deploying or microservices to cloud Kubernetes clusters. | Utrecht, Netherlands |  April 2021 |
 | [ShareGate](https://www.sharegate.com) | production | Used to deploy and sync our kubernetes workloads in Azure, using Azure Pipelines and custom extensions to [install](https://marketplace.visualstudio.com/items?itemName=GSoft.HelmfileInstaller) and [execute](https://marketplace.visualstudio.com/items?itemName=GSoft.HelmfileRunner) the cli. | Montreal, Canada |  June 2021 |
+| [subshell](https://subshell.com) | production | We're using helmfile since 2021 to deploy all our Kubernetes workloads into our clusters. We love helmfile for its simplicity and power. Thank you! | Hamburg, Germany | August 2022 |
 <!-- TABLE_END -->
