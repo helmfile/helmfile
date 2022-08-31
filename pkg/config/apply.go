@@ -52,6 +52,8 @@ type ApplyOptions struct {
 	Wait bool
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
 	WaitForJobs bool
+	// Interactive is true if the user should be prompted for input.
+	Interactive bool
 }
 
 // NewApply creates a new Apply
@@ -201,4 +203,9 @@ func (a *ApplyImpl) Wait() bool {
 // WaitForJobs returns the wait for jobs.
 func (a *ApplyImpl) WaitForJobs() bool {
 	return a.ApplyOptions.WaitForJobs
+}
+
+// Interactive returns the Interactive.
+func (a *ApplyImpl) Interactive() bool {
+	return a.ApplyOptions.Interactive
 }

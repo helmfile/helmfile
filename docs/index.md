@@ -522,7 +522,6 @@ Flags:
   -f, --file helmfile.yaml          load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
   -b, --helm-binary string          Path to the helm binary (default "helm")
   -h, --help                        help for helmfile
-  -i, --interactive                 Request confirmation before attempting to modify clusters
       --kube-context string         Set kubectl context. Uses current context by default
       --log-level string            Set log level, default info (default "info")
   -n, --namespace string            Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
@@ -1355,7 +1354,7 @@ Please see #203 for more context.
 
 ## Running Helmfile interactively
 
-`helmfile --interactive [apply|destroy]` requests confirmation from you before actually modifying your cluster.
+`helmfile --interactive [apply|destroy|delete|sync]` requests confirmation from you before actually modifying your cluster.
 
 Use it when you're running `helmfile` manually on your local machine or a kind of secure administrative hosts.
 

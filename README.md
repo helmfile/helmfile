@@ -111,3 +111,14 @@ We use:
 * [semtag](https://github.com/pnikosis/semtag) for automated semver tagging.
 I greatly appreciate the author(pnikosis)'s effort on creating it and their
 kindness to share it!
+
+## Users
+
+Helmfile has been used by many users in production:
+
+* [gitlab.com](https://gitlab.com)
+* [reddit.com](https://reddit.com)
+* [Jenkins](https://jenkins.io)
+* ...
+
+For more users, please see: [Users](https://helmfile.readthedocs.io/en/latest/users/)

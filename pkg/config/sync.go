@@ -26,6 +26,8 @@ type SyncOptions struct {
 	Wait bool
 	// WaitForJobs is the wait for jobs flag
 	WaitForJobs bool
+	// Interactive is true if the user should be prompted for input.
+	Interactive bool
 }
 
 // NewSyncOptions creates a new Apply
@@ -109,4 +111,9 @@ func (t *SyncImpl) Wait() bool {
 // WaitForJobs returns the wait for jobs
 func (t *SyncImpl) WaitForJobs() bool {
 	return t.SyncOptions.WaitForJobs
+}
+
+// Interactive returns the Interactive
+func (t *SyncImpl) Interactive() bool {
+	return t.SyncOptions.Interactive
 }
