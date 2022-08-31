@@ -6,6 +6,8 @@ type DepsOptions struct {
 	Args string
 	// SkipRepos is the skip repos flag
 	SkipRepos bool
+	// Concurrency is the maximum number of concurrent helm processes to run
+	Concurrency int
 }
 
 // NewDepsOptions creates a new Apply
@@ -40,4 +42,9 @@ func (d *DepsImpl) SkipRepos() bool {
 // IncludeTransitiveNeeds returns the includeTransitiveNeeds
 func (d *DepsImpl) IncludeTransitiveNeeds() bool {
 	return false
+}
+
+// Concurrency returns the concurrency
+func (c *DepsImpl) Concurrency() int {
+	return c.DepsOptions.Concurrency
 }

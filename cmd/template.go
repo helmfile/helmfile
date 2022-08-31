@@ -36,7 +36,7 @@ func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&templateOptions.Values, "values", nil, "additional value files to be merged into the command")
 	f.StringVar(&templateOptions.OutputDir, "output-dir", "", "output directory to pass to helm template (helm template --output-dir)")
 	f.StringVar(&templateOptions.OutputDirTemplate, "output-dir-template", "", "go text template for generating the output directory. Default: {{ .OutputDir }}/{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}-{{ .Release.Name}}")
-	f.IntVar(&templateOptions.Concurrency, "concurrency", 0, "maximum number of concurrent downloads of release charts")
+	f.IntVar(&templateOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&templateOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the template of available API versions")
 	f.BoolVar(&templateOptions.IncludeCRDs, "include-crds", false, "include CRDs in the templated output")
 	f.BoolVar(&templateOptions.SkipTests, "skip-tests", false, "skip tests from templated output")
