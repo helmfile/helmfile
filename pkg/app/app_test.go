@@ -2470,6 +2470,10 @@ func (d depsConfig) Args() string {
 	return ""
 }
 
+func (d depsConfig) Concurrency() int {
+	return 2
+}
+
 // Mocking the command-line runner
 
 type mockRunner struct {

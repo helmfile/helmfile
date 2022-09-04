@@ -978,6 +978,7 @@ type ChartPrepareOptions struct {
 	WaitForJobs            bool
 	OutputDir              string
 	IncludeTransitiveNeeds bool
+	Concurrency            int
 }
 
 type chartPrepareResult struct {
