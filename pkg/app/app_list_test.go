@@ -17,7 +17,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/testutil"
 )
 
-func TestListWithEnvironment(t *testing.T) {
+func testListWithConfig(t *testing.T, cfg configImpl) {
 	type testcase struct {
 		environment string
 		ns          string
@@ -26,7 +26,7 @@ func TestListWithEnvironment(t *testing.T) {
 		expected    string
 	}
 
-	check := func(t *testing.T, tc testcase) {
+	check := func(t *testing.T, tc testcase, cfg configImpl) {
 		t.Helper()
 
 		bs := &bytes.Buffer{}
@@ -164,7 +164,7 @@ releases:
 
 			var listErr error
 			out := testutil.CaptureStdout(func() {
-				listErr = app.ListReleases(configImpl{})
+				listErr = app.ListReleases(cfg)
 			})
 
 			var gotErr string
@@ -197,14 +197,14 @@ cache                      	my-app     	true   	true     	app:test	bitnami/redis
 database                   	my-app     	true   	true     	        	bitnami/postgres	11.6.22
 global                     	kube-system	true   	true     	        	incubator/raw   	       
 `,
-		})
+		}, cfg)
 	})
 
 	t.Run("fail on unknown environment", func(t *testing.T) {
 		check(t, testcase{
 			environment: "staging",
 			error:       `err: no releases found that matches specified selector() and environment(staging), in any helmfile`,
-		})
+		}, cfg)
 	})
 
 	t.Run("list releases matching selector and environment", func(t *testing.T) {
@@ -215,7 +215,7 @@ global                     	kube-system	true   	true     	        	incubator/raw
 external-secrets	default  	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default	incubator/raw	       
 my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,namespace:default      	incubator/raw	       
 `,
-		})
+		}, cfg)
 	})
 
 	t.Run("filters releases for environment used in one file only", func(t *testing.T) {
@@ -225,7 +225,7 @@ my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,
 cache   	my-app   	true   	true     	app:test	bitnami/redis   	17.0.7 
 database	my-app   	true   	true     	        	bitnami/postgres	11.6.22
 `,
-		})
+		}, cfg)
 	})
 
 	t.Run("filters releases for environment used in multiple files", func(t *testing.T) {
@@ -243,6 +243,15 @@ test3                      	           	true   	true     	        	incubator/raw
 cache                      	my-app     	true   	true     	app:test	bitnami/redis   	17.0.7 
 database                   	my-app     	true   	true     	        	bitnami/postgres	11.6.22
 `,
-		})
+		}, cfg)
+	})
+}
+
+func TestListWithEnvironment(t *testing.T) {
+	t.Run("with prepared charts", func(t *testing.T) {
+		testListWithConfig(t, configImpl{withPreparedCharts: true})
+	})
+	t.Run("without prepared charts", func(t *testing.T) {
+		testListWithConfig(t, configImpl{withPreparedCharts: false})
 	})
 }

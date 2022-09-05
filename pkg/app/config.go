@@ -236,6 +236,7 @@ type interactive interface {
 
 type ListConfigProvider interface {
 	Output() string
+	WithPreparedCharts() bool
 }
 
 type CacheConfigProvider interface{}

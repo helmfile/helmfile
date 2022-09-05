@@ -32,6 +32,7 @@ func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.BoolVar(&listOptions.KeepTempDir, "keep-temp-dir", false, "Keep temporary directory")
+	f.BoolVar(&listOptions.WithPreparedCharts, "with-prepared-charts", true, "prepare charts when listing releases")
 	f.StringVar(&listOptions.Output, "output", "", "output releases list as a json string")
 
 	return cmd

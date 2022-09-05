@@ -6,6 +6,8 @@ type ListOptions struct {
 	Output string
 	// KeepTempDir is the keep temp dir flag
 	KeepTempDir bool
+	// WithPreparedCharts makes list call `withPreparedCharts` when listing
+	WithPreparedCharts bool
 }
 
 // NewListOptions creates a new Apply
@@ -35,4 +37,9 @@ func (c *ListImpl) Args() string {
 // Output returns the output
 func (c *ListImpl) Output() string {
 	return c.ListOptions.Output
+}
+
+// WithPreparedCharts returns withPreparedCharts flag
+func (c *ListImpl) WithPreparedCharts() bool {
+	return c.ListOptions.WithPreparedCharts
 }

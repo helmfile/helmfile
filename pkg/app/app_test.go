@@ -2220,6 +2220,7 @@ type configImpl struct {
 	skipNeeds              bool
 	includeNeeds           bool
 	includeTransitiveNeeds bool
+	withPreparedCharts     bool
 }
 
 func (c configImpl) Selectors() []string {
@@ -2292,6 +2293,10 @@ func (c configImpl) EmbedValues() bool {
 
 func (c configImpl) Output() string {
 	return c.output
+}
+
+func (c configImpl) WithPreparedCharts() bool {
+	return c.withPreparedCharts
 }
 
 type applyConfig struct {
