@@ -9,6 +9,7 @@ import (
 
 // NewListCmd returns list subcmd
 func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	var skipCharts bool
 	listOptions := config.NewListOptions()
 	listImpl := config.NewListImpl(globalCfg, listOptions)
 
@@ -16,6 +17,8 @@ func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Use:   "list",
 		Short: "List releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			listOptions.WithPreparedCharts = !skipCharts
+
 			err := config.NewCLIConfigImpl(listImpl.GlobalImpl)
 			if err != nil {
 				return err
@@ -32,7 +35,7 @@ func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.BoolVar(&listOptions.KeepTempDir, "keep-temp-dir", false, "Keep temporary directory")
-	f.BoolVar(&listOptions.WithPreparedCharts, "with-prepared-charts", true, "prepare charts when listing releases")
+	f.BoolVar(&skipCharts, "skip-charts", false, "don't prepare charts when listing releases")
 	f.StringVar(&listOptions.Output, "output", "", "output releases list as a json string")
 
 	return cmd
