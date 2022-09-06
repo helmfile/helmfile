@@ -615,6 +615,12 @@ The `helmfile lint` sub-command runs a `helm lint` across all of the charts/rele
 The `helmfile fetch` sub-command downloads or copies local charts to a local directory for debug purpose. The local directory
 must be specified with `--output-dir`.
 
+### list
+
+The `helmfile list` sub-command lists releases defined in the manifest. Optional `--output` flag accepts `json` to output releases in JSON format.
+
+If `--skip-charts` flag is not set, list would prepare all releases, by fetching charts and templating them.
+
 ## Paths Overview
 
 Using manifest files in conjunction with command line argument can be a bit confusing.
