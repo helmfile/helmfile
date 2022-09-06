@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"os"
 	"sync"
 	"testing"
 
@@ -253,5 +254,72 @@ func TestListWithEnvironment(t *testing.T) {
 	})
 	t.Run("without prepared charts", func(t *testing.T) {
 		testListWithEnvironment(t, configImpl{withPreparedCharts: false})
+	})
+}
+
+func testListWithJSONOutput(t *testing.T, cfg configImpl) {
+	cfg.output = "json"
+
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+environments:
+  default:
+    values:
+     - myrelease2:
+         enabled: false
+releases:
+- name: myrelease1
+  chart: mychart1
+  installed: no
+  labels:
+    id: myrelease1
+- name: myrelease2
+  chart: mychart1
+  condition: myrelease2.enabled
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: myrelease3
+  chart: mychart1
+  installed: yes
+- name: myrelease4
+  chart: mychart1
+  labels:
+    id: myrelease1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		fs:                  ffs.DefaultFileSystem(),
+		OverrideKubeContext: "default",
+		Env:                 "default",
+		Logger:              logger,
+		Namespace:           "testNamespace",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	out := testutil.CaptureStdout(func() {
+		err := app.ListReleases(cfg)
+		assert.Nil(t, err)
+	})
+
+	expected := `[{"name":"myrelease1","namespace":"","enabled":true,"installed":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"","enabled":false,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"","enabled":true,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"","enabled":true,"installed":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
+`
+	assert.Equal(t, expected, out)
+}
+
+func TestListWithJSONOutput(t *testing.T) {
+	t.Run("with prepared charts", func(t *testing.T) {
+		testListWithJSONOutput(t, configImpl{withPreparedCharts: true})
+	})
+	t.Run("without prepared charts", func(t *testing.T) {
+		testListWithJSONOutput(t, configImpl{withPreparedCharts: false})
 	})
 }

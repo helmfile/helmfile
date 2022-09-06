@@ -4627,64 +4627,6 @@ myrelease4	         	true   	true     	id:myrelease1             	mychart1
 	assert.Equal(t, expected, out)
 }
 
-func TestListWithJsonOutput(t *testing.T) {
-	files := map[string]string{
-		"/path/to/helmfile.d/first.yaml": `
-environments:
-  default:
-    values:
-     - myrelease2:
-         enabled: false
-releases:
-- name: myrelease1
-  chart: mychart1
-  installed: no
-  labels:
-    id: myrelease1
-- name: myrelease2
-  chart: mychart1
-  condition: myrelease2.enabled
-`,
-		"/path/to/helmfile.d/second.yaml": `
-releases:
-- name: myrelease3
-  chart: mychart1
-  installed: yes
-- name: myrelease4
-  chart: mychart1
-  labels:
-    id: myrelease1
-`,
-	}
-	stdout := os.Stdout
-	defer func() { os.Stdout = stdout }()
-
-	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
-
-	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		fs:                  ffs.DefaultFileSystem(),
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
-		Namespace:           "testNamespace",
-	}, files)
-
-	expectNoCallsToHelm(app)
-
-	out := testutil.CaptureStdout(func() {
-		err := app.ListReleases(configImpl{
-			output: "json",
-		})
-		assert.Nil(t, err)
-	})
-
-	expected := `[{"name":"myrelease1","namespace":"","enabled":true,"installed":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"","enabled":false,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"","enabled":true,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"","enabled":true,"installed":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
-`
-	assert.Equal(t, expected, out)
-}
-
 func TestSetValuesTemplate(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
