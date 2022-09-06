@@ -514,26 +514,26 @@ Available Commands:
   write-values Write values files for releases. Similar to `helmfile template`, write values files instead of manifests.
 
 Flags:
-      --allow-no-matching-release   Do not exit with an error code if the provided selector has no matching releases.
-  -c, --chart string                Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}
-      --color                       Output with color
-      --debug                       Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
-  -e, --environment string          specify the environment name. defaults to "default"
-  -f, --file helmfile.yaml          load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
-  -b, --helm-binary string          Path to the helm binary (default "helm")
-  -h, --help                        help for helmfile
-      --kube-context string         Set kubectl context. Uses current context by default
-      --log-level string            Set log level, default info (default "info")
-  -n, --namespace string            Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
-      --no-color                    Output without color
-  -q, --quiet                       Silence output. Equivalent to log-level warn
-  -l, --selector strings            Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
-                                        A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
-                                        --selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
-                                        The name of a release can be used as a label. --selector name=myrelease
-      --state-values-file strings   specify state values in a YAML file
-      --state-values-set strings    set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
-  -v, --version                     version for helmfile
+      --allow-no-matching-release       Do not exit with an error code if the provided selector has no matching releases.
+  -c, --chart string                    Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}
+      --color                           Output with color
+      --debug                           Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
+  -e, --environment string              specify the environment name. defaults to "default"
+  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
+  -b, --helm-binary string              Path to the helm binary (default "helm")
+  -h, --help                            help for helmfile
+      --kube-context string             Set kubectl context. Uses current context by default
+      --log-level string                Set log level, default info (default "info")
+  -n, --namespace string                Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
+      --no-color                        Output without color
+  -q, --quiet                           Silence output. Equivalent to log-level warn
+  -l, --selector stringArray            Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
+                                        	A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
+                                        	--selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
+                                        	The name of a release can be used as a label. --selector name=myrelease
+      --state-values-file stringArray   specify state values in a YAML file
+      --state-values-set stringArray    set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+  -v, --version                         version for helmfile
 
 Use "helmfile [command] --help" for more information about a command.
 ```
