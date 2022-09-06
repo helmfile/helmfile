@@ -552,8 +552,9 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 
 		if c.WithPreparedCharts() {
 			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
-				SkipRepos: true,
-				SkipDeps:  true,
+				SkipRepos:   true,
+				SkipDeps:    true,
+				Concurrency: 2,
 			}, func() {
 				rel, err := a.list(run)
 				if err != nil {
