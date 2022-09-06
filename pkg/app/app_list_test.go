@@ -249,11 +249,11 @@ database                   	my-app     	true   	true     	        	bitnami/postg
 }
 
 func TestListWithEnvironment(t *testing.T) {
-	t.Run("with prepared charts", func(t *testing.T) {
-		testListWithEnvironment(t, configImpl{withPreparedCharts: true})
+	t.Run("with skipCharts=false", func(t *testing.T) {
+		testListWithEnvironment(t, configImpl{skipCharts: false})
 	})
-	t.Run("without prepared charts", func(t *testing.T) {
-		testListWithEnvironment(t, configImpl{withPreparedCharts: false})
+	t.Run("with skipCharts=true", func(t *testing.T) {
+		testListWithEnvironment(t, configImpl{skipCharts: true})
 	})
 }
 
@@ -316,10 +316,10 @@ releases:
 }
 
 func TestListWithJSONOutput(t *testing.T) {
-	t.Run("with prepared charts", func(t *testing.T) {
-		testListWithJSONOutput(t, configImpl{withPreparedCharts: true})
+	t.Run("with skipCharts=false", func(t *testing.T) {
+		testListWithJSONOutput(t, configImpl{skipCharts: false})
 	})
-	t.Run("without prepared charts", func(t *testing.T) {
-		testListWithJSONOutput(t, configImpl{withPreparedCharts: false})
+	t.Run("with skipCharts=true", func(t *testing.T) {
+		testListWithJSONOutput(t, configImpl{skipCharts: true})
 	})
 }

@@ -550,7 +550,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var stateReleases []*HelmRelease
 		var err error
 
-		if c.WithPreparedCharts() {
+		if !c.SkipCharts() {
 			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
