@@ -236,6 +236,7 @@ type interactive interface {
 
 type ListConfigProvider interface {
 	Output() string
+	SkipCharts() bool
 }
 
 type CacheConfigProvider interface{}

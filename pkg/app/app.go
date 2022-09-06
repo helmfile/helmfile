@@ -547,54 +547,30 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	var releases []*HelmRelease
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("list", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: 2,
-		}, func() {
-			// var releases m
-			for _, r := range run.state.Releases {
-				labels := ""
-				if r.Labels == nil {
-					r.Labels = map[string]string{}
-				}
-				for k, v := range run.state.CommonLabels {
-					r.Labels[k] = v
-				}
+		var stateReleases []*HelmRelease
+		var err error
 
-				var keys []string
-				for k := range r.Labels {
-					keys = append(keys, k)
-				}
-				sort.Strings(keys)
-
-				for _, k := range keys {
-					v := r.Labels[k]
-					labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
-				}
-				labels = strings.Trim(labels, ",")
-
-				enabled, err := state.ConditionEnabled(r, run.state.Values())
+		if !c.SkipCharts() {
+			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
+				SkipRepos:   true,
+				SkipDeps:    true,
+				Concurrency: 2,
+			}, func() {
+				rel, err := a.list(run)
 				if err != nil {
 					panic(err)
 				}
-
-				installed := r.Installed == nil || *r.Installed
-				releases = append(releases, &HelmRelease{
-					Name:      r.Name,
-					Namespace: r.Namespace,
-					Installed: installed,
-					Enabled:   enabled,
-					Labels:    labels,
-					Chart:     r.Chart,
-					Version:   r.Version,
-				})
-			}
-		})
+				stateReleases = rel
+			})
+		} else {
+			stateReleases, err = a.list(run)
+		}
 
 		if err != nil {
 			errs = append(errs, err)
 		}
+
+		releases = append(releases, stateReleases...)
 
 		return
 	}, false, SetFilter(true))
@@ -610,6 +586,50 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	}
 
 	return err
+}
+
+func (a *App) list(run *Run) ([]*HelmRelease, error) {
+	var releases []*HelmRelease
+
+	for _, r := range run.state.Releases {
+		labels := ""
+		if r.Labels == nil {
+			r.Labels = map[string]string{}
+		}
+		for k, v := range run.state.CommonLabels {
+			r.Labels[k] = v
+		}
+
+		var keys []string
+		for k := range r.Labels {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			v := r.Labels[k]
+			labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
+		}
+		labels = strings.Trim(labels, ",")
+
+		enabled, err := state.ConditionEnabled(r, run.state.Values())
+		if err != nil {
+			return nil, err
+		}
+
+		installed := r.Installed == nil || *r.Installed
+		releases = append(releases, &HelmRelease{
+			Name:      r.Name,
+			Namespace: r.Namespace,
+			Installed: installed,
+			Enabled:   enabled,
+			Labels:    labels,
+			Chart:     r.Chart,
+			Version:   r.Version,
+		})
+	}
+
+	return releases, nil
 }
 
 func (a *App) within(dir string, do func() error) error {

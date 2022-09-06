@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"os"
 	"sync"
 	"testing"
 
@@ -17,7 +18,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/testutil"
 )
 
-func TestListWithEnvironment(t *testing.T) {
+func testListWithEnvironment(t *testing.T, cfg configImpl) {
 	type testcase struct {
 		environment string
 		ns          string
@@ -26,7 +27,7 @@ func TestListWithEnvironment(t *testing.T) {
 		expected    string
 	}
 
-	check := func(t *testing.T, tc testcase) {
+	check := func(t *testing.T, tc testcase, cfg configImpl) {
 		t.Helper()
 
 		bs := &bytes.Buffer{}
@@ -164,7 +165,7 @@ releases:
 
 			var listErr error
 			out := testutil.CaptureStdout(func() {
-				listErr = app.ListReleases(configImpl{})
+				listErr = app.ListReleases(cfg)
 			})
 
 			var gotErr string
@@ -197,14 +198,14 @@ cache                      	my-app     	true   	true     	app:test	bitnami/redis
 database                   	my-app     	true   	true     	        	bitnami/postgres	11.6.22
 global                     	kube-system	true   	true     	        	incubator/raw   	       
 `,
-		})
+		}, cfg)
 	})
 
 	t.Run("fail on unknown environment", func(t *testing.T) {
 		check(t, testcase{
 			environment: "staging",
 			error:       `err: no releases found that matches specified selector() and environment(staging), in any helmfile`,
-		})
+		}, cfg)
 	})
 
 	t.Run("list releases matching selector and environment", func(t *testing.T) {
@@ -215,7 +216,7 @@ global                     	kube-system	true   	true     	        	incubator/raw
 external-secrets	default  	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default	incubator/raw	       
 my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,namespace:default      	incubator/raw	       
 `,
-		})
+		}, cfg)
 	})
 
 	t.Run("filters releases for environment used in one file only", func(t *testing.T) {
@@ -225,7 +226,7 @@ my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,
 cache   	my-app   	true   	true     	app:test	bitnami/redis   	17.0.7 
 database	my-app   	true   	true     	        	bitnami/postgres	11.6.22
 `,
-		})
+		}, cfg)
 	})
 
 	t.Run("filters releases for environment used in multiple files", func(t *testing.T) {
@@ -243,6 +244,82 @@ test3                      	           	true   	true     	        	incubator/raw
 cache                      	my-app     	true   	true     	app:test	bitnami/redis   	17.0.7 
 database                   	my-app     	true   	true     	        	bitnami/postgres	11.6.22
 `,
-		})
+		}, cfg)
+	})
+}
+
+func TestListWithEnvironment(t *testing.T) {
+	t.Run("with skipCharts=false", func(t *testing.T) {
+		testListWithEnvironment(t, configImpl{skipCharts: false})
+	})
+	t.Run("with skipCharts=true", func(t *testing.T) {
+		testListWithEnvironment(t, configImpl{skipCharts: true})
+	})
+}
+
+func testListWithJSONOutput(t *testing.T, cfg configImpl) {
+	cfg.output = "json"
+
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+environments:
+  default:
+    values:
+     - myrelease2:
+         enabled: false
+releases:
+- name: myrelease1
+  chart: mychart1
+  installed: no
+  labels:
+    id: myrelease1
+- name: myrelease2
+  chart: mychart1
+  condition: myrelease2.enabled
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: myrelease3
+  chart: mychart1
+  installed: yes
+- name: myrelease4
+  chart: mychart1
+  labels:
+    id: myrelease1
+`,
+	}
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	logger := helmexec.NewLogger(&buffer, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		fs:                  ffs.DefaultFileSystem(),
+		OverrideKubeContext: "default",
+		Env:                 "default",
+		Logger:              logger,
+		Namespace:           "testNamespace",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	out := testutil.CaptureStdout(func() {
+		err := app.ListReleases(cfg)
+		assert.Nil(t, err)
+	})
+
+	expected := `[{"name":"myrelease1","namespace":"","enabled":true,"installed":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"","enabled":false,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"","enabled":true,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"","enabled":true,"installed":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
+`
+	assert.Equal(t, expected, out)
+}
+
+func TestListWithJSONOutput(t *testing.T) {
+	t.Run("with skipCharts=false", func(t *testing.T) {
+		testListWithJSONOutput(t, configImpl{skipCharts: false})
+	})
+	t.Run("with skipCharts=true", func(t *testing.T) {
+		testListWithJSONOutput(t, configImpl{skipCharts: true})
 	})
 }
