@@ -17,7 +17,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/testutil"
 )
 
-func testListWithConfig(t *testing.T, cfg configImpl) {
+func testListWithEnvironment(t *testing.T, cfg configImpl) {
 	type testcase struct {
 		environment string
 		ns          string
@@ -249,9 +249,9 @@ database                   	my-app     	true   	true     	        	bitnami/postg
 
 func TestListWithEnvironment(t *testing.T) {
 	t.Run("with prepared charts", func(t *testing.T) {
-		testListWithConfig(t, configImpl{withPreparedCharts: true})
+		testListWithEnvironment(t, configImpl{withPreparedCharts: true})
 	})
 	t.Run("without prepared charts", func(t *testing.T) {
-		testListWithConfig(t, configImpl{withPreparedCharts: false})
+		testListWithEnvironment(t, configImpl{withPreparedCharts: false})
 	})
 }
