@@ -116,10 +116,10 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.StringVar(&globalOptions.LogLevel, "log-level", "info", "Set log level, default info")
 	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}")
 	fs.StringVarP(&globalOptions.Chart, "chart", "c", "", "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}")
-	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
-	A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
-	--selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
-	The name of a release can be used as a label. --selector name=myrelease`)
+	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar. 
+A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
+"--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
+The name of a release can be used as a label: "--selector name=myrelease"`)
 	fs.BoolVar(&globalOptions.AllowNoMatchingRelease, "allow-no-matching-release", false, `Do not exit with an error code if the provided selector has no matching releases.`)
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")
