@@ -353,6 +353,15 @@ exec: helm --kube-context dev dependency build ./chart/foo --verify
 }
 
 func Test_DecryptSecret(t *testing.T) {
+	// Set secrets plugin version to 4.0.0
+	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.0.0"); err != nil {
+		t.Errorf("failed to set environment HELM_PLUGINS error: %s", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("HELM_PLUGINS"); err != nil {
+			t.Errorf("failed to unset environment HELM_PLUGINS error: %s", err)
+		}
+	}()
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
@@ -375,7 +384,7 @@ func Test_DecryptSecret(t *testing.T) {
 
 	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName
 Decrypting secret %s/secretName
-exec: helm --kube-context dev secrets view %s/secretName
+exec: helm --kube-context dev secrets decrypt %s/secretName
 Decrypted %s/secretName into %s
 Preparing to decrypt secret %s/secretName
 Found secret in cache %s/secretName
@@ -393,6 +402,15 @@ Decrypted %s/secretName into %s
 }
 
 func Test_DecryptSecretWithGotmpl(t *testing.T) {
+	// Set secrets plugin version to 4.0.0
+	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.0.0"); err != nil {
+		t.Errorf("failed to set environment HELM_PLUGINS error: %s", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("HELM_PLUGINS"); err != nil {
+			t.Errorf("failed to unset environment HELM_PLUGINS error: %s", err)
+		}
+	}()
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
@@ -414,7 +432,7 @@ func Test_DecryptSecretWithGotmpl(t *testing.T) {
 
 	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName.yaml.gotmpl
 Decrypting secret %s/secretName.yaml.gotmpl
-exec: helm --kube-context dev secrets view %s/secretName.yaml.gotmpl
+exec: helm --kube-context dev secrets decrypt %s/secretName.yaml.gotmpl
 Decrypted %s/secretName.yaml.gotmpl into %s
 `, cwd, cwd, cwd, cwd, tmpFilePath)
 	if err != nil {
@@ -894,6 +912,29 @@ func Test_IsHelm3(t *testing.T) {
 	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsHelm3() {
 		t.Errorf("helmexec.IsHelm3() - Helm3 not detected when %s is set", envvar.Helm3)
+	}
+}
+
+func Test_GetPluginVersion(t *testing.T) {
+	v3ExpectedVersion := "3.15.0"
+	v4ExpectedVersion := "4.0.0"
+	v3PluginDirPath := "../../test/plugins/secrets/3.15.0"
+	v4PluginDirPath := "../../test/plugins/secrets/4.0.0"
+
+	v3SecretPluginVersion, err := GetPluginVersion("secrets", v3PluginDirPath)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	if v3SecretPluginVersion.String() != v3ExpectedVersion {
+		t.Errorf("secrets v3 plugin version is %v, expected %v", v3SecretPluginVersion.String(), v3ExpectedVersion)
+	}
+
+	v4SecretPluginVersion, err := GetPluginVersion("secrets", v4PluginDirPath)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	if v4SecretPluginVersion.String() != v4ExpectedVersion {
+		t.Errorf("secrets v4 plugin version is %v, expected %v", v4SecretPluginVersion.String(), v4ExpectedVersion)
 	}
 }
 
