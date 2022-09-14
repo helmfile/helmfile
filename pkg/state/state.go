@@ -18,10 +18,10 @@ import (
 	"text/template"
 
 	"github.com/imdario/mergo"
-	"github.com/variantdev/chartify"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -31,13 +31,6 @@ import (
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-
-	"github.com/helmfile/helmfile/pkg/environment"
-	"github.com/helmfile/helmfile/pkg/event"
-	"github.com/helmfile/helmfile/pkg/filesystem"
-	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/remote"
-	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
 const (

@@ -10,7 +10,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/tmpl"
-	"go.uber.org/zap"
 )
 
 type Hook struct {
@@ -89,7 +88,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 			}
 		}
 
-		bus.Logger.Debugf("hook[%s]: stateFilePath=%s, basePath=%s", name, bus.StateFilePath, bus.BasePath)
+		bus.Logger.Debugf("hook[%s]: stateFilePath=%s, basePath=%s\n", name, bus.StateFilePath, bus.BasePath)
 
 		data := map[string]interface{}{
 			"Environment": bus.Env,

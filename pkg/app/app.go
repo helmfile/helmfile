@@ -15,6 +15,7 @@ import (
 
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/filesystem"
@@ -1359,7 +1360,7 @@ Do you really want to apply?
 		for _, release := range releasesWithPreApply {
 			a.Logger.Infof("\nRunning preapply hook for %s:", release.Name)
 			if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
-				syncErrs = append(syncErrs, err)
+				applyErrs = append(applyErrs, err)
 				continue
 			}
 		}
@@ -1418,6 +1419,35 @@ Do you really want to apply?
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
 	return true, true, applyErrs
+}
+
+func getReleasesWithPreApply(releases []state.ReleaseSpec) []state.ReleaseSpec {
+	var releasesWithPreApply []state.ReleaseSpec
+	for _, r := range releases {
+		release := r
+		for _, hook := range release.Hooks {
+			if slices.Contains(hook.Events, "preapply") {
+				releasesWithPreApply = append(releasesWithPreApply, release)
+				break
+			}
+		}
+	}
+	return releasesWithPreApply
+}
+
+func preApplyInfoMsg(releasesWithPreApply []state.ReleaseSpec, infoMsg *string) *string {
+	if len(releasesWithPreApply) > 0 {
+		msg := "Releases with preapply hooks: \n"
+		if infoMsg != nil {
+			msg = fmt.Sprintf("%s\n%s", *infoMsg, msg)
+		}
+		infoMsg = &msg
+	}
+	for _, release := range releasesWithPreApply {
+		tmp := fmt.Sprintf("%s  %s (%s)\n", *infoMsg, release.Name, release.Chart)
+		infoMsg = &tmp
+	}
+	return infoMsg
 }
 
 func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {

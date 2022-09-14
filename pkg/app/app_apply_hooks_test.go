@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"path/filepath"
 	"sync"
 	"testing"
 
@@ -94,8 +93,6 @@ func TestApply_hooks(t *testing.T) {
 
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
-				glob:                filepath.Glob,
-				abs:                 filepath.Abs,
 				OverrideKubeContext: "default",
 				Env:                 "default",
 				Logger:              logger,
