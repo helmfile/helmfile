@@ -6,12 +6,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/urfave/cli"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/app/version"
 	"github.com/helmfile/helmfile/pkg/config"
+	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
@@ -26,11 +26,11 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 			if g.AllowNoMatchingRelease {
 				noMatchingExitCode = 0
 			}
-			return cli.NewExitError(e.Error(), noMatchingExitCode)
+			return errors.NewExitError(e.Error(), noMatchingExitCode)
 		case *app.MultiError:
-			return cli.NewExitError(e.Error(), 1)
+			return errors.NewExitError(e.Error(), 1)
 		case *app.Error:
-			return cli.NewExitError(e.Error(), e.Code())
+			return errors.NewExitError(e.Error(), e.Code())
 		default:
 			panic(fmt.Errorf("BUG: please file an github issue for this unhandled error: %T: %v", e, e))
 		}
@@ -41,12 +41,13 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 // NewRootCmd creates the root command for the CLI.
 func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Command, error) {
 	cmd := &cobra.Command{
-		Use:          "helmfile",
-		Short:        globalUsage,
-		Long:         globalUsage,
-		Args:         cobra.MinimumNArgs(1),
-		Version:      version.GetVersion(),
-		SilenceUsage: true,
+		Use:           "helmfile",
+		Short:         globalUsage,
+		Long:          globalUsage,
+		Args:          cobra.MinimumNArgs(1),
+		Version:       version.GetVersion(),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// Valid levels:
 			// https://github.com/uber-go/zap/blob/7e7e266a8dbce911a49554b945538c5b950196b8/zapcore/level.go#L126
