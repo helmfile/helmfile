@@ -1183,6 +1183,7 @@ Once `events` are triggered, associated `hooks` are executed, by running the `co
 Currently supported `events` are:
 
 - `prepare`
+- `preapply`
 - `presync`
 - `preuninstall`
 - `postuninstall`
