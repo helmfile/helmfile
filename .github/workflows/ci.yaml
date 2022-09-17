@@ -59,6 +59,9 @@ jobs:
           - v3.7.2
           - v3.8.2
           - v3.9.0
+        plugin-secrets-version:
+          - 3.15.0
+          - 4.0.0
     steps:
     - uses: actions/checkout@v2
     - name: Cache libraries
@@ -96,6 +99,7 @@ jobs:
       uses: medyagh/setup-minikube@master
     - name: Execute integration tests
       env:
+        HELM_SECRETS_VERSION: ${{ matrix.plugin-secrets-version }}
         HELMFILE_HELM3: 1
         TERM: xterm
       run: make integration
