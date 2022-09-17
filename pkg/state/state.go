@@ -18,6 +18,11 @@ import (
 	"text/template"
 
 	"github.com/imdario/mergo"
+	"github.com/tatsushid/go-prettytable"
+	"github.com/variantdev/chartify"
+	"github.com/variantdev/vals"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
@@ -25,12 +30,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
-
-	"github.com/tatsushid/go-prettytable"
-	"github.com/variantdev/chartify"
-	"github.com/variantdev/vals"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -2257,7 +2256,6 @@ func (st *HelmState) TriggerPreapplyEvent(r *ReleaseSpec, helmfileCommand string
 }
 
 func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string) (bool, error) {
-
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,

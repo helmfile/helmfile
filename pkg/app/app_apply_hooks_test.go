@@ -8,14 +8,15 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
+	"github.com/variantdev/vals"
+	"k8s.io/utils/pointer"
+
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-	"github.com/stretchr/testify/require"
-	"github.com/variantdev/vals"
-	"k8s.io/utils/pointer"
 )
 
 func TestApply_hooks(t *testing.T) {
