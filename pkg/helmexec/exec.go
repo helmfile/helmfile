@@ -14,6 +14,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/plugin"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 )
@@ -83,6 +85,20 @@ func getHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
 	}
 
 	return parseHelmVersion(string(outBytes))
+}
+
+func GetPluginVersion(name, pluginsDir string) (*semver.Version, error) {
+	plugins, err := plugin.FindPlugins(pluginsDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, plugin := range plugins {
+		if plugin.Metadata.Name == name {
+			return semver.NewVersion(plugin.Metadata.Version)
+		}
+	}
+
+	return nil, fmt.Errorf("plugin %s not installed", name)
 }
 
 func redactedURL(chart string) string {
@@ -288,8 +304,19 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		helm.logger.Infof("Decrypting secret %v", absPath)
 		preArgs := context.GetTillerlessArgs(helm)
 		env := context.getTillerlessEnv()
+		settings := cli.New()
+		pluginVersion, err := GetPluginVersion("secrets", settings.PluginsDirectory)
+		if err != nil {
+			secret.err = err
+			return "", err
+		}
+		secretArg := "view"
+		// helm secret view command. The helm secret decrypt command is a drop-in replacement in 4.0.0 version
+		if pluginVersion.Major() > 3 {
+			secretArg = "decrypt"
+		}
 		enableLiveOutput := false
-		secretBytes, err := helm.exec(append(append(preArgs, "secrets", "view", absPath), flags...), env, &enableLiveOutput)
+		secretBytes, err := helm.exec(append(append(preArgs, "secrets", secretArg, absPath), flags...), env, &enableLiveOutput)
 		if err != nil {
 			secret.err = err
 			return "", err

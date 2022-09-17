@@ -142,7 +142,7 @@ func (g *GlobalImpl) Color() bool {
 	}
 
 	// We replicate the helm-diff behavior in helmfile
-	// because when when helmfile calls helm-diff, helm-diff has no access to term and therefore
+	// because when helmfile calls helm-diff, helm-diff has no access to term and therefore
 	// we can't rely on helm-diff's ability to auto-detect term for color output.
 	// See https://github.com/roboll/helmfile/issues/2043
 
