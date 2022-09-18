@@ -55,10 +55,12 @@ type StateCreator struct {
 
 	overrideHelmBinary string
 
+	enableLiveOutput bool
+
 	remote *remote.Remote
 }
 
-func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote, enableLiveOutput bool) *StateCreator {
 	return &StateCreator{
 		logger: logger,
 
@@ -68,6 +70,7 @@ func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntim
 		getHelm:     getHelm,
 
 		overrideHelmBinary: overrideHelmBinary,
+		enableLiveOutput:   enableLiveOutput,
 
 		remote: remote,
 	}

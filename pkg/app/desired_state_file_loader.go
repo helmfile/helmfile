@@ -24,6 +24,7 @@ const (
 type desiredStateLoader struct {
 	overrideKubeContext string
 	overrideHelmBinary  string
+	enableLiveOutput    bool
 
 	env       string
 	namespace string
@@ -162,7 +163,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote)
+	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote, a.enableLiveOutput)
 	c.LoadFile = a.loadFile
 	return c
 }

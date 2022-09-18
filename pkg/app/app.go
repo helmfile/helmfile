@@ -28,6 +28,7 @@ import (
 type App struct {
 	OverrideKubeContext string
 	OverrideHelmBinary  string
+	EnableLiveOutput    bool
 
 	Logger      *zap.SugaredLogger
 	Env         string
@@ -64,6 +65,7 @@ func New(conf ConfigProvider) *App {
 	return Init(&App{
 		OverrideKubeContext: conf.KubeContext(),
 		OverrideHelmBinary:  conf.HelmBinary(),
+		EnableLiveOutput:    conf.EnableLiveOutput(),
 		Logger:              conf.Logger(),
 		Env:                 conf.Env(),
 		Namespace:           conf.Namespace(),
@@ -82,6 +84,10 @@ func Init(app *App) *App {
 	app.valsRuntime, err = plugins.ValsInstance()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize vals runtime: %v", err))
+	}
+
+	if app.EnableLiveOutput {
+		app.Logger.Info("Live output is enabled")
 	}
 
 	return app
@@ -212,6 +218,9 @@ func (a *App) Diff(c DiffConfigProvider) error {
 func (a *App) Template(c TemplateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := c.IncludeCRDs()
+
+		// Live output should never be enabled for the "template" subcommand to avoid breaking `helmfile template | kubectl apply -f -`
+		run.helm.SetEnableLiveOutput(false)
 
 		// `helm template` in helm v2 does not support local chart.
 		// So, we set forceDownload=true for helm v2 only
@@ -717,6 +726,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 
 		overrideKubeContext: a.OverrideKubeContext,
 		overrideHelmBinary:  a.OverrideHelmBinary,
+		enableLiveOutput:    a.EnableLiveOutput,
 		getHelm:             a.getHelm,
 		valsRuntime:         a.valsRuntime,
 	}
@@ -755,7 +765,7 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 	key := createHelmKey(bin, kubectx)
 
 	if _, ok := a.helms[key]; !ok {
-		a.helms[key] = helmexec.New(bin, a.Logger, kubectx, &helmexec.ShellRunner{
+		a.helms[key] = helmexec.New(bin, a.EnableLiveOutput, a.Logger, kubectx, &helmexec.ShellRunner{
 			Logger: a.Logger,
 		})
 	}

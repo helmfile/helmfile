@@ -1,0 +1,7 @@
+localChartRepoServer:
+  enabled: true
+  port: 18080
+chartifyTempDir: temp1
+helmfileArgs:
+- --enable-live-output
+- template

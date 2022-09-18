@@ -5,6 +5,7 @@ import "go.uber.org/zap"
 type ConfigProvider interface {
 	Args() string
 	HelmBinary() string
+	EnableLiveOutput() bool
 
 	FileOrDir() string
 	KubeContext() string

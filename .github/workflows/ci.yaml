@@ -52,16 +52,32 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        helm-version:
-          - v3.4.2
-          - v3.5.4
-          - v3.6.3
-          - v3.7.2
-          - v3.8.2
-          - v3.9.4
-        plugin-secrets-version:
-          - 3.15.0
-          - 4.0.0
+       include:
+         # We intend to support 2 helm minor version at a time.
+         # What's why we include only 2 helm minor versions in this matrix.
+         # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
+         - helm-version: v3.8.2
+           plugin-secrets-version: 3.15.0
+           extra-helmfile-flags:
+         - helm-version: v3.8.2
+           # We assume that the helm-secrets plugin is supposed to
+           # work with the two most recent helm minor versions.
+           # Once it turned out to be not practically true,
+           # we will mark this combination as failable,
+           # and instruct users to upgrade helm and helm-secrets at once.
+           plugin-secrets-version: 4.0.0
+           extra-helmfile-flags:
+         - helm-version: v3.9.4
+           plugin-secrets-version: 3.15.0
+           extra-helmfile-flags:
+         - helm-version: v3.9.4
+           plugin-secrets-version: 4.0.0
+           extra-helmfile-flags:
+         # In case you need to test some optional helmfile features,
+         # enable it via extra-helmfile-flags below.
+         - helm-version: v3.9.4
+           plugin-secrets-version: 4.0.0
+           extra-helmfile-flags: "--enable-live-output"
     steps:
     - uses: actions/checkout@v2
     - name: Cache libraries
@@ -102,4 +118,5 @@ jobs:
         HELM_SECRETS_VERSION: ${{ matrix.plugin-secrets-version }}
         HELMFILE_HELM3: 1
         TERM: xterm
+        EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
       run: make integration
