@@ -1,6 +1,4 @@
 
-Running preapply hook for foo:
-
 hook[preapply] logs | foo
 hook[preapply] logs | 
 
