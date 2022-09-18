@@ -80,12 +80,6 @@ type ReleaseSetSpec struct {
 	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
 }
 
-// PullCommand is a command to pull a chart
-type PullCommand struct {
-	ChartRef     string
-	responseChan chan error
-}
-
 // HelmState structure for the helmfile
 type HelmState struct {
 	basePath string
@@ -1064,11 +1058,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	}
 
 	var builds []*chartPrepareResult
-	pullChan := make(chan PullCommand)
-	defer func() {
-		close(pullChan)
-	}()
-	go st.pullChartWorker(pullChan, helm)
 
 	st.scatterGather(
 		concurrency,
@@ -1104,7 +1093,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				chartFetchedByGoGetter := chartPath != chartName
 
 				if !chartFetchedByGoGetter {
-					ociChartPath, err := st.getOCIChart(pullChan, release, dir, helm)
+					ociChartPath, err := st.getOCIChart(release, dir, helm)
 					if err != nil {
 						results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
 
@@ -3286,7 +3275,7 @@ func (st *HelmState) Reverse() {
 	}
 }
 
-func (st *HelmState) getOCIChart(pullChan chan PullCommand, release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
+func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
 	repo, name := st.GetRepositoryAndNameFromChartName(release.Chart)
 	if repo == nil {
 		return nil, nil
@@ -3303,11 +3292,6 @@ func (st *HelmState) getOCIChart(pullChan chan PullCommand, release *ReleaseSpec
 
 	qualifiedChartName := fmt.Sprintf("%s/%s:%s", repo.URL, name, chartVersion)
 
-	err := st.pullChart(pullChan, qualifiedChartName)
-	if err != nil {
-		return nil, err
-	}
-
 	pathElems := []string{
 		tempDir,
 	}
@@ -3323,6 +3307,11 @@ func (st *HelmState) getOCIChart(pullChan chan PullCommand, release *ReleaseSpec
 	pathElems = append(pathElems, release.Name, name, chartVersion)
 
 	chartPath := path.Join(pathElems...)
+
+	err := helm.ChartPull(qualifiedChartName, chartPath)
+	if err != nil {
+		return nil, err
+	}
 	err = helm.ChartExport(qualifiedChartName, chartPath)
 	if err != nil {
 		return nil, err
@@ -3336,23 +3325,4 @@ func (st *HelmState) getOCIChart(pullChan chan PullCommand, release *ReleaseSpec
 	chartPath = filepath.Dir(fullChartPath)
 
 	return &chartPath, nil
-}
-
-// Pull charts one by one to prevent concurrent pull problems with Helm
-func (st *HelmState) pullChartWorker(pullChan chan PullCommand, helm helmexec.Interface) {
-	for pullCmd := range pullChan {
-		err := helm.ChartPull(pullCmd.ChartRef)
-		pullCmd.responseChan <- err
-	}
-}
-
-// Send a pull command to the pull worker
-func (st *HelmState) pullChart(pullChan chan PullCommand, chartRef string) error {
-	response := make(chan error, 1)
-	cmd := PullCommand{
-		responseChan: response,
-		ChartRef:     chartRef,
-	}
-	pullChan <- cmd
-	return <-response
 }

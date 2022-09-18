@@ -22,7 +22,7 @@ func (helm *noCallHelmExec) TemplateRelease(name, chart string, flags ...string)
 	helm.doPanic()
 	return nil
 }
-func (helm *noCallHelmExec) ChartPull(chart string, flags ...string) error {
+func (helm *noCallHelmExec) ChartPull(chart string, path string, flags ...string) error {
 	helm.doPanic()
 	return nil
 }
