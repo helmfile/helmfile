@@ -1,0 +1,19 @@
+repositories:
+- name: myrepo
+  url: localhost:5000/myrepo
+  oci: true
+
+releases:
+- name: foo
+  chart: myrepo/raw
+  version: 0.1.0
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: {{`{{ .Release.Name }}`}}
+        namespace: {{`{{ .Release.Namespace }}`}}
+      data:
+        foo: FOO
