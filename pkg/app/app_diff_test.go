@@ -22,6 +22,7 @@ func TestDiffWithNeeds(t *testing.T) {
 		skipNeeds              bool
 		includeNeeds           bool
 		includeTransitiveNeeds bool
+		noHooks                bool
 	}
 
 	type testcase struct {
@@ -154,6 +155,7 @@ releases:
 				skipNeeds:              tc.fields.skipNeeds,
 				includeNeeds:           tc.fields.includeNeeds,
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
+				noHooks:                tc.fields.noHooks,
 			})
 
 			var gotErr string
@@ -293,6 +295,20 @@ releases:
 			diffed: []exectest.Release{
 				{Name: "test2", Flags: []string{"--kube-context", "default"}},
 				{Name: "test3", Flags: []string{"--kube-context", "default"}},
+			},
+		})
+	})
+
+	t.Run("no-hooks", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds: true,
+				noHooks:   true,
+			},
+			selectors: []string{"app=test"},
+			diffed: []exectest.Release{
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks"}},
 			},
 		})
 	})
