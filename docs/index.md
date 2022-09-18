@@ -518,10 +518,13 @@ Flags:
   -c, --chart string                    Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}
       --color                           Output with color
       --debug                           Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
+      --enable-live-output              Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
+                                        It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.
   -e, --environment string              specify the environment name. defaults to "default"
   -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
   -b, --helm-binary string              Path to the helm binary (default "helm")
   -h, --help                            help for helmfile
+  -i, --interactive                     Request confirmation before attempting to modify clusters
       --kube-context string             Set kubectl context. Uses current context by default
       --log-level string                Set log level, default info (default "info")
   -n, --namespace string                Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
