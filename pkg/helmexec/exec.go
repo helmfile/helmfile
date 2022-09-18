@@ -466,7 +466,7 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 		// in the 3.7.0 version, the chart pull has been replaced with helm pull
 		// https://github.com/helm/helm/releases/tag/v3.7.0
 		ociChartURL, ociChartTag := resolveOciChart(chart)
-		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--destination", path}
+		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--destination", path, "--untar"}
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
 	}
