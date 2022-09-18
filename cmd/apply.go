@@ -10,12 +10,13 @@ import (
 // NewApplyCmd returns apply subcmd
 func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	applyOptions := &config.ApplyOptions{}
-	applyImpl := config.NewApplyImpl(globalCfg, applyOptions)
 
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Apply all resources from state file only when there are changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			applyImpl := config.NewApplyImpl(globalCfg, applyOptions)
+
 			err := config.NewCLIConfigImpl(applyImpl.GlobalImpl)
 			if err != nil {
 				return err
