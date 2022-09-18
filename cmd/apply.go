@@ -50,6 +50,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&applyOptions.Suppress, "suppress", nil, "suppress specified Kubernetes objects in the diff output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
 	f.BoolVar(&applyOptions.SuppressSecrets, "suppress-secrets", false, "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases")
 	f.BoolVar(&applyOptions.ShowSecrets, "show-secrets", false, "do not redact secret values in the diff output. should be used for debug purpose only")
+	f.BoolVar(&applyOptions.NoHooks, "no-hooks", false, "do not diff changes made by hooks.")
 	f.BoolVar(&applyOptions.SuppressDiff, "suppress-diff", false, "suppress diff in the output. Usable in new installs")
 	f.BoolVar(&applyOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	f.BoolVarP(&applyOptions.Interactive, "interactive", "i", false, "Request confirmation before attempting to modify clusters")

@@ -32,6 +32,7 @@ type diffConfig struct {
 	suppress               []string
 	suppressSecrets        bool
 	showSecrets            bool
+	noHooks                bool
 	suppressDiff           bool
 	noColor                bool
 	context                int
@@ -95,6 +96,10 @@ func (a diffConfig) ShowSecrets() bool {
 	return a.showSecrets
 }
 
+func (a diffConfig) NoHooks() bool {
+	return a.noHooks
+}
+
 func (a diffConfig) SuppressDiff() bool {
 	return a.suppressDiff
 }
@@ -143,6 +148,7 @@ func TestDiff(t *testing.T) {
 	type flags struct {
 		skipNeeds    bool
 		includeNeeds bool
+		noHooks      bool
 	}
 
 	testcases := []struct {
@@ -1377,6 +1383,7 @@ changing working directory back to "/path/to"
 					detailedExitcode: tc.detailedExitcode,
 					skipNeeds:        tc.flags.skipNeeds,
 					includeNeeds:     tc.flags.includeNeeds,
+					noHooks:          tc.flags.noHooks,
 				})
 
 				var diffErrStr string

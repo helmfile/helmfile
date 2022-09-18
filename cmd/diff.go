@@ -43,6 +43,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&diffOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	f.BoolVar(&diffOptions.SkipDiffOnInstall, "skip-diff-on-install", false, "Skips running helm-diff on releases being newly installed on this apply. Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all")
 	f.BoolVar(&diffOptions.ShowSecrets, "show-secrets", false, "do not redact secret values in the output. should be used for debug purpose only")
+	f.BoolVar(&diffOptions.NoHooks, "no-hooks", false, "do not diff changes made by hooks.")
 	f.BoolVar(&diffOptions.DetailedExitcode, "detailed-exitcode", false, "return a detailed exit code")
 	f.IntVar(&diffOptions.Context, "context", 0, "output NUM lines of context around changes")
 	f.StringVar(&diffOptions.Output, "output", "", "output format for diff plugin")
