@@ -61,7 +61,7 @@ func (t *SyncImpl) Concurrency() int {
 
 // IncludeNeeds returns the include needs
 func (t *SyncImpl) IncludeNeeds() bool {
-	return t.SyncOptions.IncludeNeeds || t.SyncOptions.IncludeTransitiveNeeds
+	return t.SyncOptions.IncludeNeeds || t.IncludeTransitiveNeeds()
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs
@@ -81,7 +81,7 @@ func (t *SyncImpl) SkipDeps() bool {
 
 // SkipNeeds returns the skip needs
 func (t *SyncImpl) SkipNeeds() bool {
-	if !t.SyncOptions.IncludeNeeds {
+	if !t.IncludeNeeds() {
 		return t.SyncOptions.SkipNeeds
 	}
 

@@ -2488,12 +2488,12 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 	return []byte{}, nil
 }
 
-func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
+func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	return []byte{}, nil
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
-	execer := helmexec.New("helm", logger, kubeContext, &mockRunner{})
+	execer := helmexec.New("helm", false, logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -2537,6 +2537,8 @@ func (helm *mockHelmExec) BuildDeps(name, chart string) error {
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 }
 func (helm *mockHelmExec) SetHelmBinary(bin string) {
+}
+func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
 }
 func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.repos = append(helm.repos, mockRepo{Name: name})

@@ -24,7 +24,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
-	github.com/urfave/cli v1.22.10
 	github.com/variantdev/chartify v0.10.2
 	github.com/variantdev/dag v1.1.0
 	github.com/variantdev/vals v0.18.0
@@ -34,6 +33,7 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
+	helm.sh/helm/v3 v3.8.1
 	k8s.io/apimachinery v0.24.4
 )
 
@@ -62,7 +62,6 @@ require (
 	github.com/aws/aws-sdk-go v1.40.28 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fujiwara/tfstate-lookup v0.4.4 // indirect
@@ -107,7 +106,6 @@ require (
 	github.com/pbnjay/strptime v0.0.0-20140226051138-5c05b0d668c9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
@@ -191,7 +189,6 @@ require (
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	helm.sh/helm/v3 v3.8.1 // indirect
 	k8s.io/api v0.23.4 // indirect
 	k8s.io/cli-runtime v0.23.4 // indirect
 	k8s.io/client-go v0.23.4 // indirect

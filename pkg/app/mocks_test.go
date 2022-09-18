@@ -46,6 +46,9 @@ func (helm *noCallHelmExec) SetExtraArgs(args ...string) {
 func (helm *noCallHelmExec) SetHelmBinary(bin string) {
 	helm.doPanic()
 }
+func (helm *noCallHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+	helm.doPanic()
+}
 func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.doPanic()
 	return nil

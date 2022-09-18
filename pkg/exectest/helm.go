@@ -89,6 +89,8 @@ func (helm *Helm) SetExtraArgs(args ...string) {
 }
 func (helm *Helm) SetHelmBinary(bin string) {
 }
+func (helm *Helm) SetEnableLiveOutput(enableLiveOutput bool) {
+}
 func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, passCredentials, skipTLSVerify}
 	return nil

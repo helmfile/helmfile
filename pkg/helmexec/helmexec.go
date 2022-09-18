@@ -11,6 +11,7 @@ type Version struct {
 type Interface interface {
 	SetExtraArgs(args ...string)
 	SetHelmBinary(bin string)
+	SetEnableLiveOutput(enableLiveOutput bool)
 
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error
 	UpdateRepo() error
