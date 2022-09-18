@@ -33,6 +33,7 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
+	helm.sh/helm/v3 v3.8.1
 	k8s.io/apimachinery v0.24.4
 )
 
@@ -188,7 +189,6 @@ require (
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	helm.sh/helm/v3 v3.8.1 // indirect
 	k8s.io/api v0.23.4 // indirect
 	k8s.io/cli-runtime v0.23.4 // indirect
 	k8s.io/client-go v0.23.4 // indirect

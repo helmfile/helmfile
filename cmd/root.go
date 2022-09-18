@@ -68,16 +68,8 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 	// Set the global options for the root command.
 	setGlobalOptionsForRootCmd(flags, globalConfig)
 
-	// We can safely ignore any errors that flags.Parse encounters since
-	// those errors will be caught later during the call to cmd.Execution.
-	// This call is required to gather configuration information prior to
-	// execution.
 	flags.ParseErrorsWhitelist.UnknownFlags = true
 
-	err := flags.Parse(args)
-	if err != nil {
-		return nil, err
-	}
 	globalImpl := config.NewGlobalImpl(globalConfig)
 	cmd.AddCommand(
 		NewApplyCmd(globalImpl),
