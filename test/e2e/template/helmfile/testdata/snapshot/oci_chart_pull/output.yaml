@@ -1,0 +1,15 @@
+Pulling localhost:5000/myrepo/raw:0.1.0
+Pulled: localhost:5000/myrepo/raw:0.1.0
+Digest: $DIGEST
+
+Templating release=foo, chart=$TMP/foo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo
+  namespace: default
+data:
+  foo: FOO
+

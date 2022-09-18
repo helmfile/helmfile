@@ -733,7 +733,7 @@ exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
 			chartPath:   "path1",
 			chartFlags:  []string{"--untardir", "/tmp/dir"},
 			listResult: `Pulling repo/helm-charts:0.14.0
-exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untardir /tmp/dir
+exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
 `,
 		},
 	}
