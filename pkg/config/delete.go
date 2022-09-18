@@ -10,8 +10,6 @@ type DeleteOptions struct {
 	Purge bool
 	// SkipDeps is the skip deps flag
 	SkipDeps bool
-	// Interactive is true if the user should be prompted for input.
-	Interactive bool
 }
 
 // NewDeleteOptions creates a new Apply
@@ -51,9 +49,4 @@ func (c *DeleteImpl) Purge() bool {
 // SkipDeps returns the skip deps
 func (c *DeleteImpl) SkipDeps() bool {
 	return c.DeleteOptions.SkipDeps
-}
-
-// Interactive returns the Interactive
-func (c *DeleteImpl) Interactive() bool {
-	return c.DeleteOptions.Interactive
 }

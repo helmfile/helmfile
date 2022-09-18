@@ -46,6 +46,8 @@ type GlobalOptions struct {
 	logger *zap.SugaredLogger
 	// EnableLiveOutput enables live output from the Helm binary stdout/stderr into Helmfile own stdout/stderr
 	EnableLiveOutput bool
+	// Interactive is true if the user should be prompted for input.
+	Interactive bool
 }
 
 // Logger returns the logger to use.
@@ -178,4 +180,9 @@ func (g *GlobalImpl) ValidateConfig() error {
 		return errors.New("--color and --no-color cannot be specified at the same time")
 	}
 	return nil
+}
+
+// Interactive returns the Interactive
+func (g *GlobalImpl) Interactive() bool {
+	return g.GlobalOptions.Interactive
 }
