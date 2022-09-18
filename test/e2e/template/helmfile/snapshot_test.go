@@ -106,11 +106,14 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 					hostPort = 5000
 				}
 
-				execDocker(t, "run", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--restart=always", "--name", containerName, "registry:2")
+				execDocker(t, "run", "--rm", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--name", containerName, "registry:2")
 				t.Cleanup(func() {
 					execDocker(t, "stop", containerName)
-					execDocker(t, "rm", containerName)
 				})
+
+				// FIXME: this is a hack to wait for registry to be up and running
+				// please replace with proper wait for registry
+				time.Sleep(5 * time.Second)
 
 				// We helm-package and helm-push every test chart saved in the ./testdata/charts directory
 				// to the local registry, so that they can be accessed by helmfile and helm invoked while testing.

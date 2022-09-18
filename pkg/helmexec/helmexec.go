@@ -11,6 +11,7 @@ type Version struct {
 type Interface interface {
 	SetExtraArgs(args ...string)
 	SetHelmBinary(bin string)
+	SetEnableLiveOutput(enableLiveOutput bool)
 
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error
 	UpdateRepo() error
@@ -21,7 +22,7 @@ type Interface interface {
 	DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error
 	TemplateRelease(name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
-	ChartPull(chart string, flags ...string) error
+	ChartPull(chart string, path string, flags ...string) error
 	ChartExport(chart string, path string, flags ...string) error
 	Lint(name, chart string, flags ...string) error
 	ReleaseStatus(context HelmContext, name string, flags ...string) error

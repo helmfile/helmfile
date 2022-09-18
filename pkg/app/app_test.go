@@ -2220,6 +2220,7 @@ type configImpl struct {
 	skipNeeds              bool
 	includeNeeds           bool
 	includeTransitiveNeeds bool
+	skipCharts             bool
 }
 
 func (c configImpl) Selectors() []string {
@@ -2292,6 +2293,10 @@ func (c configImpl) EmbedValues() bool {
 
 func (c configImpl) Output() string {
 	return c.output
+}
+
+func (c configImpl) SkipCharts() bool {
+	return c.skipCharts
 }
 
 type applyConfig struct {
@@ -2475,6 +2480,10 @@ func (d depsConfig) Args() string {
 	return ""
 }
 
+func (d depsConfig) Concurrency() int {
+	return 2
+}
+
 // Mocking the command-line runner
 
 type mockRunner struct {
@@ -2484,12 +2493,12 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 	return []byte{}, nil
 }
 
-func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
+func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	return []byte{}, nil
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
-	execer := helmexec.New("helm", logger, kubeContext, &mockRunner{})
+	execer := helmexec.New("helm", false, logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -2514,7 +2523,7 @@ func (helm *mockHelmExec) TemplateRelease(name, chart string, flags ...string) e
 	return nil
 }
 
-func (helm *mockHelmExec) ChartPull(chart string, flags ...string) error {
+func (helm *mockHelmExec) ChartPull(chart string, path string, flags ...string) error {
 	return nil
 }
 
@@ -2533,6 +2542,8 @@ func (helm *mockHelmExec) BuildDeps(name, chart string) error {
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 }
 func (helm *mockHelmExec) SetHelmBinary(bin string) {
+}
+func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
 }
 func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.repos = append(helm.repos, mockRepo{Name: name})
@@ -4620,64 +4631,6 @@ myrelease3	         	true   	true     	                          	mychart1
 myrelease4	         	true   	true     	id:myrelease1             	mychart1	       
 `
 
-	assert.Equal(t, expected, out)
-}
-
-func TestListWithJsonOutput(t *testing.T) {
-	files := map[string]string{
-		"/path/to/helmfile.d/first.yaml": `
-environments:
-  default:
-    values:
-     - myrelease2:
-         enabled: false
-releases:
-- name: myrelease1
-  chart: mychart1
-  installed: no
-  labels:
-    id: myrelease1
-- name: myrelease2
-  chart: mychart1
-  condition: myrelease2.enabled
-`,
-		"/path/to/helmfile.d/second.yaml": `
-releases:
-- name: myrelease3
-  chart: mychart1
-  installed: yes
-- name: myrelease4
-  chart: mychart1
-  labels:
-    id: myrelease1
-`,
-	}
-	stdout := os.Stdout
-	defer func() { os.Stdout = stdout }()
-
-	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
-
-	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		fs:                  ffs.DefaultFileSystem(),
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
-		Namespace:           "testNamespace",
-	}, files)
-
-	expectNoCallsToHelm(app)
-
-	out := testutil.CaptureStdout(func() {
-		err := app.ListReleases(configImpl{
-			output: "json",
-		})
-		assert.Nil(t, err)
-	})
-
-	expected := `[{"name":"myrelease1","namespace":"","enabled":true,"installed":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"","enabled":false,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"","enabled":true,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"","enabled":true,"installed":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
-`
 	assert.Equal(t, expected, out)
 }
 

@@ -71,7 +71,7 @@ func (t *DiffImpl) Concurrency() int {
 
 // IncludeNeeds returns the include needs
 func (t *DiffImpl) IncludeNeeds() bool {
-	return t.DiffOptions.IncludeNeeds || t.DiffOptions.IncludeTransitiveNeeds
+	return t.DiffOptions.IncludeNeeds || t.IncludeTransitiveNeeds()
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs
@@ -91,7 +91,7 @@ func (t *DiffImpl) SkipDeps() bool {
 
 // SkipNeeds returns the skip needs
 func (t *DiffImpl) SkipNeeds() bool {
-	if !t.DiffOptions.IncludeNeeds {
+	if !t.IncludeNeeds() {
 		return t.DiffOptions.SkipNeeds
 	}
 

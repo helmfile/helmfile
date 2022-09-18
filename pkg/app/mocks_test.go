@@ -22,7 +22,7 @@ func (helm *noCallHelmExec) TemplateRelease(name, chart string, flags ...string)
 	helm.doPanic()
 	return nil
 }
-func (helm *noCallHelmExec) ChartPull(chart string, flags ...string) error {
+func (helm *noCallHelmExec) ChartPull(chart string, path string, flags ...string) error {
 	helm.doPanic()
 	return nil
 }
@@ -44,6 +44,9 @@ func (helm *noCallHelmExec) SetExtraArgs(args ...string) {
 	helm.doPanic()
 }
 func (helm *noCallHelmExec) SetHelmBinary(bin string) {
+	helm.doPanic()
+}
+func (helm *noCallHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
 	helm.doPanic()
 }
 func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {

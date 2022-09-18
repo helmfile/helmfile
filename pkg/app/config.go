@@ -5,6 +5,7 @@ import "go.uber.org/zap"
 type ConfigProvider interface {
 	Args() string
 	HelmBinary() string
+	EnableLiveOutput() bool
 
 	FileOrDir() string
 	KubeContext() string
@@ -30,6 +31,8 @@ type DepsConfigProvider interface {
 	Args() string
 	SkipRepos() bool
 	IncludeTransitiveNeeds() bool
+
+	concurrencyConfig
 }
 
 type ReposConfigProvider interface {
@@ -208,6 +211,8 @@ type WriteValuesConfigProvider interface {
 	SkipDeps() bool
 	SkipCleanup() bool
 	IncludeTransitiveNeeds() bool
+
+	concurrencyConfig
 }
 
 type StatusesConfigProvider interface {
@@ -234,6 +239,7 @@ type interactive interface {
 
 type ListConfigProvider interface {
 	Output() string
+	SkipCharts() bool
 }
 
 type CacheConfigProvider interface{}

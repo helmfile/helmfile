@@ -44,6 +44,8 @@ type GlobalOptions struct {
 	AllowNoMatchingRelease bool
 	// logger is the logger to use.
 	logger *zap.SugaredLogger
+	// EnableLiveOutput enables live output from the Helm binary stdout/stderr into Helmfile own stdout/stderr
+	EnableLiveOutput bool
 }
 
 // Logger returns the logger to use.
@@ -120,6 +122,11 @@ func (g *GlobalImpl) StateValuesFiles() []string {
 	return g.GlobalOptions.StateValuesFile
 }
 
+// EnableLiveOutput return when to pipe the stdout and stderr from Helm live to the helmfile stdout
+func (g *GlobalImpl) EnableLiveOutput() bool {
+	return g.GlobalOptions.EnableLiveOutput
+}
+
 // Logger returns the logger
 func (g *GlobalImpl) Logger() *zap.SugaredLogger {
 	return g.GlobalOptions.logger
@@ -135,7 +142,7 @@ func (g *GlobalImpl) Color() bool {
 	}
 
 	// We replicate the helm-diff behavior in helmfile
-	// because when when helmfile calls helm-diff, helm-diff has no access to term and therefore
+	// because when helmfile calls helm-diff, helm-diff has no access to term and therefore
 	// we can't rely on helm-diff's ability to auto-detect term for color output.
 	// See https://github.com/roboll/helmfile/issues/2043
 

@@ -28,6 +28,7 @@ import (
 type App struct {
 	OverrideKubeContext string
 	OverrideHelmBinary  string
+	EnableLiveOutput    bool
 
 	Logger      *zap.SugaredLogger
 	Env         string
@@ -64,6 +65,7 @@ func New(conf ConfigProvider) *App {
 	return Init(&App{
 		OverrideKubeContext: conf.KubeContext(),
 		OverrideHelmBinary:  conf.HelmBinary(),
+		EnableLiveOutput:    conf.EnableLiveOutput(),
 		Logger:              conf.Logger(),
 		Env:                 conf.Env(),
 		Namespace:           conf.Namespace(),
@@ -84,6 +86,10 @@ func Init(app *App) *App {
 		panic(fmt.Sprintf("Failed to initialize vals runtime: %v", err))
 	}
 
+	if app.EnableLiveOutput {
+		app.Logger.Info("Live output is enabled")
+	}
+
 	return app
 }
 
@@ -93,6 +99,7 @@ func (a *App) Deps(c DepsConfigProvider) error {
 			SkipRepos:   c.SkipRepos(),
 			SkipDeps:    true,
 			SkipResolve: true,
+			Concurrency: c.Concurrency(),
 		}, func() {
 			errs = run.Deps(c)
 		})
@@ -120,8 +127,9 @@ func (a *App) Repos(c ReposConfigProvider) error {
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: 2,
 		}, func() {
 			errs = run.DeprecatedSyncCharts(c)
 		})
@@ -155,6 +163,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			SkipDeps:    c.SkipDeps(),
 			IncludeCRDs: &includeCRDs,
 			Validate:    c.Validate(),
+			Concurrency: c.Concurrency(),
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
@@ -210,6 +219,9 @@ func (a *App) Template(c TemplateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := c.IncludeCRDs()
 
+		// Live output should never be enabled for the "template" subcommand to avoid breaking `helmfile template | kubectl apply -f -`
+		run.helm.SetEnableLiveOutput(false)
+
 		// `helm template` in helm v2 does not support local chart.
 		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
@@ -219,6 +231,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			IncludeCRDs:   &includeCRDs,
 			SkipCleanup:   c.SkipCleanup(),
 			Validate:      c.Validate(),
+			Concurrency:   c.Concurrency(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -240,6 +253,7 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
 			SkipCleanup:   c.SkipCleanup(),
+			Concurrency:   c.Concurrency(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
 		})
@@ -290,6 +304,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
 			SkipCleanup:   c.SkipCleanup(),
+			Concurrency:   c.Concurrency(),
 		}, func() {
 			ok, lintErrs, errs = a.lint(run, c)
 		})
@@ -323,6 +338,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			SkipRepos:     c.SkipDeps(),
 			SkipDeps:      c.SkipDeps(),
 			OutputDir:     c.OutputDir(),
+			Concurrency:   c.Concurrency(),
 		}, func() {
 		})
 
@@ -346,6 +362,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeCRDs:            &includeCRDs,
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 			Validate:               c.Validate(),
+			Concurrency:            c.Concurrency(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -378,6 +395,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			IncludeCRDs: &includeCRDs,
 			SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 			Validate:    c.Validate(),
+			Concurrency: c.Concurrency(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -411,8 +429,9 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("status", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: c.Concurrency(),
 		}, func() {
 			ok, errs = a.status(run, c)
 		})
@@ -428,8 +447,9 @@ func (a *App) Status(c StatusesConfigProvider) error {
 func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
-			SkipDeps:  c.SkipDeps(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			Concurrency: c.Concurrency(),
 		}, func() {
 			ok, errs = a.delete(run, c.Purge(), c)
 		})
@@ -445,8 +465,9 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
-			SkipDeps:  c.SkipDeps(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			Concurrency: c.Concurrency(),
 		}, func() {
 			ok, errs = a.delete(run, true, c)
 		})
@@ -468,8 +489,9 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
-			SkipRepos: c.SkipDeps(),
-			SkipDeps:  c.SkipDeps(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			Concurrency: c.Concurrency(),
 		}, func() {
 			errs = a.test(run, c)
 		})
@@ -485,8 +507,9 @@ func (a *App) Test(c TestConfigProvider) error {
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: 2,
 		}, func() {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
@@ -533,53 +556,30 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	var releases []*HelmRelease
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("list", state.ChartPrepareOptions{
-			SkipRepos: true,
-			SkipDeps:  true,
-		}, func() {
-			// var releases m
-			for _, r := range run.state.Releases {
-				labels := ""
-				if r.Labels == nil {
-					r.Labels = map[string]string{}
-				}
-				for k, v := range run.state.CommonLabels {
-					r.Labels[k] = v
-				}
+		var stateReleases []*HelmRelease
+		var err error
 
-				var keys []string
-				for k := range r.Labels {
-					keys = append(keys, k)
-				}
-				sort.Strings(keys)
-
-				for _, k := range keys {
-					v := r.Labels[k]
-					labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
-				}
-				labels = strings.Trim(labels, ",")
-
-				enabled, err := state.ConditionEnabled(r, run.state.Values())
+		if !c.SkipCharts() {
+			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
+				SkipRepos:   true,
+				SkipDeps:    true,
+				Concurrency: 2,
+			}, func() {
+				rel, err := a.list(run)
 				if err != nil {
 					panic(err)
 				}
-
-				installed := r.Installed == nil || *r.Installed
-				releases = append(releases, &HelmRelease{
-					Name:      r.Name,
-					Namespace: r.Namespace,
-					Installed: installed,
-					Enabled:   enabled,
-					Labels:    labels,
-					Chart:     r.Chart,
-					Version:   r.Version,
-				})
-			}
-		})
+				stateReleases = rel
+			})
+		} else {
+			stateReleases, err = a.list(run)
+		}
 
 		if err != nil {
 			errs = append(errs, err)
 		}
+
+		releases = append(releases, stateReleases...)
 
 		return
 	}, false, SetFilter(true))
@@ -595,6 +595,50 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 	}
 
 	return err
+}
+
+func (a *App) list(run *Run) ([]*HelmRelease, error) {
+	var releases []*HelmRelease
+
+	for _, r := range run.state.Releases {
+		labels := ""
+		if r.Labels == nil {
+			r.Labels = map[string]string{}
+		}
+		for k, v := range run.state.CommonLabels {
+			r.Labels[k] = v
+		}
+
+		var keys []string
+		for k := range r.Labels {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			v := r.Labels[k]
+			labels = fmt.Sprintf("%s,%s:%s", labels, k, v)
+		}
+		labels = strings.Trim(labels, ",")
+
+		enabled, err := state.ConditionEnabled(r, run.state.Values())
+		if err != nil {
+			return nil, err
+		}
+
+		installed := r.Installed == nil || *r.Installed
+		releases = append(releases, &HelmRelease{
+			Name:      r.Name,
+			Namespace: r.Namespace,
+			Installed: installed,
+			Enabled:   enabled,
+			Labels:    labels,
+			Chart:     r.Chart,
+			Version:   r.Version,
+		})
+	}
+
+	return releases, nil
 }
 
 func (a *App) within(dir string, do func() error) error {
@@ -682,6 +726,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 
 		overrideKubeContext: a.OverrideKubeContext,
 		overrideHelmBinary:  a.OverrideHelmBinary,
+		enableLiveOutput:    a.EnableLiveOutput,
 		getHelm:             a.getHelm,
 		valsRuntime:         a.valsRuntime,
 	}
@@ -720,7 +765,7 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 	key := createHelmKey(bin, kubectx)
 
 	if _, ok := a.helms[key]; !ok {
-		a.helms[key] = helmexec.New(bin, a.Logger, kubectx, &helmexec.ShellRunner{
+		a.helms[key] = helmexec.New(bin, a.EnableLiveOutput, a.Logger, kubectx, &helmexec.ShellRunner{
 			Logger: a.Logger,
 		})
 	}

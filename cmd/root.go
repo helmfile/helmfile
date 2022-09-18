@@ -6,12 +6,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/urfave/cli"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/app/version"
 	"github.com/helmfile/helmfile/pkg/config"
+	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
@@ -26,11 +26,11 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 			if g.AllowNoMatchingRelease {
 				noMatchingExitCode = 0
 			}
-			return cli.NewExitError(e.Error(), noMatchingExitCode)
+			return errors.NewExitError(e.Error(), noMatchingExitCode)
 		case *app.MultiError:
-			return cli.NewExitError(e.Error(), 1)
+			return errors.NewExitError(e.Error(), 1)
 		case *app.Error:
-			return cli.NewExitError(e.Error(), e.Code())
+			return errors.NewExitError(e.Error(), e.Code())
 		default:
 			panic(fmt.Errorf("BUG: please file an github issue for this unhandled error: %T: %v", e, e))
 		}
@@ -41,12 +41,13 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 // NewRootCmd creates the root command for the CLI.
 func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Command, error) {
 	cmd := &cobra.Command{
-		Use:          "helmfile",
-		Short:        globalUsage,
-		Long:         globalUsage,
-		Args:         cobra.MinimumNArgs(1),
-		Version:      version.GetVersion(),
-		SilenceUsage: true,
+		Use:           "helmfile",
+		Short:         globalUsage,
+		Long:          globalUsage,
+		Args:          cobra.MinimumNArgs(1),
+		Version:       version.GetVersion(),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// Valid levels:
 			// https://github.com/uber-go/zap/blob/7e7e266a8dbce911a49554b945538c5b950196b8/zapcore/level.go#L126
@@ -67,16 +68,8 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 	// Set the global options for the root command.
 	setGlobalOptionsForRootCmd(flags, globalConfig)
 
-	// We can safely ignore any errors that flags.Parse encounters since
-	// those errors will be caught later during the call to cmd.Execution.
-	// This call is required to gather configuration information prior to
-	// execution.
 	flags.ParseErrorsWhitelist.UnknownFlags = true
 
-	err := flags.Parse(args)
-	if err != nil {
-		return nil, err
-	}
 	globalImpl := config.NewGlobalImpl(globalConfig)
 	cmd.AddCommand(
 		NewApplyCmd(globalImpl),
@@ -116,11 +109,13 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.StringVar(&globalOptions.LogLevel, "log-level", "info", "Set log level, default info")
 	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}")
 	fs.StringVarP(&globalOptions.Chart, "chart", "c", "", "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}")
-	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
-	A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
-	--selector tier=frontend,tier!=proxy --selector tier=backend. Will match all frontend, non-proxy releases AND all backend releases.
-	The name of a release can be used as a label. --selector name=myrelease`)
+	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar. 
+A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
+"--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
+The name of a release can be used as a label: "--selector name=myrelease"`)
 	fs.BoolVar(&globalOptions.AllowNoMatchingRelease, "allow-no-matching-release", false, `Do not exit with an error code if the provided selector has no matching releases.`)
+	fs.BoolVar(&globalOptions.EnableLiveOutput, "enable-live-output", globalOptions.EnableLiveOutput, `Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
+	It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.`)
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")
 }

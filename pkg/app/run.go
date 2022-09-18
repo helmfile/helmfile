@@ -68,7 +68,9 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		return err
 	}
 
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, 2, helmfileCommand, opts)
+	concurrency := opts.Concurrency
+
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%v", errs)

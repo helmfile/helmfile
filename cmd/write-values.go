@@ -31,7 +31,7 @@ func NewWriteValuesCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.IntVar(&writeValuesOptions.Concurrency, "concurrency", 0, "maximum number of concurrent downloads of release charts")
+	f.IntVar(&writeValuesOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&writeValuesOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	f.StringArrayVar(&writeValuesOptions.Set, "set", nil, "additional values to be merged into the command")
 	f.StringArrayVar(&writeValuesOptions.Values, "values", nil, "additional value files to be merged into the command")

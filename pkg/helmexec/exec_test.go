@@ -29,13 +29,13 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 	return mock.output, mock.err
 }
 
-func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
+func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	return mock.output, mock.err
 }
 
 // nolint: golint
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
-	execer := New("helm", logger, kubeContext, &mockRunner{})
+	execer := New("helm", false, logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -79,6 +79,17 @@ func Test_SetHelmBinary(t *testing.T) {
 	helm.SetHelmBinary("foo")
 	if helm.helmBinary != "foo" {
 		t.Errorf("helmexec.SetHelmBinary() - actual = %s expect = foo", helm.helmBinary)
+	}
+}
+
+func Test_SetEnableLiveOutput(t *testing.T) {
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	if helm.enableLiveOutput {
+		t.Error("helmexec.enableLiveOutput should not be enabled by default")
+	}
+	helm.SetEnableLiveOutput(true)
+	if !helm.enableLiveOutput {
+		t.Errorf("helmexec.SetEnableLiveOutput() - actual = %t expect = true", helm.enableLiveOutput)
 	}
 }
 
@@ -353,6 +364,15 @@ exec: helm --kube-context dev dependency build ./chart/foo --verify
 }
 
 func Test_DecryptSecret(t *testing.T) {
+	// Set secrets plugin version to 4.0.0
+	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.0.0"); err != nil {
+		t.Errorf("failed to set environment HELM_PLUGINS error: %s", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("HELM_PLUGINS"); err != nil {
+			t.Errorf("failed to unset environment HELM_PLUGINS error: %s", err)
+		}
+	}()
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
@@ -375,7 +395,7 @@ func Test_DecryptSecret(t *testing.T) {
 
 	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName
 Decrypting secret %s/secretName
-exec: helm --kube-context dev secrets view %s/secretName
+exec: helm --kube-context dev secrets decrypt %s/secretName
 Decrypted %s/secretName into %s
 Preparing to decrypt secret %s/secretName
 Found secret in cache %s/secretName
@@ -393,6 +413,15 @@ Decrypted %s/secretName into %s
 }
 
 func Test_DecryptSecretWithGotmpl(t *testing.T) {
+	// Set secrets plugin version to 4.0.0
+	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.0.0"); err != nil {
+		t.Errorf("failed to set environment HELM_PLUGINS error: %s", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("HELM_PLUGINS"); err != nil {
+			t.Errorf("failed to unset environment HELM_PLUGINS error: %s", err)
+		}
+	}()
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "dev")
@@ -414,7 +443,7 @@ func Test_DecryptSecretWithGotmpl(t *testing.T) {
 
 	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName.yaml.gotmpl
 Decrypting secret %s/secretName.yaml.gotmpl
-exec: helm --kube-context dev secrets view %s/secretName.yaml.gotmpl
+exec: helm --kube-context dev secrets decrypt %s/secretName.yaml.gotmpl
 Decrypted %s/secretName.yaml.gotmpl into %s
 `, cwd, cwd, cwd, cwd, tmpFilePath)
 	if err != nil {
@@ -564,7 +593,7 @@ func Test_exec(t *testing.T) {
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "")
 	env := map[string]string{}
-	_, err := helm.exec([]string{"version"}, env)
+	_, err := helm.exec([]string{"version"}, env, nil)
 	expected := `exec: helm version
 `
 	if err != nil {
@@ -575,14 +604,14 @@ func Test_exec(t *testing.T) {
 	}
 
 	helm = MockExecer(logger, "dev")
-	ret, _ := helm.exec([]string{"diff"}, env)
+	ret, _ := helm.exec([]string{"diff"}, env, nil)
 	if len(ret) != 0 {
 		t.Error("helmexec.exec() - expected empty return value")
 	}
 
 	buffer.Reset()
 	helm = MockExecer(logger, "dev")
-	_, err = helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs"}, env)
+	_, err = helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs"}, env, nil)
 	expected = `exec: helm --kube-context dev diff release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
@@ -593,7 +622,7 @@ func Test_exec(t *testing.T) {
 	}
 
 	buffer.Reset()
-	_, err = helm.exec([]string{"version"}, env)
+	_, err = helm.exec([]string{"version"}, env, nil)
 	expected = `exec: helm --kube-context dev version
 `
 	if err != nil {
@@ -605,7 +634,7 @@ func Test_exec(t *testing.T) {
 
 	buffer.Reset()
 	helm.SetExtraArgs("foo")
-	_, err = helm.exec([]string{"version"}, env)
+	_, err = helm.exec([]string{"version"}, env, nil)
 	expected = `exec: helm --kube-context dev version foo
 `
 	if err != nil {
@@ -618,7 +647,7 @@ func Test_exec(t *testing.T) {
 	buffer.Reset()
 	helm = MockExecer(logger, "")
 	helm.SetHelmBinary("overwritten")
-	_, err = helm.exec([]string{"version"}, env)
+	_, err = helm.exec([]string{"version"}, env, nil)
 	expected = `exec: overwritten version
 `
 	if err != nil {
@@ -681,6 +710,7 @@ func Test_ChartPull(t *testing.T) {
 		helmBin     string
 		helmVersion string
 		chartName   string
+		chartPath   string
 		chartFlags  []string
 		listResult  string
 	}{
@@ -689,9 +719,9 @@ func Test_ChartPull(t *testing.T) {
 			helmBin:     "helm",
 			helmVersion: "v3.6.0",
 			chartName:   "chart",
+			chartPath:   "path1",
 			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
 			listResult: `Pulling chart
-Exporting chart
 exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
 `,
 		},
@@ -700,10 +730,10 @@ exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
 			helmBin:     "helm",
 			helmVersion: "v3.9.0",
 			chartName:   "repo/helm-charts:0.14.0",
+			chartPath:   "path1",
 			chartFlags:  []string{"--untardir", "/tmp/dir"},
 			listResult: `Pulling repo/helm-charts:0.14.0
-Exporting repo/helm-charts:0.14.0
-exec: helm --kube-context dev fetch oci://repo/helm-charts --version 0.14.0 --destination [\w/]+ --untardir /tmp/dir
+exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untardir /tmp/dir
 `,
 		},
 	}
@@ -718,7 +748,7 @@ exec: helm --kube-context dev fetch oci://repo/helm-charts --version 0.14.0 --de
 				kubeContext: "dev",
 				runner:      &mockRunner{},
 			}
-			err := helm.ChartPull(tt.chartName, tt.chartFlags...)
+			err := helm.ChartPull(tt.chartName, tt.chartPath, tt.chartFlags...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -752,18 +782,6 @@ func Test_ChartExport(t *testing.T) {
 			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
 			listResult: `Exporting chart
 exec: helm --kube-context dev chart export chart --destination path1 --untar --untardir /tmp/dir
-`,
-			expectedError: "",
-		},
-		{
-			name:        "",
-			helmBin:     "helm",
-			helmVersion: "v3.9.0",
-			chartName:   "repo/helm-charts:0.14.0",
-			chartPath:   "path1",
-			chartFlags:  []string{"--untardir", "/tmp/dir"},
-			listResult: `Exporting repo/helm-charts:0.14.0
-exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --untar --destination path1 --untardir /tmp/dir
 `,
 			expectedError: "",
 		},
@@ -878,35 +896,58 @@ exec: helm --kube-context dev template https://example_user:example_password@rep
 
 func Test_IsHelm3(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Detected Helm 3 with Helm 2 version")
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
-	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
 
 	t.Setenv(envvar.Helm3, "1")
 	helm2Runner = mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsHelm3() {
 		t.Errorf("helmexec.IsHelm3() - Helm3 not detected when %s is set", envvar.Helm3)
 	}
 }
 
+func Test_GetPluginVersion(t *testing.T) {
+	v3ExpectedVersion := "3.15.0"
+	v4ExpectedVersion := "4.0.0"
+	v3PluginDirPath := "../../test/plugins/secrets/3.15.0"
+	v4PluginDirPath := "../../test/plugins/secrets/4.0.0"
+
+	v3SecretPluginVersion, err := GetPluginVersion("secrets", v3PluginDirPath)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	if v3SecretPluginVersion.String() != v3ExpectedVersion {
+		t.Errorf("secrets v3 plugin version is %v, expected %v", v3SecretPluginVersion.String(), v3ExpectedVersion)
+	}
+
+	v4SecretPluginVersion, err := GetPluginVersion("secrets", v4PluginDirPath)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	if v4SecretPluginVersion.String() != v4ExpectedVersion {
+		t.Errorf("secrets v4 plugin version is %v, expected %v", v4SecretPluginVersion.String(), v4ExpectedVersion)
+	}
+}
+
 func Test_GetVersion(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	ver := helm.GetVersion()
 	if ver.Major != 2 || ver.Minor != 16 || ver.Patch != 1 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm2 version; it was: %+v", ver)
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a\n")}
-	helm = New("helm", NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	ver = helm.GetVersion()
 	if ver.Major != 3 || ver.Minor != 2 || ver.Patch != 4 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm3 version; it was: %+v", ver)
@@ -915,7 +956,7 @@ func Test_GetVersion(t *testing.T) {
 
 func Test_IsVersionAtLeast(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New("helm", NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsVersionAtLeast("2.1.0") {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 not atleast 2.1")
 	}

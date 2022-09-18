@@ -1,6 +1,7 @@
 package helmexec
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -16,7 +17,7 @@ import (
 
 // Runner interface for shell commands
 type Runner interface {
-	Execute(cmd string, args []string, env map[string]string) ([]byte, error)
+	Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
 	ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
 }
 
@@ -28,13 +29,18 @@ type ShellRunner struct {
 }
 
 // Execute a shell command
-func (shell ShellRunner) Execute(cmd string, args []string, env map[string]string) ([]byte, error) {
+func (shell ShellRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
-	return Output(preparedCmd, &logWriterGenerator{
-		log: shell.Logger,
-	})
+
+	if !enableLiveOutput {
+		return Output(preparedCmd, &logWriterGenerator{
+			log: shell.Logger,
+		})
+	} else {
+		return LiveOutput(preparedCmd, os.Stdout)
+	}
 }
 
 // Execute a shell command
@@ -92,6 +98,43 @@ func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, er
 	}
 
 	return stdout.Bytes(), err
+}
+
+func LiveOutput(c *exec.Cmd, stdout io.Writer) ([]byte, error) {
+	reader, writer := io.Pipe()
+	scannerStopped := make(chan struct{})
+
+	go func() {
+		defer close(scannerStopped)
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			fmt.Fprintln(stdout, scanner.Text())
+		}
+	}()
+
+	c.Stdout = writer
+	c.Stderr = writer
+	err := c.Start()
+	if err == nil {
+		err = c.Wait()
+		_ = writer.Close()
+		<-scannerStopped
+	}
+
+	if err != nil {
+		switch ee := err.(type) {
+		case *exec.ExitError:
+			// Propagate any non-zero exit status from the external command, rather than throwing it away,
+			// so that helmfile could return its own exit code accordingly
+			waitStatus := ee.Sys().(syscall.WaitStatus)
+			exitStatus := waitStatus.ExitStatus()
+			err = newExitError(c.Path, c.Args, exitStatus, ee, "", "")
+		default:
+			panic(fmt.Sprintf("unexpected error: %v", err))
+		}
+	}
+
+	return nil, err
 }
 
 func mergeEnv(orig []string, new map[string]string) []string {

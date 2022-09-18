@@ -17,7 +17,7 @@ if [[ ! -d "${dir}" ]]; then dir="${PWD}"; fi
 # GLOBALS -----------------------------------------------------------------------------------------------------------
 
 test_ns="helmfile-tests-$(date +"%Y%m%d-%H%M%S")"
-helmfile="./helmfile --namespace=${test_ns}"
+helmfile="./helmfile ${EXTRA_HELMFILE_FLAGS} --namespace=${test_ns}"
 helm="helm --kube-context=minikube"
 kubectl="kubectl --context=minikube --namespace=${test_ns}"
 helm_dir="${PWD}/${dir}/.helm"
@@ -25,8 +25,9 @@ export HELM_DATA_HOME="${helm_dir}/data"
 export HELM_HOME="${HELM_DATA_HOME}"
 export HELM_PLUGINS="${HELM_DATA_HOME}/plugins"
 export HELM_CONFIG_HOME="${helm_dir}/config"
-HELM_SECRETS_VERSION=3.5.0
 HELM_DIFF_VERSION=3.3.1
+HELM_SECRETS_DEFAULT_VERSION=3.15.0
+HELM_SECRETS_VERSION="${HELM_SECRETS_VERSION:-$HELM_SECRETS_DEFAULT_VERSION}"
 export GNUPGHOME="${PWD}/${dir}/.gnupg"
 export SOPS_PGP_FP="B2D6D7BBEC03B2E66571C8C00AD18E16CFDEF700"
 
@@ -194,7 +195,7 @@ if [[ helm_major_version -eq 3 ]]; then
   test_start "secretssops.2 - should succeed with secrets plugin"
 
   info "Ensure helm-secrets is installed"
-  ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v3.5.0
+  ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v${HELM_SECRETS_VERSION}
 
   info "Ensure helmfile succeed when helm-secrets is installed"
   ${helmfile} -f ${dir}/secretssops.yaml -e direct build || fail "\"helmfile build\" shouldn't fail"
