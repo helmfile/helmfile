@@ -44,7 +44,7 @@ type GlobalOptions struct {
 	AllowNoMatchingRelease bool
 	// logger is the logger to use.
 	logger *zap.SugaredLogger
-	// EnableLiveOutput Show live output from the Helm binary stdout/stderr into Helmfile own stdout/stderr
+	// EnableLiveOutput enables live output from the Helm binary stdout/stderr into Helmfile own stdout/stderr
 	EnableLiveOutput bool
 }
 
