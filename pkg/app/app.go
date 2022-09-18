@@ -1342,7 +1342,7 @@ Do you really want to apply?
 		a.Logger.Debug(*infoMsg)
 	}
 
-	applyErrs := []error{}
+	var applyErrs []error
 
 	affectedReleases := state.AffectedReleases{}
 
@@ -1352,24 +1352,29 @@ Do you really want to apply?
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
-		for _, release := range st.Releases {
-			// a.Logger.Infof("\nRunning preapply hook for %s:", release.Name)
-			if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
-				applyErrs = append(applyErrs, err)
-				continue
-			}
-		}
-
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-				var rs []state.ReleaseSpec
+				var (
+					rs             []state.ReleaseSpec
+					preapplyErrors []error
+				)
 
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&release)]; ok {
+						a.Logger.Infof("\nRunning preapply hook for %s:", release.Name)
+						if _, err := st.TriggerPreapplyEvent(&r2, "apply"); err != nil {
+							preapplyErrors = append(applyErrs, err)
+							continue
+						}
+
 						rs = append(rs, r2)
 					}
+				}
+
+				if len(preapplyErrors) > 0 {
+					return preapplyErrors
 				}
 
 				subst.Releases = rs
@@ -1385,13 +1390,26 @@ Do you really want to apply?
 		// We upgrade releases by traversing the DAG
 		if len(releasesToBeUpdated) > 0 {
 			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-				var rs []state.ReleaseSpec
+				var (
+					rs             []state.ReleaseSpec
+					preapplyErrors []error
+				)
 
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&release)]; ok {
+						a.Logger.Infof("\nRunning preapply hook for %s:", release.Name)
+						if _, err := st.TriggerPreapplyEvent(&r2, "apply"); err != nil {
+							preapplyErrors = append(applyErrs, err)
+							continue
+						}
+
 						rs = append(rs, r2)
 					}
+				}
+
+				if len(preapplyErrors) > 0 {
+					return preapplyErrors
 				}
 
 				subst.Releases = rs
