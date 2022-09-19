@@ -790,7 +790,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		go func() {
 			sig := <-sigs
 
-			errs := []error{fmt.Errorf("Received [%s] to shutdown ", sig)}
+			errs := []error{fmt.Errorf("received [%s] to shutdown ", sig)}
 			_ = context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}.clean(errs)
 			// See http://tldp.org/LDP/abs/html/exitcodes.html
 			switch sig {
@@ -1342,7 +1342,7 @@ Do you really want to apply?
 		a.Logger.Debug(*infoMsg)
 	}
 
-	applyErrs := []error{}
+	var applyErrs []error
 
 	affectedReleases := state.AffectedReleases{}
 
@@ -1355,13 +1355,25 @@ Do you really want to apply?
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-				var rs []state.ReleaseSpec
+				var (
+					rs             []state.ReleaseSpec
+					preapplyErrors []error
+				)
 
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&release)]; ok {
+						if _, err := st.TriggerPreapplyEvent(&r2, "apply"); err != nil {
+							preapplyErrors = append(applyErrs, err)
+							continue
+						}
+
 						rs = append(rs, r2)
 					}
+				}
+
+				if len(preapplyErrors) > 0 {
+					return preapplyErrors
 				}
 
 				subst.Releases = rs
@@ -1377,13 +1389,25 @@ Do you really want to apply?
 		// We upgrade releases by traversing the DAG
 		if len(releasesToBeUpdated) > 0 {
 			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-				var rs []state.ReleaseSpec
+				var (
+					rs             []state.ReleaseSpec
+					preapplyErrors []error
+				)
 
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&release)]; ok {
+						if _, err := st.TriggerPreapplyEvent(&r2, "apply"); err != nil {
+							preapplyErrors = append(applyErrs, err)
+							continue
+						}
+
 						rs = append(rs, r2)
 					}
+				}
+
+				if len(preapplyErrors) > 0 {
+					return preapplyErrors
 				}
 
 				subst.Releases = rs

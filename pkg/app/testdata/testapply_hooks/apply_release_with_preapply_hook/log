@@ -1,0 +1,8 @@
+
+hook[preapply] logs | foo
+hook[preapply] logs | 
+
+UPDATED RELEASES:
+NAME   CHART           VERSION
+foo    incubator/raw          
+

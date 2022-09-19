@@ -1,0 +1,6 @@
+
+hook[prepare] logs | foo
+hook[prepare] logs | 
+
+hook[cleanup] logs | foo
+hook[cleanup] logs | 

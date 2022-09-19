@@ -161,7 +161,7 @@ func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...str
 		for k := range helm.Lists {
 			keys = append(keys, k.String())
 		}
-		return "", fmt.Errorf("unexpected list key: %v in %v", key, strings.Join(keys, ", "))
+		return "", fmt.Errorf("unexpected list key: %v not found in %v", key, strings.Join(keys, ", "))
 	}
 	return res, nil
 }
