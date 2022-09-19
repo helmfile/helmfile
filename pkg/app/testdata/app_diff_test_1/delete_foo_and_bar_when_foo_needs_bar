@@ -36,13 +36,6 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default//bar
-2     default//foo
-
-processing releases in group 1/2: default//bar
-processing releases in group 2/2: default//foo
 Affected releases are:
   bar (mychart2) DELETED
   foo (mychart1) DELETED
