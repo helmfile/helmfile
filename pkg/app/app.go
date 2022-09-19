@@ -1363,7 +1363,6 @@ Do you really want to apply?
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&release)]; ok {
-						a.Logger.Debugf("\nRunning preapply hook for %s:", release.Name)
 						if _, err := st.TriggerPreapplyEvent(&r2, "apply"); err != nil {
 							preapplyErrors = append(applyErrs, err)
 							continue
@@ -1398,7 +1397,6 @@ Do you really want to apply?
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&release)]; ok {
-						a.Logger.Debugf("\nRunning preapply hook for %s:", release.Name)
 						if _, err := st.TriggerPreapplyEvent(&r2, "apply"); err != nil {
 							preapplyErrors = append(applyErrs, err)
 							continue
