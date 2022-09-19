@@ -321,3 +321,150 @@ releases:
 		})
 	})
 }
+
+func TestDiffWithInstalled(t *testing.T) {
+	type testcase struct {
+		helmfile  string
+		ns        string
+		error     string
+		selectors []string
+		lists     map[exectest.ListKey]string
+		diffed    []exectest.Release
+	}
+
+	check := func(t *testing.T, tc testcase) {
+		t.Helper()
+
+		wantDiffs := tc.diffed
+
+		var helm = &exectest.Helm{
+			FailOnUnexpectedList: true,
+			FailOnUnexpectedDiff: true,
+			Lists:                tc.lists,
+			DiffMutex:            &sync.Mutex{},
+			ChartsMutex:          &sync.Mutex{},
+			ReleasesMutex:        &sync.Mutex{},
+		}
+
+		bs := &bytes.Buffer{}
+
+		func() {
+			t.Helper()
+
+			logReader, logWriter := io.Pipe()
+
+			logFlushed := &sync.WaitGroup{}
+			// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
+			logFlushed.Add(1)
+			go func() {
+				scanner := bufio.NewScanner(logReader)
+				for scanner.Scan() {
+					bs.Write(scanner.Bytes())
+					bs.WriteString("\n")
+				}
+				logFlushed.Done()
+			}()
+
+			defer func() {
+				// This is here to avoid data-trace on bytes buffer `bs` to capture logs
+				if err := logWriter.Close(); err != nil {
+					panic(err)
+				}
+				logFlushed.Wait()
+			}()
+
+			logger := helmexec.NewLogger(logWriter, "debug")
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Errorf("unexpected error creating vals runtime: %v", err)
+			}
+
+			files := map[string]string{
+				"/path/to/helmfile.yaml": tc.helmfile,
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:  DefaultHelmBinary,
+				fs:                  filesystem.DefaultFileSystem(),
+				OverrideKubeContext: "default",
+				Env:                 "default",
+				Logger:              logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			if tc.ns != "" {
+				app.Namespace = tc.ns
+			}
+
+			if tc.selectors != nil {
+				app.Selectors = tc.selectors
+			}
+
+			diffErr := app.Diff(applyConfig{
+				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
+				concurrency: 1,
+				logger:      logger,
+				skipNeeds:   true,
+			})
+
+			var gotErr string
+			if diffErr != nil {
+				gotErr = diffErr.Error()
+			}
+
+			if d := cmp.Diff(tc.error, gotErr); d != "" {
+				t.Fatalf("unexpected error: want (-), got (+): %s", d)
+			}
+
+			require.Equal(t, wantDiffs, helm.Diffed)
+		}()
+
+		testhelper.RequireLog(t, "app_diff_test", bs)
+	}
+
+	t.Run("show diff on changed selected release", func(t *testing.T) {
+		check(t, testcase{
+			helmfile: `
+releases:
+- name: a
+  chart: incubator/raw
+  namespace: default
+- name: b
+  chart: incubator/raw
+  namespace: default
+`,
+			selectors: []string{"name=a"},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^a$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
+			diffed: []exectest.Release{
+				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+			},
+		})
+	})
+
+	t.Run("shows no diff on already uninstalled selected release", func(t *testing.T) {
+		check(t, testcase{
+			helmfile: `
+releases:
+- name: a
+  chart: incubator/raw
+  installed: false
+  namespace: default
+- name: b
+  chart: incubator/raw
+  namespace: default
+`,
+			selectors: []string{"name=a"},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^a$", Flags: helmV2ListFlags}: ``,
+			},
+		})
+	})
+}

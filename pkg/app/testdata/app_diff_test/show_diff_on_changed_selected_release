@@ -5,15 +5,13 @@ first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
- 2: - name: bar
- 3:   chart: mychart2
- 4:   installed: false
- 5: - name: foo
- 6:   chart: mychart1
- 7:   installed: false
- 8:   needs:
- 9:   - bar
-10: 
+ 2: - name: a
+ 3:   chart: incubator/raw
+ 4:   namespace: default
+ 5: - name: b
+ 6:   chart: incubator/raw
+ 7:   namespace: default
+ 8: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -23,21 +21,20 @@ defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
  0: 
  1: releases:
- 2: - name: bar
- 3:   chart: mychart2
- 4:   installed: false
- 5: - name: foo
- 6:   chart: mychart1
- 7:   installed: false
- 8:   needs:
- 9:   - bar
-10: 
+ 2: - name: a
+ 3:   chart: incubator/raw
+ 4:   namespace: default
+ 5: - name: b
+ 6:   chart: incubator/raw
+ 7:   namespace: default
+ 8: 
 
 merged environment: &{default map[] map[]}
-2 release(s) found in helmfile.yaml
+1 release(s) matching name=a found in helmfile.yaml
 
-Affected releases are:
-  bar (mychart2) DELETED
-  foo (mychart1) DELETED
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     default/default/a
 
+processing releases in group 1/1: default/default/a
 changing working directory back to "/path/to"
