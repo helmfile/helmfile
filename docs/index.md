@@ -1193,8 +1193,11 @@ Currently supported `events` are:
 Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before execution.
 `prepare` hooks are triggered on the release as long as it is not excluded by the helmfile selector(e.g. `helmfile -l key=value`).
 
-Hooks associated to `presync` events are triggered before each release is applied to the remote cluster.
+Hooks associated to `presync` events are triggered before each release is installed or upgraded on the remote cluster.
 This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
+
+`preapply` hooks are triggered before a release is uninstalled, installed, or upgraded as part of `helmfile apply`.
+This is the ideal event to hook into when you are going to use `helmfile apply` for every kind of change, and you want the hook to be called only when any kind of change is being made.
 
 `preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
 
