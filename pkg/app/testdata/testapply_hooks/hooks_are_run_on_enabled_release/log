@@ -1,0 +1,24 @@
+
+hook[prepare] logs | foo
+hook[prepare] logs | 
+
+hook[prepare] logs | bar
+hook[prepare] logs | 
+
+hook[preapply] logs | foo
+hook[preapply] logs | 
+
+hook[preapply] logs | bar
+hook[preapply] logs | 
+
+hook[presync] logs | foo
+hook[presync] logs | 
+
+hook[presync] logs | bar
+hook[presync] logs | 
+
+UPDATED RELEASES:
+NAME   CHART           VERSION
+foo    incubator/raw          
+bar    incubator/raw          
+

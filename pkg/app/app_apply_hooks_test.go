@@ -261,4 +261,225 @@ releases:
 			logLevel:    "info",
 		})
 	})
+
+	t.Run("hooks for no-diff release", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  # only prepare and cleanup are run
+  - events: ["prepare", "preapply", "presync", "cleanup"]
+    command: echo
+    showlogs: true
+    args: ["foo"]
+`,
+			},
+			selectors: []string{"app=test"},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: nil,
+			},
+			error: "",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			logLevel:    "info",
+		})
+	})
+
+	t.Run("hooks are run on enabled release", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+values:
+- bar:
+    enabled: true
+
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["prepare", "preapply", "presync"]
+    command: echo
+    showlogs: true
+    args: ["foo"]
+- name: bar
+  condition: bar.enabled
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["prepare", "preapply", "presync"]
+    command: echo
+    showlogs: true
+    args: ["bar"]
+`,
+			},
+			selectors: []string{"app=test"},
+			upgraded: []exectest.Release{
+				{Name: "foo"},
+				{Name: "bar"},
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			error: "",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			logLevel:    "info",
+		})
+	})
+
+	t.Run("hooks are not run on disabled release", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+values:
+- bar:
+    enabled: false
+
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["prepare", "preapply", "presync"]
+    command: echo
+    showlogs: true
+    args: ["foo"]
+- name: bar
+  condition: bar.enabled
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["prepare", "preapply", "presync"]
+    command: echo
+    showlogs: true
+    args: ["bar"]
+`,
+			},
+			selectors: []string{"app=test"},
+			upgraded: []exectest.Release{
+				{Name: "foo"},
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			error: "",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			logLevel:    "info",
+		})
+	})
+
+	t.Run("hooks are run on to-be-uninstalled release", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["prepare", "preapply", "presync"]
+    command: echo
+    showlogs: true
+    args: ["foo"]
+- name: bar
+  installed: false
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["prepare", "preapply", "presync"]
+    command: echo
+    showlogs: true
+    args: ["bar"]
+`,
+			},
+			selectors: []string{"app=test"},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "foo"},
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			error: "",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			logLevel:    "info",
+		})
+	})
+
+	t.Run("hooks are not run on alreadyd uninstalled release", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: foo
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["prepare", "preapply", "presync"]
+    command: echo
+    showlogs: true
+    args: ["foo"]
+- name: bar
+  installed: false
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  hooks:
+  - events: ["prepare", "preapply", "presync"]
+    command: echo
+    showlogs: true
+    args: ["bar"]
+`,
+			},
+			selectors: []string{"app=test"},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+				{Filter: "^bar$", Flags: helmV2ListFlags}: ``,
+			},
+			upgraded: []exectest.Release{
+				{Name: "foo"},
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			error: "",
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			logLevel:    "info",
+		})
+	})
 }
