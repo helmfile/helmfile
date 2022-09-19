@@ -24,19 +24,17 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
-	github.com/variantdev/chartify v0.10.2
+	github.com/variantdev/chartify v0.11.0
 	github.com/variantdev/dag v1.1.0
 	github.com/variantdev/vals v0.18.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.23.0
-	golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.8.1
 	k8s.io/apimachinery v0.24.4
-	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 )
 
 require (
@@ -196,6 +194,7 @@ require (
 	k8s.io/client-go v0.23.4 // indirect
 	k8s.io/klog/v2 v2.60.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	oras.land/oras-go v1.1.0 // indirect
 	sigs.k8s.io/kustomize/api v0.10.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
