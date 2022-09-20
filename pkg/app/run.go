@@ -6,6 +6,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
+	"helm.sh/helm/v3/pkg/cli"
+
 	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/state"
@@ -203,4 +206,18 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 `, strings.Join(names, "\n"))
 
 	return &infoMsg, releasesToBeUpdated, releasesToBeDeleted, nil
+}
+func (r *Run) ValidateHelmDiffVersion(helmDiffVersion string) error {
+	settings := cli.New()
+
+	installedVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+	if err != nil {
+		return err
+	}
+
+	requiredVersion, _ := semver.NewVersion(helmDiffVersion)
+	if installedVersion.LessThan(requiredVersion) {
+		return fmt.Errorf("the minimum version that depends on helm-diff is %s, the current version is %s", requiredVersion.String(), installedVersion.String())
+	}
+	return nil
 }

@@ -1,0 +1,11 @@
+name: "diff"
+# Version is the version of Helm plus the number of official builds for this
+# plugin
+version: "3.5.0"
+usage: "Preview helm upgrade changes as a diff"
+description: "Preview helm upgrade changes as a diff"
+useTunnel: true
+command: "$HELM_PLUGIN_DIR/bin/diff"
+hooks:
+  install: "$HELM_PLUGIN_DIR/install-binary.sh"
+  update: "$HELM_PLUGIN_DIR/install-binary.sh -u"

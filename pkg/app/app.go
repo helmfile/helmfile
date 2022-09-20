@@ -148,6 +148,11 @@ func (a *App) Diff(c DiffConfigProvider) error {
 	var affectedAny bool
 
 	err := a.ForEachState(func(run *Run) (bool, []error) {
+		err := run.ValidateHelmDiffVersion(HelmDiffRequiredVersion)
+		if err != nil {
+			return false, []error{err}
+		}
+
 		var criticalErrs []error
 
 		var msg *string
