@@ -10,12 +10,12 @@ import (
 // NewChartsCmd returns charts subcmd
 func NewChartsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	chartsOptions := config.NewChartsOptions()
-	chartsImpl := config.NewChartsImpl(globalCfg, chartsOptions)
 
 	cmd := &cobra.Command{
 		Use:   "charts",
 		Short: "DEPRECATED: sync releases from state file (helm upgrade --install)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			chartsImpl := config.NewChartsImpl(globalCfg, chartsOptions)
 			err := config.NewCLIConfigImpl(chartsImpl.GlobalImpl)
 			if err != nil {
 				return err

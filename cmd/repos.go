@@ -10,12 +10,12 @@ import (
 // NewReposCmd returns repos subcmd
 func NewReposCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	reposOptions := config.NewReposOptions()
-	reposImpl := config.NewReposImpl(globalCfg, reposOptions)
 
 	cmd := &cobra.Command{
 		Use:   "repos",
 		Short: "Repos releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			reposImpl := config.NewReposImpl(globalCfg, reposOptions)
 			err := config.NewCLIConfigImpl(reposImpl.GlobalImpl)
 			if err != nil {
 				return err

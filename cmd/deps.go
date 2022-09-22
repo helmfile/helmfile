@@ -10,12 +10,12 @@ import (
 // NewDepsCmd returns deps subcmd
 func NewDepsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	depsOptions := config.NewDepsOptions()
-	depsImpl := config.NewDepsImpl(globalCfg, depsOptions)
 
 	cmd := &cobra.Command{
 		Use:   "deps",
 		Short: "Update charts based on their requirements",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			depsImpl := config.NewDepsImpl(globalCfg, depsOptions)
 			err := config.NewCLIConfigImpl(depsImpl.GlobalImpl)
 			if err != nil {
 				return err

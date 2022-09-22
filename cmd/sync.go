@@ -10,12 +10,12 @@ import (
 // NewSyncCmd returns sync subcmd
 func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	syncOptions := config.NewSyncOptions()
-	syncImpl := config.NewSyncImpl(globalCfg, syncOptions)
 
 	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Sync releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			syncImpl := config.NewSyncImpl(globalCfg, syncOptions)
 			err := config.NewCLIConfigImpl(syncImpl.GlobalImpl)
 			if err != nil {
 				return err
