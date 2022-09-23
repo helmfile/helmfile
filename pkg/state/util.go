@@ -1,15 +1,21 @@
 package state
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
+var (
+	// current working directory
+	currentDirSymbol = "."
+	// parent directory
+	parentDirSymbol = ".."
+)
+
 func isLocalChart(chart string) bool {
-	regex := regexp.MustCompile("^[.]?./")
-	matched := regex.MatchString(chart)
-	if matched {
+	if strings.HasPrefix(chart, fmt.Sprintf("%s%c", currentDirSymbol, os.PathSeparator)) || strings.HasPrefix(chart, fmt.Sprintf("%s%c", parentDirSymbol, os.PathSeparator)) {
 		return true
 	}
 
@@ -19,8 +25,8 @@ func isLocalChart(chart string) bool {
 	}
 
 	return chart == "" ||
-		chart[0] == '/' ||
-		!strings.Contains(chart, "/") ||
+		filepath.IsAbs(chart) ||
+		!strings.Contains(chart, fmt.Sprintf("%c", os.PathSeparator)) ||
 		(len(strings.Split(chart, "/")) != 2 &&
 			len(strings.Split(chart, "/")) != 3)
 }
@@ -51,7 +57,7 @@ func resolveRemoteChart(repoAndChart string) (string, string, bool) {
 // be constructed relative to the `base path`.
 // - Everything else is assumed to be an absolute path or an actual <repository>/<chart> reference.
 func normalizeChart(basePath, chart string) string {
-	if !isLocalChart(chart) || chart[0] == '/' {
+	if !isLocalChart(chart) || filepath.IsAbs(chart) {
 		return chart
 	}
 	return filepath.Join(basePath, chart)
