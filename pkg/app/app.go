@@ -899,7 +899,7 @@ var (
 
 	SetRetainValuesFiles = func(r bool) func(o *LoadOpts) {
 		return func(o *LoadOpts) {
-			o.RetainValuesFiles = true
+			o.RetainValuesFiles = r
 		}
 	}
 
