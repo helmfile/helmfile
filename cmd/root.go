@@ -72,6 +72,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 
 	globalImpl := config.NewGlobalImpl(globalConfig)
 	cmd.AddCommand(
+		NewInitCmd(globalImpl),
 		NewApplyCmd(globalImpl),
 		NewBuildCmd(globalImpl),
 		NewCacheCmd(globalImpl),

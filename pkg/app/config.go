@@ -243,3 +243,4 @@ type ListConfigProvider interface {
 }
 
 type CacheConfigProvider interface{}
+type InitConfigProvider interface{}
