@@ -867,7 +867,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					m.Unlock()
 					installedVersion, err := st.getDeployedVersion(context, helm, release)
 					if err != nil { // err is not really impacting so just log it
-						st.logger.Debugf("getting deployed release version failed:%v", err)
+						st.logger.Debugf("getting deployed release version failed: %v", err)
 					} else {
 						release.installedVersion = installedVersion
 					}
@@ -938,8 +938,11 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 		if len(versions) > 0 {
 			return versions[1], nil
 		} else {
-			//fails to find the version
-			return "failed to get version", errors.New("Failed to get the version for:" + chartName)
+			chartMetadata, err := helm.ShowChart(release.Chart)
+			if err != nil {
+				return "failed to get version", errors.New("Failed to get the version for: " + chartName)
+			}
+			return chartMetadata.Version, nil
 		}
 	} else {
 		return "failed to get version", err

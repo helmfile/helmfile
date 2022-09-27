@@ -1008,3 +1008,32 @@ func Test_resolveOciChart(t *testing.T) {
 		})
 	}
 }
+
+func Test_ShowChart(t *testing.T) {
+	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
+	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	_, err := helm.ShowChart("fake-chart")
+	if err == nil {
+		t.Error("helmexec.ShowChart() - helm show isn't supported in helm2")
+	}
+
+	showChartRunner := mockRunner{output: []byte("name: my-chart\nversion: 3.2.0\n")}
+	helm = &execer{
+		helmBinary:  "helm",
+		version:     *semver.MustParse("3.3.2"),
+		logger:      NewLogger(os.Stdout, "info"),
+		kubeContext: "dev",
+		runner:      &showChartRunner,
+	}
+
+	metadata, err := helm.ShowChart("my-chart")
+	if err != nil {
+		t.Errorf("helmexec.ShowChart() - unexpected error: %v", err)
+	}
+	if metadata.Name != "my-chart" {
+		t.Errorf("helmexec.ShowChart() - expected chart name was %s, received: %s", "my-chart", metadata.Name)
+	}
+	if metadata.Version != "3.2.0" {
+		t.Errorf("helmexec.ShowChart() - expected chart version was %s, received: %s", "3.2.0", metadata.Version)
+	}
+}

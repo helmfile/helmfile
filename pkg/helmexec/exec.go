@@ -14,6 +14,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/yaml.v3"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/plugin"
 
@@ -598,4 +600,22 @@ func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
 	}
 	ociChartURL = fmt.Sprintf("oci://%s", ociChart[:urlTagIndex])
 	return ociChartURL, ociChartTag
+}
+
+func (helm *execer) ShowChart(chartPath string) (chart.Metadata, error) {
+	if !helm.IsHelm3() {
+		// show chart command isn't supported in helm2
+		return chart.Metadata{}, fmt.Errorf("helm show isn't supported in helm2")
+	}
+	var helmArgs = []string{"show", "chart", chartPath}
+	out, error := helm.exec(helmArgs, map[string]string{}, nil)
+	if error != nil {
+		return chart.Metadata{}, error
+	}
+	var metadata chart.Metadata
+	error = yaml.Unmarshal(out, &metadata)
+	if error != nil {
+		return chart.Metadata{}, error
+	}
+	return metadata, nil
 }

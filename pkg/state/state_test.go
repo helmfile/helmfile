@@ -1455,6 +1455,16 @@ func TestGetDeployedVersion(t *testing.T) {
 										foo-bar-release	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha+001	0.1.0      	default`,
 			installedVersion: "1.0.0-alpha+001",
 		},
+		{
+			name: "chart version from helm show chart",
+			release: ReleaseSpec{
+				Name:  "foo",
+				Chart: "../../foo-bar",
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar      	0.1.0      	default`,
+			installedVersion: "3.2.0",
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -1467,6 +1477,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
+
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
 			}
