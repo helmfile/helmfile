@@ -4654,7 +4654,7 @@ releases:
 	}
 	expectedValues := []interface{}{
 		map[interface{}]interface{}{"val1": "zipkin"},
-		map[interface{}]interface{}{"val2": "val2"}}
+		map[string]interface{}{"val2": "val2"}}
 	expectedSetValues := []state.SetValue{
 		{Name: "name-zipkin", Value: "val-zipkin"},
 		{Name: "name", Value: "val"}}

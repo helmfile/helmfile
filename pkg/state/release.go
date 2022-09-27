@@ -3,8 +3,9 @@ package state
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
+	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
@@ -97,8 +98,8 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 	if len(result.ValuesTemplate) > 0 {
 		for i, t := range result.ValuesTemplate {
 			switch ts := t.(type) {
-			case map[interface{}]interface{}:
-				serialized, err := yaml.Marshal(ts)
+			case map[interface{}]interface{}, map[string]interface{}:
+				serialized, err := maputil.YamlMarshal(ts)
 				if err != nil {
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
 				}
@@ -201,7 +202,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 }
 
 func (r ReleaseSpec) Clone() (*ReleaseSpec, error) {
-	serialized, err := yaml.Marshal(r)
+	serialized, err := maputil.YamlMarshal(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed cloning release \"%s\": %v", r.Name, err)
 	}

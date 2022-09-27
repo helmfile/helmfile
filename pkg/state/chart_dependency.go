@@ -11,10 +11,11 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/r3labs/diff"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/app/version"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
 )
 
 type ChartMeta struct {
@@ -299,7 +300,7 @@ func (m *chartDependencyManager) updateHelm3(shell helmexec.DependencyUpdater, w
 	chartMetaContent := fmt.Sprintf("name: %s\nversion: 1.0.0\napiVersion: v2\n", m.Name)
 
 	// Generate `requirements.yaml` of the temporary local chart from the helmfile state
-	reqsContent, err := yaml.Marshal(unresolved.ToChartRequirements())
+	reqsContent, err := maputil.YamlMarshal(unresolved.ToChartRequirements())
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +318,7 @@ func (m *chartDependencyManager) updateHelm2(shell helmexec.DependencyUpdater, w
 	}
 
 	// Generate `requirements.yaml` of the temporary local chart from the helmfile state
-	reqsContent, err := yaml.Marshal(unresolved.ToChartRequirements())
+	reqsContent, err := maputil.YamlMarshal(unresolved.ToChartRequirements())
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +384,7 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 
 	lockedReqs.Version = version.Version
 
-	updatedLockFileContent, err = yaml.Marshal(lockedReqs)
+	updatedLockFileContent, err = maputil.YamlMarshal(lockedReqs)
 
 	if err != nil {
 		return nil, err

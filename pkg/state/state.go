@@ -22,12 +22,13 @@ import (
 	"github.com/variantdev/chartify"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
@@ -2659,7 +2660,7 @@ func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path s
 			return nil, err
 		}
 
-		return yaml.Marshal(parsedYaml)
+		return maputil.YamlMarshal(parsedYaml)
 	}
 
 	return rawBytes, nil
@@ -2826,7 +2827,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 				return nil, err
 			}
 		default:
-			bs, err := yaml.Marshal(value)
+			bs, err := maputil.YamlMarshal(value)
 			if err != nil {
 				return nil, err
 			}
@@ -3067,7 +3068,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	switch i := tmp.(type) {
 	case string: // single path definition without sub items, legacy sub helmfile definition
 		hf.Path = i
-	case map[interface{}]interface{}: // helmfile path with sub section
+	case map[interface{}]interface{}, map[string]interface{}: // helmfile path with sub section
 		var subHelmfileSpecTmp struct {
 			Path               string   `yaml:"path"`
 			Selectors          []string `yaml:"selectors"`
@@ -3228,7 +3229,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 }
 
 func (st *HelmState) ToYaml() (string, error) {
-	if result, err := yaml.Marshal(st); err != nil {
+	if result, err := maputil.YamlMarshal(st); err != nil {
 		return "", err
 	} else {
 		return string(result), nil

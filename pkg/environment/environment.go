@@ -2,7 +2,7 @@ package environment
 
 import (
 	"github.com/imdario/mergo"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/maputil"
 )
@@ -16,7 +16,7 @@ type Environment struct {
 var EmptyEnvironment Environment
 
 func (e Environment) DeepCopy() Environment {
-	valuesBytes, err := yaml.Marshal(e.Values)
+	valuesBytes, err := maputil.YamlMarshal(e.Values)
 	if err != nil {
 		panic(err)
 	}
@@ -29,7 +29,7 @@ func (e Environment) DeepCopy() Environment {
 		panic(err)
 	}
 
-	defaultsBytes, err := yaml.Marshal(e.Defaults)
+	defaultsBytes, err := maputil.YamlMarshal(e.Defaults)
 	if err != nil {
 		panic(err)
 	}
