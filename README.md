@@ -94,7 +94,7 @@ Iterate on the `helmfile.yaml` by referencing:
 
 * [Configuration](https://helmfile.readthedocs.io/en/latest/#configuration)
 * [CLI reference](https://helmfile.readthedocs.io/en/latest/#cli-reference)
-* [Helmfile Best Practices Guide](https://github.com/roboll/helmfile/blob/master/docs/writing-helmfile.md)
+* [Helmfile Best Practices Guide](https://helmfile.readthedocs.io/en/latest/writing-helmfile/)
 
 ## Docs
 
