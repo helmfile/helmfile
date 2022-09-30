@@ -1,4 +1,4 @@
-# Paths Overivew
+# Paths Overview
 
 Using manifest files in conjunction with command line argument can be a bit confusing.
 
