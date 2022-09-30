@@ -14,7 +14,7 @@ func NewBuildCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "build",
-		Short: "Build all resources from state file only when there are changes",
+		Short: "Build all resources from state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := config.NewCLIConfigImpl(buildImpl.GlobalImpl)
 			if err != nil {
