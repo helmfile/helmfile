@@ -1498,6 +1498,20 @@ export MYOCIREGISTRY_USERNAME=spongebob
 export MYOCIREGISTRY_PASSWORD=squarepants
 ```
 
+If `<registryName>` contains hyphens, the environment variable to be read is the hyphen replaced by an underscore., e.g.
+
+```yaml
+repositories:
+  - name: my-oci-registry
+    url: myregistry.azurecr.io
+    oci: true
+```
+
+```shell
+export MY_OCI_REGISTRY_USERNAME=spongebob
+export MY_OCI_REGISTRY_PASSWORD=squarepants
+```
+
 ## Attribution
 
 We use:
