@@ -455,15 +455,16 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 func gatherOCIUsernamePassword(repoName string, username string, password string) (string, string) {
 	var user, pass string
 
+	replacedRepoName := strings.ToUpper(strings.Replace(repoName, "-", "_", -1))
 	if username != "" {
 		user = username
-	} else if u := os.Getenv(fmt.Sprintf("%s_USERNAME", strings.ToUpper(repoName))); u != "" {
+	} else if u := os.Getenv(fmt.Sprintf("%s_USERNAME", replacedRepoName)); u != "" {
 		user = u
 	}
 
 	if password != "" {
 		pass = password
-	} else if p := os.Getenv(fmt.Sprintf("%s_PASSWORD", strings.ToUpper(repoName))); p != "" {
+	} else if p := os.Getenv(fmt.Sprintf("%s_PASSWORD", replacedRepoName)); p != "" {
 		pass = p
 	}
 

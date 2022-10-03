@@ -2420,3 +2420,72 @@ func TestReverse(t *testing.T) {
 		}
 	}
 }
+
+func Test_gatherOCIUsernamePassword(t *testing.T) {
+	type args struct {
+		repoName string
+		username string
+		password string
+	}
+	tests := []struct {
+		name             string
+		args             args
+		envUsernameKey   string
+		envUsernameValue string
+		envPasswordKey   string
+		envPasswordValue string
+		wantUsername     string
+		wantPassword     string
+	}{
+		{
+			name: "pass username/password from args",
+			args: args{
+				repoName: "myOCIRegistry",
+				username: "username1",
+				password: "password1",
+			},
+			wantUsername: "username1",
+			wantPassword: "password1",
+		},
+		{
+			name: "repoName does not contain hyphen, read username/password from environment variables",
+			args: args{
+				repoName: "myOCIRegistry",
+			},
+			envUsernameKey:   "MYOCIREGISTRY_USERNAME",
+			envUsernameValue: "username2",
+			envPasswordKey:   "MYOCIREGISTRY_PASSWORD",
+			envPasswordValue: "password2",
+			wantUsername:     "username2",
+			wantPassword:     "password2",
+		},
+		{
+			name: "repoName contain hyphen, read username/password from environment variables",
+			args: args{
+				repoName: "my-oci-registry",
+			},
+			envUsernameKey:   "MY_OCI_REGISTRY_USERNAME",
+			envUsernameValue: "username3",
+			envPasswordKey:   "MY_OCI_REGISTRY_PASSWORD",
+			envPasswordValue: "password3",
+			wantUsername:     "username3",
+			wantPassword:     "password3",
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envUsernameKey != "" && tt.envUsernameValue != "" {
+				t.Setenv(tt.envUsernameKey, tt.envUsernameValue)
+			}
+			if tt.envPasswordKey != "" && tt.envPasswordValue != "" {
+				t.Setenv(tt.envPasswordKey, tt.envPasswordValue)
+			}
+
+			gotUsername, gotPassword := gatherOCIUsernamePassword(tt.args.repoName, tt.args.username, tt.args.password)
+			if gotUsername != tt.wantUsername || gotPassword != tt.wantPassword {
+				t.Errorf("gatherOCIUsernamePassword() = got username/password %v/%v, want username/password %v/%v", gotUsername, gotPassword, tt.wantUsername, tt.wantPassword)
+			}
+		})
+	}
+}
