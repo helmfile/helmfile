@@ -1,5 +1,3 @@
-Building dependency release=httpbin, chart=httpbin
-Templating release=httpbin, chart=httpbin
 ---
 # Source: httpbin/templates/service.yaml
 apiVersion: v1
