@@ -232,13 +232,14 @@ if [[ helm_major_version -eq 3 ]]; then
   test_pass "secretssops.3"
 
   test_start "yaml overwrite feature"
-  info "Comparing yaml overwrite feature output with ${feature_golden_dir}/overwritten.yaml"
+  info "Comparing yaml overwrite feature output ${yaml_overwrite_reverse} with ${feature_golden_dir}/overwritten.yaml"
   for i in $(seq 10); do
       info "Comparing build/yaml-overwrite #$i"
       ${helmfile} -f ${dir}/issue.657.yaml template > ${yaml_overwrite_reverse} || fail "\"helmfile template\" shouldn't fail"
-      ./yamldiff ${feature_golden_dir}/reverse.build.yaml ${yaml_overwrite_reverse} || fail "\"helmfile template\" should be consistent"
+      ./yamldiff ${feature_golden_dir}/overwritten.yaml ${yaml_overwrite_reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
+  test_pass "yaml overwrite feature"
 
 fi
 
