@@ -56,10 +56,10 @@ jobs:
          # We intend to support 2 helm minor version at a time.
          # What's why we include only 2 helm minor versions in this matrix.
          # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
-         - helm-version: v3.8.2
+         - helm-version: v3.9.4
            plugin-secrets-version: 3.15.0
            extra-helmfile-flags:
-         - helm-version: v3.8.2
+         - helm-version: v3.9.4
            # We assume that the helm-secrets plugin is supposed to
            # work with the two most recent helm minor versions.
            # Once it turned out to be not practically true,
@@ -67,15 +67,15 @@ jobs:
            # and instruct users to upgrade helm and helm-secrets at once.
            plugin-secrets-version: 4.0.0
            extra-helmfile-flags:
-         - helm-version: v3.9.4
+         - helm-version: v3.10.0
            plugin-secrets-version: 3.15.0
            extra-helmfile-flags:
-         - helm-version: v3.9.4
+         - helm-version: v3.10.0
            plugin-secrets-version: 4.0.0
            extra-helmfile-flags:
          # In case you need to test some optional helmfile features,
          # enable it via extra-helmfile-flags below.
-         - helm-version: v3.9.4
+         - helm-version: v3.10.0
            plugin-secrets-version: 4.0.0
            extra-helmfile-flags: "--enable-live-output"
     steps:
