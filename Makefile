@@ -1,8 +1,19 @@
 ORG     ?= $(shell basename $(realpath ..))
 PKGS    := $(shell go list ./... | grep -v /vendor/)
 
+VERSION?="dev"
+
+# The ldflags for the Go build process to set the version related data
+GO_BUILD_VERSION_LDFLAGS=\
+  -X go.szostok.io/version.version=$(VERSION) \
+  -X go.szostok.io/version.buildDate=$(shell date +"%Y-%m-%dT%H:%M:%S%z") \
+  -X go.szostok.io/version.commit=$(shell git rev-parse --short HEAD) \
+  -X go.szostok.io/version.commitDate=$(shell git log -1 --date=format:"%Y-%m-%dT%H:%M:%S%z" --format=%cd) \
+  -X go.szostok.io/version.dirtyBuild=false
+
+
 build:
-	go build -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	go build -ldflags="$(GO_BUILD_VERSION_LDFLAGS)" ${TARGETS}
 .PHONY: build
 
 generate:
@@ -48,7 +59,7 @@ static-linux:
 .PHONY: static-linux
 
 install:
-	env CGO_ENABLED=0 go install -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 go install -ldflags="$(GO_BUILD_VERSION_LDFLAGS)" ${TARGETS}
 .PHONY: install
 
 clean:

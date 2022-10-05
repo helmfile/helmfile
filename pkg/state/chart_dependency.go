@@ -382,7 +382,7 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 		}
 	}
 
-	lockedReqs.Version = version.Version
+	lockedReqs.Version = version.Version()
 
 	updatedLockFileContent, err = maputil.YamlMarshal(lockedReqs)
 
@@ -415,14 +415,14 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 	}
 
 	// Make sure go run main.go works and compatible with old lock files.
-	if version.Version != "" && lockedReqs.Version != "" {
+	if version.Version() != "" && lockedReqs.Version != "" {
 		lockedVersion, err := goversion.NewVersion(lockedReqs.Version)
 
 		if err != nil {
 			return nil, false, err
 		}
 
-		currentVersion, err := goversion.NewVersion(version.Version)
+		currentVersion, err := goversion.NewVersion(version.Version())
 
 		if err != nil {
 			return nil, false, err
