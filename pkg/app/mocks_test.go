@@ -1,6 +1,10 @@
 package app
 
-import "github.com/helmfile/helmfile/pkg/helmexec"
+import (
+	"helm.sh/helm/v3/pkg/chart"
+
+	"github.com/helmfile/helmfile/pkg/helmexec"
+)
 
 type noCallHelmExec struct {
 }
@@ -112,4 +116,9 @@ func (helm *noCallHelmExec) GetVersion() helmexec.Version {
 func (helm *noCallHelmExec) IsVersionAtLeast(versionStr string) bool {
 	helm.doPanic()
 	return false
+}
+
+func (helm *noCallHelmExec) ShowChart(chartPath string) (chart.Metadata, error) {
+	helm.doPanic()
+	return chart.Metadata{}, nil
 }

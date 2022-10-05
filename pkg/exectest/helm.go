@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"helm.sh/helm/v3/pkg/chart"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
@@ -226,4 +227,13 @@ func (helm *Helm) sync(m *sync.Mutex, f func()) {
 	}
 
 	f()
+}
+
+func (helm *Helm) ShowChart(chartPath string) (chart.Metadata, error) {
+	switch chartPath {
+	case "../../foo-bar":
+		return chart.Metadata{Version: "3.2.0"}, nil
+	default:
+		return chart.Metadata{}, errors.New("fake test error")
+	}
 }

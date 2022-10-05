@@ -3,6 +3,7 @@ package app
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/chart"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -2596,6 +2598,10 @@ func (helm *mockHelmExec) IsVersionAtLeast(versionStr string) bool {
 	return false
 }
 
+func (helm *mockHelmExec) ShowChart(chartPath string) (chart.Metadata, error) {
+	return chart.Metadata{}, errors.New("tests logs rely on this error")
+}
+
 func TestTemplate_SingleStateFile(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
@@ -3052,7 +3058,7 @@ GROUP RELEASES
 
 processing releases in group 1/2: default//baz, default//bar
 processing releases in group 2/2: default//foo
-getting deployed release version failed:Failed to get the version for:mychart1
+getting deployed release version failed: Failed to get the version for: mychart1
 
 UPDATED RELEASES:
 NAME   CHART             VERSION
@@ -3162,7 +3168,7 @@ GROUP RELEASES
 
 processing releases in group 1/2: default//baz, default//bar
 processing releases in group 2/2: default//foo
-getting deployed release version failed:Failed to get the version for:mychart1
+getting deployed release version failed: Failed to get the version for: mychart1
 
 UPDATED RELEASES:
 NAME   CHART             VERSION

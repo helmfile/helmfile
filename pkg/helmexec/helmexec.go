@@ -1,5 +1,7 @@
 package helmexec
 
+import "helm.sh/helm/v3/pkg/chart"
+
 // Version represents the version of helm
 type Version struct {
 	Major int
@@ -33,6 +35,7 @@ type Interface interface {
 	IsHelm3() bool
 	GetVersion() Version
 	IsVersionAtLeast(versionStr string) bool
+	ShowChart(chart string) (chart.Metadata, error)
 }
 
 type DependencyUpdater interface {
