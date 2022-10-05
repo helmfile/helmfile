@@ -10,12 +10,12 @@ import (
 // NewBuildCmd returns build subcmd
 func NewBuildCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	buildOptions := config.NewBuildOptions()
-	buildImpl := config.NewBuildImpl(globalCfg, buildOptions)
 
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build all resources from state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			buildImpl := config.NewBuildImpl(globalCfg, buildOptions)
 			err := config.NewCLIConfigImpl(buildImpl.GlobalImpl)
 			if err != nil {
 				return err

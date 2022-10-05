@@ -10,12 +10,12 @@ import (
 // NewDiffCmd returns diff subcmd
 func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	diffOptions := config.NewDiffOptions()
-	diffImpl := config.NewDiffImpl(globalCfg, diffOptions)
 
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Diff releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			diffImpl := config.NewDiffImpl(globalCfg, diffOptions)
 			err := config.NewCLIConfigImpl(diffImpl.GlobalImpl)
 			if err != nil {
 				return err

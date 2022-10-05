@@ -10,12 +10,12 @@ import (
 // NewDestroyCmd returns destroy subcmd
 func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	destroyOptions := config.NewDestroyOptions()
-	destroyImpl := config.NewDestroyImpl(globalCfg, destroyOptions)
 
 	cmd := &cobra.Command{
 		Use:   "destroy",
 		Short: "Destroys and then purges releases",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			destroyImpl := config.NewDestroyImpl(globalCfg, destroyOptions)
 			err := config.NewCLIConfigImpl(destroyImpl.GlobalImpl)
 			if err != nil {
 				return err

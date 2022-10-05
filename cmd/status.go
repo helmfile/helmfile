@@ -10,12 +10,12 @@ import (
 // NewStatusCmd returns status subcmd
 func NewStatusCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	statusOptions := config.NewStatusOptions()
-	statusImpl := config.NewStatusImpl(globalCfg, statusOptions)
 
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Retrieve status of releases in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			statusImpl := config.NewStatusImpl(globalCfg, statusOptions)
 			err := config.NewCLIConfigImpl(statusImpl.GlobalImpl)
 			if err != nil {
 				return err

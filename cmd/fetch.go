@@ -10,12 +10,12 @@ import (
 // NewFetchCmd returns diff subcmd
 func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	fetchOptions := config.NewFetchOptions()
-	fetchImpl := config.NewFetchImpl(globalCfg, fetchOptions)
 
 	cmd := &cobra.Command{
 		Use:   "fetch",
 		Short: "Fetch charts from state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fetchImpl := config.NewFetchImpl(globalCfg, fetchOptions)
 			err := config.NewCLIConfigImpl(fetchImpl.GlobalImpl)
 			if err != nil {
 				return err
