@@ -1288,6 +1288,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		Set:               c.Set(),
 		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
+		ReuseValues:       c.ReuseValues(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1412,14 +1413,15 @@ Do you really want to apply?
 
 				subst.Releases = rs
 
-				syncOpts := state.SyncOpts{
+				syncOpts := &state.SyncOpts{
 					Set:         c.Set(),
 					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 					SkipCRDs:    c.SkipCRDs(),
 					Wait:        c.Wait(),
 					WaitForJobs: c.WaitForJobs(),
+					ReuseValues: c.ReuseValues(),
 				}
-				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
+				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
 
 			if len(updateErrs) > 0 {
@@ -1529,6 +1531,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			NoColor:           c.NoColor(),
 			Set:               c.Set(),
 			SkipDiffOnInstall: c.SkipDiffOnInstall(),
+			ReuseValues:       c.ReuseValues(),
 		}
 
 		filtered := &Run{
@@ -1792,6 +1795,7 @@ Do you really want to sync?
 					SkipCRDs:    c.SkipCRDs(),
 					Wait:        c.Wait(),
 					WaitForJobs: c.WaitForJobs(),
+					ReuseValues: c.ReuseValues(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

@@ -52,6 +52,8 @@ type ApplyOptions struct {
 	Wait bool
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
 	WaitForJobs bool
+	// ReuseValues is true if the helm command should reuse the values
+	ReuseValues bool
 }
 
 // NewApply creates a new Apply
@@ -201,4 +203,9 @@ func (a *ApplyImpl) Wait() bool {
 // WaitForJobs returns the wait for jobs.
 func (a *ApplyImpl) WaitForJobs() bool {
 	return a.ApplyOptions.WaitForJobs
+}
+
+// ReuseValues returns the ReuseValues.
+func (a *ApplyImpl) ReuseValues() bool {
+	return a.ApplyOptions.ReuseValues
 }

@@ -241,7 +241,7 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
 	}
 
-	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", "--reset-values", name, chart), flags...), env, nil)
+	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
 	helm.write(nil, out)
 	return err
 }
@@ -422,7 +422,7 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 		enableLiveOutput := false
 		overrideEnableLiveOutput = &enableLiveOutput
 	}
-	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--reset-values", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
+	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
 	// Do our best to write STDOUT only when diff existed
 	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
 	detailedExitcodeEnabled := false

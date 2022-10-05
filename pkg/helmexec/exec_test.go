@@ -254,7 +254,7 @@ func Test_SyncRelease(t *testing.T) {
 	helm := MockExecer(logger, "dev")
 	err := helm.SyncRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs")
 	expected := `Upgrading release=release, chart=chart
-exec: helm --kube-context dev upgrade --install --reset-values release chart --timeout 10 --wait --wait-for-jobs
+exec: helm --kube-context dev upgrade --install release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -266,7 +266,7 @@ exec: helm --kube-context dev upgrade --install --reset-values release chart --t
 	buffer.Reset()
 	err = helm.SyncRelease(HelmContext{}, "release", "chart")
 	expected = `Upgrading release=release, chart=chart
-exec: helm --kube-context dev upgrade --install --reset-values release chart
+exec: helm --kube-context dev upgrade --install release chart
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -278,7 +278,7 @@ exec: helm --kube-context dev upgrade --install --reset-values release chart
 	buffer.Reset()
 	err = helm.SyncRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz")
 	expected = `Upgrading release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
-exec: helm --kube-context dev upgrade --install --reset-values release https://example_user:example_password@repo.example.com/chart.tgz
+exec: helm --kube-context dev upgrade --install release https://example_user:example_password@repo.example.com/chart.tgz
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -295,7 +295,7 @@ func Test_SyncReleaseTillerless(t *testing.T) {
 	err := helm.SyncRelease(HelmContext{Tillerless: true, TillerNamespace: "foo"}, "release", "chart",
 		"--timeout 10", "--wait", "--wait-for-jobs")
 	expected := `Upgrading release=release, chart=chart
-exec: helm --kube-context dev tiller run foo -- helm upgrade --install --reset-values release chart --timeout 10 --wait --wait-for-jobs
+exec: helm --kube-context dev tiller run foo -- helm upgrade --install release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -460,7 +460,7 @@ func Test_DiffRelease(t *testing.T) {
 	helm := MockExecer(logger, "dev")
 	err := helm.DiffRelease(HelmContext{}, "release", "chart", false, "--timeout 10", "--wait", "--wait-for-jobs")
 	expected := `Comparing release=release, chart=chart
-exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
+exec: helm --kube-context dev diff upgrade --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -472,7 +472,7 @@ exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased rel
 	buffer.Reset()
 	err = helm.DiffRelease(HelmContext{}, "release", "chart", false)
 	expected = `Comparing release=release, chart=chart
-exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release chart
+exec: helm --kube-context dev diff upgrade --allow-unreleased release chart
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -484,7 +484,7 @@ exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased rel
 	buffer.Reset()
 	err = helm.DiffRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz", false)
 	expected = `Comparing release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
-exec: helm --kube-context dev diff upgrade --reset-values --allow-unreleased release https://example_user:example_password@repo.example.com/chart.tgz
+exec: helm --kube-context dev diff upgrade --allow-unreleased release https://example_user:example_password@repo.example.com/chart.tgz
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -500,7 +500,7 @@ func Test_DiffReleaseTillerless(t *testing.T) {
 	helm := MockExecer(logger, "dev")
 	err := helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", false, "--timeout 10", "--wait", "--wait-for-jobs")
 	expected := `Comparing release=release, chart=chart
-exec: helm --kube-context dev tiller run -- helm diff upgrade --reset-values --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
+exec: helm --kube-context dev tiller run -- helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
