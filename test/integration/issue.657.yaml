@@ -1,0 +1,16 @@
+templates:
+  default: &default
+    values:
+      - image:
+          repository: docker.io/citizenstig/httpbin
+          tag: latest
+          pullPolicy: IfNotPresent
+
+releases:
+  - name: httpbin
+    chart: ./charts/httpbin
+    <<: *default
+    values:
+      - image:
+          tag: 0.0.1
+          pullPolicy: Never

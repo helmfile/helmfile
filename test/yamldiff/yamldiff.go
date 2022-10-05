@@ -10,7 +10,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/logrusorgru/aurora"
 	"github.com/mattn/go-isatty"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var version = "latest"

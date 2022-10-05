@@ -9,7 +9,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
@@ -86,7 +86,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	decoder := yaml.NewDecoder(bytes.NewReader(content))
 
-	decoder.SetStrict(c.Strict)
+	decoder.KnownFields(c.Strict)
 
 	i := 0
 	for {

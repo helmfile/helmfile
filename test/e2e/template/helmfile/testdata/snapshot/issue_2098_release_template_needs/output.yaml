@@ -6,23 +6,23 @@ helmBinary: helm
 environments:
   default: {}
 repositories:
-- name: aservo
-  url: https://aservo.github.io/charts
+  - name: aservo
+    url: https://aservo.github.io/charts
 releases:
-- chart: aservo/util
-  version: 0.0.1
-  name: default-shared-resources
-  namespace: default
-  labels:
-    service: shared-resources
-- chart: aservo/util
-  version: 0.0.1
-  needs:
-  - default-shared-resources
-  name: default-release-resources
-  namespace: default
-  labels:
-    service: release-resources
+  - chart: aservo/util
+    version: 0.0.1
+    name: default-shared-resources
+    namespace: default
+    labels:
+      service: shared-resources
+  - chart: aservo/util
+    version: 0.0.1
+    needs:
+      - default-shared-resources
+    name: default-release-resources
+    namespace: default
+    labels:
+      service: release-resources
 templates:
   defaults:
     name: default-{{ .Release.Labels.service }}
