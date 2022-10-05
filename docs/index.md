@@ -51,6 +51,77 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 **Patch**: JSON/Strategic-Merge Patch Kubernetes resources before `helm-install`ing, without forking upstream charts (See [#673](https://github.com/roboll/helmfile/pull/673))
 
+## Installation
+
+* download one of [releases](https://github.com/helmfile/helmfile/releases)
+* [run as a container](https://helmfile.readthedocs.io/en/latest/#running-as-a-container)
+* Archlinux: install via `pacman -S helmfile`
+* openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`
+* Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
+* macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
+
+### Running as a container
+
+The [Helmfile Docker images are available in GHCR](https://github.com/helmfile/helmfile/pkgs/container/helmfile). There is no `latest` tag, since the `0.x` versions can contain breaking changes, so make sure you pick the right tag. Example using `helmfile 0.145.2`:
+
+```sh-session
+# helm 2
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.145.2 helmfile sync
+
+# helm 3
+$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:helm3-v0.145.2 helmfile sync
+```
+
+You can also use shims to make calling the binaries easier:
+
+```sh-session
+# helm 2
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.145.2 helmfile "$@"' |
+    tee helmfile
+$ chmod +x helmfile
+$ ./helmfile sync
+
+# helm 3
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:helm3-v0.145.2 helmfile "$@"' |
+    tee helmfile
+$ chmod +x helmfile
+$ ./helmfile sync
+```
+
+## Getting Started
+
+Let's start with a simple `helmfile` and gradually improve it to fit your use-case!
+
+Suppose the `helmfile.yaml` representing the desired state of your helm releases looks like:
+
+```yaml
+repositories:
+ - name: prometheus-community
+   url: https://prometheus-community.github.io/helm-charts
+
+releases:
+- name: prom-norbac-ubuntu
+  namespace: prometheus
+  chart: prometheus-community/prometheus
+  set:
+  - name: rbac.create
+    value: false
+```
+
+Sync your Kubernetes cluster state to the desired one by running:
+
+```console
+helmfile apply
+```
+
+Congratulations! You now have your first Prometheus deployment running inside your cluster.
+
+Iterate on the `helmfile.yaml` by referencing:
+
+* [Configuration](#configuration)
+* [CLI reference](#cli-reference).
+* [Helmfile Best Practices Guide](https://github.com/roboll/helmfile/blob/master/docs/writing-helmfile.md)
+
 ## Configuration
 
 **CAUTION**: This documentation is for the development version of Helmfile. If you are looking for the documentation for any of releases, please switch to the corresponding release tag like [v0.143.4](https://github.com/helmfile/helmfile/tree/v0.143.4).
@@ -363,20 +434,20 @@ Helmfile uses [Go templates](https://godoc.org/text/template) for templating you
 
 We also added the following functions:
 
-- `requiredEnv`
-- `exec`
-- `envExec`
-- `readFile`
-- `readDir`
-- `readDirEntries`
-- `toYaml`
-- `fromYaml`
-- `setValueAtPath`
-- `get` (Sprig's original `get` is available as `sprigGet`)
-- `tpl`
-- `required`
-- `fetchSecretValue`
-- `expandSecretRefs`
+* `requiredEnv`
+* `exec`
+* `envExec`
+* `readFile`
+* `readDir`
+* `readDirEntries`
+* `toYaml`
+* `fromYaml`
+* `setValueAtPath`
+* `get` (Sprig's original `get` is available as `sprigGet`)
+* `tpl`
+* `required`
+* `fetchSecretValue`
+* `expandSecretRefs`
 
 More details on each function can be found at ["Template Functions" page in our documentation](templating_funcs.md).
 
@@ -411,77 +482,6 @@ releases:
 ### Note
 
 If you wish to treat your enviroment variables as strings always, even if they are boolean or numeric values you can use `{{ env "ENV_NAME" | quote }}` or `"{{ env "ENV_NAME" }}"`. These approaches also work with `requiredEnv`.
-
-## Installation
-
-- download one of [releases](https://github.com/helmfile/helmfile/releases)
-- [run as a container](https://helmfile.readthedocs.io/en/latest/#running-as-a-container)
-- Archlinux: install via `pacman -S helmfile`
-- openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`
-- Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
-- macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
-
-### Running as a container
-
-The [Helmfile Docker images are available in GHCR](https://github.com/helmfile/helmfile/pkgs/container/helmfile). There is no `latest` tag, since the `0.x` versions can contain breaking changes, so make sure you pick the right tag. Example using `helmfile 0.145.2`:
-
-```sh-session
-# helm 2
-$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.145.2 helmfile sync
-
-# helm 3
-$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:helm3-v0.145.2 helmfile sync
-```
-
-You can also use shims to make calling the binaries easier:
-
-```sh-session
-# helm 2
-$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.145.2 helmfile "$@"' |
-    tee helmfile
-$ chmod +x helmfile
-$ ./helmfile sync
-
-# helm 3
-$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:helm3-v0.145.2 helmfile "$@"' |
-    tee helmfile
-$ chmod +x helmfile
-$ ./helmfile sync
-```
-
-## Getting Started
-
-Let's start with a simple `helmfile` and gradually improve it to fit your use-case!
-
-Suppose the `helmfile.yaml` representing the desired state of your helm releases looks like:
-
-```yaml
-repositories:
- - name: prometheus-community
-   url: https://prometheus-community.github.io/helm-charts
-
-releases:
-- name: prom-norbac-ubuntu
-  namespace: prometheus
-  chart: prometheus-community/prometheus
-  set:
-  - name: rbac.create
-    value: false
-```
-
-Sync your Kubernetes cluster state to the desired one by running:
-
-```console
-helmfile apply
-```
-
-Congratulations! You now have your first Prometheus deployment running inside your cluster.
-
-Iterate on the `helmfile.yaml` by referencing:
-
-- [Configuration](#configuration)
-- [CLI reference](#cli-reference).
-- [Helmfile Best Practices Guide](https://github.com/roboll/helmfile/blob/master/docs/writing-helmfile.md)
 
 ## CLI Reference
 
@@ -630,9 +630,9 @@ Using manifest files in conjunction with command line argument can be a bit conf
 
 A few rules to clear up this ambiguity:
 
-- Absolute paths are always resolved as absolute paths
-- Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
-- Relative paths referenced on the command line are relative to the current working directory the user is in
+* Absolute paths are always resolved as absolute paths
+* Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
+* Relative paths referenced on the command line are relative to the current working directory the user is in
 
 For additional context, take a look at [paths examples](paths.md).
 
@@ -689,18 +689,18 @@ releases:
 
 You can use go's text/template expressions in `helmfile.yaml` and `values.yaml.gotmpl` (templated helm values files). `values.yaml` references will be used verbatim. In other words:
 
-- for value files ending with `.gotmpl`, template expressions will be rendered
-- for plain value files (ending in `.yaml`), content will be used as-is
+* for value files ending with `.gotmpl`, template expressions will be rendered
+* for plain value files (ending in `.yaml`), content will be used as-is
 
 In addition to built-in ones, the following custom template functions are available:
 
-- `readFile` reads the specified local file and generate a golang string
-- `readDir` reads the files within provided directory path. (folders are excluded)
-- `readDirEntries` Returns a list of [https://pkg.go.dev/os#DirEntry](DirEntry) within provided directory path
-- `fromYaml` reads a golang string and generates a map
-- `setValueAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
-- `toYaml` marshals a map into a string
-- `get` returns the value of the specified key if present in the `.Values` object, otherwise will return the default value defined in the function
+* `readFile` reads the specified local file and generate a golang string
+* `readDir` reads the files within provided directory path. (folders are excluded)
+* `readDirEntries` Returns a list of [https://pkg.go.dev/os#DirEntry](DirEntry) within provided directory path
+* `fromYaml` reads a golang string and generates a map
+* `setValueAtPath PATH NEW_VALUE` traverses a golang map, replaces the value at the PATH with NEW_VALUE
+* `toYaml` marshals a map into a string
+* `get` returns the value of the specified key if present in the `.Values` object, otherwise will return the default value defined in the function
 
 ### Values Files Templates
 
@@ -932,6 +932,7 @@ First you must have the [helm-secrets](https://github.com/jkroepke/helm-secrets)
 in the sub-directory containing your secrets files).
 
 Then suppose you have a secret `foo.bar` defined in `environments/production/secrets.yaml`:
+
 ```yaml
 foo.bar: "mysupersecretstring"
 ```
@@ -939,6 +940,7 @@ foo.bar: "mysupersecretstring"
 You can then encrypt it with `helm secrets enc environments/production/secrets.yaml`
 
 Then reference that encrypted file in `helmfile.yaml`:
+
 ```yaml
 environments:
   production:
@@ -1014,6 +1016,7 @@ On `helmfile [delete|destroy]`, deletions happen in the reverse order.
 That is, `myapp1` and `myapp2` are deleted first, then `servicemesh`, and finally `logging`.
 
 ### Selectors and `needs`
+
 When using selectors/labels, `needs` are ignored by default. This behaviour can be overruled with a few parameters:
 | Parameter | default | Description |
 |---|---|---|
@@ -1021,6 +1024,7 @@ When using selectors/labels, `needs` are ignored by default. This behaviour can 
 | `--include-needs` | `false` | The direct `needs` of the selected release(s) will be included. |
 | `--include-transitive-needs` | `false` | The direct and transitive `needs` of the selected release(s) will be included. |
 Let's look at an example to illustrate how the different parameters work:
+
 ```yaml
 releases:
 - name: serviceA
@@ -1036,6 +1040,7 @@ releases:
 - name: serviceD
   chart: his/chart
 ```
+
 | Command | Included Releases Order | Explanation |
 |---|---|---|
 | `helmfile -l name=serviceA sync` | - `serviceA` | By default no needs are included. |
@@ -1043,6 +1048,7 @@ releases:
 | `helmfile -l name=serviceA sync --include-transitive-needs` | - `serviceC`<br>- `serviceB`<br>- `serviceA` | `serviceC` is now also part of the release as it is a direct need of `serviceB` and therefore a transitive need of `serviceA`.  |
 
 Note that `--include-transitive-needs` will override any potential exclusions done by selectors or conditions. So even if you explicitly exclude a release via a selector it will still be part of the deployment in case it is a direct or transitive need of any of the specified releases.
+
 ## Separating helmfile.yaml into multiple independent files
 
 Once your `helmfile.yaml` got to contain too many releases,
@@ -1051,8 +1057,8 @@ split it into multiple yaml files.
 Recommended granularity of helmfile.yaml files is "per microservice" or "per team".
 And there are two ways to organize your files.
 
-- Single directory
-- Glob patterns
+* Single directory
+* Glob patterns
 
 ### Single directory
 
@@ -1062,10 +1068,10 @@ in case helmfile is unable to locate `helmfile.yaml`, it tries to locate `helmfi
 
 All the yaml files under the specified directory are processed in the alphabetical order. For example, you can use a `<two digit number>-<microservice>.yaml` naming convention to control the sync order.
 
-- `helmfile.d`/
-  - `00-database.yaml`
-  - `00-backend.yaml`
-  - `01-frontend.yaml`
+* `helmfile.d`/
+  * `00-database.yaml`
+  * `00-backend.yaml`
+  * `01-frontend.yaml`
 
 ### Glob patterns
 
@@ -1073,20 +1079,20 @@ In case you want more control over how multiple `helmfile.yaml` files are organi
 
 Suppose you have multiple microservices organized in a Git repository that looks like:
 
-- `myteam/` (sometimes it is equivalent to a k8s ns, that is `kube-system` for `clusterops` team)
-  - `apps/`
-    - `filebeat/`
-      - `helmfile.yaml` (no `charts/` exists, because it depends on the stable/filebeat chart hosted on the official helm charts repository)
-      - `README.md` (each app managed by my team has a dedicated README maintained by the owners of the app)
-    - `metricbeat/`
-      - `helmfile.yaml`
-      - `README.md`
-    - `elastalert-operator/`
-      - `helmfile.yaml`
-      - `README.md`
-      - `charts/`
-        - `elastalert-operator/`
-          - `<the content of the local helm chart>`
+* `myteam/` (sometimes it is equivalent to a k8s ns, that is `kube-system` for `clusterops` team)
+  * `apps/`
+    * `filebeat/`
+      * `helmfile.yaml` (no `charts/` exists, because it depends on the stable/filebeat chart hosted on the official helm charts repository)
+      * `README.md` (each app managed by my team has a dedicated README maintained by the owners of the app)
+    * `metricbeat/`
+      * `helmfile.yaml`
+      * `README.md`
+    * `elastalert-operator/`
+      * `helmfile.yaml`
+      * `README.md`
+      * `charts/`
+        * `elastalert-operator/`
+          * `<the content of the local helm chart>`
 
 The benefits of this structure is that you can run `git diff` to locate in which directory=microservice a git commit has changes.
 It allows your CI system to run a workflow for the changed microservice only.
@@ -1167,28 +1173,27 @@ mysetting: |
 {{ envExec (dict "envkey" "envValue") "./mycmd" (list "arg1" "arg2" "--flag1") | indent 2 }}
 ```
 
-
 ## Hooks
 
 A Helmfile hook is a per-release extension point that is composed of:
 
-- `events`
-- `command`
-- `args`
-- `showlogs`
+* `events`
+* `command`
+* `args`
+* `showlogs`
 
 Helmfile triggers various `events` while it is running.
 Once `events` are triggered, associated `hooks` are executed, by running the `command` with `args`. The standard output of the `command` will be displayed if `showlogs` is set and it's value is `true`.
 
 Currently supported `events` are:
 
-- `prepare`
-- `preapply`
-- `presync`
-- `preuninstall`
-- `postuninstall`
-- `postsync`
-- `cleanup`
+* `prepare`
+* `preapply`
+* `presync`
+* `preuninstall`
+* `postuninstall`
+* `postsync`
+* `cleanup`
 
 Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before execution.
 `prepare` hooks are triggered on the release as long as it is not excluded by the helmfile selector(e.g. `helmfile -l key=value`).
@@ -1238,9 +1243,9 @@ echo prod myapp sync
 
 Now, replace `echo` with any command you like, and rewrite `args` that actually conforms to the command, so that you can integrate any command that does:
 
-- templating
-- linting
-- testing
+* templating
+* linting
+* testing
 
 Hooks expose additional template expressions:
 
@@ -1284,6 +1289,7 @@ It will allow you to write your helm releases with any language you like, while 
 In contrast to the per release hooks mentioned above these are run only once at the very beginning and end of the execution of a helmfile command and only the `prepare` and `cleanup` hooks are available respectively.
 
 They use the same syntax as per release hooks, but at the top level of your helmfile:
+
 ```yaml
 hooks:
 - events: ["prepare", "cleanup"]
@@ -1346,12 +1352,12 @@ Voilà! You can mix helm releases that are backed by remote charts, local charts
 
 Use the [Helmfile Best Practices Guide](writing-helmfile.md) to write advanced helmfiles that feature:
 
-- Default values
-- Layering
+* Default values
+* Layering
 
 We also have dedicated documentation on the following topics which might interest you:
 
-- [Shared Configurations Across Teams](shared-configuration-across-teams.md)
+* [Shared Configurations Across Teams](shared-configuration-across-teams.md)
 
 Or join our friendly slack community in the [`#helmfile`](https://slack.sweetops.com) channel to ask questions and get help. Check out our [slack archive](https://archive.sweetops.com/helmfile/) for good examples of how others are using it.
 
@@ -1383,6 +1389,7 @@ See #155 for more information on this topic.
 
 Some experimental features may be available for testing in perspective of being (or not) included in a future release.
 Those features are set using the environment variable `HELMFILE_EXPERIMENTAL`. Here is the current experimental feature :
+
 * `explicit-selector-inheritance` : remove today implicit cli selectors inheritance for composed helmfiles, see [composition selector](#selectors)
 
 If you want to enable all experimental features set the env var to `HELMFILE_EXPERIMENTAL=true`
@@ -1397,10 +1404,10 @@ For more examples, see the [examples/README.md](https://github.com/helmfile/helm
 
 ## Integrations
 
-- [renovate](https://github.com/renovatebot/renovate) automates chart version updates. See [this PR for more information](https://github.com/renovatebot/renovate/pull/5257).
-  - For updating container image tags and git tags embedded within helmfile.yaml and values, you can use [renovate's regexManager](https://docs.renovatebot.com/modules/manager/regex/). Please see [this comment in the renovate repository](https://github.com/renovatebot/renovate/issues/6130#issuecomment-624061289) for more information.
-- [ArgoCD Integration](#argocd-integration)
-- [Azure ACR Integration](#azure-acr-integration)
+* [renovate](https://github.com/renovatebot/renovate) automates chart version updates. See [this PR for more information](https://github.com/renovatebot/renovate/pull/5257).
+  * For updating container image tags and git tags embedded within helmfile.yaml and values, you can use [renovate's regexManager](https://docs.renovatebot.com/modules/manager/regex/). Please see [this comment in the renovate repository](https://github.com/renovatebot/renovate/issues/6130#issuecomment-624061289) for more information.
+* [ArgoCD Integration](#argocd-integration)
+* [Azure ACR Integration](#azure-acr-integration)
 
 ### ArgoCD Integration
 
@@ -1411,12 +1418,17 @@ ArgoCD has support for kustomize/manifests/helm chart by itself. Why bother with
 The reasons may vary:
 
 1. You do want to manage applications with ArgoCD, while letting Helmfile manage infrastructure-related components like Calico/Cilium/WeaveNet, Linkerd/Istio, and ArgoCD itself.
-  - This way, any application deployed by ArgoCD has access to all the infrastructure.
-  - Of course, you can use ArgoCD's [Sync Waves and Phases](https://argoproj.github.io/argo-cd/user-guide/sync-waves/) for ordering the infrastructure and application installations. But it may be difficult to separate the concern between the infrastructure and apps and annotate K8s resources consistently when you have different teams for managing infra and apps.
+
+* This way, any application deployed by ArgoCD has access to all the infrastructure.
+* Of course, you can use ArgoCD's [Sync Waves and Phases](https://argoproj.github.io/argo-cd/user-guide/sync-waves/) for ordering the infrastructure and application installations. But it may be difficult to separate the concern between the infrastructure and apps and annotate K8s resources consistently when you have different teams for managing infra and apps.
+
 2. You want to review the exact K8s manifests being applied on pull-request time, before ArgoCD syncs.
-  - This is often better than using a kind of `HelmRelease` custom resources that obfuscates exactly what manifests are being applied, which makes reviewing harder.
+
+* This is often better than using a kind of `HelmRelease` custom resources that obfuscates exactly what manifests are being applied, which makes reviewing harder.
+
 3. Use Helmfile as the single-pane of glass for all the K8s resources deployed to your cluster(s).
-  - Helmfile can reduce repetition in K8s manifests across ArgoCD application
+
+* Helmfile can reduce repetition in K8s manifests across ArgoCD application
 
 For 1, you run `helmfile apply` on CI to deploy ArgoCD and the infrastructure components.
 
@@ -1438,7 +1450,6 @@ git push origin $BRANCH
 
 so that they can be deployed by Argo CD as usual.
 
-
 The CI or bot can optionally submit a PR to be review by human, running:
 
 ```
@@ -1447,9 +1458,9 @@ hub pull-request -b main -l gitops -m 'some description'
 
 Recommendations:
 
-- Do create ArgoCD `Application` custom resource per Helm/Helmfile release, each point to respective sub-directory generated by `helmfile template --output-dir-template`
-- If you don't directly push it to the main Git branch and instead go through a pull-request, do lint rendered manifests on your CI, so that you can catch easy mistakes earlier/before ArgoCD finally deploys it
-- See [this ArgoCD issue](https://github.com/argoproj/argo-cd/issues/2143#issuecomment-570478329) for why you may want this, and see [this helmfile issue](https://github.com/roboll/helmfile/pull/1357) for how `--output-dir-template` works.
+* Do create ArgoCD `Application` custom resource per Helm/Helmfile release, each point to respective sub-directory generated by `helmfile template --output-dir-template`
+* If you don't directly push it to the main Git branch and instead go through a pull-request, do lint rendered manifests on your CI, so that you can catch easy mistakes earlier/before ArgoCD finally deploys it
+* See [this ArgoCD issue](https://github.com/argoproj/argo-cd/issues/2143#issuecomment-570478329) for why you may want this, and see [this helmfile issue](https://github.com/roboll/helmfile/pull/1357) for how `--output-dir-template` works.
 
 ### Azure ACR Integration
 
@@ -1516,4 +1527,4 @@ export MY_OCI_REGISTRY_PASSWORD=squarepants
 
 We use:
 
-- [semtag](https://github.com/pnikosis/semtag) for automated semver tagging. I greatly appreciate the author(pnikosis)'s effort on creating it and their kindness to share it!
+* [semtag](https://github.com/pnikosis/semtag) for automated semver tagging. I greatly appreciate the author(pnikosis)'s effort on creating it and their kindness to share it!
