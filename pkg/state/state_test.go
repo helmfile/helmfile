@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/stretchr/testify/require"
 	"github.com/variantdev/vals"
 
+	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -2497,6 +2499,57 @@ func Test_gatherOCIUsernamePassword(t *testing.T) {
 			if gotUsername != tt.wantUsername || gotPassword != tt.wantPassword {
 				t.Errorf("gatherOCIUsernamePassword() = got username/password %v/%v, want username/password %v/%v", gotUsername, gotPassword, tt.wantUsername, tt.wantPassword)
 			}
+		})
+	}
+}
+
+func TestGenerateOutputFilePath(t *testing.T) {
+	tests := []struct {
+		envName            string
+		filePath           string
+		releaseName        string
+		outputFileTemplate string
+		wantErr            bool
+		expected           string
+	}{
+		{
+			envName:            "dev",
+			releaseName:        "release1",
+			filePath:           "/path/to/helmfile.yaml",
+			outputFileTemplate: "helmfile-{{ .Environment.Name }}.yaml",
+			expected:           "helmfile-dev.yaml",
+		},
+		{
+			envName:            "error",
+			releaseName:        "release2",
+			filePath:           "helmfile.yaml",
+			outputFileTemplate: "helmfile-{{ .Environment.Name",
+			wantErr:            true,
+			expected:           "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.envName, func(t *testing.T) {
+			st := &HelmState{
+				FilePath: tt.envName,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Env: environment.Environment{
+						Name: tt.envName,
+					},
+				},
+			}
+			ra := &ReleaseSpec{
+				Name: tt.releaseName,
+			}
+			got, err := st.GenerateOutputFilePath(ra, tt.outputFileTemplate)
+
+			if tt.wantErr {
+				require.Errorf(t, err, "GenerateOutputFilePath() error = %v, want error", err)
+			} else {
+				require.NoError(t, err, "GenerateOutputFilePath() error = %v, want nil", err)
+			}
+			require.Equalf(t, got, tt.expected, "GenerateOutputFilePath() got = %v, want %v", got, tt.expected)
 		})
 	}
 }
