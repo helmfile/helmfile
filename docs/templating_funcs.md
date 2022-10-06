@@ -29,6 +29,31 @@ The `readFile` function allows you to read a file and return its content as the 
 {{ $fileContent := readFile "./myfile" }}
 ```
 
+#### `readDir`
+The `readDir` function returns a list of the relative paths to the files contained within the directory. (No folders included. Use `readDirEntries` if you need folders too)
+
+```yaml
+{{ range $index,$item := readDir "./testdata/tmpl/sample_folder/" }}
+  {{- $itemSplit := splitList  "/" $item -}}
+  {{- if contains "\\" $item -}}
+  {{- $itemSplit = splitList "\\" $item -}}
+  {{- end -}}
+  {{- $itemValue := $itemSplit | last -}}
+  {{- $itemValue -}}
+{{- end -}}
+```
+
+#### `readDirEntries`
+The `readDirEntries` function returns a list of [https://pkg.go.dev/os#DirEntry](DirEntry) contained within the directory
+
+```yaml
+{{ range $index,$item := readDirEntries "./testdata/tmpl/sample_folder/" }}
+  {{- if $item.IsDir -}}
+  {{- $item.Name -}}
+  {{- end -}}
+{{- end -}}
+```
+
 #### `toYaml`
 The `toYaml` function allows you to convert a value to YAML string. When has failed, the template rendering will fail with an error message.
 
