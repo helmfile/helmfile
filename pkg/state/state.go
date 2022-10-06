@@ -433,14 +433,14 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		if shouldSkip[repo.Name] {
 			continue
 		}
+		username, password := gatherUsernamePassword(repo.Name, repo.Username, repo.Password)
 		var err error
 		if repo.OCI {
-			username, password := gatherOCIUsernamePassword(repo.Name, repo.Username, repo.Password)
 			if username != "" && password != "" {
 				err = helm.RegistryLogin(repo.URL, username, password)
 			}
 		} else {
-			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed, repo.PassCredentials, repo.SkipTLSVerify)
+			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, username, password, repo.Managed, repo.PassCredentials, repo.SkipTLSVerify)
 		}
 
 		if err != nil {
@@ -453,7 +453,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 	return updated, nil
 }
 
-func gatherOCIUsernamePassword(repoName string, username string, password string) (string, string) {
+func gatherUsernamePassword(repoName string, username string, password string) (string, string) {
 	var user, pass string
 
 	replacedRepoName := strings.ToUpper(strings.Replace(repoName, "-", "_", -1))
