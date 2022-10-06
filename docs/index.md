@@ -148,7 +148,9 @@ repositories:
   url: http://roboll.io/charts
   certFile: optional_client_cert
   keyFile: optional_client_key
+  # username is retrieve from the environment with the format <registryNameUpperCase>_USERNAME for CI usage, here ROBOLL_USERNAME
   username: optional_username
+  # username is retrieve from the environment with the format <registryNameUpperCase>_PASSWORD for CI usage, here ROBOLL_PASSWORD
   password: optional_password
   oci: true
   passCredentials: true

@@ -965,6 +965,48 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "true", ""},
 		},
 		{
+			name: "repository without username and password and environment with username and password",
+			repos: []RepositorySpec{
+				{
+					Name:            "name",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "",
+					Password:        "",
+					PassCredentials: "",
+					SkipTLSVerify:   "",
+				},
+			},
+			envs: map[string]string{
+				"NAME_USERNAME": "example_user",
+				"NAME_PASSWORD": "example_password",
+			},
+			helm: &exectest.Helm{},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "", ""},
+		},
+		{
+			name: "repository with username and password and environment with username and password",
+			repos: []RepositorySpec{
+				{
+					Name:            "name",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "example_user1",
+					Password:        "example_password1",
+					PassCredentials: "",
+					SkipTLSVerify:   "",
+				},
+			},
+			envs: map[string]string{
+				"NAME_USERNAME": "example_user2",
+				"NAME_PASSWORD": "example_password2",
+			},
+			helm: &exectest.Helm{},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user1", "example_password1", "", "", ""},
+		},
+		{
 			name: "repository with skip-tls-verify",
 			repos: []RepositorySpec{
 				{
@@ -2432,7 +2474,7 @@ func TestReverse(t *testing.T) {
 	}
 }
 
-func Test_gatherOCIUsernamePassword(t *testing.T) {
+func Test_gatherUsernamePassword(t *testing.T) {
 	type args struct {
 		repoName string
 		username string
@@ -2451,7 +2493,7 @@ func Test_gatherOCIUsernamePassword(t *testing.T) {
 		{
 			name: "pass username/password from args",
 			args: args{
-				repoName: "myOCIRegistry",
+				repoName: "myRegistry",
 				username: "username1",
 				password: "password1",
 			},
@@ -2461,11 +2503,11 @@ func Test_gatherOCIUsernamePassword(t *testing.T) {
 		{
 			name: "repoName does not contain hyphen, read username/password from environment variables",
 			args: args{
-				repoName: "myOCIRegistry",
+				repoName: "myRegistry",
 			},
-			envUsernameKey:   "MYOCIREGISTRY_USERNAME",
+			envUsernameKey:   "MYREGISTRY_USERNAME",
 			envUsernameValue: "username2",
-			envPasswordKey:   "MYOCIREGISTRY_PASSWORD",
+			envPasswordKey:   "MYREGISTRY_PASSWORD",
 			envPasswordValue: "password2",
 			wantUsername:     "username2",
 			wantPassword:     "password2",
@@ -2473,11 +2515,11 @@ func Test_gatherOCIUsernamePassword(t *testing.T) {
 		{
 			name: "repoName contain hyphen, read username/password from environment variables",
 			args: args{
-				repoName: "my-oci-registry",
+				repoName: "my-registry",
 			},
-			envUsernameKey:   "MY_OCI_REGISTRY_USERNAME",
+			envUsernameKey:   "MY_REGISTRY_USERNAME",
 			envUsernameValue: "username3",
-			envPasswordKey:   "MY_OCI_REGISTRY_PASSWORD",
+			envPasswordKey:   "MY_REGISTRY_PASSWORD",
 			envPasswordValue: "password3",
 			wantUsername:     "username3",
 			wantPassword:     "password3",
@@ -2493,9 +2535,9 @@ func Test_gatherOCIUsernamePassword(t *testing.T) {
 				t.Setenv(tt.envPasswordKey, tt.envPasswordValue)
 			}
 
-			gotUsername, gotPassword := gatherOCIUsernamePassword(tt.args.repoName, tt.args.username, tt.args.password)
+			gotUsername, gotPassword := gatherUsernamePassword(tt.args.repoName, tt.args.username, tt.args.password)
 			if gotUsername != tt.wantUsername || gotPassword != tt.wantPassword {
-				t.Errorf("gatherOCIUsernamePassword() = got username/password %v/%v, want username/password %v/%v", gotUsername, gotPassword, tt.wantUsername, tt.wantPassword)
+				t.Errorf("gatherUsernamePassword() = got username/password %v/%v, want username/password %v/%v", gotUsername, gotPassword, tt.wantUsername, tt.wantPassword)
 			}
 		})
 	}
