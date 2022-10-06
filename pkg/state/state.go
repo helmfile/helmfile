@@ -3200,7 +3200,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 
 	t, err := template.New("output-file").Parse(outputFileTemplate)
 	if err != nil {
-		return "", fmt.Errorf("parsing output-file template [%s]: %w", outputFileTemplate, err)
+		return "", fmt.Errorf("parsing output-file template %q: %w", outputFileTemplate, err)
 	}
 
 	buf := &bytes.Buffer{}
