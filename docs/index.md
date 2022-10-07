@@ -628,7 +628,7 @@ If `--skip-charts` flag is not set, list would prepare all releases, by fetching
 
 The `helmfile version` sub-command prints the version of Helmfile.Optional `-o` flag accepts `json` `yaml` `short` to output version in JSON, YAML or short format.
 
-default it will check for the latest version of Helmfile and print a tip if the current version is not the latest. To disable this behavior, set environment variable `HELMFILE_UPGRADE_NOTICE_DISABLED` to any not empty value.
+default it will check for the latest version of Helmfile and print a tip if the current version is not the latest. To disable this behavior, set environment variable `HELMFILE_UPGRADE_NOTICE_DISABLED` to any non-empty value.
 
 ## Paths Overview
 
