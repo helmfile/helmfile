@@ -3200,7 +3200,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 
 	t, err := template.New("output-file").Parse(outputFileTemplate)
 	if err != nil {
-		return "", fmt.Errorf("parsing output-file template")
+		return "", fmt.Errorf("parsing output-file template %q: %w", outputFileTemplate, err)
 	}
 
 	buf := &bytes.Buffer{}
@@ -3213,8 +3213,9 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 	}
 
 	data := struct {
-		State   state
-		Release *ReleaseSpec
+		State       state
+		Release     *ReleaseSpec
+		Environment *environment.Environment
 	}{
 		State: state{
 			BaseName:    stateFileName,
@@ -3222,7 +3223,8 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 			AbsPath:     stateAbsPath,
 			AbsPathSHA1: sha1sum,
 		},
-		Release: release,
+		Release:     release,
+		Environment: &st.Env,
 	}
 
 	if err := t.Execute(buf, data); err != nil {
