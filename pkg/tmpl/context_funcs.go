@@ -18,7 +18,7 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/util"
 )
 
 type Values = map[string]interface{}
@@ -279,7 +279,7 @@ func (c *Context) Tpl(text string, data interface{}) (string, error) {
 }
 
 func ToYaml(v interface{}) (string, error) {
-	data, err := maputil.YamlMarshal(v)
+	data, err := util.YamlMarshal(v)
 	if err != nil {
 		return "", err
 	}

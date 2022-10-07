@@ -28,7 +28,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-	"github.com/helmfile/helmfile/pkg/testutil"
+	"github.com/helmfile/helmfile/pkg/util"
 )
 
 func appWithFs(app *App, files map[string]string) *App {
@@ -4519,7 +4519,7 @@ releases:
 
 	expectNoCallsToHelm(app)
 
-	out := testutil.CaptureStdout(func() {
+	out := util.CaptureStdout(func() {
 		err := app.PrintState(configImpl{})
 		assert.Nil(t, err)
 	})
@@ -4565,7 +4565,7 @@ releases:
 
 	expectNoCallsToHelm(app)
 
-	out := testutil.CaptureStdout(func() {
+	out := util.CaptureStdout(func() {
 		err := app.PrintState(configImpl{})
 		assert.Nil(t, err)
 	})
@@ -4625,7 +4625,7 @@ releases:
 
 	expectNoCallsToHelm(app)
 
-	out := testutil.CaptureStdout(func() {
+	out := util.CaptureStdout(func() {
 		err := app.ListReleases(configImpl{})
 		assert.Nil(t, err)
 	})

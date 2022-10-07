@@ -28,9 +28,9 @@ import (
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
+	"github.com/helmfile/helmfile/pkg/util"
 )
 
 const (
@@ -2664,7 +2664,7 @@ func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path s
 			return nil, err
 		}
 
-		return maputil.YamlMarshal(parsedYaml)
+		return util.YamlMarshal(parsedYaml)
 	}
 
 	return rawBytes, nil
@@ -2831,7 +2831,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 				return nil, err
 			}
 		default:
-			bs, err := maputil.YamlMarshal(value)
+			bs, err := util.YamlMarshal(value)
 			if err != nil {
 				return nil, err
 			}
@@ -3235,7 +3235,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 }
 
 func (st *HelmState) ToYaml() (string, error) {
-	if result, err := maputil.YamlMarshal(st); err != nil {
+	if result, err := util.YamlMarshal(st); err != nil {
 		return "", err
 	} else {
 		return string(result), nil

@@ -1,4 +1,4 @@
-package maputil
+package util
 
 import (
 	"bytes"

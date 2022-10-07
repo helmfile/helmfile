@@ -15,7 +15,7 @@ import (
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-	"github.com/helmfile/helmfile/pkg/testutil"
+	"github.com/helmfile/helmfile/pkg/util"
 )
 
 func testListWithEnvironment(t *testing.T, cfg configImpl) {
@@ -164,7 +164,7 @@ releases:
 			}
 
 			var listErr error
-			out := testutil.CaptureStdout(func() {
+			out := util.CaptureStdout(func() {
 				listErr = app.ListReleases(cfg)
 			})
 
@@ -305,7 +305,7 @@ releases:
 
 	expectNoCallsToHelm(app)
 
-	out := testutil.CaptureStdout(func() {
+	out := util.CaptureStdout(func() {
 		err := app.ListReleases(cfg)
 		assert.Nil(t, err)
 	})

@@ -4,7 +4,7 @@ import (
 	"github.com/imdario/mergo"
 	"gopkg.in/yaml.v3"
 
-	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/util"
 )
 
 type Environment struct {
@@ -16,7 +16,7 @@ type Environment struct {
 var EmptyEnvironment Environment
 
 func (e Environment) DeepCopy() Environment {
-	valuesBytes, err := maputil.YamlMarshal(e.Values)
+	valuesBytes, err := util.YamlMarshal(e.Values)
 	if err != nil {
 		panic(err)
 	}
@@ -24,12 +24,12 @@ func (e Environment) DeepCopy() Environment {
 	if err := yaml.Unmarshal(valuesBytes, &values); err != nil {
 		panic(err)
 	}
-	values, err = maputil.CastKeysToStrings(values)
+	values, err = util.CastKeysToStrings(values)
 	if err != nil {
 		panic(err)
 	}
 
-	defaultsBytes, err := maputil.YamlMarshal(e.Defaults)
+	defaultsBytes, err := util.YamlMarshal(e.Defaults)
 	if err != nil {
 		panic(err)
 	}
@@ -37,7 +37,7 @@ func (e Environment) DeepCopy() Environment {
 	if err := yaml.Unmarshal(defaultsBytes, &defaults); err != nil {
 		panic(err)
 	}
-	defaults, err = maputil.CastKeysToStrings(defaults)
+	defaults, err = util.CastKeysToStrings(defaults)
 	if err != nil {
 		panic(err)
 	}
@@ -77,7 +77,7 @@ func (e *Environment) GetMergedValues() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	vals, err := maputil.CastKeysToStrings(vals)
+	vals, err := util.CastKeysToStrings(vals)
 	if err != nil {
 		return nil, err
 	}

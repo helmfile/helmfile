@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/helmfile/helmfile/pkg/testutil"
+	"github.com/helmfile/helmfile/pkg/util"
 )
 
 // TestFormatAsTable tests the FormatAsTable function.
@@ -36,7 +36,7 @@ func TestFormatAsTable(t *testing.T) {
 		t.Errorf("error reading %s: %v", tableoutput, err)
 	}
 
-	result := testutil.CaptureStdout(func() {
+	result := util.CaptureStdout(func() {
 		FormatAsTable(h)
 	})
 	if result != string(expectd) {
@@ -70,7 +70,7 @@ func TestFormatAsJson(t *testing.T) {
 	if err != nil {
 		t.Errorf("error reading %s: %v", output, err)
 	}
-	result := testutil.CaptureStdout(func() {
+	result := util.CaptureStdout(func() {
 		FormatAsJson(h)
 	})
 

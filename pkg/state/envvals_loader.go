@@ -10,9 +10,9 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
-	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
+	"github.com/helmfile/helmfile/pkg/util"
 )
 
 type EnvironmentValuesLoader struct {
@@ -88,7 +88,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			// All the nested map key should be string. Otherwise we get strange errors due to that
 			// mergo or reflect is unable to merge map[interface{}]interface{} with map[string]interface{} or vice versa.
 			// See https://github.com/roboll/helmfile/issues/677
-			vals, err := maputil.CastKeysToStrings(m)
+			vals, err := util.CastKeysToStrings(m)
 			if err != nil {
 				return nil, err
 			}
