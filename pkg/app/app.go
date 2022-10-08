@@ -791,12 +791,13 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 		go func() {
 			sig := <-sigs
-			func() {
-				CleanWaitGroup.Add(1)
-				defer CleanWaitGroup.Done()
-				errs := []error{fmt.Errorf("received [%s] to shutdown ", sig)}
-				_ = context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}.clean(errs)
-			}()
+		CleanWaitGroup.Add(1)
+		defer CleanWaitGroup.Done()
+		go func() {
+			CleanWaitGroup.Wait()
+			errs := []error{fmt.Errorf("received [%s] to shutdown ", sig)}
+			_ = context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+		}()
 		}()
 
 		ctx := context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}
