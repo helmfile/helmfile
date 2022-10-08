@@ -75,6 +75,7 @@ type ApplyConfigProvider interface {
 	concurrencyConfig
 	interactive
 	loggingConfig
+	valuesControlMode
 }
 
 type SyncConfigProvider interface {
@@ -97,6 +98,7 @@ type SyncConfigProvider interface {
 	concurrencyConfig
 	interactive
 	loggingConfig
+	valuesControlMode
 }
 
 type DiffConfigProvider interface {
@@ -126,6 +128,7 @@ type DiffConfigProvider interface {
 	DiffOutput() string
 
 	concurrencyConfig
+	valuesControlMode
 }
 
 type DeleteConfigProvider interface {
@@ -243,3 +246,8 @@ type ListConfigProvider interface {
 }
 
 type CacheConfigProvider interface{}
+
+// when enable reuse-values, reuse the last release's values and merge in any overrides values.
+type valuesControlMode interface {
+	ReuseValues() bool
+}

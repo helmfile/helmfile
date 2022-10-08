@@ -1061,7 +1061,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
 		},
 		{
 			name: "with tiller args",
@@ -1073,7 +1073,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns", "--reset-values"}}},
 		},
 		{
 			name: "escaped values",
@@ -1094,7 +1094,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}", "--reset-values"}}},
 		},
 		{
 			name: "set single value from file",
@@ -1119,7 +1119,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ", "--reset-values"}}},
 		},
 		{
 			name: "set single array value in an array",
@@ -1139,7 +1139,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}", "--reset-values"}}},
 		},
 	}
 	for i := range tests {
@@ -1554,7 +1554,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
 		},
 		{
 			name: "with tiller args",
@@ -1566,7 +1566,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns", "--reset-values"}}},
 		},
 		{
 			name: "escaped values",
@@ -1588,7 +1588,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			},
 			helm: &exectest.Helm{},
 			wantReleases: []exectest.Release{
-				{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}},
+				{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}", "--reset-values"}},
 			},
 		},
 		{
@@ -1615,7 +1615,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			},
 			helm: &exectest.Helm{},
 			wantReleases: []exectest.Release{
-				{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}},
+				{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ", "--reset-values"}},
 			},
 		},
 		{
@@ -1637,7 +1637,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			},
 			helm: &exectest.Helm{},
 			wantReleases: []exectest.Release{
-				{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}"}},
+				{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}", "--reset-values"}},
 			},
 		},
 	}
@@ -2443,6 +2443,102 @@ func TestHelmState_Delete(t *testing.T) {
 			}
 		}
 		t.Run(tt.name, f)
+	}
+}
+
+func TestDiffpareSyncReleases(t *testing.T) {
+	tests := []struct {
+		name        string
+		flags       []string
+		diffOptions *DiffOpts
+	}{
+		{
+			name:  "reuse-values",
+			flags: []string{"--reuse-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+			},
+		},
+		{
+			name:        "reset-values",
+			flags:       []string{"--reset-values"},
+			diffOptions: &DiffOpts{},
+		},
+	}
+
+	for _, tt := range tests {
+		release := ReleaseSpec{
+			Name: tt.name,
+		}
+		releases := []ReleaseSpec{
+			release,
+		}
+		state := &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				Releases: releases,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+		helm := &exectest.Helm{
+			Lists: map[exectest.ListKey]string{},
+		}
+		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, []string{}, false, false, false, tt.diffOptions)
+
+		require.Len(t, es, 0)
+		require.Len(t, results, 1)
+
+		r := results[0]
+
+		require.Equal(t, tt.flags, r.flags)
+	}
+}
+
+func TestPrepareSyncReleases(t *testing.T) {
+	tests := []struct {
+		name        string
+		flags       []string
+		syncOptions *SyncOpts
+	}{
+		{
+			name:  "reuse-values",
+			flags: []string{"--reuse-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+			},
+		},
+		{
+			name:        "reset-values",
+			flags:       []string{"--reset-values"},
+			syncOptions: &SyncOpts{},
+		},
+	}
+
+	for _, tt := range tests {
+		release := ReleaseSpec{
+			Name: tt.name,
+		}
+		releases := []ReleaseSpec{
+			release,
+		}
+		state := &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				Releases: releases,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+		helm := &exectest.Helm{
+			Lists: map[exectest.ListKey]string{},
+		}
+		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
+
+		require.Len(t, es, 0)
+		require.Len(t, results, 1)
+
+		r := results[0]
+
+		require.Equal(t, tt.flags, r.flags)
 	}
 }
 

@@ -572,6 +572,12 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--wait-for-jobs")
 				}
 
+				if opts.ReuseValues {
+					flags = append(flags, "--reuse-values")
+				} else {
+					flags = append(flags, "--reset-values")
+				}
+
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
 					continue
@@ -648,6 +654,7 @@ type SyncOpts struct {
 	SkipCRDs    bool
 	Wait        bool
 	WaitForJobs bool
+	ReuseValues bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1623,10 +1630,10 @@ type diffPrepareResult struct {
 	upgradeDueToSkippedDiff bool
 }
 
-func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
-	opts := &DiffOpts{}
-	for _, o := range opt {
-		o.Apply(opts)
+func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opts ...DiffOpt) ([]diffPrepareResult, []error) {
+	opt := &DiffOpts{}
+	for _, o := range opts {
+		o.Apply(opt)
 	}
 
 	mu := &sync.Mutex{}
@@ -1688,7 +1695,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				st.ApplyOverrides(release)
 
-				if opts.SkipDiffOnInstall && !isInstalled(release) {
+				if opt.SkipDiffOnInstall && !isInstalled(release) {
 					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true}
 					continue
 				}
@@ -1740,22 +1747,28 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--no-hooks")
 				}
 
-				if opts.NoColor {
+				if opt.NoColor {
 					flags = append(flags, "--no-color")
-				} else if opts.Color {
+				} else if opt.Color {
 					flags = append(flags, "--color")
 				}
 
-				if opts.Context > 0 {
-					flags = append(flags, "--context", fmt.Sprintf("%d", opts.Context))
+				if opt.Context > 0 {
+					flags = append(flags, "--context", fmt.Sprintf("%d", opt.Context))
 				}
 
-				if opts.Output != "" {
-					flags = append(flags, "--output", opts.Output)
+				if opt.Output != "" {
+					flags = append(flags, "--output", opt.Output)
 				}
 
-				if opts.Set != nil {
-					for _, s := range opts.Set {
+				if opt.ReuseValues {
+					flags = append(flags, "--reuse-values")
+				} else {
+					flags = append(flags, "--reset-values")
+				}
+
+				if opt.Set != nil {
+					for _, s := range opt.Set {
 						flags = append(flags, "--set", s)
 					}
 				}
@@ -1839,6 +1852,7 @@ type DiffOpts struct {
 	Set               []string
 	SkipCleanup       bool
 	SkipDiffOnInstall bool
+	ReuseValues       bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {

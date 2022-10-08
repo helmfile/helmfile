@@ -49,6 +49,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&diffOptions.Output, "output", "", "output format for diff plugin")
 	f.BoolVar(&diffOptions.SuppressSecrets, "suppress-secrets", false, "suppress secrets in the output. highly recommended to specify on CI/CD use-cases")
 	f.StringArrayVar(&diffOptions.Suppress, "suppress", nil, "suppress specified Kubernetes objects in the output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
+	f.BoolVar(&diffOptions.ReuseValues, "reuse-values", false, "reuse the last release's values and merge in any overrides from other sources")
 
 	return cmd
 }
