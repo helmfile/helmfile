@@ -217,16 +217,13 @@ func (st *HelmState) updateDependenciesInTempDir(shell helmexec.DependencyUpdate
 }
 
 func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies, error) {
-	repoToURL := map[string]string{}
+	repoToURL := map[string]RepositorySpec{}
 
 	for _, r := range st.Repositories {
-		repoToURL[r.Name] = r.URL
+		repoToURL[r.Name] = r
 	}
 
 	unresolved := &UnresolvedDependencies{deps: map[string][]unresolvedChartDependency{}}
-	// if err := unresolved.Add("stable/envoy", "https://kubernetes-charts.storage.googleapis.com", ""); err != nil {
-	//	 panic(err)
-	// }
 
 	for _, r := range st.Releases {
 		repo, chart, ok := resolveRemoteChart(r.Chart)
@@ -234,11 +231,17 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 			continue
 		}
 
-		url, ok := repoToURL[repo]
+		repoSpec, ok := repoToURL[repo]
 		// Skip this chart from dependency management, as there's no matching `repository` in the helmfile state,
 		// which may imply that this is a local chart within a directory, like `charts/myapp`
 		if !ok {
 			continue
+		}
+
+		url := repoSpec.URL
+
+		if repoSpec.OCI {
+			url = fmt.Sprintf("oci://%s", url)
 		}
 
 		if err := unresolved.Add(chart, url, r.Version); err != nil {
