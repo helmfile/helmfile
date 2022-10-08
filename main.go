@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/helmfile/helmfile/cmd"
+	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
 	"github.com/helmfile/helmfile/pkg/errors"
 )
@@ -27,6 +28,8 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		if sig != nil {
 			fmt.Fprintln(os.Stderr, err)
+			app.CleanWaitGroup.Wait()
+
 			// See http://tldp.org/LDP/abs/html/exitcodes.html
 			switch sig {
 			case syscall.SIGINT:
