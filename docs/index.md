@@ -495,7 +495,7 @@ Usage:
 
 Available Commands:
   apply        Apply all resources from state file only when there are changes
-  build        Build all resources from state file only when there are changes
+  build        Build all resources from state file
   cache        Cache management
   charts       DEPRECATED: sync releases from state file (helm upgrade --install)
   completion   Generate the autocompletion script for the specified shell
@@ -512,7 +512,7 @@ Available Commands:
   sync         Sync releases defined in state file
   template     Template releases defined in state file
   test         Test charts from state file (helm test)
-  version      Show the version for Helmfile.
+  version      Print the CLI version
   write-values Write values files for releases. Similar to `helmfile template`, write values files instead of manifests.
 
 Flags:
@@ -625,6 +625,12 @@ must be specified with `--output-dir`.
 The `helmfile list` sub-command lists releases defined in the manifest. Optional `--output` flag accepts `json` to output releases in JSON format.
 
 If `--skip-charts` flag is not set, list would prepare all releases, by fetching charts and templating them.
+
+### version
+
+The `helmfile version` sub-command prints the version of Helmfile.Optional `-o` flag accepts `json` `yaml` `short` to output version in JSON, YAML or short format.
+
+default it will check for the latest version of Helmfile and print a tip if the current version is not the latest. To disable this behavior, set environment variable `HELMFILE_UPGRADE_NOTICE_DISABLED` to any non-empty value.
 
 ## Paths Overview
 

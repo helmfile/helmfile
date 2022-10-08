@@ -5,7 +5,12 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - -s -w -X github.com/helmfile/helmfile/pkg/app/version.Version={{.Version}}
+      - -s -w
+      - -X go.szostok.io/version.version={{.Version}}
+      - -X go.szostok.io/version.buildDate={{.Date}}
+      - -X go.szostok.io/version.commit={{.FullCommit}}
+      - -X go.szostok.io/version.commitDate={{.CommitDate}}
+      - -X go.szostok.io/version.dirtyBuild=false
     goos:
       - darwin
       - linux
