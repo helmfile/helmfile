@@ -45,7 +45,7 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see roboll/helmfile#1824 for more information.
 
-Even though Helmfile is used in production environments [across multiple organizations](users.md), it is still in its early stage of development, hence versioned 0.x.
+Even though Helmfile is used in production environments [across multiple organizations](USERS.md), it is still in its early stage of development, hence versioned 0.x.
 
 Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be backward-incompatible changes for every release.
 
