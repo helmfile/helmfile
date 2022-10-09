@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"text/tabwriter"
 
 	"github.com/variantdev/vals"
@@ -778,7 +776,7 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error)) error {
 	noMatchInHelmfiles := true
 
-	err := a.visitStateFiles(fileOrDir, defOpts, func(f, d string) error {
+	err := a.visitStateFiles(fileOrDir, defOpts, func(f, d string) (retErr error) {
 		opts := defOpts.DeepCopy()
 
 		if opts.CalleePath == "" {
@@ -786,19 +784,6 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		}
 
 		st, err := a.loadDesiredStateFromYaml(f, opts)
-
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			sig := <-sigs
-		CleanWaitGroup.Add(1)
-		defer CleanWaitGroup.Done()
-		go func() {
-			CleanWaitGroup.Wait()
-			errs := []error{fmt.Errorf("received [%s] to shutdown ", sig)}
-			_ = context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}.clean(errs)
-		}()
-		}()
 
 		ctx := context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}
 
@@ -863,7 +848,32 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 			return appError(fmt.Sprintf("failed executing release templates in \"%s\"", f), tmplErr)
 		}
 
-		processed, errs := converge(templated)
+		var (
+			processed bool
+			errs      []error
+		)
+
+		// Ensure every temporary files and directories generated while running
+		// the converge function is clean up before exiting this function in all the three cases below:
+		// - This function returned nil
+		// - This function returned an err
+		// - Helmfile received SIGINT or SIGTERM while running this function
+		// For the last case you also need a signal handler in main.go.
+		// Ideally though, this CleanWaitGroup should gone and be replaced by a context cancellation propagation.
+		// See https://github.com/helmfile/helmfile/pull/418 for more details.
+		CleanWaitGroup.Add(1)
+		defer func() {
+			defer CleanWaitGroup.Done()
+			cleanErr := context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+			if retErr == nil {
+				retErr = cleanErr
+			} else if cleanErr != nil {
+				a.Logger.Debugf("Failed to clean up temporary files generated while processing %q: %v", templated.FilePath, cleanErr)
+			}
+		}()
+
+		processed, errs = converge(templated)
+
 		noMatchInHelmfiles = noMatchInHelmfiles && !processed
 
 		if opts.Reverse {
@@ -873,7 +883,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 			}
 		}
 
-		return context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+		return nil
 	})
 
 	if err != nil {
