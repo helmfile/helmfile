@@ -66,7 +66,6 @@ func newAppTestLogger() *zap.SugaredLogger {
 }
 
 func TestVisitDesiredStatesWithReleasesFiltered_ReleaseOrder(t *testing.T) {
-
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 helmfiles:
