@@ -5,6 +5,9 @@ hook[prepare] logs |
 hook[preapply] logs | foo
 hook[preapply] logs | 
 
+hook[preapply] logs | bar
+hook[preapply] logs | 
+
 hook[presync] logs | foo
 hook[presync] logs | 
 

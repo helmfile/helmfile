@@ -960,13 +960,17 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 		return false, []error{err}
 	}
 
-	return withBatches(templated, batches, helm, logger, converge)
+	return withBatches(opts.Purpose, templated, batches, helm, logger, converge)
 }
 
-func withBatches(templated *state.HelmState, batches [][]state.Release, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
+func withBatches(purpose string, templated *state.HelmState, batches [][]state.Release, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
 	numBatches := len(batches)
 
-	logger.Debugf("processing %d groups of releases in this order:\n%s", numBatches, printBatches(batches))
+	if purpose == "" {
+		purpose = "processing"
+	}
+
+	logger.Debugf("%s %d groups of releases in this order:\n%s", purpose, numBatches, printBatches(batches))
 
 	any := false
 
@@ -983,7 +987,7 @@ func withBatches(templated *state.HelmState, batches [][]state.Release, helm hel
 			releaseIds = append(releaseIds, state.ReleaseToID(&release))
 		}
 
-		logger.Debugf("processing releases in group %d/%d: %s", i+1, numBatches, strings.Join(releaseIds, ", "))
+		logger.Debugf("%s releases in group %d/%d: %s", purpose, i+1, numBatches, strings.Join(releaseIds, ", "))
 
 		batchSt := *templated
 		batchSt.Releases = targets
@@ -1360,7 +1364,7 @@ Do you really want to apply?
 	st.Releases = selectedAndNeededReleases
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
-		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			for _, r := range subst.Releases {
 				release := r
 				if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
