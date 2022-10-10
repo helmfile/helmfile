@@ -1051,7 +1051,7 @@ changing working directory back to "/path/to"
 					logFlushed.Wait()
 				}()
 
-				logger := newAppTestLogger()
+				logger := helmexec.NewLogger(logWriter, "debug")
 
 				valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 				if err != nil {
