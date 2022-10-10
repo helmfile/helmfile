@@ -1,0 +1,103 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7:   installed: false
+ 8: 
+ 9: - name: external-secrets
+10:   chart: incubator/raw
+11:   namespace: default
+12:   labels:
+13:     app: test
+14:   needs:
+15:   - kube-system/kubernetes-external-secrets
+16: 
+17: - name: my-release
+18:   chart: incubator/raw
+19:   namespace: default
+20:   labels:
+21:     app: test
+22:   needs:
+23:   - default/external-secrets
+24: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7:   installed: false
+ 8: 
+ 9: - name: external-secrets
+10:   chart: incubator/raw
+11:   namespace: default
+12:   labels:
+13:     app: test
+14:   needs:
+15:   - kube-system/kubernetes-external-secrets
+16: 
+17: - name: my-release
+18:   chart: incubator/raw
+19:   namespace: default
+20:   labels:
+21:     app: test
+22:   needs:
+23:   - default/external-secrets
+24: 
+
+merged environment: &{default map[] map[]}
+2 release(s) matching app=test found in helmfile.yaml
+
+Affected releases are:
+  external-secrets (incubator/raw) UPDATED
+  kubernetes-external-secrets (incubator/raw) DELETED
+  my-release (incubator/raw) UPDATED
+
+invoking preapply hooks for 3 groups of releases in this order:
+GROUP RELEASES
+1     default/default/my-release
+2     default/default/external-secrets
+3     default/kube-system/kubernetes-external-secrets
+
+invoking preapply hooks for releases in group 1/3: default/default/my-release
+invoking preapply hooks for releases in group 2/3: default/default/external-secrets
+invoking preapply hooks for releases in group 3/3: default/kube-system/kubernetes-external-secrets
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     default/kube-system/kubernetes-external-secrets
+
+processing releases in group 1/1: default/kube-system/kubernetes-external-secrets
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     default/default/external-secrets
+2     default/default/my-release
+
+processing releases in group 1/2: default/default/external-secrets
+processing releases in group 2/2: default/default/my-release
+
+UPDATED RELEASES:
+NAME               CHART           VERSION
+external-secrets   incubator/raw     3.1.0
+my-release         incubator/raw     3.1.0
+
+
+DELETED RELEASES:
+NAME
+kubernetes-external-secrets
+changing working directory back to "/path/to"
