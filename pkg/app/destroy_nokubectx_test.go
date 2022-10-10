@@ -74,7 +74,7 @@ func TestDestroy_2(t *testing.T) {
 				logFlushed.Wait()
 			}()
 
-			logger := helmexec.NewLogger(logWriter, "debug")
+			logger := newAppTestLogger()
 
 			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 			if err != nil {

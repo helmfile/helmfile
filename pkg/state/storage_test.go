@@ -2,7 +2,7 @@ package state
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"reflect"
 	"testing"
 
@@ -73,7 +73,7 @@ func TestStorage_resolveFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := NewStorage(cacheDir, helmexec.NewLogger(os.Stderr, "debug"), filesystem.DefaultFileSystem())
+			st := NewStorage(cacheDir, helmexec.NewLogger(io.Discard, "debug"), filesystem.DefaultFileSystem())
 
 			files, skipped, err := st.resolveFile(tt.args.missingFileHandler, tt.args.title, tt.args.path)
 			if (err != nil) != tt.wantErr {

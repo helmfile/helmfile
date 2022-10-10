@@ -1,31 +1,27 @@
 package state
 
 import (
+	"io"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/zap"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 )
 
 func newLoader() *EnvironmentValuesLoader {
-	log, err := zap.NewDevelopment(zap.AddStacktrace(zap.DebugLevel))
-	if err != nil {
-		panic(err)
-	}
-
-	sugar := log.Sugar()
+	log := helmexec.NewLogger(io.Discard, "debug")
 
 	storage := &Storage{
 		FilePath: "./helmfile.yaml",
 		basePath: ".",
 		fs:       ffs.DefaultFileSystem(),
-		logger:   sugar,
+		logger:   log,
 	}
 
-	return NewEnvironmentValuesLoader(storage, storage.fs, sugar, remote.NewRemote(sugar, "/tmp", storage.fs))
+	return NewEnvironmentValuesLoader(storage, storage.fs, log, remote.NewRemote(log, "/tmp", storage.fs))
 }
 
 // See https://github.com/roboll/helmfile/pull/1169
