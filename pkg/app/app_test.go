@@ -4353,7 +4353,7 @@ changing working directory back to "/path/to"
 					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
 				}
 			} else {
-				assertEqualsToSnapshot(t, "log", bs.String())
+				assertLogEqualsToSnapshot(t, bs.String())
 			}
 		})
 	}

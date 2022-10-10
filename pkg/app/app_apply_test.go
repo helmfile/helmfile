@@ -166,7 +166,7 @@ func TestApply_2(t *testing.T) {
 				t.Errorf("unexpected log:\nDIFF\n%s\nEOD", diff)
 			}
 		} else {
-			assertEqualsToSnapshot(t, "log", bs.String())
+			assertLogEqualsToSnapshot(t, bs.String())
 		}
 	}
 
