@@ -19,7 +19,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mattn/go-isatty v0.0.16
 	github.com/r3labs/diff v1.1.0
-	github.com/spf13/cobra v1.5.0
+	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
@@ -86,7 +86,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.4 // indirect
 	github.com/hashicorp/vault/sdk v0.1.14-0.20200215224050-f6547fa8e820 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/itchyny/gojq v0.9.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
