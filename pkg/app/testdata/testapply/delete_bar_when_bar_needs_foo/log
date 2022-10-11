@@ -38,6 +38,13 @@ Affected releases are:
   bar (stable/mychart2) DELETED
   foo (stable/mychart1) UPDATED
 
+invoking preapply hooks for 2 groups of releases in this order:
+GROUP RELEASES
+1     default//bar
+2     default//foo
+
+invoking preapply hooks for releases in group 1/2: default//bar
+invoking preapply hooks for releases in group 2/2: default//foo
 processing 1 groups of releases in this order:
 GROUP RELEASES
 1     default//bar

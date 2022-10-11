@@ -100,6 +100,7 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 }
 
 type PlanOptions struct {
+	Purpose                string
 	Reverse                bool
 	IncludeNeeds           bool
 	IncludeTransitiveNeeds bool

@@ -8,12 +8,14 @@ first-pass rendering output of "helmfile.yaml.part.0":
  2: - name: bar
  3:   chart: stable/mychart2
  4:   namespace: ns2
- 5:   needs:
- 6:   - ns1/foo
- 7: - name: foo
- 8:   chart: stable/mychart1
- 9:   namespace: ns1
-10: 
+ 5:   tillerNamespace: tns2
+ 6:   needs:
+ 7:   - tns1/foo
+ 8: - name: foo
+ 9:   chart: stable/mychart1
+10:   namespace: ns1
+11:   tillerNamespace: tns1
+12: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -26,12 +28,14 @@ second-pass rendering result of "helmfile.yaml.part.0":
  2: - name: bar
  3:   chart: stable/mychart2
  4:   namespace: ns2
- 5:   needs:
- 6:   - ns1/foo
- 7: - name: foo
- 8:   chart: stable/mychart1
- 9:   namespace: ns1
-10: 
+ 5:   tillerNamespace: tns2
+ 6:   needs:
+ 7:   - tns1/foo
+ 8: - name: foo
+ 9:   chart: stable/mychart1
+10:   namespace: ns1
+11:   tillerNamespace: tns1
+12: 
 
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
@@ -42,24 +46,22 @@ Affected releases are:
 
 invoking preapply hooks for 2 groups of releases in this order:
 GROUP RELEASES
-1     default/ns2/bar
-2     default/ns1/foo
+1     default/tns2/bar
+2     default/tns1/foo
 
-invoking preapply hooks for releases in group 1/2: default/ns2/bar
-invoking preapply hooks for releases in group 2/2: default/ns1/foo
+invoking preapply hooks for releases in group 1/2: default/tns2/bar
+invoking preapply hooks for releases in group 2/2: default/tns1/foo
 processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default/ns1/foo
-2     default/ns2/bar
+1     default/tns1/foo
+2     default/tns2/bar
 
-processing releases in group 1/2: default/ns1/foo
-getting deployed release version failed: Failed to get the version for: mychart1
-processing releases in group 2/2: default/ns2/bar
-getting deployed release version failed: Failed to get the version for: mychart2
+processing releases in group 1/2: default/tns1/foo
+processing releases in group 2/2: default/tns2/bar
 
 UPDATED RELEASES:
 NAME   CHART             VERSION
-foo    stable/mychart1          
-bar    stable/mychart2          
+foo    stable/mychart1     3.1.0
+bar    stable/mychart2     3.1.0
 
 changing working directory back to "/path/to"

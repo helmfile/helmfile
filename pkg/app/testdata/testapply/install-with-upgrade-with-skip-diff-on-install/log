@@ -7,13 +7,16 @@ first-pass rendering output of "helmfile.yaml.part.0":
  1: releases:
  2: - name: baz
  3:   chart: stable/mychart3
- 4: - name: foo
- 5:   chart: stable/mychart1
- 6:   needs:
- 7:   - bar
- 8: - name: bar
- 9:   chart: stable/mychart2
-10: 
+ 4:   disableValidationOnInstall: true
+ 5: - name: foo
+ 6:   chart: stable/mychart1
+ 7:   disableValidationOnInstall: true
+ 8:   needs:
+ 9:   - bar
+10: - name: bar
+11:   chart: stable/mychart2
+12:   disableValidation: true
+13: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -25,13 +28,16 @@ second-pass rendering result of "helmfile.yaml.part.0":
  1: releases:
  2: - name: baz
  3:   chart: stable/mychart3
- 4: - name: foo
- 5:   chart: stable/mychart1
- 6:   needs:
- 7:   - bar
- 8: - name: bar
- 9:   chart: stable/mychart2
-10: 
+ 4:   disableValidationOnInstall: true
+ 5: - name: foo
+ 6:   chart: stable/mychart1
+ 7:   disableValidationOnInstall: true
+ 8:   needs:
+ 9:   - bar
+10: - name: bar
+11:   chart: stable/mychart2
+12:   disableValidation: true
+13: 
 
 merged environment: &{default map[] map[]}
 3 release(s) found in helmfile.yaml
@@ -54,15 +60,13 @@ GROUP RELEASES
 2     default//foo
 
 processing releases in group 1/2: default//baz, default//bar
-getting deployed release version failed: unexpected list key: listkey(filter=^baz$,flags=--kube-contextdefault--deleting--deployed--failed--pending) not found in 
-getting deployed release version failed: unexpected list key: listkey(filter=^bar$,flags=--kube-contextdefault--deleting--deployed--failed--pending) not found in 
 processing releases in group 2/2: default//foo
-getting deployed release version failed: unexpected list key: listkey(filter=^foo$,flags=--kube-contextdefault--deleting--deployed--failed--pending) not found in 
+getting deployed release version failed: Failed to get the version for: mychart1
 
 UPDATED RELEASES:
 NAME   CHART             VERSION
-baz    stable/mychart3          
-bar    stable/mychart2          
+baz    stable/mychart3     3.1.0
+bar    stable/mychart2     3.1.0
 foo    stable/mychart1          
 
 changing working directory back to "/path/to"
