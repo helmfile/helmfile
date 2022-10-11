@@ -61,6 +61,10 @@ func expectNoCallsToHelmVersion(app *App, isHelm3 bool) {
 	}
 }
 
+func newAppTestLogger() *zap.SugaredLogger {
+	return helmexec.NewLogger(io.Discard, "debug")
+}
+
 func TestVisitDesiredStatesWithReleasesFiltered_ReleaseOrder(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
@@ -89,7 +93,7 @@ releases:
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -146,7 +150,7 @@ BAZ: 4
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -188,7 +192,7 @@ releases:
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -234,7 +238,7 @@ releases:
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "test",
 	}
@@ -285,7 +289,7 @@ releases:
 			app := &App{
 				OverrideHelmBinary:  DefaultHelmBinary,
 				OverrideKubeContext: "default",
-				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Logger:              newAppTestLogger(),
 				Namespace:           "",
 				Env:                 "default",
 				FileOrDir:           "helmfile.yaml",
@@ -351,7 +355,7 @@ releases:
 		app := &App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Selectors:           []string{fmt.Sprintf("name=%s", testcase.name)},
 			Namespace:           "",
 			Env:                 "default",
@@ -408,7 +412,7 @@ releases:
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Namespace:           "",
 			Selectors:           []string{},
 			Env:                 testcase.name,
@@ -768,7 +772,7 @@ func runFilterSubHelmFilesTests(testcases []struct {
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Namespace:           "",
 			Selectors:           []string{testcase.label},
 			Env:                 "default",
@@ -854,7 +858,7 @@ tillerNs: INLINE_TILLER_NS_2
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Selectors:           []string{},
 		Env:                 "default",
@@ -963,7 +967,7 @@ releases:
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Namespace:           "",
 			Selectors:           []string{},
 			Env:                 "default",
@@ -1027,7 +1031,7 @@ bar: "bar1"
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Namespace:           "",
 			Selectors:           []string{},
 			Env:                 "default",
@@ -1148,7 +1152,7 @@ x:
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
 				OverrideKubeContext: "default",
-				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Logger:              newAppTestLogger(),
 				Namespace:           "",
 				Selectors:           []string{},
 				Env:                 testcase.env,
@@ -1201,7 +1205,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		Selectors:           []string{},
@@ -1257,7 +1261,7 @@ releases:
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
 				OverrideKubeContext: "default",
-				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Logger:              newAppTestLogger(),
 				Namespace:           "",
 				Selectors:           []string{},
 				Env:                 "default",
@@ -1307,7 +1311,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1354,7 +1358,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1396,7 +1400,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1438,7 +1442,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1484,7 +1488,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1531,7 +1535,7 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 		OverrideKubeContext: "default",
 		fs:                  fs,
 		Env:                 "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 	}
 
 	expectNoCallsToHelm(app)
@@ -1590,7 +1594,7 @@ helmDefaults:
 		OverrideKubeContext: "default",
 		fs:                  testFs.ToFileSystem(),
 		Env:                 "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, "", app.fs)
 
@@ -1675,7 +1679,7 @@ helmDefaults:
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -1751,7 +1755,7 @@ foo: FOO
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -1814,7 +1818,7 @@ foo: FOO
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -1895,7 +1899,7 @@ helmDefaults:
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "test",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -1968,7 +1972,7 @@ releases:
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -2024,7 +2028,7 @@ releases:
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
@@ -2079,7 +2083,7 @@ releases:
 			OverrideHelmBinary: DefaultHelmBinary,
 			fs:                 testFs.ToFileSystem(),
 			Env:                "default",
-			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:             newAppTestLogger(),
 		}
 		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -2191,7 +2195,7 @@ services:
 			OverrideHelmBinary: DefaultHelmBinary,
 			fs:                 testFs.ToFileSystem(),
 			Env:                "default",
-			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:             newAppTestLogger(),
 		}
 		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -4673,7 +4677,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
 	}, files)

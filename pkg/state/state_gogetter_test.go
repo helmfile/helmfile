@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func TestGoGetter(t *testing.T) {
-	logger := helmexec.NewLogger(os.Stderr, "warn")
+	logger := helmexec.NewLogger(io.Discard, "warn")
 
 	testcases := []struct {
 		chart, dir string

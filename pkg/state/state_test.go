@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,7 +19,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
 
-var logger = helmexec.NewLogger(os.Stdout, "warn")
+var logger = helmexec.NewLogger(io.Discard, "warn")
 var valsRuntime, _ = vals.New(vals.Options{CacheSize: 32})
 
 func injectFs(st *HelmState, fs *testhelper.TestFs) *HelmState {
@@ -1914,7 +1915,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 		return generatedDir, nil
 	}
 
-	logger := helmexec.NewLogger(os.Stderr, "debug")
+	logger := helmexec.NewLogger(io.Discard, "debug")
 	basePath := "/src"
 	state := &HelmState{
 		basePath: basePath,
@@ -1980,7 +1981,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 }
 
 func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
-	logger := helmexec.NewLogger(os.Stderr, "debug")
+	logger := helmexec.NewLogger(io.Discard, "debug")
 	state := &HelmState{
 		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",

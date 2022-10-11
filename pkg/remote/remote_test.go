@@ -2,7 +2,7 @@ package remote
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"path/filepath"
 	"testing"
 
@@ -55,7 +55,7 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 				get: get,
 			}
 			remote := &Remote{
-				Logger: helmexec.NewLogger(os.Stderr, "debug"),
+				Logger: helmexec.NewLogger(io.Discard, "debug"),
 				Home:   CacheDir(),
 				Getter: getter,
 				fs:     testfs.ToFileSystem(),
@@ -131,7 +131,7 @@ func TestRemote_SShGitHub(t *testing.T) {
 				get: get,
 			}
 			remote := &Remote{
-				Logger: helmexec.NewLogger(os.Stderr, "debug"),
+				Logger: helmexec.NewLogger(io.Discard, "debug"),
 				Home:   CacheDir(),
 				Getter: getter,
 				fs:     testfs.ToFileSystem(),
@@ -201,7 +201,7 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 				get: get,
 			}
 			remote := &Remote{
-				Logger: helmexec.NewLogger(os.Stderr, "debug"),
+				Logger: helmexec.NewLogger(io.Discard, "debug"),
 				Home:   CacheDir(),
 				Getter: getter,
 				fs:     testfs.ToFileSystem(),

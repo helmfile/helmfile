@@ -1,13 +1,11 @@
 package app
 
 import (
-	"os"
 	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
@@ -16,12 +14,12 @@ import (
 // nolint: unparam
 func makeLoader(files map[string]string, env string) (*desiredStateLoader, *testhelper.TestFs) {
 	testfs := testhelper.NewTestFs(files)
-	logger := helmexec.NewLogger(os.Stdout, "debug")
+	logger := newAppTestLogger()
 	r := remote.NewRemote(logger, testfs.Cwd, testfs.ToFileSystem())
 	return &desiredStateLoader{
 		env:       env,
 		namespace: "namespace",
-		logger:    helmexec.NewLogger(os.Stdout, "debug"),
+		logger:    newAppTestLogger(),
 		fs:        testfs.ToFileSystem(),
 		remote:    r,
 	}, testfs
