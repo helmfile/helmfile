@@ -169,6 +169,10 @@ repositories:
 # Path to alternative helm binary (--helm-binary)
 helmBinary: path/to/helm3
 
+
+# Path to alternative lock file. The default is <state file name>.lock, i.e for helmfile.yaml it's helmfile.lock.
+lockFilePath: path/to/lock.file
+
 # Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these.
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
@@ -567,6 +571,8 @@ It basically runs `helm dependency update` on your helmfile state file and all t
 All the other `helmfile` sub-commands like `sync` use chart versions recorded in the lock files, so that e.g. untested chart versions won't suddenly get deployed to the production environment.
 
 For example, the lock file for a helmfile state file named `helmfile.1.yaml` will be `helmfile.1.lock`. The lock file for a local chart would be `requirements.lock`, which is the same as `helm`.
+
+The lock file can be changed using `lockFilePath` in helm state, which makes it possible to for example have a different lock file per environment via templating.
 
 It is recommended to version-control all the lock files, so that they can be used in the production deployment pipeline for extra reproducibility.
 

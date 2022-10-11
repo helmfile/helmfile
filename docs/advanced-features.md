@@ -312,3 +312,21 @@ releases:
   - chart: oci://my-oci-registry/helm-repo/envoy
     version: 1.5
 ```
+
+### Lockfile per environment
+
+In some cases it can be handy for CI/CD pipelines to be able to roll out updates gradually for environments, such as staging and production while using the same
+set of charts. This can be achieved by using `lockFilePath` in combination with environments, such as:
+
+```yaml
+environments:
+  staging:
+  production
+
+---
+lockFilePath: .helmfile.{{ .Environment.Name}}.lock
+
+releases:
+- name: myapp
+  chart: charts/myapp
+```

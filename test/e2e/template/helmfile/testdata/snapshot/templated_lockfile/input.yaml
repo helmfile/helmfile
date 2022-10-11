@@ -1,0 +1,18 @@
+repositories:
+- name: myrepo
+  url: http://localhost:18080/
+
+environments:
+  prod:
+  staging:
+
+---
+lockFilePath: test-lock-file-{{ .Environment.Name }}
+
+releases:
+- name: raw
+  chart: myrepo/raw
+  values:
+  - templates:
+    - |
+      chartVersion: {{`{{ .Chart.Version }}`}}

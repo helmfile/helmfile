@@ -36,6 +36,8 @@ type desiredStateLoader struct {
 	remote      *remote.Remote
 	logger      *zap.SugaredLogger
 	valsRuntime vals.Evaluator
+
+	lockFilePath string
 }
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
@@ -163,7 +165,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote, a.enableLiveOutput)
+	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote, a.enableLiveOutput, a.lockFilePath)
 	c.LoadFile = a.loadFile
 	return c
 }

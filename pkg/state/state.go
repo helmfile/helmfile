@@ -79,6 +79,8 @@ type ReleaseSetSpec struct {
 	// non-existent path. The default behavior is to print a warning. Note the
 	// differing default compared to other MissingFileHandlers.
 	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
+
+	LockFile string `yaml:"lockFilePath,omitempty"`
 }
 
 // HelmState structure for the helmfile
