@@ -162,7 +162,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/
 	err = helm.AddRepo("acrRepo", "", "", "", "", "", "", "acr", "", "")
 	expected = `Adding repo acrRepo (acr)
 exec: az acr helm repo add --name acrRepo
-exec: az acr helm repo add --name acrRepo:
+exec: az acr helm repo add --name acrRepo: 
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
