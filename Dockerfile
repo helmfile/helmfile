@@ -44,7 +44,7 @@ RUN set -x && \
     mv kubectl /usr/local/bin/kubectl
 
 ENV KUSTOMIZE_VERSION="v4.5.7"
-ENV KUSTOMIZE_SHA256="0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5"
+ENV KUSTOMIZE_SHA256="701e3c4bfa14e4c520d481fdf7131f902531bfc002cb5062dcf31263a09c70c9"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     sha256sum kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz | grep ${KUSTOMIZE_SHA256} && \
