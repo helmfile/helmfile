@@ -42,7 +42,7 @@ RUN set -x && \
 ENV KUBECTL_VERSION="v1.25.2"
 ENV KUBECTL_SHA256="8639f2b9c33d38910d706171ce3d25be9b19fc139d0e3d4627f38ce84f9040eb"
 RUN set -x && \
-    wget "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
+    wget "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
     sha256sum kubectl | grep ${KUBECTL_SHA256} && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl
