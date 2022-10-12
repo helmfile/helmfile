@@ -1,5 +1,5 @@
 HELM_VERSION ?= v3.7.2
-KUSTOMIZE_VERSION ?= v3.8.8
+KUSTOMIZE_VERSION ?= v4.5.7
 K8S_VERSION ?= v1.13.12
 MINIKUBE_VERSION ?= v0.30.0
 SOPS_VERSION ?= v3.6.1
@@ -41,7 +41,7 @@ minikube/destroy:
 .EXPORT_ALL_VARIABLES: minikube/destroy
 
 minikube:
-	curl -sSLo ${tmp}/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VERSION}/bin/linux/amd64/kubectl
+	curl -sSLo ${tmp}/kubectl https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl
 	chmod +x ${tmp}/kubectl && sudo mv ${tmp}/kubectl /usr/local/bin/
 	curl -sSLo ${tmp}/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
 	chmod +x ${tmp}/minikube && sudo mv ${tmp}/minikube /usr/local/bin/

@@ -728,7 +728,7 @@ exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
 		{
 			name:        "more then v3.7.0",
 			helmBin:     "helm",
-			helmVersion: "v3.9.0",
+			helmVersion: "v3.10.0",
 			chartName:   "repo/helm-charts:0.14.0",
 			chartPath:   "path1",
 			chartFlags:  []string{"--untardir", "/tmp/dir"},
