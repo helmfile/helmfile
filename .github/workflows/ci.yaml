@@ -57,26 +57,36 @@ jobs:
          # That's why we cover only 2 Helm minor versions in this matrix.
          # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
          - helm-version: v3.9.4
+           kustomize-version: v4.4.1
            plugin-secrets-version: 3.15.0
+           plugin-diff-version: 3.5.0
            extra-helmfile-flags:
          - helm-version: v3.9.4
+           kustomize-version: v4.5.7
            # We assume that the helm-secrets plugin is supposed to
            # work with the two most recent helm minor versions.
            # Once it turned out to be not practically true,
            # we will mark this combination as failable,
            # and instruct users to upgrade helm and helm-secrets at once.
            plugin-secrets-version: 4.0.0
+           plugin-diff-version: 3.6.0
            extra-helmfile-flags:
-         - helm-version: v3.10.0
+         - helm-version: v3.10.1
+           kustomize-version: v4.4.1
            plugin-secrets-version: 3.15.0
+           plugin-diff-version: 3.5.0
            extra-helmfile-flags:
-         - helm-version: v3.10.0
+         - helm-version: v3.10.1
+           kustomize-version: v4.5.7
            plugin-secrets-version: 4.0.0
+           plugin-diff-version: 3.6.0
            extra-helmfile-flags:
          # In case you need to test some optional helmfile features,
          # enable it via extra-helmfile-flags below.
-         - helm-version: v3.10.0
+         - helm-version: v3.10.1
+           kustomize-version: v4.5.7
            plugin-secrets-version: 4.0.0
+           plugin-diff-version: 3.6.0
            extra-helmfile-flags: "--enable-live-output"
     steps:
     - uses: actions/checkout@v2
@@ -110,12 +120,14 @@ jobs:
     - name: Install test dependencies
       env:
         HELM_VERSION: ${{ matrix.helm-version }}
+        KUSTOMIZE_VERSION: ${{ matrix.kustomize-version }}
       run: make -C .github/workflows helm vault sops kustomize
     - name: Start minikube
       uses: medyagh/setup-minikube@master
     - name: Execute integration tests
       env:
         HELM_SECRETS_VERSION: ${{ matrix.plugin-secrets-version }}
+        HELM_DIFF_VERSION: ${{ matrix.plugin-diff-version }}
         HELMFILE_HELM3: 1
         TERM: xterm
         EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
