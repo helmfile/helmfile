@@ -33,7 +33,7 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.10.1
-	k8s.io/apimachinery v0.25.2
+	k8s.io/apimachinery v0.25.3
 )
 
 require (
