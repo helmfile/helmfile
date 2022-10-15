@@ -159,7 +159,7 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 				})
 			}
 
-			inputFile := filepath.Join(testdataDir, name, "input.yaml")
+			inputFile := filepath.Join(testdataDir, name, "input.yaml.gotmpl")
 			outputFile := filepath.Join(testdataDir, name, "output.yaml")
 
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

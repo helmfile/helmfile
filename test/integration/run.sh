@@ -86,21 +86,21 @@ $kubectl create namespace ${test_ns} || fail "Could not create namespace ${test_
 
 test_start "happypath - simple rollout of httpbin chart"
 
-info "Diffing ${dir}/happypath.yaml"
-bash -c "${helmfile} -f ${dir}/happypath.yaml diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+info "Diffing ${dir}/happypath.yaml.gotmpl"
+bash -c "${helmfile} -f ${dir}/happypath.yaml.gotmpl diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
-info "Diffing ${dir}/happypath.yaml without color"
-bash -c "${helmfile} -f ${dir}/happypath.yaml --no-color diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+info "Diffing ${dir}/happypath.yaml.gotmpl without color"
+bash -c "${helmfile} -f ${dir}/happypath.yaml.gotmpl --no-color diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
-info "Diffing ${dir}/happypath.yaml with limited context"
-bash -c "${helmfile} -f ${dir}/happypath.yaml diff --context 3 --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+info "Diffing ${dir}/happypath.yaml.gotmpl with limited context"
+bash -c "${helmfile} -f ${dir}/happypath.yaml.gotmpl diff --context 3 --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
-info "Diffing ${dir}/happypath.yaml with altered output"
-bash -c "${helmfile} -f ${dir}/happypath.yaml diff --output simple --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
+info "Diffing ${dir}/happypath.yaml.gotmpl with altered output"
+bash -c "${helmfile} -f ${dir}/happypath.yaml.gotmpl diff --output simple --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"
 
-info "Templating ${dir}/happypath.yaml"
+info "Templating ${dir}/happypath.yaml.gotmpl"
 rm -rf ${dir}/tmp
-${helmfile} -f ${dir}/happypath.yaml --debug template --output-dir tmp
+${helmfile} -f ${dir}/happypath.yaml.gotmpl --debug template --output-dir tmp
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
 for output in $(ls -d ${dir}/tmp/*); do
@@ -113,40 +113,40 @@ for output in $(ls -d ${dir}/tmp/*); do
     done
 done
 
-info "Applying ${dir}/happypath.yaml"
-bash -c "${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode; code="'$?'"; echo Code: "'$code'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile apply"
+info "Applying ${dir}/happypath.yaml.gotmpl"
+bash -c "${helmfile} -f ${dir}/happypath.yaml.gotmpl apply --detailed-exitcode; code="'$?'"; echo Code: "'$code'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile apply"
 
-info "Syncing ${dir}/happypath.yaml"
-${helmfile} -f ${dir}/happypath.yaml sync
+info "Syncing ${dir}/happypath.yaml.gotmpl"
+${helmfile} -f ${dir}/happypath.yaml.gotmpl sync
 wait_deploy_ready httpbin-httpbin
 retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
 [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
 
-info "Applying ${dir}/happypath.yaml"
-${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode
+info "Applying ${dir}/happypath.yaml.gotmpl"
+${helmfile} -f ${dir}/happypath.yaml.gotmpl apply --detailed-exitcode
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
 
 info "Locking dependencies"
-${helmfile} -f ${dir}/happypath.yaml deps
+${helmfile} -f ${dir}/happypath.yaml.gotmpl deps
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile deps: ${code}"
 
-info "Applying ${dir}/happypath.yaml with locked dependencies"
-${helmfile} -f ${dir}/happypath.yaml apply
+info "Applying ${dir}/happypath.yaml.gotmpl with locked dependencies"
+${helmfile} -f ${dir}/happypath.yaml.gotmpl apply
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
 ${helm} list --namespace=${test_ns} || fail "unable to list releases"
 
 info "Deleting release"
-${helmfile} -f ${dir}/happypath.yaml delete
+${helmfile} -f ${dir}/happypath.yaml.gotmpl delete
 ${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"
 
 info "Ensuring \"helmfile delete\" doesn't fail when no releases installed"
-${helmfile} -f ${dir}/happypath.yaml delete || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
+${helmfile} -f ${dir}/happypath.yaml.gotmpl delete || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
 
 info "Ensuring \"helmfile template\" output does contain only YAML docs"
-(${helmfile} -f ${dir}/happypath.yaml template | kubectl apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"
+(${helmfile} -f ${dir}/happypath.yaml.gotmpl template | kubectl apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"
 
 test_pass "happypath"
 
@@ -154,8 +154,8 @@ test_start "regression tests"
 
 if [[ helm_major_version -eq 3 ]]; then
   info "https://github.com/roboll/helmfile/issues/1857"
-  (${helmfile} -f ${dir}/issue.1857.yaml --state-values-set grafanaEnabled=true template | grep grafana 1>/dev/null) || fail "\"helmfile template\" shouldn't include grafana"
-  ! (${helmfile} -f ${dir}/issue.1857.yaml --state-values-set grafanaEnabled=false template | grep grafana) || fail "\"helmfile template\" shouldn't include grafana"
+  (${helmfile} -f ${dir}/issue.1857.yaml.gotmpl --state-values-set grafanaEnabled=true template | grep grafana 1>/dev/null) || fail "\"helmfile template\" shouldn't include grafana"
+  ! (${helmfile} -f ${dir}/issue.1857.yaml.gotmpl --state-values-set grafanaEnabled=false template | grep grafana) || fail "\"helmfile template\" shouldn't include grafana"
 
   info "https://github.com/roboll/helmfile/issues/1867"
   (${helmfile} -f ${dir}/issue.1867.yaml template 1>/dev/null) || fail "\"helmfile template\" shouldn't fail"
@@ -185,7 +185,7 @@ if [[ helm_major_version -eq 3 ]]; then
 
   info "Ensure helmfile fails when no helm-secrets is installed"
   unset code
-  ${helmfile} -f ${dir}/secretssops.yaml -e direct build || code="$?"; code="${code:-0}"
+  ${helmfile} -f ${dir}/secretssops.yaml.gotmpl -e direct build || code="$?"; code="${code:-0}"
   echo Code: "${code}"
   [ "${code}" -ne 0 ] || fail "\"helmfile build\" should fail without secrets plugin"
 
@@ -197,7 +197,7 @@ if [[ helm_major_version -eq 3 ]]; then
   ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v${HELM_SECRETS_VERSION}
 
   info "Ensure helmfile succeed when helm-secrets is installed"
-  ${helmfile} -f ${dir}/secretssops.yaml -e direct build || fail "\"helmfile build\" shouldn't fail"
+  ${helmfile} -f ${dir}/secretssops.yaml.gotmpl -e direct build || fail "\"helmfile build\" shouldn't fail"
 
   test_pass "secretssops.2"
 
@@ -215,7 +215,7 @@ if [[ helm_major_version -eq 3 ]]; then
   info "Comparing build/direct output ${direct} with ${secrets_golden_dir}"
   for i in $(seq 10); do
       info "Comparing build/direct #$i"
-      ${helmfile} -f ${dir}/secretssops.yaml -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
+      ${helmfile} -f ${dir}/secretssops.yaml.gotmpl -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
       ./yamldiff ${secrets_golden_dir}/direct.build.yaml ${direct} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
@@ -223,7 +223,7 @@ if [[ helm_major_version -eq 3 ]]; then
   info "Comparing build/reverse output ${direct} with ${secrets_golden_dir}"
   for i in $(seq 10); do
       info "Comparing build/reverse #$i"
-      ${helmfile} -f ${dir}/secretssops.yaml -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
+      ${helmfile} -f ${dir}/secretssops.yaml.gotmpl -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
       ./yamldiff ${secrets_golden_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done

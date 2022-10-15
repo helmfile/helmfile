@@ -24,6 +24,8 @@ func TestApply_3(t *testing.T) {
 	}
 
 	type testcase struct {
+		// helmfile or helmfile dir
+		fileOrDir         string
 		fields            fields
 		ns                string
 		concurrency       int
@@ -90,6 +92,7 @@ func TestApply_3(t *testing.T) {
 
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
+				FileOrDir:           tc.fileOrDir,
 				fs:                  filesystem.DefaultFileSystem(),
 				OverrideKubeContext: "",
 				Env:                 "default",
@@ -175,8 +178,9 @@ func TestApply_3(t *testing.T) {
 			fields: fields{
 				skipNeeds: true,
 			},
+			fileOrDir: "helmfile.yaml.gotmpl",
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -228,8 +232,9 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 			fields: fields{
 				skipNeeds: true,
 			},
+			fileOrDir: "helmfile.yaml.gotmpl",
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -278,9 +283,10 @@ releases:
 				skipNeeds:    false,
 				includeNeeds: true,
 			},
-			error: ``,
+			error:     ``,
+			fileOrDir: "helmfile.yaml.gotmpl",
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -334,9 +340,10 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 				skipNeeds:    false,
 				includeNeeds: true,
 			},
-			error: ``,
+			error:     ``,
+			fileOrDir: "helmfile.yaml.gotmpl",
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -387,9 +394,10 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 				skipNeeds:    false,
 				includeNeeds: true,
 			},
-			error: ``,
+			error:     ``,
+			fileOrDir: "helmfile.yaml.gotmpl",
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -443,9 +451,10 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 				skipNeeds:    false,
 				includeNeeds: true,
 			},
-			error: ``,
+			error:     ``,
+			fileOrDir: "helmfile.yaml.gotmpl",
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -493,8 +502,9 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 
 	t.Run("bad --selector", func(t *testing.T) {
 		check(t, testcase{
+			fileOrDir: "helmfile.yaml.gotmpl",
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -524,11 +534,11 @@ releases:
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
+			log: `processing file "helmfile.yaml.gotmpl" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: 
  2: 
@@ -555,11 +565,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 23: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "helmfile.yaml.gotmpl.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: 
  2: 
@@ -586,7 +596,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default map[] map[]}
-0 release(s) matching app=test_non_existent found in helmfile.yaml
+0 release(s) matching app=test_non_existent found in helmfile.yaml.gotmpl
 
 changing working directory back to "/path/to"
 `,

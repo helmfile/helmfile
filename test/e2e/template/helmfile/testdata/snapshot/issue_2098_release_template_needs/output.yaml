@@ -1,7 +1,7 @@
 ---
-#  Source: input.yaml
+#  Source: input.yaml.gotmpl
 
-filepath: input.yaml
+filepath: input.yaml.gotmpl
 helmBinary: helm
 environments:
   default: {}

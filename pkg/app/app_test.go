@@ -169,7 +169,7 @@ BAZ: 4
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	expectedOrder := []string{"helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
+	expectedOrder := []string{"helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
 	actualOrder := fs.SuccessfulReads()
 	if !reflect.DeepEqual(actualOrder, expectedOrder) {
 		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
@@ -805,16 +805,16 @@ func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedNestedStateAdditionalEnv
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 helmfiles:
-- path: helmfile.d/a*.yaml
+- path: helmfile.d/a*.yaml.gotmpl
   values:
   - env.values.yaml
-- helmfile.d/b*.yaml
-- path: helmfile.d/c*.yaml
+- helmfile.d/b*.yaml.gotmpl
+- path: helmfile.d/c*.yaml.gotmpl
   values:
   - env.values.yaml
   - tillerNs: INLINE_TILLER_NS_3
 `,
-		"/path/to/helmfile.d/a1.yaml": `
+		"/path/to/helmfile.d/a1.yaml.gotmpl": `
 environments:
   default:
     values:
@@ -826,7 +826,7 @@ releases:
   tillerNamespace: {{ .Environment.Values.tillerNs }}
   namespace: {{ .Environment.Values.ns }}
 `,
-		"/path/to/helmfile.d/b.yaml": `
+		"/path/to/helmfile.d/b.yaml.gotmpl": `
 environments:
   default:
     values:
@@ -838,7 +838,7 @@ releases:
   tillerNamespace:  {{ .Environment.Values.tillerNs }}
   namespace: {{ .Environment.Values.ns }}
 `,
-		"/path/to/helmfile.d/c.yaml": `
+		"/path/to/helmfile.d/c.yaml.gotmpl": `
 environments:
   default:
     values:
@@ -993,7 +993,7 @@ releases:
 
 func TestVisitDesiredStatesWithReleasesFiltered_EnvironmentValueOverrides(t *testing.T) {
 	files := map[string]string{
-		"/path/to/helmfile.yaml": `
+		"/path/to/helmfile.yaml.gotmpl": `
 environments:
   default:
     values:
@@ -1037,7 +1037,7 @@ bar: "bar1"
 			Env:                 "default",
 			ValuesFiles:         []string{"overrides.yaml"},
 			Set:                 map[string]interface{}{"bar": "bar2", "baz": "baz1"},
-			FileOrDir:           "helmfile.yaml",
+			FileOrDir:           "helmfile.yaml.gotmpl",
 		}, files)
 
 		expectNoCallsToHelm(app)
@@ -1091,7 +1091,7 @@ func TestVisitDesiredStatesWithReleasesFiltered_StateValueOverrides(t *testing.T
 		testcase := testcases[i]
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			files := map[string]string{
-				"/path/to/helmfile.yaml": fmt.Sprintf(`
+				"/path/to/helmfile.yaml.gotmpl": fmt.Sprintf(`
 # The top-level "values" are "base" values has inherited to state values with the lowest priority.
 # The lowest priority results in environment-specific values to override values defined in the base.
 values:
@@ -1158,7 +1158,7 @@ x:
 				Env:                 testcase.env,
 				ValuesFiles:         []string{"overrides.yaml"},
 				Set:                 map[string]interface{}{"x": map[string]interface{}{"hoge": "hoge_set", "fuga": "fuga_set"}},
-				FileOrDir:           "helmfile.yaml",
+				FileOrDir:           "helmfile.yaml.gotmpl",
 			}, files)
 
 			expectNoCallsToHelm(app)
@@ -1547,7 +1547,7 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 }
 
 func TestLoadDesiredStateFromYaml_Bases(t *testing.T) {
-	yamlFile := "/path/to/yaml/file"
+	yamlFile := "/path/to/yaml/file.yaml.gotmpl"
 	yamlContent := `bases:
 - ../base.yaml
 - ../base.gotmpl
@@ -1623,7 +1623,7 @@ helmDefaults:
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate(t *testing.T) {
-	yamlFile := "/path/to/yaml/file"
+	yamlFile := "/path/to/yaml/file.yaml.gotmpl"
 	yamlContent := `bases:
 - ../base.yaml
 ---
@@ -1843,7 +1843,7 @@ foo: FOO
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithNonDefaultEnv(t *testing.T) {
-	yamlFile := "/path/to/yaml/file"
+	yamlFile := "/path/to/yaml/file.yaml.gotmpl"
 	yamlContent := `bases:
 - ../base.yaml
 ---
@@ -1939,7 +1939,7 @@ helmDefaults:
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithReverse(t *testing.T) {
-	yamlFile := "/path/to/yaml/file"
+	yamlFile := "/path/to/yaml/file.yaml.gotmpl"
 	yamlContent := `
 {{ readFile "templates.yaml" }}
 
@@ -1997,7 +1997,7 @@ releases:
 
 // See https://github.com/roboll/helmfile/issues/615
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_NoMergeArrayInEnvVal(t *testing.T) {
-	statePath := "/path/to/helmfile.yaml"
+	statePath := "/path/to/helmfile.yaml.gotmpl"
 	stateContent := `
 environments:
   default:
@@ -2062,7 +2062,7 @@ func TestLoadDesiredStateFromYaml_MultiPartTemplate_MergeMapsVariousKeys(t *test
 	}
 	for i := range testcases {
 		tc := testcases[i]
-		statePath := "/path/to/helmfile.yaml"
+		statePath := "/path/to/helmfile.yaml.gotmpl"
 		stateContent := `
 environments:
   default:
@@ -2179,7 +2179,7 @@ releases:
 	}
 	for i := range testcases {
 		tc := testcases[i]
-		statePath := "/path/to/helmfile.yaml"
+		statePath := "/path/to/helmfile.yaml.gotmpl"
 		stateContent := fmt.Sprintf(tc.state, tc.expr)
 		testFs := testhelper.NewTestFs(map[string]string{
 			statePath:         stateContent,
@@ -2769,6 +2769,8 @@ func TestApply(t *testing.T) {
 		includeNeeds bool
 	}
 	testcases := []struct {
+		// helmfile or helmfile dir
+		fileOrDir         string
 		name              string
 		loc               string
 		fields            fields
@@ -3481,13 +3483,14 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 		//
 		{
 			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
-			name: "upgrades with good selector with --skip-needs=true",
-			loc:  location(),
+			name:      "upgrades with good selector with --skip-needs=true",
+			loc:       location(),
+			fileOrDir: "helmfile.yaml.gotmpl",
 			fields: fields{
 				skipNeeds: true,
 			},
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -3534,15 +3537,16 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 		},
 		{
 			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
-			name: "upgrades with good selector with --skip-needs=false --include-needs=true",
-			loc:  location(),
+			name:      "upgrades with good selector with --skip-needs=false --include-needs=true",
+			loc:       location(),
+			fileOrDir: "helmfile.yaml.gotmpl",
 			fields: fields{
 				skipNeeds:    false,
 				includeNeeds: true,
 			},
-			error: `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error: `in ./helmfile.yaml.gotmpl: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -3575,11 +3579,11 @@ releases:
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
+			log: `processing file "helmfile.yaml.gotmpl" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: 
  2: 
@@ -3606,11 +3610,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 23: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "helmfile.yaml.gotmpl.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: 
  2: 
@@ -3637,7 +3641,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
+2 release(s) matching app=test found in helmfile.yaml.gotmpl
 
 err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
 changing working directory back to "/path/to"
@@ -3645,10 +3649,11 @@ changing working directory back to "/path/to"
 		},
 		{
 			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
-			name: "upgrades with bad selector",
-			loc:  location(),
+			name:      "upgrades with bad selector",
+			loc:       location(),
+			fileOrDir: "helmfile.yaml.gotmpl",
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -3679,11 +3684,11 @@ releases:
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
+			log: `processing file "helmfile.yaml.gotmpl" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: 
  2: 
@@ -3710,11 +3715,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 23: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "helmfile.yaml.gotmpl.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: 
  2: 
@@ -3741,7 +3746,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default map[] map[]}
-0 release(s) matching app=test_non_existent found in helmfile.yaml
+0 release(s) matching app=test_non_existent found in helmfile.yaml.gotmpl
 
 changing working directory back to "/path/to"
 `,
@@ -3776,37 +3781,6 @@ releases:
 			error:       `in ./helmfile.yaml: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart1
- 7:   needs:
- 8:   - ns1/bar
- 9: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart1
- 7:   needs:
- 8:   - ns1/bar
- 9: 
-
 merged environment: &{default map[] map[]}
 1 release(s) matching name=foo found in helmfile.yaml
 
@@ -3840,37 +3814,6 @@ releases:
 			error:       "in ./helmfile.yaml: release(s) \"default//foo\" depend(s) on an undefined release \"default/ns1/bar\". Perhaps you made a typo in \"needs\" or forgot defining a release named \"bar\" with appropriate \"namespace\" and \"kubeContext\"?",
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart1
- 7:   needs:
- 8:   - ns1/bar
- 9: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart1
- 7:   needs:
- 8:   - ns1/bar
- 9: 
-
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
 
@@ -3908,45 +3851,6 @@ releases:
 			error:       "in ./helmfile.yaml: found 2 duplicate releases with ID \"default//foo\"",
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart2
- 7:   needs:
- 8:   - ns1/bar
- 9: - name: foo
-10:   chart: mychart1
-11:   needs:
-12:   - ns1/bar
-13: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart2
- 7:   needs:
- 8:   - ns1/bar
- 9: - name: foo
-10:   chart: mychart1
-11:   needs:
-12:   - ns1/bar
-13: 
-
 merged environment: &{default map[] map[]}
 err: found 2 duplicate releases with ID "default//foo"
 changing working directory back to "/path/to"
@@ -4003,6 +3907,7 @@ changing working directory back to "/path/to"
 				}
 
 				app := appWithFs(&App{
+					FileOrDir:           tc.fileOrDir,
 					OverrideHelmBinary:  DefaultHelmBinary,
 					fs:                  ffs.DefaultFileSystem(),
 					OverrideKubeContext: "default",
@@ -4111,33 +4016,6 @@ releases:
 			},
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: repositories:
- 2: - name: bitnami
- 3:   url: https://charts.bitnami.com/bitnami/
- 4: releases:
- 5: - name: example
- 6:   chart: /path/to/charts/example
- 7: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: repositories:
- 2: - name: bitnami
- 3:   url: https://charts.bitnami.com/bitnami/
- 4: releases:
- 5: - name: example
- 6:   chart: /path/to/charts/example
- 7: 
-
 merged environment: &{default map[] map[]}
 There are no repositories defined in your helmfile.yaml.
 This means helmfile cannot update your dependencies or create a lock file.
@@ -4375,7 +4253,7 @@ myrelease4	         	true   	true     	id:myrelease1             	mychart1
 
 func TestSetValuesTemplate(t *testing.T) {
 	files := map[string]string{
-		"/path/to/helmfile.yaml": `
+		"/path/to/helmfile.yaml.gotmpl": `
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -4403,7 +4281,7 @@ releases:
 		OverrideKubeContext: "default",
 		Logger:              newAppTestLogger(),
 		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		FileOrDir:           "helmfile.yaml.gotmpl",
 	}, files)
 
 	expectNoCallsToHelm(app)

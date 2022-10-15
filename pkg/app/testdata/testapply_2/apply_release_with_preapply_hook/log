@@ -1,7 +1,7 @@
-processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+processing file "helmfile.yaml.gotmpl" in directory "."
+first-pass rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
+first-pass rendering output of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: releases:
  2: - name: foo
@@ -17,11 +17,11 @@ first-pass rendering output of "helmfile.yaml.part.0":
 12: 
 
 first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass rendering result of "helmfile.yaml.gotmpl.part.0": {default map[] map[]}
 vals:
 map[]
 defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+second-pass rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: releases:
  2: - name: foo
@@ -37,7 +37,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 12: 
 
 merged environment: &{default map[] map[]}
-1 release(s) matching name=foo found in helmfile.yaml
+1 release(s) matching name=foo found in helmfile.yaml.gotmpl
 
 Affected releases are:
   foo (incubator/raw) UPDATED
@@ -45,7 +45,7 @@ Releases with preapply hooks:
   foo (incubator/raw)
 
 Running preapply hook for foo:
-hook[echo]: stateFilePath=helmfile.yaml, basePath=.
+hook[echo]: stateFilePath=helmfile.yaml.gotmpl, basePath=.
 hook[echo]: triggered by event "preapply"
 
 echo:XlBWj> foo
