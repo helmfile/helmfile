@@ -10,6 +10,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func assertLogEqualsToSnapshot(t *testing.T, data string) {
+	t.Helper()
+
+	assertEqualsToSnapshot(t, "log", data)
+}
+
 func assertEqualsToSnapshot(t *testing.T, name string, data string) {
 	type thisPkgLocator struct{}
 

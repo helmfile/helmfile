@@ -26,7 +26,6 @@ func NewTestFs(files map[string]string) *TestFs {
 	for abs := range files {
 		for d := filepath.ToSlash(filepath.Dir(abs)); !dirs[d]; d = filepath.ToSlash(filepath.Dir(d)) {
 			dirs[d] = true
-			fmt.Fprintf(os.Stderr, "testfs: recognized dir: %s\n", d)
 		}
 	}
 	return &TestFs{

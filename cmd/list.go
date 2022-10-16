@@ -10,12 +10,12 @@ import (
 // NewListCmd returns list subcmd
 func NewListCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	listOptions := config.NewListOptions()
-	listImpl := config.NewListImpl(globalCfg, listOptions)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			listImpl := config.NewListImpl(globalCfg, listOptions)
 			err := config.NewCLIConfigImpl(listImpl.GlobalImpl)
 			if err != nil {
 				return err

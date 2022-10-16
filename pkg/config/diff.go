@@ -38,6 +38,8 @@ type DiffOptions struct {
 	Context int
 	// Output is output flag
 	Output string
+	// ReuseValues is true if the helm command should reuse the values
+	ReuseValues bool
 }
 
 // NewDiffOptions creates a new Apply
@@ -161,4 +163,9 @@ func (t *DiffImpl) SuppressDiff() bool {
 // SuppressSecrets returns the suppress secrets
 func (t *DiffImpl) SuppressSecrets() bool {
 	return t.DiffOptions.SuppressSecrets
+}
+
+// ReuseValues returns the ReuseValues.
+func (t *DiffImpl) ReuseValues() bool {
+	return t.DiffOptions.ReuseValues
 }

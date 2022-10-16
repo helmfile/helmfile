@@ -25,9 +25,8 @@ export HELM_DATA_HOME="${helm_dir}/data"
 export HELM_HOME="${HELM_DATA_HOME}"
 export HELM_PLUGINS="${HELM_DATA_HOME}/plugins"
 export HELM_CONFIG_HOME="${helm_dir}/config"
-HELM_DIFF_VERSION=3.3.1
-HELM_SECRETS_DEFAULT_VERSION=3.15.0
-HELM_SECRETS_VERSION="${HELM_SECRETS_VERSION:-$HELM_SECRETS_DEFAULT_VERSION}"
+HELM_DIFF_VERSION="${HELM_DIFF_VERSION:-3.6.0}"
+HELM_SECRETS_VERSION="${HELM_SECRETS_VERSION:-3.15.0}"
 export GNUPGHOME="${PWD}/${dir}/.gnupg"
 export SOPS_PGP_FP="B2D6D7BBEC03B2E66571C8C00AD18E16CFDEF700"
 
@@ -202,32 +201,44 @@ if [[ helm_major_version -eq 3 ]]; then
 
   test_pass "secretssops.2"
 
-    test_start "secretssops.3 - should order secrets correctly"
+  test_start "secretssops.3 - should order secrets correctly"
 
-    tmp=$(mktemp -d)
-    direct=${tmp}/direct.build.yaml
-    reverse=${tmp}/reverse.build.yaml
-    golden_dir=${dir}/secrets-golden
+  tmp=$(mktemp -d)
+  direct=${tmp}/direct.build.yaml
+  reverse=${tmp}/reverse.build.yaml
+  yaml_overwrite_reverse=${tmp}/yaml.override.build.yaml
+  secrets_golden_dir=${dir}/secrets-golden
+  feature_golden_dir=${dir}/yaml-features-golden
 
-    info "Building secrets output"
+  info "Building secrets output"
 
-    info "Comparing build/direct output ${direct} with ${golden_dir}"
-    for i in $(seq 10); do
-        info "Comparing build/direct #$i"
-        ${helmfile} -f ${dir}/secretssops.yaml -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
-        ./yamldiff ${golden_dir}/direct.build.yaml ${direct} || fail "\"helmfile template\" should be consistent"
-        echo code=$?
-    done
+  info "Comparing build/direct output ${direct} with ${secrets_golden_dir}"
+  for i in $(seq 10); do
+      info "Comparing build/direct #$i"
+      ${helmfile} -f ${dir}/secretssops.yaml -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
+      ./yamldiff ${secrets_golden_dir}/direct.build.yaml ${direct} || fail "\"helmfile template\" should be consistent"
+      echo code=$?
+  done
 
-    info "Comparing build/reverse output ${direct} with ${golden_dir}"
-    for i in $(seq 10); do
-        info "Comparing build/reverse #$i"
-        ${helmfile} -f ${dir}/secretssops.yaml -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
-        ./yamldiff ${golden_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
-        echo code=$?
-    done
+  info "Comparing build/reverse output ${direct} with ${secrets_golden_dir}"
+  for i in $(seq 10); do
+      info "Comparing build/reverse #$i"
+      ${helmfile} -f ${dir}/secretssops.yaml -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
+      ./yamldiff ${secrets_golden_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
+      echo code=$?
+  done
 
-    test_pass "secretssops.3"
+  test_pass "secretssops.3"
+
+  test_start "yaml overwrite feature"
+  info "Comparing yaml overwrite feature output ${yaml_overwrite_reverse} with ${feature_golden_dir}/overwritten.yaml"
+  for i in $(seq 10); do
+      info "Comparing build/yaml-overwrite #$i"
+      ${helmfile} -f ${dir}/issue.657.yaml template --skip-deps > ${yaml_overwrite_reverse} || fail "\"helmfile template\" shouldn't fail"
+      ./yamldiff ${feature_golden_dir}/overwritten.yaml ${yaml_overwrite_reverse} || fail "\"helmfile template\" should be consistent"
+      echo code=$?
+  done
+  test_pass "yaml overwrite feature"
 
 fi
 

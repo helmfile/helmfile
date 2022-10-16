@@ -10,12 +10,12 @@ import (
 // NewLintCmd returns lint subcmd
 func NewLintCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	lintOptions := config.NewLintOptions()
-	lintImpl := config.NewLintImpl(globalCfg, lintOptions)
 
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "Lint charts from state file (helm lint)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			lintImpl := config.NewLintImpl(globalCfg, lintOptions)
 			err := config.NewCLIConfigImpl(lintImpl.GlobalImpl)
 			if err != nil {
 				return err

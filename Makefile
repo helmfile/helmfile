@@ -1,8 +1,22 @@
 ORG     ?= $(shell basename $(realpath ..))
 PKGS    := $(shell go list ./... | grep -v /vendor/)
 
+TAG  ?= $(shell git describe --tags --abbrev=0 HEAD)
+LAST = $(shell git describe --tags --abbrev=0 HEAD^)
+BODY = "`git log ${LAST}..HEAD --oneline --decorate` `printf '\n\#\#\# [Build Info](${BUILD_URL})'`"
+
+
+# The ldflags for the Go build process to set the version related data
+GO_BUILD_VERSION_LDFLAGS=\
+  -X go.szostok.io/version.version=$(TAG) \
+  -X go.szostok.io/version.buildDate=$(shell date +"%Y-%m-%dT%H:%M:%S%z") \
+  -X go.szostok.io/version.commit=$(shell git rev-parse --short HEAD) \
+  -X go.szostok.io/version.commitDate=$(shell git log -1 --date=format:"%Y-%m-%dT%H:%M:%S%z" --format=%cd) \
+  -X go.szostok.io/version.dirtyBuild=false
+
+
 build:
-	go build -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	go build -ldflags="$(GO_BUILD_VERSION_LDFLAGS)" ${TARGETS}
 .PHONY: build
 
 generate:
@@ -40,15 +54,15 @@ integration/vagrant:
 .PHONY: integration/vagrant
 
 cross:
-	env CGO_ENABLED=0 gox -parallel 4 -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 gox -parallel 4 -os 'windows darwin linux' -arch '386 amd64 arm64' -osarch '!darwin/386' -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}" -ldflags="$(GO_BUILD_VERSION_LDFLAGS)" ${TARGETS}
 .PHONY: cross
 
 static-linux:
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=readonly go build -o "dist/helmfile_linux_amd64" -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS=-mod=readonly go build -o "dist/helmfile_linux_amd64" -ldflags="$(GO_BUILD_VERSION_LDFLAGS)" ${TARGETS}
 .PHONY: static-linux
 
 install:
-	env CGO_ENABLED=0 go install -ldflags '-X github.com/helmfile/helmfile/pkg/app/version.Version=${TAG}' ${TARGETS}
+	env CGO_ENABLED=0 go install -ldflags="$(GO_BUILD_VERSION_LDFLAGS)" ${TARGETS}
 .PHONY: install
 
 clean:
@@ -82,10 +96,6 @@ push/debian: image/debian
 tools:
 	go get -u github.com/tcnksm/ghr github.com/mitchellh/gox
 .PHONY: tools
-
-TAG  ?= $(shell git describe --tags --abbrev=0 HEAD)
-LAST = $(shell git describe --tags --abbrev=0 HEAD^)
-BODY = "`git log ${LAST}..HEAD --oneline --decorate` `printf '\n\#\#\# [Build Info](${BUILD_URL})'`"
 
 release/minor:
 	git checkout master

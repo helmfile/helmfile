@@ -178,7 +178,7 @@ func TestReadFile_PassAbsPath(t *testing.T) {
 }
 
 func TestToYaml_UnsupportedNestedMapKey(t *testing.T) {
-	expected := ``
+	expected := "foo:\n  bar: BAR\n"
 	// nolint: unconvert
 	vals := Values(map[string]interface{}{
 		"foo": map[interface{}]interface{}{
@@ -186,8 +186,8 @@ func TestToYaml_UnsupportedNestedMapKey(t *testing.T) {
 		},
 	})
 	actual, err := ToYaml(vals)
-	require.Error(t, err, "error marshaling into JSON: json: unsupported type: map[interface {}]interface {}")
 	require.Equal(t, expected, actual)
+	require.NoError(t, err, "expected nil, but got: %v, when type: map[interface {}]interface {}", err)
 }
 
 func TestToYaml(t *testing.T) {

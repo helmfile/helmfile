@@ -10,12 +10,12 @@ import (
 // NewWriteValuesCmd returns write subcmd
 func NewWriteValuesCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	writeValuesOptions := config.NewWriteValuesOptions()
-	writeValuesImpl := config.NewWriteValuesImpl(globalCfg, writeValuesOptions)
 
 	cmd := &cobra.Command{
 		Use:   "write-values",
 		Short: "Write values files for releases. Similar to `helmfile template`, write values files instead of manifests.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			writeValuesImpl := config.NewWriteValuesImpl(globalCfg, writeValuesOptions)
 			err := config.NewCLIConfigImpl(writeValuesImpl.GlobalImpl)
 			if err != nil {
 				return err

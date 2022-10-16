@@ -112,7 +112,7 @@ You can add/update any Kubernetes resource field rendered from a Helm chart by s
 ```
 repositories:
 - name: incubator
-  url: https://kubernetes-charts-incubator.storage.googleapis.com
+  url: https://charts.helm.sh/incubator
 
 releases:
 - name: raw1

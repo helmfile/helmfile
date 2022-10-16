@@ -10,12 +10,12 @@ import (
 // NewTemplateCmd returm template subcmd
 func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	templateOptions := config.NewTemplateOptions()
-	templateImpl := config.NewTemplateImpl(globalCfg, templateOptions)
 
 	cmd := &cobra.Command{
 		Use:   "template",
 		Short: "Template releases defined in state file",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			templateImpl := config.NewTemplateImpl(globalCfg, templateOptions)
 			err := config.NewCLIConfigImpl(templateImpl.GlobalImpl)
 			if err != nil {
 				return err

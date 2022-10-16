@@ -187,8 +187,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
 			},
 		})
 	})
@@ -203,10 +203,10 @@ releases:
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
 				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
-				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
+				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
 			},
 		})
 	})
@@ -220,10 +220,10 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
-				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
-				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
+				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
 			},
 		})
 	})
@@ -236,7 +236,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
 			},
 		})
 	})
@@ -249,8 +249,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default"}},
-				{Name: "test3", Flags: []string{"--kube-context", "default"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default", "--reset-values"}},
 			},
 		})
 	})
@@ -264,8 +264,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default"}},
-				{Name: "test3", Flags: []string{"--kube-context", "default"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default", "--reset-values"}},
 			},
 		})
 	})
@@ -279,7 +279,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
 			},
 		})
 	})
@@ -293,8 +293,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default"}},
-				{Name: "test3", Flags: []string{"--kube-context", "default"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default", "--reset-values"}},
 			},
 		})
 	})
@@ -307,8 +307,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks", "--reset-values"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks", "--reset-values"}},
 			},
 		})
 	})
@@ -444,7 +444,7 @@ foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
 			diffed: []exectest.Release{
-				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
 			},
 		})
 	})

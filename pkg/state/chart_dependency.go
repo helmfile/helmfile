@@ -11,10 +11,11 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/r3labs/diff"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/app/version"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
 )
 
 type ChartMeta struct {
@@ -216,16 +217,13 @@ func (st *HelmState) updateDependenciesInTempDir(shell helmexec.DependencyUpdate
 }
 
 func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies, error) {
-	repoToURL := map[string]string{}
+	repoToURL := map[string]RepositorySpec{}
 
 	for _, r := range st.Repositories {
-		repoToURL[r.Name] = r.URL
+		repoToURL[r.Name] = r
 	}
 
 	unresolved := &UnresolvedDependencies{deps: map[string][]unresolvedChartDependency{}}
-	// if err := unresolved.Add("stable/envoy", "https://kubernetes-charts.storage.googleapis.com", ""); err != nil {
-	//	 panic(err)
-	// }
 
 	for _, r := range st.Releases {
 		repo, chart, ok := resolveRemoteChart(r.Chart)
@@ -233,11 +231,17 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 			continue
 		}
 
-		url, ok := repoToURL[repo]
+		repoSpec, ok := repoToURL[repo]
 		// Skip this chart from dependency management, as there's no matching `repository` in the helmfile state,
 		// which may imply that this is a local chart within a directory, like `charts/myapp`
 		if !ok {
 			continue
+		}
+
+		url := repoSpec.URL
+
+		if repoSpec.OCI {
+			url = fmt.Sprintf("oci://%s", url)
 		}
 
 		if err := unresolved.Add(chart, url, r.Version); err != nil {
@@ -299,7 +303,7 @@ func (m *chartDependencyManager) updateHelm3(shell helmexec.DependencyUpdater, w
 	chartMetaContent := fmt.Sprintf("name: %s\nversion: 1.0.0\napiVersion: v2\n", m.Name)
 
 	// Generate `requirements.yaml` of the temporary local chart from the helmfile state
-	reqsContent, err := yaml.Marshal(unresolved.ToChartRequirements())
+	reqsContent, err := maputil.YamlMarshal(unresolved.ToChartRequirements())
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +321,7 @@ func (m *chartDependencyManager) updateHelm2(shell helmexec.DependencyUpdater, w
 	}
 
 	// Generate `requirements.yaml` of the temporary local chart from the helmfile state
-	reqsContent, err := yaml.Marshal(unresolved.ToChartRequirements())
+	reqsContent, err := maputil.YamlMarshal(unresolved.ToChartRequirements())
 	if err != nil {
 		return nil, err
 	}
@@ -381,9 +385,9 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 		}
 	}
 
-	lockedReqs.Version = version.Version
+	lockedReqs.Version = version.Version()
 
-	updatedLockFileContent, err = yaml.Marshal(lockedReqs)
+	updatedLockFileContent, err = maputil.YamlMarshal(lockedReqs)
 
 	if err != nil {
 		return nil, err
@@ -414,14 +418,14 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 	}
 
 	// Make sure go run main.go works and compatible with old lock files.
-	if version.Version != "" && lockedReqs.Version != "" {
+	if version.Version() != "" && lockedReqs.Version != "" {
 		lockedVersion, err := goversion.NewVersion(lockedReqs.Version)
 
 		if err != nil {
 			return nil, false, err
 		}
 
-		currentVersion, err := goversion.NewVersion(version.Version)
+		currentVersion, err := goversion.NewVersion(version.Version())
 
 		if err != nil {
 			return nil, false, err

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"go.szostok.io/version/extension"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/app"
@@ -45,7 +46,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 		Short:         globalUsage,
 		Long:          globalUsage,
 		Args:          cobra.MinimumNArgs(1),
-		Version:       version.GetVersion(),
+		Version:       version.Version(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
@@ -71,6 +72,13 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 	flags.ParseErrorsWhitelist.UnknownFlags = true
 
 	globalImpl := config.NewGlobalImpl(globalConfig)
+
+	// when set environment HELMFILE_UPGRADE_NOTICE_DISABLED any value, skip upgrade notice.
+	var versionOpts []extension.CobraOption
+	if os.Getenv("HELMFILE_UPGRADE_NOTICE_DISABLED") == "" {
+		versionOpts = append(versionOpts, extension.WithUpgradeNotice("helmfile", "helmfile"))
+	}
+
 	cmd.AddCommand(
 		NewInitCmd(globalImpl),
 		NewApplyCmd(globalImpl),
@@ -83,7 +91,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 		NewFetchCmd(globalImpl),
 		NewListCmd(globalImpl),
 		NewReposCmd(globalImpl),
-		NewVersionCmd(),
 		NewLintCmd(globalImpl),
 		NewWriteValuesCmd(globalImpl),
 		NewTestCmd(globalImpl),
@@ -91,6 +98,9 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 		NewSyncCmd(globalImpl),
 		NewDiffCmd(globalImpl),
 		NewStatusCmd(globalImpl),
+		extension.NewVersionCobraCmd(
+			versionOpts...,
+		),
 	)
 
 	return cmd, nil

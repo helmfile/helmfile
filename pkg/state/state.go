@@ -22,12 +22,13 @@ import (
 	"github.com/variantdev/chartify"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
@@ -432,14 +433,14 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		if shouldSkip[repo.Name] {
 			continue
 		}
+		username, password := gatherUsernamePassword(repo.Name, repo.Username, repo.Password)
 		var err error
 		if repo.OCI {
-			username, password := gatherOCIUsernamePassword(repo.Name, repo.Username, repo.Password)
 			if username != "" && password != "" {
 				err = helm.RegistryLogin(repo.URL, username, password)
 			}
 		} else {
-			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, repo.Username, repo.Password, repo.Managed, repo.PassCredentials, repo.SkipTLSVerify)
+			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, username, password, repo.Managed, repo.PassCredentials, repo.SkipTLSVerify)
 		}
 
 		if err != nil {
@@ -452,18 +453,19 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 	return updated, nil
 }
 
-func gatherOCIUsernamePassword(repoName string, username string, password string) (string, string) {
+func gatherUsernamePassword(repoName string, username string, password string) (string, string) {
 	var user, pass string
 
+	replacedRepoName := strings.ToUpper(strings.Replace(repoName, "-", "_", -1))
 	if username != "" {
 		user = username
-	} else if u := os.Getenv(fmt.Sprintf("%s_USERNAME", strings.ToUpper(repoName))); u != "" {
+	} else if u := os.Getenv(fmt.Sprintf("%s_USERNAME", replacedRepoName)); u != "" {
 		user = u
 	}
 
 	if password != "" {
 		pass = password
-	} else if p := os.Getenv(fmt.Sprintf("%s_PASSWORD", strings.ToUpper(repoName))); p != "" {
+	} else if p := os.Getenv(fmt.Sprintf("%s_PASSWORD", replacedRepoName)); p != "" {
 		pass = p
 	}
 
@@ -570,6 +572,12 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--wait-for-jobs")
 				}
 
+				if opts.ReuseValues {
+					flags = append(flags, "--reuse-values")
+				} else {
+					flags = append(flags, "--reset-values")
+				}
+
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
 					continue
@@ -646,6 +654,7 @@ type SyncOpts struct {
 	SkipCRDs    bool
 	Wait        bool
 	WaitForJobs bool
+	ReuseValues bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -866,7 +875,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					m.Unlock()
 					installedVersion, err := st.getDeployedVersion(context, helm, release)
 					if err != nil { // err is not really impacting so just log it
-						st.logger.Debugf("getting deployed release version failed:%v", err)
+						st.logger.Debugf("getting deployed release version failed: %v", err)
 					} else {
 						release.installedVersion = installedVersion
 					}
@@ -937,8 +946,11 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 		if len(versions) > 0 {
 			return versions[1], nil
 		} else {
-			//fails to find the version
-			return "failed to get version", errors.New("Failed to get the version for:" + chartName)
+			chartMetadata, err := helm.ShowChart(release.Chart)
+			if err != nil {
+				return "failed to get version", errors.New("Failed to get the version for: " + chartName)
+			}
+			return chartMetadata.Version, nil
 		}
 	} else {
 		return "failed to get version", err
@@ -1618,10 +1630,10 @@ type diffPrepareResult struct {
 	upgradeDueToSkippedDiff bool
 }
 
-func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt ...DiffOpt) ([]diffPrepareResult, []error) {
-	opts := &DiffOpts{}
-	for _, o := range opt {
-		o.Apply(opts)
+func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opts ...DiffOpt) ([]diffPrepareResult, []error) {
+	opt := &DiffOpts{}
+	for _, o := range opts {
+		o.Apply(opt)
 	}
 
 	mu := &sync.Mutex{}
@@ -1683,7 +1695,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				st.ApplyOverrides(release)
 
-				if opts.SkipDiffOnInstall && !isInstalled(release) {
+				if opt.SkipDiffOnInstall && !isInstalled(release) {
 					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true}
 					continue
 				}
@@ -1735,22 +1747,28 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--no-hooks")
 				}
 
-				if opts.NoColor {
+				if opt.NoColor {
 					flags = append(flags, "--no-color")
-				} else if opts.Color {
+				} else if opt.Color {
 					flags = append(flags, "--color")
 				}
 
-				if opts.Context > 0 {
-					flags = append(flags, "--context", fmt.Sprintf("%d", opts.Context))
+				if opt.Context > 0 {
+					flags = append(flags, "--context", fmt.Sprintf("%d", opt.Context))
 				}
 
-				if opts.Output != "" {
-					flags = append(flags, "--output", opts.Output)
+				if opt.Output != "" {
+					flags = append(flags, "--output", opt.Output)
 				}
 
-				if opts.Set != nil {
-					for _, s := range opts.Set {
+				if opt.ReuseValues {
+					flags = append(flags, "--reuse-values")
+				} else {
+					flags = append(flags, "--reset-values")
+				}
+
+				if opt.Set != nil {
+					for _, s := range opt.Set {
 						flags = append(flags, "--set", s)
 					}
 				}
@@ -1834,6 +1852,7 @@ type DiffOpts struct {
 	Set               []string
 	SkipCleanup       bool
 	SkipDiffOnInstall bool
+	ReuseValues       bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2659,7 +2678,7 @@ func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path s
 			return nil, err
 		}
 
-		return yaml.Marshal(parsedYaml)
+		return maputil.YamlMarshal(parsedYaml)
 	}
 
 	return rawBytes, nil
@@ -2826,7 +2845,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 				return nil, err
 			}
 		default:
-			bs, err := yaml.Marshal(value)
+			bs, err := maputil.YamlMarshal(value)
 			if err != nil {
 				return nil, err
 			}
@@ -3067,7 +3086,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	switch i := tmp.(type) {
 	case string: // single path definition without sub items, legacy sub helmfile definition
 		hf.Path = i
-	case map[interface{}]interface{}: // helmfile path with sub section
+	case map[interface{}]interface{}, map[string]interface{}: // helmfile path with sub section
 		var subHelmfileSpecTmp struct {
 			Path               string   `yaml:"path"`
 			Selectors          []string `yaml:"selectors"`
@@ -3195,7 +3214,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 
 	t, err := template.New("output-file").Parse(outputFileTemplate)
 	if err != nil {
-		return "", fmt.Errorf("parsing output-file template")
+		return "", fmt.Errorf("parsing output-file template %q: %w", outputFileTemplate, err)
 	}
 
 	buf := &bytes.Buffer{}
@@ -3208,8 +3227,9 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 	}
 
 	data := struct {
-		State   state
-		Release *ReleaseSpec
+		State       state
+		Release     *ReleaseSpec
+		Environment *environment.Environment
 	}{
 		State: state{
 			BaseName:    stateFileName,
@@ -3217,7 +3237,8 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 			AbsPath:     stateAbsPath,
 			AbsPathSHA1: sha1sum,
 		},
-		Release: release,
+		Release:     release,
+		Environment: &st.Env,
 	}
 
 	if err := t.Execute(buf, data); err != nil {
@@ -3228,7 +3249,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 }
 
 func (st *HelmState) ToYaml() (string, error) {
-	if result, err := yaml.Marshal(st); err != nil {
+	if result, err := maputil.YamlMarshal(st); err != nil {
 		return "", err
 	} else {
 		return string(result), nil

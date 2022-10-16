@@ -10,12 +10,12 @@ import (
 // NewDeleteCmd returns delete subcmd
 func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	deleteOptions := config.NewDeleteOptions()
-	deleteImpl := config.NewDeleteImpl(globalCfg, deleteOptions)
 
 	cmd := &cobra.Command{
 		Use:   "delete",
 		Short: "DEPRECATED: delete releases from state file (helm delete)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			deleteImpl := config.NewDeleteImpl(globalCfg, deleteOptions)
 			err := config.NewCLIConfigImpl(deleteImpl.GlobalImpl)
 			if err != nil {
 				return err

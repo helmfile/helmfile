@@ -6,7 +6,7 @@ import (
 
 	"github.com/imdario/mergo"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
@@ -79,7 +79,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 					ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
 				}
 			}
-		case map[interface{}]interface{}:
+		case map[interface{}]interface{}, map[string]interface{}:
 			maps = append(maps, strOrMap)
 		default:
 			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", strOrMap, strOrMap)

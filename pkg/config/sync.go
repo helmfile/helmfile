@@ -26,6 +26,8 @@ type SyncOptions struct {
 	Wait bool
 	// WaitForJobs is the wait for jobs flag
 	WaitForJobs bool
+	// ReuseValues is true if the helm command should reuse the values
+	ReuseValues bool
 }
 
 // NewSyncOptions creates a new Apply
@@ -109,4 +111,9 @@ func (t *SyncImpl) Wait() bool {
 // WaitForJobs returns the wait for jobs
 func (t *SyncImpl) WaitForJobs() bool {
 	return t.SyncOptions.WaitForJobs
+}
+
+// ReuseValues returns the ReuseValues.
+func (t *SyncImpl) ReuseValues() bool {
+	return t.SyncOptions.ReuseValues
 }

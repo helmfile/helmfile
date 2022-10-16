@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"text/tabwriter"
 
 	"github.com/variantdev/vals"
@@ -23,6 +21,8 @@ import (
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
 )
+
+var CleanWaitGroup sync.WaitGroup
 
 // App is the main application object.
 type App struct {
@@ -784,7 +784,7 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error)) error {
 	noMatchInHelmfiles := true
 
-	err := a.visitStateFiles(fileOrDir, defOpts, func(f, d string) error {
+	err := a.visitStateFiles(fileOrDir, defOpts, func(f, d string) (retErr error) {
 		opts := defOpts.DeepCopy()
 
 		if opts.CalleePath == "" {
@@ -792,22 +792,6 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		}
 
 		st, err := a.loadDesiredStateFromYaml(f, opts)
-
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			sig := <-sigs
-
-			errs := []error{fmt.Errorf("received [%s] to shutdown ", sig)}
-			_ = context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}.clean(errs)
-			// See http://tldp.org/LDP/abs/html/exitcodes.html
-			switch sig {
-			case syscall.SIGINT:
-				os.Exit(130)
-			case syscall.SIGTERM:
-				os.Exit(143)
-			}
-		}()
 
 		ctx := context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}
 
@@ -872,7 +856,32 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 			return appError(fmt.Sprintf("failed executing release templates in \"%s\"", f), tmplErr)
 		}
 
-		processed, errs := converge(templated)
+		var (
+			processed bool
+			errs      []error
+		)
+
+		// Ensure every temporary files and directories generated while running
+		// the converge function is clean up before exiting this function in all the three cases below:
+		// - This function returned nil
+		// - This function returned an err
+		// - Helmfile received SIGINT or SIGTERM while running this function
+		// For the last case you also need a signal handler in main.go.
+		// Ideally though, this CleanWaitGroup should gone and be replaced by a context cancellation propagation.
+		// See https://github.com/helmfile/helmfile/pull/418 for more details.
+		CleanWaitGroup.Add(1)
+		defer func() {
+			defer CleanWaitGroup.Done()
+			cleanErr := context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+			if retErr == nil {
+				retErr = cleanErr
+			} else if cleanErr != nil {
+				a.Logger.Debugf("Failed to clean up temporary files generated while processing %q: %v", templated.FilePath, cleanErr)
+			}
+		}()
+
+		processed, errs = converge(templated)
+
 		noMatchInHelmfiles = noMatchInHelmfiles && !processed
 
 		if opts.Reverse {
@@ -882,7 +891,7 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 			}
 		}
 
-		return context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+		return nil
 	})
 
 	if err != nil {
@@ -907,7 +916,7 @@ var (
 
 	SetRetainValuesFiles = func(r bool) func(o *LoadOpts) {
 		return func(o *LoadOpts) {
-			o.RetainValuesFiles = true
+			o.RetainValuesFiles = r
 		}
 	}
 
@@ -959,13 +968,17 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 		return false, []error{err}
 	}
 
-	return withBatches(templated, batches, helm, logger, converge)
+	return withBatches(opts.Purpose, templated, batches, helm, logger, converge)
 }
 
-func withBatches(templated *state.HelmState, batches [][]state.Release, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
+func withBatches(purpose string, templated *state.HelmState, batches [][]state.Release, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
 	numBatches := len(batches)
 
-	logger.Debugf("processing %d groups of releases in this order:\n%s", numBatches, printBatches(batches))
+	if purpose == "" {
+		purpose = "processing"
+	}
+
+	logger.Debugf("%s %d groups of releases in this order:\n%s", purpose, numBatches, printBatches(batches))
 
 	any := false
 
@@ -982,7 +995,7 @@ func withBatches(templated *state.HelmState, batches [][]state.Release, helm hel
 			releaseIds = append(releaseIds, state.ReleaseToID(&release))
 		}
 
-		logger.Debugf("processing releases in group %d/%d: %s", i+1, numBatches, strings.Join(releaseIds, ", "))
+		logger.Debugf("%s releases in group %d/%d: %s", purpose, i+1, numBatches, strings.Join(releaseIds, ", "))
 
 		batchSt := *templated
 		batchSt.Releases = targets
@@ -1296,6 +1309,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		Set:               c.Set(),
 		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
+		ReuseValues:       c.ReuseValues(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1358,30 +1372,31 @@ Do you really want to apply?
 	st.Releases = selectedAndNeededReleases
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
+		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			for _, r := range subst.Releases {
+				release := r
+				if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
+					return []error{err}
+				}
+			}
+
+			return nil
+		})); len(preapplyErrors) > 0 {
+			return true, false, preapplyErrors
+		}
+
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-				var (
-					rs             []state.ReleaseSpec
-					preapplyErrors []error
-				)
+				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&release)]; ok {
-						if _, err := st.TriggerPreapplyEvent(&r2, "apply"); err != nil {
-							preapplyErrors = append(applyErrs, err)
-							continue
-						}
-
 						rs = append(rs, r2)
 					}
-				}
-
-				if len(preapplyErrors) > 0 {
-					return preapplyErrors
 				}
 
 				subst.Releases = rs
@@ -1397,37 +1412,26 @@ Do you really want to apply?
 		// We upgrade releases by traversing the DAG
 		if len(releasesToBeUpdated) > 0 {
 			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-				var (
-					rs             []state.ReleaseSpec
-					preapplyErrors []error
-				)
+				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&release)]; ok {
-						if _, err := st.TriggerPreapplyEvent(&r2, "apply"); err != nil {
-							preapplyErrors = append(applyErrs, err)
-							continue
-						}
-
 						rs = append(rs, r2)
 					}
 				}
 
-				if len(preapplyErrors) > 0 {
-					return preapplyErrors
-				}
-
 				subst.Releases = rs
 
-				syncOpts := state.SyncOpts{
+				syncOpts := &state.SyncOpts{
 					Set:         c.Set(),
 					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
 					SkipCRDs:    c.SkipCRDs(),
 					Wait:        c.Wait(),
 					WaitForJobs: c.WaitForJobs(),
+					ReuseValues: c.ReuseValues(),
 				}
-				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), &syncOpts)
+				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
 
 			if len(updateErrs) > 0 {
@@ -1537,6 +1541,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			NoColor:           c.NoColor(),
 			Set:               c.Set(),
 			SkipDiffOnInstall: c.SkipDiffOnInstall(),
+			ReuseValues:       c.ReuseValues(),
 		}
 
 		filtered := &Run{
@@ -1800,6 +1805,7 @@ Do you really want to sync?
 					SkipCRDs:    c.SkipCRDs(),
 					Wait:        c.Wait(),
 					WaitForJobs: c.WaitForJobs(),
+					ReuseValues: c.ReuseValues(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

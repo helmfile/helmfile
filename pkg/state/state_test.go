@@ -2,21 +2,24 @@ package state
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/stretchr/testify/require"
 	"github.com/variantdev/vals"
 
+	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
 
-var logger = helmexec.NewLogger(os.Stdout, "warn")
+var logger = helmexec.NewLogger(io.Discard, "warn")
 var valsRuntime, _ = vals.New(vals.Options{CacheSize: 32})
 
 func injectFs(st *HelmState, fs *testhelper.TestFs) *HelmState {
@@ -965,6 +968,48 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "true", ""},
 		},
 		{
+			name: "repository without username and password and environment with username and password",
+			repos: []RepositorySpec{
+				{
+					Name:            "name",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "",
+					Password:        "",
+					PassCredentials: "",
+					SkipTLSVerify:   "",
+				},
+			},
+			envs: map[string]string{
+				"NAME_USERNAME": "example_user",
+				"NAME_PASSWORD": "example_password",
+			},
+			helm: &exectest.Helm{},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "", ""},
+		},
+		{
+			name: "repository with username and password and environment with username and password",
+			repos: []RepositorySpec{
+				{
+					Name:            "name",
+					URL:             "http://example.com/",
+					CertFile:        "",
+					KeyFile:         "",
+					Username:        "example_user1",
+					Password:        "example_password1",
+					PassCredentials: "",
+					SkipTLSVerify:   "",
+				},
+			},
+			envs: map[string]string{
+				"NAME_USERNAME": "example_user2",
+				"NAME_PASSWORD": "example_password2",
+			},
+			helm: &exectest.Helm{},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user1", "example_password1", "", "", ""},
+		},
+		{
 			name: "repository with skip-tls-verify",
 			repos: []RepositorySpec{
 				{
@@ -1017,7 +1062,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
 		},
 		{
 			name: "with tiller args",
@@ -1029,7 +1074,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns", "--reset-values"}}},
 		},
 		{
 			name: "escaped values",
@@ -1050,7 +1095,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}", "--reset-values"}}},
 		},
 		{
 			name: "set single value from file",
@@ -1075,7 +1120,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ", "--reset-values"}}},
 		},
 		{
 			name: "set single array value in an array",
@@ -1095,7 +1140,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}", "--reset-values"}}},
 		},
 	}
 	for i := range tests {
@@ -1455,6 +1500,16 @@ func TestGetDeployedVersion(t *testing.T) {
 										foo-bar-release	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha+001	0.1.0      	default`,
 			installedVersion: "1.0.0-alpha+001",
 		},
+		{
+			name: "chart version from helm show chart",
+			release: ReleaseSpec{
+				Name:  "foo",
+				Chart: "../../foo-bar",
+			},
+			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
+										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar      	0.1.0      	default`,
+			installedVersion: "3.2.0",
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -1467,6 +1522,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
+
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
 			}
@@ -1499,7 +1555,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
 		},
 		{
 			name: "with tiller args",
@@ -1511,7 +1567,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns", "--reset-values"}}},
 		},
 		{
 			name: "escaped values",
@@ -1533,7 +1589,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			},
 			helm: &exectest.Helm{},
 			wantReleases: []exectest.Release{
-				{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}"}},
+				{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}", "--reset-values"}},
 			},
 		},
 		{
@@ -1560,7 +1616,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			},
 			helm: &exectest.Helm{},
 			wantReleases: []exectest.Release{
-				{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ"}},
+				{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=path/to/bar", "--set", "baz=BAZ", "--reset-values"}},
 			},
 		},
 		{
@@ -1582,7 +1638,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			},
 			helm: &exectest.Helm{},
 			wantReleases: []exectest.Release{
-				{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}"}},
+				{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}", "--reset-values"}},
 			},
 		},
 	}
@@ -1859,7 +1915,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 		return generatedDir, nil
 	}
 
-	logger := helmexec.NewLogger(os.Stderr, "debug")
+	logger := helmexec.NewLogger(io.Discard, "debug")
 	basePath := "/src"
 	state := &HelmState{
 		basePath: basePath,
@@ -1925,7 +1981,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 }
 
 func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
-	logger := helmexec.NewLogger(os.Stderr, "debug")
+	logger := helmexec.NewLogger(io.Discard, "debug")
 	state := &HelmState{
 		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",
@@ -2391,6 +2447,102 @@ func TestHelmState_Delete(t *testing.T) {
 	}
 }
 
+func TestDiffpareSyncReleases(t *testing.T) {
+	tests := []struct {
+		name        string
+		flags       []string
+		diffOptions *DiffOpts
+	}{
+		{
+			name:  "reuse-values",
+			flags: []string{"--reuse-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+			},
+		},
+		{
+			name:        "reset-values",
+			flags:       []string{"--reset-values"},
+			diffOptions: &DiffOpts{},
+		},
+	}
+
+	for _, tt := range tests {
+		release := ReleaseSpec{
+			Name: tt.name,
+		}
+		releases := []ReleaseSpec{
+			release,
+		}
+		state := &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				Releases: releases,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+		helm := &exectest.Helm{
+			Lists: map[exectest.ListKey]string{},
+		}
+		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, []string{}, false, false, false, tt.diffOptions)
+
+		require.Len(t, es, 0)
+		require.Len(t, results, 1)
+
+		r := results[0]
+
+		require.Equal(t, tt.flags, r.flags)
+	}
+}
+
+func TestPrepareSyncReleases(t *testing.T) {
+	tests := []struct {
+		name        string
+		flags       []string
+		syncOptions *SyncOpts
+	}{
+		{
+			name:  "reuse-values",
+			flags: []string{"--reuse-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+			},
+		},
+		{
+			name:        "reset-values",
+			flags:       []string{"--reset-values"},
+			syncOptions: &SyncOpts{},
+		},
+	}
+
+	for _, tt := range tests {
+		release := ReleaseSpec{
+			Name: tt.name,
+		}
+		releases := []ReleaseSpec{
+			release,
+		}
+		state := &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				Releases: releases,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+		helm := &exectest.Helm{
+			Lists: map[exectest.ListKey]string{},
+		}
+		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
+
+		require.Len(t, es, 0)
+		require.Len(t, results, 1)
+
+		r := results[0]
+
+		require.Equal(t, tt.flags, r.flags)
+	}
+}
+
 func TestReverse(t *testing.T) {
 	num := 8
 	st := &HelmState{}
@@ -2418,5 +2570,125 @@ func TestReverse(t *testing.T) {
 		if got := st.Releases[i].Name; got != want {
 			t.Errorf("release at %d has incorrect name: want %q, got %q", i, want, got)
 		}
+	}
+}
+
+func Test_gatherUsernamePassword(t *testing.T) {
+	type args struct {
+		repoName string
+		username string
+		password string
+	}
+	tests := []struct {
+		name             string
+		args             args
+		envUsernameKey   string
+		envUsernameValue string
+		envPasswordKey   string
+		envPasswordValue string
+		wantUsername     string
+		wantPassword     string
+	}{
+		{
+			name: "pass username/password from args",
+			args: args{
+				repoName: "myRegistry",
+				username: "username1",
+				password: "password1",
+			},
+			wantUsername: "username1",
+			wantPassword: "password1",
+		},
+		{
+			name: "repoName does not contain hyphen, read username/password from environment variables",
+			args: args{
+				repoName: "myRegistry",
+			},
+			envUsernameKey:   "MYREGISTRY_USERNAME",
+			envUsernameValue: "username2",
+			envPasswordKey:   "MYREGISTRY_PASSWORD",
+			envPasswordValue: "password2",
+			wantUsername:     "username2",
+			wantPassword:     "password2",
+		},
+		{
+			name: "repoName contain hyphen, read username/password from environment variables",
+			args: args{
+				repoName: "my-registry",
+			},
+			envUsernameKey:   "MY_REGISTRY_USERNAME",
+			envUsernameValue: "username3",
+			envPasswordKey:   "MY_REGISTRY_PASSWORD",
+			envPasswordValue: "password3",
+			wantUsername:     "username3",
+			wantPassword:     "password3",
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envUsernameKey != "" && tt.envUsernameValue != "" {
+				t.Setenv(tt.envUsernameKey, tt.envUsernameValue)
+			}
+			if tt.envPasswordKey != "" && tt.envPasswordValue != "" {
+				t.Setenv(tt.envPasswordKey, tt.envPasswordValue)
+			}
+
+			gotUsername, gotPassword := gatherUsernamePassword(tt.args.repoName, tt.args.username, tt.args.password)
+			if gotUsername != tt.wantUsername || gotPassword != tt.wantPassword {
+				t.Errorf("gatherUsernamePassword() = got username/password %v/%v, want username/password %v/%v", gotUsername, gotPassword, tt.wantUsername, tt.wantPassword)
+			}
+		})
+	}
+}
+
+func TestGenerateOutputFilePath(t *testing.T) {
+	tests := []struct {
+		envName            string
+		filePath           string
+		releaseName        string
+		outputFileTemplate string
+		wantErr            bool
+		expected           string
+	}{
+		{
+			envName:            "dev",
+			releaseName:        "release1",
+			filePath:           "/path/to/helmfile.yaml",
+			outputFileTemplate: "helmfile-{{ .Environment.Name }}.yaml",
+			expected:           "helmfile-dev.yaml",
+		},
+		{
+			envName:            "error",
+			releaseName:        "release2",
+			filePath:           "helmfile.yaml",
+			outputFileTemplate: "helmfile-{{ .Environment.Name",
+			wantErr:            true,
+			expected:           "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.envName, func(t *testing.T) {
+			st := &HelmState{
+				FilePath: tt.envName,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Env: environment.Environment{
+						Name: tt.envName,
+					},
+				},
+			}
+			ra := &ReleaseSpec{
+				Name: tt.releaseName,
+			}
+			got, err := st.GenerateOutputFilePath(ra, tt.outputFileTemplate)
+
+			if tt.wantErr {
+				require.Errorf(t, err, "GenerateOutputFilePath() error = %v, want error", err)
+			} else {
+				require.NoError(t, err, "GenerateOutputFilePath() error = %v, want nil", err)
+			}
+			require.Equalf(t, got, tt.expected, "GenerateOutputFilePath() got = %v, want %v", got, tt.expected)
+		})
 	}
 }

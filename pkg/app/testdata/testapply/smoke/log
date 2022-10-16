@@ -135,6 +135,19 @@ Affected releases are:
   logging (charts/fluent-bit) UPDATED
   servicemesh (charts/istio) UPDATED
 
+invoking preapply hooks for 5 groups of releases in this order:
+GROUP RELEASES
+1     default//frontend-v1, default//frontend-v2, default//frontend-v3
+2     default//backend-v1, default//backend-v2
+3     default//anotherbackend
+4     default//database, default//servicemesh
+5     default//logging, default//front-proxy
+
+invoking preapply hooks for releases in group 1/5: default//frontend-v1, default//frontend-v2, default//frontend-v3
+invoking preapply hooks for releases in group 2/5: default//backend-v1, default//backend-v2
+invoking preapply hooks for releases in group 3/5: default//anotherbackend
+invoking preapply hooks for releases in group 4/5: default//database, default//servicemesh
+invoking preapply hooks for releases in group 5/5: default//logging, default//front-proxy
 processing 2 groups of releases in this order:
 GROUP RELEASES
 1     default//frontend-v1

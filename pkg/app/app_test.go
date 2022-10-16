@@ -3,6 +3,7 @@ package app
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/chart"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -59,6 +61,10 @@ func expectNoCallsToHelmVersion(app *App, isHelm3 bool) {
 	}
 }
 
+func newAppTestLogger() *zap.SugaredLogger {
+	return helmexec.NewLogger(io.Discard, "debug")
+}
+
 func TestVisitDesiredStatesWithReleasesFiltered_ReleaseOrder(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
@@ -87,7 +93,7 @@ releases:
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -144,7 +150,7 @@ BAZ: 4
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -186,7 +192,7 @@ releases:
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -232,7 +238,7 @@ releases:
 	app := &App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "test",
 	}
@@ -283,7 +289,7 @@ releases:
 			app := &App{
 				OverrideHelmBinary:  DefaultHelmBinary,
 				OverrideKubeContext: "default",
-				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Logger:              newAppTestLogger(),
 				Namespace:           "",
 				Env:                 "default",
 				FileOrDir:           "helmfile.yaml",
@@ -349,7 +355,7 @@ releases:
 		app := &App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Selectors:           []string{fmt.Sprintf("name=%s", testcase.name)},
 			Namespace:           "",
 			Env:                 "default",
@@ -406,7 +412,7 @@ releases:
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Namespace:           "",
 			Selectors:           []string{},
 			Env:                 testcase.name,
@@ -766,7 +772,7 @@ func runFilterSubHelmFilesTests(testcases []struct {
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Namespace:           "",
 			Selectors:           []string{testcase.label},
 			Env:                 "default",
@@ -852,7 +858,7 @@ tillerNs: INLINE_TILLER_NS_2
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Selectors:           []string{},
 		Env:                 "default",
@@ -961,7 +967,7 @@ releases:
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Namespace:           "",
 			Selectors:           []string{},
 			Env:                 "default",
@@ -1025,7 +1031,7 @@ bar: "bar1"
 		app := appWithFs(&App{
 			OverrideHelmBinary:  DefaultHelmBinary,
 			OverrideKubeContext: "default",
-			Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:              newAppTestLogger(),
 			Namespace:           "",
 			Selectors:           []string{},
 			Env:                 "default",
@@ -1146,7 +1152,7 @@ x:
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
 				OverrideKubeContext: "default",
-				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Logger:              newAppTestLogger(),
 				Namespace:           "",
 				Selectors:           []string{},
 				Env:                 testcase.env,
@@ -1199,7 +1205,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		Selectors:           []string{},
@@ -1255,7 +1261,7 @@ releases:
 			app := appWithFs(&App{
 				OverrideHelmBinary:  DefaultHelmBinary,
 				OverrideKubeContext: "default",
-				Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+				Logger:              newAppTestLogger(),
 				Namespace:           "",
 				Selectors:           []string{},
 				Env:                 "default",
@@ -1305,7 +1311,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1352,7 +1358,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1394,7 +1400,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1436,7 +1442,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1482,7 +1488,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Namespace:           "",
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
@@ -1529,7 +1535,7 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 		OverrideKubeContext: "default",
 		fs:                  fs,
 		Env:                 "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 	}
 
 	expectNoCallsToHelm(app)
@@ -1588,7 +1594,7 @@ helmDefaults:
 		OverrideKubeContext: "default",
 		fs:                  testFs.ToFileSystem(),
 		Env:                 "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, "", app.fs)
 
@@ -1673,7 +1679,7 @@ helmDefaults:
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -1749,7 +1755,7 @@ foo: FOO
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -1812,7 +1818,7 @@ foo: FOO
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -1893,7 +1899,7 @@ helmDefaults:
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "test",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -1966,7 +1972,7 @@ releases:
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -2022,7 +2028,7 @@ releases:
 		OverrideHelmBinary: DefaultHelmBinary,
 		fs:                 testFs.ToFileSystem(),
 		Env:                "default",
-		Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:             newAppTestLogger(),
 	}
 
 	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
@@ -2077,7 +2083,7 @@ releases:
 			OverrideHelmBinary: DefaultHelmBinary,
 			fs:                 testFs.ToFileSystem(),
 			Env:                "default",
-			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:             newAppTestLogger(),
 		}
 		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -2189,7 +2195,7 @@ services:
 			OverrideHelmBinary: DefaultHelmBinary,
 			fs:                 testFs.ToFileSystem(),
 			Env:                "default",
-			Logger:             helmexec.NewLogger(os.Stderr, "debug"),
+			Logger:             newAppTestLogger(),
 		}
 		app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
 
@@ -2328,6 +2334,7 @@ type applyConfig struct {
 	logger                 *zap.SugaredLogger
 	wait                   bool
 	waitForJobs            bool
+	reuseValues            bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2463,6 +2470,10 @@ func (a applyConfig) OutputDirTemplate() string {
 	return a.outputDirTemplate
 }
 
+func (a applyConfig) ReuseValues() bool {
+	return a.reuseValues
+}
+
 type depsConfig struct {
 	skipRepos              bool
 	includeTransitiveNeeds bool
@@ -2594,6 +2605,10 @@ func (helm *mockHelmExec) GetVersion() helmexec.Version {
 
 func (helm *mockHelmExec) IsVersionAtLeast(versionStr string) bool {
 	return false
+}
+
+func (helm *mockHelmExec) ShowChart(chartPath string) (chart.Metadata, error) {
+	return chart.Metadata{}, errors.New("tests logs rely on this error")
 }
 
 func TestTemplate_SingleStateFile(t *testing.T) {
@@ -2834,16 +2849,16 @@ releases:
 			},
 			diffs: map[exectest.DiffKey]error{
 				// noop on frontend-v2
-				{Name: "frontend-v2", Chart: "charts/frontend", Flags: "--kube-contextdefault--detailed-exitcode"}: nil,
+				{Name: "frontend-v2", Chart: "charts/frontend", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: nil,
 				// install frontend-v3
-				{Name: "frontend-v3", Chart: "charts/frontend", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "frontend-v3", Chart: "charts/frontend", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 				// upgrades
-				{Name: "logging", Chart: "charts/fluent-bit", Flags: "--kube-contextdefault--detailed-exitcode"}:            helmexec.ExitError{Code: 2},
-				{Name: "front-proxy", Chart: "stable/envoy", Flags: "--kube-contextdefault--detailed-exitcode"}:             helmexec.ExitError{Code: 2},
-				{Name: "servicemesh", Chart: "charts/istio", Flags: "--kube-contextdefault--detailed-exitcode"}:             helmexec.ExitError{Code: 2},
-				{Name: "database", Chart: "charts/mysql", Flags: "--kube-contextdefault--detailed-exitcode"}:                helmexec.ExitError{Code: 2},
-				{Name: "backend-v2", Chart: "charts/backend", Flags: "--kube-contextdefault--detailed-exitcode"}:            helmexec.ExitError{Code: 2},
-				{Name: "anotherbackend", Chart: "charts/anotherbackend", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "logging", Chart: "charts/fluent-bit", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:            helmexec.ExitError{Code: 2},
+				{Name: "front-proxy", Chart: "stable/envoy", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:             helmexec.ExitError{Code: 2},
+				{Name: "servicemesh", Chart: "charts/istio", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:             helmexec.ExitError{Code: 2},
+				{Name: "database", Chart: "charts/mysql", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:                helmexec.ExitError{Code: 2},
+				{Name: "backend-v2", Chart: "charts/backend", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:            helmexec.ExitError{Code: 2},
+				{Name: "anotherbackend", Chart: "charts/anotherbackend", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
@@ -2909,7 +2924,7 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: nil,
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: nil,
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: ``,
@@ -2940,9 +2955,9 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{},
 			upgraded: []exectest.Release{
@@ -2976,9 +2991,9 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-contextdefault--detailed-exitcode"}:                     helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:                     helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: ``,
@@ -2996,72 +3011,6 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 			},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: stable/mychart3
- 4:   disableValidationOnInstall: true
- 5: - name: foo
- 6:   chart: stable/mychart1
- 7:   disableValidationOnInstall: true
- 8:   needs:
- 9:   - bar
-10: - name: bar
-11:   chart: stable/mychart2
-12:   disableValidation: true
-13: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: stable/mychart3
- 4:   disableValidationOnInstall: true
- 5: - name: foo
- 6:   chart: stable/mychart1
- 7:   disableValidationOnInstall: true
- 8:   needs:
- 9:   - bar
-10: - name: bar
-11:   chart: stable/mychart2
-12:   disableValidation: true
-13: 
-
-merged environment: &{default map[] map[]}
-3 release(s) found in helmfile.yaml
-
-Affected releases are:
-  bar (stable/mychart2) UPDATED
-  baz (stable/mychart3) UPDATED
-  foo (stable/mychart1) UPDATED
-
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default//baz, default//bar
-2     default//foo
-
-processing releases in group 1/2: default//baz, default//bar
-processing releases in group 2/2: default//foo
-getting deployed release version failed:Failed to get the version for:mychart1
-
-UPDATED RELEASES:
-NAME   CHART             VERSION
-baz    stable/mychart3     3.1.0
-bar    stable/mychart2     3.1.0
-foo    stable/mychart1          
-
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// install with upgrade and --skip-diff-on-install
@@ -3087,8 +3036,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-contextdefault--detailed-exitcode"}:                     helmexec.ExitError{Code: 2},
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:                     helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: ``,
@@ -3106,72 +3055,6 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 			},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: stable/mychart3
- 4:   disableValidationOnInstall: true
- 5: - name: foo
- 6:   chart: stable/mychart1
- 7:   disableValidationOnInstall: true
- 8:   needs:
- 9:   - bar
-10: - name: bar
-11:   chart: stable/mychart2
-12:   disableValidation: true
-13: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: stable/mychart3
- 4:   disableValidationOnInstall: true
- 5: - name: foo
- 6:   chart: stable/mychart1
- 7:   disableValidationOnInstall: true
- 8:   needs:
- 9:   - bar
-10: - name: bar
-11:   chart: stable/mychart2
-12:   disableValidation: true
-13: 
-
-merged environment: &{default map[] map[]}
-3 release(s) found in helmfile.yaml
-
-Affected releases are:
-  bar (stable/mychart2) UPDATED
-  baz (stable/mychart3) UPDATED
-  foo (stable/mychart1) UPDATED
-
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default//baz, default//bar
-2     default//foo
-
-processing releases in group 1/2: default//baz, default//bar
-processing releases in group 2/2: default//foo
-getting deployed release version failed:Failed to get the version for:mychart1
-
-UPDATED RELEASES:
-NAME   CHART             VERSION
-baz    stable/mychart3     3.1.0
-bar    stable/mychart2     3.1.0
-foo    stable/mychart1          
-
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// upgrades
@@ -3191,8 +3074,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{}},
@@ -3214,8 +3097,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{}},
@@ -3238,8 +3121,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{}},
@@ -3262,8 +3145,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--namespacetestNamespace--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{}},
@@ -3287,8 +3170,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{"--kube-context", "default", "--namespace", "ns2"}},
@@ -3312,8 +3195,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--namespacens2--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{"--kube-context", "default", "--namespace", "ns1"}},
@@ -3340,8 +3223,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{"--tiller-namespace", "tns2", "--kube-context", "default", "--namespace", "ns2"}},
@@ -3367,8 +3250,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{"--tiller-namespace", "tns1", "--kube-context", "default", "--namespace", "ns1"}},
@@ -3384,67 +3267,6 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   chart: stable/mychart2
- 4:   namespace: ns2
- 5:   tillerNamespace: tns2
- 6:   needs:
- 7:   - tns1/foo
- 8: - name: foo
- 9:   chart: stable/mychart1
-10:   namespace: ns1
-11:   tillerNamespace: tns1
-12: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   chart: stable/mychart2
- 4:   namespace: ns2
- 5:   tillerNamespace: tns2
- 6:   needs:
- 7:   - tns1/foo
- 8: - name: foo
- 9:   chart: stable/mychart1
-10:   namespace: ns1
-11:   tillerNamespace: tns1
-12: 
-
-merged environment: &{default map[] map[]}
-2 release(s) found in helmfile.yaml
-
-Affected releases are:
-  bar (stable/mychart2) UPDATED
-  foo (stable/mychart1) UPDATED
-
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default/tns1/foo
-2     default/tns2/bar
-
-processing releases in group 1/2: default/tns1/foo
-processing releases in group 2/2: default/tns2/bar
-
-UPDATED RELEASES:
-NAME   CHART             VERSION
-foo    stable/mychart1     3.1.0
-bar    stable/mychart2     3.1.0
-
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// deletes: deleting all releases in the correct order
@@ -3466,8 +3288,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -3499,8 +3321,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -3534,8 +3356,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -3568,8 +3390,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -3602,8 +3424,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -3636,8 +3458,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
@@ -3692,8 +3514,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode--reset-values"}:       helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{
 				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
@@ -3709,89 +3531,6 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-merged environment: &{default map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
-
-Affected releases are:
-  external-secrets (incubator/raw) UPDATED
-  my-release (incubator/raw) UPDATED
-
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
-
-processing releases in group 1/2: default/default/external-secrets
-processing releases in group 2/2: default/default/my-release
-
-UPDATED RELEASES:
-NAME               CHART           VERSION
-external-secrets   incubator/raw     3.1.0
-my-release         incubator/raw     3.1.0
-
-changing working directory back to "/path/to"
-`,
 		},
 		{
 			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
@@ -3830,8 +3569,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode"}:       helmexec.ExitError{Code: 2},
+				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-contextdefault--namespacedefault--detailed-exitcode--reset-values"}:       helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -4027,8 +3766,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "baz", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
+				{Name: "baz", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:               helmexec.ExitError{Code: 2},
 			},
 			lists:       map[exectest.ListKey]string{},
 			upgraded:    []exectest.Release{},
@@ -4091,8 +3830,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:               helmexec.ExitError{Code: 2},
 			},
 			lists:       map[exectest.ListKey]string{},
 			upgraded:    []exectest.Release{},
@@ -4159,8 +3898,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode"}:               helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "mychart3", Flags: "--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}:               helmexec.ExitError{Code: 2},
 			},
 			lists:       map[exectest.ListKey]string{},
 			upgraded:    []exectest.Release{},
@@ -4338,7 +4077,7 @@ changing working directory back to "/path/to"
 					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
 				}
 			} else {
-				assertEqualsToSnapshot(t, "log", bs.String())
+				assertLogEqualsToSnapshot(t, bs.String())
 			}
 		})
 	}
@@ -4654,7 +4393,7 @@ releases:
 	}
 	expectedValues := []interface{}{
 		map[interface{}]interface{}{"val1": "zipkin"},
-		map[interface{}]interface{}{"val2": "val2"}}
+		map[string]interface{}{"val2": "val2"}}
 	expectedSetValues := []state.SetValue{
 		{Name: "name-zipkin", Value: "val-zipkin"},
 		{Name: "name", Value: "val"}}
@@ -4662,7 +4401,7 @@ releases:
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
 		OverrideKubeContext: "default",
-		Logger:              helmexec.NewLogger(os.Stderr, "debug"),
+		Logger:              newAppTestLogger(),
 		Env:                 "default",
 		FileOrDir:           "helmfile.yaml",
 	}, files)
