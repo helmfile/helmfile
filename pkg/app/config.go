@@ -19,14 +19,6 @@ type ConfigProvider interface {
 	loggingConfig
 }
 
-type DeprecatedChartsConfigProvider interface {
-	Values() []string
-
-	concurrencyConfig
-	loggingConfig
-	IncludeTransitiveNeeds() bool
-}
-
 type DepsConfigProvider interface {
 	Args() string
 	SkipRepos() bool
@@ -65,7 +57,6 @@ type ApplyConfigProvider interface {
 	Context() int
 	DiffOutput() string
 
-	RetainValuesFiles() bool
 	Validate() bool
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
@@ -129,17 +120,6 @@ type DiffConfigProvider interface {
 
 	concurrencyConfig
 	valuesControlMode
-}
-
-type DeleteConfigProvider interface {
-	Args() string
-
-	Purge() bool
-	SkipDeps() bool
-
-	interactive
-	loggingConfig
-	concurrencyConfig
 }
 
 type DestroyConfigProvider interface {

@@ -52,8 +52,6 @@ type ReleaseSetSpec struct {
 	Bases               []string          `yaml:"bases,omitempty"`
 	HelmDefaults        HelmSpec          `yaml:"helmDefaults,omitempty"`
 	Helmfiles           []SubHelmfileSpec `yaml:"helmfiles,omitempty"`
-	DeprecatedContext   string            `yaml:"context,omitempty"`
-	DeprecatedReleases  []ReleaseSpec     `yaml:"charts,omitempty"`
 	OverrideKubeContext string            `yaml:"kubeContext,omitempty"`
 	OverrideNamespace   string            `yaml:"namespace,omitempty"`
 	OverrideChart       string            `yaml:"chart,omitempty"`

@@ -497,9 +497,7 @@ Available Commands:
   apply        Apply all resources from state file only when there are changes
   build        Build all resources from state file
   cache        Cache management
-  charts       DEPRECATED: sync releases from state file (helm upgrade --install)
   completion   Generate the autocompletion script for the specified shell
-  delete       DEPRECATED: delete releases from state file (helm delete)
   deps         Update charts based on their requirements
   destroy      Destroys and then purges releases
   diff         Diff releases defined in state file
@@ -588,14 +586,6 @@ The `helmfile destroy` sub-command uninstalls and purges all the releases define
 `helmfile --interactive destroy` instructs Helmfile to request your confirmation before actually deleting releases.
 
 `destroy` basically runs `helm uninstall --purge` on all the targeted releases. If you don't want purging, use `helmfile delete` instead.
-
-### delete (DEPRECATED)
-
-The `helmfile delete` sub-command deletes all the releases defined in the manifests.
-
-`helmfile --interactive delete` instructs Helmfile to request your confirmation before actually deleting releases.
-
-Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
 
 ### secrets
 

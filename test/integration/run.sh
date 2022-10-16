@@ -139,11 +139,11 @@ code=$?
 ${helm} list --namespace=${test_ns} || fail "unable to list releases"
 
 info "Deleting release"
-${helmfile} -f ${dir}/happypath.yaml delete
-${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"
+${helmfile} -f ${dir}/happypath.yaml destroy
+${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a destroy"
 
-info "Ensuring \"helmfile delete\" doesn't fail when no releases installed"
-${helmfile} -f ${dir}/happypath.yaml delete || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
+info "Ensuring \"helmfile destroy\" doesn't fail when no releases installed"
+${helmfile} -f ${dir}/happypath.yaml destroy || fail "\"helmfile destroy\" shouldn't fail when there are no installed releases"
 
 info "Ensuring \"helmfile template\" output does contain only YAML docs"
 (${helmfile} -f ${dir}/happypath.yaml template | kubectl apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"

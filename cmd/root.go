@@ -83,8 +83,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 		NewApplyCmd(globalImpl),
 		NewBuildCmd(globalImpl),
 		NewCacheCmd(globalImpl),
-		NewChartsCmd(globalImpl),
-		NewDeleteCmd(globalImpl),
 		NewDepsCmd(globalImpl),
 		NewDestroyCmd(globalImpl),
 		NewFetchCmd(globalImpl),

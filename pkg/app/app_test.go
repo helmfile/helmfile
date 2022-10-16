@@ -2308,7 +2308,6 @@ func (c configImpl) SkipCharts() bool {
 type applyConfig struct {
 	args                   string
 	values                 []string
-	retainValuesFiles      bool
 	set                    []string
 	validate               bool
 	skipCleanup            bool
@@ -2443,10 +2442,6 @@ func (a applyConfig) Interactive() bool {
 
 func (a applyConfig) Logger() *zap.SugaredLogger {
 	return a.logger
-}
-
-func (a applyConfig) RetainValuesFiles() bool {
-	return a.retainValuesFiles
 }
 
 func (a applyConfig) SkipDiffOnInstall() bool {

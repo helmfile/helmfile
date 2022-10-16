@@ -19,10 +19,7 @@ type ApplyOptions struct {
 	// DetailedExitcode is true if the exit code should be 2 instead of 0 if there were changes detected and the changes were synced successfully
 	DetailedExitcode bool
 	// Args is the arguments to pass to helm exec
-	Args string
-	// DEPRECATED: Use skip-cleanup instead
-	RetainValuesFiles bool
-	// SkipCleanup is true if the cleanup of temporary values files should be skipped
+	Args        string
 	SkipCleanup bool
 	// SkipCRDs is true if the CRDs should be skipped
 	SkipCRDs bool
@@ -125,11 +122,6 @@ func (a *ApplyImpl) IncludeTests() bool {
 // IncludeTransitiveNeeds returns the include transitive needs.
 func (a *ApplyImpl) IncludeTransitiveNeeds() bool {
 	return a.ApplyOptions.IncludeTransitiveNeeds
-}
-
-// RetainValuesFiles returns the retain values files.
-func (a *ApplyImpl) RetainValuesFiles() bool {
-	return a.ApplyOptions.RetainValuesFiles
 }
 
 // ShowSecrets returns the show secrets.

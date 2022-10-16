@@ -113,16 +113,6 @@ func (r *Run) Repos(c ReposConfigProvider) error {
 	return r.ctx.SyncReposOnce(r.state, r.helm)
 }
 
-func (r *Run) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) []error {
-	st := r.state
-	helm := r.helm
-
-	affectedReleases := state.AffectedReleases{}
-	errs := st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency())
-	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return errs
-}
-
 func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts) (*string, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, []error) {
 	st := r.state
 	helm := r.helm

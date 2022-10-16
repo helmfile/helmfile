@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -118,24 +117,6 @@ func (a *App) Repos(c ReposConfigProvider) error {
 
 		if reposErr != nil {
 			errs = append(errs, reposErr)
-		}
-
-		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
-}
-
-func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
-	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: 2,
-		}, func() {
-			errs = run.DeprecatedSyncCharts(c)
-		})
-
-		if err != nil {
-			errs = append(errs, err)
 		}
 
 		return
@@ -382,7 +363,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	var opts []LoadOption
 
-	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles() || c.SkipCleanup()))
+	opts = append(opts, SetRetainValuesFiles(c.SkipCleanup()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
@@ -393,7 +374,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Wait:        c.Wait(),
 			WaitForJobs: c.WaitForJobs(),
 			IncludeCRDs: &includeCRDs,
-			SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
+			SkipCleanup: c.SkipCleanup(),
 			Validate:    c.Validate(),
 			Concurrency: c.Concurrency(),
 		}, func() {
@@ -442,24 +423,6 @@ func (a *App) Status(c StatusesConfigProvider) error {
 
 		return
 	}, false, SetFilter(true))
-}
-
-func (a *App) Delete(c DeleteConfigProvider) error {
-	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
-		}, func() {
-			ok, errs = a.delete(run, c.Purge(), c)
-		})
-
-		if err != nil {
-			errs = append(errs, err)
-		}
-
-		return
-	}, false, SetReverse(true))
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
@@ -1142,14 +1105,6 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		var defaultFile string
 		if a.fs.FileExistsAt(DefaultHelmfile) {
 			defaultFile = DefaultHelmfile
-		} else if a.fs.FileExistsAt(DeprecatedHelmfile) {
-			log.Printf(
-				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
-				DeprecatedHelmfile,
-				DeprecatedHelmfile,
-				DefaultHelmfile,
-			)
-			defaultFile = DeprecatedHelmfile
 		}
 
 		switch {
@@ -1299,7 +1254,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		Context:           c.Context(),
 		Output:            c.DiffOutput(),
 		Set:               c.Set(),
-		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
+		SkipCleanup:       c.SkipCleanup(),
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 		ReuseValues:       c.ReuseValues(),
 	}
@@ -1417,7 +1372,7 @@ Do you really want to apply?
 
 				syncOpts := &state.SyncOpts{
 					Set:         c.Set(),
-					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
+					SkipCleanup: c.SkipCleanup(),
 					SkipCRDs:    c.SkipCRDs(),
 					Wait:        c.Wait(),
 					WaitForJobs: c.WaitForJobs(),

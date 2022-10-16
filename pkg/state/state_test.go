@@ -54,12 +54,11 @@ func TestLabelParsing(t *testing.T) {
 
 func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type fields struct {
-		BaseChartPath      string
-		Context            string
-		DeprecatedReleases []ReleaseSpec
-		Namespace          string
-		Repositories       []RepositorySpec
-		Releases           []ReleaseSpec
+		BaseChartPath string
+		Context       string
+		Namespace     string
+		Repositories  []RepositorySpec
+		Releases      []ReleaseSpec
 	}
 	type args struct {
 		spec ReleaseSpec
@@ -82,11 +81,10 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	specWithNamespaceFromFields.Namespace = "test-namespace-field"
 
 	fieldsWithNamespace := fields{
-		BaseChartPath:      ".",
-		Context:            "test_context",
-		DeprecatedReleases: nil,
-		Namespace:          specWithNamespaceFromFields.Namespace,
-		Repositories:       nil,
+		BaseChartPath: ".",
+		Context:       "test_context",
+		Namespace:     specWithNamespaceFromFields.Namespace,
+		Repositories:  nil,
 		Releases: []ReleaseSpec{
 			specWithNamespace,
 		},
@@ -132,11 +130,9 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			state := &HelmState{
 				basePath: tt.fields.BaseChartPath,
 				ReleaseSetSpec: ReleaseSetSpec{
-					DeprecatedContext:  tt.fields.Context,
-					DeprecatedReleases: tt.fields.DeprecatedReleases,
-					OverrideNamespace:  tt.fields.Namespace,
-					Repositories:       tt.fields.Repositories,
-					Releases:           tt.fields.Releases,
+					OverrideNamespace: tt.fields.Namespace,
+					Repositories:      tt.fields.Repositories,
+					Releases:          tt.fields.Releases,
 				},
 			}
 			if state.ApplyOverrides(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
@@ -692,9 +688,9 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			state := &HelmState{
 				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
-					DeprecatedContext: "default",
-					Releases:          []ReleaseSpec{*tt.release},
-					HelmDefaults:      tt.defaults,
+					OverrideKubeContext: "default",
+					Releases:            []ReleaseSpec{*tt.release},
+					HelmDefaults:        tt.defaults,
 				},
 				valsRuntime: valsRuntime,
 			}
