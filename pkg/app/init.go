@@ -64,8 +64,8 @@ func (h *HelmfileInit) UpdateHelm() error {
 
 func (h *HelmfileInit) installHelmOnWindows() error {
 	windowPackageManagers := make(map[string]string)
-	windowPackageManagers["scoop"] = fmt.Sprintf("scoop install helm --version %s", strings.TrimLeft(HelmRecommendedVersion, "v"))
-	windowPackageManagers["choco"] = fmt.Sprintf("choco install kubernetes-helm@%s", strings.TrimLeft(HelmRecommendedVersion, "v"))
+	windowPackageManagers["scoop"] = fmt.Sprintf("scoop install helm@%s", strings.TrimLeft(HelmRecommendedVersion, "v"))
+	windowPackageManagers["choco"] = fmt.Sprintf("choco install kubernetes-helm --version %s", strings.TrimLeft(HelmRecommendedVersion, "v"))
 	for name, command := range windowPackageManagers {
 		_, err := exec.LookPath(name)
 		if err == nil {
