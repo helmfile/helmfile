@@ -23,6 +23,8 @@ const (
 	HelmInstallCommand      = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
 )
 
+var manuallyInstallCode = 1
+
 type helmRequiredPlugin struct {
 	name    string
 	version string
@@ -69,7 +71,7 @@ func (h *HelmfileInit) installHelmOnWindows() error {
 		if err == nil {
 			askYes := AskForConfirmation(fmt.Sprintf("use: '%s'", command))
 			if !askYes {
-				return fmt.Errorf("cancel automatic installation, please install helm manually")
+				return &Error{msg: "cancel automatic installation, please install helm manually", code: &manuallyInstallCode}
 			}
 			_, err = h.runner.Execute("cmd", []string{
 				"/c",
@@ -82,7 +84,7 @@ func (h *HelmfileInit) installHelmOnWindows() error {
 		}
 	}
 
-	return fmt.Errorf("windows platform, please install helm manually, installation steps: https://helm.sh/docs/intro/install/")
+	return &Error{msg: "windows platform, please install helm manually, installation steps: https://helm.sh/docs/intro/install/", code: &manuallyInstallCode}
 }
 
 func (h *HelmfileInit) InstallHelm() error {
@@ -91,7 +93,7 @@ func (h *HelmfileInit) InstallHelm() error {
 	}
 	askYes := AskForConfirmation(fmt.Sprintf("use: '%s'", HelmInstallCommand))
 	if !askYes {
-		return fmt.Errorf("cancel automatic installation, please install helm manually")
+		return &Error{msg: "cancel automatic installation, please install helm manually", code: &manuallyInstallCode}
 	}
 	getHelmScript := "/tmp/get-helm-3.sh"
 	err := downloadfile(getHelmScript, HelmInstallCommand)
@@ -126,7 +128,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 			}
 			askYes := AskForConfirmation(fmt.Sprintf("The helm plugin %s is not installed, do you need to install it", p.name))
 			if !askYes {
-				return fmt.Errorf("cancel automatic installation, please install manually")
+				return &Error{msg: "cancel automatic installation, please install manually", code: &manuallyInstallCode}
 			}
 			err2 := helm.AddPlugin(p.name, p.repo)
 			if err2 != nil {
@@ -138,7 +140,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 		if pluginVersion.LessThan(requiredVersion) {
 			askYes := AskForConfirmation(fmt.Sprintf("The helm plugin %s version is too low, do you need to update it", p.name))
 			if !askYes {
-				return fmt.Errorf("cancel automatic update, please update manually")
+				return &Error{msg: "cancel automatic update, please update manually", code: &manuallyInstallCode}
 			}
 			err2 := helm.UpdatePlugin(p.name)
 			if err2 != nil {
