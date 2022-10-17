@@ -132,6 +132,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 			if err2 != nil {
 				return err2
 			}
+			pluginVersion, _ = helmexec.GetPluginVersion(p.name, settings.PluginsDirectory)
 		}
 		requiredVersion, _ := semver.NewVersion(p.version)
 		if pluginVersion.LessThan(requiredVersion) {
@@ -184,5 +185,6 @@ func (h *HelmfileInit) Initialize() error {
 	if err != nil {
 		return err
 	}
+	h.logger.Info("helmfile initialization completed!")
 	return nil
 }
