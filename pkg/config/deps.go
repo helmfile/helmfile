@@ -34,7 +34,7 @@ func (d *DepsImpl) Args() string {
 	return d.DepsOptions.Args
 }
 
-// SkipDeps returns the skip deps
+// SkipRepos returns the skip deps
 func (d *DepsImpl) SkipRepos() bool {
 	return d.DepsOptions.SkipRepos
 }
