@@ -26,7 +26,7 @@ func isLocalChart(chart string) bool {
 
 	return chart == "" ||
 		filepath.IsAbs(chart) ||
-		!strings.Contains(chart, fmt.Sprintf("%c", os.PathSeparator)) ||
+		!strings.Contains(chart, "/") ||
 		(len(strings.Split(chart, "/")) != 2 &&
 			len(strings.Split(chart, "/")) != 3)
 }
