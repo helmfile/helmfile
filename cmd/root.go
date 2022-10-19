@@ -12,6 +12,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/app/version"
 	"github.com/helmfile/helmfile/pkg/config"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
@@ -75,7 +76,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Comma
 
 	// when set environment HELMFILE_UPGRADE_NOTICE_DISABLED any value, skip upgrade notice.
 	var versionOpts []extension.CobraOption
-	if os.Getenv("HELMFILE_UPGRADE_NOTICE_DISABLED") == "" {
+	if os.Getenv(envvar.UpgradeNoticeDisabled) == "" {
 		versionOpts = append(versionOpts, extension.WithUpgradeNotice("helmfile", "helmfile"))
 	}
 
