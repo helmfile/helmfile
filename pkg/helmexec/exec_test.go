@@ -337,10 +337,12 @@ exec: helm --kube-context dev dependency update ./chart/foo --verify
 func Test_BuildDeps(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a")}
+	helm := New("helm", false, logger, "dev", &helm3Runner)
 	err := helm.BuildDeps("foo", "./chart/foo")
 	expected := `Building dependency release=foo, chart=./chart/foo
-exec: helm --kube-context dev dependency build ./chart/foo
+exec: helm --kube-context dev dependency build ./chart/foo --skip-refresh
+v3.2.4+ge29ce2a
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -353,7 +355,23 @@ exec: helm --kube-context dev dependency build ./chart/foo
 	helm.SetExtraArgs("--verify")
 	err = helm.BuildDeps("foo", "./chart/foo")
 	expected = `Building dependency release=foo, chart=./chart/foo
-exec: helm --kube-context dev dependency build ./chart/foo --verify
+exec: helm --kube-context dev dependency build ./chart/foo --skip-refresh --verify
+v3.2.4+ge29ce2a
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.BuildDeps()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	buffer.Reset()
+	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94")}
+	helm = New("helm", false, logger, "dev", &helm2Runner)
+	err = helm.BuildDeps("foo", "./chart/foo")
+	expected = `Building dependency release=foo, chart=./chart/foo
+exec: helm --kube-context dev dependency build ./chart/foo
+Client: v2.16.1+ge13bc94
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
