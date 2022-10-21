@@ -983,6 +983,7 @@ type ChartPrepareOptions struct {
 	Wait                   bool
 	WaitForJobs            bool
 	OutputDir              string
+	OutputDirTemplate      string
 	IncludeTransitiveNeeds bool
 	Concurrency            int
 }
@@ -1211,30 +1212,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					//    For helm 2, we `helm fetch` with the version flags and call `helm template`
 					//    WITHOUT the version flags.
 				} else {
-					pathElems := []string{
-						dir,
+					chartPath, err = st.GenerateChartPath(chartName, dir, release, opts.OutputDirTemplate)
+					if err != nil {
+						results <- &chartPrepareResult{err: err}
+						return
 					}
-
-					if release.TillerNamespace != "" {
-						pathElems = append(pathElems, release.TillerNamespace)
-					}
-
-					if release.Namespace != "" {
-						pathElems = append(pathElems, release.Namespace)
-					}
-
-					if release.KubeContext != "" {
-						pathElems = append(pathElems, release.KubeContext)
-					}
-
-					chartVersion := "latest"
-					if release.Version != "" {
-						chartVersion = release.Version
-					}
-
-					pathElems = append(pathElems, release.Name, chartName, chartVersion)
-
-					chartPath = path.Join(pathElems...)
 
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
@@ -3179,6 +3161,38 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 	}
 
 	return buf.String(), nil
+}
+
+func (st *HelmState) GenerateChartPath(chartName string, outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
+	if outputDirTemplate != "" {
+		return st.GenerateOutputDir(outputDir, release, outputDirTemplate)
+	}
+
+	pathElems := []string{
+		outputDir,
+	}
+
+	if release.TillerNamespace != "" {
+		pathElems = append(pathElems, release.TillerNamespace)
+	}
+
+	if release.Namespace != "" {
+		pathElems = append(pathElems, release.Namespace)
+	}
+
+	if release.KubeContext != "" {
+		pathElems = append(pathElems, release.KubeContext)
+	}
+
+	chartVersion := "latest"
+	if release.Version != "" {
+		chartVersion = release.Version
+	}
+
+	pathElems = append(pathElems, release.Name, chartName, chartVersion)
+	chartPath := path.Join(pathElems...)
+
+	return chartPath, nil
 }
 
 func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemplate string) (string, error) {

@@ -345,11 +345,12 @@ func (a *App) Lint(c LintConfigProvider) error {
 func (a *App) Fetch(c FetchConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
-			ForceDownload: true,
-			SkipRepos:     c.SkipDeps(),
-			SkipDeps:      c.SkipDeps(),
-			OutputDir:     c.OutputDir(),
-			Concurrency:   c.Concurrency(),
+			ForceDownload:     true,
+			SkipRepos:         c.SkipDeps(),
+			SkipDeps:          c.SkipDeps(),
+			OutputDir:         c.OutputDir(),
+			OutputDirTemplate: c.OutputDirTemplate(),
+			Concurrency:       c.Concurrency(),
 		}, func() {
 		})
 

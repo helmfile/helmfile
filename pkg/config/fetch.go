@@ -7,7 +7,8 @@ type FetchOptions struct {
 	// SkipDeps is the skip deps flag
 	SkipDeps bool
 	// OutputDir is the output directory
-	OutputDir string
+	OutputDir         string
+	OutputDirTemplate string
 }
 
 // NewFetchOptions creates a new Apply
@@ -42,4 +43,8 @@ func (c *FetchImpl) SkipDeps() bool {
 // OutputDir returns the args
 func (c *FetchImpl) OutputDir() string {
 	return c.FetchOptions.OutputDir
+}
+
+func (c *FetchImpl) OutputDirTemplate() string {
+	return c.FetchOptions.OutputDirTemplate
 }

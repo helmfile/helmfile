@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"path"
+
 	"github.com/spf13/cobra"
 
 	"github.com/helmfile/helmfile/pkg/app"
@@ -34,6 +37,7 @@ func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&fetchOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&fetchOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	f.StringVar(&fetchOptions.OutputDir, "output-dir", "", "directory to store charts (default: temporary directory which is deleted when the command terminates)")
+	f.StringVar(&fetchOptions.OutputDirTemplate, "output-dir-template", "", fmt.Sprintf("go text template for generating the output directory (example: \"%s\")", path.Join("{{ .OutputDir }}", "{{ .Release.Name }}")))
 
 	return cmd
 }

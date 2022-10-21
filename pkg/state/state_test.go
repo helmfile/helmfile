@@ -2812,3 +2812,94 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateChartPath(t *testing.T) {
+	tests := []struct {
+		testName          string
+		chartName         string
+		release           *ReleaseSpec
+		outputDir         string
+		outputDirTemplate string
+		wantErr           bool
+		expected          string
+	}{
+		{
+			testName:  "PathGeneratedWithGivenOutputDirAndDefaultReleaseVersion",
+			chartName: "chart-name",
+			release:   &ReleaseSpec{Name: "release-name"},
+			outputDir: "/output-dir",
+			wantErr:   false,
+			expected:  "/output-dir/release-name/chart-name/latest",
+		},
+		{
+			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseVersion",
+			chartName: "chart-name",
+			release:   &ReleaseSpec{Name: "release-name", Version: "0.0.0"},
+			outputDir: "/output-dir",
+			wantErr:   false,
+			expected:  "/output-dir/release-name/chart-name/0.0.0",
+		},
+		{
+			testName:          "PathGeneratedWithGivenOutputDirAndGivenOutputDirTemplateWithFieldNameOutputDir",
+			chartName:         "chart-name",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDir:         "/output-dir",
+			outputDirTemplate: "{{ .OutputDir }}",
+			wantErr:           false,
+			expected:          "/output-dir",
+		},
+		{
+			testName:          "PathGeneratedWithGivenOutputDirAndGivenOutputDirTemplateWithFieldNamesOutputDirAndReleaseName",
+			chartName:         "chart-name",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDir:         "/output-dir",
+			outputDirTemplate: "{{ .OutputDir }}/{{ .Release.Name }}",
+			wantErr:           false,
+			expected:          "/output-dir/release-name",
+		},
+		{
+			testName:          "PathGeneratedWithGivenOutputDirTemplateWithFieldNamesOutputDir",
+			chartName:         "chart-name",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDirTemplate: "{{ .OutputDir }}",
+			wantErr:           false,
+			expected:          "",
+		},
+		{
+			testName:          "PathGeneratedWithGivenOutputDirTemplateWithFieldNameReleaseName",
+			chartName:         "chart-name",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDirTemplate: "{{ .Release.Name }}",
+			wantErr:           false,
+			expected:          "release-name",
+		},
+		{
+			testName:          "PathGeneratedWithGivenOutputDirTemplateWithStringAndFieldNameReleaseName",
+			chartName:         "chart-name",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDirTemplate: "./charts/{{ .Release.Name }}",
+			wantErr:           false,
+			expected:          "./charts/release-name",
+		},
+		{
+			testName:          "ErrorReturnedWithGivenInvalidOutputDirTemplate",
+			chartName:         "chart-name",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDirTemplate: "{{ .OutputDir }",
+			wantErr:           true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			st := &HelmState{}
+			got, err := st.GenerateChartPath(tt.chartName, tt.outputDir, tt.release, tt.outputDirTemplate)
+
+			if tt.wantErr {
+				require.Errorf(t, err, "GenerateChartPath() error \"%v\", want error", err)
+			} else {
+				require.NoError(t, err, "GenerateChartPath() error \"%v\", want no error", err)
+			}
+			require.Equalf(t, tt.expected, got, "GenerateChartPath() got \"%v\", want \"%v\"", got, tt.expected)
+		})
+	}
+}
