@@ -1226,6 +1226,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 							results <- &chartPrepareResult{err: err}
 							return
 						}
+					} else {
+						st.logger.Infof("\"%s\" has not been downloaded because the output directory \"%s\" already exists", chartName, chartPath)
 					}
 
 					// Set chartPath to be the path containing Chart.yaml, if found
