@@ -18,6 +18,7 @@ if [[ ! -d "${dir}" ]]; then dir="${PWD}"; fi
 
 test_ns="helmfile-tests-$(date +"%Y%m%d-%H%M%S")"
 helmfile="./helmfile ${EXTRA_HELMFILE_FLAGS} --namespace=${test_ns}"
+helmfile_no_extra_flags="./helmfile --namespace=${test_ns}"
 helm="helm --kube-context=minikube"
 kubectl="kubectl --context=minikube --namespace=${test_ns}"
 helm_dir="${PWD}/${dir}/.helm"
@@ -206,9 +207,7 @@ if [[ helm_major_version -eq 3 ]]; then
   tmp=$(mktemp -d)
   direct=${tmp}/direct.build.yaml
   reverse=${tmp}/reverse.build.yaml
-  yaml_overwrite_reverse=${tmp}/yaml.override.build.yaml
   secrets_golden_dir=${dir}/secrets-golden
-  feature_golden_dir=${dir}/yaml-features-golden
 
   info "Building secrets output"
 
@@ -230,15 +229,21 @@ if [[ helm_major_version -eq 3 ]]; then
 
   test_pass "secretssops.3"
 
+  yaml_feature_golden_dir=${dir}/yaml-features-golden
+  yaml_overwrite_reverse=${tmp}/yaml.override.build.yaml
+
   test_start "yaml overwrite feature"
-  info "Comparing yaml overwrite feature output ${yaml_overwrite_reverse} with ${feature_golden_dir}/overwritten.yaml"
+  info "Comparing yaml overwrite feature output ${yaml_overwrite_reverse} with ${yaml_feature_golden_dir}/overwritten.yaml"
   for i in $(seq 10); do
       info "Comparing build/yaml-overwrite #$i"
       ${helmfile} -f ${dir}/issue.657.yaml template --skip-deps > ${yaml_overwrite_reverse} || fail "\"helmfile template\" shouldn't fail"
-      ./yamldiff ${feature_golden_dir}/overwritten.yaml ${yaml_overwrite_reverse} || fail "\"helmfile template\" should be consistent"
+      ./yamldiff ${yaml_feature_golden_dir}/overwritten.yaml ${yaml_overwrite_reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
   test_pass "yaml overwrite feature"
+
+  # chart preprocessing with needs
+  . ${dir}/test-cases/chart-needs.sh
 
 fi
 
