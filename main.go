@@ -22,7 +22,7 @@ func main() {
 	}()
 
 	globalConfig := new(config.GlobalOptions)
-	rootCmd, err := cmd.NewRootCmd(globalConfig, os.Args[1:])
+	rootCmd, err := cmd.NewRootCmd(globalConfig)
 	errors.HandleExitCoder(err)
 
 	if err := rootCmd.Execute(); err != nil {
