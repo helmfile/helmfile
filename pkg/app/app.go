@@ -159,11 +159,12 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
-			SkipDeps:    c.SkipDeps(),
-			IncludeCRDs: &includeCRDs,
-			Validate:    c.Validate(),
-			Concurrency: c.Concurrency(),
+			SkipRepos:              c.SkipDeps(),
+			SkipDeps:               c.SkipDeps(),
+			IncludeCRDs:            &includeCRDs,
+			Validate:               c.Validate(),
+			Concurrency:            c.Concurrency(),
+			IncludeTransitiveNeeds: c.IncludeNeeds(),
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
@@ -225,13 +226,14 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// `helm template` in helm v2 does not support local chart.
 		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
-			ForceDownload: !run.helm.IsHelm3(),
-			SkipRepos:     c.SkipDeps(),
-			SkipDeps:      c.SkipDeps(),
-			IncludeCRDs:   &includeCRDs,
-			SkipCleanup:   c.SkipCleanup(),
-			Validate:      c.Validate(),
-			Concurrency:   c.Concurrency(),
+			ForceDownload:          !run.helm.IsHelm3(),
+			SkipRepos:              c.SkipDeps(),
+			SkipDeps:               c.SkipDeps(),
+			IncludeCRDs:            &includeCRDs,
+			SkipCleanup:            c.SkipCleanup(),
+			Validate:               c.Validate(),
+			Concurrency:            c.Concurrency(),
+			IncludeTransitiveNeeds: c.IncludeNeeds(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -300,11 +302,12 @@ func (a *App) Lint(c LintConfigProvider) error {
 
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
 		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
-			ForceDownload: true,
-			SkipRepos:     c.SkipDeps(),
-			SkipDeps:      c.SkipDeps(),
-			SkipCleanup:   c.SkipCleanup(),
-			Concurrency:   c.Concurrency(),
+			ForceDownload:          true,
+			SkipRepos:              c.SkipDeps(),
+			SkipDeps:               c.SkipDeps(),
+			SkipCleanup:            c.SkipCleanup(),
+			Concurrency:            c.Concurrency(),
+			IncludeTransitiveNeeds: c.IncludeNeeds(),
 		}, func() {
 			ok, lintErrs, errs = a.lint(run, c)
 		})
@@ -360,7 +363,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			Wait:                   c.Wait(),
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
-			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 		}, func() {
@@ -388,14 +391,15 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
-			SkipDeps:    c.SkipDeps(),
-			Wait:        c.Wait(),
-			WaitForJobs: c.WaitForJobs(),
-			IncludeCRDs: &includeCRDs,
-			SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
-			Validate:    c.Validate(),
-			Concurrency: c.Concurrency(),
+			SkipRepos:              c.SkipDeps(),
+			SkipDeps:               c.SkipDeps(),
+			Wait:                   c.Wait(),
+			WaitForJobs:            c.WaitForJobs(),
+			IncludeCRDs:            &includeCRDs,
+			SkipCleanup:            c.RetainValuesFiles() || c.SkipCleanup(),
+			Validate:               c.Validate(),
+			Concurrency:            c.Concurrency(),
+			IncludeTransitiveNeeds: c.IncludeNeeds(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
