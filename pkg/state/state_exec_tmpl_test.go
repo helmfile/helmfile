@@ -130,7 +130,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath: ".",
+				BasePath: ".",
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{
 						KubeContext: "test_context",
@@ -232,7 +232,7 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath: ".",
+				BasePath: ".",
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{
 						KubeContext: "test_context",

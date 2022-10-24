@@ -110,7 +110,7 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 		successFlag := false
 		for it, prev := 0, &release; it < 6; it++ {
 			tmplData := st.createReleaseTemplateData(prev, vals)
-			renderer := tmpl.NewFileRenderer(st.fs, st.basePath, tmplData)
+			renderer := tmpl.NewFileRenderer(st.fs, st.BasePath, tmplData)
 			r, err := release.ExecuteTemplateExpressions(renderer)
 			if err != nil {
 				return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %v", st.FilePath, release.Name, err)

@@ -42,7 +42,7 @@ func TestGoGetter(t *testing.T) {
 			st := &HelmState{
 				logger:   logger,
 				fs:       filesystem.DefaultFileSystem(),
-				basePath: d,
+				BasePath: d,
 			}
 
 			out, err := st.goGetterChart(test.chart, test.dir, "", false)

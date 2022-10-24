@@ -83,7 +83,7 @@ type ReleaseSetSpec struct {
 
 // HelmState structure for the helmfile
 type HelmState struct {
-	basePath string
+	BasePath string
 	FilePath string
 
 	ReleaseSetSpec `yaml:",inline"`
@@ -831,7 +831,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
-				chart := normalizeChart(st.basePath, release.ChartPathOrName())
+				chart := normalizeChart(st.BasePath, release.ChartPathOrName())
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
 
@@ -1117,7 +1117,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					}
 				}
 
-				isLocal := st.fs.DirectoryExistsAt(normalizeChart(st.basePath, chartName))
+				isLocal := st.fs.DirectoryExistsAt(normalizeChart(st.BasePath, chartName))
 
 				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
 				if !opts.SkipCleanup {
@@ -1171,7 +1171,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
 					// explicitly skipped.
 					buildDeps = !skipDeps
-				} else if normalizedChart := normalizeChart(st.basePath, chartPath); st.fs.DirectoryExistsAt(normalizedChart) {
+				} else if normalizedChart := normalizeChart(st.BasePath, chartPath); st.fs.DirectoryExistsAt(normalizedChart) {
 					// At this point, we are sure that chartPath is a local directory containing either:
 					// - A remote chart fetched by go-getter or
 					// - A local chart
@@ -1915,7 +1915,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				buf := &bytes.Buffer{}
 				if prep.upgradeDueToSkippedDiff {
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
-				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.ChartPathOrName()), suppressDiff, flags...); err != nil {
+				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.BasePath, release.ChartPathOrName()), suppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
@@ -2241,7 +2241,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 	bus := &event.Bus{
 		Hooks:         st.Hooks,
 		StateFilePath: st.FilePath,
-		BasePath:      st.basePath,
+		BasePath:      st.BasePath,
 		Namespace:     st.OverrideNamespace,
 		Chart:         st.OverrideChart,
 		Env:           st.Env,
@@ -2278,7 +2278,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
-		BasePath:      st.basePath,
+		BasePath:      st.BasePath,
 		Namespace:     st.OverrideNamespace,
 		Chart:         st.OverrideChart,
 		Env:           st.Env,
@@ -2687,7 +2687,7 @@ func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path s
 func (st *HelmState) storage() *Storage {
 	return &Storage{
 		FilePath: st.FilePath,
-		basePath: st.basePath,
+		basePath: st.BasePath,
 		logger:   st.logger,
 		fs:       st.fs,
 	}
