@@ -184,7 +184,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		filesNeedCleaning = append(filesNeedCleaning, generatedFiles...)
 
 		c.Opts.ValuesFiles = generatedFiles
-		setFlags, err := st.setFlags(release.SetValues)
+		setFlags, err := st.setFlags(release)
 		if err != nil {
 			return nil, clean, fmt.Errorf("rendering set value entry for release %s: %v", release.Name, err)
 		}

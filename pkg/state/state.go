@@ -2938,7 +2938,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	}
 
 	if len(release.SetValues) > 0 {
-		setFlags, err := st.setFlags(release.SetValues)
+		setFlags, err := st.setFlags(release)
 		if err != nil {
 			return nil, files, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
 		}
@@ -2976,10 +2976,10 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	return flags, files, nil
 }
 
-func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
+func (st *HelmState) setFlags(release *ReleaseSpec) ([]string, error) {
 	var flags []string
 
-	for _, set := range setValues {
+	for _, set := range release.SetValues {
 		if set.Value != "" {
 			renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
 			if err != nil {
@@ -2987,7 +2987,16 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 			}
 			flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
 		} else if set.File != "" {
-			flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizePath(set.File)))
+			outputValuesFile, err := st.GenerateOutputFilePath(release, set.File)
+			if err != nil {
+				return nil, err
+			}
+			path := st.storage().normalizePath(outputValuesFile)
+			if set.Name != "" {
+				flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), path))
+			} else {
+				flags = append(flags, "--values", path)
+			}
 		} else if len(set.Values) > 0 {
 			renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
 			if err != nil {
