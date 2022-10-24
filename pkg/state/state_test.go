@@ -130,7 +130,7 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				BasePath: tt.fields.BaseChartPath,
+				basePath: tt.fields.BaseChartPath,
 				ReleaseSetSpec: ReleaseSetSpec{
 					DeprecatedContext:  tt.fields.Context,
 					DeprecatedReleases: tt.fields.DeprecatedReleases,
@@ -690,7 +690,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				BasePath: "./",
+				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
 					DeprecatedContext: "default",
 					Releases:          []ReleaseSpec{*tt.release},
@@ -1253,7 +1253,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				BasePath: ".",
+				basePath: ".",
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: []ReleaseSpec{tt.release},
 				},
@@ -1918,7 +1918,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	basePath := "/src"
 	state := &HelmState{
-		BasePath: basePath,
+		basePath: basePath,
 		FilePath: "/src/helmfile.yaml",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
@@ -1983,7 +1983,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	state := &HelmState{
-		BasePath: "/src",
+		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{

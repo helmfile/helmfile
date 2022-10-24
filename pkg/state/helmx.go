@@ -94,7 +94,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	dir := chart
 	if !filepath.IsAbs(chart) {
-		dir = filepath.Join(st.BasePath, chart)
+		dir = filepath.Join(st.basePath, chart)
 	}
 	if stat, _ := os.Stat(dir); stat != nil && stat.IsDir() {
 		if exists, err := st.fs.FileExists(filepath.Join(dir, "Chart.yaml")); err == nil && !exists {
@@ -111,7 +111,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			//   Error: directory /tmp/chartify945964195/myapp-57fb4495cf/test/integration/charts/httpbin not found]
 			// which is due to that the temporary chart is generated outside of the current working directory/basePath,
 			// and therefore the relative path in `chart` points to somewhere inexistent.
-			chart, err = filepath.Abs(filepath.Join(st.BasePath, chart))
+			chart, err = filepath.Abs(filepath.Join(st.basePath, chart))
 			if err != nil {
 				return nil, clean, err
 			}
