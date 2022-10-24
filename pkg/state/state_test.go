@@ -1150,6 +1150,55 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			helm:         &exectest.Helm{},
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}", "--reset-values"}}},
 		},
+		{
+			name: "set single value from release file",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "foo",
+							Value: "FOO",
+						},
+						{
+							Name: "bar",
+							File: "{{ .Release.Name }}.yaml",
+						},
+						{
+							Name:  "baz",
+							Value: "BAZ",
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--set-file", "bar=releaseName.yaml", "--set", "baz=BAZ", "--reset-values"}}},
+		},
+		{
+			name: "set values from release file",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "foo",
+							Value: "FOO",
+						},
+						{
+							File: "{{ .Release.Name }}.yaml",
+						},
+						{
+							Name:  "baz",
+							Value: "BAZ",
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--values", "releaseName.yaml", "--set", "baz=BAZ", "--reset-values"}}},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
