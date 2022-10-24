@@ -41,7 +41,7 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 }
 
 // NewRootCmd creates the root command for the CLI.
-func NewRootCmd(globalConfig *config.GlobalOptions, args []string) (*cobra.Command, error) {
+func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:           "helmfile",
 		Short:         globalUsage,
