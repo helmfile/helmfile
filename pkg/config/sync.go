@@ -2,8 +2,6 @@ package config
 
 // SyncOptions is the options for the build command
 type SyncOptions struct {
-	// Args is the args to pass to helm template
-	Args string
 	// Set is the set flag
 	Set []string
 	// Values is the values flag
@@ -47,11 +45,6 @@ func NewSyncImpl(g *GlobalImpl, t *SyncOptions) *SyncImpl {
 		GlobalImpl:  g,
 		SyncOptions: t,
 	}
-}
-
-// Args returns the args
-func (t *SyncImpl) Args() string {
-	return t.SyncOptions.Args
 }
 
 // Concurrency returns the concurrency

@@ -39,11 +39,6 @@ func (c *FetchImpl) SkipDeps() bool {
 	return c.FetchOptions.SkipDeps
 }
 
-// Args returns the args
-func (c *FetchImpl) Args() string {
-	return ""
-}
-
 // OutputDir returns the args
 func (c *FetchImpl) OutputDir() string {
 	return c.FetchOptions.OutputDir

@@ -67,8 +67,3 @@ func (c *WriteValuesImpl) IncludeTransitiveNeeds() bool {
 func (c *WriteValuesImpl) OutputFileTemplate() string {
 	return c.WriteValuesOptions.OutputFileTemplate
 }
-
-// Args returns the args
-func (c *WriteValuesImpl) Args() string {
-	return ""
-}

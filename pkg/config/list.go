@@ -29,11 +29,6 @@ func NewListImpl(g *GlobalImpl, b *ListOptions) *ListImpl {
 	}
 }
 
-// Args returns the args
-func (c *ListImpl) Args() string {
-	return ""
-}
-
 // Output returns the output
 func (c *ListImpl) Output() string {
 	return c.ListOptions.Output

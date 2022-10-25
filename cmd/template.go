@@ -31,7 +31,7 @@ func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&templateOptions.Args, "args", "", "pass args to helm template")
+	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm template")
 	f.StringArrayVar(&templateOptions.Set, "set", nil, "additional values to be merged into the command")
 	f.StringArrayVar(&templateOptions.Values, "values", nil, "additional value files to be merged into the command")
 	f.StringVar(&templateOptions.OutputDir, "output-dir", "", "output directory to pass to helm template (helm template --output-dir)")

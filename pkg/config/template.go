@@ -8,8 +8,6 @@ import (
 
 // TemplateOptions is the options for the build command
 type TemplateOptions struct {
-	// Args is the args to pass to helm template
-	Args string
 	// Set is the set flag
 	Set []string
 	// Values is the values flag
@@ -55,11 +53,6 @@ func NewTemplateImpl(g *GlobalImpl, t *TemplateOptions) *TemplateImpl {
 		GlobalImpl:      g,
 		TemplateOptions: t,
 	}
-}
-
-// Args returns the args
-func (t *TemplateImpl) Args() string {
-	return t.TemplateOptions.Args
 }
 
 // Concurrency returns the concurrency

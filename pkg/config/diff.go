@@ -2,8 +2,6 @@ package config
 
 // DiffOptions is the options for the build command
 type DiffOptions struct {
-	// Args is the args to pass to helm template
-	Args string
 	// Set is the set flag
 	Set []string
 	// Values is the values flag
@@ -59,11 +57,6 @@ func NewDiffImpl(g *GlobalImpl, t *DiffOptions) *DiffImpl {
 		GlobalImpl:  g,
 		DiffOptions: t,
 	}
-}
-
-// Args returns the args
-func (t *DiffImpl) Args() string {
-	return t.DiffOptions.Args
 }
 
 // Concurrency returns the concurrency
