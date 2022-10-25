@@ -3358,5 +3358,9 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 }
 
 func (st *HelmState) FullFilePath() string {
-	return filepath.Join(st.basePath, st.FilePath)
+	var wd string
+	if st.fs != nil {
+		wd, _ = st.fs.Getwd()
+	}
+	return filepath.Join(wd, st.basePath, st.FilePath)
 }
