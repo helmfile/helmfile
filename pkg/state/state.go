@@ -3356,3 +3356,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	return &chartPath, nil
 }
+
+func (st *HelmState) FullFilePath() string {
+	return filepath.Join(st.basePath, st.FilePath)
+}
