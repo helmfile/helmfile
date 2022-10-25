@@ -1,10 +1,7 @@
 package config
 
 // ReposOptions is the options for the build command
-type ReposOptions struct {
-	// Args is the args
-	Args string
-}
+type ReposOptions struct{}
 
 // NewReposOptions creates a new Apply
 func NewReposOptions() *ReposOptions {
@@ -23,11 +20,6 @@ func NewReposImpl(g *GlobalImpl, b *ReposOptions) *ReposImpl {
 		GlobalImpl:   g,
 		ReposOptions: b,
 	}
-}
-
-// Args returns the args
-func (r *ReposImpl) Args() string {
-	return r.ReposOptions.Args
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs

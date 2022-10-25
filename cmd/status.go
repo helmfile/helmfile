@@ -31,7 +31,7 @@ func NewStatusCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&statusOptions.Args, "args", "", "pass args to helm exec")
+	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
 	f.IntVar(&statusOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 
 	return cmd

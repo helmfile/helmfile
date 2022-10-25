@@ -7,7 +7,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/config"
 )
 
-// NewFetchCmd returns diff subcmd
+// NewFetchCmd returns fetch subcmd
 func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	fetchOptions := config.NewFetchOptions()
 

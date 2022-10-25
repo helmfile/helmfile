@@ -2,8 +2,6 @@ package config
 
 // DepsOptions is the options for the build command
 type DepsOptions struct {
-	// Args is the args to pass to helm exec
-	Args string
 	// SkipRepos is the skip repos flag
 	SkipRepos bool
 	// Concurrency is the maximum number of concurrent helm processes to run
@@ -27,11 +25,6 @@ func NewDepsImpl(g *GlobalImpl, b *DepsOptions) *DepsImpl {
 		GlobalImpl:  g,
 		DepsOptions: b,
 	}
-}
-
-// Args returns the args
-func (d *DepsImpl) Args() string {
-	return d.DepsOptions.Args
 }
 
 // SkipRepos returns the skip deps

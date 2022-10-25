@@ -6,8 +6,6 @@ type LintOptions struct {
 	Concurrency int
 	// SkipDeps is the skip deps flag
 	SkipDeps bool
-	// Args is the args to pass to helm lint
-	Args string
 	// Set is the set flags to pass to helm lint
 	Set []string
 	// Values is the values flags to pass to helm lint
@@ -48,11 +46,6 @@ func (l *LintImpl) Concurrency() int {
 // SkipDeps returns the skip deps
 func (l *LintImpl) SkipDeps() bool {
 	return l.LintOptions.SkipDeps
-}
-
-// Args returns the args
-func (l *LintImpl) Args() string {
-	return l.LintOptions.Args
 }
 
 // Set returns the Set

@@ -12,8 +12,6 @@ type TestOptions struct {
 	Concurrency int
 	// SkipDeps is the skip deps flag
 	SkipDeps bool
-	// Args is the args to pass to helm lint
-	Args string
 	// Cleanup is the cleanup flag
 	Cleanup bool
 	// Logs is the logs flagj
@@ -50,11 +48,6 @@ func (t *TestImpl) Concurrency() int {
 // SkipDeps returns the skip deps
 func (t *TestImpl) SkipDeps() bool {
 	return t.TestOptions.SkipDeps
-}
-
-// Args returns the args
-func (t *TestImpl) Args() string {
-	return t.TestOptions.Args
 }
 
 // Cleanup returns the cleanup

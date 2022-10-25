@@ -2,8 +2,6 @@ package config
 
 // DeleteOptions is the options for the build command
 type DeleteOptions struct {
-	// Args is the args to pass to helm exec
-	Args string
 	// Concurrency is the maximum number of concurrent helm processes to run, 0 is unlimited
 	Concurrency int
 	// Purge is the purge flag
@@ -34,11 +32,6 @@ func NewDeleteImpl(g *GlobalImpl, b *DeleteOptions) *DeleteImpl {
 // Concurrency returns the concurrency
 func (c *DeleteImpl) Concurrency() int {
 	return c.DeleteOptions.Concurrency
-}
-
-// Args returns the args
-func (c *DeleteImpl) Args() string {
-	return c.DeleteOptions.Args
 }
 
 // Purge returns the purge
