@@ -2692,3 +2692,38 @@ func TestGenerateOutputFilePath(t *testing.T) {
 		})
 	}
 }
+
+func TestFullFilePath(t *testing.T) {
+	tests := []struct {
+		basePath string
+		filePath string
+		expected string
+	}{
+		{
+			basePath: ".",
+			filePath: "helmfile.yaml",
+			expected: "helmfile.yaml",
+		},
+		{
+			basePath: "./test-1/",
+			filePath: "helmfile.yaml",
+			expected: "test-1/helmfile.yaml",
+		},
+		{
+			basePath: "/test-2/",
+			filePath: "helmfile.yaml",
+			expected: "/test-2/helmfile.yaml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			st := &HelmState{
+				basePath: tt.basePath,
+				FilePath: tt.filePath,
+			}
+			actual := st.FullFilePath()
+			require.Equalf(t, actual, tt.expected, "FullFilePath() got = %v, want %v", actual, tt.expected)
+		})
+	}
+}
