@@ -21,8 +21,3 @@ func NewCacheImpl(g *GlobalImpl, b *CacheOptions) *CacheImpl {
 		CacheOptions: b,
 	}
 }
-
-// Args returns the args.
-func (b *CacheImpl) Args() string {
-	return ""
-}

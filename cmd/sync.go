@@ -31,7 +31,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&syncOptions.Args, "args", "", "pass args to helm sync")
+	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm sync")
 	f.StringArrayVar(&syncOptions.Set, "set", nil, "additional values to be merged into the command")
 	f.StringArrayVar(&syncOptions.Values, "values", nil, "additional value files to be merged into the command")
 	f.IntVar(&syncOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")

@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"go.uber.org/zap"
@@ -48,6 +49,8 @@ type GlobalOptions struct {
 	EnableLiveOutput bool
 	// Interactive is true if the user should be prompted for input.
 	Interactive bool
+	// Args is the list of arguments to pass to the Helm binary.
+	Args string
 }
 
 // Logger returns the logger to use.
@@ -185,4 +188,16 @@ func (g *GlobalImpl) ValidateConfig() error {
 // Interactive returns the Interactive
 func (g *GlobalImpl) Interactive() bool {
 	return g.GlobalOptions.Interactive
+}
+
+// Args returns the args to use for helm
+func (g *GlobalImpl) Args() string {
+	args := g.GlobalOptions.Args
+	enableHelmDebug := g.GlobalOptions.Debug
+
+	if enableHelmDebug {
+		args = fmt.Sprintf("%s %s", args, "--debug")
+	}
+
+	return args
 }

@@ -31,7 +31,7 @@ func NewReposCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&reposOptions.Args, "args", "", "pass args to helm exec")
+	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
 
 	return cmd
 }

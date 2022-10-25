@@ -2,8 +2,6 @@ package config
 
 // DestroyOptions is the options for the build command
 type DestroyOptions struct {
-	// Args is the args to pass to helm exec
-	Args string
 	// Concurrency is the maximum number of concurrent helm processes to run, 0 is unlimited
 	Concurrency int
 	// SkipDeps is the skip deps flag
@@ -32,11 +30,6 @@ func NewDestroyImpl(g *GlobalImpl, b *DestroyOptions) *DestroyImpl {
 // Concurrency returns the concurrency
 func (c *DestroyImpl) Concurrency() int {
 	return c.DestroyOptions.Concurrency
-}
-
-// Args returns the args
-func (c *DestroyImpl) Args() string {
-	return c.DestroyOptions.Args
 }
 
 // SkipDeps returns the skip deps
