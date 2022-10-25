@@ -21,13 +21,13 @@ RUN apt-get update && \
       git bash curl jq wget openssh-client && \
     rm -rf /var/lib/apt/lists/*
 
-ARG HELM_VERSION="v3.10.0"
-ARG HELM_SHA256="bf56beb418bb529b5e0d6d43d56654c5a03f89c98400b409d1013a33d9586474"
+ARG HELM_VERSION="v3.10.1"
+ARG HELM_SHA256="c12d2cd638f2d066fec123d0bd7f010f32c643afdf288d39a4610b1f9cb32af3"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
 
 RUN set -x && \
-    wget ${HELM_LOCATION}/${HELM_FILENAME} && \
+    curl --retry 5 --retry-connrefused -LO ${HELM_LOCATION}/${HELM_FILENAME} && \
     echo Verifying ${HELM_FILENAME}... && \
     sha256sum ${HELM_FILENAME} | grep -q "${HELM_SHA256}" && \
     echo Extracting ${HELM_FILENAME}... && \
