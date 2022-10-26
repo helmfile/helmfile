@@ -3306,21 +3306,27 @@ func (st *HelmState) Reverse() {
 }
 
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
-	repo, name := st.GetRepositoryAndNameFromChartName(release.Chart)
-	if repo == nil {
-		return nil, nil
-	}
-
-	if !repo.OCI {
-		return nil, nil
-	}
-
 	chartVersion := "latest"
 	if release.Version != "" {
 		chartVersion = release.Version
 	}
 
-	qualifiedChartName := fmt.Sprintf("%s/%s:%s", repo.URL, name, chartVersion)
+	var qualifiedChartName, chartName string
+	if strings.HasPrefix(release.Chart, "oci://") {
+		split := strings.Split(release.Chart, "/")
+		chartName = split[len(split)-1]
+		qualifiedChartName = strings.Replace(fmt.Sprintf("%s:%s", release.Chart, chartVersion), "oci://", "", 1)
+	} else {
+		var repo *RepositorySpec
+		repo, chartName = st.GetRepositoryAndNameFromChartName(release.Chart)
+		if repo == nil {
+			return nil, nil
+		}
+		if !repo.OCI {
+			return nil, nil
+		}
+		qualifiedChartName = fmt.Sprintf("%s/%s:%s", repo.URL, chartName, chartVersion)
+	}
 
 	pathElems := []string{
 		tempDir,
@@ -3334,7 +3340,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		pathElems = append(pathElems, release.KubeContext)
 	}
 
-	pathElems = append(pathElems, release.Name, name, chartVersion)
+	pathElems = append(pathElems, release.Name, chartName, chartVersion)
 
 	chartPath := path.Join(pathElems...)
 
