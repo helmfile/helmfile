@@ -2737,8 +2737,9 @@ func TestFullFilePath(t *testing.T) {
 				FilePath: tt.filePath,
 				fs:       tt.fs,
 			}
-			actual := st.FullFilePath()
+			actual, err := st.FullFilePath()
 			require.Equalf(t, actual, tt.expected, "FullFilePath() got = %v, want %v", actual, tt.expected)
+			require.Equalf(t, err, nil, "error %v", err)
 		})
 	}
 }
