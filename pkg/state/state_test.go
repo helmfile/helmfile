@@ -2727,3 +2727,72 @@ func TestFullFilePath(t *testing.T) {
 		})
 	}
 }
+
+func TestGetOCIQualifiedChartName(t *testing.T) {
+	tests := []struct {
+		state    HelmState
+		expected []struct {
+			qualifiedChartName string
+			chartName          string
+			chartVersion       string
+		}
+	}{
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart:   "oci://registry/chart-path/chart-name",
+							Version: "0.1.2",
+						},
+					},
+				},
+			},
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name:0.1.2", "chart-name", "0.1.2"},
+			},
+		},
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{
+						{
+							Name: "oci-repo",
+							URL:  "registry/chart-path",
+							OCI:  true,
+						},
+					},
+					Releases: []ReleaseSpec{
+						{
+							Chart:   "oci-repo/chart-name",
+							Version: "0.1.2",
+						},
+					},
+				},
+			},
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name:0.1.2", "chart-name", "0.1.2"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%+v", tt.expected), func(t *testing.T) {
+			for i, r := range tt.state.Releases {
+				qualifiedChartName, chartName, chartVersion := tt.state.getOCIQualifiedChartName(&r)
+				require.Equalf(t, qualifiedChartName, tt.expected[i].qualifiedChartName, "qualifiedChartName got = %v, want %v", qualifiedChartName, tt.expected[i].qualifiedChartName)
+				require.Equalf(t, chartName, tt.expected[i].chartName, "chartName got = %v, want %v", chartName, tt.expected[i].chartName)
+				require.Equalf(t, chartVersion, tt.expected[i].chartVersion, "chartVersion got = %v, want %v", chartVersion, tt.expected[i].chartVersion)
+			}
+		})
+	}
+}

@@ -3306,27 +3306,7 @@ func (st *HelmState) Reverse() {
 }
 
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
-	chartVersion := "latest"
-	if release.Version != "" {
-		chartVersion = release.Version
-	}
-
-	var qualifiedChartName, chartName string
-	if strings.HasPrefix(release.Chart, "oci://") {
-		split := strings.Split(release.Chart, "/")
-		chartName = split[len(split)-1]
-		qualifiedChartName = strings.Replace(fmt.Sprintf("%s:%s", release.Chart, chartVersion), "oci://", "", 1)
-	} else {
-		var repo *RepositorySpec
-		repo, chartName = st.GetRepositoryAndNameFromChartName(release.Chart)
-		if repo == nil {
-			return nil, nil
-		}
-		if !repo.OCI {
-			return nil, nil
-		}
-		qualifiedChartName = fmt.Sprintf("%s/%s:%s", repo.URL, chartName, chartVersion)
-	}
+	qualifiedChartName, chartName, chartVersion := st.getOCIQualifiedChartName(release)
 
 	pathElems := []string{
 		tempDir,
@@ -3361,6 +3341,31 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	chartPath = filepath.Dir(fullChartPath)
 
 	return &chartPath, nil
+}
+
+func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec) (string, string, string) {
+	chartVersion := "latest"
+	if release.Version != "" {
+		chartVersion = release.Version
+	}
+
+	var qualifiedChartName, chartName string
+	if strings.HasPrefix(release.Chart, "oci://") {
+		split := strings.Split(release.Chart, "/")
+		chartName = split[len(split)-1]
+		qualifiedChartName = strings.Replace(fmt.Sprintf("%s:%s", release.Chart, chartVersion), "oci://", "", 1)
+	} else {
+		var repo *RepositorySpec
+		repo, chartName = st.GetRepositoryAndNameFromChartName(release.Chart)
+		if repo == nil {
+			return "", "", ""
+		}
+		if !repo.OCI {
+			return "", "", ""
+		}
+		qualifiedChartName = fmt.Sprintf("%s/%s:%s", repo.URL, chartName, chartVersion)
+	}
+	return qualifiedChartName, chartName, chartVersion
 }
 
 func (st *HelmState) FullFilePath() string {
