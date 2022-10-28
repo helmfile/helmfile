@@ -543,7 +543,12 @@ func (a *App) PrintState(c StateConfigProvider) error {
 				return
 			}
 
-			fmt.Printf("---\n#  Source: %s\n\n%+v", run.state.FullFilePath(), stateYaml)
+			sourceFile, err := run.state.FullFilePath()
+			if err != nil {
+				errs = []error{err}
+				return
+			}
+			fmt.Printf("---\n#  Source: %s\n\n%+v", sourceFile, stateYaml)
 
 			errs = []error{}
 		})
