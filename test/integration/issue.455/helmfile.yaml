@@ -6,5 +6,6 @@ releases:
     chart: ./azuredisk-csi-storageclass
   - name: azuredisk-csi-driver
     chart: azuredisk-csi-driver/azuredisk-csi-driver
+    version: v1.23.0
     needs:
       - azuredisk-csi-storageclass
