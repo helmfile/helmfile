@@ -247,7 +247,9 @@ type ListConfigProvider interface {
 
 type CacheConfigProvider interface{}
 
-type InitConfigProvider interface{}
+type InitConfigProvider interface {
+	Force() bool
+}
 
 // when enable reuse-values, reuse the last release's values and merge in any overrides values.
 type valuesControlMode interface {

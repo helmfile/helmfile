@@ -97,7 +97,7 @@ func (a *App) Init(c InitConfigProvider) error {
 	runner := &helmexec.ShellRunner{
 		Logger: a.Logger,
 	}
-	helmfileInit := NewHelmfileInit(a.OverrideHelmBinary, a.Logger, runner)
+	helmfileInit := NewHelmfileInit(a.OverrideHelmBinary, c, a.Logger, runner)
 	return helmfileInit.Initialize()
 }
 

@@ -1,7 +1,9 @@
 package config
 
 // InitOptions is the options for the init command
-type InitOptions struct{}
+type InitOptions struct {
+	Force bool
+}
 
 // NewInitOptions creates a new InitOptions
 func NewInitOptions() *InitOptions {
@@ -25,4 +27,9 @@ func NewInitImpl(g *GlobalImpl, b *InitOptions) *InitImpl {
 // Args returns the args.
 func (b *InitImpl) Args() string {
 	return ""
+}
+
+// Force returns the Force.
+func (b *InitImpl) Force() bool {
+	return b.InitOptions.Force
 }

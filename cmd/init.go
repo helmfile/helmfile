@@ -9,11 +9,11 @@ import (
 
 // NewInitCmd helmfile checks and installs deps
 func NewInitCmd(globalCfg *config.GlobalImpl) *cobra.Command {
+	options := config.NewInitOptions()
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Checks and installs deps",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			options := config.NewInitOptions()
 			initImpl := config.NewInitImpl(globalCfg, options)
 			err := config.NewCLIConfigImpl(initImpl.GlobalImpl)
 			if err != nil {
@@ -28,6 +28,8 @@ func NewInitCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 			return toCLIError(initImpl.GlobalImpl, a.Init(initImpl))
 		},
 	}
+	f := cmd.Flags()
+	f.BoolVar(&options.Force, "force", false, "Do not prompt, install dependencies required by helmfile")
 
 	return cmd
 }

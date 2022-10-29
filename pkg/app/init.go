@@ -32,9 +32,10 @@ type helmRequiredPlugin struct {
 }
 
 type HelmfileInit struct {
-	helmBinary string
-	logger     *zap.SugaredLogger
-	runner     helmexec.Runner
+	helmBinary     string
+	configProvider InitConfigProvider
+	logger         *zap.SugaredLogger
+	runner         helmexec.Runner
 }
 
 func downloadfile(filepath string, url string) error {
@@ -55,8 +56,8 @@ func downloadfile(filepath string, url string) error {
 	return nil
 }
 
-func NewHelmfileInit(helmBinary string, logger *zap.SugaredLogger, runner helmexec.Runner) *HelmfileInit {
-	return &HelmfileInit{helmBinary: helmBinary, logger: logger, runner: runner}
+func NewHelmfileInit(helmBinary string, c InitConfigProvider, logger *zap.SugaredLogger, runner helmexec.Runner) *HelmfileInit {
+	return &HelmfileInit{helmBinary: helmBinary, configProvider: c, logger: logger, runner: runner}
 }
 func (h *HelmfileInit) UpdateHelm() error {
 	return h.InstallHelm()
@@ -68,20 +69,23 @@ func (h *HelmfileInit) installHelmOnWindows() error {
 	windowPackageManagers["choco"] = fmt.Sprintf("choco install kubernetes-helm --version %s", strings.TrimLeft(HelmRecommendedVersion, "v"))
 	for name, command := range windowPackageManagers {
 		_, err := exec.LookPath(name)
-		if err == nil {
+		if err != nil {
+			continue
+		}
+		if !h.configProvider.Force() {
 			askYes := AskForConfirmation(fmt.Sprintf("use: '%s'", command))
 			if !askYes {
 				return &Error{msg: "cancel automatic installation, please install helm manually", code: &manuallyInstallCode}
 			}
-			_, err = h.runner.Execute("cmd", []string{
-				"/c",
-				command,
-			}, nil, true)
-			if err != nil {
-				return err
-			}
-			return nil
 		}
+		_, err = h.runner.Execute("cmd", []string{
+			"/c",
+			command,
+		}, nil, true)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	return &Error{msg: "windows platform, please install helm manually, installation steps: https://helm.sh/docs/intro/install/", code: &manuallyInstallCode}
@@ -91,9 +95,12 @@ func (h *HelmfileInit) InstallHelm() error {
 	if runtime.GOOS == "windows" {
 		return h.installHelmOnWindows()
 	}
-	askYes := AskForConfirmation(fmt.Sprintf("use: '%s'", HelmInstallCommand))
-	if !askYes {
-		return &Error{msg: "cancel automatic installation, please install helm manually", code: &manuallyInstallCode}
+
+	if !h.configProvider.Force() {
+		askYes := AskForConfirmation(fmt.Sprintf("use: '%s'", HelmInstallCommand))
+		if !askYes {
+			return &Error{msg: "cancel automatic installation, please install helm manually", code: &manuallyInstallCode}
+		}
 	}
 	getHelmScript := "/tmp/get-helm-3.sh"
 	err := downloadfile(getHelmScript, HelmInstallCommand)
@@ -126,9 +133,11 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 			if !strings.Contains(err.Error(), "not installed") {
 				return err
 			}
-			askYes := AskForConfirmation(fmt.Sprintf("The helm plugin %s is not installed, do you need to install it", p.name))
-			if !askYes {
-				return &Error{msg: "cancel automatic installation, please install manually", code: &manuallyInstallCode}
+			if !h.configProvider.Force() {
+				askYes := AskForConfirmation(fmt.Sprintf("The helm plugin %s is not installed, do you need to install it", p.name))
+				if !askYes {
+					return &Error{msg: "cancel automatic installation, please install manually", code: &manuallyInstallCode}
+				}
 			}
 			err2 := helm.AddPlugin(p.name, p.repo)
 			if err2 != nil {
@@ -138,9 +147,11 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 		}
 		requiredVersion, _ := semver.NewVersion(p.version)
 		if pluginVersion.LessThan(requiredVersion) {
-			askYes := AskForConfirmation(fmt.Sprintf("The helm plugin %s version is too low, do you need to update it", p.name))
-			if !askYes {
-				return &Error{msg: "cancel automatic update, please update manually", code: &manuallyInstallCode}
+			if !h.configProvider.Force() {
+				askYes := AskForConfirmation(fmt.Sprintf("The helm plugin %s version is too low, do you need to update it", p.name))
+				if !askYes {
+					return &Error{msg: "cancel automatic update, please update manually", code: &manuallyInstallCode}
+				}
 			}
 			err2 := helm.UpdatePlugin(p.name)
 			if err2 != nil {
