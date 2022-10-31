@@ -16,7 +16,7 @@ If the environment variable is unset or empty, the template rendering will fail 
 {{ $envValue := requiredEnv "envName" }}
 ```
 
-> If the environment variable value starts with '/' (forward slash) and [Git for Windows](https://git-scm.com/download/win) is used, you must set `MSYS_NO_PATHCONV=1` to preserve values as-is, or the environment variable value will be prefixed with the `C:\Program Files\Git`. [Reference](https://github.com/git-for-windows/build-extra/blob/main/ReleaseNotes.md#known-issues)
+> If the environment variable value starts with '/' (forward slash) and [Git for Windows](https://git-scm.com/download/win) is used, you must set `MSYS_NO_PATHCONV=1` to preserve values as-is, or the environment variable value will be prefixed with the `C:\Program Files\Git`. [reference](https://github.com/git-for-windows/build-extra/blob/main/ReleaseNotes.md#known-issues)
 
 #### `exec`
 The `exec` function allows you to run a command, returning the stdout of the command. When the command fails, the template rendering will fail with an error message.
