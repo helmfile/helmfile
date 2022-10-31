@@ -1,5 +1,13 @@
 # Template Functions
 
+#### `env`
+The `env` function allows you to declare a particular environment variable as an optional for template rendering.
+If the environment variable is unset or empty, the template rendering will continue with an empty string as a value.
+
+```yaml
+{{ $envValue := env "envName" }}
+```
+
 #### `requiredEnv`
 The `requiredEnv` function allows you to declare a particular environment variable as required for template rendering.
 If the environment variable is unset or empty, the template rendering will fail with an error message.
@@ -7,6 +15,8 @@ If the environment variable is unset or empty, the template rendering will fail 
 ```yaml
 {{ $envValue := requiredEnv "envName" }}
 ```
+
+> If the environment variable value starts with '/' (forward slash) and [Git for Windows](https://git-scm.com/download/win) is used, you must set `MSYS_NO_PATHCONV=1` to preserve values as-is, or the environment variable value will be prefixed with the `C:\Program Files\Git`. [Reference](https://github.com/git-for-windows/build-extra/blob/main/ReleaseNotes.md#known-issues)
 
 #### `exec`
 The `exec` function allows you to run a command, returning the stdout of the command. When the command fails, the template rendering will fail with an error message.
@@ -44,7 +54,7 @@ The `readDir` function returns a list of the relative paths to the files contain
 ```
 
 #### `readDirEntries`
-The `readDirEntries` function returns a list of [https://pkg.go.dev/os#DirEntry](DirEntry) contained within the directory
+The `readDirEntries` function returns a list of [DirEntry](https://pkg.go.dev/os#DirEntry) contained within the directory
 
 ```yaml
 {{ range $index,$item := readDirEntries "./testdata/tmpl/sample_folder/" }}
