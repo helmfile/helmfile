@@ -25,11 +25,6 @@ func NewBuildImpl(g *GlobalImpl, b *BuildOptions) *BuildImpl {
 	}
 }
 
-// Args returns the args.
-func (b *BuildImpl) Args() string {
-	return ""
-}
-
 // EmbedValues returns the embed values.
 func (b *BuildImpl) EmbedValues() bool {
 	return b.BuildOptions.EmbedValues

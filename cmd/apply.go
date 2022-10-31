@@ -39,7 +39,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&applyOptions.Context, "context", 0, "output NUM lines of context around changes")
 	f.StringVar(&applyOptions.Output, "output", "", "output format for diff plugin")
 	f.BoolVar(&applyOptions.DetailedExitcode, "detailed-exitcode", false, "return a non-zero exit code 2 instead of 0 when there were changes detected AND the changes are synced successfully")
-	f.StringVar(&applyOptions.Args, "args", "", "pass args to helm exec")
+	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
 	f.BoolVar(&applyOptions.RetainValuesFiles, "retain-values-files", false, "DEPRECATED: Use skip-cleanup instead")
 	// mark retain-values-files as deprecated, but keep it for backward compatibility, will be removed in the future
 	_ = f.MarkDeprecated("retain-values-files", "Use skip-cleanup instead")

@@ -145,7 +145,7 @@ repositories:
   url: git+https://github.com/reactiveops/polaris@deploy/helm?ref=master
 # Advanced configuration: You can setup basic or tls auth and optionally enable helm OCI integration
 - name: roboll
-  url: http://roboll.io/charts
+  url: roboll.io/charts
   certFile: optional_client_cert
   keyFile: optional_client_key
   # username is retrieve from the environment with the format <registryNameUpperCase>_USERNAME for CI usage, here ROBOLL_USERNAME

@@ -1,0 +1,11 @@
+repositories:
+  - name: azuredisk-csi-driver
+    url: https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/master/charts
+releases:
+  - name: azuredisk-csi-storageclass
+    chart: ./azuredisk-csi-storageclass
+  - name: azuredisk-csi-driver
+    chart: azuredisk-csi-driver/azuredisk-csi-driver
+    version: v1.23.0
+    needs:
+      - azuredisk-csi-storageclass

@@ -31,7 +31,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&diffOptions.Args, "args", "", "pass args to helm diff")
+	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm diff")
 	f.StringArrayVar(&diffOptions.Set, "set", nil, "additional values to be merged into the command")
 	f.StringArrayVar(&diffOptions.Values, "values", nil, "additional value files to be merged into the command")
 	f.IntVar(&diffOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")

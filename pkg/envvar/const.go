@@ -6,3 +6,4 @@ const Experimental = "HELMFILE_EXPERIMENTAL" // environment variable for experim
 const Environment = "HELMFILE_ENVIRONMENT"
 const TempDir = "HELMFILE_TEMPDIR"
 const Helm3 = "HELMFILE_HELM3"
+const UpgradeNoticeDisabled = "HELMFILE_UPGRADE_NOTICE_DISABLED"

@@ -218,7 +218,17 @@ func (helm *execer) RegistryLogin(repository string, username string, password s
 
 func (helm *execer) BuildDeps(name, chart string) error {
 	helm.logger.Infof("Building dependency release=%v, chart=%v", name, chart)
-	out, err := helm.exec([]string{"dependency", "build", chart}, map[string]string{}, nil)
+	args := []string{
+		"dependency",
+		"build",
+		chart,
+	}
+
+	if helm.IsHelm3() {
+		args = append(args, "--skip-refresh")
+	}
+
+	out, err := helm.exec(args, map[string]string{}, nil)
 	helm.info(out)
 	return err
 }

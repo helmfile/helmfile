@@ -7,7 +7,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/config"
 )
 
-// NewWriteValuesCmd returns write subcmd
+// NewWriteValuesCmd returns write-values subcmd
 func NewWriteValuesCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	writeValuesOptions := config.NewWriteValuesOptions()
 

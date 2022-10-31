@@ -1,7 +1,5 @@
 package config
 
-import "fmt"
-
 // ApplyOptoons is the options for the apply command
 type ApplyOptions struct {
 	// Set is a list of key value pairs to be merged into the command
@@ -18,8 +16,6 @@ type ApplyOptions struct {
 	Output string
 	// DetailedExitcode is true if the exit code should be 2 instead of 0 if there were changes detected and the changes were synced successfully
 	DetailedExitcode bool
-	// Args is the arguments to pass to helm exec
-	Args string
 	// DEPRECATED: Use skip-cleanup instead
 	RetainValuesFiles bool
 	// SkipCleanup is true if the cleanup of temporary values files should be skipped
@@ -78,18 +74,6 @@ func NewApplyImpl(g *GlobalImpl, a *ApplyOptions) *ApplyImpl {
 // Set returns the set.
 func (a *ApplyImpl) Set() []string {
 	return a.ApplyOptions.Set
-}
-
-// Args returns the args.
-func (a *ApplyImpl) Args() string {
-	args := a.ApplyOptions.Args
-	enableHelmDebug := a.GlobalImpl.Debug
-
-	if enableHelmDebug {
-		args = fmt.Sprintf("%s %s", args, "--debug")
-	}
-
-	return args
 }
 
 // Concurrency returns the concurrency.

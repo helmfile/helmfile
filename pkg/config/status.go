@@ -2,8 +2,6 @@ package config
 
 // StatusOptions is the options for the build command
 type StatusOptions struct {
-	// Args is the args
-	Args string
 	// Concurrency is the concurrent flag
 	Concurrency int
 }
@@ -25,11 +23,6 @@ func NewStatusImpl(g *GlobalImpl, b *StatusOptions) *StatusImpl {
 		GlobalImpl:    g,
 		StatusOptions: b,
 	}
-}
-
-// Args returns the args
-func (s *StatusImpl) Args() string {
-	return s.StatusOptions.Args
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs
