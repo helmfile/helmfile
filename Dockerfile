@@ -72,6 +72,7 @@ RUN helm plugin install https://github.com/databus23/helm-diff --version v3.6.0 
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.12.0
 
 # Allow users other than root to use helm plugins located in root home
+ENV HELM_PLUGINS="/root/.local/share/helm/plugins"
 RUN chmod 751 /root
 
 COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
