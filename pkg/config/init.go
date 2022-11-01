@@ -24,11 +24,6 @@ func NewInitImpl(g *GlobalImpl, b *InitOptions) *InitImpl {
 	}
 }
 
-// Args returns the args.
-func (b *InitImpl) Args() string {
-	return ""
-}
-
 // Force returns the Force.
 func (b *InitImpl) Force() bool {
 	return b.InitOptions.Force
