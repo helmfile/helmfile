@@ -366,7 +366,7 @@ var DefaultFetchOutputDirTemplate = path.Join(
 	"{{ .Release.KubeContext }}{{ end }}",
 	"{{ .Release.Name }}",
 	"{{ .ChartName }}",
-	"{{ if .Release.Version }}{{ .Release.Version }}{{ else }}latest{{ end }}",
+	"{{ or .Release.Version \"latest\" }}",
 )
 
 func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
