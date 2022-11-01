@@ -3,4 +3,4 @@ localDockerRegistry:
   port: 5000
 chartifyTempDir: temp2
 helmfileArgs:
-- template
+- fetch
