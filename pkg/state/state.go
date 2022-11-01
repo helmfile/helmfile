@@ -359,6 +359,16 @@ const MissingFileHandlerWarn = "Warn"
 // MissingFileHandlerDebug is the debug returned when a file is missing
 const MissingFileHandlerDebug = "Debug"
 
+var DefaultFetchOutputDirTemplate = path.Join(
+	"{{ .OutputDir }}{{ if .Release.TillerNamespace }}",
+	"{{ .Release.TillerNamespace }}{{ end }}{{ if .Release.Namespace }}",
+	"{{ .Release.Namespace }}{{ end }}{{ if .Release.KubeContext }}",
+	"{{ .Release.KubeContext }}{{ end }}",
+	"{{ .Release.Name }}",
+	"{{ .ChartName }}",
+	"{{ if .Release.Version }}{{ .Release.Version }}{{ else }}latest{{ end }}",
+)
+
 func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 	if st.OverrideKubeContext != "" {
 		spec.KubeContext = st.OverrideKubeContext
@@ -3166,35 +3176,30 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 }
 
 func (st *HelmState) GenerateChartPath(chartName string, outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
-	if outputDirTemplate != "" {
-		return st.GenerateOutputDir(outputDir, release, outputDirTemplate)
+	if outputDirTemplate == "" {
+		outputDirTemplate = DefaultFetchOutputDirTemplate
 	}
 
-	pathElems := []string{
-		outputDir,
+	t, err := template.New("output-dir-template").Parse(outputDirTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parsing output-dir-template template %q: %w", outputDirTemplate, err)
 	}
 
-	if release.TillerNamespace != "" {
-		pathElems = append(pathElems, release.TillerNamespace)
+	buf := &bytes.Buffer{}
+	data := struct {
+		ChartName string
+		OutputDir string
+		Release   ReleaseSpec
+	}{
+		ChartName: chartName,
+		OutputDir: outputDir,
+		Release:   *release,
+	}
+	if err := t.Execute(buf, data); err != nil {
+		return "", fmt.Errorf("executing output-dir-template template: %w", err)
 	}
 
-	if release.Namespace != "" {
-		pathElems = append(pathElems, release.Namespace)
-	}
-
-	if release.KubeContext != "" {
-		pathElems = append(pathElems, release.KubeContext)
-	}
-
-	chartVersion := "latest"
-	if release.Version != "" {
-		chartVersion = release.Version
-	}
-
-	pathElems = append(pathElems, release.Name, chartName, chartVersion)
-	chartPath := path.Join(pathElems...)
-
-	return chartPath, nil
+	return buf.String(), nil
 }
 
 func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemplate string) (string, error) {
