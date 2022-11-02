@@ -4,12 +4,18 @@ PKGS    := $(shell go list ./... | grep -v /vendor/)
 TAG  ?= $(shell git describe --tags --abbrev=0 HEAD)
 LAST = $(shell git describe --tags --abbrev=0 HEAD^)
 BODY = "`git log ${LAST}..HEAD --oneline --decorate` `printf '\n\#\#\# [Build Info](${BUILD_URL})'`"
+DATE_FMT = +"%Y-%m-%dT%H:%M:%S%z"
+ifdef SOURCE_DATE_EPOCH
+    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u "$(DATE_FMT)")
+else
+    BUILD_DATE ?= $(shell date "$(DATE_FMT)")
+endif
 
 
 # The ldflags for the Go build process to set the version related data
 GO_BUILD_VERSION_LDFLAGS=\
   -X go.szostok.io/version.version=$(TAG) \
-  -X go.szostok.io/version.buildDate=$(shell date +"%Y-%m-%dT%H:%M:%S%z") \
+  -X go.szostok.io/version.buildDate=$(BUILD_DATE) \
   -X go.szostok.io/version.commit=$(shell git rev-parse --short HEAD) \
   -X go.szostok.io/version.commitDate=$(shell git log -1 --date=format:"%Y-%m-%dT%H:%M:%S%z" --format=%cd) \
   -X go.szostok.io/version.dirtyBuild=false
