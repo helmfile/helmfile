@@ -132,3 +132,25 @@ jobs:
         TERM: xterm
         EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
       run: make integration
+  e2e_tests:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install package
+        run: |
+            sudo apt-get -y install expect
+      - name: Download built binaries
+        uses: actions/download-artifact@v2
+        with:
+          name: built-binaries-${{ github.run_id }}
+      - name: Extract tar to get built binaries
+        run: tar -xvf built-binaries.tar
+      - name: Display built binaries
+        run: ls -l helmfile diff-yamls yamldiff
+      - name: Run helmfile init
+        env:
+          TERM: xterm
+        run: bash test/e2e/helmfile-init/init_linux.sh

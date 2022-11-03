@@ -93,6 +93,14 @@ func Init(app *App) *App {
 	return app
 }
 
+func (a *App) Init(c InitConfigProvider) error {
+	runner := &helmexec.ShellRunner{
+		Logger: a.Logger,
+	}
+	helmfileInit := NewHelmfileInit(a.OverrideHelmBinary, c, a.Logger, runner)
+	return helmfileInit.Initialize()
+}
+
 func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		prepErr := run.withPreparedCharts("deps", state.ChartPrepareOptions{

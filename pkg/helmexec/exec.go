@@ -79,7 +79,7 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 	return *ver, nil
 }
 
-func getHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
+func GetHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
 	// Autodetect from `helm version`
 	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil, false)
 	if err != nil {
@@ -115,7 +115,7 @@ func redactedURL(chart string) string {
 // nolint: golint
 func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	// TODO: proper error handling
-	version, err := getHelmVersion(helmBinary, runner)
+	version, err := GetHelmVersion(helmBinary, runner)
 	if err != nil {
 		panic(err)
 	}
@@ -518,6 +518,20 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	args := []string{"test", name}
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, nil)
 	helm.write(nil, out)
+	return err
+}
+
+func (helm *execer) AddPlugin(name, path, version string) error {
+	helm.logger.Infof("Install helm plugin %v", name)
+	out, err := helm.exec([]string{"plugin", "install", path, "--version", version}, map[string]string{}, nil)
+	helm.info(out)
+	return err
+}
+
+func (helm *execer) UpdatePlugin(name string) error {
+	helm.logger.Infof("Update helm plugin %v", name)
+	out, err := helm.exec([]string{"plugin", "update", name}, map[string]string{}, nil)
+	helm.info(out)
 	return err
 }
 
