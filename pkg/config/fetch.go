@@ -7,7 +7,8 @@ type FetchOptions struct {
 	// SkipDeps is the skip deps flag
 	SkipDeps bool
 	// OutputDir is the output directory
-	OutputDir         string
+	OutputDir string
+	// OutputDirTemplate is the go template to generate the path of output directory
 	OutputDirTemplate string
 }
 
@@ -45,6 +46,7 @@ func (c *FetchImpl) OutputDir() string {
 	return c.FetchOptions.OutputDir
 }
 
+// OutputDirTemplate returns the go template to generate the path of output directory
 func (c *FetchImpl) OutputDirTemplate() string {
 	return c.FetchOptions.OutputDirTemplate
 }
