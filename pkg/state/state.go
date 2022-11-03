@@ -1222,7 +1222,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					//    For helm 2, we `helm fetch` with the version flags and call `helm template`
 					//    WITHOUT the version flags.
 				} else {
-					chartPath, err = st.GenerateChartPath(chartName, dir, release, opts.OutputDirTemplate)
+					chartPath, err = generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
 					if err != nil {
 						results <- &chartPrepareResult{err: err}
 						return
@@ -3175,7 +3175,7 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 	return buf.String(), nil
 }
 
-func (st *HelmState) GenerateChartPath(chartName string, outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
+func generateChartPath(chartName string, outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
 	if outputDirTemplate == "" {
 		outputDirTemplate = DefaultFetchOutputDirTemplate
 	}

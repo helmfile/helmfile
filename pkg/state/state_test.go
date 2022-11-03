@@ -2947,8 +2947,7 @@ func TestGenerateChartPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			st := &HelmState{}
-			got, err := st.GenerateChartPath(tt.chartName, tt.outputDir, tt.release, tt.outputDirTemplate)
+			got, err := generateChartPath(tt.chartName, tt.outputDir, tt.release, tt.outputDirTemplate)
 
 			if tt.wantErr {
 				require.Errorf(t, err, "GenerateChartPath() error \"%v\", want error", err)
