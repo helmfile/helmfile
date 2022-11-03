@@ -505,6 +505,7 @@ Available Commands:
   diff         Diff releases defined in state file
   fetch        Fetch charts from state file
   help         Help about any command
+  init         Checks and installs deps
   lint         Lint charts from state file (helm lint)
   list         List releases defined in state file
   repos        Repos releases defined in state file
@@ -532,7 +533,7 @@ Flags:
   -n, --namespace string                Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
       --no-color                        Output without color
   -q, --quiet                           Silence output. Equivalent to log-level warn
-  -l, --selector stringArray            Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar. 
+  -l, --selector stringArray            Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
                                         A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                         "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
                                         The name of a release can be used as a label: "--selector name=myrelease"
@@ -542,6 +543,11 @@ Flags:
 
 Use "helmfile [command] --help" for more information about a command.
 ```
+
+### init
+
+The `helmfile init` sub-command checks the dependencies required for helmfile operation, such as `helm`, `helm diff plugin`, `helm secrets plugin`, `helm helm-git plugin`, `helm s3 plugin`. When it does not exist or the version is too low, it can be installed automatically
+
 
 ### sync
 
@@ -1172,9 +1178,9 @@ mysetting: |
 
 The possibility is endless. Try importing values from your golang app, bash script, jsonnet, or anything!
 
-Then `envExec` same as `exec`, but it can receive a dict as the envs.  
+Then `envExec` same as `exec`, but it can receive a dict as the envs.
 
-A usual usage of `envExec` would look like this:  
+A usual usage of `envExec` would look like this:
 
 ```yaml
 mysetting: |
