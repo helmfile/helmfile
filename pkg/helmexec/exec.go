@@ -521,9 +521,9 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	return err
 }
 
-func (helm *execer) AddPlugin(name, path string) error {
+func (helm *execer) AddPlugin(name, path, version string) error {
 	helm.logger.Infof("Install helm plugin %v", name)
-	out, err := helm.exec([]string{"plugin", "install", path}, map[string]string{}, nil)
+	out, err := helm.exec([]string{"plugin", "install", path, "--version", version}, map[string]string{}, nil)
 	helm.info(out)
 	return err
 }

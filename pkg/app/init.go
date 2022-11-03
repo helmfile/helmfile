@@ -17,10 +17,13 @@ import (
 )
 
 const (
-	HelmRequiredVersion     = "v2.10.0"
-	HelmRecommendedVersion  = "v3.10.1"
-	HelmDiffRequiredVersion = "v3.4.0"
-	HelmInstallCommand      = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
+	HelmRequiredVersion           = "v2.10.0"
+	HelmRecommendedVersion        = "v3.10.1"
+	HelmDiffRecommendedVersion    = "v3.4.0"
+	HelmSecretsRecommendedVersion = "v4.1.1"
+	HelmGitRecommendedVersion     = "v0.12.0"
+	HelmS3RecommendedVersion      = "v0.14.0"
+	HelmInstallCommand            = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
 )
 
 var (
@@ -29,14 +32,31 @@ var (
 		"scoop": fmt.Sprintf("scoop install helm@%s", strings.TrimLeft(HelmRecommendedVersion, "v")),
 		"choco": fmt.Sprintf("choco install kubernetes-helm --version %s", strings.TrimLeft(HelmRecommendedVersion, "v")),
 	}
-	helmPlugins = []helmRequiredPlugin{{
-		name:    "diff",
-		version: HelmDiffRequiredVersion,
-		repo:    "https://github.com/databus23/helm-diff",
-	}}
+	helmPlugins = []helmRecommendedPlugin{
+		{
+			name:    "diff",
+			version: HelmDiffRecommendedVersion,
+			repo:    "https://github.com/databus23/helm-diff",
+		},
+		{
+			name:    "secrets",
+			version: HelmSecretsRecommendedVersion,
+			repo:    "https://github.com/jkroepke/helm-secrets",
+		},
+		{
+			name:    "s3",
+			version: HelmS3RecommendedVersion,
+			repo:    "https://github.com/hypnoglow/helm-s3.git",
+		},
+		{
+			name:    "helm-git",
+			version: HelmGitRecommendedVersion,
+			repo:    "https://github.com/aslafy-z/helm-git.git",
+		},
+	}
 )
 
-type helmRequiredPlugin struct {
+type helmRecommendedPlugin struct {
 	name    string
 	version string
 	repo    string
@@ -156,7 +176,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 				return err
 			}
 
-			err = helm.AddPlugin(p.name, p.repo)
+			err = helm.AddPlugin(p.name, p.repo, p.version)
 			if err != nil {
 				return err
 			}
