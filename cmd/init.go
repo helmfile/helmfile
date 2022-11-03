@@ -12,7 +12,7 @@ func NewInitCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	options := config.NewInitOptions()
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Checks and installs deps",
+		Short: "Initialize the helmfile, includes version checking and installation of helm and plug-ins",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initImpl := config.NewInitImpl(globalCfg, options)
 			err := config.NewCLIConfigImpl(initImpl.GlobalImpl)
