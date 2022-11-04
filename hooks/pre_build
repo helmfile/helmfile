@@ -1,9 +1,0 @@
-#!/bin/bash
-
-go()
-{
-  docker run --rm -v "$(pwd):/workspace" -w /workspace golang:latest go $@;
-}
-
-go get -u github.com/tcnksm/ghr github.com/mitchellh/gox
-go mod vendor
