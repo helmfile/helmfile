@@ -2,9 +2,12 @@ Adding repo myrepo http://localhost:18080/
 "myrepo" has been added to your repositories
 
 Building dependency release=foo, chart=$WD/temp1/foo
+Saving 1 charts
+Downloading raw from repo http://localhost:18080/
+Deleting outdated charts
+
 Templating release=foo, chart=$WD/temp1/foo
 ---
-# Source: raw/templates/charts/dep/templates/resources.yaml
 # Source: raw/charts/dep/templates/resources.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -14,7 +17,6 @@ metadata:
 data:
   bar: BAR
 ---
-# Source: raw/templates/resources.yaml
 # Source: raw/templates/resources.yaml
 apiVersion: v1
 kind: ConfigMap
