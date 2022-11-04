@@ -45,7 +45,8 @@ build-test-tools:
 test:
 	@which helm &> /dev/null || (echo "helm binary not found. Please see: https://helm.sh/docs/intro/install/" && exit 1)
 	go build -o helmfile .
-	go test -v ${PKGS} -cover -race -p=1
+	go test -v ${PKGS} -coverprofile cover.out -race -p=1
+	go tool cover -func cover.out
 .PHONY: test
 
 integration:
