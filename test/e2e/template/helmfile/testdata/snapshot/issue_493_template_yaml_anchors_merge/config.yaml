@@ -1,0 +1,4 @@
+chartifyTempDir: template_anchors_merge_temp
+helmfileArgs:
+- list
+- --skip-charts

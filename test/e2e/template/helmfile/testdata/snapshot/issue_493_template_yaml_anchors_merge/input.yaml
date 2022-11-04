@@ -1,0 +1,21 @@
+templates:
+  default_release: &default_release
+    namespace: "myNamespace"
+  default_labels:
+    labels: &default_labels
+      project: "myProject"
+      group: "myGroup"
+
+releases:
+  - name: "release1"
+    << : *default_release
+    labels:
+      <<: *default_labels
+      app: "myapp"
+    chart: "test"
+  - name: "release2"
+    << : *default_release
+    labels:
+      <<: *default_labels
+      app: "myapp"
+    chart: "test"
