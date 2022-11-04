@@ -17,6 +17,22 @@ type argMap struct {
 	flags []string
 }
 
+// isNewFlag checks if the given arg is a new flag
+func isNewFlag(flag string) bool {
+	return strings.HasPrefix(flag, "--") || strings.HasPrefix(flag, "-")
+}
+
+// removeEmptyArgs removes empty args from the given args
+func removeEmptyArgs(args []string) []string {
+	var newArgs []string
+	for _, arg := range args {
+		if len(arg) > 0 {
+			newArgs = append(newArgs, arg)
+		}
+	}
+	return newArgs
+}
+
 // SetArg sets a flag and value in the map
 func (a *argMap) SetArg(flag, arg string, isSpace bool) {
 	// if flag is empty, return
@@ -27,7 +43,7 @@ func (a *argMap) SetArg(flag, arg string, isSpace bool) {
 		keyarg := &keyVal{key: flag, val: arg, spaceFlag: isSpace}
 		a.m[flag] = append(a.m[flag], keyarg)
 		a.flags = append(a.flags, flag)
-	} else if flag == "--set" || flag == "-f" || flag == "--values" {
+	} else {
 		keyarg := &keyVal{key: flag, val: arg, spaceFlag: isSpace}
 		a.m[flag] = append(a.m[flag], keyarg)
 	}
@@ -38,54 +54,44 @@ func newArgMap() *argMap {
 	return &argMap{m: map[string][]*keyVal{}}
 }
 
-func GetArgs(args string, state *state.HelmState) []string {
-	argsMap := newArgMap()
-
-	if len(args) > 0 {
-		argsVals := strings.Split(args, " ")
-		for index, arg := range argsVals {
-			if strings.HasPrefix(arg, "--") {
-				argVal := strings.SplitN(arg, "=", 2)
-				if len(argVal) > 1 {
-					arg := argVal[0]
-					value := argVal[1]
-					argsMap.SetArg(arg, value, false)
-				} else {
-					// check if next value is arg to flag
-					if index+1 < len(argsVals) {
-						nextVal := argsVals[index+1]
-						if strings.HasPrefix(nextVal, "--") {
-							argsMap.SetArg(arg, "", false)
-						} else {
-							argsMap.SetArg(arg, nextVal, true)
-						}
+func analyzeArgs(am *argMap, args string) {
+	argsVals := removeEmptyArgs(strings.Split(args, " "))
+	for index, arg := range argsVals {
+		if len(arg) == 0 {
+			continue
+		}
+		if isNewFlag(arg) {
+			argVal := strings.SplitN(arg, "=", 2)
+			if len(argVal) > 1 {
+				arg := argVal[0]
+				value := argVal[1]
+				am.SetArg(arg, value, false)
+			} else {
+				// check if next value is arg to flag
+				if index+1 < len(argsVals) {
+					nextVal := argsVals[index+1]
+					if isNewFlag(nextVal) {
+						am.SetArg(arg, "", false)
 					} else {
-						argsMap.SetArg(arg, "", false)
+						am.SetArg(arg, nextVal, true)
 					}
+				} else {
+					am.SetArg(arg, "", false)
 				}
 			}
 		}
 	}
+}
+
+func GetArgs(args string, state *state.HelmState) []string {
+	argsMap := newArgMap()
+
+	if len(args) > 0 {
+		analyzeArgs(argsMap, args)
+	}
 
 	if len(state.HelmDefaults.Args) > 0 {
-		for _, arg := range state.HelmDefaults.Args {
-			var flag string
-			var val string
-
-			argsNum, _ := fmt.Sscanf(arg, "--%s %s", &flag, &val)
-			if argsNum == 2 {
-				argsMap.SetArg(flag, val, true)
-			} else {
-				argVal := strings.SplitN(arg, "=", 2)
-				argFirst := argVal[0]
-				if len(argVal) > 1 {
-					val = argVal[1]
-					argsMap.SetArg(argFirst, val, false)
-				} else {
-					argsMap.SetArg(argFirst, "", false)
-				}
-			}
-		}
+		analyzeArgs(argsMap, strings.Join(state.HelmDefaults.Args, " "))
 	}
 
 	var argArr []string
