@@ -23,9 +23,9 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
-	github.com/variantdev/chartify v0.11.0
+	github.com/variantdev/chartify v0.12.0
 	github.com/variantdev/dag v1.1.0
-	github.com/variantdev/vals v0.18.0
+	github.com/variantdev/vals v0.19.0
 	go.szostok.io/version v1.1.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.23.0
