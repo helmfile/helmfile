@@ -110,18 +110,26 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			want: specWithNamespace,
 		},
 		{
-			name:   "Has a namespace from flags",
-			fields: fieldsWithoutNamespace,
-			args: args{
-				spec: specWithNamespace,
-			},
-			want: specWithNamespace,
-		},
-		{
 			name:   "Has a namespace from flags and from spec",
 			fields: fieldsWithNamespace,
 			args: args{
 				spec: specWithNamespace,
+			},
+			want: specWithNamespaceFromFields,
+		},
+		{
+			name:   "Spec and flag Has no a namespace",
+			fields: fieldsWithoutNamespace,
+			args: args{
+				spec: specWithoutNamespace,
+			},
+			want: specWithoutNamespace,
+		},
+		{
+			name:   "Spec has no a namespace but from flag",
+			fields: fieldsWithNamespace,
+			args: args{
+				spec: specWithoutNamespace,
 			},
 			want: specWithNamespaceFromFields,
 		},

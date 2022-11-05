@@ -18,7 +18,7 @@ releases:
   - chart: aservo/util
     version: 0.0.1
     needs:
-      - default-shared-resources
+      - default/default-shared-resources
     name: default-release-resources
     namespace: default
     labels:

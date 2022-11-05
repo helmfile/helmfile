@@ -4363,11 +4363,11 @@ releases:
 		assert.Nil(t, err)
 	})
 
-	expected := `NAME      	NAMESPACE	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
-myrelease1	         	true   	false    	common:label,id:myrelease1	mychart1	       
-myrelease2	         	false  	true     	common:label              	mychart1	       
-myrelease3	         	true   	true     	                          	mychart1	       
-myrelease4	         	true   	true     	id:myrelease1             	mychart1	       
+	expected := `NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
+myrelease1	testNamespace	true   	false    	common:label,id:myrelease1	mychart1	       
+myrelease2	testNamespace	false  	true     	common:label              	mychart1	       
+myrelease3	testNamespace	true   	true     	                          	mychart1	       
+myrelease4	testNamespace	true   	true     	id:myrelease1             	mychart1	       
 `
 
 	assert.Equal(t, expected, out)

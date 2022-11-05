@@ -5,6 +5,7 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: managed-csi
+  namespace: helmfile-tests
 provisioner: disk.csi.azure.com
 parameters:
   skuName: Premium_LRS
@@ -18,7 +19,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: csi-azuredisk-controller-sa
-  namespace: default
+  namespace: helmfile-tests
   labels:
     app.kubernetes.io/instance: "azuredisk-csi-driver"
     app.kubernetes.io/managed-by: "Helm"
@@ -31,7 +32,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: csi-azuredisk-node-sa
-  namespace: default
+  namespace: helmfile-tests
   labels:
     app.kubernetes.io/instance: "azuredisk-csi-driver"
     app.kubernetes.io/managed-by: "Helm"
@@ -209,7 +210,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-azuredisk-controller-sa
-    namespace: default
+    namespace: helmfile-tests
 roleRef:
   kind: ClusterRole
   name: azuredisk-external-provisioner-role
@@ -229,7 +230,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-azuredisk-controller-sa
-    namespace: default
+    namespace: helmfile-tests
 roleRef:
   kind: ClusterRole
   name: azuredisk-external-attacher-role
@@ -249,7 +250,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-azuredisk-controller-sa
-    namespace: default
+    namespace: helmfile-tests
 roleRef:
   kind: ClusterRole
   name: azuredisk-external-snapshotter-role
@@ -269,7 +270,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-azuredisk-controller-sa
-    namespace: default
+    namespace: helmfile-tests
 roleRef:
   kind: ClusterRole
   name: azuredisk-external-resizer-role
@@ -283,7 +284,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-azuredisk-controller-sa
-    namespace: default
+    namespace: helmfile-tests
 roleRef:
   kind: ClusterRole
   name: csi-azuredisk-controller-secret-role
@@ -297,7 +298,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: csi-azuredisk-node-sa
-    namespace: default
+    namespace: helmfile-tests
 roleRef:
   kind: ClusterRole
   name: csi-azuredisk-node-role
@@ -308,7 +309,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-azuredisk-node-win
-  namespace: default
+  namespace: helmfile-tests
   labels:
     app.kubernetes.io/instance: "azuredisk-csi-driver"
     app.kubernetes.io/managed-by: "Helm"
@@ -418,7 +419,7 @@ spec:
             - "--drivername=disk.csi.azure.com"
             - "--volume-attach-limit=-1"
             - "--cloud-config-secret-name=azure-cloud-provider"
-            - "--cloud-config-secret-namespace=kube-system"
+            - "--cloud-config-secret-namespace=helmfile-tests"
             - "--custom-user-agent="
             - "--user-agent-suffix=OSS-helm"
             - "--allow-empty-cloud-config=true"
@@ -523,7 +524,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-azuredisk-node
-  namespace: default
+  namespace: helmfile-tests
   labels:
     app.kubernetes.io/instance: "azuredisk-csi-driver"
     app.kubernetes.io/managed-by: "Helm"
@@ -623,7 +624,7 @@ spec:
             - "--drivername=disk.csi.azure.com"
             - "--volume-attach-limit=-1"
             - "--cloud-config-secret-name=azure-cloud-provider"
-            - "--cloud-config-secret-namespace=kube-system"
+            - "--cloud-config-secret-namespace=helmfile-tests"
             - "--custom-user-agent="
             - "--user-agent-suffix=OSS-helm"
             - "--allow-empty-cloud-config=true"
@@ -715,7 +716,7 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: csi-azuredisk-controller
-  namespace: default
+  namespace: helmfile-tests
   labels:
     app.kubernetes.io/instance: "azuredisk-csi-driver"
     app.kubernetes.io/managed-by: "Helm"
@@ -761,7 +762,7 @@ spec:
             - "--v=2"
             - "--timeout=15s"
             - "--leader-election"
-            - "--leader-election-namespace=default"
+            - "--leader-election-namespace=helmfile-tests"
             - "--worker-threads=50"
             - "--extra-create-metadata=true"
             - "--strict-topology=true"
@@ -784,7 +785,7 @@ spec:
             - "-csi-address=$(ADDRESS)"
             - "-timeout=1200s"
             - "-leader-election"
-            - "--leader-election-namespace=default"
+            - "--leader-election-namespace=helmfile-tests"
             - "-worker-threads=500"
           env:
             - name: ADDRESS
@@ -803,7 +804,7 @@ spec:
           args:
             - "-csi-address=$(ADDRESS)"
             - "-leader-election"
-            - "--leader-election-namespace=default"
+            - "--leader-election-namespace=helmfile-tests"
             - "-v=2"
           env:
             - name: ADDRESS
@@ -823,7 +824,7 @@ spec:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
             - "-leader-election"
-            - "--leader-election-namespace=default"
+            - "--leader-election-namespace=helmfile-tests"
             - '-handle-volume-inuse-error=false'
             - '-feature-gates=RecoverVolumeExpansionFailure=true'
             - "-timeout=240s"
@@ -865,7 +866,7 @@ spec:
             - "--vm-type="
             - "--drivername=disk.csi.azure.com"
             - "--cloud-config-secret-name=azure-cloud-provider"
-            - "--cloud-config-secret-namespace=kube-system"
+            - "--cloud-config-secret-namespace=helmfile-tests"
             - "--custom-user-agent="
             - "--user-agent-suffix=OSS-helm"
             - "--allow-empty-cloud-config=false"

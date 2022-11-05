@@ -78,7 +78,6 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	for i := range r.state.Releases {
 		rel := &r.state.Releases[i]
-
 		key := state.PrepareChartKey{
 			Name:        rel.Name,
 			Namespace:   rel.Namespace,

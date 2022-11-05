@@ -5,6 +5,13 @@ if [[ helm_major_version -eq 3 ]]; then
   chart_needs_lint_reverse=${chart_needs_tmp}/chart.needs.lint.log
   chart_needs_diff_reverse=${chart_needs_tmp}/chart.needs.diff.log
 
+  lint_out_file=${chart_needs_golden_dir}/lint
+  diff_out_file=${chart_needs_golden_dir}/diff
+  if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
+      lint_out_file=${chart_needs_golden_dir}/lint-live
+      diff_out_file=${chart_needs_golden_dir}/diff-live
+  fi
+
   test_start "chart prepare when helmfile template with needs"
 
   info "https://github.com/helmfile/helmfile/issues/455"
@@ -18,15 +25,15 @@ if [[ helm_major_version -eq 3 ]]; then
 
   for i in $(seq 10); do
       info "Comparing lint/chart-needs #$i"
-      ${helmfile_no_extra_flags} -f ${dir}/issue.455/helmfile.yaml lint --include-needs | grep -v Linting > ${chart_needs_lint_reverse} || fail "\"helmfile lint\" shouldn't fail"
-      diff -u ${chart_needs_golden_dir}/lint ${chart_needs_lint_reverse} || fail "\"helmfile lint\" should be consistent"
+      ${helmfile} -f ${dir}/issue.455/helmfile.yaml lint --include-needs | grep -v Linting > ${chart_needs_lint_reverse} || fail "\"helmfile lint\" shouldn't fail"
+      diff -u ${lint_out_file} ${chart_needs_lint_reverse} || fail "\"helmfile lint\" should be consistent"
       echo code=$?
   done
 
   for i in $(seq 10); do
       info "Comparing diff/chart-needs #$i"
-      ${helmfile_no_extra_flags} -f ${dir}/issue.455/helmfile.yaml diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=/tmp/[0-9a-zA-Z]+/azuredisk-csi-storageclass" | grep -v "$test_ns" > ${chart_needs_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
-      diff -u ${chart_needs_golden_dir}/diff ${chart_needs_diff_reverse} || fail "\"helmfile diff\" should be consistent"
+      ${helmfile} -f ${dir}/issue.455/helmfile.yaml diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=/tmp/.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
+      diff -u ${diff_out_file} ${chart_needs_diff_reverse} || fail "\"helmfile diff\" should be consistent"
       echo code=$?
   done
 
