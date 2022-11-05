@@ -179,6 +179,7 @@ type LintConfigProvider interface {
 type FetchConfigProvider interface {
 	SkipDeps() bool
 	OutputDir() string
+	OutputDirTemplate() string
 
 	concurrencyConfig
 }

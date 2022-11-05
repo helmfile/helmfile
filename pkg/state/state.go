@@ -359,6 +359,16 @@ const MissingFileHandlerWarn = "Warn"
 // MissingFileHandlerDebug is the debug returned when a file is missing
 const MissingFileHandlerDebug = "Debug"
 
+var DefaultFetchOutputDirTemplate = path.Join(
+	"{{ .OutputDir }}{{ if .Release.TillerNamespace }}",
+	"{{ .Release.TillerNamespace }}{{ end }}{{ if .Release.Namespace }}",
+	"{{ .Release.Namespace }}{{ end }}{{ if .Release.KubeContext }}",
+	"{{ .Release.KubeContext }}{{ end }}",
+	"{{ .Release.Name }}",
+	"{{ .ChartName }}",
+	"{{ or .Release.Version \"latest\" }}",
+)
+
 func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 	if st.OverrideKubeContext != "" {
 		spec.KubeContext = st.OverrideKubeContext
@@ -983,6 +993,7 @@ type ChartPrepareOptions struct {
 	Wait                   bool
 	WaitForJobs            bool
 	OutputDir              string
+	OutputDirTemplate      string
 	IncludeTransitiveNeeds bool
 	Concurrency            int
 }
@@ -1211,30 +1222,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					//    For helm 2, we `helm fetch` with the version flags and call `helm template`
 					//    WITHOUT the version flags.
 				} else {
-					pathElems := []string{
-						dir,
+					chartPath, err = generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
+					if err != nil {
+						results <- &chartPrepareResult{err: err}
+						return
 					}
-
-					if release.TillerNamespace != "" {
-						pathElems = append(pathElems, release.TillerNamespace)
-					}
-
-					if release.Namespace != "" {
-						pathElems = append(pathElems, release.Namespace)
-					}
-
-					if release.KubeContext != "" {
-						pathElems = append(pathElems, release.KubeContext)
-					}
-
-					chartVersion := "latest"
-					if release.Version != "" {
-						chartVersion = release.Version
-					}
-
-					pathElems = append(pathElems, release.Name, chartName, chartVersion)
-
-					chartPath = path.Join(pathElems...)
 
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
@@ -1244,6 +1236,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 							results <- &chartPrepareResult{err: err}
 							return
 						}
+					} else {
+						st.logger.Infof("\"%s\" has not been downloaded because the output directory \"%s\" already exists", chartName, chartPath)
 					}
 
 					// Set chartPath to be the path containing Chart.yaml, if found
@@ -3176,6 +3170,36 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 
 	if err := t.Execute(buf, data); err != nil {
 		return "", fmt.Errorf("executing output-dir template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+// generateChartPath generates the path of the output directory of the `helmfile fetch` command.
+// It uses a go template with data from the chart name, output directory and release spec.
+// If no template was provided (via the `--output-dir-template` flag) it uses the DefaultFetchOutputDirTemplate.
+func generateChartPath(chartName string, outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
+	if outputDirTemplate == "" {
+		outputDirTemplate = DefaultFetchOutputDirTemplate
+	}
+
+	t, err := template.New("output-dir-template").Parse(outputDirTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parsing output-dir-template template %q: %w", outputDirTemplate, err)
+	}
+
+	buf := &bytes.Buffer{}
+	data := struct {
+		ChartName string
+		OutputDir string
+		Release   ReleaseSpec
+	}{
+		ChartName: chartName,
+		OutputDir: outputDir,
+		Release:   *release,
+	}
+	if err := t.Execute(buf, data); err != nil {
+		return "", fmt.Errorf("executing output-dir-template template: %w", err)
 	}
 
 	return buf.String(), nil
