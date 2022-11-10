@@ -36,6 +36,7 @@ type execer struct {
 	logger               *zap.SugaredLogger
 	kubeContext          string
 	extra                []string
+	postRenderers        []string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
@@ -131,7 +132,19 @@ func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, ku
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {
-	helm.extra = args
+	var extraArgs []string
+	
+	// reset the postRenderers and filter the post-renderer args from args and put into helm.postRenderers
+	helm.postRenderers = nil
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--post-renderer=") || strings.HasPrefix(arg, "--post-renderer-args=") {
+			helm.postRenderers = append(helm.postRenderers, arg)
+			continue
+		}
+		extraArgs = append(extraArgs, arg)
+	}
+
+	helm.extra = extraArgs
 }
 
 func (helm *execer) SetHelmBinary(bin string) {
@@ -249,6 +262,10 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 		flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
 	} else {
 		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
+	}
+	
+	if helm.IsHelm3() {
+		flags = append(flags, helm.postRenderers...)
 	}
 
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
@@ -388,6 +405,10 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		args = []string{"template", name, chart}
 	} else {
 		args = []string{"template", chart, "--name", name}
+	}
+
+	if helm.IsHelm3() {
+		flags = append(flags, helm.postRenderers...)
 	}
 
 	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
