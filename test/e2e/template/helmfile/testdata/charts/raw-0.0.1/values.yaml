@@ -1,0 +1,48 @@
+templates: []
+
+##
+## Example: Uncomment the below and run `helm template ./`:
+##
+#
+# templates:
+# - |
+#   apiVersion: v1
+#   kind: ConfigMap
+#   metadata:
+#     name: {{ .Release.Name }}-1
+#     namespace: {{ .Release.Namespace }}
+#   data:
+#     foo: {{ .Values.foo }}
+# - |
+#   apiVersion: v1
+#   kind: ConfigMap
+#   metadata:
+#     name: {{ .Release.Name }}-2
+#     namespace: {{ .Release.Namespace }}
+#   data:
+#     foo: {{ .Values.foo }}
+# values:
+#   foo: FOO
+#
+##
+## Expected Output:
+##
+#
+# ---
+# # Source: raw/templates/resources.yaml
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: release-name-1
+#   namespace: default
+# data:
+#   foo:
+# ---
+# # Source: raw/templates/resources.yaml
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: release-name-2
+#   namespace: default
+# data:
+#   foo:

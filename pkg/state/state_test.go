@@ -2030,6 +2030,56 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	}
 }
 
+func TestHelmState_ResolveDeps_NoLockFile_WithCustomLockFile(t *testing.T) {
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	state := &HelmState{
+		basePath: "/src",
+		FilePath: "/src/helmfile.yaml",
+		ReleaseSetSpec: ReleaseSetSpec{
+			LockFile: "custom-lock-file",
+			Releases: []ReleaseSpec{
+				{
+					Chart: "./..",
+				},
+				{
+					Chart: "../examples",
+				},
+				{
+					Chart: "../../helmfile",
+				},
+				{
+					Chart: "published",
+				},
+				{
+					Chart: "published/deeper",
+				},
+				{
+					Chart: "stable/envoy",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://kubernetes-charts.storage.googleapis.com",
+				},
+			},
+		},
+		logger: logger,
+		fs: &filesystem.FileSystem{
+			ReadFile: func(f string) ([]byte, error) {
+				if f != "custom-lock-file" {
+					return nil, fmt.Errorf("stub: unexpected file: %s", f)
+				}
+				return nil, os.ErrNotExist
+			},
+		},
+	}
+
+	_, err := state.ResolveDeps()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
 func TestHelmState_ReleaseStatuses(t *testing.T) {
 	tests := []struct {
 		name     string

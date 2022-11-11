@@ -145,7 +145,7 @@ func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {
 		return st, nil
 	}
 
-	depMan := NewChartDependencyManager(filename, st.logger)
+	depMan := NewChartDependencyManager(filename, st.logger, st.LockFile)
 
 	if st.fs.ReadFile != nil {
 		depMan.readFile = st.fs.ReadFile
@@ -258,7 +258,7 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 }
 
 func updateDependencies(st *HelmState, shell helmexec.DependencyUpdater, unresolved *UnresolvedDependencies, filename, wd string) (*HelmState, error) {
-	depMan := NewChartDependencyManager(filename, st.logger)
+	depMan := NewChartDependencyManager(filename, st.logger, st.LockFile)
 
 	_, err := depMan.Update(shell, wd, unresolved)
 	if err != nil {
@@ -271,6 +271,8 @@ func updateDependencies(st *HelmState, shell helmexec.DependencyUpdater, unresol
 type chartDependencyManager struct {
 	Name string
 
+	lockFilePath string
+
 	logger *zap.SugaredLogger
 
 	readFile  func(string) ([]byte, error)
@@ -278,17 +280,22 @@ type chartDependencyManager struct {
 }
 
 // nolint: golint
-func NewChartDependencyManager(name string, logger *zap.SugaredLogger) *chartDependencyManager {
+func NewChartDependencyManager(name string, logger *zap.SugaredLogger, lockFilePath string) *chartDependencyManager {
 	return &chartDependencyManager{
-		Name:      name,
-		readFile:  os.ReadFile,
-		writeFile: os.WriteFile,
-		logger:    logger,
+		Name:         name,
+		readFile:     os.ReadFile,
+		writeFile:    os.WriteFile,
+		logger:       logger,
+		lockFilePath: lockFilePath,
 	}
 }
 
 func (m *chartDependencyManager) lockFileName() string {
-	return fmt.Sprintf("%s.lock", m.Name)
+	if m.lockFilePath != "" {
+		return m.lockFilePath
+	} else {
+		return fmt.Sprintf("%s.lock", m.Name)
+	}
 }
 
 func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
@@ -334,9 +341,9 @@ func (m *chartDependencyManager) updateHelm2(shell helmexec.DependencyUpdater, w
 
 func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *UnresolvedDependencies, shell helmexec.DependencyUpdater, wd string) (*ResolvedDependencies, error) {
 	// Generate `requirements.lock` of the temporary local chart by coping `<basename>.lock`
-	lockFile := m.lockFileName()
+	lockFilePath := m.lockFileName()
 
-	originalLockFileContent, err := m.readBytes(lockFile)
+	originalLockFileContent, err := m.readBytes(lockFilePath)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
@@ -394,7 +401,7 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 	}
 
 	// Commit the lock file if and only if everything looks ok
-	if err := m.writeBytes(lockFile, updatedLockFileContent); err != nil {
+	if err := m.writeBytes(lockFilePath, updatedLockFileContent); err != nil {
 		return nil, err
 	}
 

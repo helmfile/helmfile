@@ -134,13 +134,8 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 					if !c.IsDir() {
 						t.Fatalf("%s is not a directory", c)
 					}
+					chartName, chartVersion := execHelmShowChart(t, chartPath)
 					tgzFile := execHelmPackage(t, chartPath)
-
-					// Extract chart version from the name of chart package archival
-					chartName := c.Name()
-					chartNameWithVersion := strings.TrimSuffix(filepath.Base(tgzFile), filepath.Ext(tgzFile))
-					chartVersion := strings.TrimPrefix(chartNameWithVersion, fmt.Sprintf("%s-", chartName))
-
 					chartDigest, err := execHelmPush(t, tgzFile, fmt.Sprintf("oci://localhost:%d/myrepo", hostPort))
 					require.NoError(t, err, "Unable to run helm push to local registry: %v", err)
 
@@ -233,6 +228,23 @@ func execDocker(t *testing.T, args ...string) {
 		t.Logf("Docker output: %s", string(out))
 		t.Fatalf("Unable to run docker: %v", err)
 	}
+}
+
+func execHelmShowChart(t *testing.T, localChart string) (string, string) {
+	t.Helper()
+
+	name, version := "", ""
+	out := execHelm(t, "show", "chart", localChart)
+	sc := bufio.NewScanner(strings.NewReader(out))
+	for sc.Scan() {
+		if strings.HasPrefix(sc.Text(), "name:") {
+			name = strings.TrimPrefix(sc.Text(), "name: ")
+		}
+		if strings.HasPrefix(sc.Text(), "version:") {
+			version = strings.TrimPrefix(sc.Text(), "version: ")
+		}
+	}
+	return name, version
 }
 
 func execHelmPackage(t *testing.T, localChart string) string {
