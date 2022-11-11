@@ -133,18 +133,22 @@ func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, ku
 
 func (helm *execer) SetExtraArgs(args ...string) {
 	var extraArgs []string
-	
-	// reset the postRenderers and filter the post-renderer args from args and put into helm.postRenderers
-	helm.postRenderers = nil
-	for _, arg := range args {
-		if strings.HasPrefix(arg, "--post-renderer=") || strings.HasPrefix(arg, "--post-renderer-args=") {
-			helm.postRenderers = append(helm.postRenderers, arg)
-			continue
+	var renderArgs []string
+	// reset the postRenderers and filter --post-renderer=xx or --post-renderer xxx from args and put into helm.postRenderers
+	for i := 0; i < len(args); i++ {
+		if strings.HasPrefix(args[i], "--post-renderer=") || strings.HasPrefix(args[i], "--post-renderer-args=") {
+			renderArgs = append(renderArgs, args[i])
+		} else if (args[i] == "--post-renderer" || args[i] == "--post-renderer-args") && i < len(args)-1 {
+			renderArgs = append(renderArgs, args[i])
+			renderArgs = append(renderArgs, args[i+1])
+			i++
+		} else {
+			extraArgs = append(extraArgs, args[i])
 		}
-		extraArgs = append(extraArgs, arg)
 	}
 
 	helm.extra = extraArgs
+	helm.postRenderers = renderArgs
 }
 
 func (helm *execer) SetHelmBinary(bin string) {
@@ -263,7 +267,7 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 	} else {
 		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
 	}
-	
+
 	if helm.IsHelm3() {
 		flags = append(flags, helm.postRenderers...)
 	}

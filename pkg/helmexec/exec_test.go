@@ -69,6 +69,29 @@ func Test_SetExtraArgs(t *testing.T) {
 	if !reflect.DeepEqual(helm.extra, []string{"alpha", "beta"}) {
 		t.Error("helmexec.SetExtraArgs() - two extra arguments missing (overwriting the previous value)")
 	}
+
+	helm.SetExtraArgs("--post-renderer=aaa")
+	fmt.Println(helm.postRenderers)
+	if !reflect.DeepEqual(helm.postRenderers, []string{"--post-renderer=aaa"}) {
+		t.Error("helmexec.SetExtraArgs() - post-renderer assign arguments missing ")
+	}
+
+	helm.SetExtraArgs("--post-renderer", "aaa")
+	fmt.Println(helm.postRenderers)
+	if !reflect.DeepEqual(helm.postRenderers, []string{"--post-renderer", "aaa"}) {
+		t.Error("helmexec.SetExtraArgs() - post-renderer blank arguments missing ")
+	}
+
+	helm.SetExtraArgs("--post-renderer-args=bbb")
+	fmt.Println(helm.postRenderers)
+	if !reflect.DeepEqual(helm.postRenderers, []string{"--post-renderer-args=bbb"}) {
+		t.Error("helmexec.SetExtraArgs() - post-renderer-args  assign arguments missing")
+	}
+
+	helm.SetExtraArgs("--post-renderer", "aaa", "--post-renderer-args=bbb")
+	if !reflect.DeepEqual(helm.postRenderers, []string{"--post-renderer", "aaa", "--post-renderer-args=bbb"}) {
+		t.Error("helmexec.SetExtraArgs() - post-renderer arguments not be set correct")
+	}
 }
 
 func Test_SetHelmBinary(t *testing.T) {
