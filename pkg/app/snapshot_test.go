@@ -17,7 +17,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
-func runWithLogCapture(t *testing.T, f func(*testing.T, *zap.SugaredLogger)) *bytes.Buffer {
+func runWithLogCapture(t *testing.T, logLevel string, f func(*testing.T, *zap.SugaredLogger)) *bytes.Buffer {
 	t.Helper()
 
 	bs := &bytes.Buffer{}
@@ -44,7 +44,7 @@ func runWithLogCapture(t *testing.T, f func(*testing.T, *zap.SugaredLogger)) *by
 		logFlushed.Wait()
 	}()
 
-	logger := helmexec.NewLogger(logWriter, "debug")
+	logger := helmexec.NewLogger(logWriter, logLevel)
 
 	f(t, logger)
 

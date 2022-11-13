@@ -1,14 +1,12 @@
 package app
 
 import (
-	"bufio"
-	"bytes"
-	"io"
 	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/variantdev/vals"
+	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -54,34 +52,8 @@ func TestApply_hooks(t *testing.T) {
 			ReleasesMutex:        &sync.Mutex{},
 		}
 
-		bs := &bytes.Buffer{}
-
-		func() {
+		bs := runWithLogCapture(t, tc.logLevel, func(t *testing.T, logger *zap.SugaredLogger) {
 			t.Helper()
-
-			logReader, logWriter := io.Pipe()
-
-			logFlushed := &sync.WaitGroup{}
-			// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
-			logFlushed.Add(1)
-			go func() {
-				scanner := bufio.NewScanner(logReader)
-				for scanner.Scan() {
-					bs.Write(scanner.Bytes())
-					bs.WriteString("\n")
-				}
-				logFlushed.Done()
-			}()
-
-			defer func() {
-				// This is here to avoid data-trace on bytes buffer `bs` to capture logs
-				if err := logWriter.Close(); err != nil {
-					panic(err)
-				}
-				logFlushed.Wait()
-			}()
-
-			logger := helmexec.NewLogger(logWriter, tc.logLevel)
 
 			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 			if err != nil {
@@ -155,7 +127,7 @@ func TestApply_hooks(t *testing.T) {
 					}
 				}
 			}
-		}()
+		})
 
 		if tc.log != "" {
 			actual := bs.String()
