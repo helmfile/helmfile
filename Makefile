@@ -31,6 +31,7 @@ generate:
 
 fmt:
 	go fmt ${PKGS}
+	gci write --skip-generated -s standard -s default -s 'prefix(github.com/helmfile/helmfile)' .
 .PHONY: fmt
 
 check:
