@@ -34,7 +34,7 @@ jobs:
     - name: Build
       run: make build build-test-tools
     - name: Test
-      run: make check pristine test
+      run: make check test
 
     - name: Prepare tar to upload built binaries
       run: tar -cvf built-binaries.tar helmfile diff-yamls yamldiff
