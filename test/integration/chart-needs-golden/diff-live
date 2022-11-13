@@ -1,3 +1,9 @@
+"azuredisk-csi-driver" has been added to your repositories
+********************
+
+	Release was not present in Helm.  Diff will show entire contents as new.
+
+********************
 ********************
 
 	Release was not present in Helm.  Diff will show entire contents as new.
@@ -18,13 +24,6 @@ helmfile-tests, managed-csi, StorageClass (storage.k8s.io) has been added:
 + reclaimPolicy: Retain
 + volumeBindingMode: Immediate
 + allowVolumeExpansion: true
-
-Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver
-********************
-
-	Release was not present in Helm.  Diff will show entire contents as new.
-
-********************
 helmfile-tests, azuredisk-csi-attacher-binding, ClusterRoleBinding (rbac.authorization.k8s.io) has been added:
 - 
 + # Source: azuredisk-csi-driver/templates/rbac-csi-azuredisk-controller.yaml
@@ -959,4 +958,4 @@ helmfile-tests, disk.csi.azure.com, CSIDriver (storage.k8s.io) has been added:
 +   attachRequired: true
 +   podInfoOnMount: false
 +   fsGroupPolicy: File
-
+Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver

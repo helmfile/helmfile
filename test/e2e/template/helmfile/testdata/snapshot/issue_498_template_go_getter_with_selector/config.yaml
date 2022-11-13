@@ -1,0 +1,5 @@
+chartifyTempDir: template_go_getter_with_selector_temp
+helmfileArgs:
+- template
+- -l
+- name=acme-jx

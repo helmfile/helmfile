@@ -1051,7 +1051,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
 		// releases that are (1) selected by the selectors and (2) to be installed.
-		selected, err = st.GetSelectedReleasesWithOverrides(opts.IncludeTransitiveNeeds)
+		selected, err = st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
 		if err != nil {
 			return nil, []error{err}
 		}
@@ -2079,9 +2079,9 @@ func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
 	return rs
 }
 
-func (st *HelmState) SelectReleasesWithOverrides(includeTransitiveNeeds bool) ([]Release, error) {
+func (st *HelmState) SelectReleases(includeTransitiveNeeds bool) ([]Release, error) {
 	values := st.Values()
-	rs, err := markExcludedReleases(st.GetReleasesWithOverrides(), st.Selectors, st.CommonLabels, values, includeTransitiveNeeds)
+	rs, err := markExcludedReleases(st.Releases, st.Selectors, st.CommonLabels, values, includeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
@@ -2200,8 +2200,8 @@ func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec,
 	}
 }
 
-func (st *HelmState) GetSelectedReleasesWithOverrides(includeTransitiveNeeds bool) ([]ReleaseSpec, error) {
-	filteredReleases, err := st.SelectReleasesWithOverrides(includeTransitiveNeeds)
+func (st *HelmState) GetSelectedReleases(includeTransitiveNeeds bool) ([]ReleaseSpec, error) {
+	filteredReleases, err := st.SelectReleases(includeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
@@ -2217,7 +2217,7 @@ func (st *HelmState) GetSelectedReleasesWithOverrides(includeTransitiveNeeds boo
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
 func (st *HelmState) FilterReleases(includeTransitiveNeeds bool) error {
-	releases, err := st.GetSelectedReleasesWithOverrides(includeTransitiveNeeds)
+	releases, err := st.GetSelectedReleases(includeTransitiveNeeds)
 	if err != nil {
 		return err
 	}
@@ -2305,7 +2305,7 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 
 		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
 		// releases that are (1) selected by the selectors and (2) to be installed.
-		selected, err = st.GetSelectedReleasesWithOverrides(includeTransitiveNeeds)
+		selected, err = st.GetSelectedReleases(includeTransitiveNeeds)
 		if err != nil {
 			return []error{err}
 		}
