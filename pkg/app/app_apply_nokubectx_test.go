@@ -52,7 +52,7 @@ func TestApply_3(t *testing.T) {
 			ReleasesMutex:        &sync.Mutex{},
 		}
 
-		bs := runWithLogCapture(t, func(t *testing.T, logger *zap.SugaredLogger) {
+		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
 			t.Helper()
 
 			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
