@@ -1,16 +1,14 @@
 package app
 
 import (
-	"bufio"
 	"bytes"
-	"io"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/variantdev/vals"
+	"go.uber.org/zap"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -30,34 +28,8 @@ func testListWithEnvironment(t *testing.T, cfg configImpl) {
 	check := func(t *testing.T, tc testcase, cfg configImpl) {
 		t.Helper()
 
-		bs := &bytes.Buffer{}
-
-		func() {
+		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
 			t.Helper()
-
-			logReader, logWriter := io.Pipe()
-
-			logFlushed := &sync.WaitGroup{}
-			// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
-			logFlushed.Add(1)
-			go func() {
-				scanner := bufio.NewScanner(logReader)
-				for scanner.Scan() {
-					bs.Write(scanner.Bytes())
-					bs.WriteString("\n")
-				}
-				logFlushed.Done()
-			}()
-
-			defer func() {
-				// This is here to avoid data-trace on bytes buffer `bs` to capture logs
-				if err := logWriter.Close(); err != nil {
-					panic(err)
-				}
-				logFlushed.Wait()
-			}()
-
-			logger := helmexec.NewLogger(logWriter, "debug")
 
 			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 			if err != nil {
@@ -178,7 +150,7 @@ releases:
 			}
 
 			assert.Equal(t, tc.expected, out)
-		}()
+		})
 
 		testhelper.RequireLog(t, "app_list_test", bs)
 	}
