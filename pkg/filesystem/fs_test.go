@@ -4,30 +4,19 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path"
 	"strings"
 	"testing"
-	"time"
 )
-
-type TestFileInfo struct {
-	mode fs.FileMode
-}
-
-func (tfi TestFileInfo) Name() string       { return "" }
-func (tfi TestFileInfo) Size() int64        { return 0 }
-func (tfi TestFileInfo) Mode() fs.FileMode  { return tfi.mode }
-func (tfi TestFileInfo) ModTime() time.Time { return time.Time{} }
-func (tfi TestFileInfo) IsDir() bool        { return tfi.mode.IsDir() }
-func (tfi TestFileInfo) Sys() any           { return nil }
 
 func NewTestFileSystem() FileSystem {
 	replaceffs := FileSystem{
 		Stat: func(s string) (os.FileInfo, error) {
 			if strings.HasPrefix(s, "existing_file") {
-				return TestFileInfo{mode: 0}, nil
+				return fileStat{mode: 0}, nil
 			}
 			if strings.HasPrefix(s, "existing_dir") {
-				return TestFileInfo{mode: fs.ModeDir}, nil
+				return fileStat{mode: fs.ModeDir}, nil
 			}
 			return nil, errors.New("Error")
 		},
@@ -45,6 +34,12 @@ func TestFs_fileExistsDefault(t *testing.T) {
 	exists, _ = ffs.FileExists("non_existing_file.txt")
 	if exists {
 		t.Errorf("Not expected file %s, found", "non_existing_file.txt")
+	}
+
+	dfs := DefaultFileSystem()
+	exists, _ = dfs.FileExists("-")
+	if !exists {
+		t.Errorf("Not expected file %s, not found", "-")
 	}
 }
 
@@ -65,6 +60,12 @@ func TestFs_fileExistsAtDefault(t *testing.T) {
 	if exists {
 		t.Errorf("Not expected file %s, found", "existing_dir")
 	}
+
+	dfs := DefaultFileSystem()
+	exists = dfs.FileExistsAt("-")
+	if !exists {
+		t.Errorf("Not expected file %s, not found", "-")
+	}
 }
 
 func TestFs_directoryExistsDefault(t *testing.T) {
@@ -77,6 +78,61 @@ func TestFs_directoryExistsDefault(t *testing.T) {
 	exists = ffs.DirectoryExistsAt("not_existing_dir")
 	if exists {
 		t.Errorf("Not expected file %s, found", "existing_dir")
+	}
+}
+
+func TestFsTeadFile(t *testing.T) {
+	cases := []struct {
+		name      string
+		content   []byte
+		path      string
+		wantError string
+	}{
+		{
+			name:    "read file",
+			content: []byte("hello helmfile"),
+			path:    "helmfile.yaml",
+		},
+		{
+			name:    "read file from stdin",
+			content: []byte("hello helmfile"),
+			path:    "-",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := t.TempDir()
+			yamlPath := path.Join(dir, c.path)
+
+			dfs := DefaultFileSystem()
+			tmpfile, err := os.Create(yamlPath)
+			if err != nil {
+				t.Errorf("create file %s error: %v", yamlPath, err)
+			}
+			_, err = tmpfile.Write(c.content)
+			if err != nil {
+				t.Errorf(" write to file %s error: %v", yamlPath, err)
+			}
+			readPath := yamlPath
+			if c.path == "-" {
+				readPath = c.path
+				oldOsStdin := os.Stdin
+				defer func() { os.Stdin = oldOsStdin }()
+				os.Stdin = tmpfile
+			}
+			if _, err = tmpfile.Seek(0, 0); err != nil {
+				t.Errorf("file %s seek error: %v", yamlPath, err)
+			}
+
+			want, err := dfs.readFile(readPath)
+			if err != nil {
+				t.Errorf("read file %s error: %v", readPath, err)
+			} else {
+				if string(c.content) != string(want) {
+					t.Errorf("nexpected error: unexpected=%s, got=%v", string(c.content), string(want))
+				}
+			}
+		})
 	}
 }
 
