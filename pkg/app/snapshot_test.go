@@ -1,14 +1,55 @@
 package app
 
 import (
+	"bufio"
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
+
+func runWithLogCapture(t *testing.T, f func(*testing.T, *zap.SugaredLogger)) *bytes.Buffer {
+	t.Helper()
+
+	bs := &bytes.Buffer{}
+
+	logReader, logWriter := io.Pipe()
+
+	logFlushed := &sync.WaitGroup{}
+	// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
+	logFlushed.Add(1)
+	go func() {
+		scanner := bufio.NewScanner(logReader)
+		for scanner.Scan() {
+			bs.Write(scanner.Bytes())
+			bs.WriteString("\n")
+		}
+		logFlushed.Done()
+	}()
+
+	defer func() {
+		// This is here to avoid data-trace on bytes buffer `bs` to capture logs
+		if err := logWriter.Close(); err != nil {
+			panic(err)
+		}
+		logFlushed.Wait()
+	}()
+
+	logger := helmexec.NewLogger(logWriter, "debug")
+
+	f(t, logger)
+
+	return bs
+}
 
 func assertLogEqualsToSnapshot(t *testing.T, data string) {
 	t.Helper()
