@@ -121,11 +121,13 @@ type SubhelmfileEnvironmentSpec struct {
 
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
-	KubeContext     string   `yaml:"kubeContext,omitempty"`
-	TillerNamespace string   `yaml:"tillerNamespace,omitempty"`
-	Tillerless      bool     `yaml:"tillerless"`
-	Args            []string `yaml:"args,omitempty"`
-	Verify          bool     `yaml:"verify"`
+	KubeContext      string   `yaml:"kubeContext,omitempty"`
+	TillerNamespace  string   `yaml:"tillerNamespace,omitempty"`
+	Tillerless       bool     `yaml:"tillerless"`
+	Args             []string `yaml:"args,omitempty"`
+	PostRenderer     string   `yaml:"postRenderer,omitempty"`
+	PostRendererArgs []string `yaml:"postRendererArgs,omitempty"`
+	Verify           bool     `yaml:"verify"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful

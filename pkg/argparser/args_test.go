@@ -35,6 +35,14 @@ func TestGetArgs(t *testing.T) {
 			defaultArgs: []string{"--recreate-pods", "--force"},
 			expected:    "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --tiller-namespace ns --recreate-pods --force",
 		},
+		{
+			args:     "--post-renderer=aaa --post-renderer-args=bbb",
+			expected: "--post-renderer=aaa --post-renderer-args=bbb",
+		},
+		{
+			args:     "--post-renderer aaa --post-renderer-args bbb",
+			expected: "--post-renderer aaa --post-renderer-args bbb",
+		},
 	}
 	for _, test := range tests {
 		Helmdefaults := state.HelmSpec{KubeContext: "test", TillerNamespace: "test-namespace", Args: test.defaultArgs}
@@ -44,6 +52,38 @@ func TestGetArgs(t *testing.T) {
 			},
 		}
 		receivedArgs := GetArgs(test.args, testState)
+
+		require.Equalf(t, test.expected, strings.Join(receivedArgs, " "), "expected args %s, received args %s", test.expected, strings.Join(receivedArgs, " "))
+	}
+}
+
+func TestGetArgs_PostRenderer(t *testing.T) {
+	tests := []struct {
+		postRenderer     string
+		PostRendererArgs []string
+		expected         string
+	}{
+		{
+			postRenderer:     "sed",
+			PostRendererArgs: []string{"-i", "s/aaa/bb/g"},
+			expected:         "--post-renderer=\"sed\" --post-renderer-args=\"-i\" --post-renderer-args=\"s/aaa/bb/g\"",
+		},
+
+		{
+			postRenderer:     "sed",
+			PostRendererArgs: []string{"-i", "s/aa a/b b/g"},
+			expected:         "--post-renderer=\"sed\" --post-renderer-args=\"-i\" --post-renderer-args=\"s/aa a/b b/g\"",
+		},
+	}
+
+	for _, test := range tests {
+		Helmdefaults := state.HelmSpec{KubeContext: "test", TillerNamespace: "test-namespace", PostRenderer: test.postRenderer, PostRendererArgs: test.PostRendererArgs}
+		testState := &state.HelmState{
+			ReleaseSetSpec: state.ReleaseSetSpec{
+				HelmDefaults: Helmdefaults,
+			},
+		}
+		receivedArgs := GetArgs("", testState)
 
 		require.Equalf(t, test.expected, strings.Join(receivedArgs, " "), "expected args %s, received args %s", test.expected, strings.Join(receivedArgs, " "))
 	}
