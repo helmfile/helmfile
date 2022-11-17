@@ -150,6 +150,8 @@ type HelmSpec struct {
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
 	SkipDeps bool `yaml:"skipDeps"`
+	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
+	ReuseValues bool `yaml:"reuseValues"`
 
 	TLS                      bool   `yaml:"tls"`
 	TLSCACert                string `yaml:"tlsCACert,omitempty"`
@@ -584,7 +586,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--wait-for-jobs")
 				}
 
-				if opts.ReuseValues {
+				if opts.ReuseValues || st.HelmDefaults.ReuseValues {
 					flags = append(flags, "--reuse-values")
 				} else {
 					flags = append(flags, "--reset-values")
@@ -1757,7 +1759,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--output", opt.Output)
 				}
 
-				if opt.ReuseValues {
+				if opt.ReuseValues || st.HelmDefaults.ReuseValues {
 					flags = append(flags, "--reuse-values")
 				} else {
 					flags = append(flags, "--reset-values")
