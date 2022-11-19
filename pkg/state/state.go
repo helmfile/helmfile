@@ -1628,6 +1628,62 @@ type diffPrepareResult struct {
 	upgradeDueToSkippedDiff bool
 }
 
+func (st *HelmState) commonDiffFlags(detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
+	var flags []string
+
+	if detailedExitCode {
+		flags = append(flags, "--detailed-exitcode")
+	}
+
+	if includeTests {
+		flags = append(flags, "--include-tests")
+	}
+
+	for _, s := range suppress {
+		flags = append(flags, "--suppress", s)
+	}
+
+	if suppressSecrets {
+		flags = append(flags, "--suppress-secrets")
+	}
+
+	if showSecrets {
+		flags = append(flags, "--show-secrets")
+	}
+
+	if noHooks {
+		flags = append(flags, "--no-hooks")
+	}
+
+	if opt.NoColor {
+		flags = append(flags, "--no-color")
+	} else if opt.Color {
+		flags = append(flags, "--color")
+	}
+
+	if opt.Context > 0 {
+		flags = append(flags, "--context", fmt.Sprintf("%d", opt.Context))
+	}
+
+	if opt.Output != "" {
+		flags = append(flags, "--output", opt.Output)
+	}
+
+	if opt.ReuseValues || st.HelmDefaults.ReuseValues {
+		flags = append(flags, "--reuse-values")
+	} else {
+		flags = append(flags, "--reset-values")
+	}
+
+	if opt.Set != nil {
+		for _, s := range opt.Set {
+			flags = append(flags, "--set", s)
+		}
+	}
+
+	return flags
+}
+
 func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opts ...DiffOpt) ([]diffPrepareResult, []error) {
 	opt := &DiffOpts{}
 	for _, o := range opts {
@@ -1672,6 +1728,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan diffPrepareResult, numReleases)
 	resultsMap := map[string]diffPrepareResult{}
+	commonDiffFlags := st.commonDiffFlags(detailedExitCode, includeTests, suppress, suppressSecrets, showSecrets, noHooks, opt)
 
 	rs := []diffPrepareResult{}
 	errs := []error{}
@@ -1721,55 +1778,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--values", valfile)
 				}
 
-				if detailedExitCode {
-					flags = append(flags, "--detailed-exitcode")
-				}
-
-				if includeTests {
-					flags = append(flags, "--include-tests")
-				}
-
-				for _, s := range suppress {
-					flags = append(flags, "--suppress", s)
-				}
-
-				if suppressSecrets {
-					flags = append(flags, "--suppress-secrets")
-				}
-
-				if showSecrets {
-					flags = append(flags, "--show-secrets")
-				}
-
-				if noHooks {
-					flags = append(flags, "--no-hooks")
-				}
-
-				if opt.NoColor {
-					flags = append(flags, "--no-color")
-				} else if opt.Color {
-					flags = append(flags, "--color")
-				}
-
-				if opt.Context > 0 {
-					flags = append(flags, "--context", fmt.Sprintf("%d", opt.Context))
-				}
-
-				if opt.Output != "" {
-					flags = append(flags, "--output", opt.Output)
-				}
-
-				if opt.ReuseValues || st.HelmDefaults.ReuseValues {
-					flags = append(flags, "--reuse-values")
-				} else {
-					flags = append(flags, "--reset-values")
-				}
-
-				if opt.Set != nil {
-					for _, s := range opt.Set {
-						flags = append(flags, "--set", s)
-					}
-				}
+				flags = append(flags, commonDiffFlags...)
 
 				if len(errs) > 0 {
 					rsErrs := make([]*ReleaseError, len(errs))
