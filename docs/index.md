@@ -213,6 +213,8 @@ helmDefaults:
   # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
   # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
   skipDeps: false
+  # if set to true, reuses the last release's values and merges them with ones provided in helmfile.
+  reuseValues: false
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:

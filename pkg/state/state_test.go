@@ -2507,9 +2507,10 @@ func TestHelmState_Delete(t *testing.T) {
 
 func TestDiffpareSyncReleases(t *testing.T) {
 	tests := []struct {
-		name        string
-		flags       []string
-		diffOptions *DiffOpts
+		name         string
+		flags        []string
+		diffOptions  *DiffOpts
+		helmDefaults *HelmSpec
 	}{
 		{
 			name:  "reuse-values",
@@ -2517,11 +2518,21 @@ func TestDiffpareSyncReleases(t *testing.T) {
 			diffOptions: &DiffOpts{
 				ReuseValues: true,
 			},
+			helmDefaults: &HelmSpec{},
 		},
 		{
-			name:        "reset-values",
-			flags:       []string{"--reset-values"},
+			name:         "reset-values",
+			flags:        []string{"--reset-values"},
+			diffOptions:  &DiffOpts{},
+			helmDefaults: &HelmSpec{},
+		},
+		{
+			name:        "default-reuse-values",
+			flags:       []string{"--reuse-values"},
 			diffOptions: &DiffOpts{},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
 		},
 	}
 
@@ -2534,7 +2545,8 @@ func TestDiffpareSyncReleases(t *testing.T) {
 		}
 		state := &HelmState{
 			ReleaseSetSpec: ReleaseSetSpec{
-				Releases: releases,
+				Releases:     releases,
+				HelmDefaults: *tt.helmDefaults,
 			},
 			logger:      logger,
 			valsRuntime: valsRuntime,
@@ -2555,9 +2567,10 @@ func TestDiffpareSyncReleases(t *testing.T) {
 
 func TestPrepareSyncReleases(t *testing.T) {
 	tests := []struct {
-		name        string
-		flags       []string
-		syncOptions *SyncOpts
+		name         string
+		flags        []string
+		syncOptions  *SyncOpts
+		helmDefaults *HelmSpec
 	}{
 		{
 			name:  "reuse-values",
@@ -2565,11 +2578,21 @@ func TestPrepareSyncReleases(t *testing.T) {
 			syncOptions: &SyncOpts{
 				ReuseValues: true,
 			},
+			helmDefaults: &HelmSpec{},
 		},
 		{
-			name:        "reset-values",
-			flags:       []string{"--reset-values"},
+			name:         "reset-values",
+			flags:        []string{"--reset-values"},
+			syncOptions:  &SyncOpts{},
+			helmDefaults: &HelmSpec{},
+		},
+		{
+			name:        "reuse-default-values",
+			flags:       []string{"--reuse-values"},
 			syncOptions: &SyncOpts{},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
 		},
 	}
 
@@ -2582,7 +2605,8 @@ func TestPrepareSyncReleases(t *testing.T) {
 		}
 		state := &HelmState{
 			ReleaseSetSpec: ReleaseSetSpec{
-				Releases: releases,
+				Releases:     releases,
+				HelmDefaults: *tt.helmDefaults,
 			},
 			logger:      logger,
 			valsRuntime: valsRuntime,
