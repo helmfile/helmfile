@@ -8,7 +8,7 @@ templates:
 
 releases:
   - name: httpbin
-    chart: ./charts/httpbin
+    chart: ../../../charts/httpbin
     <<: *default
     values:
       - image:
