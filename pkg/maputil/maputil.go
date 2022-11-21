@@ -103,7 +103,7 @@ func (a indexedKeyArg) getArray(m map[string]interface{}) []interface{} {
 	case []interface{}:
 		if len(t) <= a.index {
 			t2 := make([]interface{}, a.index+1)
-			copy(t, t2)
+			copy(t2, t)
 			t = t2
 		}
 		return t
