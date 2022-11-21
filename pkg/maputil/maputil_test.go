@@ -1,6 +1,10 @@
 package maputil
 
-import "testing"
+import (
+	"reflect"
+	"strings"
+	"testing"
+)
 
 func TestMapUtil_StrKeys(t *testing.T) {
 	m := map[string]interface{}{
@@ -85,6 +89,48 @@ func TestMapUtil_IndexedKeyArg(t *testing.T) {
 
 	if c != "C" {
 		t.Errorf("unexpected c: expected=C, got=%s", c)
+	}
+}
+
+func TestMapUtil_IndexedKeyArg2(t *testing.T) {
+	cases := []struct {
+		name           string
+		stateValuesSet []string
+		want           map[string]interface{}
+	}{
+		{
+			name:           "IndexedKeyArg",
+			stateValuesSet: []string{"myvalues[0]=HELLO,myvalues[1]=HELMFILE"},
+			want:           map[string]interface{}{"myvalues": []interface{}{"HELLO", "HELMFILE"}},
+		},
+		{
+			name:           "two state value",
+			stateValuesSet: []string{"myvalues[0]=HELLO,myvalues[1]=HELMFILE", "myvalues[2]=HELLO"},
+			want:           map[string]interface{}{"myvalues": []interface{}{"HELLO", "HELMFILE", "HELLO"}},
+		},
+		{
+			name:           "different key",
+			stateValuesSet: []string{"myvalues[0]=HELLO,key2[0]=HELMFILE", "myvalues[1]=HELLO2"},
+			want:           map[string]interface{}{"myvalues": []interface{}{"HELLO", "HELLO2"}, "key2": []interface{}{"HELMFILE"}},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			set := map[string]interface{}{}
+			for i := range c.stateValuesSet {
+				ops := strings.Split(c.stateValuesSet[i], ",")
+				for j := range ops {
+					op := strings.SplitN(ops[j], "=", 2)
+					k := ParseKey(op[0])
+					v := op[1]
+
+					Set(set, k, v)
+				}
+			}
+			if !reflect.DeepEqual(set, c.want) {
+				t.Errorf("expected set %v, got %v", c.want, set)
+			}
+		})
 	}
 }
 
