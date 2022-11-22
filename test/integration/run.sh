@@ -89,7 +89,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/regression.sh
 . ${dir}/test-cases/secretssops.sh
 . ${dir}/test-cases/yaml-overwrite.sh
-. ${dir}/ctest-cases/chart-needs.sh
+. ${dir}/test-cases/chart-needs.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 
