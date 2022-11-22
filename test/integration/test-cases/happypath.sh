@@ -27,6 +27,23 @@ for output in $(ls -d ${dir}/tmp/*); do
     done
 done
 
+info "Templating ${dir}/happypath.yaml from stdin"
+pushd ${dir}
+rm -rf ./tmp
+cat ./happypath.yaml | ../../${helmfile} -f - --debug template --output-dir tmp
+code=$?
+[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
+for output in $(ls -d ./tmp/*); do
+    # e.g. test/integration/tmp/happypath-877c0dd4-helmx/helmx
+    for release_dir in $(ls -d ${output}/*); do
+        release_name=$(basename ${release_dir})
+        golden_dir=./templates-golden/v${helm_major_version}/${release_name}
+        info "Comparing template output ${release_dir}/templates with ${golden_dir}"
+        ../../diff-yamls ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
+    done
+done
+popd
+
 info "Applying ${dir}/happypath.yaml"
 bash -c "${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode; code="'$?'"; echo Code: "'$code'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile apply"
 
@@ -40,6 +57,13 @@ info "Applying ${dir}/happypath.yaml"
 ${helmfile} -f ${dir}/happypath.yaml apply --detailed-exitcode
 code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
+
+info "Applying ${dir}/happypath.yaml from stdin"
+pushd ${dir}
+cat ./happypath.yaml | ../../${helmfile} -f - apply --detailed-exitcode
+code=$?
+[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
+popd
 
 info "Locking dependencies"
 ${helmfile} -f ${dir}/happypath.yaml deps

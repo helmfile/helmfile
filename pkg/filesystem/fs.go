@@ -1,10 +1,26 @@
 package filesystem
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 )
+
+type fileStat struct {
+	name    string
+	size    int64
+	mode    fs.FileMode
+	modTime time.Time
+}
+
+func (fs fileStat) Name() string       { return fs.name }
+func (fs fileStat) Size() int64        { return fs.size }
+func (fs fileStat) Mode() fs.FileMode  { return fs.mode }
+func (fs fileStat) ModTime() time.Time { return fs.modTime }
+func (fs fileStat) IsDir() bool        { return fs.mode.IsDir() }
+func (fs fileStat) Sys() any           { return nil }
 
 type FileSystem struct {
 	ReadFile          func(string) ([]byte, error)
@@ -22,7 +38,6 @@ type FileSystem struct {
 
 func DefaultFileSystem() *FileSystem {
 	dfs := FileSystem{
-		ReadFile:   os.ReadFile,
 		ReadDir:    os.ReadDir,
 		DeleteFile: os.Remove,
 		Stat:       os.Stat,
@@ -32,6 +47,8 @@ func DefaultFileSystem() *FileSystem {
 		Abs:        filepath.Abs,
 	}
 
+	dfs.Stat = dfs.stat
+	dfs.ReadFile = dfs.readFile
 	dfs.FileExistsAt = dfs.fileExistsAtDefault
 	dfs.DirectoryExistsAt = dfs.directoryExistsDefault
 	dfs.FileExists = dfs.fileExistsDefault
@@ -76,6 +93,20 @@ func FromFileSystem(params FileSystem) *FileSystem {
 	}
 
 	return dfs
+}
+
+func (filesystem *FileSystem) stat(name string) (os.FileInfo, error) {
+	if name == "-" {
+		return fileStat{mode: 0}, nil
+	}
+	return os.Stat(name)
+}
+
+func (filesystem *FileSystem) readFile(name string) ([]byte, error) {
+	if name == "-" {
+		return io.ReadAll(os.Stdin)
+	}
+	return os.ReadFile(name)
 }
 
 func (filesystem *FileSystem) fileExistsAtDefault(path string) bool {

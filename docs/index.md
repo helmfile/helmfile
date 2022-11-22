@@ -530,7 +530,7 @@ Flags:
       --enable-live-output              Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
                                         It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.
   -e, --environment string              specify the environment name. defaults to "default"
-  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
+  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference. Specify - to load the config from the standard input.
   -b, --helm-binary string              Path to the helm binary (default "helm")
   -h, --help                            help for helmfile
   -i, --interactive                     Request confirmation before attempting to modify clusters
@@ -655,6 +655,7 @@ A few rules to clear up this ambiguity:
 * Absolute paths are always resolved as absolute paths
 * Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
 * Relative paths referenced on the command line are relative to the current working directory the user is in
+- Relative paths referenced from within the helmfile loaded from the standard input using `helmfile -f -` are relative to the current working directory
 
 For additional context, take a look at [paths examples](paths.md).
 
