@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-metadata:
   name: {{ template "httpbin.fullname" . }}
   labels:
     app: {{ template "httpbin.name" . }}
