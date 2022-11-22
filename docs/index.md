@@ -653,7 +653,7 @@ A few rules to clear up this ambiguity:
 * Absolute paths are always resolved as absolute paths
 * Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
 * Relative paths referenced on the command line are relative to the current working directory the user is in
-* Relative paths referenced on use `helmfile -f -` to read the yaml from the standard input are relative to the current working directory
+- Relative paths referenced from within the helmfile loaded from the standard input using `helmfile -f -` are relative to the current working directory
 
 For additional context, take a look at [paths examples](paths.md).
 
