@@ -1,6 +1,6 @@
 if [[ helm_major_version -eq 3 ]]; then
-  chart_need_case_input_dir="${cases_dir}/issue.455/input"
-  chart_need_case_output_dir="${cases_dir}/issue.455/output"
+  chart_need_case_input_dir="${cases_dir}/chart-needs/input"
+  chart_need_case_output_dir="${cases_dir}/chart-needs/output"
 
   chart_needs_tmp=$(mktemp -d)
   chart_needs_template_reverse=${chart_needs_tmp}/chart.needs.template.log

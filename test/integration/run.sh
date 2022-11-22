@@ -21,7 +21,7 @@ helmfile="./helmfile ${EXTRA_HELMFILE_FLAGS} --namespace=${test_ns}"
 helm="helm --kube-context=minikube"
 kubectl="kubectl --context=minikube --namespace=${test_ns}"
 helm_dir="${PWD}/${dir}/.helm"
-cases_dir="${dir}/cases"
+cases_dir="${dir}/test-cases"
 export HELM_DATA_HOME="${helm_dir}/data"
 export HELM_HOME="${HELM_DATA_HOME}"
 export HELM_PLUGINS="${HELM_DATA_HOME}/plugins"
@@ -85,11 +85,11 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
-. ${dir}/cases-scripts/happypath.sh
-. ${dir}/cases-scripts/regression.sh
-. ${dir}/cases-scripts/secretssops.sh
-. ${dir}/cases-scripts/yaml-overwrite.sh
-. ${dir}/cases-scripts/chart-needs.sh
+. ${dir}/test-cases/happypath.sh
+. ${dir}/test-cases/regression.sh
+. ${dir}/test-cases/secretssops.sh
+. ${dir}/test-cases/yaml-overwrite.sh
+. ${dir}/ctest-cases/chart-needs.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 
