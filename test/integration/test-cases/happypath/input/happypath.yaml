@@ -13,7 +13,7 @@ helmDefaults:
 releases:
 
   - name: httpbin
-    chart: ./charts/httpbin
+    chart: ../../../charts/httpbin
     set:
       - name: ingress.enabled
         value: false
@@ -34,7 +34,7 @@ releases:
       - values.yaml
 
   - name: helmx
-    chart: ./charts/helmx
+    chart: ../../../charts/helmx
     namespace: helmx-system
     jsonPatches:
       - target:

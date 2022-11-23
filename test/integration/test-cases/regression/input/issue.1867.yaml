@@ -15,4 +15,3 @@ releases:
       - op: add
         path: /spec/template/spec/containers/0/volumeMounts/0/subPathExpr
         value: elasticsearch/$(MY_POD_NAME)
-  
