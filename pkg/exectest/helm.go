@@ -78,7 +78,7 @@ func (helm *Helm) UpdateDeps(chart string) error {
 	return nil
 }
 
-func (helm *Helm) BuildDeps(name, chart string) error {
+func (helm *Helm) BuildDeps(name, chart string, flags ...string) error {
 	if strings.Contains(chart, "error") {
 		return errors.New("error")
 	}

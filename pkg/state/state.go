@@ -1010,6 +1010,7 @@ type chartPrepareResult struct {
 	chartPath              string
 	err                    error
 	buildDeps              bool
+	skipRefresh            bool
 	chartFetchedByGoGetter bool
 }
 
@@ -1258,6 +1259,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					releaseContext:         release.KubeContext,
 					chartPath:              chartPath,
 					buildDeps:              buildDeps,
+					skipRefresh:            !isLocal,
 					chartFetchedByGoGetter: chartFetchedByGoGetter,
 				}
 			}
@@ -1309,7 +1311,8 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
 	for _, r := range builds {
-		if err := helm.BuildDeps(r.releaseName, r.chartPath); err != nil {
+		buildDepsFlags := getBuildDepsFlags(helm, r)
+		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {
 			if r.chartFetchedByGoGetter {
 				diagnostic := fmt.Sprintf(
 					"WARN: `helm dep build` failed. While processing release %q, Helmfile observed that remote chart %q fetched by go-getter is seemingly broken. "+
