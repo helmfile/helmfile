@@ -47,7 +47,7 @@ if [[ helm_major_version -eq 3 ]]; then
   for i in $(seq 10); do
       info "Comparing build/direct #$i"
       ${helmfile} -f ${secretssops_case_input_dir}/secretssops.yaml -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
-      ./yamldiff ${secretssops_case_output_dir}/direct.build.yaml ${direct} || fail "\"helmfile template\" should be consistent"
+      ./dyff between -bs ${secretssops_case_output_dir}/direct.build.yaml ${direct} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
 
@@ -55,7 +55,7 @@ if [[ helm_major_version -eq 3 ]]; then
   for i in $(seq 10); do
       info "Comparing build/reverse #$i"
       ${helmfile} -f ${secretssops_case_input_dir}/secretssops.yaml -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
-      ./yamldiff ${secretssops_case_output_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
+      ./dyff between -bs ${secretssops_case_output_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
 
