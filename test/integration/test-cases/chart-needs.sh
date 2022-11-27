@@ -21,7 +21,7 @@ if [[ helm_major_version -eq 3 ]]; then
   for i in $(seq 10); do
       info "Comparing template/chart-needs #$i"
       ${helmfile} -f ${chart_need_case_input_dir}/helmfile.yaml template --include-needs > ${chart_needs_template_reverse} || fail "\"helmfile template\" shouldn't fail"
-      ./yamldiff ${chart_need_case_output_dir}/template ${chart_needs_template_reverse} || fail "\"helmfile template\" should be consistent"
+      ./dyff between -bs ${chart_need_case_output_dir}/template ${chart_needs_template_reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
 
