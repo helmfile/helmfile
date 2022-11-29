@@ -3,7 +3,7 @@ module github.com/helmfile/helmfile
 go 1.19
 
 require (
-	github.com/Masterminds/semver/v3 v3.1.1
+	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/davecgh/go-spew v1.1.1
