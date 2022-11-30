@@ -2328,14 +2328,35 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 
 	var errs []error
 
+	// Assemble a list of unique dependencies to get to avoid
+	// fetching multiple copies of the same dependency
+	uniqueChartPathOrNames := make(map[string]struct{}, 0)
 	for _, release := range releases {
 		if st.fs.DirectoryExistsAt(release.ChartPathOrName()) {
-			if err := helm.UpdateDeps(release.ChartPathOrName()); err != nil {
-				errs = append(errs, err)
-			}
+			uniqueChartPathOrNames[release.ChartPathOrName()] = struct{}{}
 		} else {
 			st.logger.Debugf("skipped updating dependencies for remote chart %s", release.Chart)
 		}
+	}
+
+	// Fetch these dependencies in parallel
+	var depWaitGroup sync.WaitGroup
+	depErrChan := make(chan error)
+
+	for cp := range uniqueChartPathOrNames {
+		depWaitGroup.Add(1)
+		go func(chartPathOrName string, errChan chan error, wg *sync.WaitGroup) {
+			if err := helm.UpdateDeps(chartPathOrName); err != nil {
+				errChan <- err
+			}
+			wg.Done()
+		}(cp, depErrChan, &depWaitGroup)
+	}
+
+	depWaitGroup.Wait()
+	close(depErrChan)
+	for err := range depErrChan {
+		errs = append(errs, err)
 	}
 
 	if len(errs) == 0 {
