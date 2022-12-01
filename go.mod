@@ -24,7 +24,7 @@ require (
 	github.com/variantdev/vals v0.20.0
 	go.szostok.io/version v1.1.0
 	go.uber.org/multierr v1.6.0
-	go.uber.org/zap v1.23.0
+	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	golang.org/x/term v0.2.0
 	gopkg.in/yaml.v3 v3.0.1
