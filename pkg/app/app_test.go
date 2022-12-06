@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -3970,32 +3969,8 @@ changing working directory back to "/path/to"
 				ReleasesMutex:        &sync.Mutex{},
 			}
 
-			bs := &bytes.Buffer{}
-
-			func() {
-				logReader, logWriter := io.Pipe()
-
-				logFlushed := &sync.WaitGroup{}
-				// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
-				logFlushed.Add(1)
-				go func() {
-					scanner := bufio.NewScanner(logReader)
-					for scanner.Scan() {
-						bs.Write(scanner.Bytes())
-						bs.WriteString("\n")
-					}
-					logFlushed.Done()
-				}()
-
-				defer func() {
-					// This is here to avoid data-trace on bytes buffer `bs` to capture logs
-					if err := logWriter.Close(); err != nil {
-						panic(err)
-					}
-					logFlushed.Wait()
-				}()
-
-				logger := helmexec.NewLogger(logWriter, "debug")
+			bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
+				t.Helper()
 
 				valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 				if err != nil {
@@ -4067,7 +4042,7 @@ changing working directory back to "/path/to"
 						}
 					}
 				}
-			}()
+			})
 
 			if tc.log != "" {
 				actual := bs.String()
@@ -4157,32 +4132,8 @@ changing working directory back to "/path/to"
 				ReleasesMutex: &sync.Mutex{},
 			}
 
-			bs := &bytes.Buffer{}
-
-			func() {
-				logReader, logWriter := io.Pipe()
-
-				logFlushed := &sync.WaitGroup{}
-				// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
-				logFlushed.Add(1)
-				go func() {
-					scanner := bufio.NewScanner(logReader)
-					for scanner.Scan() {
-						bs.Write(scanner.Bytes())
-						bs.WriteString("\n")
-					}
-					logFlushed.Done()
-				}()
-
-				defer func() {
-					// This is here to avoid data-trace on bytes buffer `bs` to capture logs
-					if err := logWriter.Close(); err != nil {
-						panic(err)
-					}
-					logFlushed.Wait()
-				}()
-
-				logger := helmexec.NewLogger(logWriter, "debug")
+			bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
+				t.Helper()
 
 				app := appWithFs(&App{
 					OverrideHelmBinary:  DefaultHelmBinary,
@@ -4211,7 +4162,7 @@ changing working directory back to "/path/to"
 				if !reflect.DeepEqual(helm.Charts, tc.charts) {
 					t.Fatalf("expected charts %v, got %v", helm.Charts, tc.charts)
 				}
-			}()
+			})
 
 			if tc.log != "" {
 				actual := bs.String()
@@ -4363,11 +4314,11 @@ releases:
 		assert.Nil(t, err)
 	})
 
-	expected := `NAME      	NAMESPACE	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
-myrelease1	         	true   	false    	common:label,id:myrelease1	mychart1	       
-myrelease2	         	false  	true     	common:label              	mychart1	       
-myrelease3	         	true   	true     	                          	mychart1	       
-myrelease4	         	true   	true     	id:myrelease1             	mychart1	       
+	expected := `NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
+myrelease1	testNamespace	true   	false    	common:label,id:myrelease1	mychart1	       
+myrelease2	testNamespace	false  	true     	common:label              	mychart1	       
+myrelease3	testNamespace	true   	true     	                          	mychart1	       
+myrelease4	testNamespace	true   	true     	id:myrelease1             	mychart1	       
 `
 
 	assert.Equal(t, expected, out)

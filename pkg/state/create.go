@@ -58,9 +58,11 @@ type StateCreator struct {
 	enableLiveOutput bool
 
 	remote *remote.Remote
+
+	lockFile string
 }
 
-func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote, enableLiveOutput bool) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string) *StateCreator {
 	return &StateCreator{
 		logger: logger,
 
@@ -73,6 +75,8 @@ func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntim
 		enableLiveOutput:   enableLiveOutput,
 
 		remote: remote,
+
+		lockFile: lockFile,
 	}
 }
 
@@ -83,6 +87,8 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 	state.fs = c.fs
 	state.FilePath = file
 	state.basePath = baseDir
+
+	state.LockFile = c.lockFile
 
 	decoder := yaml.NewDecoder(bytes.NewReader(content))
 

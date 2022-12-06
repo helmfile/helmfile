@@ -1,0 +1,56 @@
+environments:
+  default:
+    values:
+      - environment.values.yaml
+---
+repositories:
+  - name: incubator
+    url: https://charts.helm.sh/incubator
+
+helmDefaults:
+  kubeContext: minikube
+
+releases:
+
+  - name: httpbin
+    chart: ../../../charts/httpbin
+    set:
+      - name: ingress.enabled
+        value: false
+    hooks:
+    - events: ["prepare", "cleanup"]
+      showlogs: true
+      command: "echo"
+      args:
+      - "{{`{{.Environment.Name}}`}}"
+      - "{{`{{.Release.Name}}`}}"
+      - "{{`{{.HelmfileCommand}}`}}"
+
+  - name: raw
+    chart: incubator/raw
+    version: 0.2.3
+    values:
+      - mysecret: {{ .Environment.Values.mysecret }}
+      - values.yaml
+
+  - name: helmx
+    chart: ../../../charts/helmx
+    namespace: helmx-system
+    jsonPatches:
+      - target:
+          version: v1
+          kind: ConfigMap
+          name: release-name
+        patch:
+          - op: add
+            path: /metadata/annotations
+            value:
+              foo: bar
+
+  - name: raw2
+    chart: incubator/raw
+    version: 0.2.3
+    condition: raw2.enabled
+    values:
+      - mysecret: {{ .Environment.Values.mysecret }}
+      - values.yaml

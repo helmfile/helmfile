@@ -31,6 +31,7 @@ generate:
 
 fmt:
 	go fmt ${PKGS}
+	gci write --skip-generated -s standard -s default -s 'prefix(github.com/helmfile/helmfile)' .
 .PHONY: fmt
 
 check:
@@ -39,7 +40,7 @@ check:
 
 build-test-tools:
 	go build test/diff-yamls/diff-yamls.go
-	go build test/yamldiff/yamldiff.go
+	curl --progress-bar --location https://github.com/homeport/dyff/releases/download/v1.5.6/dyff_1.5.6_linux_amd64.tar.gz  | tar -xzf - -C `pwd` dyff
 .PHONY: build-test-tools
 
 test:

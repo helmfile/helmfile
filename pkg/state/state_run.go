@@ -109,7 +109,7 @@ type PlanOptions struct {
 }
 
 func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
-	marked, err := st.SelectReleasesWithOverrides(opts.IncludeTransitiveNeeds)
+	marked, err := st.SelectReleases(opts.IncludeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}

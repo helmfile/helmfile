@@ -3,7 +3,7 @@ dist/
 /helmfile
 /helmfile.lock
 /diff-yamls
-/yamldiff
+/dyff
 test/integration/tmp$
 vendor/
 *.log

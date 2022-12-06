@@ -1062,7 +1062,13 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		}
 	}
 
-	return a.visitStates(fileOrDir, opts, f)
+	// pre-overrides HelmState
+	fHelmStatsWithOverrides := func(st *state.HelmState) (bool, []error) {
+		st.Releases = st.GetReleasesWithOverrides()
+		return f(st)
+	}
+
+	return a.visitStates(fileOrDir, opts, fHelmStatsWithOverrides)
 }
 
 func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
@@ -1073,7 +1079,7 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 		}
 	}
 
-	if err := checkDuplicates(helm, st, st.GetReleasesWithOverrides()); err != nil {
+	if err := checkDuplicates(helm, st, st.Releases); err != nil {
 		return false, []error{err}
 	}
 
@@ -1201,7 +1207,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 }
 
 func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
-	selected, err := r.state.GetSelectedReleasesWithOverrides(includeTransitiveNeeds)
+	selected, err := r.state.GetSelectedReleases(includeTransitiveNeeds)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1219,7 +1225,7 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 		}
 	}
 
-	allReleases := r.state.GetReleasesWithOverrides()
+	allReleases := r.state.Releases
 
 	groupsByID := map[string][]*state.ReleaseSpec{}
 	for _, r := range allReleases {
@@ -1502,8 +1508,6 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 		names[i] = fmt.Sprintf("  %s (%s)", r.Name, r.Chart)
 	}
 
-	st.Releases = st.GetReleasesWithOverrides()
-
 	var errs []error
 
 	msg := fmt.Sprintf(`Affected releases are:
@@ -1608,7 +1612,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	allReleases := st.GetReleasesWithOverrides()
+	allReleases := st.Releases
 
 	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, false)
 	if err != nil {

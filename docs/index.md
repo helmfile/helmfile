@@ -12,7 +12,7 @@
 # Helmfile
 
 [![Tests](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml?query=branch%3Amain)
-[![Container Image Repository on GHCR](https://ghcr-badge.herokuapp.com/helmfile/helmfile/latest_tag?trim=major&label=image%20latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
+[![Container Image Repository on GHCR](https://ghcr-badge.deta.dev/helmfile/helmfile/latest_tag?trim=major&label=latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
 [![Slack Community #helmfile](https://slack.sweetops.com/badge.svg)](https://slack.sweetops.com)
 [![Documentation](https://readthedocs.org/projects/helmfile/badge/?version=latest&style=flat)](https://helmfile.readthedocs.io/en/latest/)
 
@@ -169,6 +169,10 @@ repositories:
 # Path to alternative helm binary (--helm-binary)
 helmBinary: path/to/helm3
 
+
+# Path to alternative lock file. The default is <state file name>.lock, i.e for helmfile.yaml it's helmfile.lock.
+lockFilePath: path/to/lock.file
+
 # Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these.
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
@@ -209,6 +213,8 @@ helmDefaults:
   # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
   # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
   skipDeps: false
+  # if set to true, reuses the last release's values and merges them with ones provided in helmfile.
+  reuseValues: false
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
@@ -524,7 +530,7 @@ Flags:
       --enable-live-output              Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
                                         It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.
   -e, --environment string              specify the environment name. defaults to "default"
-  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference
+  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference. Specify - to load the config from the standard input.
   -b, --helm-binary string              Path to the helm binary (default "helm")
   -h, --help                            help for helmfile
   -i, --interactive                     Request confirmation before attempting to modify clusters
@@ -567,6 +573,8 @@ It basically runs `helm dependency update` on your helmfile state file and all t
 All the other `helmfile` sub-commands like `sync` use chart versions recorded in the lock files, so that e.g. untested chart versions won't suddenly get deployed to the production environment.
 
 For example, the lock file for a helmfile state file named `helmfile.1.yaml` will be `helmfile.1.lock`. The lock file for a local chart would be `requirements.lock`, which is the same as `helm`.
+
+The lock file can be changed using `lockFilePath` in helm state, which makes it possible to for example have a different lock file per environment via templating.
 
 It is recommended to version-control all the lock files, so that they can be used in the production deployment pipeline for extra reproducibility.
 
@@ -647,6 +655,7 @@ A few rules to clear up this ambiguity:
 * Absolute paths are always resolved as absolute paths
 * Relative paths referenced *in* the Helmfile manifest itself are relative to that manifest
 * Relative paths referenced on the command line are relative to the current working directory the user is in
+- Relative paths referenced from within the helmfile loaded from the standard input using `helmfile -f -` are relative to the current working directory
 
 For additional context, take a look at [paths examples](paths.md).
 
