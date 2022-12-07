@@ -71,7 +71,7 @@ func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, er
 	var logWriters []io.Writer
 
 	var id string
-	if os.Getenv(envvar.DisableRunnerUniqueID) != "" {
+	if os.Getenv(envvar.DisableRunnerUniqueID) == "" {
 		id = newExecutionID()
 	}
 	path := filepath.Base(c.Path)
