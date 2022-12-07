@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/variantdev/chartify/helmtesting"
 	"gopkg.in/yaml.v3"
+
+	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 var (
@@ -169,6 +171,9 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 			args := []string{"-f", inputFile}
 			args = append(args, helmfileArgs...)
 			cmd := exec.CommandContext(ctx, helmfileBin, args...)
+			cmd.Env = os.Environ()
+			cmd.Env = append(cmd.Env, envvar.TempDir+"=/tmp/helmfile")
+			cmd.Env = append(cmd.Env, envvar.DisableRunnerUniqueID+"=1")
 			got, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Logf("Output from %v: %s", args, string(got))
