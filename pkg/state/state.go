@@ -2763,11 +2763,20 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 }
 
 func (st *HelmState) removeFiles(files []string) {
+	dirsToClean := map[string]int{}
 	for _, f := range files {
+		dirsToClean[filepath.Dir(f)] = 1
 		if err := st.fs.DeleteFile(f); err != nil {
 			st.logger.Warnf("Removing %s: %v", err)
 		} else {
 			st.logger.Debugf("Removed %s", f)
+		}
+	}
+	for d, _ := range dirsToClean {
+		if err := st.fs.DeleteFile(d); err != nil {
+			st.logger.Warnf("Removing %s: %v", err)
+		} else {
+			st.logger.Debugf("Removed %s", d)
 		}
 	}
 }
