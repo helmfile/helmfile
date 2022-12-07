@@ -97,11 +97,11 @@ func (r *Remote) GetBytes(goGetterSrc string) ([]byte, error) {
 // Locate takes an URL to a remote file or a path to a local file.
 // If the argument was an URL, it fetches the remote directory contained within the URL,
 // and returns the path to the file in the fetched directory
-func (r *Remote) Locate(urlOrPath string) (string, error) {
+func (r *Remote) Locate(urlOrPath string, cacheDirOpt ...string) (string, error) {
 	if r.fs.FileExistsAt(urlOrPath) || r.fs.DirectoryExistsAt(urlOrPath) {
 		return urlOrPath, nil
 	}
-	fetched, err := r.Fetch(urlOrPath)
+	fetched, err := r.Fetch(urlOrPath, cacheDirOpt...)
 	if err != nil {
 		if _, ok := err.(InvalidURLError); ok {
 			return urlOrPath, nil
