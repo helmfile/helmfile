@@ -914,9 +914,9 @@ This is still working but is **deprecated** and the new `{{ .Values.foo }}` synt
 
 You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
 
-### Loading remote environment values files
+### Loading remote Environment values files
 
-Since #1296 and Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
+Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
 
 ```yaml
 environments:
@@ -932,8 +932,8 @@ environments:
       - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
   staging:
      values:
-      -  git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
-      -  http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
+      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
 ---
 
 releases:
@@ -946,13 +946,13 @@ This is particularly useful when you co-locate helmfiles within your project rep
 
 ## Environment Secrets
 
-Environment Secrets (not to be confused with Kubernetes Secrets) are encrypted versions of `Environment Values`.
+Environment Secrets *(not to be confused with Kubernetes Secrets)* are encrypted versions of `Environment Values`.
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
 Helmfile could automatically decrypt and merge the secrets into the environment values.
 
 First you must have the [helm-secrets](https://github.com/jkroepke/helm-secrets) plugin installed along with a
 `.sops.yaml` file to configure the method of encryption (this can be in the same directory as your helmfile or
-in the sub-directory containing your secrets files).
+in the subdirectory containing your secrets files).
 
 Then suppose you have a secret `foo.bar` defined in `environments/production/secrets.yaml`:
 
@@ -983,6 +983,21 @@ Then the environment secret `foo.bar` can be referenced by the below template ex
 
 ```yaml
 {{ .Values.foo.bar }}
+```
+
+### Loading remote Environment secrets files
+
+Since Helmfile v0.149.0, you can use `go-getter`-style URLs to refer to remote secrets files, the same way as in values files:
+```yaml
+environments:
+  staging:
+    secrets:
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/org/repo.git@/environments/staging.secret.yaml?ref=main
+      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/staging.secret.yaml
+  production:
+    secrets:
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/org/repo.git@/environments/production.secret.yaml?ref=main
+      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/production.secret.yaml
 ```
 
 ## Tillerless
