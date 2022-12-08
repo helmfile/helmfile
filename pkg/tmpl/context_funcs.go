@@ -34,13 +34,13 @@ func (e DisableInsecureFeaturesError) Error() string {
 }
 
 var (
-	disableInsecureFeatures       bool
-	skipInsecureTemplateFunctions bool
+	disableInsecureFeatures bool
+	skipInsecureFeatures    bool
 )
 
 func init() {
 	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
-	skipInsecureTemplateFunctions, _ = strconv.ParseBool(os.Getenv(envvar.SkipInsecureTemplateFunctions))
+	skipInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.SkipInsecureFeatures))
 }
 
 func (c *Context) createFuncMap() template.FuncMap {
@@ -62,7 +62,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"fetchSecretValue": fetchSecretValue,
 		"expandSecretRefs": fetchSecretValues,
 	}
-	if c.preRender || skipInsecureTemplateFunctions {
+	if c.preRender || skipInsecureFeatures {
 		// disable potential side-effect template calls
 		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
 			return "", nil

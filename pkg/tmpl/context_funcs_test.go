@@ -46,10 +46,10 @@ func TestCreateFuncMap_DisabledInsecureFeatures(t *testing.T) {
 }
 
 func TestCreateFuncMap_SkipInsecureTemplateFunctions(t *testing.T) {
-	currentVal := skipInsecureTemplateFunctions
+	currentVal := skipInsecureFeatures
 
 	{
-		skipInsecureTemplateFunctions = true
+		skipInsecureFeatures = true
 		ctx := &Context{basePath: "."}
 		funcMaps := ctx.createFuncMap()
 		args := make([]interface{}, 0)
@@ -61,7 +61,7 @@ func TestCreateFuncMap_SkipInsecureTemplateFunctions(t *testing.T) {
 		require.ErrorIs(t, err2, nil)
 	}
 
-	skipInsecureTemplateFunctions = currentVal
+	skipInsecureFeatures = currentVal
 }
 
 func newFSExpecting(expectedFilename string, expected string) *filesystem.FileSystem {

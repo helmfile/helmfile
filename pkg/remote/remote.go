@@ -286,7 +286,7 @@ func (g *GoGetter) Get(wd, src, dst string) error {
 
 func NewRemote(logger *zap.SugaredLogger, homeDir string, fs *filesystem.FileSystem) *Remote {
 	if disableInsecureFeatures {
-		panic("Remote sources are disabled due to 'DISABLE_INSECURE_FEATURES'")
+		panic(fmt.Sprintf("Remote sources are disabled due to '%s'", envvar.DisableInsecureFeatures))
 	}
 	remote := &Remote{
 		Logger: logger,
