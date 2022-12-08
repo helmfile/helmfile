@@ -60,7 +60,7 @@ func (r *Remote) Unmarshal(src string, dst interface{}) error {
 	ext := filepath.Ext(file)
 
 	{
-		r.Logger.Debugf("unmarshalling %s", string(bytes))
+		r.Logger.Debugf("remote> unmarshalling %s", string(bytes))
 
 		var err error
 		switch ext {
@@ -70,7 +70,7 @@ func (r *Remote) Unmarshal(src string, dst interface{}) error {
 			err = yaml.Unmarshal(bytes, dst)
 		}
 
-		r.Logger.Debugf("unmarshalled to %v", dst)
+		r.Logger.Debugf("remote> unmarshalled to %v", dst)
 
 		if err != nil {
 			return err
@@ -172,12 +172,12 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 	srcDir := fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Dir)
 	file := u.File
 
-	r.Logger.Debugf("getter: %s", u.Getter)
-	r.Logger.Debugf("scheme: %s", u.Scheme)
-	r.Logger.Debugf("user: %s", u.User)
-	r.Logger.Debugf("host: %s", u.Host)
-	r.Logger.Debugf("dir: %s", u.Dir)
-	r.Logger.Debugf("file: %s", u.File)
+	r.Logger.Debugf("remote> getter: %s", u.Getter)
+	r.Logger.Debugf("remote> scheme: %s", u.Scheme)
+	r.Logger.Debugf("remote> user: %s", u.User)
+	r.Logger.Debugf("remote> host: %s", u.Host)
+	r.Logger.Debugf("remote> dir: %s", u.Dir)
+	r.Logger.Debugf("remote> file: %s", u.File)
 
 	// This should be shared across variant commands, so that they can share cache for the shared imports
 	cacheBaseDir := ""
@@ -211,9 +211,9 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 	// e.g. os.CacheDir()/helmfile/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	cacheDirPath := filepath.Join(r.Home, getterDst)
 
-	r.Logger.Debugf("home: %s", r.Home)
-	r.Logger.Debugf("getter dest: %s", getterDst)
-	r.Logger.Debugf("cached dir: %s", cacheDirPath)
+	r.Logger.Debugf("remote> home: %s", r.Home)
+	r.Logger.Debugf("remote> getter dest: %s", getterDst)
+	r.Logger.Debugf("remote> cached dir: %s", cacheDirPath)
 
 	{
 		if r.fs.FileExistsAt(cacheDirPath) {
@@ -241,7 +241,7 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 			getterSrc = u.Getter + "::" + getterSrc
 		}
 
-		r.Logger.Debugf("downloading %s to %s", getterSrc, getterDst)
+		r.Logger.Debugf("remote> downloading %s to %s", getterSrc, getterDst)
 
 		if err := r.Getter.Get(r.Home, getterSrc, cacheDirPath); err != nil {
 			rmerr := os.RemoveAll(cacheDirPath)

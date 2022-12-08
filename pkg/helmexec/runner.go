@@ -13,6 +13,8 @@ import (
 	"syscall"
 
 	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 // Runner interface for shell commands
@@ -68,9 +70,18 @@ func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, er
 
 	var logWriters []io.Writer
 
-	id := newExecutionID()
+	var id string
+	if os.Getenv(envvar.DisableRunnerUniqueID) == "" {
+		id = newExecutionID()
+	}
+	path := filepath.Base(c.Path)
 	for _, g := range logWriterGenerators {
-		logPrefix := fmt.Sprintf("%s:%s> ", filepath.Base(c.Path), id)
+		var logPrefix string
+		if id == "" {
+			logPrefix = fmt.Sprintf("%s> ", path)
+		} else {
+			logPrefix = fmt.Sprintf("%s:%s> ", path, id)
+		}
 		logWriters = append(logWriters, g.Writer(logPrefix))
 	}
 
