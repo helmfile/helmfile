@@ -58,27 +58,27 @@ GROUP RELEASES
 1     foo
 
 processing releases in group 1/1: foo
-getter: git
-scheme: https
-user: 
-host: github.com
-dir: /helmfile/helmfile.git
-file: test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml
-home: /home/runner/.cache/helmfile
-getter dest: values/https_github_com_helmfile_helmfile_git.ref=main
-cached dir: /home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main
-downloading git::https://github.com/helmfile/helmfile.git?ref=main to values/https_github_com_helmfile_helmfile_git.ref=main
+remote> getter: git
+remote> scheme: https
+remote> user: 
+remote> host: github.com
+remote> dir: /helmfile/helmfile.git
+remote> file: test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml
+remote> home: /home/runner/.cache/helmfile
+remote> getter dest: values/https_github_com_helmfile_helmfile_git.ref=main
+remote> cached dir: /home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main
+remote> downloading git::https://github.com/helmfile/helmfile.git?ref=main to values/https_github_com_helmfile_helmfile_git.ref=main
 client: {Ctx:context.Background Src:git::https://github.com/helmfile/helmfile.git?ref=main Dst:/home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main Pwd:/home/runner/.cache/helmfile Mode:3 Umask:---------- Detectors:[] Decompressors:map[] Getters:map[] Dir:false ProgressListener:<nil> Insecure:false DisableSymlinks:false Options:[]}
 skipping missing values file matching "git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml?ref=main"
-getter: git
-scheme: https
-user: 
-host: github.com
-dir: /helmfile/helmfile.git
-file: test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml
-home: /home/runner/.cache/helmfile
-getter dest: values/https_github_com_helmfile_helmfile_git.ref=main
-cached dir: /home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main
+remote> getter: git
+remote> scheme: https
+remote> user: 
+remote> host: github.com
+remote> dir: /helmfile/helmfile.git
+remote> file: test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml
+remote> home: /home/runner/.cache/helmfile
+remote> getter dest: values/https_github_com_helmfile_helmfile_git.ref=main
+remote> cached dir: /home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main
 skipping missing secrets file matching "git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml?ref=main"
 Templating release=foo, chart=../../charts/raw-0.1.0
 exec: helm template foo ../../charts/raw-0.1.0 --values /tmp/helmfile/foo-values-79c7c784c9 --debug
