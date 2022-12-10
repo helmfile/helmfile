@@ -50,7 +50,7 @@ func run(cmd *cobra.Command, args []string) {
 	onlyInLeft := leftYamls.Difference(rightYamls)
 	if onlyInLeft.Len() > 0 {
 		exitCode = 1
-		for _, f := range onlyInLeft.List() {
+		for _, f := range sets.List(onlyInLeft) {
 			fmt.Fprintf(os.Stderr, "Only in %s: %s\n", left, f)
 		}
 	}
@@ -58,13 +58,13 @@ func run(cmd *cobra.Command, args []string) {
 	onlyInRight := rightYamls.Difference(leftYamls)
 	if onlyInRight.Len() > 0 {
 		exitCode = 1
-		for _, f := range onlyInRight.List() {
+		for _, f := range sets.List(onlyInRight) {
 			fmt.Fprintf(os.Stderr, "Only in %s: %s\n", right, f)
 		}
 	}
 
 	inBoth := leftYamls.Intersection(rightYamls)
-	for _, f := range inBoth.List() {
+	for _, f := range sets.List(inBoth) {
 		leftPath := filepath.Join(left, f)
 		leftNodes, err := readManifest(leftPath)
 		if err != nil {
@@ -116,12 +116,12 @@ func run(cmd *cobra.Command, args []string) {
 	os.Exit(exitCode)
 }
 
-func globYamlFilenames(dir string) (sets.String, error) {
+func globYamlFilenames(dir string) (sets.Set[string], error) {
 	matches, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
 	if err != nil {
 		return nil, err
 	}
-	set := sets.String{}
+	set := sets.Set[string]{}
 	for _, f := range matches {
 		set.Insert(filepath.Base(f))
 	}
