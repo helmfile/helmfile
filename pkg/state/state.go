@@ -2772,7 +2772,7 @@ func (st *HelmState) removeFiles(files []string) {
 			st.logger.Debugf("Removed %s", f)
 		}
 	}
-	for d, _ := range dirsToClean {
+	for d := range dirsToClean {
 		if err := st.fs.DeleteFile(d); err != nil {
 			st.logger.Warnf("Removing %s: %v", err)
 		} else {
