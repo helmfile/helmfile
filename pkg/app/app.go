@@ -1354,30 +1354,20 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		}
 	}
 
-	for id := range releasesWithNoChange {
-		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "apply"); err != nil {
-			a.Logger.Warnf("warn: %v\n", err)
-		}
-	}
-
-	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
-		if infoMsg != nil {
-			logger := c.Logger()
-			logger.Infof("")
-			logger.Infof(*infoMsg)
-		}
-		return true, false, nil
+	infoMsgStr := ""
+	if infoMsg != nil {
+		infoMsgStr = *infoMsg
 	}
 
 	confMsg := fmt.Sprintf(`%s
 Do you really want to apply?
   Helmfile will apply all your changes, as shown above.
 
-`, *infoMsg)
+`, infoMsgStr)
+
 	interactive := c.Interactive()
-	if !interactive {
-		a.Logger.Debug(*infoMsg)
+	if !interactive && infoMsgStr != "" {
+		a.Logger.Debug(infoMsgStr)
 	}
 
 	var applyErrs []error
@@ -1457,6 +1447,17 @@ Do you really want to apply?
 	}
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
+
+	for id := range releasesWithNoChange {
+		r := releasesWithNoChange[id]
+		if _, err := st.TriggerCleanupEvent(&r, "apply"); err != nil {
+			a.Logger.Warnf("warn: %v\n", err)
+		}
+	}
+	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
+		return true, false, nil
+	}
+
 	return true, true, applyErrs
 }
 
