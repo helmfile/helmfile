@@ -40,8 +40,13 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
 	}
+	err := r.state.CreateValuesTemporaryPath()
+	if err != nil {
+		return err
+	}
 
 	if !opts.SkipRepos {
+		defer r.state.RemoveValuesTemporaryPath()
 		ctx := r.ctx
 		if err := ctx.SyncReposOnce(r.state, r.helm); err != nil {
 			return err
@@ -95,7 +100,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	f()
 
-	_, err := r.state.TriggerGlobalCleanupEvent(helmfileCommand)
+	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand)
 
 	return err
 }

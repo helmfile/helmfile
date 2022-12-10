@@ -14,8 +14,8 @@ import (
 	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
-func createTempValuesFile(release *ReleaseSpec, data interface{}) (*os.File, error) {
-	p, err := tempValuesFilePath(release, data)
+func createTempValuesFile(release *ReleaseSpec, workDir string, data interface{}) (*os.File, error) {
+	p, err := tempValuesFilePath(release, workDir, data)
 	if err != nil {
 		return nil, err
 	}
@@ -28,18 +28,26 @@ func createTempValuesFile(release *ReleaseSpec, data interface{}) (*os.File, err
 	return f, nil
 }
 
-func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error) {
-	id, err := generateValuesID(release, data)
-	if err != nil {
-		return nil, err
-	}
-
+func mkdirTemp() (string, error) {
 	workDir := os.Getenv(envvar.TempDir)
+	var err error
 	if workDir == "" {
 		workDir, err = os.MkdirTemp(os.TempDir(), "helmfile")
 	} else {
 		err = os.MkdirAll(workDir, os.FileMode(0700))
 	}
+	if err != nil {
+		return "", err
+	}
+	return workDir, nil
+}
+
+func tempValuesFilePath(release *ReleaseSpec, workDir string, data interface{}) (*string, error) {
+	id, err := generateValuesID(release, data)
+	if err != nil {
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, err
 	}

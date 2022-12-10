@@ -100,6 +100,8 @@ type HelmState struct {
 	// which is accessible from within the whole helmfile go template.
 	// Note that this is usually computed by DesiredStateLoader from ReleaseSetSpec.Env
 	RenderedValues map[string]interface{}
+
+	valuesTemporaryPath string
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options
@@ -2764,7 +2766,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
 
-			valfile, err := createTempValuesFile(release, yamlBytes)
+			valfile, err := createTempValuesFile(release, st.valuesTemporaryPath, yamlBytes)
 			if err != nil {
 				return generatedFiles, err
 			}
@@ -2780,7 +2782,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 
 			generatedFiles = append(generatedFiles, valfile.Name())
 		case map[interface{}]interface{}, map[string]interface{}:
-			valfile, err := createTempValuesFile(release, typedValue)
+			valfile, err := createTempValuesFile(release, st.valuesTemporaryPath, typedValue)
 			if err != nil {
 				return generatedFiles, err
 			}
@@ -3415,4 +3417,15 @@ func (st *HelmState) FullFilePath() (string, error) {
 		wd, err = st.fs.Getwd()
 	}
 	return filepath.Join(wd, st.basePath, st.FilePath), err
+}
+func (st *HelmState) CreateValuesTemporaryPath() error {
+	var err error
+	st.valuesTemporaryPath, err = mkdirTemp()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (st *HelmState) RemoveValuesTemporaryPath() {
+	st.removeFiles([]string{st.valuesTemporaryPath})
 }
