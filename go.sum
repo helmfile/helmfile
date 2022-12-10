@@ -801,8 +801,8 @@ github.com/variantdev/chartify v0.12.0 h1:FtJY22BmY2U1o89Fdad4idGrlmx6DzVQYAr8rI
 github.com/variantdev/chartify v0.12.0/go.mod h1:A0nQmb+ihiBJrrbgofs1t7QVeit+/llT0vJhvkj7U0Q=
 github.com/variantdev/dag v1.1.0 h1:xodYlSng33KWGvIGMpKUyLcIZRXKiNUx612mZJqYrDg=
 github.com/variantdev/dag v1.1.0/go.mod h1:pH1TQsNSLj2uxMo9NNl9zdGy01Wtn+/2MT96BrKmVyE=
-github.com/variantdev/vals v0.20.0 h1:Cfy6tSTX15EwD2ahfqP264iTcdlN6xTyONdCmwSVCXY=
-github.com/variantdev/vals v0.20.0/go.mod h1:RPcySU5Qt4B9VJFPzEFmx4Ulr5yZSGXAsAk86k7ww+8=
+github.com/variantdev/vals v0.21.0 h1:p0fMOqJxNufqwpx0BQgcCRntWW630I4i+/CKeZri2xA=
+github.com/variantdev/vals v0.21.0/go.mod h1:RPcySU5Qt4B9VJFPzEFmx4Ulr5yZSGXAsAk86k7ww+8=
 github.com/xlab/treeprint v1.1.0 h1:G/1DjNkPpfZCFt9CSh6b5/nY4VimlbHF3Rh4obvtzDk=
 github.com/xlab/treeprint v1.1.0/go.mod h1:gj5Gd3gPdKtR1ikdDK6fnFLdmIS0X30kTTuNd/WEJu0=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
