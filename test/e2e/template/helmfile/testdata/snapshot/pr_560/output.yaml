@@ -20,7 +20,7 @@ first-pass rendering output of "input.yaml.part.0":
 14:   secrets:
 15:   - git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml?ref=main
 16:   missingFileHandler: Debug
-17:
+17: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "input.yaml.part.0": {default map[] map[]}
@@ -45,11 +45,11 @@ second-pass rendering result of "input.yaml.part.0":
 14:   secrets:
 15:   - git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml?ref=main
 16:   missingFileHandler: Debug
-17:
+17: 
 
 merged environment: &{default map[] map[]}
 helm> v3.10.2+g50f003e
-helm>
+helm> 
 Building dependency release=foo, chart=../../charts/raw-0.1.0
 exec: helm dependency build ../../charts/raw-0.1.0 --skip-refresh
 1 release(s) found in input.yaml
@@ -61,7 +61,7 @@ GROUP RELEASES
 processing releases in group 1/1: foo
 remote> getter: git
 remote> scheme: https
-remote> user:
+remote> user: 
 remote> host: github.com
 remote> dir: /helmfile/helmfile.git
 remote> file: test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml
@@ -73,7 +73,7 @@ client: {Ctx:context.Background Src:git::https://github.com/helmfile/helmfile.gi
 skipping missing values file matching "git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml?ref=main"
 remote> getter: git
 remote> scheme: https
-remote> user:
+remote> user: 
 remote> host: github.com
 remote> dir: /helmfile/helmfile.git
 remote> file: test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml
@@ -85,8 +85,8 @@ Templating release=foo, chart=../../charts/raw-0.1.0
 exec: helm template foo ../../charts/raw-0.1.0 --values /tmp/helmfile/foo-values-79c7c784c9 --debug
 helm> install.go:192: [debug] Original chart version: ""
 helm> install.go:209: [debug] CHART PATH: /home/runner/work/helmfile/helmfile/test/e2e/template/helmfile/testdata/charts/raw-0.1.0
-helm>
-helm>
+helm> 
+helm> 
 helm> ---
 helm> # Source: raw/templates/resources.yaml
 helm> apiVersion: v1
