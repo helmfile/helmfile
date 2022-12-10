@@ -84,6 +84,7 @@ skipping missing secrets file matching "git::https://github.com/helmfile/helmfil
 Templating release=foo, chart=../../charts/raw-0.1.0
 exec: helm template foo ../../charts/raw-0.1.0 --values /tmp/helmfile/foo-values-79c7c784c9 --debug
 helm> install.go:192: [debug] Original chart version: ""
+helm> 
 helm> install.go:209: [debug] CHART PATH: /home/runner/work/helmfile/helmfile/test/e2e/template/helmfile/testdata/charts/raw-0.1.0
 helm> 
 helm> 
