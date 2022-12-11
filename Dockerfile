@@ -17,6 +17,16 @@ LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
 RUN apk add --no-cache ca-certificates git bash curl jq openssh-client
 
+# Set Helm home variables so that also non-root users can use plugins etc.
+ARG HOME="/helm"
+ENV HOME="${HOME}"
+ARG HELM_CACHE_HOME="${HOME}/.cache/helm"
+ENV HELM_CACHE_HOME="${HELM_CACHE_HOME}"
+ARG HELM_CONFIG_HOME="${HOME}/.config/helm"
+ENV HELM_CONFIG_HOME="${HELM_CONFIG_HOME}"
+ARG HELM_DATA_HOME="${HOME}/.local/share/helm"
+ENV HELM_DATA_HOME="${HELM_DATA_HOME}"
+
 ARG HELM_VERSION="v3.10.2"
 ENV HELM_VERSION="${HELM_VERSION}"
 ARG HELM_SHA256="2315941a13291c277dac9f65e75ead56386440d3907e0540bf157ae70f188347"
@@ -74,10 +84,10 @@ RUN helm plugin install https://github.com/databus23/helm-diff --version v3.6.0 
     helm plugin install https://github.com/jkroepke/helm-secrets --version v4.1.1 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.14.0 && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.12.0 && \
-    rm -rf /root/.cache/helm/plugins
+    rm -rf ${HELM_CACHE_HOME}/plugins
 
 # Allow users other than root to use helm plugins located in root home
-RUN chmod 751 /root
+RUN chmod 751 ${HOME}
 
 COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
 
