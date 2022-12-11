@@ -18,7 +18,7 @@ LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 RUN apk add --no-cache ca-certificates git bash curl jq openssh-client
 
 # Set Helm home variables so that also non-root users can use plugins etc.
-ARG HOME="/root"
+ARG HOME="/helm"
 ENV HOME="${HOME}"
 ARG HELM_CACHE_HOME="${HOME}/.cache/helm"
 ENV HELM_CACHE_HOME="${HELM_CACHE_HOME}"
