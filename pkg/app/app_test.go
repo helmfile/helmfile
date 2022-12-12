@@ -2554,7 +2554,7 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 	return nil
 }
 
-func (helm *mockHelmExec) BuildDeps(name, chart string) error {
+func (helm *mockHelmExec) BuildDeps(name, chart string, flags ...string) error {
 	return nil
 }
 

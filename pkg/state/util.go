@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 var (
@@ -61,4 +63,13 @@ func normalizeChart(basePath, chart string) string {
 		return chart
 	}
 	return filepath.Join(basePath, chart)
+}
+
+func getBuildDepsFlags(helm helmexec.Interface, cpr *chartPrepareResult) []string {
+	flags := []string{}
+	if helm.IsHelm3() && cpr.skipRefresh {
+		flags = append(flags, "--skip-refresh")
+	}
+
+	return flags
 }

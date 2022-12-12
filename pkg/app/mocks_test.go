@@ -39,7 +39,7 @@ func (helm *noCallHelmExec) UpdateDeps(chart string) error {
 	return nil
 }
 
-func (helm *noCallHelmExec) BuildDeps(name, chart string) error {
+func (helm *noCallHelmExec) BuildDeps(name, chart string, flags ...string) error {
 	helm.doPanic()
 	return nil
 }
