@@ -82,7 +82,7 @@ remote> getter dest: values/https_github_com_helmfile_helmfile_git.ref=main
 remote> cached dir: /home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main
 skipping missing secrets file matching "git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml?ref=main"
 Templating release=foo, chart=../../charts/raw-0.1.0
-exec: helm template foo ../../charts/raw-0.1.0 --values /tmp/helmfile/foo-values-79c7c784c9 --debug
+exec: helm template foo ../../charts/raw-0.1.0 --values /tmp/helmfile/foo-values-649697bc75 --debug
 helm> install.go:192: [debug] Original chart version: ""
 helm> 
 helm> install.go:209: [debug] CHART PATH: /home/runner/work/helmfile/helmfile/test/e2e/template/helmfile/testdata/charts/raw-0.1.0
@@ -108,5 +108,5 @@ metadata:
 data:
   foo: FOO
 
-Removed /tmp/helmfile/foo-values-79c7c784c9
+Removed /tmp/helmfile/foo-values-649697bc75
 changing working directory back to "/home/runner/work/helmfile/helmfile/test/e2e/template/helmfile"
