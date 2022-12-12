@@ -2605,6 +2605,14 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, nil, err
 	}
 
+	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
+		if release.PostRenderer != nil && *release.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *release.PostRenderer)
+		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
+		}
+	}
+
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, files, err

@@ -446,6 +446,11 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 		enableLiveOutput := false
 		overrideEnableLiveOutput = &enableLiveOutput
 	}
+
+	if helm.IsHelm3() && helm.postRenderer != "" {
+		flags = append(flags, "--post-renderer", helm.postRenderer)
+	}
+
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
 	// Do our best to write STDOUT only when diff existed
 	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
