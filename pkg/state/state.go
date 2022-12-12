@@ -121,13 +121,11 @@ type SubhelmfileEnvironmentSpec struct {
 
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
-	KubeContext      string   `yaml:"kubeContext,omitempty"`
-	TillerNamespace  string   `yaml:"tillerNamespace,omitempty"`
-	Tillerless       bool     `yaml:"tillerless"`
-	Args             []string `yaml:"args,omitempty"`
-	PostRenderer     string   `yaml:"postRenderer,omitempty"`
-	PostRendererArgs []string `yaml:"postRendererArgs,omitempty"`
-	Verify           bool     `yaml:"verify"`
+	KubeContext     string   `yaml:"kubeContext,omitempty"`
+	TillerNamespace string   `yaml:"tillerNamespace,omitempty"`
+	Tillerless      bool     `yaml:"tillerless"`
+	Args            []string `yaml:"args,omitempty"`
+	Verify          bool     `yaml:"verify"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -154,6 +152,8 @@ type HelmSpec struct {
 	SkipDeps bool `yaml:"skipDeps"`
 	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues bool `yaml:"reuseValues"`
+	// Propagate '--postRenderer' to helmv3 template and helm install
+	PostRenderer *string `yaml:"postRenderer,omitempty"`
 
 	TLS                      bool   `yaml:"tls"`
 	TLSCACert                string `yaml:"tlsCACert,omitempty"`
@@ -317,6 +317,9 @@ type ReleaseSpec struct {
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
 	SkipDeps *bool `yaml:"skipDeps,omitempty"`
+
+	// Propagate '--postRenderer' to helmv3 template and helm install
+	PostRenderer *string `yaml:"postRenderer,omitempty"`
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
@@ -2515,6 +2518,14 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		return nil, nil, err
 	}
 
+	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
+		if release.PostRenderer != nil && *release.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *release.PostRenderer)
+		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
+		}
+	}
+
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, clean, err
@@ -2541,6 +2552,14 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	}
 
 	flags = st.appendApiVersionsFlags(flags, release)
+
+	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
+		if release.PostRenderer != nil && *release.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *release.PostRenderer)
+		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
+		}
+	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {

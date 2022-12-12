@@ -1392,6 +1392,7 @@ Do you really want to apply?
 		}
 
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+		r.helm.SetPostRenderer(c.PostRenderer())
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
@@ -1774,6 +1775,7 @@ Do you really want to sync?
 	var errs []error
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+	r.helm.SetPostRenderer(c.PostRenderer())
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases

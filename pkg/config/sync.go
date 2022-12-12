@@ -26,6 +26,8 @@ type SyncOptions struct {
 	WaitForJobs bool
 	// ReuseValues is true if the helm command should reuse the values
 	ReuseValues bool
+	// Propagate '--postRenderer' to helmv3 template and helm install
+	PostRenderer string
 }
 
 // NewSyncOptions creates a new Apply
@@ -109,4 +111,9 @@ func (t *SyncImpl) WaitForJobs() bool {
 // ReuseValues returns the ReuseValues.
 func (t *SyncImpl) ReuseValues() bool {
 	return t.SyncOptions.ReuseValues
+}
+
+// PostRenderer returns the PostRenderer.
+func (t *SyncImpl) PostRenderer() string {
+	return t.SyncOptions.PostRenderer
 }

@@ -36,7 +36,7 @@ type execer struct {
 	logger               *zap.SugaredLogger
 	kubeContext          string
 	extra                []string
-	postRenderers        []string
+	postRenderer         string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
@@ -132,23 +132,7 @@ func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, ku
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {
-	var extraArgs []string
-	var renderArgs []string
-	// reset the postRenderers and filter --post-renderer=xx or --post-renderer xxx from args and put into helm.postRenderers
-	for i := 0; i < len(args); i++ {
-		if strings.HasPrefix(args[i], "--post-renderer=") || strings.HasPrefix(args[i], "--post-renderer-args=") {
-			renderArgs = append(renderArgs, args[i])
-		} else if (args[i] == "--post-renderer" || args[i] == "--post-renderer-args") && i < len(args)-1 {
-			renderArgs = append(renderArgs, args[i])
-			renderArgs = append(renderArgs, args[i+1])
-			i++
-		} else {
-			extraArgs = append(extraArgs, args[i])
-		}
-	}
-
-	helm.extra = extraArgs
-	helm.postRenderers = renderArgs
+	helm.extra = args
 }
 
 func (helm *execer) SetHelmBinary(bin string) {
@@ -157,6 +141,14 @@ func (helm *execer) SetHelmBinary(bin string) {
 
 func (helm *execer) SetEnableLiveOutput(enableLiveOutput bool) {
 	helm.enableLiveOutput = enableLiveOutput
+}
+
+func (helm *execer) SetPostRenderer(postRenderer string) {
+	helm.postRenderer = postRenderer
+}
+
+func (helm *execer) GetPostRenderer() string {
+	return helm.postRenderer
 }
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
@@ -268,8 +260,8 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
 	}
 
-	if helm.IsHelm3() {
-		flags = append(flags, helm.postRenderers...)
+	if helm.IsHelm3() && helm.postRenderer != "" {
+		flags = append(flags, "--post-renderer", helm.postRenderer)
 	}
 
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
@@ -411,10 +403,9 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		args = []string{"template", chart, "--name", name}
 	}
 
-	if helm.IsHelm3() {
-		flags = append(flags, helm.postRenderers...)
+	if helm.IsHelm3() && helm.postRenderer != "" {
+		flags = append(flags, "--post-renderer", helm.postRenderer)
 	}
-
 	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
 	var outputToFile bool

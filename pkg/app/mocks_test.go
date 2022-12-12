@@ -53,6 +53,12 @@ func (helm *noCallHelmExec) SetHelmBinary(bin string) {
 func (helm *noCallHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
 	helm.doPanic()
 }
+func (helm *noCallHelmExec) SetPostRenderer(postRenderer string) {
+}
+func (helm *noCallHelmExec) GetPostRenderer() string {
+	return ""
+}
+
 func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.doPanic()
 	return nil

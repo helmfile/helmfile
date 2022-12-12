@@ -112,13 +112,6 @@ func GetArgs(args string, state *state.HelmState) []string {
 		}
 	}
 
-	if len(state.HelmDefaults.PostRenderer) > 0 {
-		argArr = append(argArr, fmt.Sprintf("--post-renderer=\"%s\"", state.HelmDefaults.PostRenderer))
-	}
-	for _, arg := range state.HelmDefaults.PostRendererArgs {
-		argArr = append(argArr, fmt.Sprintf("--post-renderer-args=\"%s\"", arg))
-	}
-
 	state.HelmDefaults.Args = argArr
 
 	return state.HelmDefaults.Args

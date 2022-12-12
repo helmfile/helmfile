@@ -69,29 +69,6 @@ func Test_SetExtraArgs(t *testing.T) {
 	if !reflect.DeepEqual(helm.extra, []string{"alpha", "beta"}) {
 		t.Error("helmexec.SetExtraArgs() - two extra arguments missing (overwriting the previous value)")
 	}
-
-	helm.SetExtraArgs("--post-renderer=aaa")
-	fmt.Println(helm.postRenderers)
-	if !reflect.DeepEqual(helm.postRenderers, []string{"--post-renderer=aaa"}) {
-		t.Error("helmexec.SetExtraArgs() - post-renderer assign arguments missing ")
-	}
-
-	helm.SetExtraArgs("--post-renderer", "aaa")
-	fmt.Println(helm.postRenderers)
-	if !reflect.DeepEqual(helm.postRenderers, []string{"--post-renderer", "aaa"}) {
-		t.Error("helmexec.SetExtraArgs() - post-renderer blank arguments missing ")
-	}
-
-	helm.SetExtraArgs("--post-renderer-args=bbb")
-	fmt.Println(helm.postRenderers)
-	if !reflect.DeepEqual(helm.postRenderers, []string{"--post-renderer-args=bbb"}) {
-		t.Error("helmexec.SetExtraArgs() - post-renderer-args  assign arguments missing")
-	}
-
-	helm.SetExtraArgs("--post-renderer", "aaa", "--post-renderer-args=bbb")
-	if !reflect.DeepEqual(helm.postRenderers, []string{"--post-renderer", "aaa", "--post-renderer-args=bbb"}) {
-		t.Error("helmexec.SetExtraArgs() - post-renderer arguments not be set correct")
-	}
 }
 
 func Test_SetHelmBinary(t *testing.T) {
@@ -113,6 +90,30 @@ func Test_SetEnableLiveOutput(t *testing.T) {
 	helm.SetEnableLiveOutput(true)
 	if !helm.enableLiveOutput {
 		t.Errorf("helmexec.SetEnableLiveOutput() - actual = %t expect = true", helm.enableLiveOutput)
+	}
+}
+
+func Test_SetPostRenderer(t *testing.T) {
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	if helm.enableLiveOutput {
+		t.Error("helmexec.enableLiveOutput should not be enabled by default")
+	}
+	postRendererFoo := "/bin/rewrite-repo.sh"
+	helm.SetPostRenderer(postRendererFoo)
+	if helm.postRenderer != postRendererFoo {
+		t.Errorf("helmexec.SetPostRenderer() - actual = %s expect = %s", helm.postRenderer, postRendererFoo)
+	}
+}
+
+func Test_GetPostRenderer(t *testing.T) {
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	if helm.enableLiveOutput {
+		t.Error("helmexec.enableLiveOutput should not be enabled by default")
+	}
+	postRendererFoo := "/bin/rewrite-repo.sh"
+	helm.SetPostRenderer(postRendererFoo)
+	if helm.GetPostRenderer() != postRendererFoo {
+		t.Errorf("helmexec.GetPostRenderer() - actual = %s expect = %s", helm.GetPostRenderer(), postRendererFoo)
 	}
 }
 

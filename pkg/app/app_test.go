@@ -2304,6 +2304,10 @@ func (c configImpl) SkipCharts() bool {
 	return c.skipCharts
 }
 
+func (c configImpl) PostRenderer() string {
+	return ""
+}
+
 type applyConfig struct {
 	args                   string
 	values                 []string
@@ -2334,6 +2338,7 @@ type applyConfig struct {
 	wait                   bool
 	waitForJobs            bool
 	reuseValues            bool
+	postRenderer           string
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2473,6 +2478,10 @@ func (a applyConfig) ReuseValues() bool {
 	return a.reuseValues
 }
 
+func (a applyConfig) PostRenderer() string {
+	return a.postRenderer
+}
+
 type depsConfig struct {
 	skipRepos              bool
 	includeTransitiveNeeds bool
@@ -2554,6 +2563,11 @@ func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+}
+func (helm *mockHelmExec) SetPostRenderer(postRenderer string) {
+}
+func (helm *mockHelmExec) GetPostRenderer() string {
+	return ""
 }
 func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.repos = append(helm.repos, mockRepo{Name: name})
