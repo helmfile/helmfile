@@ -1944,7 +1944,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 				},
 			},
 			helm:                    &exectest.Helm{},
-			expectedNumRemovedFiles: 1,
+			expectedNumRemovedFiles: 2,
 		},
 		{
 			name: "inline values and values file",
@@ -1961,7 +1961,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 				},
 			},
 			helm:                    &exectest.Helm{},
-			expectedNumRemovedFiles: 2,
+			expectedNumRemovedFiles: 4,
 		},
 	}
 	for i := range tests {
@@ -2031,7 +2031,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				},
 			},
 			helm:                    &exectest.Helm{},
-			expectedNumRemovedFiles: 1,
+			expectedNumRemovedFiles: 2,
 		},
 		{
 			name: "inline values and values file",
@@ -2048,7 +2048,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				},
 			},
 			helm:                    &exectest.Helm{},
-			expectedNumRemovedFiles: 2,
+			expectedNumRemovedFiles: 4,
 		},
 	}
 	for i := range tests {
