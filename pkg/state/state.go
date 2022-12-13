@@ -152,6 +152,8 @@ type HelmSpec struct {
 	SkipDeps bool `yaml:"skipDeps"`
 	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues bool `yaml:"reuseValues"`
+	// Propagate '--postRenderer' to helmv3 template and helm install
+	PostRenderer *string `yaml:"postRenderer,omitempty"`
 
 	TLS                      bool   `yaml:"tls"`
 	TLSCACert                string `yaml:"tlsCACert,omitempty"`
@@ -315,6 +317,9 @@ type ReleaseSpec struct {
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
 	SkipDeps *bool `yaml:"skipDeps,omitempty"`
+
+	// Propagate '--postRenderer' to helmv3 template and helm install
+	PostRenderer *string `yaml:"postRenderer,omitempty"`
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
@@ -1010,6 +1015,7 @@ type chartPrepareResult struct {
 	chartPath              string
 	err                    error
 	buildDeps              bool
+	skipRefresh            bool
 	chartFetchedByGoGetter bool
 }
 
@@ -1258,6 +1264,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					releaseContext:         release.KubeContext,
 					chartPath:              chartPath,
 					buildDeps:              buildDeps,
+					skipRefresh:            !isLocal,
 					chartFetchedByGoGetter: chartFetchedByGoGetter,
 				}
 			}
@@ -1309,7 +1316,8 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
 	for _, r := range builds {
-		if err := helm.BuildDeps(r.releaseName, r.chartPath); err != nil {
+		buildDepsFlags := getBuildDepsFlags(helm, r)
+		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {
 			if r.chartFetchedByGoGetter {
 				diagnostic := fmt.Sprintf(
 					"WARN: `helm dep build` failed. While processing release %q, Helmfile observed that remote chart %q fetched by go-getter is seemingly broken. "+
@@ -2513,6 +2521,14 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		return nil, nil, err
 	}
 
+	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
+		if release.PostRenderer != nil && *release.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *release.PostRenderer)
+		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
+		}
+	}
+
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, clean, err
@@ -2539,6 +2555,14 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	}
 
 	flags = st.appendApiVersionsFlags(flags, release)
+
+	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
+		if release.PostRenderer != nil && *release.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *release.PostRenderer)
+		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
+		}
+	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2579,6 +2603,14 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	flags, err = st.appendHelmXFlags(flags, release)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
+		if release.PostRenderer != nil && *release.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *release.PostRenderer)
+		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
+			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
+		}
 	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
@@ -2731,11 +2763,32 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 }
 
 func (st *HelmState) removeFiles(files []string) {
+	dirsToClean := map[string]int{}
 	for _, f := range files {
+		dirsToClean[filepath.Dir(f)] = 1
 		if err := st.fs.DeleteFile(f); err != nil {
-			st.logger.Warnf("Removing %s: %v", err)
+			st.logger.Warnf("Removing %s: %v", f, err)
 		} else {
 			st.logger.Debugf("Removed %s", f)
+		}
+	}
+	for d := range dirsToClean {
+		// check if the directory is empty
+		des, err := st.fs.ReadDir(d)
+		if err != nil {
+			st.logger.Warnf("Reading dir %s: %v", d, err)
+			continue
+		}
+
+		if len(des) > 0 {
+			st.logger.Debugf("Not removing %s because it's not empty", d)
+			continue
+		}
+
+		if err := st.fs.DeleteFile(d); err != nil {
+			st.logger.Warnf("Removing %s: %v", d, err)
+		} else {
+			st.logger.Debugf("Removed %s", d)
 		}
 	}
 }

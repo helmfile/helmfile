@@ -36,6 +36,7 @@ type execer struct {
 	logger               *zap.SugaredLogger
 	kubeContext          string
 	extra                []string
+	postRenderer         string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
@@ -142,6 +143,14 @@ func (helm *execer) SetEnableLiveOutput(enableLiveOutput bool) {
 	helm.enableLiveOutput = enableLiveOutput
 }
 
+func (helm *execer) SetPostRenderer(postRenderer string) {
+	helm.postRenderer = postRenderer
+}
+
+func (helm *execer) GetPostRenderer() string {
+	return helm.postRenderer
+}
+
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	var args []string
 	var out []byte
@@ -216,7 +225,7 @@ func (helm *execer) RegistryLogin(repository string, username string, password s
 	return err
 }
 
-func (helm *execer) BuildDeps(name, chart string) error {
+func (helm *execer) BuildDeps(name, chart string, flags ...string) error {
 	helm.logger.Infof("Building dependency release=%v, chart=%v", name, chart)
 	args := []string{
 		"dependency",
@@ -224,9 +233,7 @@ func (helm *execer) BuildDeps(name, chart string) error {
 		chart,
 	}
 
-	if helm.IsHelm3() {
-		args = append(args, "--skip-refresh")
-	}
+	args = append(args, flags...)
 
 	out, err := helm.exec(args, map[string]string{}, nil)
 	helm.info(out)
@@ -249,6 +256,10 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 		flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
 	} else {
 		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
+	}
+
+	if helm.IsHelm3() && helm.postRenderer != "" {
+		flags = append(flags, "--post-renderer", helm.postRenderer)
 	}
 
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
@@ -390,6 +401,9 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		args = []string{"template", chart, "--name", name}
 	}
 
+	if helm.IsHelm3() && helm.postRenderer != "" {
+		flags = append(flags, "--post-renderer", helm.postRenderer)
+	}
 	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
 	var outputToFile bool
@@ -432,6 +446,11 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 		enableLiveOutput := false
 		overrideEnableLiveOutput = &enableLiveOutput
 	}
+
+	if helm.IsHelm3() && helm.postRenderer != "" {
+		flags = append(flags, "--post-renderer", helm.postRenderer)
+	}
+
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
 	// Do our best to write STDOUT only when diff existed
 	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`

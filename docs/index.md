@@ -12,7 +12,7 @@
 # Helmfile
 
 [![Tests](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml?query=branch%3Amain)
-[![Container Image Repository on GHCR](https://ghcr-badge.herokuapp.com/helmfile/helmfile/latest_tag?trim=major&label=image%20latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
+[![Container Image Repository on GHCR](https://ghcr-badge.deta.dev/helmfile/helmfile/latest_tag?trim=major&label=latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
 [![Slack Community #helmfile](https://slack.sweetops.com/badge.svg)](https://slack.sweetops.com)
 [![Documentation](https://readthedocs.org/projects/helmfile/badge/?version=latest&style=flat)](https://helmfile.readthedocs.io/en/latest/)
 
@@ -554,6 +554,9 @@ Use "helmfile [command] --help" for more information about a command.
 
 The `helmfile init` sub-command checks the dependencies required for helmfile operation, such as `helm`, `helm diff plugin`, `helm secrets plugin`, `helm helm-git plugin`, `helm s3 plugin`. When it does not exist or the version is too low, it can be installed automatically.
 
+### cache
+
+The `helmfile cache` sub-command is designed for cache management. Go-getter-backed remote file system are cached by `helmfile`. There is no TTL implemented, if you need to update the cached files or directories, you need to clean individually or run a full cleanup with `helmfile cache cleanup`
 
 ### sync
 
@@ -914,9 +917,9 @@ This is still working but is **deprecated** and the new `{{ .Values.foo }}` synt
 
 You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
 
-### Loading remote environment values files
+### Loading remote Environment values files
 
-Since #1296 and Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
+Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
 
 ```yaml
 environments:
@@ -932,8 +935,8 @@ environments:
       - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
   staging:
      values:
-      -  git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
-      -  http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
+      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
 ---
 
 releases:
@@ -946,13 +949,13 @@ This is particularly useful when you co-locate helmfiles within your project rep
 
 ## Environment Secrets
 
-Environment Secrets (not to be confused with Kubernetes Secrets) are encrypted versions of `Environment Values`.
+Environment Secrets *(not to be confused with Kubernetes Secrets)* are encrypted versions of `Environment Values`.
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
 Helmfile could automatically decrypt and merge the secrets into the environment values.
 
 First you must have the [helm-secrets](https://github.com/jkroepke/helm-secrets) plugin installed along with a
 `.sops.yaml` file to configure the method of encryption (this can be in the same directory as your helmfile or
-in the sub-directory containing your secrets files).
+in the subdirectory containing your secrets files).
 
 Then suppose you have a secret `foo.bar` defined in `environments/production/secrets.yaml`:
 
@@ -983,6 +986,21 @@ Then the environment secret `foo.bar` can be referenced by the below template ex
 
 ```yaml
 {{ .Values.foo.bar }}
+```
+
+### Loading remote Environment secrets files
+
+Since Helmfile v0.149.0, you can use `go-getter`-style URLs to refer to remote secrets files, the same way as in values files:
+```yaml
+environments:
+  staging:
+    secrets:
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/org/repo.git@/environments/staging.secret.yaml?ref=main
+      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/staging.secret.yaml
+  production:
+    secrets:
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/org/repo.git@/environments/production.secret.yaml?ref=main
+      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/production.secret.yaml
 ```
 
 ## Tillerless
@@ -1225,7 +1243,7 @@ Hooks associated to `presync` events are triggered before each release is instal
 This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
 `preapply` hooks are triggered before a release is uninstalled, installed, or upgraded as part of `helmfile apply`.
-This is the ideal event to hook into when you are going to use `helmfile apply` for every kind of change, and you want the hook to be called only when any kind of change is being made.
+This is the ideal event to hook into when you are going to use `helmfile apply` for every kind of change and you want the hook to be triggered regardless of whether the releases have changed or not. Be sure to make each `preapply` hook command idempotent. Otherwise, rerunning helmfile-apply on a transient failure may end up either breaking your cluster, or the hook that runs for the second time will never succeed.
 
 `preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
 

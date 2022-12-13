@@ -1,0 +1,113 @@
+processing file "input.yaml" in directory "testdata/snapshot/pr_560"
+changing working directory to "/home/runner/work/helmfile/helmfile/test/e2e/template/helmfile/testdata/snapshot/pr_560"
+first-pass rendering starting for "input.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "input.yaml.part.0":
+ 0: releases:
+ 1: - name: foo
+ 2:   chart: ../../charts/raw-0.1.0
+ 3:   values:
+ 4:   - templates:
+ 5:       - |
+ 6:         apiVersion: v1
+ 7:         kind: ConfigMap
+ 8:         metadata:
+ 9:           name: {{ .Release.Name }}-1
+10:           namespace: {{ .Release.Namespace }}
+11:         data:
+12:           foo: FOO
+13:   - git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml?ref=main
+14:   secrets:
+15:   - git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml?ref=main
+16:   missingFileHandler: Debug
+17: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "input.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "input.yaml.part.0":
+ 0: releases:
+ 1: - name: foo
+ 2:   chart: ../../charts/raw-0.1.0
+ 3:   values:
+ 4:   - templates:
+ 5:       - |
+ 6:         apiVersion: v1
+ 7:         kind: ConfigMap
+ 8:         metadata:
+ 9:           name: {{ .Release.Name }}-1
+10:           namespace: {{ .Release.Namespace }}
+11:         data:
+12:           foo: FOO
+13:   - git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml?ref=main
+14:   secrets:
+15:   - git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml?ref=main
+16:   missingFileHandler: Debug
+17: 
+
+merged environment: &{default map[] map[]}
+helm> $HelmVersion
+helm> 
+Building dependency release=foo, chart=../../charts/raw-0.1.0
+exec: helm dependency build ../../charts/raw-0.1.0
+1 release(s) found in input.yaml
+
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     foo
+
+processing releases in group 1/1: foo
+remote> getter: git
+remote> scheme: https
+remote> user: 
+remote> host: github.com
+remote> dir: /helmfile/helmfile.git
+remote> file: test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml
+remote> home: /home/runner/.cache/helmfile
+remote> getter dest: values/https_github_com_helmfile_helmfile_git.ref=main
+remote> cached dir: /home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main
+remote> downloading git::https://github.com/helmfile/helmfile.git?ref=main to values/https_github_com_helmfile_helmfile_git.ref=main
+client: {Ctx:context.Background Src:git::https://github.com/helmfile/helmfile.git?ref=main Dst:/home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main Pwd:/home/runner/.cache/helmfile Mode:3 Umask:---------- Detectors:[] Decompressors:map[] Getters:map[] Dir:false ProgressListener:<nil> Insecure:false DisableSymlinks:false Options:[]}
+skipping missing values file matching "git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/values.yaml?ref=main"
+remote> getter: git
+remote> scheme: https
+remote> user: 
+remote> host: github.com
+remote> dir: /helmfile/helmfile.git
+remote> file: test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml
+remote> home: /home/runner/.cache/helmfile
+remote> getter dest: values/https_github_com_helmfile_helmfile_git.ref=main
+remote> cached dir: /home/runner/.cache/helmfile/values/https_github_com_helmfile_helmfile_git.ref=main
+skipping missing secrets file matching "git::https://github.com/helmfile/helmfile.git@test/e2e/template/helmfile/testdata/snapshot/pr_560/secrets.yaml?ref=main"
+Templating release=foo, chart=../../charts/raw-0.1.0
+exec: helm template foo ../../charts/raw-0.1.0 --values /tmp/helmfile/foo-values-649697bc75 --debug
+helm> install.go:192: [debug] Original chart version: ""
+helm> 
+helm> install.go:209: [debug] CHART PATH: /home/runner/work/helmfile/helmfile/test/e2e/template/helmfile/testdata/charts/raw-0.1.0
+helm> 
+helm> 
+helm> ---
+helm> # Source: raw/templates/resources.yaml
+helm> apiVersion: v1
+helm> kind: ConfigMap
+helm> metadata:
+helm> name: foo-1
+helm> namespace: default
+helm> data:
+helm> foo: FOO
+helm> 
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-1
+  namespace: default
+data:
+  foo: FOO
+
+Removed /tmp/helmfile/foo-values-649697bc75
+Removed /tmp/helmfile
+changing working directory back to "/home/runner/work/helmfile/helmfile/test/e2e/template/helmfile"

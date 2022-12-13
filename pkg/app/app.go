@@ -1354,30 +1354,20 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		}
 	}
 
-	for id := range releasesWithNoChange {
-		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "apply"); err != nil {
-			a.Logger.Warnf("warn: %v\n", err)
-		}
-	}
-
-	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
-		if infoMsg != nil {
-			logger := c.Logger()
-			logger.Infof("")
-			logger.Infof(*infoMsg)
-		}
-		return true, false, nil
+	infoMsgStr := ""
+	if infoMsg != nil {
+		infoMsgStr = *infoMsg
 	}
 
 	confMsg := fmt.Sprintf(`%s
 Do you really want to apply?
   Helmfile will apply all your changes, as shown above.
 
-`, *infoMsg)
+`, infoMsgStr)
+
 	interactive := c.Interactive()
-	if !interactive {
-		a.Logger.Debug(*infoMsg)
+	if !interactive && infoMsgStr != "" {
+		a.Logger.Debug(infoMsgStr)
 	}
 
 	var applyErrs []error
@@ -1402,6 +1392,7 @@ Do you really want to apply?
 		}
 
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+		r.helm.SetPostRenderer(c.PostRenderer())
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
@@ -1457,6 +1448,17 @@ Do you really want to apply?
 	}
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
+
+	for id := range releasesWithNoChange {
+		r := releasesWithNoChange[id]
+		if _, err := st.TriggerCleanupEvent(&r, "apply"); err != nil {
+			a.Logger.Warnf("warn: %v\n", err)
+		}
+	}
+	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
+		return true, false, nil
+	}
+
 	return true, true, applyErrs
 }
 
@@ -1773,6 +1775,7 @@ Do you really want to sync?
 	var errs []error
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+	r.helm.SetPostRenderer(c.PostRenderer())
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases

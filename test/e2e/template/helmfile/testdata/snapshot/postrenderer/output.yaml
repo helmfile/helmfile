@@ -1,0 +1,46 @@
+Building dependency release=foo, chart=../../charts/raw-0.1.0
+Building dependency release=baz, chart=$WD/temp1/baz
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "myrepo" chart repository
+...Successfully got an update from the "istio" chart repository
+Update Complete. ⎈Happy Helming!⎈
+Saving 1 charts
+Downloading raw from repo oci://localhost:5001/myrepo
+Deleting outdated charts
+
+Templating release=foo, chart=../../charts/raw-0.1.0
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-1
+  namespace: default
+data:
+  foo: FOO
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  two: TWO
+metadata:
+  name: cm2
+
+Templating release=baz, chart=$WD/temp1/baz
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: baz-3
+  namespace: default
+data:
+  baz: BAZ
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  one: ONE
+metadata:
+  name: cm1
+

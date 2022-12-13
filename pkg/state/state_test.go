@@ -161,7 +161,8 @@ func boolValue(v bool) *bool {
 func TestHelmState_flagsForUpgrade(t *testing.T) {
 	enable := true
 	disable := false
-
+	postRendererDefault := "foo-default.sh"
+	postRendererRelease := "foo-release.sh"
 	some := func(v int) *int {
 		return &v
 	}
@@ -693,6 +694,73 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			wantErr: "releases[].createNamespace requires Helm 3.2.0 or greater",
 		},
+		{
+			name: "post-renderer-flags-use-helmdefault",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+				PostRenderer:    &postRendererDefault,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer", postRendererDefault,
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-flags-use-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+				PostRenderer:    &postRendererRelease,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer", postRendererRelease,
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-flags-use-release-prior-helmdefault",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+				PostRenderer:    &postRendererDefault,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+				PostRenderer:    &postRendererRelease,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer", postRendererRelease,
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -711,6 +779,118 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			}
 
 			args, _, err := state.flagsForUpgrade(helm, tt.release, 0)
+			if err != nil && tt.wantErr == "" {
+				t.Errorf("unexpected error flagsForUpgrade: %v", err)
+			}
+			if tt.wantErr != "" && (err == nil || err.Error() != tt.wantErr) {
+				t.Errorf("expected error '%v'; got '%v'", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(args, tt.want) {
+				t.Errorf("flagsForUpgrade returned = %v, want %v", args, tt.want)
+			}
+		})
+	}
+}
+
+func TestHelmState_flagsForTemplate(t *testing.T) {
+	enable := true
+	disable := false
+	postRendererDefault := "foo-default.sh"
+	postRendererRelease := "foo-release.sh"
+
+	tests := []struct {
+		name     string
+		version  *semver.Version
+		defaults HelmSpec
+		release  *ReleaseSpec
+		want     []string
+		wantErr  string
+	}{
+		{
+			name: "post-renderer-flags-use-helmdefault",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+				PostRenderer:    &postRendererDefault,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer", postRendererDefault,
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-flags-use-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+				PostRenderer:    &postRendererRelease,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer", postRendererRelease,
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-flags-use-release-prior-helmdefault",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+				PostRenderer:    &postRendererDefault,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+				PostRenderer:    &postRendererRelease,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer", postRendererRelease,
+				"--namespace", "test-namespace",
+			},
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				basePath: "./",
+				ReleaseSetSpec: ReleaseSetSpec{
+					DeprecatedContext: "default",
+					Releases:          []ReleaseSpec{*tt.release},
+					HelmDefaults:      tt.defaults,
+				},
+				valsRuntime: valsRuntime,
+			}
+			helm := &exectest.Helm{
+				Version: tt.version,
+			}
+
+			args, _, err := state.flagsForTemplate(helm, tt.release, 0)
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}
@@ -1054,6 +1234,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 }
 
 func TestHelmState_SyncReleases(t *testing.T) {
+	postRenderer := "foo.sh"
 	tests := []struct {
 		name          string
 		releases      []ReleaseSpec
@@ -1198,6 +1379,19 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			},
 			helm:         &exectest.Helm{},
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo=FOO", "--values", "releaseName.yaml", "--set", "baz=BAZ", "--reset-values"}}},
+		},
+			name: "post renderer",
+			releases: []ReleaseSpec{
+				{
+					Name:         "releaseName",
+					Chart:        "foo",
+					PostRenderer: &postRenderer,
+				},
+			},
+			helm: &exectest.Helm{
+				Helm3: true,
+			},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--post-renderer", postRenderer, "--reset-values"}}},
 		},
 	}
 	for i := range tests {

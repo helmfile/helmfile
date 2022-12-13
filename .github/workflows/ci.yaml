@@ -37,7 +37,7 @@ jobs:
       run: make check test
 
     - name: Prepare tar to upload built binaries
-      run: tar -cvf built-binaries.tar helmfile diff-yamls yamldiff
+      run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
     - name: Upload built binaries
       uses: actions/upload-artifact@v2
       with:
@@ -45,7 +45,7 @@ jobs:
         path: built-binaries.tar
         retention-days: 1
     - name: Display built binaries
-      run: ls -l helmfile diff-yamls yamldiff
+      run: ls -l helmfile diff-yamls dyff
 
   integration_tests:
     needs: tests
@@ -115,7 +115,7 @@ jobs:
     - name: Extract tar to get built binaries
       run: tar -xvf built-binaries.tar
     - name: Display built binaries
-      run: ls -l helmfile diff-yamls yamldiff
+      run: ls -l helmfile diff-yamls dyff
 
     - name: Install test dependencies
       env:
@@ -149,7 +149,7 @@ jobs:
       - name: Extract tar to get built binaries
         run: tar -xvf built-binaries.tar
       - name: Display built binaries
-        run: ls -l helmfile diff-yamls yamldiff
+        run: ls -l helmfile diff-yamls dyff
       - name: Run helmfile init
         env:
           TERM: xterm

@@ -34,6 +34,8 @@ type TemplateOptions struct {
 	SkipDeps bool
 	// SkipCleanup is the skip cleanup flag
 	SkipCleanup bool
+	// Propagate '--postRenderer' to helmv3 template and helm install
+	PostRenderer string
 }
 
 // NewTemplateOptions creates a new Apply
@@ -122,4 +124,9 @@ func (t *TemplateImpl) Validate() bool {
 // Values returns the values
 func (t *TemplateImpl) Values() []string {
 	return t.TemplateOptions.Values
+}
+
+// PostRenderer returns the PostRenderer.
+func (t *TemplateImpl) PostRenderer() string {
+	return t.TemplateOptions.PostRenderer
 }
