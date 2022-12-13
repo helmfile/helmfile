@@ -49,6 +49,7 @@ type Config struct {
 	ChartifyTempDir string   `yaml:"chartifyTempDir"`
 	HelmfileArgs    []string `yaml:"helmfileArgs"`
 }
+
 type fakeInit struct{}
 
 func (f fakeInit) Force() bool {
