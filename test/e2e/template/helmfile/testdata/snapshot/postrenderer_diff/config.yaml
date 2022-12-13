@@ -1,6 +1,0 @@
-localDockerRegistry:
-  enabled: true
-  port: 5001
-chartifyTempDir: temp1
-helmfileArgs:
-- diff
