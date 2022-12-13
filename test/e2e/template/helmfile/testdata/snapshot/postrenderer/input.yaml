@@ -37,7 +37,3 @@ releases:
         namespace: {{`{{ .Release.Namespace }}`}}
       data:
         baz: BAZ
-  dependencies:
-  - alias: dep
-    chart: oci://localhost:5001/myrepo/raw
-    version: 0.1.0
