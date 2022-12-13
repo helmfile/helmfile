@@ -23,7 +23,7 @@ require (
 	github.com/variantdev/dag v1.1.0
 	github.com/variantdev/vals v0.21.0
 	go.szostok.io/version v1.1.0
-	go.uber.org/multierr v1.6.0
+	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	golang.org/x/term v0.3.0
