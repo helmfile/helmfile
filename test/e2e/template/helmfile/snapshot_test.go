@@ -17,7 +17,9 @@ import (
 	"github.com/variantdev/chartify/helmtesting"
 	"gopkg.in/yaml.v3"
 
+	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 var (
@@ -47,9 +49,24 @@ type Config struct {
 	ChartifyTempDir string   `yaml:"chartifyTempDir"`
 	HelmfileArgs    []string `yaml:"helmfileArgs"`
 }
+type fakeInit struct{}
+
+func (f fakeInit) Force() bool {
+	return true
+}
 
 func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 	localChartPortSets := make(map[int]struct{})
+
+	logger := helmexec.NewLogger(os.Stderr, "info")
+	runner := &helmexec.ShellRunner{
+		Logger: logger,
+	}
+
+	c := fakeInit{}
+	helmfileInit := app.NewHelmfileInit("helm", c, logger, runner)
+	err := helmfileInit.CheckHelmPlugins()
+	require.NoError(t, err)
 
 	_, filename, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(filename), "..", "..", "..", "..")
