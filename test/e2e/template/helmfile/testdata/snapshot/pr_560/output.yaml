@@ -108,6 +108,6 @@ metadata:
 data:
   foo: FOO
 
-Removed /tmp/helmfile/foo-values-79c7c784c9
+Removed /tmp/helmfile/foo-values-649697bc75
 Removed /tmp/helmfile
 changing working directory back to "/home/runner/work/helmfile/helmfile/test/e2e/template/helmfile"
