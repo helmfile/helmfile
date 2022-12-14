@@ -2521,12 +2521,9 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		return nil, nil, err
 	}
 
-	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
-		if release.PostRenderer != nil && *release.PostRenderer != "" {
-			flags = append(flags, "--post-renderer", *release.PostRenderer)
-		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
-			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
-		}
+	flags, err = st.appendPostRenderFlags(flags, release, helm)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
@@ -2556,12 +2553,9 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 
 	flags = st.appendApiVersionsFlags(flags, release)
 
-	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
-		if release.PostRenderer != nil && *release.PostRenderer != "" {
-			flags = append(flags, "--post-renderer", *release.PostRenderer)
-		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
-			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
-		}
+	flags, err = st.appendPostRenderFlags(flags, release, helm)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
@@ -2605,12 +2599,9 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, nil, err
 	}
 
-	if helm.IsHelm3() && helm.GetPostRenderer() == "" {
-		if release.PostRenderer != nil && *release.PostRenderer != "" {
-			flags = append(flags, "--post-renderer", *release.PostRenderer)
-		} else if st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "" {
-			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
-		}
+	flags, err = st.appendPostRenderFlags(flags, release, helm)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
