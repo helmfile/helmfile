@@ -258,10 +258,6 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
 	}
 
-	if helm.IsHelm3() && helm.postRenderer != "" {
-		flags = append(flags, "--post-renderer", helm.postRenderer)
-	}
-
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
 	helm.write(nil, out)
 	return err
@@ -401,9 +397,6 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		args = []string{"template", chart, "--name", name}
 	}
 
-	if helm.IsHelm3() && helm.postRenderer != "" {
-		flags = append(flags, "--post-renderer", helm.postRenderer)
-	}
 	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
 	var outputToFile bool
@@ -445,10 +438,6 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 	if suppressDiff {
 		enableLiveOutput := false
 		overrideEnableLiveOutput = &enableLiveOutput
-	}
-
-	if helm.IsHelm3() && helm.postRenderer != "" {
-		flags = append(flags, "--post-renderer", helm.postRenderer)
 	}
 
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
