@@ -34,7 +34,7 @@ type TemplateOptions struct {
 	SkipDeps bool
 	// SkipCleanup is the skip cleanup flag
 	SkipCleanup bool
-	// Propagate '--postRenderer' to helmv3 template and helm install
+	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
 }
 

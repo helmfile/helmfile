@@ -152,7 +152,7 @@ type HelmSpec struct {
 	SkipDeps bool `yaml:"skipDeps"`
 	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues bool `yaml:"reuseValues"`
-	// Propagate '--postRenderer' to helmv3 template and helm install
+	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
 
 	TLS                      bool   `yaml:"tls"`
@@ -318,7 +318,7 @@ type ReleaseSpec struct {
 	// as a Helm chart.
 	SkipDeps *bool `yaml:"skipDeps,omitempty"`
 
-	// Propagate '--postRenderer' to helmv3 template and helm install
+	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
 }
 

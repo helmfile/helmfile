@@ -50,7 +50,7 @@ type ApplyOptions struct {
 	WaitForJobs bool
 	// ReuseValues is true if the helm command should reuse the values
 	ReuseValues bool
-	// Propagate '--postRenderer' to helmv3 template and helm install
+	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
 }
 
