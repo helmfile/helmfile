@@ -137,10 +137,9 @@ type meta struct {
 	namespace  string
 }
 
-// nolint: unparam
-func (res resource) getMeta() (meta, error) {
+func (res resource) getMeta() meta {
 	if len(res) == 0 {
-		return meta{}, nil
+		return meta{}
 	}
 	m := meta{}
 	apiVersion, _ := res["apiVersion"].(string)
@@ -152,7 +151,7 @@ func (res resource) getMeta() (meta, error) {
 	m.name = name
 	namespace, _ := metadata["namespace"].(string)
 	m.namespace = namespace
-	return m, nil
+	return m
 }
 
 func readManifest(path string) ([]resource, error) {
@@ -183,10 +182,8 @@ func readManifest(path string) ([]resource, error) {
 }
 
 func (res resource) getID() string {
-	meta, err := res.getMeta()
-	if err != nil {
-		return fmt.Sprintf("%v", res)
-	}
+	meta := res.getMeta()
+
 	ns := meta.namespace
 	if ns == "" {
 		ns = "~X"
@@ -229,10 +226,8 @@ func (ps *pairs) isSameResource(meta1, meta2 meta) bool {
 }
 
 func (ps *pairs) add(node resource, source diffSource) error {
-	nodeMeta, err := node.getMeta()
-	if err != nil {
-		return err
-	}
+	nodeMeta := node.getMeta()
+
 	for i := range ps.list {
 		p := ps.list[i]
 		if ps.isSameResource(p.meta, nodeMeta) {

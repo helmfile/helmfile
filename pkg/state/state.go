@@ -1141,10 +1141,12 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				isLocal := st.fs.DirectoryExistsAt(normalizeChart(st.basePath, chartName))
 
 				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
+
 				if !opts.SkipCleanup {
 					// nolint: staticcheck
 					defer clean()
 				}
+
 				if err != nil {
 					results <- &chartPrepareResult{err: err}
 					return
@@ -1256,7 +1258,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						chartPath = filepath.Dir(fullChartPath)
 					}
 				}
-
 				results <- &chartPrepareResult{
 					releaseName:            release.Name,
 					chartName:              chartName,
@@ -2515,16 +2516,9 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendConnectionFlags(flags, helm, release)
 
-	var err error
-	flags, err = st.appendHelmXFlags(flags, release)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendHelmXFlags(flags, release)
 
-	flags, err = st.appendPostRenderFlags(flags, release, helm)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendPostRenderFlags(flags, release, helm)
 
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2545,18 +2539,11 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		flags = st.chartVersionFlags(release)
 	}
 
-	var err error
-	flags, err = st.appendHelmXFlags(flags, release)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendHelmXFlags(flags, release)
 
 	flags = st.appendApiVersionsFlags(flags, release)
 
-	flags, err = st.appendPostRenderFlags(flags, release, helm)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendPostRenderFlags(flags, release, helm)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2593,16 +2580,9 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendConnectionFlags(flags, helm, release)
 
-	var err error
-	flags, err = st.appendHelmXFlags(flags, release)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendHelmXFlags(flags, release)
 
-	flags, err = st.appendPostRenderFlags(flags, release, helm)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendPostRenderFlags(flags, release, helm)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2660,12 +2640,7 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, files, err
 	}
 
-	flags, err = st.appendHelmXFlags(flags, release)
-	if err != nil {
-		return nil, files, err
-	}
-
-	return flags, files, nil
+	return st.appendHelmXFlags(flags, release), files, nil
 }
 
 func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplateData {
