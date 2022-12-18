@@ -3103,9 +3103,9 @@ func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
 
 // UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
 // this is required to keep allowing string scalar for defining helmfile
-func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (hf *SubHelmfileSpec) UnmarshalYAML(value *yaml.Node) error {
 	var tmp interface{}
-	if err := unmarshal(&tmp); err != nil {
+	if err := value.Decode(&tmp); err != nil {
 		return err
 	}
 
@@ -3120,7 +3120,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 
 			Environment SubhelmfileEnvironmentSpec `yaml:",inline"`
 		}
-		if err := unmarshal(&subHelmfileSpecTmp); err != nil {
+		if err := value.Decode(&subHelmfileSpecTmp); err != nil {
 			return err
 		}
 		hf.Path = subHelmfileSpecTmp.Path
