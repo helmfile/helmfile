@@ -30,7 +30,7 @@ func TestDownloadfile(t *testing.T) {
 		{
 			name: "download 404",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(404)
+				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprint(w, "not found")
 			},
 			wantError: "download .*? error, code: 404",
@@ -38,7 +38,7 @@ func TestDownloadfile(t *testing.T) {
 		{
 			name: "download 500",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprint(w, "server error")
 			},
 			wantError: "download .*? error, code: 500",
