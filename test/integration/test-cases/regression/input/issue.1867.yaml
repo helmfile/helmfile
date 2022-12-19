@@ -5,7 +5,7 @@ repositories:
 releases:
   - name: elasticsearch
     chart: bitnami/elasticsearch
-    version: 17.5.7
+    version: 19.0.1
     jsonPatches:
     - target:
         version: v1
