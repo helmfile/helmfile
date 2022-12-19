@@ -33,7 +33,6 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 	return mock.output, mock.err
 }
 
-// nolint: golint
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 	execer := New("helm", false, logger, kubeContext, &mockRunner{})
 	return execer

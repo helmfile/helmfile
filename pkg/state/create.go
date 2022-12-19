@@ -22,7 +22,6 @@ const (
 	DefaultHelmBinary = "helm"
 )
 
-// nolint: golint
 type StateLoadError struct {
 	msg   string
 	Cause error
@@ -300,12 +299,14 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 					results <- secretResult{secret.id, nil, err, secret.path}
 					continue
 				}
+
 				// nolint: staticcheck
 				defer func() {
 					if err := c.fs.DeleteFile(decFile); err != nil {
 						c.logger.Warnf("removing decrypted file %s: %w", decFile, err)
 					}
 				}()
+
 				bytes, err := c.fs.ReadFile(decFile)
 				if err != nil {
 					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}

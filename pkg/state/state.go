@@ -152,7 +152,7 @@ type HelmSpec struct {
 	SkipDeps bool `yaml:"skipDeps"`
 	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues bool `yaml:"reuseValues"`
-	// Propagate '--postRenderer' to helmv3 template and helm install
+	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
 
 	TLS                      bool   `yaml:"tls"`
@@ -318,7 +318,7 @@ type ReleaseSpec struct {
 	// as a Helm chart.
 	SkipDeps *bool `yaml:"skipDeps,omitempty"`
 
-	// Propagate '--postRenderer' to helmv3 template and helm install
+	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
 }
 
@@ -1141,10 +1141,12 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				isLocal := st.fs.DirectoryExistsAt(normalizeChart(st.basePath, chartName))
 
 				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
+
 				if !opts.SkipCleanup {
 					// nolint: staticcheck
 					defer clean()
 				}
+
 				if err != nil {
 					results <- &chartPrepareResult{err: err}
 					return
@@ -1256,7 +1258,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						chartPath = filepath.Dir(fullChartPath)
 					}
 				}
-
 				results <- &chartPrepareResult{
 					releaseName:            release.Name,
 					chartName:              chartName,
@@ -2515,16 +2516,9 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendConnectionFlags(flags, helm, release)
 
-	var err error
-	flags, err = st.appendHelmXFlags(flags, release)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendHelmXFlags(flags, release)
 
-	flags, err = st.appendPostRenderFlags(flags, release, helm)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendPostRenderFlags(flags, release, helm)
 
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2545,18 +2539,11 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		flags = st.chartVersionFlags(release)
 	}
 
-	var err error
-	flags, err = st.appendHelmXFlags(flags, release)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendHelmXFlags(flags, release)
 
 	flags = st.appendApiVersionsFlags(flags, release)
 
-	flags, err = st.appendPostRenderFlags(flags, release, helm)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendPostRenderFlags(flags, release, helm)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2593,16 +2580,9 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendConnectionFlags(flags, helm, release)
 
-	var err error
-	flags, err = st.appendHelmXFlags(flags, release)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendHelmXFlags(flags, release)
 
-	flags, err = st.appendPostRenderFlags(flags, release, helm)
-	if err != nil {
-		return nil, nil, err
-	}
+	flags = st.appendPostRenderFlags(flags, release, helm)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2660,12 +2640,7 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, files, err
 	}
 
-	flags, err = st.appendHelmXFlags(flags, release)
-	if err != nil {
-		return nil, files, err
-	}
-
-	return flags, files, nil
+	return st.appendHelmXFlags(flags, release), files, nil
 }
 
 func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplateData {
@@ -3128,9 +3103,9 @@ func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
 
 // UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
 // this is required to keep allowing string scalar for defining helmfile
-func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (hf *SubHelmfileSpec) UnmarshalYAML(value *yaml.Node) error {
 	var tmp interface{}
-	if err := unmarshal(&tmp); err != nil {
+	if err := value.Decode(&tmp); err != nil {
 		return err
 	}
 
@@ -3145,7 +3120,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 
 			Environment SubhelmfileEnvironmentSpec `yaml:",inline"`
 		}
-		if err := unmarshal(&subHelmfileSpecTmp); err != nil {
+		if err := value.Decode(&subHelmfileSpecTmp); err != nil {
 			return err
 		}
 		hf.Path = subHelmfileSpecTmp.Path

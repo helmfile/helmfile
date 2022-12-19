@@ -257,34 +257,35 @@ linters:
   enable:
     - bodyclose
     - depguard
-    # - dogsled
-    # - dupl
+    - usestdlibvars
+    - reassign
     - errcheck
     - funlen
     - gocognit
     - goconst
-    # - gocritic
-    # - godox
     - gofmt
     - goimports
     - revive
-    # - gosec
     - gosimple
     - govet
     - ineffassign
-    # - interfacer
     - misspell
     - nakedret
     - exportloopref
     - staticcheck
-    - structcheck
-    # - stylecheck
     - typecheck
     - unconvert
     - unparam
     - unused
     - whitespace
     - gci
+    # - gocritic
+    # - godox
+    # - gosec
+    # - interfacer
+    # - stylecheck
+    # - dogsled
+    # - dupl
   # don't enable:
   # - deadcode
   # - gochecknoglobals

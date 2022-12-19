@@ -215,6 +215,8 @@ helmDefaults:
   skipDeps: false
   # if set to true, reuses the last release's values and merges them with ones provided in helmfile.
   reuseValues: false
+  # propagate `--post-renderer` to helmv3 template and helm install
+  postRenderer: "path/to/postRenderer"
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
@@ -320,6 +322,8 @@ releases:
     # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
     # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
     skipDeps: false
+    # propagate `--post-renderer` to helmv3 template and helm install
+    postRenderer: "path/to/postRenderer"
 
   # Local chart example
   - name: grafana                            # name of this release
@@ -1239,7 +1243,7 @@ Currently supported `events` are:
 Hooks associated to `prepare` events are triggered after each release in your helmfile is loaded from YAML, before execution.
 `prepare` hooks are triggered on the release as long as it is not excluded by the helmfile selector(e.g. `helmfile -l key=value`).
 
-Hooks associated to `presync` events are triggered before each release is installed or upgraded on the remote cluster.
+Hooks associated to `presync` events are triggered before each release is synced (installed or upgraded) on the cluster.
 This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
 `preapply` hooks are triggered before a release is uninstalled, installed, or upgraded as part of `helmfile apply`.
@@ -1249,7 +1253,7 @@ This is the ideal event to hook into when you are going to use `helmfile apply` 
 
 `postuninstall` hooks are triggered immediately after successful uninstall of a release while running `helmfile apply`, `helmfile sync`, `helmfile delete`, `helmfile destroy`.
 
-`postsync` hooks are triggered after each release is synced(installed, updated, or uninstalled) to/from the cluster, regardless of the sync was successful or not.
+`postsync` hooks are triggered after each release is synced (installed or upgraded) on the cluster, regardless if the sync was successful or not.
 This is the ideal place to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
 `cleanup` hooks are triggered after each release is processed.
