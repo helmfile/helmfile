@@ -17,12 +17,16 @@ import (
 	"github.com/variantdev/chartify/helmtesting"
 	"gopkg.in/yaml.v3"
 
+	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 var (
 	// e.g. https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	chartGitFullPathRegex = regexp.MustCompile(`chart=.*git\.ref=.*/charts/.*`)
+	// helm short version regex. e.g. v3.10.2+g50f003e
+	helmShortVersionRegex = regexp.MustCompile(`v\d+\.\d+\.\d+\+[a-z0-9]+`)
 )
 
 type ociChart struct {
@@ -31,19 +35,39 @@ type ociChart struct {
 	digest  string
 }
 
+type Config struct {
+	LocalDockerRegistry struct {
+		Enabled  bool   `yaml:"enabled"`
+		Port     int    `yaml:"port"`
+		ChartDir string `yaml:"chartDir"`
+	} `yaml:"localDockerRegistry"`
+	LocalChartRepoServer struct {
+		Enabled  bool   `yaml:"enabled"`
+		Port     int    `yaml:"port"`
+		ChartDir string `yaml:"chartDir"`
+	} `yaml:"localChartRepoServer"`
+	ChartifyTempDir string   `yaml:"chartifyTempDir"`
+	HelmfileArgs    []string `yaml:"helmfileArgs"`
+}
+
+type fakeInit struct{}
+
+func (f fakeInit) Force() bool {
+	return true
+}
+
 func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
-	type Config struct {
-		LocalDockerRegistry struct {
-			Enabled bool `yaml:"enabled"`
-			Port    int  `yaml:"port"`
-		} `yaml:"localDockerRegistry"`
-		LocalChartRepoServer struct {
-			Enabled bool `yaml:"enabled"`
-			Port    int  `yaml:"port"`
-		} `yaml:"localChartRepoServer"`
-		ChartifyTempDir string   `yaml:"chartifyTempDir"`
-		HelmfileArgs    []string `yaml:"helmfileArgs"`
+	localChartPortSets := make(map[int]struct{})
+
+	logger := helmexec.NewLogger(os.Stderr, "info")
+	runner := &helmexec.ShellRunner{
+		Logger: logger,
 	}
+
+	c := fakeInit{}
+	helmfileInit := app.NewHelmfileInit("helm", c, logger, runner)
+	err := helmfileInit.CheckHelmPlugins()
+	require.NoError(t, err)
 
 	_, filename, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(filename), "..", "..", "..", "..")
@@ -52,7 +76,7 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 		helmfileBin = helmfileBin + ".exe"
 	}
 	testdataDir := "testdata/snapshot"
-	chartsDir := "testdata/charts"
+	defaultChartsDir := "testdata/charts"
 
 	entries, err := os.ReadDir(testdataDir)
 	require.NoError(t, err)
@@ -77,6 +101,21 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 			if err := yaml.Unmarshal(configData, &config); err != nil {
 				t.Fatalf("Unable to load %s: %v", configFile, err)
 			}
+		}
+
+		if config.LocalChartRepoServer.Enabled {
+			if _, ok := localChartPortSets[config.LocalChartRepoServer.Port]; ok {
+				t.Fatalf("Port %d is already in use", config.LocalChartRepoServer.Port)
+			} else {
+				localChartPortSets[config.LocalChartRepoServer.Port] = struct{}{}
+			}
+			if config.LocalChartRepoServer.ChartDir == "" {
+				config.LocalChartRepoServer.ChartDir = defaultChartsDir
+			}
+			helmtesting.StartChartRepoServer(t, helmtesting.ChartRepoServerConfig{
+				Port:      config.LocalChartRepoServer.Port,
+				ChartsDir: config.LocalChartRepoServer.ChartDir,
+			})
 		}
 
 		// We run `helmfile build` by default.
@@ -137,11 +176,14 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 
 				// We helm-package and helm-push every test chart saved in the ./testdata/charts directory
 				// to the local registry, so that they can be accessed by helmfile and helm invoked while testing.
-				charts, err := os.ReadDir(chartsDir)
+				if config.LocalDockerRegistry.ChartDir == "" {
+					config.LocalDockerRegistry.ChartDir = defaultChartsDir
+				}
+				charts, err := os.ReadDir(config.LocalDockerRegistry.ChartDir)
 				require.NoError(t, err)
 
 				for _, c := range charts {
-					chartPath := filepath.Join(chartsDir, c.Name())
+					chartPath := filepath.Join(config.LocalDockerRegistry.ChartDir, c.Name())
 					if !c.IsDir() {
 						t.Fatalf("%s is not a directory", c)
 					}
@@ -156,13 +198,6 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 						digest:  chartDigest,
 					})
 				}
-			}
-
-			if config.LocalChartRepoServer.Enabled {
-				helmtesting.StartChartRepoServer(t, helmtesting.ChartRepoServerConfig{
-					Port:      config.LocalChartRepoServer.Port,
-					ChartsDir: chartsDir,
-				})
 			}
 
 			inputFile := filepath.Join(testdataDir, name, "input.yaml")
@@ -188,10 +223,14 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 			require.NoError(t, err, "Unable to run helmfile with args %v", args)
 
 			gotStr := string(got)
-			gotStr = strings.ReplaceAll(gotStr, fmt.Sprintf("chart=%s", wd), "chart=$WD")
 
+			// Replace all random strings
+
+			gotStr = strings.ReplaceAll(gotStr, fmt.Sprintf("chart=%s", wd), "chart=$WD")
 			// Replace go-getter path with $GoGetterPath
 			gotStr = chartGitFullPathRegex.ReplaceAllString(gotStr, `chart=$$GoGetterPath`)
+			// Replace helm version with $HelmVersion
+			gotStr = helmShortVersionRegex.ReplaceAllString(gotStr, `$$HelmVersion`)
 
 			// OCI based helm charts are pulled and exported under temporary directory.
 			// We are not sure the exact name of the temporary directory generated by helmfile,

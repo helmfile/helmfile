@@ -23,6 +23,8 @@ type logWriter struct {
 }
 
 func (w *logWriter) Write(p []byte) (int, error) {
-	w.log.Debugf("%s%s", w.prefix, strings.TrimSpace(string(p)))
+	for _, line := range strings.Split(string(p), "\n") {
+		w.log.Debugf("%s%s", w.prefix, strings.TrimSpace(line))
+	}
 	return len(p), nil
 }

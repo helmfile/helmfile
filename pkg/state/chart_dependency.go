@@ -279,7 +279,6 @@ type chartDependencyManager struct {
 	writeFile func(string, []byte, os.FileMode) error
 }
 
-// nolint: golint
 func NewChartDependencyManager(name string, logger *zap.SugaredLogger, lockFilePath string) *chartDependencyManager {
 	return &chartDependencyManager{
 		Name:         name,

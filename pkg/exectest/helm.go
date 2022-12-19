@@ -78,7 +78,7 @@ func (helm *Helm) UpdateDeps(chart string) error {
 	return nil
 }
 
-func (helm *Helm) BuildDeps(name, chart string) error {
+func (helm *Helm) BuildDeps(name, chart string, flags ...string) error {
 	if strings.Contains(chart, "error") {
 		return errors.New("error")
 	}
@@ -91,6 +91,11 @@ func (helm *Helm) SetExtraArgs(args ...string) {
 func (helm *Helm) SetHelmBinary(bin string) {
 }
 func (helm *Helm) SetEnableLiveOutput(enableLiveOutput bool) {
+}
+func (helm *Helm) SetPostRenderer(postRenderer string) {
+}
+func (helm *Helm) GetPostRenderer() string {
+	return ""
 }
 func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, passCredentials, skipTLSVerify}
@@ -200,7 +205,10 @@ func (helm *Helm) ChartExport(chart string, path string, flags ...string) error 
 	return nil
 }
 func (helm *Helm) IsHelm3() bool {
-	return helm.Helm3
+	if helm.Version == nil {
+		return helm.Helm3
+	}
+	return helm.Version.Major() == 3
 }
 
 func (helm *Helm) GetVersion() helmexec.Version {

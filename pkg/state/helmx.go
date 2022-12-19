@@ -17,13 +17,28 @@ type Dependency struct {
 	Alias   string `yaml:"alias"`
 }
 
-// nolint: unparam
-func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) ([]string, error) {
+func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) []string {
 	for _, adopt := range release.Adopt {
 		flags = append(flags, "--adopt", adopt)
 	}
 
-	return flags, nil
+	return flags
+}
+
+// append post-renderer flags to helm flags
+func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec, helm helmexec.Interface) []string {
+	if helm.IsHelm3() {
+		switch {
+		// helm.GetPostRenderer() comes from cmd flag.
+		case helm.GetPostRenderer() != "":
+			flags = append(flags, "--post-renderer", helm.GetPostRenderer())
+		case release.PostRenderer != nil && *release.PostRenderer != "":
+			flags = append(flags, "--post-renderer", *release.PostRenderer)
+		case st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "":
+			flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
+		}
+	}
+	return flags
 }
 
 type Chartify struct {

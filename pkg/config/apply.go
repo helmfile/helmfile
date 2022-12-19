@@ -50,6 +50,8 @@ type ApplyOptions struct {
 	WaitForJobs bool
 	// ReuseValues is true if the helm command should reuse the values
 	ReuseValues bool
+	// Propagate '--post-renderer' to helmv3 template and helm install
+	PostRenderer string
 }
 
 // NewApply creates a new Apply
@@ -192,4 +194,9 @@ func (a *ApplyImpl) WaitForJobs() bool {
 // ReuseValues returns the ReuseValues.
 func (a *ApplyImpl) ReuseValues() bool {
 	return a.ApplyOptions.ReuseValues
+}
+
+// PostRenderer returns the PostRenderer.
+func (a *ApplyImpl) PostRenderer() string {
+	return a.ApplyOptions.PostRenderer
 }

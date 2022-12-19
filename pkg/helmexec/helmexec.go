@@ -14,11 +14,13 @@ type Interface interface {
 	SetExtraArgs(args ...string)
 	SetHelmBinary(bin string)
 	SetEnableLiveOutput(enableLiveOutput bool)
+	SetPostRenderer(postRenderer string)
+	GetPostRenderer() string
 
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error
 	UpdateRepo() error
 	RegistryLogin(name string, username string, password string) error
-	BuildDeps(name, chart string) error
+	BuildDeps(name, chart string, flags ...string) error
 	UpdateDeps(chart string) error
 	SyncRelease(context HelmContext, name, chart string, flags ...string) error
 	DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error

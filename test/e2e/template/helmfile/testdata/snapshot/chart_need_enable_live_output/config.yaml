@@ -1,6 +1,6 @@
 localChartRepoServer:
   enabled: true
-  port: 18080
+  port: 18081
 chartifyTempDir: temp1
 helmfileArgs:
 - --enable-live-output

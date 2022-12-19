@@ -65,6 +65,10 @@ Note that every breaking change should have an easy alternative way to achieve t
   - However, I periodically see a new user finds it's not working and reporting it as a bug([the most recent example](https://github.com/roboll/helmfile/issues/2034#issuecomment-1147059088)). It's not a fault of the user, but out fault that left this broken feature.
   - Every use-case previsouly covered (by any chance) with `--args` should be covered in new `helmfile.yaml` fields or flags.
 
+4. Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`
+  - This option didn't make much sense in practical. Generally, you'd want to disable all the insecure features altogether to make your deployment secure, or not disable any features. Disabling all is already possible via `HELMFILE_DISABLE_INSECURE_FEATURES `. In addition, `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` literally made every insecure template function to silently skipped without any error or warning, which made debugging unnecessarily hard when the user accidentally used an insecure function.
+  - See https://github.com/helmfile/helmfile/pull/564 for more context.
+
 ## After 1.0
 
 We won't add any backward-incompatible changes while in 1.x, as long as it's inevitable to fix unseen important bug(s).
