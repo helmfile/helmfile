@@ -15,10 +15,11 @@ import (
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
 var logger *zap.SugaredLogger
-var globalUsage = "Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot"
+var globalUsage = "Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot\n" + runtime.Info()
 
 func toCLIError(g *config.GlobalImpl, err error) error {
 	if err != nil {
