@@ -32,6 +32,8 @@ require (
 	k8s.io/apimachinery v0.26.0
 )
 
+replace gopkg.in/yaml.v3 => github.com/colega/go-yaml-yaml v0.0.0-20220720070545-aaba007ebc22
+
 require (
 	cloud.google.com/go v0.102.1 // indirect
 	cloud.google.com/go/compute v1.7.0 // indirect

@@ -29,6 +29,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/policy"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
@@ -81,6 +82,30 @@ type ReleaseSetSpec struct {
 	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
 
 	LockFile string `yaml:"lockFilePath,omitempty"`
+}
+
+// helmStateAlias is helm state alias
+type helmStateAlias HelmState
+
+func (hs HelmState) MarshalYAML() (interface{}, error) {
+	return helmStateAlias(hs), nil
+}
+
+func (hs *HelmState) UnmarshalYAML(value *yaml.Node) error {
+	helmStateInfo := make(map[string]interface{})
+	if err := value.DecodeWithOptions(&helmStateInfo, yaml.DecodeOptions{KnownFields: true}); err != nil {
+		return err
+	}
+
+	isStrict, err := policy.Checker(helmStateInfo)
+	if err != nil {
+		if isStrict {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+	}
+
+	return value.DecodeWithOptions((*helmStateAlias)(hs), yaml.DecodeOptions{KnownFields: true})
 }
 
 // HelmState structure for the helmfile
