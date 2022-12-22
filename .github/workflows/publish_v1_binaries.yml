@@ -1,11 +1,15 @@
-name: Publish v0.x Binaries
+name: Publish v1.x Binaries
 
 on:
   push:
     branches:
       - "!*"
     tags:
-      - "v0*"
+      - "v1*"
+
+env:
+  # This is referenced from .goreleaser.yml
+  HELMFILE_V1MODE: "true"
 
 jobs:
   goreleaser:
