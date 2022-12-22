@@ -86,8 +86,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		NewApplyCmd(globalImpl),
 		NewBuildCmd(globalImpl),
 		NewCacheCmd(globalImpl),
-		NewChartsCmd(globalImpl),
-		NewDeleteCmd(globalImpl),
 		NewDepsCmd(globalImpl),
 		NewDestroyCmd(globalImpl),
 		NewFetchCmd(globalImpl),
@@ -104,6 +102,13 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 			versionOpts...,
 		),
 	)
+
+	if !runtime.V1Mode {
+		cmd.AddCommand(
+			NewChartsCmd(globalImpl),
+			NewDeleteCmd(globalImpl),
+		)
+	}
 
 	return cmd, nil
 }
