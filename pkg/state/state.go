@@ -22,16 +22,15 @@ import (
 	"github.com/variantdev/chartify"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/policy"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 const (
@@ -91,9 +90,9 @@ func (hs HelmState) MarshalYAML() (interface{}, error) {
 	return helmStateAlias(hs), nil
 }
 
-func (hs *HelmState) UnmarshalYAML(value *yaml.Node) error {
+func (hs *HelmState) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	helmStateInfo := make(map[string]interface{})
-	if err := value.DecodeWithOptions(&helmStateInfo, yaml.DecodeOptions{KnownFields: true}); err != nil {
+	if err := unmarshal(&helmStateInfo); err != nil {
 		return err
 	}
 
@@ -105,7 +104,7 @@ func (hs *HelmState) UnmarshalYAML(value *yaml.Node) error {
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 	}
 
-	return value.DecodeWithOptions((*helmStateAlias)(hs), yaml.DecodeOptions{KnownFields: true})
+	return unmarshal((*helmStateAlias)(hs))
 }
 
 // HelmState structure for the helmfile
@@ -1552,8 +1551,8 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 
 		var buf bytes.Buffer
 
-		y := yaml.NewEncoder(&buf)
-		if err := y.Encode(merged); err != nil {
+		encoder := yaml.NewEncoder(&buf)
+		if err := encoder.Encode(merged); err != nil {
 			return []error{err}
 		}
 
@@ -2708,7 +2707,7 @@ func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path s
 			return nil, err
 		}
 
-		return maputil.YamlMarshal(parsedYaml)
+		return yaml.Marshal(parsedYaml)
 	}
 
 	return rawBytes, nil
@@ -2896,7 +2895,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 				return nil, err
 			}
 		default:
-			bs, err := maputil.YamlMarshal(value)
+			bs, err := yaml.Marshal(value)
 			if err != nil {
 				return nil, err
 			}
@@ -3127,10 +3126,10 @@ func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
 }
 
 // UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
-// this is required to keep allowing string scalar for defining helmfile
-func (hf *SubHelmfileSpec) UnmarshalYAML(value *yaml.Node) error {
+// this is required go-yto keep allowing string scalar for defining helmfile
+func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var tmp interface{}
-	if err := value.Decode(&tmp); err != nil {
+	if err := unmarshal(&tmp); err != nil {
 		return err
 	}
 
@@ -3145,7 +3144,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(value *yaml.Node) error {
 
 			Environment SubhelmfileEnvironmentSpec `yaml:",inline"`
 		}
-		if err := value.Decode(&subHelmfileSpecTmp); err != nil {
+		if err := unmarshal(&subHelmfileSpecTmp); err != nil {
 			return err
 		}
 		hf.Path = subHelmfileSpecTmp.Path
@@ -3330,7 +3329,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 }
 
 func (st *HelmState) ToYaml() (string, error) {
-	if result, err := maputil.YamlMarshal(st); err != nil {
+	if result, err := yaml.Marshal(st); err != nil {
 		return "", err
 	} else {
 		return string(result), nil

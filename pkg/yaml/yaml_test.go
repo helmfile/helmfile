@@ -1,4 +1,4 @@
-package maputil
+package yaml
 
 import (
 	"testing"
@@ -27,7 +27,7 @@ func TestYamlMarshal(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		actual, err := YamlMarshal(tt)
+		actual, err := Marshal(tt)
 		require.NoError(t, err)
 		require.Equal(t, tt.expected, string(actual))
 	}
