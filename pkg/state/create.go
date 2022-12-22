@@ -1,7 +1,6 @@
 package state
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -89,9 +88,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	state.LockFile = c.lockFile
 
-	decoder := yaml.NewDecoder(bytes.NewReader(content))
-
-	decoder.KnownFields(c.Strict)
+	decode := maputil.YamlDecoder(content, c.Strict)
 
 	i := 0
 	for {
@@ -99,7 +96,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 		var intermediate HelmState
 
-		err := decoder.Decode(&intermediate)
+		err := decode(&intermediate)
 		if err == io.EOF {
 			break
 		} else if err != nil {
