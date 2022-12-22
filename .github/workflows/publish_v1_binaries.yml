@@ -1,4 +1,4 @@
-name: Publish v0.x Binaries
+name: Publish v1.x Binaries
 
 on:
   push:
