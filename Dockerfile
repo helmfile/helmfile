@@ -15,7 +15,7 @@ FROM alpine:3.16
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
-RUN apk add --no-cache ca-certificates git bash curl jq openssh-client
+RUN apk add --no-cache ca-certificates git bash curl jq openssh-client gnupg
 
 # Set Helm home variables so that also non-root users can use plugins etc.
 ARG HOME="/helm"
