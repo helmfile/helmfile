@@ -15,10 +15,11 @@ import (
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
 var logger *zap.SugaredLogger
-var globalUsage = "Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot"
+var globalUsage = "Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot\n" + runtime.Info()
 
 func toCLIError(g *config.GlobalImpl, err error) error {
 	if err != nil {
@@ -85,8 +86,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		NewApplyCmd(globalImpl),
 		NewBuildCmd(globalImpl),
 		NewCacheCmd(globalImpl),
-		NewChartsCmd(globalImpl),
-		NewDeleteCmd(globalImpl),
 		NewDepsCmd(globalImpl),
 		NewDestroyCmd(globalImpl),
 		NewFetchCmd(globalImpl),
@@ -103,6 +102,13 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 			versionOpts...,
 		),
 	)
+
+	if !runtime.V1Mode {
+		cmd.AddCommand(
+			NewChartsCmd(globalImpl),
+			NewDeleteCmd(globalImpl),
+		)
+	}
 
 	return cmd, nil
 }
