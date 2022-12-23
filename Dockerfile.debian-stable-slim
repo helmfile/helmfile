@@ -18,6 +18,7 @@ LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 RUN apt update -qq && \
     apt install --no-install-recommends -y \
       ca-certificates \
+      gnupg \
       git bash curl jq wget openssh-client && \
     rm -rf /var/lib/apt/lists/*
 
