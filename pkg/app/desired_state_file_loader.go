@@ -14,6 +14,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 )
 
@@ -124,29 +125,14 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 		return nil, err
 	}
 
-	ext := filepath.Ext(f)
-
-	var self *state.HelmState
-
-	if !experimentalModeEnabled() || ext == ".gotmpl" {
-		self, err = ld.renderAndLoad(
-			inheritedEnv,
-			overrodeEnv,
-			baseDir,
-			f,
-			fileBytes,
-			evaluateBases,
-		)
-	} else {
-		self, err = ld.load(
-			fileBytes,
-			baseDir,
-			file,
-			evaluateBases,
-			inheritedEnv,
-			overrodeEnv,
-		)
-	}
+	self, err := ld.load(
+		inheritedEnv,
+		overrodeEnv,
+		baseDir,
+		f,
+		fileBytes,
+		evaluateBases,
+	)
 
 	if err != nil {
 		return nil, err
@@ -170,7 +156,7 @@ func (a *desiredStateLoader) underlying() *state.StateCreator {
 	return c
 }
 
-func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
+func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
 	merged, err := env.Merge(overrodeEnv)
 	if err != nil {
 		return nil, err
@@ -190,7 +176,7 @@ func (a *desiredStateLoader) load(yaml []byte, baseDir, file string, evaluateBas
 	return st, nil
 }
 
-func (ld *desiredStateLoader) renderAndLoad(env, overrodeEnv *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
+func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
 	// Allows part-splitting to work with CLRF-ed content
 	normalizedContent := bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 	parts := bytes.Split(normalizedContent, []byte("\n---\n"))
@@ -198,25 +184,32 @@ func (ld *desiredStateLoader) renderAndLoad(env, overrodeEnv *environment.Enviro
 	var finalState *state.HelmState
 
 	for i, part := range parts {
-		var yamlBuf *bytes.Buffer
-		var err error
-
 		id := fmt.Sprintf("%s.part.%d", filename, i)
 
-		if env == nil && overrodeEnv == nil {
-			yamlBuf, err = ld.renderTemplatesToYaml(baseDir, id, part)
-			if err != nil {
-				return nil, fmt.Errorf("error during %s parsing: %v", id, err)
+		var rawContent []byte
+
+		if filepath.Ext(filename) == ".gotmpl" || !runtime.V1Mode {
+			var yamlBuf *bytes.Buffer
+			var err error
+
+			if env == nil && overrodeEnv == nil {
+				yamlBuf, err = ld.renderTemplatesToYaml(baseDir, id, part)
+				if err != nil {
+					return nil, fmt.Errorf("error during %s parsing: %v", id, err)
+				}
+			} else {
+				yamlBuf, err = ld.renderTemplatesToYamlWithEnv(baseDir, id, part, env, overrodeEnv)
+				if err != nil {
+					return nil, fmt.Errorf("error during %s parsing: %v", id, err)
+				}
 			}
+			rawContent = yamlBuf.Bytes()
 		} else {
-			yamlBuf, err = ld.renderTemplatesToYamlWithEnv(baseDir, id, part, env, overrodeEnv)
-			if err != nil {
-				return nil, fmt.Errorf("error during %s parsing: %v", id, err)
-			}
+			rawContent = part
 		}
 
-		currentState, err := ld.load(
-			yamlBuf.Bytes(),
+		currentState, err := ld.rawLoad(
+			rawContent,
 			baseDir,
 			filename,
 			evaluateBases,
