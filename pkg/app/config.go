@@ -258,4 +258,5 @@ type InitConfigProvider interface {
 // when enable reuse-values, reuse the last release's values and merge in any overrides values.
 type valuesControlMode interface {
 	ReuseValues() bool
+	ResetValues() bool
 }

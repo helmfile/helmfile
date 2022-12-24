@@ -1326,6 +1326,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 		ReuseValues:       c.ReuseValues(),
+		ResetValues:       c.ResetValues(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1437,6 +1438,7 @@ Do you really want to apply?
 					Wait:        c.Wait(),
 					WaitForJobs: c.WaitForJobs(),
 					ReuseValues: c.ReuseValues(),
+					ResetValues: c.ResetValues(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1558,6 +1560,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			Set:               c.Set(),
 			SkipDiffOnInstall: c.SkipDiffOnInstall(),
 			ReuseValues:       c.ReuseValues(),
+			ResetValues:       c.ResetValues(),
 		}
 
 		filtered := &Run{
@@ -1823,6 +1826,7 @@ Do you really want to sync?
 					Wait:        c.Wait(),
 					WaitForJobs: c.WaitForJobs(),
 					ReuseValues: c.ReuseValues(),
+					ResetValues: c.ResetValues(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

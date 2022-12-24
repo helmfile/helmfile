@@ -619,7 +619,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--wait-for-jobs")
 				}
 
-				if opts.ReuseValues || st.HelmDefaults.ReuseValues {
+				if !opts.ResetValues && (st.HelmDefaults.ReuseValues || opts.ReuseValues) {
 					flags = append(flags, "--reuse-values")
 				} else {
 					flags = append(flags, "--reset-values")
@@ -702,6 +702,7 @@ type SyncOpts struct {
 	Wait        bool
 	WaitForJobs bool
 	ReuseValues bool
+	ResetValues bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1706,7 +1707,7 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, includeTests bool, s
 		flags = append(flags, "--output", opt.Output)
 	}
 
-	if opt.ReuseValues || st.HelmDefaults.ReuseValues {
+	if !opt.ResetValues && (opt.ReuseValues || st.HelmDefaults.ReuseValues) {
 		flags = append(flags, "--reuse-values")
 	} else {
 		flags = append(flags, "--reset-values")
@@ -1897,6 +1898,7 @@ type DiffOpts struct {
 	SkipCleanup       bool
 	SkipDiffOnInstall bool
 	ReuseValues       bool
+	ResetValues       bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
