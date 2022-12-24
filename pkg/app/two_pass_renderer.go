@@ -68,12 +68,6 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environmen
 type RenderOpts struct {
 }
 
-func (r *desiredStateLoader) renderTemplatesToYaml(baseDir, filename string, content []byte) (*bytes.Buffer, error) {
-	env := &environment.Environment{Name: r.env, Values: map[string]interface{}(nil)}
-
-	return r.renderTemplatesToYamlWithEnv(baseDir, filename, content, env, nil)
-}
-
 func (r *desiredStateLoader) renderTemplatesToYamlWithEnv(baseDir, filename string, content []byte, inherited, overrode *environment.Environment) (*bytes.Buffer, error) {
 	return r.twoPassRenderTemplateToYaml(inherited, overrode, baseDir, filename, content)
 }

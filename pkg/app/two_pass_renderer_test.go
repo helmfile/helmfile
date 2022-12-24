@@ -6,6 +6,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
@@ -44,7 +45,8 @@ releases:
 	}
 
 	r, testfs := makeLoader(files, "staging")
-	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
+	env := environment.New(r.env)
+	yamlBuf, err := r.renderTemplatesToYamlWithEnv("", "", yamlContent, env, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -93,7 +95,8 @@ releases:
 
 	r, _ := makeLoader(files, "staging")
 	// test the double rendering
-	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
+	env := environment.New(r.env)
+	yamlBuf, err := r.renderTemplatesToYamlWithEnv("", "", yamlContent, env, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -141,7 +144,8 @@ releases:
 
 	r, _ := makeLoader(files, "staging")
 	// test the double rendering
-	_, err := r.renderTemplatesToYaml("", "", yamlContent)
+	env := environment.New(r.env)
+	_, err := r.renderTemplatesToYamlWithEnv("", "", yamlContent, env, nil)
 
 	if !strings.Contains(err.Error(), "stringTemplate:8") {
 		t.Fatalf("error should contain a stringTemplate error (reference to unknow key) %v", err)
@@ -176,7 +180,8 @@ releases:
 	}
 
 	r, _ := makeLoader(files, "staging")
-	rendered, _ := r.renderTemplatesToYaml("", "", yamlContent)
+	env := environment.New(r.env)
+	rendered, _ := r.renderTemplatesToYamlWithEnv("", "", yamlContent, env, nil)
 
 	var state state.HelmState
 	err := yaml.Unmarshal(rendered.Bytes(), &state)
@@ -202,7 +207,8 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 	files := map[string]string{}
 
 	r, _ := makeLoader(files, "staging")
-	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
+	env := environment.New(r.env)
+	yamlBuf, err := r.renderTemplatesToYamlWithEnv("", "", yamlContent, env, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,7 +239,8 @@ releases:
 `)
 
 	r, _ := makeLoader(map[string]string{}, "staging")
-	_, err := r.renderTemplatesToYaml("", "", yamlContent)
+	env := environment.New(r.env)
+	_, err := r.renderTemplatesToYamlWithEnv("", "", yamlContent, env, nil)
 	if err == nil {
 		t.Fatalf("wanted error, none returned")
 	}

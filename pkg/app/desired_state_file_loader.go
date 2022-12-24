@@ -44,6 +44,8 @@ type desiredStateLoader struct {
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
 	var overrodeEnv *environment.Environment
 
+	inheritedEnv := environment.New(ld.env)
+
 	args := opts.Environment.OverrideValues
 
 	if len(args) > 0 {
@@ -64,7 +66,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		}
 	}
 
-	st, err := ld.loadFileWithOverrides(nil, overrodeEnv, filepath.Dir(f), filepath.Base(f), true)
+	st, err := ld.loadFileWithOverrides(inheritedEnv, overrodeEnv, filepath.Dir(f), filepath.Base(f), true)
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +184,9 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 	parts := bytes.Split(normalizedContent, []byte("\n---\n"))
 
 	var finalState *state.HelmState
+	if env == nil {
+		return nil, fmt.Errorf("env is nil when loading %s", filename)
+	}
 
 	for i, part := range parts {
 		id := fmt.Sprintf("%s.part.%d", filename, i)
@@ -192,16 +197,9 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			var yamlBuf *bytes.Buffer
 			var err error
 
-			if env == nil && overrodeEnv == nil {
-				yamlBuf, err = ld.renderTemplatesToYaml(baseDir, id, part)
-				if err != nil {
-					return nil, fmt.Errorf("error during %s parsing: %v", id, err)
-				}
-			} else {
-				yamlBuf, err = ld.renderTemplatesToYamlWithEnv(baseDir, id, part, env, overrodeEnv)
-				if err != nil {
-					return nil, fmt.Errorf("error during %s parsing: %v", id, err)
-				}
+			yamlBuf, err = ld.renderTemplatesToYamlWithEnv(baseDir, id, part, env, overrodeEnv)
+			if err != nil {
+				return nil, fmt.Errorf("error during %s parsing: %v", id, err)
 			}
 			rawContent = yamlBuf.Bytes()
 		} else {

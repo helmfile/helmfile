@@ -13,6 +13,15 @@ type Environment struct {
 	Defaults map[string]interface{}
 }
 
+// New return Environment with default name and values
+func New(name string) *Environment {
+	return &Environment{
+		Name:     name,
+		Values:   map[string]interface{}{},
+		Defaults: map[string]interface{}{},
+	}
+}
+
 var EmptyEnvironment Environment
 
 func (e Environment) DeepCopy() Environment {
