@@ -146,6 +146,10 @@ func (a diffConfig) ReuseValues() bool {
 	return a.reuseValues
 }
 
+func (a diffConfig) ResetValues() bool {
+	return !a.reuseValues
+}
+
 func TestDiff(t *testing.T) {
 	type flags struct {
 		skipNeeds    bool
