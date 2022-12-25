@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 )
 
 // See https://github.com/roboll/helmfile/issues/1150
@@ -96,4 +97,11 @@ func TestMerge_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	if diff := cmp.Diff(expected, actual); diff != "" {
 		t.Errorf(diff)
 	}
+}
+
+func TestNew(t *testing.T) {
+	envName := "test"
+	env := New(envName)
+
+	require.Equal(t, envName, env.Name, "environment name should be %s, but got %s", envName, env.Name)
 }
