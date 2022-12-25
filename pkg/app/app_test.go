@@ -4288,7 +4288,7 @@ environments:
 releases:
 - name: myrelease1
   chart: mychart1
-  installed: no
+  installed: false
   labels:
     id: myrelease1
 - name: myrelease2
