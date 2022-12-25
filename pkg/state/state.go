@@ -86,16 +86,17 @@ type ReleaseSetSpec struct {
 // helmStateAlias is helm state alias
 type helmStateAlias HelmState
 
-func (hs HelmState) MarshalYAML() (interface{}, error) {
-	return helmStateAlias(hs), nil
+func (hs HelmState) MarshalYAML() ([]byte, error) {
+	hsa := helmStateAlias(hs)
+	return yaml.Marshal(hsa)
 }
 
-func (hs *HelmState) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (hs *HelmState) UnmarshalYAML(b []byte) error {
+	decode := yaml.NewDecoder(b, true)
 	helmStateInfo := make(map[string]interface{})
-	if err := unmarshal(&helmStateInfo); err != nil {
+	if err := decode(&helmStateInfo); err != nil {
 		return err
 	}
-
 	isStrict, err := policy.Checker(helmStateInfo)
 	if err != nil {
 		if isStrict {
@@ -104,7 +105,7 @@ func (hs *HelmState) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 	}
 
-	return unmarshal((*helmStateAlias)(hs))
+	return decode((*helmStateAlias)(hs))
 }
 
 // HelmState structure for the helmfile
