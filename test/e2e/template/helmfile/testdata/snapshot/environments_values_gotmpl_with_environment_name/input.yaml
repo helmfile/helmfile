@@ -1,0 +1,12 @@
+environments:
+  test:
+    values:
+    - test.yaml.gotmpl
+---
+releases:
+- name: raw
+  chart: ../../charts/raw-0.0.1
+  values:
+  - templates:
+    - |
+      envName: {{ .Values.envName }}
