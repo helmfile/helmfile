@@ -67,11 +67,11 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Name:               "app-dev",
 				Namespace:          "dev",
 				Labels:             map[string]string{"id": "app"},
-				InstalledTemplate:  func(i string) *string { return &i }(`{{ eq .Release.Labels.id "app" | ternary "yes" "no" }}`),
+				InstalledTemplate:  func(i string) *string { return &i }(`{{ eq .Release.Labels.id "app" | ternary "true" "false" }}`),
 				VerifyTemplate:     func(i string) *string { return &i }(`{{ true }}`),
 				Verify:             func(i bool) *bool { return &i }(false),
 				WaitTemplate:       func(i string) *string { return &i }(`{{ false }}`),
-				TillerlessTemplate: func(i string) *string { return &i }(`yes`),
+				TillerlessTemplate: func(i string) *string { return &i }(`true`),
 			},
 			want: ReleaseSpec{
 				Chart:      "test-chart",
