@@ -44,7 +44,7 @@ func NewDecoder(data []byte, strict bool) func(interface{}) error {
 	if GoccyGoYaml {
 		var opts []yaml.DecodeOption
 		if strict {
-			opts = append(opts, yaml.Strict())
+			opts = append(opts, yaml.DisallowUnknownField())
 		}
 
 		decoder := yaml.NewDecoder(
