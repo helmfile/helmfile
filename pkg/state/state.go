@@ -86,8 +86,8 @@ type ReleaseSetSpec struct {
 // helmStateAlias is helm state alias
 type helmStateAlias HelmState
 
-func (hs HelmState) MarshalYAML() ([]byte, error) {
-	hsa := helmStateAlias(hs)
+func (hs *HelmState) MarshalYAML() ([]byte, error) {
+	hsa := helmStateAlias(*hs)
 	return yaml.Marshal(hsa)
 }
 
