@@ -242,7 +242,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 				return nil, err
 			}
 		}
-	} else if ctxEnv == nil && name != DefaultEnv && failOnMissingEnv {
+	} else if name != DefaultEnv && failOnMissingEnv {
 		return nil, &UndefinedEnvError{msg: fmt.Sprintf("environment \"%s\" is not defined", name)}
 	}
 
