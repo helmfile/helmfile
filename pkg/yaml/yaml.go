@@ -70,6 +70,7 @@ func Marshal(v interface{}) ([]byte, error) {
 		var b bytes.Buffer
 		yamlEncoder := yaml.NewEncoder(
 			&b,
+			yaml.IndentSequence(true),
 			yaml.Indent(2),
 		)
 		err := yamlEncoder.Encode(v)

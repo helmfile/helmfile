@@ -4299,7 +4299,7 @@ releases:
 releases:
 - name: myrelease3
   chart: mychart1
-  installed: yes
+  installed: true
 - name: myrelease4
   chart: mychart1
   labels:
