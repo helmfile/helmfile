@@ -91,12 +91,12 @@ func (hs *HelmState) MarshalYAML() ([]byte, error) {
 	return yaml.Marshal(hsa)
 }
 
-func (hs *HelmState) UnmarshalYAML(b []byte) error {
-	decodeVerify := yaml.NewDecoder(b, true)
+func (hs *HelmState) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	helmStateInfo := make(map[string]interface{})
-	if err := decodeVerify(&helmStateInfo); err != nil {
+	if err := unmarshal(&helmStateInfo); err != nil {
 		return err
 	}
+
 	isStrict, err := policy.Checker(helmStateInfo)
 	if err != nil {
 		if isStrict {
@@ -104,9 +104,8 @@ func (hs *HelmState) UnmarshalYAML(b []byte) error {
 		}
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 	}
-	decodeState := yaml.NewDecoder(b, true)
 
-	return decodeState((*helmStateAlias)(hs))
+	return unmarshal((*helmStateAlias)(hs))
 }
 
 // HelmState structure for the helmfile
