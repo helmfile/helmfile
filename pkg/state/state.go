@@ -86,11 +86,6 @@ type ReleaseSetSpec struct {
 // helmStateAlias is helm state alias
 type helmStateAlias HelmState
 
-func (hs *HelmState) MarshalYAML() ([]byte, error) {
-	hsa := helmStateAlias(*hs)
-	return yaml.Marshal(hsa)
-}
-
 func (hs *HelmState) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	helmStateInfo := make(map[string]interface{})
 	if err := unmarshal(&helmStateInfo); err != nil {
