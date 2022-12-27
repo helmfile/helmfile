@@ -197,10 +197,10 @@ func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePat
 		case "set":
 			src.SetValues = nil
 		default:
-			return nil, fmt.Errorf("%q is not allowed in inherit. except. Allowed values are set, setTemplate, values, valuesTemplate, and labels", k)
+			return nil, fmt.Errorf("%q is not allowed under `inherit`. Allowed values are \"set\", \"setTemplate\", \"values\", \"valuesTemplate\", and \"labels\"", k)
 		}
 
-		st.logger.Debugf("excepted field %q when inheriting template %q to release %q", k, templateName, r.Name)
+		st.logger.Debugf("excluded field %q when inheriting template %q to release %q", k, templateName, r.Name)
 	}
 
 	var merged ReleaseSpec
