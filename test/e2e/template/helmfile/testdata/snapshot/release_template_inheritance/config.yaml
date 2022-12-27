@@ -1,0 +1,5 @@
+localChartRepoServer:
+  enabled: true
+  port: 18084
+helmfileArgs:
+- template
