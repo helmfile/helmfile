@@ -104,7 +104,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 
 				s, err := renderer.RenderTemplateContentToBuffer(serialized)
 				if err != nil {
-					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, serialized, err)
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, string(serialized), err)
 				}
 
 				var deserialized map[interface{}]interface{}
