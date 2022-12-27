@@ -15,11 +15,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/variantdev/chartify/helmtesting"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 var (

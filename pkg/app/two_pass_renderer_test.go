@@ -4,11 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 // nolint: unparam

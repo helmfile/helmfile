@@ -14,12 +14,12 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/plugin"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 type decryptedSecret struct {

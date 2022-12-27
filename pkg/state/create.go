@@ -1,7 +1,6 @@
 package state
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -9,13 +8,13 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 const (
@@ -89,9 +88,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	state.LockFile = c.lockFile
 
-	decoder := yaml.NewDecoder(bytes.NewReader(content))
-
-	decoder.KnownFields(c.Strict)
+	decode := yaml.NewDecoder(content, c.Strict)
 
 	i := 0
 	for {
@@ -99,7 +96,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 		var intermediate HelmState
 
-		err := decoder.Decode(&intermediate)
+		err := decode(&intermediate)
 		if err == io.EOF {
 			break
 		} else if err != nil {

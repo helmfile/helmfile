@@ -16,6 +16,7 @@ import (
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 func TestTemplate(t *testing.T) {
@@ -303,6 +304,91 @@ releases:
 			selectors: []string{"app=test_non_existent"},
 			templated: nil,
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
+		})
+	})
+}
+
+func TestTemplate_StrictParsing(t *testing.T) {
+	v := yaml.GoccyGoYaml
+	yaml.GoccyGoYaml = true
+	t.Cleanup(func() {
+		yaml.GoccyGoYaml = v
+	})
+
+	type testcase struct {
+		ns    string
+		error string
+	}
+
+	check := func(t *testing.T, tc testcase) {
+		t.Helper()
+
+		var helm = &exectest.Helm{
+			FailOnUnexpectedList: true,
+			FailOnUnexpectedDiff: true,
+			DiffMutex:            &sync.Mutex{},
+			ChartsMutex:          &sync.Mutex{},
+			ReleasesMutex:        &sync.Mutex{},
+		}
+
+		_ = runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
+			t.Helper()
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Errorf("unexpected error creating vals runtime: %v", err)
+			}
+
+			files := map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: app1
+  foobar: FOOBAR
+  chart: incubator/raw
+`,
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:  DefaultHelmBinary,
+				fs:                  &ffs.FileSystem{Glob: filepath.Glob},
+				OverrideKubeContext: "default",
+				Env:                 "default",
+				Logger:              logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			if tc.ns != "" {
+				app.Namespace = tc.ns
+			}
+
+			tmplErr := app.Template(applyConfig{
+				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
+				concurrency: 1,
+				logger:      logger,
+			})
+
+			var gotErr string
+			if tmplErr != nil {
+				gotErr = tmplErr.Error()
+			}
+
+			if d := cmp.Diff(tc.error, gotErr); d != "" {
+				t.Fatalf("unexpected error: want (-), got (+): %s", d)
+			}
+		})
+	}
+
+	t.Run("fail due to known field", func(t *testing.T) {
+		check(t, testcase{
+			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1: [4:3] unknown field "foobar"
+       2 | releases:
+       3 | - name: app1
+    >  4 |   foobar: FOOBAR
+             ^
+       5 |   chart: incubator/raw`,
 		})
 	})
 }
