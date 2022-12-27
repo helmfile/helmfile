@@ -15,6 +15,15 @@ type Environment struct {
 
 var EmptyEnvironment Environment
 
+// New return Environment with default name and values
+func New(name string) *Environment {
+	return &Environment{
+		Name:     name,
+		Values:   map[string]interface{}{},
+		Defaults: map[string]interface{}{},
+	}
+}
+
 func (e Environment) DeepCopy() Environment {
 	valuesBytes, err := yaml.Marshal(e.Values)
 	if err != nil {

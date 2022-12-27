@@ -34,7 +34,7 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 	}
 }
 
-func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []interface{}, ctxEnv *environment.Environment) (map[string]interface{}, error) {
+func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []interface{}, ctxEnv *environment.Environment, envName string) (map[string]interface{}, error) {
 	result := map[string]interface{}{}
 
 	for _, entry := range valuesEntries {
@@ -59,7 +59,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			for _, f := range files {
 				var env environment.Environment
 				if ctxEnv == nil {
-					env = environment.EmptyEnvironment
+					env = *environment.New(envName)
 				} else {
 					env = *ctxEnv
 				}
