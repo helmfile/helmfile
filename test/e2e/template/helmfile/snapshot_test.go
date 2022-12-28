@@ -214,6 +214,7 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 			}
 
 			helmCacheHome := filepath.Join(t.TempDir(), "helm_cache_home")
+			t.Logf("Using HELM_CACHE_HOME=%s", helmCacheHome)
 
 			inputFile := filepath.Join(testdataDir, name, "input.yaml")
 			outputFile := filepath.Join(testdataDir, name, "output.yaml")
