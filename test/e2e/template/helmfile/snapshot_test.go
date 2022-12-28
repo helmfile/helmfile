@@ -213,6 +213,8 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 				}
 			}
 
+			helmCacheHome := filepath.Join(t.TempDir(), "helm_cache_home")
+
 			inputFile := filepath.Join(testdataDir, name, "input.yaml")
 			outputFile := filepath.Join(testdataDir, name, "output.yaml")
 
@@ -227,6 +229,7 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 				cmd.Env,
 				envvar.TempDir+"=/tmp/helmfile",
 				envvar.DisableRunnerUniqueID+"=1",
+				"HELM_CACHE_HOME="+helmCacheHome,
 			)
 			got, err := cmd.CombinedOutput()
 			if err != nil {
