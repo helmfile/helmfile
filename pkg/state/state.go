@@ -198,6 +198,11 @@ type RepositorySpec struct {
 	SkipTLSVerify   string `yaml:"skipTLSVerify,omitempty"`
 }
 
+type Inherit struct {
+	Template string   `yaml:"template,omitempty"`
+	Except   []string `yaml:"except,omitempty"`
+}
+
 // ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
@@ -340,6 +345,9 @@ type ReleaseSpec struct {
 
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
+
+	// Inherit is used to inherit a release template from a release or another release template
+	Inherit Inherit `yaml:"inherit,omitempty"`
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
