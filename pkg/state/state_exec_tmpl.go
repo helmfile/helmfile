@@ -153,6 +153,11 @@ func (e CyclicReleaseTemplateInheritanceError) Error() string {
 	return e.Message
 }
 
+// releaseWithInheritedTemplate generates a new ReleaseSpec from a ReleaseSpec, by recursively inheriting
+// release templates referenced by the spec's `inherit` field.
+// The third parameter retains the current state of the recursive call, to detect a cyclic dependency a.k.a
+// a cyclic relese tempalte inheritance.
+// This functions fails with a CyclicReleaseTemplateInheritanceError if it finds a cyclic inheritance.
 func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePath []string) (*ReleaseSpec, error) {
 	templateName := r.Inherit.Template
 	if templateName == "" {
