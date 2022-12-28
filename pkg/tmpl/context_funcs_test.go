@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
-	"runtime"
+	goruntime "runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
 func TestCreateFuncMap(t *testing.T) {
@@ -126,7 +127,7 @@ func TestReadDir(t *testing.T) {
 		"sampleDirectory/file3.yaml",
 	}
 	var expectedArray []string
-	if runtime.GOOS == "windows" {
+	if goruntime.GOOS == "windows" {
 		expectedArray = expectedArrayWindows
 	} else {
 		expectedArray = expectedArrayUnix
@@ -177,16 +178,29 @@ func TestReadFile_PassAbsPath(t *testing.T) {
 	require.Equal(t, actual, expected)
 }
 
-func TestToYaml_UnsupportedNestedMapKey(t *testing.T) {
-	expected := "foo:\n  bar: BAR\n"
+func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
+	v := runtime.GoccyGoYaml
+	t.Cleanup(func() {
+		runtime.GoccyGoYaml = v
+	})
+
 	// nolint: unconvert
 	vals := Values(map[string]interface{}{
 		"foo": map[interface{}]interface{}{
 			"bar": "BAR",
 		},
 	})
+
+	runtime.GoccyGoYaml = true
+
 	actual, err := ToYaml(vals)
-	require.Equal(t, expected, actual)
+	require.Equal(t, "foo:\n  bar: BAR\n", actual)
+	require.NoError(t, err, "expected nil, but got: %v, when type: map[interface {}]interface {}", err)
+
+	runtime.GoccyGoYaml = false
+
+	actual, err = ToYaml(vals)
+	require.Equal(t, "foo:\n  bar: BAR\n", actual)
 	require.NoError(t, err, "expected nil, but got: %v, when type: map[interface {}]interface {}", err)
 }
 
@@ -205,19 +219,49 @@ func TestToYaml(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
-func TestFromYaml(t *testing.T) {
+func testFromYaml(t *testing.T, goccyGoYaml bool, expected Values) {
+	t.Helper()
+
+	v := runtime.GoccyGoYaml
+	runtime.GoccyGoYaml = goccyGoYaml
+	t.Cleanup(func() {
+		runtime.GoccyGoYaml = v
+	})
+
 	raw := `foo:
   bar: BAR
 `
-	// nolint: unconvert
-	expected := Values(map[string]interface{}{
-		"foo": map[string]interface{}{
-			"bar": "BAR",
-		},
-	})
 	actual, err := FromYaml(raw)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
+}
+
+func TestFromYaml(t *testing.T) {
+	t.Run("with goccy/go-yaml", func(t *testing.T) {
+		testFromYaml(
+			t,
+			true,
+			// nolint: unconvert
+			Values(map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "BAR",
+				},
+			}),
+		)
+	})
+
+	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+		testFromYaml(
+			t,
+			false,
+			// nolint: unconvert
+			Values(map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "BAR",
+				},
+			}),
+		)
+	})
 }
 
 func TestFromYamlToJson(t *testing.T) {

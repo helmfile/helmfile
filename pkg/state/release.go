@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 
+	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
@@ -107,13 +108,18 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, string(serialized), err)
 				}
 
-				var deserialized map[interface{}]interface{}
+				var deserialized map[string]interface{}
 
 				if err := yaml.Unmarshal(s.Bytes(), &deserialized); err != nil {
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
 				}
 
-				result.ValuesTemplate[i] = deserialized
+				m, err := maputil.CastKeysToStrings(deserialized)
+				if err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
+				}
+
+				result.ValuesTemplate[i] = m
 			}
 		}
 
@@ -130,6 +136,12 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%s\": %v", r.Name, i, ts, err)
 			}
 			result.Values[i] = s.String()
+		case map[interface{}]interface{}:
+			m, err := maputil.CastKeysToStrings(ts)
+			if err != nil {
+				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%s\": %v", r.Name, i, ts, err)
+			}
+			result.Values[i] = m
 		}
 	}
 

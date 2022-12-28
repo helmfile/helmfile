@@ -10,4 +10,5 @@ const (
 	Helm3                         = "HELMFILE_HELM3"
 	UpgradeNoticeDisabled         = "HELMFILE_UPGRADE_NOTICE_DISABLED"
 	V1Mode                        = "HELMFILE_V1MODE"
+	GoccyGoYaml                   = "HELMFILE_GOCCY_GOYAML"
 )

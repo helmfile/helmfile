@@ -8,7 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
+	goruntime "runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -57,6 +58,18 @@ func (f fakeInit) Force() bool {
 }
 
 func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
+	t.Run("with goccy/go-yaml", func(t *testing.T) {
+		testHelmfileTemplateWithBuildCommand(t, true)
+	})
+
+	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+		testHelmfileTemplateWithBuildCommand(t, false)
+	})
+}
+
+func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
+	t.Setenv(envvar.GoccyGoYaml, strconv.FormatBool(goccyGoYaml))
+
 	localChartPortSets := make(map[int]struct{})
 
 	logger := helmexec.NewLogger(os.Stderr, "info")
@@ -69,10 +82,10 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 	err := helmfileInit.CheckHelmPlugins()
 	require.NoError(t, err)
 
-	_, filename, _, _ := runtime.Caller(0)
+	_, filename, _, _ := goruntime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(filename), "..", "..", "..", "..")
 	helmfileBin := filepath.Join(projectRoot, "helmfile")
-	if runtime.GOOS == "windows" {
+	if goruntime.GOOS == "windows" {
 		helmfileBin = helmfileBin + ".exe"
 	}
 	testdataDir := "testdata/snapshot"

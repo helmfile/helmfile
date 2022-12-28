@@ -6,12 +6,8 @@ import (
 
 	"github.com/goccy/go-yaml"
 	v2 "gopkg.in/yaml.v2"
-)
 
-var (
-	// We'll derive the default from the build once
-	// is merged
-	GoccyGoYaml bool = true
+	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
 type Encoder interface {
@@ -21,7 +17,7 @@ type Encoder interface {
 
 // NewEncoder creates and returns a function that is used to encode a Go object to a YAML document
 func NewEncoder(w io.Writer) Encoder {
-	if GoccyGoYaml {
+	if runtime.GoccyGoYaml {
 		return yaml.NewEncoder(w)
 	}
 
@@ -29,7 +25,7 @@ func NewEncoder(w io.Writer) Encoder {
 }
 
 func Unmarshal(data []byte, v interface{}) error {
-	if GoccyGoYaml {
+	if runtime.GoccyGoYaml {
 		return yaml.Unmarshal(data, v)
 	}
 
@@ -41,7 +37,7 @@ func Unmarshal(data []byte, v interface{}) error {
 // When strict is true, this function ensures that every field found in the YAML document
 // to have the corresponding field in the decoded Go struct.
 func NewDecoder(data []byte, strict bool) func(interface{}) error {
-	if GoccyGoYaml {
+	if runtime.GoccyGoYaml {
 		var opts []yaml.DecodeOption
 		if strict {
 			opts = append(opts, yaml.DisallowUnknownField())
@@ -66,11 +62,10 @@ func NewDecoder(data []byte, strict bool) func(interface{}) error {
 }
 
 func Marshal(v interface{}) ([]byte, error) {
-	if GoccyGoYaml {
+	if runtime.GoccyGoYaml {
 		var b bytes.Buffer
 		yamlEncoder := yaml.NewEncoder(
 			&b,
-			yaml.IndentSequence(true),
 			yaml.Indent(2),
 		)
 		err := yamlEncoder.Encode(v)
