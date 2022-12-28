@@ -27,6 +27,10 @@ func init() {
 }
 
 func CacheDir() string {
+	if h := os.Getenv(envvar.CacheHome); h != "" {
+		return h
+	}
+
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		// fall back to relative path with hidden directory

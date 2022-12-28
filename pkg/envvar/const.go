@@ -11,4 +11,5 @@ const (
 	UpgradeNoticeDisabled         = "HELMFILE_UPGRADE_NOTICE_DISABLED"
 	V1Mode                        = "HELMFILE_V1MODE"
 	GoccyGoYaml                   = "HELMFILE_GOCCY_GOYAML"
+	CacheHome                     = "HELMFILE_CACHE_HOME"
 )
