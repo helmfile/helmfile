@@ -1,5 +1,4 @@
 Building dependency release=foo, chart=$WD/temp1/foo
-Update Complete. ⎈Happy Helming!⎈
 Saving 1 charts
 Downloading raw from repo oci://localhost:5000/myrepo
 Deleting outdated charts
