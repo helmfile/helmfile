@@ -2,6 +2,14 @@ if [[ helm_major_version -eq 3 ]]; then
   chart_need_case_input_dir="${cases_dir}/chart-needs/input"
   chart_need_case_output_dir="${cases_dir}/chart-needs/output"
 
+  config_file="helmfile.yaml"
+  if [[ ${HELMFILE_V1MODE} = true ]]; then
+    pushd "${chart_need_case_input_dir}"
+    mv "${config_file}" "${config_file}.gotmpl"
+    config_file="${config_file}.gotmpl"
+    popd
+  fi
+
   chart_needs_tmp=$(mktemp -d)
   chart_needs_template_reverse=${chart_needs_tmp}/chart.needs.template.log
   chart_needs_lint_reverse=${chart_needs_tmp}/chart.needs.lint.log
@@ -20,46 +28,46 @@ if [[ helm_major_version -eq 3 ]]; then
 
   for i in $(seq 10); do
       info "Comparing template/chart-needs #$i"
-      ${helmfile} -f ${chart_need_case_input_dir}/helmfile.yaml template --include-needs > ${chart_needs_template_reverse} || fail "\"helmfile template\" shouldn't fail"
+      ${helmfile} -f ${chart_need_case_input_dir}/${config_file} template --include-needs > ${chart_needs_template_reverse} || fail "\"helmfile template\" shouldn't fail"
       ./dyff between -bs ${chart_need_case_output_dir}/template ${chart_needs_template_reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
 
   for i in $(seq 10); do
       info "Comparing lint/chart-needs #$i"
-      ${helmfile} -f ${chart_need_case_input_dir}/helmfile.yaml lint --include-needs | grep -v Linting > ${chart_needs_lint_reverse} || fail "\"helmfile lint\" shouldn't fail"
+      ${helmfile} -f ${chart_need_case_input_dir}/${config_file} lint --include-needs | grep -v Linting > ${chart_needs_lint_reverse} || fail "\"helmfile lint\" shouldn't fail"
       diff -u ${lint_out_file} ${chart_needs_lint_reverse} || fail "\"helmfile lint\" should be consistent"
       echo code=$?
   done
 
   for i in $(seq 10); do
       info "Comparing diff/chart-needs #$i"
-      ${helmfile} -f ${chart_need_case_input_dir}/helmfile.yaml diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=/tmp/.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
+      ${helmfile} -f ${chart_need_case_input_dir}/${config_file} diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=/tmp/.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
       diff -u ${diff_out_file} ${chart_needs_diff_reverse} || fail "\"helmfile diff\" should be consistent"
       echo code=$?
   done
 
-  info "Applying ${chart_need_case_input_dir}/helmfile.yaml"
-  ${helmfile} -f ${chart_need_case_input_dir}/helmfile.yaml  apply --include-needs
+  info "Applying ${chart_need_case_input_dir}/${config_file}"
+  ${helmfile} -f ${chart_need_case_input_dir}/${config_file}  apply --include-needs
   code=$?
   [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
 
   ${kubectl} get storageclass managed-csi -o yaml | grep -q "provisioner: disk.csi.azure.com" || fail "storageclass managed-csi should be created when applying helmfile.yaml"
 
-  info "Destroying ${chart_need_case_input_dir}/helmfile.yaml"
-  ${helmfile} -f ${chart_need_case_input_dir}/helmfile.yaml destroy
+  info "Destroying ${chart_need_case_input_dir}/${config_file}"
+  ${helmfile} -f ${chart_need_case_input_dir}/${config_file} destroy
   code=$?
   [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile destroy: want 0, got ${code}"
 
-  info "Syncing ${chart_need_case_input_dir}/helmfile.yaml"
-  ${helmfile} -f ${chart_need_case_input_dir}/helmfile.yaml  sync --include-needs
+  info "Syncing ${chart_need_case_input_dir}/${config_file}"
+  ${helmfile} -f ${chart_need_case_input_dir}/${config_file}  sync --include-needs
   code=$?
   [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
 
   ${kubectl} get storageclass managed-csi -o yaml | grep -q "provisioner: disk.csi.azure.com" || fail "storageclass managed-csi should be created when syncing helmfile.yaml"
 
-  info "Destroying ${chart_need_case_input_dir}/helmfile.yaml"
-  ${helmfile} -f ${chart_need_case_input_dir}/helmfile.yaml destroy
+  info "Destroying ${chart_need_case_input_dir}/${config_file}"
+  ${helmfile} -f ${chart_need_case_input_dir}/${config_file} destroy
   code=$?
   [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile destroy: want 0, got ${code}"
 

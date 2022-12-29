@@ -10,7 +10,7 @@ if [[ helm_major_version -eq 3 ]]; then
     info "Comparing yaml overwrite feature output ${yaml_overwrite_reverse} with ${yaml_overwrite_case_output_dir}/overwritten.yaml"
     for i in $(seq 10); do
         info "Comparing build/yaml-overwrite #$i"
-        ${helmfile} -f ${yaml_overwrite_case_input_dir}/issue.657.yaml template --skip-deps > ${yaml_overwrite_reverse} || fail "\"helmfile template\" shouldn't fail"
+        ${helmfile} -f ${yaml_overwrite_case_input_dir}/issue.657.yaml.gotmpl template --skip-deps > ${yaml_overwrite_reverse} || fail "\"helmfile template\" shouldn't fail"
         ./dyff between -bs ${yaml_overwrite_case_output_dir}/overwritten.yaml ${yaml_overwrite_reverse} || fail "\"helmfile template\" should be consistent"
         echo code=$?
     done
