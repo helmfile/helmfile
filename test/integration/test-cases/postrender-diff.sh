@@ -4,7 +4,7 @@ if [[ helm_major_version -eq 3 ]]; then
 
   config_file="helmfile.yaml"
   if [[ ${HELMFILE_V1MODE} = true ]]; then
-    pushd "${regression_case_input_dir}"
+    pushd "${postrender_diff_case_input_dir}"
     mv "${config_file}" "${config_file}.gotmpl"
     config_file="${config_file}.gotmpl"
     popd
