@@ -214,9 +214,13 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 			}
 
 			tmpDir := t.TempDir()
+			// HELM_CACHE_HOME contains downloaded chart archives
 			helmCacheHome := filepath.Join(tmpDir, "helm_cache")
+			// HELMFILE_CACHE_HOME contains remote charts and manifests downloaded by Helmfile using the go-getter integration
 			helmfileCacheHome := filepath.Join(tmpDir, "helmfile_cache")
-			t.Logf("Using HELM_CACHE_HOME=%s, HELMFILE_CACHE_HOME=%s", helmCacheHome, helmfileCacheHome)
+			// HELM_CONFIG_HOME contains the registry auth file (registry.json) and the index of all the repos added via helm-repo-add (repositories.yaml).
+			helmConfigHome := filepath.Join(tmpDir, "helm_config")
+			t.Logf("Using HELM_CACHE_HOME=%s, HELMFILE_CACHE_HOME=%s, HELM_CONFIG_HOME=%s", helmCacheHome, helmfileCacheHome, helmConfigHome)
 
 			inputFile := filepath.Join(testdataDir, name, "input.yaml")
 			outputFile := filepath.Join(testdataDir, name, "output.yaml")
@@ -233,6 +237,7 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 				envvar.TempDir+"=/tmp/helmfile",
 				envvar.DisableRunnerUniqueID+"=1",
 				"HELM_CACHE_HOME="+helmCacheHome,
+				"HELM_CONFIG_HOME="+helmConfigHome,
 				"HELMFILE_CACHE_HOME="+helmfileCacheHome,
 			)
 			got, err := cmd.CombinedOutput()
