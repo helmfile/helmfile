@@ -1,7 +1,4 @@
 Building dependency release=foo, chart=$WD/temp1/foo
-Hang tight while we grab the latest from your chart repositories...
-...Successfully got an update from the "myrepo" chart repository
-...Successfully got an update from the "istio" chart repository
 Update Complete. ⎈Happy Helming!⎈
 Saving 1 charts
 Downloading raw from repo oci://localhost:5000/myrepo
