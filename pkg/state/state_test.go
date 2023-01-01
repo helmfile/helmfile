@@ -408,7 +408,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--timeout", "123",
+				"--timeout", "123s",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -426,7 +426,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--timeout", "123",
+				"--timeout", "123s",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -549,7 +549,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--tiller-namespace", "tiller-system",
 				"--tls",
 				"--tls-key", "key.pem",
 				"--tls-cert", "cert.pem",
@@ -577,7 +576,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--tiller-namespace", "tiller-system",
 				"--tls",
 				"--tls-key", "key.pem",
 				"--tls-cert", "cert.pem",
@@ -600,7 +598,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--tiller-namespace", "tiller-system",
 				"--tls",
 				"--tls-key", "key.pem",
 				"--tls-cert", "cert.pem",
@@ -1273,7 +1270,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns", "--reset-values"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
 		},
 		{
 			name: "escaped values",
@@ -1610,8 +1607,7 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 			},
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
@@ -1627,7 +1623,7 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 			//simulate the release is already installed
 			for i, release := range tt.releases {
 				if tt.installed != nil && tt.installed[i] {
-					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--deleting--deployed--failed--pending"}] = release.Name
+					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling--deployed--failed--pending"}] = release.Name
 				}
 			}
 
@@ -1724,8 +1720,7 @@ func TestGetDeployedVersion(t *testing.T) {
 			installedVersion: "3.2.0",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
@@ -1740,7 +1735,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				Lists: map[exectest.ListKey]string{},
 			}
 			// simulate the helm.list call result
-			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$", Flags: "--deleting--deployed--failed--pending"}] = tt.listResult
+			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$", Flags: "--uninstalling--deployed--failed--pending"}] = tt.listResult
 
 			affectedReleases := AffectedReleases{}
 			state.SyncReleases(&affectedReleases, helm, []string{}, 1)
@@ -1780,7 +1775,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				},
 			},
 			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns", "--reset-values"}}},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
 		},
 		{
 			name: "escaped values",
@@ -2360,7 +2355,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			},
 			helm: &exectest.Helm{},
 			want: []exectest.Release{
-				{Name: "releaseA", Flags: []string{"--tiller-namespace", "tillerns"}},
+				{Name: "releaseA", Flags: []string{}},
 			},
 		},
 	}
@@ -2418,7 +2413,7 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1"}}},
+			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1s"}}},
 		},
 		{
 			name:    "do cleanup",
@@ -2429,7 +2424,7 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []exectest.Release{{Name: "releaseB", Flags: []string{"--cleanup", "--timeout", "1"}}},
+			want: []exectest.Release{{Name: "releaseB", Flags: []string{"--timeout", "1s"}}},
 		},
 		{
 			name: "happy path",
@@ -2450,11 +2445,10 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1", "--tiller-namespace", "tillerns"}}},
+			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1s"}}},
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		f := func(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
@@ -2529,16 +2523,16 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 
 func TestHelmState_Delete(t *testing.T) {
 	tests := []struct {
-		name            string
-		deleted         []exectest.Release
-		wantErr         bool
-		desired         *bool
-		installed       bool
-		purge           bool
-		flags           string
-		tillerNamespace string
-		kubeContext     string
-		defKubeContext  string
+		name           string
+		deleted        []exectest.Release
+		wantErr        bool
+		desired        *bool
+		installed      bool
+		purge          bool
+		flags          string
+		namespace      string
+		kubeContext    string
+		defKubeContext string
 	}{
 		{
 			name:      "desired and installed (purge=false)",
@@ -2570,7 +2564,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: true,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "desired but not installed (purge=false)",
@@ -2586,7 +2580,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: false,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "installed but filtered (purge=false)",
@@ -2602,7 +2596,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: true,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "not installed, and filtered (purge=false)",
@@ -2618,17 +2612,17 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: false,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
-			name:            "with tiller args",
-			wantErr:         false,
-			desired:         nil,
-			installed:       true,
-			purge:           true,
-			tillerNamespace: "tillerns",
-			flags:           "--tiller-namespacetillerns",
-			deleted:         []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--tiller-namespace", "tillerns"}}},
+			name:      "with tiller args",
+			wantErr:   false,
+			desired:   nil,
+			installed: true,
+			purge:     true,
+			namespace: "tillerns",
+			flags:     "--namespacetillerns",
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:        "with kubecontext",
@@ -2638,7 +2632,7 @@ func TestHelmState_Delete(t *testing.T) {
 			purge:       true,
 			kubeContext: "ctx",
 			flags:       "--kube-contextctx",
-			deleted:     []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "ctx"}}},
+			deleted:     []exectest.Release{{Name: "releaseA", Flags: []string{"--kube-context", "ctx"}}},
 		},
 		{
 			name:           "with default kubecontext",
@@ -2648,7 +2642,7 @@ func TestHelmState_Delete(t *testing.T) {
 			purge:          true,
 			defKubeContext: "defctx",
 			flags:          "--kube-contextdefctx",
-			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "defctx"}}},
+			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--kube-context", "defctx"}}},
 		},
 		{
 			name:           "with non-default and default kubecontexts",
@@ -2659,21 +2653,20 @@ func TestHelmState_Delete(t *testing.T) {
 			kubeContext:    "ctx",
 			defKubeContext: "defctx",
 			flags:          "--kube-contextctx",
-			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "ctx"}}},
+			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--kube-context", "ctx"}}},
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
-		f := func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			name := "releaseA"
 			if tt.wantErr {
 				name = "releaseA-error"
 			}
 			release := ReleaseSpec{
-				Name:            name,
-				Installed:       tt.desired,
-				TillerNamespace: tt.tillerNamespace,
-				KubeContext:     tt.kubeContext,
+				Name:        name,
+				Installed:   tt.desired,
+				Namespace:   tt.namespace,
+				KubeContext: tt.kubeContext,
 			}
 			releases := []ReleaseSpec{
 				release,
@@ -2705,8 +2698,7 @@ func TestHelmState_Delete(t *testing.T) {
 			} else if !(reflect.DeepEqual(tt.deleted, helm.Deleted) && (len(affectedReleases.Deleted) == len(tt.deleted))) {
 				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, helm.Deleted)
 			}
-		}
-		t.Run(tt.name, f)
+		})
 	}
 }
 

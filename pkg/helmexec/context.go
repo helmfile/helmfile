@@ -15,12 +15,6 @@ type HelmContext struct {
 }
 
 func (context *HelmContext) GetTillerlessArgs(helm *execer) []string {
-	if context.Tillerless && !helm.IsHelm3() {
-		if context.TillerNamespace != "" {
-			return []string{"tiller", "run", context.TillerNamespace, "--", helm.helmBinary}
-		}
-		return []string{"tiller", "run", "--", helm.helmBinary}
-	}
 	return []string{}
 }
 

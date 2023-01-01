@@ -232,10 +232,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// Live output should never be enabled for the "template" subcommand to avoid breaking `helmfile template | kubectl apply -f -`
 		run.helm.SetEnableLiveOutput(false)
 
-		// `helm template` in helm v2 does not support local chart.
-		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
-			ForceDownload:          !run.helm.IsHelm3(),
 			SkipRepos:              c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
@@ -257,14 +254,11 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		// `helm template` in helm v2 does not support local chart.
-		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
-			ForceDownload: !run.helm.IsHelm3(),
-			SkipRepos:     c.SkipDeps(),
-			SkipDeps:      c.SkipDeps(),
-			SkipCleanup:   c.SkipCleanup(),
-			Concurrency:   c.Concurrency(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			SkipCleanup: c.SkipCleanup(),
+			Concurrency: c.Concurrency(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
 		})
@@ -497,7 +491,7 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 
 func (a *App) Test(c TestConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		if c.Cleanup() && run.helm.IsHelm3() {
+		if c.Cleanup() {
 			a.Logger.Warnf("warn: requested cleanup will not be applied. " +
 				"To clean up test resources with Helm 3, you have to remove them manually " +
 				"or set helm.sh/hook-delete-policy\n")
@@ -1056,7 +1050,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	f := converge
 	if opts.Filter {
 		f = func(st *state.HelmState) (bool, []error) {
-			return processFilteredReleases(st, a.getHelm(st), func(st *state.HelmState) []error {
+			return processFilteredReleases(st, func(st *state.HelmState) []error {
 				_, err := converge(st)
 				return err
 			},
@@ -1073,7 +1067,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	return a.visitStates(fileOrDir, opts, fHelmStatsWithOverrides)
 }
 
-func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
+func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
 	if len(st.Selectors) > 0 {
 		err := st.FilterReleases(includeTransitiveNeeds)
 		if err != nil {
@@ -1081,7 +1075,7 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 		}
 	}
 
-	if err := checkDuplicates(helm, st, st.Releases); err != nil {
+	if err := checkDuplicates(st.Releases); err != nil {
 		return false, []error{err}
 	}
 
@@ -1092,7 +1086,7 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 	return processed, errs
 }
 
-func checkDuplicates(helm helmexec.Interface, st *state.HelmState, releases []state.ReleaseSpec) error {
+func checkDuplicates(releases []state.ReleaseSpec) error {
 	type Key struct {
 		TillerNamespace, Name, KubeContext string
 	}
@@ -1100,13 +1094,6 @@ func checkDuplicates(helm helmexec.Interface, st *state.HelmState, releases []st
 	releaseNameCounts := map[Key]int{}
 	for _, r := range releases {
 		namespace := r.Namespace
-		if !helm.IsHelm3() {
-			if r.TillerNamespace != "" {
-				namespace = r.TillerNamespace
-			} else {
-				namespace = st.HelmDefaults.TillerNamespace
-			}
-		}
 		releaseNameCounts[Key{namespace, r.Name, r.KubeContext}]++
 	}
 	for name, c := range releaseNameCounts {
@@ -1130,7 +1117,7 @@ func checkDuplicates(helm helmexec.Interface, st *state.HelmState, releases []st
 
 func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
 	return func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
-		return processFilteredReleases(st, helm, func(st *state.HelmState) []error {
+		return processFilteredReleases(st, func(st *state.HelmState) []error {
 			return converge(st, helm)
 		}, includeTransitiveNeeds)
 	}
@@ -1268,7 +1255,7 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 		}
 	}
 
-	if err := checkDuplicates(r.helm, r.state, deduplicated); err != nil {
+	if err := checkDuplicates(deduplicated); err != nil {
 		return nil, nil, err
 	}
 

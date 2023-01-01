@@ -780,15 +780,10 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
-					if helm.IsHelm3() {
-						args = []string{}
-						if release.Namespace != "" {
-							args = append(args, "--namespace", release.Namespace)
-						}
-					} else {
-						args = []string{"--purge"}
+					if release.Namespace != "" {
+						args = append(args, "--namespace", release.Namespace)
 					}
-					deletionFlags := st.appendConnectionFlags(args, helm, release)
+					deletionFlags := st.appendConnectionFlags(args, release)
 					m.Lock()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
@@ -893,12 +888,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						relErr = newReleaseFailedError(release, err)
 					} else if installed {
 						var args []string
-						if helm.IsHelm3() {
-							args = []string{}
-						} else {
-							args = []string{"--purge"}
-						}
-						deletionFlags := st.appendConnectionFlags(args, helm, release)
+						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
 						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
@@ -973,15 +963,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 }
 
 func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
-	flags := st.connectionFlags(helm, release)
-	if helm.IsHelm3() {
-		if release.Namespace != "" {
-			flags = append(flags, "--namespace", release.Namespace)
-		}
-		flags = append(flags, "--uninstalling")
-	} else {
-		flags = append(flags, "--deleting")
+	flags := st.connectionFlags(release)
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
 	}
+	flags = append(flags, "--uninstalling")
 	flags = append(flags, "--deployed", "--failed", "--pending")
 	return helm.List(context, "^"+release.Name+"$", flags...)
 }
@@ -1348,7 +1334,7 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
 	for _, r := range builds {
-		buildDepsFlags := getBuildDepsFlags(helm, r)
+		buildDepsFlags := getBuildDepsFlags(r)
 		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {
 			if r.chartFetchedByGoGetter {
 				diagnostic := fmt.Sprintf(
@@ -2018,10 +2004,10 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		st.ApplyOverrides(&release)
 
 		flags := []string{}
-		if helm.IsHelm3() && release.Namespace != "" {
+		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
-		flags = st.appendConnectionFlags(flags, helm, &release)
+		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -2032,12 +2018,9 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
-		flags := []string{}
-		if purge && !helm.IsHelm3() {
-			flags = append(flags, "--purge")
-		}
-		flags = st.appendConnectionFlags(flags, helm, &release)
-		if helm.IsHelm3() && release.Namespace != "" {
+		flags := make([]string, 0)
+		flags = st.appendConnectionFlags(flags, &release)
+		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
 		context := st.createHelmContext(&release, workerIndex)
@@ -2089,27 +2072,22 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 
 		flags := []string{}
-		if helm.IsHelm3() && release.Namespace != "" {
+		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
-		}
-		if cleanup && !helm.IsHelm3() {
-			flags = append(flags, "--cleanup")
 		}
 		if opts.Logs {
 			flags = append(flags, "--logs")
 		}
 
 		if timeout == EmptyTimeout {
-			flags = append(flags, st.timeoutFlags(helm, &release)...)
+			flags = append(flags, st.timeoutFlags(&release)...)
 		} else {
 			duration := strconv.Itoa(timeout)
-			if helm.IsHelm3() {
-				duration += "s"
-			}
+			duration += "s"
 			flags = append(flags, "--timeout", duration)
 		}
 
-		flags = st.appendConnectionFlags(flags, helm, &release)
+		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -2424,27 +2402,19 @@ func findChartDirectory(topLevelDir string) (string, error) {
 }
 
 // appendConnectionFlags append all the helm command-line flags related to K8s API and Tiller connection including the kubecontext
-func (st *HelmState) appendConnectionFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec) []string {
-	adds := st.connectionFlags(helm, release)
+func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec) []string {
+	adds := st.connectionFlags(release)
 	flags = append(flags, adds...)
 	return flags
 }
 
-func (st *HelmState) connectionFlags(helm helmexec.Interface, release *ReleaseSpec) []string {
+func (st *HelmState) connectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
 	tillerless := st.HelmDefaults.Tillerless
 	if release.Tillerless != nil {
 		tillerless = *release.Tillerless
 	}
 	if !tillerless {
-		if !helm.IsHelm3() {
-			if release.TillerNamespace != "" {
-				flags = append(flags, "--tiller-namespace", release.TillerNamespace)
-			} else if st.HelmDefaults.TillerNamespace != "" {
-				flags = append(flags, "--tiller-namespace", st.HelmDefaults.TillerNamespace)
-			}
-		}
-
 		if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
 			flags = append(flags, "--tls")
 		}
@@ -2479,7 +2449,7 @@ func (st *HelmState) connectionFlags(helm helmexec.Interface, release *ReleaseSp
 	return flags
 }
 
-func (st *HelmState) timeoutFlags(helm helmexec.Interface, release *ReleaseSpec) []string {
+func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 	var flags []string
 
 	timeout := st.HelmDefaults.Timeout
@@ -2488,9 +2458,7 @@ func (st *HelmState) timeoutFlags(helm helmexec.Interface, release *ReleaseSpec)
 	}
 	if timeout != 0 {
 		duration := strconv.Itoa(timeout)
-		if helm.IsHelm3() {
-			duration += "s"
-		}
+		duration += "s"
 		flags = append(flags, "--timeout", duration)
 	}
 
@@ -2512,7 +2480,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--wait-for-jobs")
 	}
 
-	flags = append(flags, st.timeoutFlags(helm, release)...)
+	flags = append(flags, st.timeoutFlags(release)...)
 
 	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
 		flags = append(flags, "--force")
@@ -2545,7 +2513,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--disable-openapi-validation")
 	}
 
-	flags = st.appendConnectionFlags(flags, helm, release)
+	flags = st.appendConnectionFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
@@ -2561,14 +2529,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
 	var flags []string
 
-	// `helm template` in helm v2 does not support `--version` flag. So we fetch with the version flag and then template
-	// without the flag. See PrepareCharts function to see the Helmfile implementation of chart fetching.
-	//
-	// `helm template` in helm v3 supports `--version` and it automatically fetches the remote chart to template,
-	// so we skip fetching on helmfile-side and let helm fetch it.
-	if helm.IsHelm3() {
-		flags = st.chartVersionFlags(release)
-	}
+	flags = st.chartVersionFlags(release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
@@ -2609,7 +2570,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendApiVersionsFlags(flags, release)
 
-	flags = st.appendConnectionFlags(flags, helm, release)
+	flags = st.appendConnectionFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
@@ -2932,7 +2893,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 		}
 		path := paths[0]
 
-		decryptFlags := st.appendConnectionFlags([]string{}, helm, release)
+		decryptFlags := st.appendConnectionFlags([]string{}, release)
 		valfile, err := helm.DecryptSecret(st.createHelmContext(release, workerIndex), path, decryptFlags...)
 		if err != nil {
 			return nil, err

@@ -5,55 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/require"
 )
-
-// TestGetTillerlessArgs tests the GetTillerlessArgs function
-func TestGetTillerlessArgs(t *testing.T) {
-	helmBinary := "helm"
-
-	tests := []struct {
-		tillerless       bool
-		helmMajorVersion string
-		tillerNamespace  string
-		expected         []string
-	}{
-		{
-			tillerless:       true,
-			helmMajorVersion: "2.0.0",
-			expected:         []string{"tiller", "run", "--", helmBinary},
-		},
-		{
-			tillerless:       true,
-			helmMajorVersion: "2.0.0",
-			tillerNamespace:  "test-namespace",
-			expected:         []string{"tiller", "run", "test-namespace", "--", helmBinary},
-		},
-		{
-			tillerless:       false,
-			helmMajorVersion: "2.0.0",
-			expected:         []string{},
-		},
-		{
-			tillerless:       true,
-			helmMajorVersion: "3.0.0",
-			expected:         []string{},
-		},
-	}
-	for _, test := range tests {
-		hc := &HelmContext{
-			Tillerless:      test.tillerless,
-			TillerNamespace: test.tillerNamespace,
-		}
-		sr, _ := semver.NewVersion(test.helmMajorVersion)
-		he := &execer{
-			helmBinary: helmBinary,
-			version:    *sr,
-		}
-		require.Equalf(t, test.expected, hc.GetTillerlessArgs(he), "expected result %s, received result %s", test.expected, hc.GetTillerlessArgs(he))
-	}
-}
 
 func pwd() string {
 	pwd, _ := os.Getwd()
