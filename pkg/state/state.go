@@ -144,11 +144,9 @@ type SubhelmfileEnvironmentSpec struct {
 
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
-	KubeContext     string   `yaml:"kubeContext,omitempty"`
-	TillerNamespace string   `yaml:"tillerNamespace,omitempty"`
-	Tillerless      bool     `yaml:"tillerless"`
-	Args            []string `yaml:"args,omitempty"`
-	Verify          bool     `yaml:"verify"`
+	KubeContext string   `yaml:"kubeContext,omitempty"`
+	Args        []string `yaml:"args,omitempty"`
+	Verify      bool     `yaml:"verify"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -295,9 +293,6 @@ type ReleaseSpec struct {
 
 	ValuesPathPrefix string `yaml:"valuesPathPrefix,omitempty"`
 
-	TillerNamespace string `yaml:"tillerNamespace,omitempty"`
-	Tillerless      *bool  `yaml:"tillerless,omitempty"`
-
 	KubeContext string `yaml:"kubeContext,omitempty"`
 
 	TLS       *bool  `yaml:"tls,omitempty"`
@@ -306,10 +301,9 @@ type ReleaseSpec struct {
 	TLSCert   string `yaml:"tlsCert,omitempty"`
 
 	// These values are used in templating
-	TillerlessTemplate *string `yaml:"tillerlessTemplate,omitempty"`
-	VerifyTemplate     *string `yaml:"verifyTemplate,omitempty"`
-	WaitTemplate       *string `yaml:"waitTemplate,omitempty"`
-	InstalledTemplate  *string `yaml:"installedTemplate,omitempty"`
+	VerifyTemplate    *string `yaml:"verifyTemplate,omitempty"`
+	WaitTemplate      *string `yaml:"waitTemplate,omitempty"`
+	InstalledTemplate *string `yaml:"installedTemplate,omitempty"`
 
 	// These settings requires helm-x integration to work
 	Dependencies          []Dependency  `yaml:"dependencies,omitempty"`
@@ -400,8 +394,7 @@ const MissingFileHandlerWarn = "Warn"
 const MissingFileHandlerDebug = "Debug"
 
 var DefaultFetchOutputDirTemplate = path.Join(
-	"{{ .OutputDir }}{{ if .Release.TillerNamespace }}",
-	"{{ .Release.TillerNamespace }}{{ end }}{{ if .Release.Namespace }}",
+	"{{ .OutputDir }}{{ if .Release.Namespace }}",
 	"{{ .Release.Namespace }}{{ end }}{{ if .Release.KubeContext }}",
 	"{{ .Release.KubeContext }}{{ end }}",
 	"{{ .Release.Name }}",
@@ -432,8 +425,6 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 
 		if len(components) > 1 {
 			ns = components[len(components)-2]
-		} else if spec.TillerNamespace != "" {
-			ns = spec.TillerNamespace
 		} else {
 			ns = spec.Namespace
 		}
@@ -721,17 +712,14 @@ func ReleaseToID(r *ReleaseSpec) string {
 		id += kc + "/"
 	}
 
-	tns := r.TillerNamespace
 	ns := r.Namespace
 
-	if tns != "" {
-		id += tns + "/"
-	} else if ns != "" {
+	if ns != "" {
 		id += ns + "/"
 	}
 
 	if kc != "" {
-		if tns == "" && ns == "" {
+		if ns == "" {
 			// This is intentional to avoid conflating kc=,ns=foo,name=bar and kc=foo,ns=,name=bar.
 			// Before https://github.com/roboll/helmfile/pull/1823 they were both `foo/bar` which turned out to break `needs` in many ways.
 			//
@@ -1841,14 +1829,6 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 }
 
 func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helmexec.HelmContext {
-	namespace := st.HelmDefaults.TillerNamespace
-	if spec.TillerNamespace != "" {
-		namespace = spec.TillerNamespace
-	}
-	tillerless := st.HelmDefaults.Tillerless
-	if spec.Tillerless != nil {
-		tillerless = *spec.Tillerless
-	}
 	historyMax := 10
 	if st.HelmDefaults.HistoryMax != nil {
 		historyMax = *st.HelmDefaults.HistoryMax
@@ -1858,10 +1838,8 @@ func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helme
 	}
 
 	return helmexec.HelmContext{
-		Tillerless:      tillerless,
-		TillerNamespace: namespace,
-		WorkerIndex:     workerIndex,
-		HistoryMax:      historyMax,
+		WorkerIndex: workerIndex,
+		HistoryMax:  historyMax,
 	}
 }
 
@@ -2410,40 +2388,34 @@ func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec)
 
 func (st *HelmState) connectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
-	tillerless := st.HelmDefaults.Tillerless
-	if release.Tillerless != nil {
-		tillerless = *release.Tillerless
+	if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
+		flags = append(flags, "--tls")
 	}
-	if !tillerless {
-		if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
-			flags = append(flags, "--tls")
-		}
 
-		if release.TLSKey != "" {
-			flags = append(flags, "--tls-key", release.TLSKey)
-		} else if st.HelmDefaults.TLSKey != "" {
-			flags = append(flags, "--tls-key", st.HelmDefaults.TLSKey)
-		}
+	if release.TLSKey != "" {
+		flags = append(flags, "--tls-key", release.TLSKey)
+	} else if st.HelmDefaults.TLSKey != "" {
+		flags = append(flags, "--tls-key", st.HelmDefaults.TLSKey)
+	}
 
-		if release.TLSCert != "" {
-			flags = append(flags, "--tls-cert", release.TLSCert)
-		} else if st.HelmDefaults.TLSCert != "" {
-			flags = append(flags, "--tls-cert", st.HelmDefaults.TLSCert)
-		}
+	if release.TLSCert != "" {
+		flags = append(flags, "--tls-cert", release.TLSCert)
+	} else if st.HelmDefaults.TLSCert != "" {
+		flags = append(flags, "--tls-cert", st.HelmDefaults.TLSCert)
+	}
 
-		if release.TLSCACert != "" {
-			flags = append(flags, "--tls-ca-cert", release.TLSCACert)
-		} else if st.HelmDefaults.TLSCACert != "" {
-			flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
-		}
+	if release.TLSCACert != "" {
+		flags = append(flags, "--tls-ca-cert", release.TLSCACert)
+	} else if st.HelmDefaults.TLSCACert != "" {
+		flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
+	}
 
-		if release.KubeContext != "" {
-			flags = append(flags, "--kube-context", release.KubeContext)
-		} else if st.Environments[st.Env.Name].KubeContext != "" {
-			flags = append(flags, "--kube-context", st.Environments[st.Env.Name].KubeContext)
-		} else if st.HelmDefaults.KubeContext != "" {
-			flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
-		}
+	if release.KubeContext != "" {
+		flags = append(flags, "--kube-context", release.KubeContext)
+	} else if st.Environments[st.Env.Name].KubeContext != "" {
+		flags = append(flags, "--kube-context", st.Environments[st.Env.Name].KubeContext)
+	} else if st.HelmDefaults.KubeContext != "" {
+		flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
 	}
 
 	return flags

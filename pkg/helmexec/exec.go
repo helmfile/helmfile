@@ -248,8 +248,8 @@ func (helm *execer) UpdateDeps(chart string) error {
 
 func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
 	helm.logger.Infof("Upgrading release=%v, chart=%v", name, redactedURL(chart))
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 
 	flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
 
@@ -260,8 +260,8 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 
 func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Getting status %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
@@ -269,8 +269,8 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 
 func (helm *execer) List(context HelmContext, filter string, flags ...string) (string, error) {
 	helm.logger.Infof("Listing releases matching %v", filter)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	args := []string{"list", "--filter", filter}
 
 	enableLiveOutput := false
@@ -309,8 +309,8 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		helm.decryptedSecretMutex.Unlock()
 
 		helm.logger.Infof("Decrypting secret %v", absPath)
-		preArgs := context.GetTillerlessArgs(helm)
-		env := context.getTillerlessEnv()
+		preArgs := make([]string, 0)
+		env := make(map[string]string)
 		settings := cli.New()
 		pluginVersion, err := GetPluginVersion("secrets", settings.PluginsDirectory)
 		if err != nil {
@@ -415,8 +415,8 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 	} else {
 		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedURL(chart))
 	}
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	var overrideEnableLiveOutput *bool = nil
 	if suppressDiff {
 		enableLiveOutput := false
@@ -495,8 +495,8 @@ func (helm *execer) ChartExport(chart string, path string, flags ...string) erro
 
 func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Deleting %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
@@ -504,8 +504,8 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 
 func (helm *execer) TestRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Testing %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	args := []string{"test", name}
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, nil)
 	helm.write(nil, out)

@@ -8,9 +8,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
  2: - name: bar
  3:   chart: mychart2
  4:   namespace: ns2
- 5:   tillerNamespace: tns2
- 6:   needs:
- 7:   - tns1/foo
+ 5:   needs:
+ 6:   - tns1/foo
  8: - name: foo
  9:   chart: mychart1
 10:   namespace: ns1

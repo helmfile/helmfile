@@ -505,13 +505,11 @@ releases:
 - name: foo
   chart: mychart1
   namespace: ns1
-  tillerNamespace: tns1
   needs:
-  - tns2/bar
+  - ns2/bar
 - name: bar
   chart: mychart2
   namespace: ns2
-  tillerNamespace: tns2
 `,
 			},
 			detailedExitcode: true,

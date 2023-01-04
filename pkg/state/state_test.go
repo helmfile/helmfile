@@ -535,76 +535,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name:     "tiller",
-			defaults: HelmSpec{},
-			release: &ReleaseSpec{
-				Chart:           "test/chart",
-				Version:         "0.1",
-				Name:            "test-charts",
-				TLS:             boolValue(true),
-				TillerNamespace: "tiller-system",
-				TLSKey:          "key.pem",
-				TLSCert:         "cert.pem",
-				TLSCACert:       "ca.pem",
-			},
-			want: []string{
-				"--version", "0.1",
-				"--tls",
-				"--tls-key", "key.pem",
-				"--tls-cert", "cert.pem",
-				"--tls-ca-cert", "ca.pem",
-			},
-		},
-		{
-			name: "tiller-override-defaults",
-			defaults: HelmSpec{
-				TLS:             false,
-				TillerNamespace: "a",
-				TLSKey:          "b.pem",
-				TLSCert:         "c.pem",
-				TLSCACert:       "d.pem",
-			},
-			release: &ReleaseSpec{
-				Chart:           "test/chart",
-				Version:         "0.1",
-				Name:            "test-charts",
-				TLS:             boolValue(true),
-				TillerNamespace: "tiller-system",
-				TLSKey:          "key.pem",
-				TLSCert:         "cert.pem",
-				TLSCACert:       "ca.pem",
-			},
-			want: []string{
-				"--version", "0.1",
-				"--tls",
-				"--tls-key", "key.pem",
-				"--tls-cert", "cert.pem",
-				"--tls-ca-cert", "ca.pem",
-			},
-		},
-		{
-			name: "tiller-from-defaults",
-			defaults: HelmSpec{
-				TLS:             true,
-				TillerNamespace: "tiller-system",
-				TLSKey:          "key.pem",
-				TLSCert:         "cert.pem",
-				TLSCACert:       "ca.pem",
-			},
-			release: &ReleaseSpec{
-				Chart:   "test/chart",
-				Version: "0.1",
-				Name:    "test-charts",
-			},
-			want: []string{
-				"--version", "0.1",
-				"--tls",
-				"--tls-key", "key.pem",
-				"--tls-cert", "cert.pem",
-				"--tls-ca-cert", "ca.pem",
-			},
-		},
-		{
 			name: "create-namespace-default-helm3.2",
 			defaults: HelmSpec{
 				Verify: false,
@@ -1261,18 +1191,6 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
 		},
 		{
-			name: "with tiller args",
-			releases: []ReleaseSpec{
-				{
-					Name:            "releaseName",
-					Chart:           "foo",
-					TillerNamespace: "tillerns",
-				},
-			},
-			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
-		},
-		{
 			name: "escaped values",
 			releases: []ReleaseSpec{
 				{
@@ -1760,18 +1678,6 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				{
 					Name:  "releaseName",
 					Chart: "foo",
-				},
-			},
-			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
-		},
-		{
-			name: "with tiller args",
-			releases: []ReleaseSpec{
-				{
-					Name:            "releaseName",
-					Chart:           "foo",
-					TillerNamespace: "tillerns",
 				},
 			},
 			helm:         &exectest.Helm{},
@@ -2345,19 +2251,6 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			helm:    &exectest.Helm{},
 			wantErr: false,
 		},
-		{
-			name: "with tiller args",
-			releases: []ReleaseSpec{
-				{
-					Name:            "releaseA",
-					TillerNamespace: "tillerns",
-				},
-			},
-			helm: &exectest.Helm{},
-			want: []exectest.Release{
-				{Name: "releaseA", Flags: []string{}},
-			},
-		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -2397,13 +2290,12 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 
 func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 	tests := []struct {
-		name            string
-		cleanup         bool
-		releases        []ReleaseSpec
-		helm            *exectest.Helm
-		want            []exectest.Release
-		wantErr         bool
-		tillerNamespace string
+		name     string
+		cleanup  bool
+		releases []ReleaseSpec
+		helm     *exectest.Helm
+		want     []exectest.Release
+		wantErr  bool
 	}{
 		{
 			name: "happy path",
@@ -2436,20 +2328,9 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 			helm:    &exectest.Helm{},
 			wantErr: true,
 		},
-		{
-			name: "with tiller args",
-			releases: []ReleaseSpec{
-				{
-					Name:            "releaseA",
-					TillerNamespace: "tillerns",
-				},
-			},
-			helm: &exectest.Helm{},
-			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1s"}}},
-		},
 	}
 	for _, tt := range tests {
-		f := func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: tt.releases,
@@ -2464,8 +2345,7 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 			if !reflect.DeepEqual(tt.helm.Releases, tt.want) {
 				t.Errorf("HelmState.TestReleases() for [%s] = %v, want %v", tt.name, tt.helm.Releases, tt.want)
 			}
-		}
-		t.Run(tt.name, f)
+		})
 	}
 }
 
@@ -2612,16 +2492,6 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: false,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
-		},
-		{
-			name:      "with tiller args",
-			wantErr:   false,
-			desired:   nil,
-			installed: true,
-			purge:     true,
-			namespace: "tillerns",
-			flags:     "--namespacetillerns",
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
@@ -3119,28 +2989,12 @@ func TestGenerateChartPath(t *testing.T) {
 			expected:  "/output-dir/release-name/chart-name/0.0.0",
 		},
 		{
-			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseTillerNamespace",
-			chartName: "chart-name",
-			release:   &ReleaseSpec{Name: "release-name", TillerNamespace: "tiller-namespace"},
-			outputDir: "/output-dir",
-			wantErr:   false,
-			expected:  "/output-dir/tiller-namespace/release-name/chart-name/latest",
-		},
-		{
 			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseNamespace",
 			chartName: "chart-name",
 			release:   &ReleaseSpec{Name: "release-name", Namespace: "release-namespace"},
 			outputDir: "/output-dir",
 			wantErr:   false,
 			expected:  "/output-dir/release-namespace/release-name/chart-name/latest",
-		},
-		{
-			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseTillerNamespaceAndGivenReleaseNamespace",
-			chartName: "chart-name",
-			release:   &ReleaseSpec{Name: "release-name", TillerNamespace: "tiller-namespace", Namespace: "release-namespace"},
-			outputDir: "/output-dir",
-			wantErr:   false,
-			expected:  "/output-dir/tiller-namespace/release-namespace/release-name/chart-name/latest",
 		},
 		{
 			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseKubeContext",
@@ -3157,22 +3011,6 @@ func TestGenerateChartPath(t *testing.T) {
 			outputDir: "/output-dir",
 			wantErr:   false,
 			expected:  "/output-dir/release-namespace/kube-context/release-name/chart-name/latest",
-		},
-		{
-			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseTillerNamespaceAndGivenReleaseKubeContext",
-			chartName: "chart-name",
-			release:   &ReleaseSpec{Name: "release-name", TillerNamespace: "tiller-namespace", KubeContext: "kube-context"},
-			outputDir: "/output-dir",
-			wantErr:   false,
-			expected:  "/output-dir/tiller-namespace/kube-context/release-name/chart-name/latest",
-		},
-		{
-			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseTillerNamespaceAndGivenReleaseNamespaceAndGivenReleaseKubeContext",
-			chartName: "chart-name",
-			release:   &ReleaseSpec{Name: "release-name", TillerNamespace: "tiller-namespace", Namespace: "release-namespace", KubeContext: "kube-context"},
-			outputDir: "/output-dir",
-			wantErr:   false,
-			expected:  "/output-dir/tiller-namespace/release-namespace/kube-context/release-name/chart-name/latest",
 		},
 		{
 			testName:          "PathGeneratedWithGivenOutputDirAndGivenOutputDirTemplateWithFieldNameOutputDir",

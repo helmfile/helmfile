@@ -461,8 +461,6 @@ releases:
   chart: stable/prometheus
 `,
 		"/path/to/helmfile.d/b.yaml": `
-helmDefaults:
-  tillerNamespace: zoo
 releases:
 - name: grafana
   chart: stable/grafana
@@ -809,46 +807,39 @@ helmfiles:
 - path: helmfile.d/c*.yaml
   values:
   - env.values.yaml
-  - tillerNs: INLINE_TILLER_NS_3
 `,
 		"/path/to/helmfile.d/a1.yaml": `
 environments:
   default:
     values:
-    - tillerNs: INLINE_TILLER_NS
-      ns: INLINE_NS
+    - ns: INLINE_NS
 releases:
 - name: foo
   chart: stable/zipkin
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
   namespace: {{ .Environment.Values.ns }}
 `,
 		"/path/to/helmfile.d/b.yaml": `
 environments:
   default:
     values:
-    - tillerNs: INLINE_TILLER_NS
-      ns: INLINE_NS
+    - ns: INLINE_NS
 releases:
 - name: bar
   chart: stable/grafana
-  tillerNamespace:  {{ .Environment.Values.tillerNs }}
   namespace: {{ .Environment.Values.ns }}
 `,
 		"/path/to/helmfile.d/c.yaml": `
 environments:
   default:
     values:
-    - tillerNs: INLINE_TILLER_NS
-      ns: INLINE_NS
+    - ns: INLINE_NS
 releases:
 - name: baz
   chart: stable/envoy
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
   namespace: {{ .Environment.Values.ns }}
 `,
 		"/path/to/env.values.yaml": `
-tillerNs: INLINE_TILLER_NS_2
+ns: INLINE_NS
 `,
 	}
 
@@ -882,15 +873,14 @@ tillerNs: INLINE_TILLER_NS_2
 	}
 
 	type release struct {
-		chart    string
-		tillerNs string
-		ns       string
+		chart string
+		ns    string
 	}
 
 	expectedReleases := map[string]release{
-		"foo": {"stable/zipkin", "INLINE_TILLER_NS_2", "INLINE_NS"},
-		"bar": {"stable/grafana", "INLINE_TILLER_NS", "INLINE_NS"},
-		"baz": {"stable/envoy", "INLINE_TILLER_NS_3", "INLINE_NS"},
+		"foo": {"stable/zipkin", "INLINE_NS"},
+		"bar": {"stable/grafana", "INLINE_NS"},
+		"baz": {"stable/envoy", "INLINE_NS"},
 	}
 
 	for name := range processed {
@@ -903,10 +893,6 @@ tillerNs: INLINE_TILLER_NS_2
 
 			if expected.chart != actual.Chart {
 				t.Errorf("unexpected chart: expected=%s, got=%s", expected.chart, actual.Chart)
-			}
-
-			if expected.tillerNs != actual.TillerNamespace {
-				t.Errorf("unexpected tiller namespace: expected=%s, got=%s", expected.tillerNs, actual.TillerNamespace)
 			}
 
 			if expected.ns != actual.Namespace {
@@ -1488,7 +1474,6 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1511,10 +1496,6 @@ helmDefaults:
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
 	if *st.Releases[1].MissingFileHandler != "Warn" {
@@ -1574,7 +1555,6 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1598,9 +1578,6 @@ helmDefaults:
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
-	}
 	firstRelease := st.Releases[0]
 	if firstRelease.Name != "myrelease1" {
 		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", firstRelease.Name)
@@ -1648,7 +1625,6 @@ releases:
 `,
 		"/path/to/base.gotmpl": `helmDefaults:
   kubeContext: {{ .Environment.Values.foo }}
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/1.yaml": `tillerNs: TILLER_NS
 foo: FOO
@@ -1672,10 +1648,6 @@ foo: FOO
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
-	}
-
-	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
 	if st.Releases[0].Name != "myrelease0" {
@@ -1711,7 +1683,6 @@ releases:
 `,
 		"/path/to/base.gotmpl": `helmDefaults:
   kubeContext: {{ .Environment.Values.foo }}
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/1.yaml": `tillerNs: TILLER_NS
 foo: FOO
@@ -1735,10 +1706,6 @@ foo: FOO
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
-	}
-
-	if st.HelmDefaults.TillerNamespace != "INLINE_TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
 	if st.Releases[0].Name != "myrelease0" {
@@ -1794,7 +1761,6 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1816,10 +1782,6 @@ helmDefaults:
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
 	firstRelease := st.Releases[0]

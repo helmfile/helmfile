@@ -27,17 +27,17 @@ func TestGetArgs(t *testing.T) {
 			expected:    "-e a.yaml -d b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false -q www -w",
 		},
 		{
-			args:     "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false --tiller-namespace ns",
-			expected: "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false --tiller-namespace ns",
+			args:     "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false",
+			expected: "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false",
 		},
 		{
-			args:        "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --tiller-namespace ns",
+			args:        "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true",
 			defaultArgs: []string{"--recreate-pods", "--force"},
-			expected:    "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --tiller-namespace ns --recreate-pods --force",
+			expected:    "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --recreate-pods --force",
 		},
 	}
 	for _, test := range tests {
-		Helmdefaults := state.HelmSpec{KubeContext: "test", TillerNamespace: "test-namespace", Args: test.defaultArgs}
+		Helmdefaults := state.HelmSpec{KubeContext: "test", Args: test.defaultArgs}
 		testState := &state.HelmState{
 			ReleaseSetSpec: state.ReleaseSetSpec{
 				HelmDefaults: Helmdefaults,

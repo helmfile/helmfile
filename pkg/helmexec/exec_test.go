@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -311,23 +310,6 @@ exec: helm --kube-context dev upgrade --install release https://example_user:exa
 	}
 }
 
-func Test_SyncReleaseTillerless(t *testing.T) {
-	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
-	err := helm.SyncRelease(HelmContext{Tillerless: true, TillerNamespace: "foo"}, "release", "chart",
-		"--timeout 10", "--wait", "--wait-for-jobs")
-	expected := `Upgrading release=release, chart=chart
-exec: helm --kube-context dev upgrade --install release chart --timeout 10 --wait --wait-for-jobs --history-max 0
-`
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
-	}
-}
-
 func Test_UpdateDeps(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
@@ -539,22 +521,6 @@ exec: helm --kube-context dev diff upgrade --allow-unreleased release chart
 	err = helm.DiffRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz", false)
 	expected = `Comparing release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
 exec: helm --kube-context dev diff upgrade --allow-unreleased release https://example_user:example_password@repo.example.com/chart.tgz
-`
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
-	}
-}
-
-func Test_DiffReleaseTillerless(t *testing.T) {
-	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
-	err := helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", false, "--timeout 10", "--wait", "--wait-for-jobs")
-	expected := `Comparing release=release, chart=chart
-exec: helm --kube-context dev diff upgrade --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -884,31 +850,6 @@ func Test_LogLevels(t *testing.T) {
 		if buffer.String() != expected {
 			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 		}
-	}
-}
-
-func Test_getTillerlessEnv(t *testing.T) {
-	context := HelmContext{Tillerless: true, TillerNamespace: "foo", WorkerIndex: 1}
-
-	os.Unsetenv("KUBECONFIG")
-	actual := context.getTillerlessEnv()
-	if val, found := actual["HELM_TILLER_SILENT"]; !found || val != "true" {
-		t.Errorf("getTillerlessEnv() HELM_TILLER_SILENT\nactual = %s\nexpect = true", val)
-	}
-	// This feature is disabled until it is fixed in helm
-	/*if val, found := actual["HELM_TILLER_PORT"]; !found || val != "44135" {
-		t.Errorf("getTillerlessEnv() HELM_TILLER_PORT\nactual = %s\nexpect = 44135", val)
-	}*/
-	if val, found := actual["KUBECONFIG"]; found {
-		t.Errorf("getTillerlessEnv() KUBECONFIG\nactual = %s\nexpect = nil", val)
-	}
-
-	t.Setenv("KUBECONFIG", "toto")
-	actual = context.getTillerlessEnv()
-	cwd, _ := os.Getwd()
-	expected := path.Join(cwd, "toto")
-	if val, found := actual["KUBECONFIG"]; !found || val != expected {
-		t.Errorf("getTillerlessEnv() KUBECONFIG\nactual = %s\nexpect = %s", val, expected)
 	}
 }
 
