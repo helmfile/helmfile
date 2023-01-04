@@ -1,9 +1,5 @@
 Building dependency release=foo, chart=../../charts/raw-0.1.0
 Building dependency release=baz, chart=$WD/temp1/baz
-Hang tight while we grab the latest from your chart repositories...
-...Successfully got an update from the "myrepo" chart repository
-...Successfully got an update from the "istio" chart repository
-Update Complete. ⎈Happy Helming!⎈
 Saving 1 charts
 Downloading raw from repo oci://localhost:5001/myrepo
 Deleting outdated charts

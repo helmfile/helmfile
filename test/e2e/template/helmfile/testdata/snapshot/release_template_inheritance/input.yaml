@@ -12,7 +12,7 @@ templates:
     values:
     - template1: template1
     valuesTemplate:
-    - template1Label: "{{` '{{ .Release.Labels.template1 }}' `}}"
+    - template1Label: "{{`{{ .Release.Labels.template1 }}`}}"
     labels:
       template1: template1
     inherit:
@@ -23,8 +23,8 @@ templates:
     values:
     - template2: template2
     valuesTemplate:
-    - inheritedBaseLabel: "{{` '{{ .Release.Labels.base }}' `}}"
-      template2Label: "{{` '{{ .Release.Labels.template2 }}' `}}"
+    - inheritedBaseLabel: "{{`{{ .Release.Labels.base }}`}}"
+      template2Label: "{{`{{ .Release.Labels.template2 }}`}}"
     labels:
       template2: template2
     inherit:
@@ -46,7 +46,7 @@ releases:
         name: {{`{{ .Release.Name }}`}}-1
         namespace: {{`{{ .Release.Namespace }}`}}
       data:
-        {{` {{ .Values | toYaml | nindent 2 }} `}}
+        {{` {{ (unset .Values "templates") | toYaml | nindent 2 }} `}}
 - name: foo2
   chart: ../../charts/raw-0.1.0
   inherit:
@@ -60,4 +60,4 @@ releases:
         name: {{`{{ .Release.Name }}`}}-1
         namespace: {{`{{ .Release.Namespace }}`}}
       data:
-        {{` {{ .Values | toYaml | nindent 2 }} `}}
+        {{` {{ (unset .Values "templates") | toYaml | nindent 2 }} `}}

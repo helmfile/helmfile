@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -25,6 +25,7 @@ import (
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 	"github.com/helmfile/helmfile/pkg/testutil"
@@ -4338,7 +4339,15 @@ myrelease4	testNamespace	true   	true     	id:myrelease1             	mychart1
 	assert.Equal(t, expected, out)
 }
 
-func TestSetValuesTemplate(t *testing.T) {
+func testSetValuesTemplate(t *testing.T, goccyGoYaml bool) {
+	t.Helper()
+
+	v := runtime.GoccyGoYaml
+	runtime.GoccyGoYaml = goccyGoYaml
+	t.Cleanup(func() {
+		runtime.GoccyGoYaml = v
+	})
+
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 releases:
@@ -4357,7 +4366,7 @@ releases:
 `,
 	}
 	expectedValues := []interface{}{
-		map[interface{}]interface{}{"val1": "zipkin"},
+		map[string]interface{}{"val1": "zipkin"},
 		map[string]interface{}{"val2": "val2"}}
 	expectedSetValues := []state.SetValue{
 		{Name: "name-zipkin", Value: "val-zipkin"},
@@ -4402,7 +4411,17 @@ releases:
 	}
 }
 
+func TestSetValuesTemplate(t *testing.T) {
+	t.Run("with goccy/go-yaml", func(t *testing.T) {
+		testSetValuesTemplate(t, true)
+	})
+
+	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+		testSetValuesTemplate(t, false)
+	})
+}
+
 func location() string {
-	_, fn, line, _ := runtime.Caller(1)
+	_, fn, line, _ := goruntime.Caller(1)
 	return fmt.Sprintf("%s:%d", filepath.Base(fn), line)
 }

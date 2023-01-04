@@ -16,9 +16,6 @@ data:
   base: base
   template1: template1
   template1Label: template1
-  templates:
-  - "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-1\n  namespace:
-    {{ .Release.Namespace }}\ndata:\n   {{ .Values | toYaml | nindent 2 }} \n"
 
 Templating release=foo2, chart=../../charts/raw-0.1.0
 ---
@@ -33,13 +30,4 @@ data:
   inheritedBaseLabel: base
   template2: template2
   template2Label: template2
-  templates:
-  - |-
-    apiVersion: v1
-    kind: ConfigMap
-    metadata:
-      name: {{ .Release.Name }}-1
-      namespace: {{ .Release.Namespace }}
-    data:
-       {{ .Values | toYaml | nindent 2 }}
 

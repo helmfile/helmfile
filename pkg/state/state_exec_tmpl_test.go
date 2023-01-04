@@ -121,7 +121,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Verify:    nil,
 				Name:      "app",
 				Namespace: "dev",
-				Values:    []interface{}{map[interface{}]interface{}{"key": "app-val0"}},
+				Values:    []interface{}{map[string]interface{}{"key": "app-val0"}},
 			},
 		},
 	}

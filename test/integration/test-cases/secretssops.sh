@@ -5,6 +5,13 @@ if [[ helm_major_version -eq 3 ]]; then
 
   secretssops_case_input_dir="${cases_dir}/secretssops/input"
   secretssops_case_output_dir="${cases_dir}/secretssops/output"
+  config_file="secretssops.yaml"
+  if [[ ${HELMFILE_V1MODE} = true ]]; then
+    pushd "${secretssops_case_input_dir}"
+    mv "${config_file}" "${config_file}.gotmpl"
+    config_file="${config_file}.gotmpl"
+    popd
+  fi
 
   mkdir -p ${secretssops_case_input_dir}/tmp
 
@@ -19,7 +26,7 @@ if [[ helm_major_version -eq 3 ]]; then
 
   info "Ensure helmfile fails when no helm-secrets is installed"
   unset code
-  ${helmfile} -f ${secretssops_case_input_dir}/secretssops.yaml -e direct build || code="$?"; code="${code:-0}"
+  ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct build || code="$?"; code="${code:-0}"
   echo Code: "${code}"
   [ "${code}" -ne 0 ] || fail "\"helmfile build\" should fail without secrets plugin"
 
@@ -31,7 +38,7 @@ if [[ helm_major_version -eq 3 ]]; then
   ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v${HELM_SECRETS_VERSION}
 
   info "Ensure helmfile succeed when helm-secrets is installed"
-  ${helmfile} -f ${secretssops_case_input_dir}/secretssops.yaml -e direct build || fail "\"helmfile build\" shouldn't fail"
+  ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct build || fail "\"helmfile build\" shouldn't fail"
 
   test_pass "secretssops.2"
 
@@ -46,7 +53,7 @@ if [[ helm_major_version -eq 3 ]]; then
   info "Comparing build/direct output ${direct} with ${secretssops_case_output_dir}"
   for i in $(seq 10); do
       info "Comparing build/direct #$i"
-      ${helmfile} -f ${secretssops_case_input_dir}/secretssops.yaml -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
+      ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
       ./dyff between -bs ${secretssops_case_output_dir}/direct.build.yaml ${direct} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
@@ -54,7 +61,7 @@ if [[ helm_major_version -eq 3 ]]; then
   info "Comparing build/reverse output ${direct} with ${secretssops_case_output_dir}"
   for i in $(seq 10); do
       info "Comparing build/reverse #$i"
-      ${helmfile} -f ${secretssops_case_input_dir}/secretssops.yaml -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
+      ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
       ./dyff between -bs ${secretssops_case_output_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done

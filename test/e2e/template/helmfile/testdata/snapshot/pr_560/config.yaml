@@ -1,4 +1,3 @@
 helmfileArgs:
 - template
-- --debug
 - --concurrency=1
