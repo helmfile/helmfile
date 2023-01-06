@@ -307,14 +307,44 @@ func TestSetValueAtPath_TwoComponents(t *testing.T) {
 }
 
 func TestTpl(t *testing.T) {
-	text := `foo: {{ .foo }}
-`
-	expected := `foo: FOO
-`
 	ctx := &Context{basePath: "."}
-	actual, err := ctx.Tpl(text, map[string]interface{}{"foo": "FOO"})
-	require.NoError(t, err)
-	require.Equal(t, expected, actual)
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		hasErr   bool
+		data     map[string]interface{}
+	}{
+		{
+			name:     "simple",
+			input:    `foo: {{ .foo }}`,
+			expected: `foo: Foo`,
+			data: map[string]interface{}{
+				"foo": "Foo",
+			},
+		},
+		{
+			name: "multiline_input",
+			input: `{{ .name }}
+end`,
+			expected: "multiline\nend",
+			data: map[string]interface{}{
+				"name": "multiline",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := ctx.Tpl(tt.input, tt.data)
+			if tt.hasErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.expected, actual)
+		})
+	}
 }
 
 func TestRequired(t *testing.T) {
