@@ -1393,6 +1393,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			state = injectFs(state, fs)
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
+				Helm3: true,
 			}
 			//simulate the helm.list call result
 			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$"}] = tt.listResult
@@ -2001,6 +2002,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 func TestHelmState_UpdateDeps(t *testing.T) {
 	helm := &exectest.Helm{
 		UpdateDepsCallbacks: map[string]func(string) error{},
+		Helm3:               true,
 	}
 
 	var generatedDir string
@@ -2022,7 +2024,7 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 digest: sha256:8194b597c85bb3d1fee8476d4a486e952681d5c65f185ad5809f2118bc4079b5
 generated: 2019-05-16T15:42:45.50486+09:00
 `)
-			filename := filepath.Join(generatedDir, "requirements.lock")
+			filename := filepath.Join(generatedDir, "Chart.lock")
 			logger.Debugf("test: writing %s: %s", filename, content)
 			return os.WriteFile(filename, content, 0644)
 		}
@@ -2554,6 +2556,7 @@ func TestHelmState_Delete(t *testing.T) {
 			helm := &exectest.Helm{
 				Lists:   map[exectest.ListKey]string{},
 				Deleted: []exectest.Release{},
+				Helm3:   true,
 			}
 			if tt.installed {
 				helm.Lists[exectest.ListKey{Filter: "^" + name + "$", Flags: tt.flags}] = name
@@ -2620,6 +2623,7 @@ func TestDiffpareSyncReleases(t *testing.T) {
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
+			Helm3: true,
 		}
 		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, []string{}, false, false, false, tt.diffOptions)
 
@@ -2680,6 +2684,7 @@ func TestPrepareSyncReleases(t *testing.T) {
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
+			Helm3: true,
 		}
 		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
 

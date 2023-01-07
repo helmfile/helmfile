@@ -2484,7 +2484,7 @@ func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) IsHelm3() bool {
-	return false
+	return true
 }
 
 func (helm *mockHelmExec) GetVersion() helmexec.Version {
@@ -3947,13 +3947,13 @@ changing working directory back to "/path/to"
 		},
 	}
 
-	for i := range testcases {
-		tc := testcases[i]
+	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			var helm = &exectest.Helm{
 				DiffMutex:     &sync.Mutex{},
 				ChartsMutex:   &sync.Mutex{},
 				ReleasesMutex: &sync.Mutex{},
+				Helm3:         true,
 			}
 
 			bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {

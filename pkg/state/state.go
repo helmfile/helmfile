@@ -1081,12 +1081,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	jobQueue := make(chan *ReleaseSpec, len(releases))
 	results := make(chan *chartPrepareResult, len(releases))
 
-	var helm3 bool
-
-	if helm != nil {
-		helm3 = helm.IsHelm3()
-	}
-
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
 		if err != nil {
@@ -1167,7 +1161,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				if chartification != nil && helmfileCommand != "pull" {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
-						chartify.UseHelm3(helm3),
+						chartify.UseHelm3(true),
 						chartify.WithLogf(st.logger.Debugf),
 					)
 
