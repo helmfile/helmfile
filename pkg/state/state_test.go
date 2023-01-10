@@ -1856,7 +1856,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
-			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, []string{}, false, false, false, false, false)
+			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, []string{}, false, false, false, false, false)
 			if len(errs) > 0 {
 				t.Errorf("unexpected error: %v", errs)
 			}
@@ -2072,7 +2072,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				return nil
 			}
 			state = injectFs(state, testfs)
-			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, []string{}, false, false, false, false, false); len(errs) > 0 {
+			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, []string{}, false, false, false, false, false); len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 
@@ -2749,7 +2749,7 @@ func TestDiffpareSyncReleases(t *testing.T) {
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
 		}
-		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, []string{}, false, false, false, tt.diffOptions)
+		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
 
 		require.Len(t, es, 0)
 		require.Len(t, results, 1)

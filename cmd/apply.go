@@ -40,6 +40,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&applyOptions.Context, "context", 0, "output NUM lines of context around changes")
 	f.StringVar(&applyOptions.Output, "output", "", "output format for diff plugin")
 	f.BoolVar(&applyOptions.DetailedExitcode, "detailed-exitcode", false, "return a non-zero exit code 2 instead of 0 when there were changes detected AND the changes are synced successfully")
+	f.BoolVar(&applyOptions.StripTrailingCr, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
 	if !runtime.V1Mode {
 		f.BoolVar(&applyOptions.RetainValuesFiles, "retain-values-files", false, "DEPRECATED: Use skip-cleanup instead")

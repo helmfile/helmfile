@@ -2333,6 +2333,7 @@ type applyConfig struct {
 	diffOutput             string
 	concurrency            int
 	detailedExitcode       bool
+	stripTrailingCr         bool
 	interactive            bool
 	skipDiffOnInstall      bool
 	logger                 *zap.SugaredLogger
@@ -2440,6 +2441,10 @@ func (a applyConfig) Concurrency() int {
 
 func (a applyConfig) DetailedExitcode() bool {
 	return a.detailedExitcode
+}
+
+func (a applyConfig) StripTrailingCr() bool {
+	return a.stripTrailingCr
 }
 
 func (a applyConfig) Interactive() bool {

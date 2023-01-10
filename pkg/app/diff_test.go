@@ -36,6 +36,7 @@ type diffConfig struct {
 	diffOutput             string
 	concurrency            int
 	detailedExitcode       bool
+	stripTrailingCr        bool
 	interactive            bool
 	skipDiffOnInstall      bool
 	reuseValues            bool
@@ -124,6 +125,10 @@ func (a diffConfig) Concurrency() int {
 
 func (a diffConfig) DetailedExitcode() bool {
 	return a.detailedExitcode
+}
+
+func (a diffConfig) StripTrailingCr() bool {
+	return a.stripTrailingCr
 }
 
 func (a diffConfig) Interactive() bool {

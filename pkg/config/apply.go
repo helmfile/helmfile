@@ -16,6 +16,8 @@ type ApplyOptions struct {
 	Output string
 	// DetailedExitcode is true if the exit code should be 2 instead of 0 if there were changes detected and the changes were synced successfully
 	DetailedExitcode bool
+	// StripTrailingCr is true if trailing carriage returns should be stripped during diffing
+	StripTrailingCr bool
 	// DEPRECATED: Use skip-cleanup instead
 	RetainValuesFiles bool
 	// SkipCleanup is true if the cleanup of temporary values files should be skipped
@@ -91,6 +93,11 @@ func (a *ApplyImpl) Context() int {
 // DetailedExitcode returns the detailed exitcode.
 func (a *ApplyImpl) DetailedExitcode() bool {
 	return a.ApplyOptions.DetailedExitcode
+}
+
+// StripTrailingCr is true if trailing carriage returns should be stripped during diffing
+func (a *ApplyImpl) StripTrailingCr() bool {
+	return a.ApplyOptions.StripTrailingCr
 }
 
 // DiffOutput returns the diff output.
