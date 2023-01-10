@@ -18,6 +18,7 @@ type ApplyOptions struct {
 	DetailedExitcode bool
 	// StripTrailingCr is true if trailing carriage returns should be stripped during diffing
 	StripTrailingCr bool
+	// TODO: Remove this function once Helmfile v0.x
 	// DEPRECATED: Use skip-cleanup instead
 	RetainValuesFiles bool
 
