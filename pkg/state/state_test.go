@@ -2739,6 +2739,26 @@ func TestDiffpareSyncReleases(t *testing.T) {
 				ReuseValues: true,
 			},
 		},
+		{
+			name:  "both-reset-reuse-values",
+			flags: []string{"--reset-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+		},
+		{
+			name:  "both-reset-reuse-default-reuse-values",
+			flags: []string{"--reset-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2803,6 +2823,26 @@ func TestPrepareSyncReleases(t *testing.T) {
 			name:  "force-reset-values",
 			flags: []string{"--reset-values"},
 			syncOptions: &SyncOpts{
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+		},
+		{
+			name:  "both-reset-reuse-values",
+			flags: []string{"--reset-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+		},
+		{
+			name:  "both-reset-reuse-default-reuse-values",
+			flags: []string{"--reset-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
 				ResetValues: true,
 			},
 			helmDefaults: &HelmSpec{
