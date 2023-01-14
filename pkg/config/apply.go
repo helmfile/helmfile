@@ -16,8 +16,11 @@ type ApplyOptions struct {
 	Output string
 	// DetailedExitcode is true if the exit code should be 2 instead of 0 if there were changes detected and the changes were synced successfully
 	DetailedExitcode bool
+
+	// TODO: Remove this function once Helmfile v0.x
 	// DEPRECATED: Use skip-cleanup instead
 	RetainValuesFiles bool
+
 	// SkipCleanup is true if the cleanup of temporary values files should be skipped
 	SkipCleanup bool
 	// SkipCRDs is true if the CRDs should be skipped
@@ -113,6 +116,7 @@ func (a *ApplyImpl) IncludeTransitiveNeeds() bool {
 	return a.ApplyOptions.IncludeTransitiveNeeds
 }
 
+// TODO: Remove this function once Helmfile v0.x
 // RetainValuesFiles returns the retain values files.
 func (a *ApplyImpl) RetainValuesFiles() bool {
 	return a.ApplyOptions.RetainValuesFiles

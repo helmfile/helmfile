@@ -54,12 +54,15 @@ func TestLabelParsing(t *testing.T) {
 
 func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type fields struct {
-		BaseChartPath      string
-		Context            string
+		BaseChartPath string
+		Context       string
+
+		// TODO: Remove this function once Helmfile v0.x
 		DeprecatedReleases []ReleaseSpec
-		Namespace          string
-		Repositories       []RepositorySpec
-		Releases           []ReleaseSpec
+
+		Namespace    string
+		Repositories []RepositorySpec
+		Releases     []ReleaseSpec
 	}
 	type args struct {
 		spec ReleaseSpec
@@ -82,11 +85,14 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	specWithNamespaceFromFields.Namespace = "test-namespace-field"
 
 	fieldsWithNamespace := fields{
-		BaseChartPath:      ".",
-		Context:            "test_context",
+		BaseChartPath: ".",
+		Context:       "test_context",
+
+		// TODO: Remove this function once Helmfile v0.x
 		DeprecatedReleases: nil,
-		Namespace:          specWithNamespaceFromFields.Namespace,
-		Repositories:       nil,
+
+		Namespace:    specWithNamespaceFromFields.Namespace,
+		Repositories: nil,
 		Releases: []ReleaseSpec{
 			specWithNamespace,
 		},
@@ -140,11 +146,13 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			state := &HelmState{
 				basePath: tt.fields.BaseChartPath,
 				ReleaseSetSpec: ReleaseSetSpec{
+					// TODO: Remove this function once Helmfile v0.x
 					DeprecatedContext:  tt.fields.Context,
 					DeprecatedReleases: tt.fields.DeprecatedReleases,
-					OverrideNamespace:  tt.fields.Namespace,
-					Repositories:       tt.fields.Repositories,
-					Releases:           tt.fields.Releases,
+
+					OverrideNamespace: tt.fields.Namespace,
+					Repositories:      tt.fields.Repositories,
+					Releases:          tt.fields.Releases,
 				},
 			}
 			if state.ApplyOverrides(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
@@ -768,9 +776,11 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			state := &HelmState{
 				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
+					// TODO: Remove this function once Helmfile v0.x
 					DeprecatedContext: "default",
-					Releases:          []ReleaseSpec{*tt.release},
-					HelmDefaults:      tt.defaults,
+
+					Releases:     []ReleaseSpec{*tt.release},
+					HelmDefaults: tt.defaults,
 				},
 				valsRuntime: valsRuntime,
 			}

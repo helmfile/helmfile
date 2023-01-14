@@ -112,6 +112,7 @@ func (r *Run) Repos(c ReposConfigProvider) error {
 	return r.ctx.SyncReposOnce(r.state, r.helm)
 }
 
+// TODO: Remove this function once Helmfile v0.x
 func (r *Run) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) []error {
 	st := r.state
 	helm := r.helm

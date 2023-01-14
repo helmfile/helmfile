@@ -19,6 +19,7 @@ type ConfigProvider interface {
 	loggingConfig
 }
 
+// TODO: Remove this function once Helmfile v0.x
 type DeprecatedChartsConfigProvider interface {
 	Values() []string
 
@@ -66,7 +67,9 @@ type ApplyConfigProvider interface {
 	Context() int
 	DiffOutput() string
 
+	// TODO: Remove this function once Helmfile v0.x
 	RetainValuesFiles() bool
+
 	Validate() bool
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
@@ -133,6 +136,7 @@ type DiffConfigProvider interface {
 	valuesControlMode
 }
 
+// TODO: Remove this function once Helmfile v0.x
 type DeleteConfigProvider interface {
 	Args() string
 
