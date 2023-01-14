@@ -1168,7 +1168,8 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		var defaultFile string
 		if a.fs.FileExistsAt(DefaultHelmfile) {
 			defaultFile = DefaultHelmfile
-		// TODO: Remove this function once Helmfile v0.x
+
+			// TODO: Remove this function once Helmfile v0.x
 		} else if a.fs.FileExistsAt(DeprecatedHelmfile) {
 			log.Printf(
 				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
