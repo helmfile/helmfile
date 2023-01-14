@@ -279,6 +279,7 @@ func TestReadFromYaml_StrictUnmarshalling(t *testing.T) {
 	}
 }
 
+// TODO: Remove this function once Helmfile v0.x
 func TestReadFromYaml_DeprecatedReleaseReferences(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`charts:

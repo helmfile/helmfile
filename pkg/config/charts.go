@@ -1,3 +1,4 @@
+// TODO: Remove this function once Helmfile v0.x
 package config
 
 // ChartsOptions is the options for the build command

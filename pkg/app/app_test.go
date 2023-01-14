@@ -2310,9 +2310,12 @@ func (c configImpl) PostRenderer() string {
 }
 
 type applyConfig struct {
-	args                   string
-	values                 []string
-	retainValuesFiles      bool
+	args   string
+	values []string
+
+	// TODO: Remove this function once Helmfile v0.x
+	retainValuesFiles bool
+
 	set                    []string
 	validate               bool
 	skipCleanup            bool
@@ -2450,6 +2453,7 @@ func (a applyConfig) Logger() *zap.SugaredLogger {
 	return a.logger
 }
 
+// TODO: Remove this function once Helmfile v0.x
 func (a applyConfig) RetainValuesFiles() bool {
 	return a.retainValuesFiles
 }

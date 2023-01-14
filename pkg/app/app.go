@@ -132,6 +132,7 @@ func (a *App) Repos(c ReposConfigProvider) error {
 	}, c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
+// TODO: Remove this function once Helmfile v0.x
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{
@@ -457,6 +458,7 @@ func (a *App) Status(c StatusesConfigProvider) error {
 	}, false, SetFilter(true))
 }
 
+// TODO: Remove this function once Helmfile v0.x
 func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
@@ -1166,6 +1168,8 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		var defaultFile string
 		if a.fs.FileExistsAt(DefaultHelmfile) {
 			defaultFile = DefaultHelmfile
+
+			// TODO: Remove this function once Helmfile v0.x
 		} else if a.fs.FileExistsAt(DeprecatedHelmfile) {
 			log.Printf(
 				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",

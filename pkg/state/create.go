@@ -108,6 +108,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 		}
 	}
 
+	// TODO: Remove this function once Helmfile v0.x
 	if len(state.DeprecatedReleases) > 0 {
 		if len(state.Releases) > 0 {
 			return nil, fmt.Errorf("failed to parse %s: you can't specify both `charts` and `releases` sections", file)
@@ -116,6 +117,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 		state.DeprecatedReleases = []ReleaseSpec{}
 	}
 
+	// TODO: Remove this function once Helmfile v0.x
 	if state.DeprecatedContext != "" && state.HelmDefaults.KubeContext == "" {
 		state.HelmDefaults.KubeContext = state.DeprecatedContext
 	}

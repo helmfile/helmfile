@@ -103,6 +103,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		),
 	)
 
+	// TODO: Remove this function once Helmfile v0.x
 	if !runtime.V1Mode {
 		cmd.AddCommand(
 			NewChartsCmd(globalImpl),
