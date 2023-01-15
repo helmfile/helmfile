@@ -255,7 +255,7 @@ type InitConfigProvider interface {
 	Force() bool
 }
 
-// when enable reuse-values, reuse the last release's values and merge in any overrides values.
+// reset/reuse values helm cli flags handling for apply/sync/diff
 type valuesControlMode interface {
 	ReuseValues() bool
 	ResetValues() bool
