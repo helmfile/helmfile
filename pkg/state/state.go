@@ -1190,7 +1190,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
 				skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
 
-				if chartification != nil {
+				if chartification != nil && helmfileCommand != "pull" {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
 						chartify.UseHelm3(helm3),

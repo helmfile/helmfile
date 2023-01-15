@@ -1,0 +1,26 @@
+repositories:
+- name: incubator
+  url: https://charts.helm.sh/incubator
+---
+releases:
+- name: service-a
+  chart: incubator/raw
+  values:
+  - resources:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: raw1
+        namespace: default
+      data:
+        foo: FOO
+  transformers:
+  - apiVersion: builtin
+    kind: LabelTransformer
+    metadata:
+      name: justForTests
+    labels:
+      some-cool: label
+    fieldSpecs:
+    - path: metadata/labels
+      create: true

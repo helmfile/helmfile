@@ -85,6 +85,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
+. ${dir}/test-cases/kustomized-fetch.sh
 . ${dir}/test-cases/happypath.sh
 . ${dir}/test-cases/regression.sh
 . ${dir}/test-cases/secretssops.sh
