@@ -2353,6 +2353,10 @@ func (a applyConfig) ReuseValues() bool {
 	return a.reuseValues
 }
 
+func (a applyConfig) ResetValues() bool {
+	return !a.reuseValues
+}
+
 func (a applyConfig) PostRenderer() string {
 	return a.postRenderer
 }

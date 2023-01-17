@@ -613,11 +613,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--wait-for-jobs")
 				}
 
-				if opts.ReuseValues || st.HelmDefaults.ReuseValues {
-					flags = append(flags, "--reuse-values")
-				} else {
-					flags = append(flags, "--reset-values")
-				}
+				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues)
 
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
@@ -696,6 +692,7 @@ type SyncOpts struct {
 	Wait        bool
 	WaitForJobs bool
 	ReuseValues bool
+	ResetValues bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1677,11 +1674,7 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, includeTests bool, s
 		flags = append(flags, "--output", opt.Output)
 	}
 
-	if opt.ReuseValues || st.HelmDefaults.ReuseValues {
-		flags = append(flags, "--reuse-values")
-	} else {
-		flags = append(flags, "--reset-values")
-	}
+	flags = st.appendValuesControlModeFlag(flags, opt.ReuseValues, opt.ResetValues)
 
 	if opt.Set != nil {
 		for _, s := range opt.Set {
@@ -1858,6 +1851,7 @@ type DiffOpts struct {
 	SkipCleanup       bool
 	SkipDiffOnInstall bool
 	ReuseValues       bool
+	ResetValues       bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2558,6 +2552,16 @@ func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
 
 	if st.isDevelopment(release) {
 		flags = append(flags, "--devel")
+	}
+
+	return flags
+}
+
+func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues bool, resetValues bool) []string {
+	if !resetValues && (st.HelmDefaults.ReuseValues || reuseValues) {
+		flags = append(flags, "--reuse-values")
+	} else {
+		flags = append(flags, "--reset-values")
 	}
 
 	return flags

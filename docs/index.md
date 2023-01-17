@@ -212,7 +212,8 @@ helmDefaults:
   # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
   # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
   skipDeps: false
-  # if set to true, reuses the last release's values and merges them with ones provided in helmfile.
+  # If set to true, reuses the last release's values and merges them with ones provided in helmfile.
+  # This attribute, can be overriden in CLI with --reset/reuse-values flag of apply/sync/diff subcommands
   reuseValues: false
   # propagate `--post-renderer` to helmv3 template and helm install
   postRenderer: "path/to/postRenderer"

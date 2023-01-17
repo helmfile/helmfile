@@ -53,6 +53,8 @@ type ApplyOptions struct {
 	WaitForJobs bool
 	// ReuseValues is true if the helm command should reuse the values
 	ReuseValues bool
+	// ResetValues is true if helm command should reset values to charts' default
+	ResetValues bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
 }
@@ -197,7 +199,14 @@ func (a *ApplyImpl) WaitForJobs() bool {
 
 // ReuseValues returns the ReuseValues.
 func (a *ApplyImpl) ReuseValues() bool {
-	return a.ApplyOptions.ReuseValues
+	if !a.ResetValues() {
+		return a.ApplyOptions.ReuseValues
+	}
+	return false
+}
+
+func (a *ApplyImpl) ResetValues() bool {
+	return a.ApplyOptions.ResetValues
 }
 
 // PostRenderer returns the PostRenderer.
