@@ -66,15 +66,6 @@ func updateBoolTemplatedValues(r *ReleaseSpec) error {
 		}
 	}
 
-	if r.TillerlessTemplate != nil {
-		if tillerless, err := getBoolRefFromStringTemplate(*r.TillerlessTemplate); err != nil {
-			return fmt.Errorf("tillerlessTemplate: %v", err)
-		} else {
-			r.TillerlessTemplate = nil
-			r.Tillerless = tillerless
-		}
-	}
-
 	if r.VerifyTemplate != nil {
 		if verify, err := getBoolRefFromStringTemplate(*r.VerifyTemplate); err != nil {
 			return fmt.Errorf("verifyTemplate: %v", err)

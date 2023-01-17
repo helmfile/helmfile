@@ -248,14 +248,10 @@ func (helm *execer) UpdateDeps(chart string) error {
 
 func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
 	helm.logger.Infof("Upgrading release=%v, chart=%v", name, redactedURL(chart))
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 
-	if helm.IsHelm3() {
-		flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
-	} else {
-		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
-	}
+	flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
 
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
 	helm.write(nil, out)
@@ -264,8 +260,8 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 
 func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Getting status %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
@@ -273,14 +269,9 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 
 func (helm *execer) List(context HelmContext, filter string, flags ...string) (string, error) {
 	helm.logger.Infof("Listing releases matching %v", filter)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
-	var args []string
-	if helm.IsHelm3() {
-		args = []string{"list", "--filter", filter}
-	} else {
-		args = []string{"list", filter}
-	}
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
+	args := []string{"list", "--filter", filter}
 
 	enableLiveOutput := false
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, &enableLiveOutput)
@@ -290,11 +281,9 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	// of the release to exist.
 	//
 	// This fixes it by removing the header from the v3 output, so that the output is formatted the same as that of v2.
-	if helm.IsHelm3() {
-		lines := strings.Split(string(out), "\n")
-		lines = lines[1:]
-		out = []byte(strings.Join(lines, "\n"))
-	}
+	lines := strings.Split(string(out), "\n")
+	lines = lines[1:]
+	out = []byte(strings.Join(lines, "\n"))
 	helm.write(nil, out)
 	return string(out), err
 }
@@ -320,8 +309,8 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		helm.decryptedSecretMutex.Unlock()
 
 		helm.logger.Infof("Decrypting secret %v", absPath)
-		preArgs := context.GetTillerlessArgs(helm)
-		env := context.getTillerlessEnv()
+		preArgs := make([]string, 0)
+		env := make(map[string]string)
 		settings := cli.New()
 		pluginVersion, err := GetPluginVersion("secrets", settings.PluginsDirectory)
 		if err != nil {
@@ -389,12 +378,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
 	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedURL(chart))
-	var args []string
-	if helm.IsHelm3() {
-		args = []string{"template", name, chart}
-	} else {
-		args = []string{"template", chart, "--name", name}
-	}
+	args := []string{"template", name, chart}
 
 	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
@@ -431,8 +415,8 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 	} else {
 		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedURL(chart))
 	}
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	var overrideEnableLiveOutput *bool = nil
 	if suppressDiff {
 		enableLiveOutput := false
@@ -511,8 +495,8 @@ func (helm *execer) ChartExport(chart string, path string, flags ...string) erro
 
 func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Deleting %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
@@ -520,8 +504,8 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 
 func (helm *execer) TestRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Testing %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	args := []string{"test", name}
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, nil)
 	helm.write(nil, out)
@@ -634,10 +618,6 @@ func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
 }
 
 func (helm *execer) ShowChart(chartPath string) (chart.Metadata, error) {
-	if !helm.IsHelm3() {
-		// show chart command isn't supported in helm2
-		return chart.Metadata{}, fmt.Errorf("helm show isn't supported in helm2")
-	}
 	var helmArgs = []string{"show", "chart", chartPath}
 	out, error := helm.exec(helmArgs, map[string]string{}, nil)
 	if error != nil {

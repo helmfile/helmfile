@@ -48,16 +48,16 @@ func injectFs(app *App, fs *testhelper.TestFs) *App {
 }
 
 func expectNoCallsToHelm(app *App) {
-	expectNoCallsToHelmVersion(app, false)
+	expectNoCallsToHelmVersion(app)
 }
 
-func expectNoCallsToHelmVersion(app *App, isHelm3 bool) {
+func expectNoCallsToHelmVersion(app *App) {
 	if app.helms != nil {
 		panic("invalid call to expectNoCallsToHelm")
 	}
 
 	app.helms = map[helmKey]helmexec.Interface{
-		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): &versionOnlyHelmExec{isHelm3: isHelm3},
+		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): &versionOnlyHelmExec{isHelm3: true},
 	}
 }
 
@@ -461,8 +461,6 @@ releases:
   chart: stable/prometheus
 `,
 		"/path/to/helmfile.d/b.yaml": `
-helmDefaults:
-  tillerNamespace: zoo
 releases:
 - name: grafana
   chart: stable/grafana
@@ -488,12 +486,12 @@ releases:
     duplicatedCtx: yes
 - name: bar
   chart: charts/foo
-  tillerNamespace:  bar1
+  namespace:  bar1
   labels:
     duplicatedOK: yes
 - name: bar
   chart: charts/foo
-  tillerNamespace: bar2
+  namespace: bar2
   labels:
     duplicatedOK: yes
 `,
@@ -510,14 +508,11 @@ releases:
 		{label: "name!=", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: malformed label: name!=. Expected label in form k=v or k!=v"},
 		{label: "name", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[0]: in /path/to/helmfile.d/a1.yaml: malformed label: name. Expected label in form k=v or k!=v"},
 		// See https://github.com/roboll/helmfile/issues/193
-		{label: "duplicatedNs=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"},
-		{label: "duplicatedCtx=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in namespace \"zoo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"},
+		{label: "duplicatedNs=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"},
+		{label: "duplicatedCtx=yes", expectedCount: 0, expectErr: true, errMsg: "in ./helmfile.yaml: in .helmfiles[2]: in /path/to/helmfile.d/b.yaml: duplicate release \"foo\" found in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"},
 		{label: "duplicatedOK=yes", expectedCount: 2, expectErr: false},
 	}
-
-	for i := range testcases {
-		testcase := testcases[i]
-
+	for _, testcase := range testcases {
 		t.Run(testcase.label, func(t *testing.T) {
 			actual := []string{}
 
@@ -594,12 +589,12 @@ releases:
   chart: stable/grafana
 - name: bar
   chart: charts/foo
-  tillerNamespace:  bar1
+  namespace:  bar1
   labels:
     duplicatedOK: yes
 - name: bar
   chart: charts/foo
-  tillerNamespace: bar2
+  namespace: bar2
   labels:
     duplicatedOK: yes
 `,
@@ -812,46 +807,39 @@ helmfiles:
 - path: helmfile.d/c*.yaml
   values:
   - env.values.yaml
-  - tillerNs: INLINE_TILLER_NS_3
 `,
 		"/path/to/helmfile.d/a1.yaml": `
 environments:
   default:
     values:
-    - tillerNs: INLINE_TILLER_NS
-      ns: INLINE_NS
+    - ns: INLINE_NS
 releases:
 - name: foo
   chart: stable/zipkin
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
   namespace: {{ .Environment.Values.ns }}
 `,
 		"/path/to/helmfile.d/b.yaml": `
 environments:
   default:
     values:
-    - tillerNs: INLINE_TILLER_NS
-      ns: INLINE_NS
+    - ns: INLINE_NS
 releases:
 - name: bar
   chart: stable/grafana
-  tillerNamespace:  {{ .Environment.Values.tillerNs }}
   namespace: {{ .Environment.Values.ns }}
 `,
 		"/path/to/helmfile.d/c.yaml": `
 environments:
   default:
     values:
-    - tillerNs: INLINE_TILLER_NS
-      ns: INLINE_NS
+    - ns: INLINE_NS
 releases:
 - name: baz
   chart: stable/envoy
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
   namespace: {{ .Environment.Values.ns }}
 `,
 		"/path/to/env.values.yaml": `
-tillerNs: INLINE_TILLER_NS_2
+ns: INLINE_NS
 `,
 	}
 
@@ -885,15 +873,14 @@ tillerNs: INLINE_TILLER_NS_2
 	}
 
 	type release struct {
-		chart    string
-		tillerNs string
-		ns       string
+		chart string
+		ns    string
 	}
 
 	expectedReleases := map[string]release{
-		"foo": {"stable/zipkin", "INLINE_TILLER_NS_2", "INLINE_NS"},
-		"bar": {"stable/grafana", "INLINE_TILLER_NS", "INLINE_NS"},
-		"baz": {"stable/envoy", "INLINE_TILLER_NS_3", "INLINE_NS"},
+		"foo": {"stable/zipkin", "INLINE_NS"},
+		"bar": {"stable/grafana", "INLINE_NS"},
+		"baz": {"stable/envoy", "INLINE_NS"},
 	}
 
 	for name := range processed {
@@ -906,10 +893,6 @@ tillerNs: INLINE_TILLER_NS_2
 
 			if expected.chart != actual.Chart {
 				t.Errorf("unexpected chart: expected=%s, got=%s", expected.chart, actual.Chart)
-			}
-
-			if expected.tillerNs != actual.TillerNamespace {
-				t.Errorf("unexpected tiller namespace: expected=%s, got=%s", expected.tillerNs, actual.TillerNamespace)
 			}
 
 			if expected.ns != actual.Namespace {
@@ -1289,95 +1272,6 @@ releases:
 }
 
 // See https://github.com/roboll/helmfile/issues/1213
-func TestVisitDesiredStatesWithReleases_DuplicateReleasesHelm2(t *testing.T) {
-	files := map[string]string{
-		"/path/to/helmfile.yaml": `
-releases:
-- name: foo
-  namespace: foo
-  chart: charts/foo
-- name: foo
-  namespace: bar
-  chart: charts/foo
-`,
-	}
-
-	actual := []state.ReleaseSpec{}
-
-	collectReleases := func(run *Run) (bool, []error) {
-		actual = append(actual, run.state.Releases...)
-		return false, []error{}
-	}
-	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
-	}, files)
-
-	expectNoCallsToHelmVersion(app, false)
-
-	err := app.ForEachState(
-		collectReleases,
-		false,
-		SetFilter(true),
-	)
-
-	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"
-	if err == nil {
-		t.Errorf("error expected but not happened")
-	} else if err.Error() != expected {
-		t.Errorf("unexpected error message: expected=\"%s\", actual=\"%s\"", expected, err.Error())
-	}
-}
-
-// See https://github.com/roboll/helmfile/issues/1213
-func TestVisitDesiredStatesWithReleases_NoDuplicateReleasesHelm2(t *testing.T) {
-	files := map[string]string{
-		"/path/to/helmfile.yaml": `
-releases:
-- name: foo
-  namespace: foo
-  tillerNamespace: tns1
-  chart: charts/foo
-- name: foo
-  namespace: bar
-  tillerNamespace: tns2
-  chart: charts/foo
-`,
-	}
-
-	actual := []state.ReleaseSpec{}
-
-	collectReleases := func(run *Run) (bool, []error) {
-		actual = append(actual, run.state.Releases...)
-		return false, []error{}
-	}
-	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
-	}, files)
-
-	expectNoCallsToHelmVersion(app, false)
-
-	err := app.ForEachState(
-		collectReleases,
-		false,
-		SetFilter(true),
-	)
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-// See https://github.com/roboll/helmfile/issues/1213
 func TestVisitDesiredStatesWithReleases_NoDuplicateReleasesHelm3(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
@@ -1406,7 +1300,7 @@ releases:
 		FileOrDir:           "helmfile.yaml",
 	}, files)
 
-	expectNoCallsToHelmVersion(app, true)
+	expectNoCallsToHelmVersion(app)
 
 	err := app.ForEachState(
 		collectReleases,
@@ -1448,7 +1342,7 @@ releases:
 		FileOrDir:           "helmfile.yaml",
 	}, files)
 
-	expectNoCallsToHelmVersion(app, true)
+	expectNoCallsToHelmVersion(app)
 
 	err := app.ForEachState(
 		collectReleases,
@@ -1494,7 +1388,7 @@ releases:
 		FileOrDir:           "helmfile.yaml",
 	}, files)
 
-	expectNoCallsToHelmVersion(app, true)
+	expectNoCallsToHelmVersion(app)
 
 	err := app.ForEachState(
 		collectReleases,
@@ -1580,7 +1474,6 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1603,10 +1496,6 @@ helmDefaults:
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
 	if *st.Releases[1].MissingFileHandler != "Warn" {
@@ -1666,7 +1555,6 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1690,9 +1578,6 @@ helmDefaults:
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
-	}
 	firstRelease := st.Releases[0]
 	if firstRelease.Name != "myrelease1" {
 		t.Errorf("unexpected releases[1].name: expected=myrelease1, got=%s", firstRelease.Name)
@@ -1740,7 +1625,6 @@ releases:
 `,
 		"/path/to/base.gotmpl": `helmDefaults:
   kubeContext: {{ .Environment.Values.foo }}
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/1.yaml": `tillerNs: TILLER_NS
 foo: FOO
@@ -1764,10 +1648,6 @@ foo: FOO
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
-	}
-
-	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
 	if st.Releases[0].Name != "myrelease0" {
@@ -1803,7 +1683,6 @@ releases:
 `,
 		"/path/to/base.gotmpl": `helmDefaults:
   kubeContext: {{ .Environment.Values.foo }}
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/1.yaml": `tillerNs: TILLER_NS
 foo: FOO
@@ -1827,10 +1706,6 @@ foo: FOO
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
-	}
-
-	if st.HelmDefaults.TillerNamespace != "INLINE_TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
 	if st.Releases[0].Name != "myrelease0" {
@@ -1886,7 +1761,6 @@ releases:
     - environments/default/2.yaml
 
 helmDefaults:
-  tillerNamespace: {{ .Environment.Values.tillerNs }}
 `,
 		"/path/to/yaml/environments/default/2.yaml": `tillerNs: TILLER_NS`,
 		"/path/to/yaml/templates.yaml": `templates:
@@ -1908,10 +1782,6 @@ helmDefaults:
 	st, err := app.loadDesiredStateFromYaml(yamlFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if st.HelmDefaults.TillerNamespace != "TILLER_NS" {
-		t.Errorf("unexpected helmDefaults.tillerNamespace: expected=TILLER_NS, got=%s", st.HelmDefaults.TillerNamespace)
 	}
 
 	firstRelease := st.Releases[0]
@@ -2614,7 +2484,7 @@ func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) IsHelm3() bool {
-	return false
+	return true
 }
 
 func (helm *mockHelmExec) GetVersion() helmexec.Version {
@@ -2880,31 +2750,31 @@ releases:
 			},
 			lists: map[exectest.ListKey]string{
 				// delete frontend-v1 and backend-v1
-				{Filter: "^logging$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^logging$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 logging 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
 `,
-				{Filter: "^front-proxy$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^front-proxy$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
 `,
-				{Filter: "^database$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^database$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
 `,
-				{Filter: "^servicemesh$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^servicemesh$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
 `,
-				{Filter: "^anotherbackend$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^frontend-v3$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 backend-v1 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^backend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^backend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
 			},
@@ -2945,8 +2815,8 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: nil,
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: ``,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: ``,
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -3014,11 +2884,11 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: ``,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: ``,
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
-				{Filter: "^baz$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^baz$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	default
 `,
 			},
@@ -3058,11 +2928,11 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: ``,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: ``,
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
-				{Filter: "^baz$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^baz$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	default
 `,
 			},
@@ -3221,71 +3091,6 @@ releases:
 				{Name: "bar", Flags: []string{"--kube-context", "default", "--namespace", "ns2"}},
 			},
 		},
-		{
-			name: "helm2 upgrade when tns1/foo needs tns2/bar",
-			loc:  location(),
-
-			files: map[string]string{
-				"/path/to/helmfile.yaml": `
-releases:
-- name: foo
-  chart: stable/mychart1
-  namespace: ns1
-  tillerNamespace: tns1
-  needs:
-  - tns2/bar
-- name: bar
-  chart: stable/mychart2
-  namespace: ns2
-  tillerNamespace: tns2
-`,
-			},
-			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
-			},
-			upgraded: []exectest.Release{
-				{Name: "bar", Flags: []string{"--tiller-namespace", "tns2", "--kube-context", "default", "--namespace", "ns2"}},
-				{Name: "foo", Flags: []string{"--tiller-namespace", "tns1", "--kube-context", "default", "--namespace", "ns1"}},
-			},
-		},
-		{
-			name: "helm2 upgrade when tns2/bar needs tns1/foo",
-			loc:  location(),
-			files: map[string]string{
-				"/path/to/helmfile.yaml": `
-releases:
-- name: bar
-  chart: stable/mychart2
-  namespace: ns2
-  tillerNamespace: tns2
-  needs:
-  - tns1/foo
-- name: foo
-  chart: stable/mychart1
-  namespace: ns1
-  tillerNamespace: tns1
-`,
-			},
-			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--tiller-namespacetns2--kube-contextdefault--namespacens2--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--tiller-namespacetns1--kube-contextdefault--namespacens1--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
-			},
-			upgraded: []exectest.Release{
-				{Name: "foo", Flags: []string{"--tiller-namespace", "tns1", "--kube-context", "default", "--namespace", "ns1"}},
-				{Name: "bar", Flags: []string{"--tiller-namespace", "tns2", "--kube-context", "default", "--namespace", "ns2"}},
-			},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: "--tiller-namespacetns1" + helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
-`,
-				{Filter: "^bar$", Flags: "--tiller-namespacetns2" + helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
-`,
-			},
-			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
-			concurrency: 1,
-		},
 		//
 		// deletes: deleting all releases in the correct order
 		//
@@ -3310,10 +3115,10 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -3343,10 +3148,10 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -3378,10 +3183,10 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -3412,10 +3217,10 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -3446,10 +3251,10 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -3480,10 +3285,10 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-contextdefault--detailed-exitcode--reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^foo$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	3.1.0      	default
 `,
-				{Filter: "^bar$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
 `,
 			},
@@ -3540,10 +3345,10 @@ releases:
 				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^external-secrets$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
-				{Filter: "^my-release$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
@@ -3972,8 +3777,7 @@ changing working directory back to "/path/to"
 		},
 	}
 
-	for i := range testcases {
-		tc := testcases[i]
+	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			wantUpgrades := tc.upgraded
 			wantDeletes := tc.deleted
@@ -3986,6 +3790,7 @@ changing working directory back to "/path/to"
 				DiffMutex:            &sync.Mutex{},
 				ChartsMutex:          &sync.Mutex{},
 				ReleasesMutex:        &sync.Mutex{},
+				Helm3:                true,
 			}
 
 			bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -4142,13 +3947,13 @@ changing working directory back to "/path/to"
 		},
 	}
 
-	for i := range testcases {
-		tc := testcases[i]
+	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			var helm = &exectest.Helm{
 				DiffMutex:     &sync.Mutex{},
 				ChartsMutex:   &sync.Mutex{},
 				ReleasesMutex: &sync.Mutex{},
+				Helm3:         true,
 			}
 
 			bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {

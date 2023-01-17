@@ -178,8 +178,6 @@ lockFilePath: path/to/lock.file
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
 helmDefaults:
-  tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
-  tillerless: false                  #dedicated default key for tillerless
   kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
   cleanupOnFail: false               #dedicated default key for helm flag --cleanup-on-fail
   # additional and global args passed to helm (default "")
@@ -289,10 +287,6 @@ releases:
     atomic: true
     # when true, cleans up any new resources created during a failed release (default false)
     cleanupOnFail: false
-    # name of the tiller namespace (default "")
-    tillerNamespace: vault
-    # if true, will use the helm-tiller plugin (default false)
-    tillerless: false
     # enable TLS for request to Tiller (default false)
     tls: true
     # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
@@ -1007,13 +1001,6 @@ environments:
       - git::https://{{ env "GITHUB_PAT" }}@github.com/org/repo.git@/environments/production.secret.yaml?ref=main
       - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/production.secret.yaml
 ```
-
-## Tillerless
-
-With the [helm-tiller](https://github.com/rimusz/helm-tiller) plugin installed, you can work without tiller installed.
-
-To enable this mode, you need to define `tillerless: true` and set the `tillerNamespace` in the `helmDefaults` section
-or in the `releases` entries.
 
 ## DAG-aware installation/deletion ordering with `needs`
 
