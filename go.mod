@@ -15,7 +15,6 @@ require (
 	github.com/hashicorp/go-getter v1.6.2
 	github.com/hashicorp/go-version v1.6.0
 	github.com/imdario/mergo v0.3.13
-	github.com/r3labs/diff v1.1.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
