@@ -9,6 +9,8 @@ type DeleteOptions struct {
 	Purge bool
 	// SkipDeps is the skip deps flag
 	SkipDeps bool
+	// SkipCharts makes Delete skip `withPreparedCharts`
+	SkipCharts bool
 }
 
 // NewDeleteOptions creates a new Apply
@@ -43,4 +45,9 @@ func (c *DeleteImpl) Purge() bool {
 // SkipDeps returns the skip deps
 func (c *DeleteImpl) SkipDeps() bool {
 	return c.DeleteOptions.SkipDeps
+}
+
+// SkipCharts returns skipCharts flag
+func (c *DeleteImpl) SkipCharts() bool {
+	return c.DeleteOptions.SkipCharts
 }

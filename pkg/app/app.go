@@ -455,36 +455,41 @@ func (a *App) Status(c StatusesConfigProvider) error {
 // TODO: Remove this function once Helmfile v0.x
 func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
-		}, func() {
+		if !c.SkipCharts() {
+			err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
+				SkipRepos:   c.SkipDeps(),
+				SkipDeps:    c.SkipDeps(),
+				Concurrency: c.Concurrency(),
+			}, func() {
+				ok, errs = a.delete(run, c.Purge(), c)
+			})
+
+			if err != nil {
+				errs = append(errs, err)
+			}
+		} else {
 			ok, errs = a.delete(run, c.Purge(), c)
-		})
-
-		if err != nil {
-			errs = append(errs, err)
 		}
-
 		return
 	}, false, SetReverse(true))
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
-		}, func() {
+		if !c.SkipCharts() {
+			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
+				SkipRepos:   c.SkipDeps(),
+				SkipDeps:    c.SkipDeps(),
+				Concurrency: c.Concurrency(),
+			}, func() {
+				ok, errs = a.delete(run, true, c)
+			})
+			if err != nil {
+				errs = append(errs, err)
+			}
+		} else {
 			ok, errs = a.delete(run, true, c)
-		})
-
-		if err != nil {
-			errs = append(errs, err)
 		}
-
 		return
 	}, false, SetReverse(true))
 }

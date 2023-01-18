@@ -6,6 +6,8 @@ type DestroyOptions struct {
 	Concurrency int
 	// SkipDeps is the skip deps flag
 	SkipDeps bool
+	// SkipCharts makes Destroy skip `withPreparedCharts`
+	SkipCharts bool
 }
 
 // NewDestroyOptions creates a new Apply
@@ -35,4 +37,9 @@ func (c *DestroyImpl) Concurrency() int {
 // SkipDeps returns the skip deps
 func (c *DestroyImpl) SkipDeps() bool {
 	return c.DestroyOptions.SkipDeps
+}
+
+// SkipCharts returns skipCharts flag
+func (c *DestroyImpl) SkipCharts() bool {
+	return c.DestroyOptions.SkipCharts
 }
