@@ -131,6 +131,10 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 			return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %s", st.FilePath, release.Name,
 				"recursive references can't be resolved")
 		}
+
+		if st.Releases[i].Chart == "" {
+			return nil, fmt.Errorf("encountered empty chart while reading release %q", st.Releases[i].Name)
+		}
 	}
 
 	return &r, nil
