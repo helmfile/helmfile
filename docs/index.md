@@ -605,6 +605,7 @@ The `helmfile destroy` sub-command uninstalls and purges all the releases define
 `helmfile --interactive destroy` instructs Helmfile to request your confirmation before actually deleting releases.
 
 `destroy` basically runs `helm uninstall --purge` on all the targeted releases. If you don't want purging, use `helmfile delete` instead.
+If `--skip-charts` flag is not set, destory would prepare all releases, by fetching charts and templating them.
 
 ### delete (DEPRECATED)
 
@@ -613,6 +614,7 @@ The `helmfile delete` sub-command deletes all the releases defined in the manife
 `helmfile --interactive delete` instructs Helmfile to request your confirmation before actually deleting releases.
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
+If `--skip-charts` flag is not set, destory would prepare all releases, by fetching charts and templating them.
 
 ### secrets
 
