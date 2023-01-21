@@ -39,10 +39,15 @@ type destroyConfig struct {
 	skipDeps               bool
 	logger                 *zap.SugaredLogger
 	includeTransitiveNeeds bool
+	skipCharts             bool
 }
 
 func (d destroyConfig) Args() string {
 	return d.args
+}
+
+func (d destroyConfig) SkipCharts() bool {
+	return d.skipCharts
 }
 
 func (d destroyConfig) Interactive() bool {
