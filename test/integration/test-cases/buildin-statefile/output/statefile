@@ -10,7 +10,7 @@ metadata:
     release: build-in-objects-statefile
     statefileBasePath: .
     statefileName: sub-helmfile.yaml.gotmpl
-    statefileRootPath: test-cases/buildin-statefile/input/root-helmfile.yaml.gotmpl
+    statefileRootPath: test/integration/test-cases/buildin-statefile/input/root-helmfile.yaml.gotmpl
   name: statefile
 stringData:
   data: data
@@ -27,7 +27,7 @@ metadata:
     release: build-in-objects-statefile
     statefileBasePath: .
     statefileName: root-helmfile.yaml.gotmpl
-    statefileRootPath: test-cases/buildin-statefile/input/root-helmfile.yaml.gotmpl
+    statefileRootPath: test/integration/test-cases/buildin-statefile/input/root-helmfile.yaml.gotmpl
   name: statefile
 stringData:
   data: data
