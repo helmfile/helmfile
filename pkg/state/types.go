@@ -1,12 +1,37 @@
 package state
 
 import (
+	"regexp"
+
 	"github.com/helmfile/helmfile/pkg/environment"
 )
 
 // TemplateSpec defines the structure of a reusable and composable template for helm releases.
 type TemplateSpec struct {
 	ReleaseSpec `yaml:",inline"`
+}
+
+// stateFile is the info about state file
+type StateFile struct {
+	// Name is the name of the current state file
+	Name string
+	// BasePath is the base path of the current state file
+	BasePath string
+
+	// RootPath is the root path of the state file
+	RootPath string
+}
+
+// TrimPartInfo removes the part info from the state file name
+func (sf *StateFile) TrimPartInfo() {
+	sf.Name = regexp.MustCompile(`\.part\.\d+$`).ReplaceAllString(sf.Name, "")
+}
+
+// NewStateFile creates a new StateFile
+func NewStateFile(name, basePath, rootPath string) StateFile {
+	sf := StateFile{Name: name, BasePath: basePath, RootPath: rootPath}
+	sf.TrimPartInfo()
+	return sf
 }
 
 // EnvironmentTemplateData provides variables accessible while executing golang text/template expressions in helmfile and values YAML files
@@ -17,11 +42,12 @@ type EnvironmentTemplateData struct {
 	Namespace string
 	// Values is accessible as `.Values` and it contains default state values overrode by environment values and override values.
 	Values      map[string]interface{}
+	StateFile   StateFile
 	StateValues *map[string]interface{}
 }
 
-func NewEnvironmentTemplateData(environment environment.Environment, namespace string, values map[string]interface{}) *EnvironmentTemplateData {
-	d := EnvironmentTemplateData{environment, namespace, values, nil}
+func NewEnvironmentTemplateData(environment environment.Environment, namespace string, values map[string]interface{}, stateFile StateFile) *EnvironmentTemplateData {
+	d := EnvironmentTemplateData{environment, namespace, values, stateFile, nil}
 	d.StateValues = &d.Values
 	return &d
 }
@@ -37,6 +63,7 @@ type releaseTemplateData struct {
 	// Values is accessible as `.Values` and it contains default state values overrode by environment values and override values.
 	Values      map[string]interface{}
 	StateValues *map[string]interface{}
+	StateFile   StateFile
 	// KubeContext is HelmState.OverrideKubeContext.
 	// You should better use Release.KubeContext as it might work as you'd expect even if HelmState.OverrideKubeContext is not set.
 	// See releaseTemplateDataRelease.KubeContext for more information.

@@ -22,7 +22,8 @@ func prependLineNumbers(text string) string {
 }
 
 func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environment, baseDir, filename string, content []byte) (*environment.Environment, *state.HelmState) {
-	tmplData := state.NewEnvironmentTemplateData(*firstPassEnv, r.namespace, map[string]interface{}{})
+	sf := state.NewStateFile(filename, baseDir, r.rootStatePath)
+	tmplData := state.NewEnvironmentTemplateData(*firstPassEnv, r.namespace, map[string]interface{}{}, sf)
 	firstPassRenderer := tmpl.NewFirstPassRenderer(baseDir, tmplData)
 
 	// parse as much as we can, tolerate errors, this is a preparse
@@ -123,7 +124,8 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 		r.logger.Debugf("vals:\n%v\ndefaultVals:%v", vals, prestate.DefaultValues)
 	}
 
-	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals)
+	sf := state.NewStateFile(filename, baseDir, r.rootStatePath)
+	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals, sf)
 	secondPassRenderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
 	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
 	if err != nil {

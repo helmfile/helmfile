@@ -1,0 +1,23 @@
+---
+repositories:
+  - name: incubator
+    url: https://charts.helm.sh/incubator
+
+releases:
+  - name: build-in-objects-statefile
+    chart: incubator/raw
+    version: 0.2.5
+    values:
+    - resources:
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: statefile
+            labels:
+              statefileName: {{ .StateFile.Name  }}
+              statefileBasePath: {{ .StateFile.BasePath }}
+              statefileRootPath: {{ .StateFile.RootPath }}
+          stringData:
+            data: data
+helmfiles:
+- sub-helmfile.yaml.gotmpl

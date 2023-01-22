@@ -1,0 +1,34 @@
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app: raw
+    chart: raw-0.2.5
+    heritage: Helm
+    release: build-in-objects-statefile
+    statefileBasePath: .
+    statefileName: sub-helmfile.yaml.gotmpl
+    statefileRootPath: test-cases/buildin-statefile/input/root-helmfile.yaml.gotmpl
+  name: statefile
+stringData:
+  data: data
+
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app: raw
+    chart: raw-0.2.5
+    heritage: Helm
+    release: build-in-objects-statefile
+    statefileBasePath: .
+    statefileName: root-helmfile.yaml.gotmpl
+    statefileRootPath: test-cases/buildin-statefile/input/root-helmfile.yaml.gotmpl
+  name: statefile
+stringData:
+  data: data
+

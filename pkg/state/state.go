@@ -111,6 +111,9 @@ type HelmState struct {
 	basePath string
 	FilePath string
 
+	// RootPath is the path to the root helmfile state file
+	RootPath string
+
 	ReleaseSetSpec `yaml:",inline"`
 
 	logger  *zap.SugaredLogger
