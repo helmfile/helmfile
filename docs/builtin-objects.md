@@ -6,8 +6,8 @@
 - `StateFile`: The information about the state file. It has several objects
   inside of it:
   - `StateFile.Name`: The name of the current state file
-  - `StateFile.BaseDir`: The base name of the state file
-  - `StateFile.RootDir`: The name of the root state file
+  - `StateFile.BasePath`: The base path of the current state file
+  - `StateFile.RootPath`: The path of the root state file
 - `Values`: Values passed into the environment.
 - `StateValues`: alias for `Values`.
 - `Namespace`: The namespace to be released into
@@ -44,8 +44,8 @@ data:
 - `StateFile`: The information about the state file. It has several objects
   inside of it:
   - `StateFile.Name`: The name of the current state file
-  - `StateFile.BaseDir`: The base name of the state file
-  - `StateFile.RootDir`: The name of the root state file
+  - `StateFile.BasePath`: The base path of the current state file
+  - `StateFile.RootPath`: The path of the root state file
 
 The built-in values always begin with a capital letter. This is in keeping with
 Go's naming convention. When you create your own names, you are free to use a
