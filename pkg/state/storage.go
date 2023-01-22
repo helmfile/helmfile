@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -30,17 +31,42 @@ func NewStorage(forFile string, logger *zap.SugaredLogger, fs *filesystem.FileSy
 	}
 }
 
-func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string) ([]string, bool, error) {
+type resolveFileConfig struct {
+	IgnoreMissingGitBranch bool
+}
+
+type resolveFileOption func(*resolveFileConfig)
+
+func ignoreMissingGitBranch(v bool) func(c *resolveFileConfig) {
+	return func(c *resolveFileConfig) {
+		c.IgnoreMissingGitBranch = v
+	}
+}
+
+func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string, opts ...resolveFileOption) ([]string, bool, error) {
 	title := fmt.Sprintf("%s file", tpe)
 
-	var files []string
-	var err error
+	var (
+		files []string
+		err   error
+		conf  resolveFileConfig
+	)
+
+	for _, o := range opts {
+		o(&conf)
+	}
+
 	if remote.IsRemote(path) {
 		r := remote.NewRemote(st.logger, "", st.fs)
 
 		fetchedFilePath, err := r.Fetch(path, "values")
 		if err != nil {
-			return nil, false, err
+			// https://github.com/helmfile/helmfile/issues/392
+			if conf.IgnoreMissingGitBranch && strings.Contains(err.Error(), "' did not match any file(s) known to git") {
+				st.logger.Debugf("Ignored missing git branch error: %v", err)
+			} else {
+				return nil, false, err
+			}
 		}
 
 		if st.fs.FileExistsAt(fetchedFilePath) {

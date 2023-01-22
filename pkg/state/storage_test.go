@@ -16,10 +16,12 @@ func TestStorage_resolveFile(t *testing.T) {
 		missingFileHandler *string
 		title              string
 		path               string
+		opts               []resolveFileOption
 	}
 
 	cacheDir := remote.CacheDir()
 	infoHandler := MissingFileHandlerInfo
+	warnHandler := MissingFileHandlerWarn
 	errorHandler := MissingFileHandlerError
 
 	tests := []struct {
@@ -50,6 +52,55 @@ func TestStorage_resolveFile(t *testing.T) {
 			wantErr:     true,
 		},
 		{
+			name: "non existing branch in repo produce error",
+			args: args{
+				path:               "git::https://github.com/helmfile/helmfile.git@examples/values/non-existing-file.yaml?ref=inexistent-branch-for-test",
+				title:              "values",
+				missingFileHandler: &infoHandler,
+			},
+			wantSkipped: false,
+			wantErr:     true,
+		},
+		{
+			name: "non existing branch in repo produce info when ignoreMissingGitBranch=true",
+			args: args{
+				path:               "git::https://github.com/helmfile/helmfile.git@examples/values/non-existing-file.yaml?ref=inexistent-branch-for-test",
+				title:              "values",
+				missingFileHandler: &infoHandler,
+				opts: []resolveFileOption{
+					ignoreMissingGitBranch(true),
+				},
+			},
+			wantSkipped: true,
+			wantErr:     false,
+		},
+		{
+			name: "non existing branch in repo produce warn when ignoreMissingGitBranch=true",
+			args: args{
+				path:               "git::https://github.com/helmfile/helmfile.git@examples/values/non-existing-file.yaml?ref=inexistent-branch-for-test",
+				title:              "values",
+				missingFileHandler: &warnHandler,
+				opts: []resolveFileOption{
+					ignoreMissingGitBranch(true),
+				},
+			},
+			wantSkipped: true,
+			wantErr:     false,
+		},
+		{
+			name: "non existing branch in repo produce error with error handler even if ignoreMissingGitBranch=true",
+			args: args{
+				path:               "git::https://github.com/helmfile/helmfile.git@examples/values/non-existing-file.yaml?ref=inexistent-branch-for-test",
+				title:              "values",
+				missingFileHandler: &errorHandler,
+				opts: []resolveFileOption{
+					ignoreMissingGitBranch(true),
+				},
+			},
+			wantSkipped: false,
+			wantErr:     true,
+		},
+		{
 			name: "existing remote value fetched",
 			args: args{
 				path:               "git::https://github.com/helmfile/helmfile.git@examples/values/replica-values.yaml?ref=v0.145.2",
@@ -75,7 +126,7 @@ func TestStorage_resolveFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := NewStorage(cacheDir, helmexec.NewLogger(io.Discard, "debug"), filesystem.DefaultFileSystem())
 
-			files, skipped, err := st.resolveFile(tt.args.missingFileHandler, tt.args.title, tt.args.path)
+			files, skipped, err := st.resolveFile(tt.args.missingFileHandler, tt.args.title, tt.args.path, tt.args.opts...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("resolveFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
