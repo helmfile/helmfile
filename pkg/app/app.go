@@ -1183,14 +1183,24 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		case defaultFile != "":
 			return []string{defaultFile}, nil
 		default:
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml} or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile)
+			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml,yaml.gotmpl,yml.gotmpl} or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile)
 		}
 	}
 
-	files, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml"))
+	files := []string{}
+
+	ymlFiles, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml"))
 	if err != nil {
 		return []string{}, err
 	}
+	gotmplFiles, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml.gotmpl"))
+	if err != nil {
+		return []string{}, err
+	}
+
+	files = append(files, ymlFiles...)
+	files = append(files, gotmplFiles...)
+
 	if opts.Reverse {
 		sort.Slice(files, func(i, j int) bool {
 			return files[j] < files[i]
