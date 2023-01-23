@@ -32,7 +32,7 @@ for output in $(ls -d ${dir}/tmp/*); do
     # e.g. test/integration/tmp/happypath-877c0dd4-helmx/helmx
     for release_dir in $(ls -d ${output}/*); do
         release_name=$(basename ${release_dir})
-        golden_dir=${happypath_case_output_dir}/v${helm_major_version}/${release_name}
+        golden_dir=${happypath_case_output_dir}/v3/${release_name}
         info "Comparing template output ${release_dir}/templates with ${golden_dir}"
         ./diff-yamls ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
     done
