@@ -91,8 +91,9 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	}
 
 	var (
-		finalEnv *environment.Environment
-		vals     map[string]interface{}
+		renderingPhase string
+		finalEnv       *environment.Environment
+		vals           map[string]interface{}
 	)
 
 	if runtime.V1Mode {
@@ -129,6 +130,8 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 			r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *mergedEnv)
 		}
 
+		renderingPhase = "second-pass "
+
 		finalEnv = mergedEnv
 
 		vals, err = finalEnv.GetMergedValues()
@@ -143,16 +146,16 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	}
 
 	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals)
-	secondPassRenderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
-	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
+	renderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
+	yamlBuf, err := renderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
 		if r.logger != nil {
-			r.logger.Debugf("second-pass rendering failed, input of \"%s\":\n%s", filename, prependLineNumbers(string(content)))
+			r.logger.Debugf("%srendering failed, input of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(string(content)))
 		}
 		return nil, err
 	}
 	if r.logger != nil {
-		r.logger.Debugf("second-pass rendering result of \"%s\":\n%s", filename, prependLineNumbers(yamlBuf.String()))
+		r.logger.Debugf("%srendering result of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(yamlBuf.String()))
 	}
 	return yamlBuf, nil
 }
