@@ -69,6 +69,8 @@ Note that every breaking change should have an easy alternative way to achieve t
   - This option didn't make much sense in practical. Generally, you'd want to disable all the insecure features altogether to make your deployment secure, or not disable any features. Disabling all is already possible via `HELMFILE_DISABLE_INSECURE_FEATURES `. In addition, `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` literally made every insecure template function to silently skipped without any error or warning, which made debugging unnecessarily hard when the user accidentally used an insecure function.
   - See https://github.com/helmfile/helmfile/pull/564 for more context.
 
+5. Helmfile used to load `helmfile.yaml` or `charts.yaml` when you omitted the `-f` flag. `charts.yaml` has been deprecated for a long time but never been removed. We take v1 as a change to finally remove it.
+
 ## After 1.0
 
 We won't add any backward-incompatible changes while in 1.x, as long as it's inevitable to fix unseen important bug(s).
