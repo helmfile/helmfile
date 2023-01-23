@@ -62,7 +62,7 @@ Note that every breaking change should have an easy alternative way to achieve t
 
 3. Remove the `--args` flag from the `helmfile` command
   - It has been provided as-is, and never intended to work reliably because it's fundamentally flawed because we have no way to specify which args to be passed to which `helm` commands being called by which `helmfile` command.
-  - However, I periodically see a new user finds it's not working and reporting it as a bug([the most recent example](https://github.com/roboll/helmfile/issues/2034#issuecomment-1147059088)). It's not a fault of the user, but out fault that left this broken feature.
+  - However, I periodically see a new user finds it's not working and reporting it as a bug([the most recent example](https://github.com/roboll/helmfile/issues/2034#issuecomment-1147059088)). It's not a fault of the user. It's our fault that left this broken feature.
   - Every use-case previsouly covered (by any chance) with `--args` should be covered in new `helmfile.yaml` fields or flags.
 
 4. Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`
