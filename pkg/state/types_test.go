@@ -27,8 +27,8 @@ func TestTrimPartInfo(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			sf := NewStateFile(test.sfName, "", "")
-			require.Equalf(t, test.expected, sf.Name, "expected %s, got %s", test.expected, sf.Name)
+			sf := NewStateFileInfo(test.sfName, "", "")
+			require.Equalf(t, test.expected, sf.StateFile.Name, "expected %s, got %s", test.expected, sf.StateFile.Name)
 		})
 	}
 }
