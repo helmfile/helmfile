@@ -82,8 +82,17 @@ type ReleaseSetSpec struct {
 	// non-existent path. The default behavior is to print a warning. Note the
 	// differing default compared to other MissingFileHandlers.
 	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
+	// MissingFileHandlerConfig is composed of various settings for the MissingFileHandler
+	MissingFileHandlerConfig MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
 
 	LockFile string `yaml:"lockFilePath,omitempty"`
+}
+
+type MissingFileHandlerConfig struct {
+	// IgnoreMissingGitBranch is set to true in order to let the missing file handler
+	// treat missing git branch errors like `pathspec 'develop' did not match any file(s) known to git` safe
+	// and ignored when the handler is set to Warn or Info.
+	IgnoreMissingGitBranch bool `yaml:"ignoreMissingGitBranch,omitempty"`
 }
 
 // helmStateAlias is helm state alias
@@ -2721,13 +2730,19 @@ func (st *HelmState) removeFiles(files []string) {
 	}
 }
 
+func (c MissingFileHandlerConfig) resolveFileOptions() []resolveFileOption {
+	return []resolveFileOption{
+		ignoreMissingGitBranch(c.IgnoreMissingGitBranch),
+	}
+}
+
 func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []interface{}, missingFileHandler *string) ([]string, error) {
 	generatedFiles := []string{}
 
 	for _, value := range values {
 		switch typedValue := value.(type) {
 		case string:
-			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", typedValue)
+			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", typedValue, st.MissingFileHandlerConfig.resolveFileOptions()...)
 			if err != nil {
 				return generatedFiles, err
 			}
@@ -2828,7 +2843,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 
 		switch value := v.(type) {
 		case string:
-			paths, skip, err = st.storage().resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value)
+			paths, skip, err = st.storage().resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value, st.MissingFileHandlerConfig.resolveFileOptions()...)
 			if err != nil {
 				return nil, err
 			}
@@ -3282,7 +3297,7 @@ func (st *HelmState) LoadYAMLForEmbedding(release *ReleaseSpec, entries []interf
 		case string:
 			var values map[string]interface{}
 
-			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", pathPrefix+t)
+			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", pathPrefix+t, st.MissingFileHandlerConfig.resolveFileOptions()...)
 			if err != nil {
 				return nil, err
 			}

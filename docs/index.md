@@ -236,6 +236,10 @@ releases:
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
     condition: vault.enabled               # The values lookup key for filtering releases. Corresponds to the boolean value of `vault.enabled`, where `vault` is an arbitrary value
     missingFileHandler: Warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
+    missingFileHandlerConfig:
+      # Ignores missing git branch error so that the Debug/Info/Warn handler can treat a missing branch as non-error.
+      # See https://github.com/helmfile/helmfile/issues/392
+      ignoreMissingGitBranch: true
     # Values files used for rendering the chart
     values:
       # Value files passed via --values
@@ -400,6 +404,10 @@ environments:
     # Use "Warn", "Info", or "Debug" if you want helmfile to not fail when a values file is missing, while just leaving
     # a message about the missing file at the log-level.
     missingFileHandler: Error
+    missingFileHandlerConfig:
+      # Ignores missing git branch error so that the Debug/Info/Warn handler can treat a missing branch as non-error.
+      # See https://github.com/helmfile/helmfile/issues/392
+      ignoreMissingGitBranch: true
     # kubeContext to use for this environment
     kubeContext: kube-context
 
