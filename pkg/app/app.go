@@ -1208,8 +1208,6 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 	files = append(files, ymlFiles...)
 	files = append(files, gotmplFiles...)
 
-	a.Logger.Debugf("found %d helmfile state files in %s: %s", len(ymlFiles)+len(gotmplFiles), helmfileDir, strings.Join(files, ", "))
-
 	if opts.Reverse {
 		sort.Slice(files, func(i, j int) bool {
 			return files[j] < files[i]
@@ -1219,6 +1217,9 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 			return files[i] < files[j]
 		})
 	}
+
+	a.Logger.Debugf("found %d helmfile state files in %s: %s", len(ymlFiles)+len(gotmplFiles), helmfileDir, strings.Join(files, ", "))
+
 	return files, nil
 }
 
