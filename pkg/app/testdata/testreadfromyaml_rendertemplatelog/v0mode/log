@@ -1,0 +1,25 @@
+first-pass rendering starting for "": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "":
+ 0: 
+ 1: releases:
+ 2: - name: foo
+ 3:   chart: mychart1
+ 4: - name: bar
+ 5: 
+ 6: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "":
+ 0: 
+ 1: releases:
+ 2: - name: foo
+ 3:   chart: mychart1
+ 4: - name: bar
+ 5: 
+ 6: 
+
