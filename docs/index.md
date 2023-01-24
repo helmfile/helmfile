@@ -24,7 +24,7 @@ Deploy Kubernetes Helm Charts
 
 ## Status
 
-March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see roboll/helmfile#1824 for more information.
+March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see [roboll/helmfile#1824](https://github.com/roboll/helmfile/issues/1824) for more information.
 
 Even though Helmfile is used in production environments [across multiple organizations](users.md), it is still in its early stage of development, hence versioned 0.x.
 
