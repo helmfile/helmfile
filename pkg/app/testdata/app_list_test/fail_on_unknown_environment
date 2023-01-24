@@ -1,3 +1,4 @@
+found 3 helmfile state files in helmfile.d: /path/to/helmfile.d/helmfile_1.yaml, /path/to/helmfile.d/helmfile_2.yaml, /path/to/helmfile.d/helmfile_3.yaml
 processing file "helmfile_1.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"
 first-pass rendering starting for "helmfile_1.yaml.part.0": inherited=&{staging map[] map[]}, overrode=<nil>

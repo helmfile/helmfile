@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -1159,12 +1158,20 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		}
 	} else {
 		var defaultFile string
-		if a.fs.FileExistsAt(DefaultHelmfile) {
+		DefaultGotmplHelmfile := DefaultHelmfile + ".gotmpl"
+		if a.fs.FileExistsAt(DefaultHelmfile) && a.fs.FileExistsAt(DefaultGotmplHelmfile) {
+			return []string{}, fmt.Errorf("both %s and %s.gotmpl exist. Please remove one of them", DefaultHelmfile, DefaultHelmfile)
+		}
+		switch {
+		case a.fs.FileExistsAt(DefaultHelmfile):
 			defaultFile = DefaultHelmfile
 
-			// TODO: Remove this block when we remove v0 code
-		} else if !runtime.V1Mode && a.fs.FileExistsAt(DeprecatedHelmfile) {
-			log.Printf(
+		case a.fs.FileExistsAt(DefaultGotmplHelmfile):
+			defaultFile = DefaultGotmplHelmfile
+
+		// TODO: Remove this block when we remove v0 code
+		case !runtime.V1Mode && a.fs.FileExistsAt(DeprecatedHelmfile):
+			a.Logger.Warnf(
 				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
 				DeprecatedHelmfile,
 				DeprecatedHelmfile,
@@ -1183,14 +1190,24 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		case defaultFile != "":
 			return []string{defaultFile}, nil
 		default:
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml} or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile)
+			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml,yaml.gotmpl,yml.gotmpl}, %s, or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DefaultGotmplHelmfile)
 		}
 	}
 
-	files, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml"))
+	files := []string{}
+
+	ymlFiles, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml"))
 	if err != nil {
 		return []string{}, err
 	}
+	gotmplFiles, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml.gotmpl"))
+	if err != nil {
+		return []string{}, err
+	}
+
+	files = append(files, ymlFiles...)
+	files = append(files, gotmplFiles...)
+
 	if opts.Reverse {
 		sort.Slice(files, func(i, j int) bool {
 			return files[j] < files[i]
@@ -1200,6 +1217,9 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 			return files[i] < files[j]
 		})
 	}
+
+	a.Logger.Debugf("found %d helmfile state files in %s: %s", len(ymlFiles)+len(gotmplFiles), helmfileDir, strings.Join(files, ", "))
+
 	return files, nil
 }
 
