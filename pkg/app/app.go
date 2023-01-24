@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -1159,12 +1158,20 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		}
 	} else {
 		var defaultFile string
-		if a.fs.FileExistsAt(DefaultHelmfile) {
+		DefaultGotmplHelmfile := DefaultHelmfile + ".gotmpl"
+		if a.fs.FileExistsAt(DefaultHelmfile) && a.fs.FileExistsAt(DefaultGotmplHelmfile) {
+			return []string{}, fmt.Errorf("both %s and %s.gotmpl exist. Please remove one of them", DefaultHelmfile, DefaultHelmfile)
+		}
+		switch {
+		case a.fs.FileExistsAt(DefaultHelmfile):
 			defaultFile = DefaultHelmfile
 
-			// TODO: Remove this block when we remove v0 code
-		} else if !runtime.V1Mode && a.fs.FileExistsAt(DeprecatedHelmfile) {
-			log.Printf(
+		case a.fs.FileExistsAt(DefaultGotmplHelmfile):
+			defaultFile = DefaultGotmplHelmfile
+
+		// TODO: Remove this block when we remove v0 code
+		case !runtime.V1Mode && a.fs.FileExistsAt(DeprecatedHelmfile):
+			a.Logger.Warnf(
 				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
 				DeprecatedHelmfile,
 				DeprecatedHelmfile,
@@ -1200,6 +1207,8 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 
 	files = append(files, ymlFiles...)
 	files = append(files, gotmplFiles...)
+
+	a.Logger.Debugf("found %d helmfile state files in %s: %s", len(ymlFiles)+len(gotmplFiles), helmfileDir, strings.Join(files, ", "))
 
 	if opts.Reverse {
 		sort.Slice(files, func(i, j int) bool {
