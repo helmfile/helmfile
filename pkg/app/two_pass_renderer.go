@@ -150,7 +150,7 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 		}
 	}
 
-  sf := state.NewStateFileInfo(filename, baseDir, r.rootStatePath)
+	sf := state.NewStateFileInfo(filename, baseDir, r.rootStatePath)
 	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals, sf)
 	renderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
 	yamlBuf, err := renderer.RenderTemplateContentToBuffer(content)

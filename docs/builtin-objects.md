@@ -1,4 +1,4 @@
-# environment template built-in objects
+# releaseset template built-in objects
 
 - `Environment`: The information about the environment. This is set by the
   `--environment` flag. It has several objects inside of it:
@@ -52,5 +52,5 @@ data:
   - `StateFile.Path`: The path of the root state file
 
 The built-in values always begin with a capital letter. This is in keeping with
-Go's naming convention. When you create your own names, you are free to use a
+Go's naming convention. When you define your own values and template variables, you are free to use a
 convention that suits your team.
