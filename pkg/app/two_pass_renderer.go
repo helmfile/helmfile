@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
@@ -81,7 +82,11 @@ func (r *desiredStateLoader) renderTemplatesToYamlWithEnv(baseDir, filename stri
 func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *environment.Environment, baseDir, filename string, content []byte) (*bytes.Buffer, error) {
 	// try a first pass render. This will always succeed, but can produce a limited env
 	if r.logger != nil {
-		r.logger.Debugf("first-pass rendering starting for \"%s\": inherited=%v, overrode=%v", filename, inherited, overrode)
+		var phase string
+		if !runtime.V1Mode {
+			phase = "first-pass "
+		}
+		r.logger.Debugf("%srendering starting for \"%s\": inherited=%v, overrode=%v", phase, filename, inherited, overrode)
 	}
 
 	initEnv, err := inherited.Merge(overrode)
@@ -89,51 +94,72 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 		return nil, err
 	}
 
-	if r.logger != nil {
-		r.logger.Debugf("first-pass uses: %v", initEnv)
-	}
+	var (
+		renderingPhase string
+		finalEnv       *environment.Environment
+		vals           map[string]interface{}
+	)
 
-	renderedEnv, prestate := r.renderPrestate(initEnv, baseDir, filename, content)
+	if runtime.V1Mode {
+		var err error
 
-	if r.logger != nil {
-		r.logger.Debugf("first-pass produced: %v", renderedEnv)
-	}
+		finalEnv = initEnv
 
-	finalEnv, err := inherited.Merge(renderedEnv)
-	if err != nil {
-		return nil, err
-	}
+		vals, err = finalEnv.GetMergedValues()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if r.logger != nil {
+			r.logger.Debugf("first-pass uses: %v", initEnv)
+		}
 
-	finalEnv, err = finalEnv.Merge(overrode)
-	if err != nil {
-		return nil, err
-	}
+		renderedEnv, prestate := r.renderPrestate(initEnv, baseDir, filename, content)
 
-	if r.logger != nil {
-		r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *finalEnv)
-	}
+		if r.logger != nil {
+			r.logger.Debugf("first-pass produced: %v", renderedEnv)
+		}
 
-	vals, err := finalEnv.GetMergedValues()
-	if err != nil {
-		return nil, err
-	}
+		mergedEnv, err := inherited.Merge(renderedEnv)
+		if err != nil {
+			return nil, err
+		}
 
-	if prestate != nil {
-		prestate.Env = *finalEnv
-		r.logger.Debugf("vals:\n%v\ndefaultVals:%v", vals, prestate.DefaultValues)
+		mergedEnv, err = mergedEnv.Merge(overrode)
+		if err != nil {
+			return nil, err
+		}
+
+		if r.logger != nil {
+			r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *mergedEnv)
+		}
+
+		renderingPhase = "second-pass "
+
+		finalEnv = mergedEnv
+
+		vals, err = finalEnv.GetMergedValues()
+		if err != nil {
+			return nil, err
+		}
+
+		if prestate != nil {
+			prestate.Env = *mergedEnv
+			r.logger.Debugf("vals:\n%v\ndefaultVals:%v", vals, prestate.DefaultValues)
+		}
 	}
 
 	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals)
-	secondPassRenderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
-	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
+	renderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
+	yamlBuf, err := renderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
 		if r.logger != nil {
-			r.logger.Debugf("second-pass rendering failed, input of \"%s\":\n%s", filename, prependLineNumbers(string(content)))
+			r.logger.Debugf("%srendering failed, input of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(string(content)))
 		}
 		return nil, err
 	}
 	if r.logger != nil {
-		r.logger.Debugf("second-pass rendering result of \"%s\":\n%s", filename, prependLineNumbers(yamlBuf.String()))
+		r.logger.Debugf("%srendering result of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(yamlBuf.String()))
 	}
 	return yamlBuf, nil
 }
