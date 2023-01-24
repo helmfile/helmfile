@@ -1190,7 +1190,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		case defaultFile != "":
 			return []string{defaultFile}, nil
 		default:
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml,yaml.gotmpl,yml.gotmpl} or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile)
+			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml,yaml.gotmpl,yml.gotmpl}, %s, or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DefaultGotmplHelmfile)
 		}
 	}
 
