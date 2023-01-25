@@ -1,4 +1,4 @@
-charts:
+releases:
   # Published chart example
   - name: grafana                         # helm release name
     namespace: grafana                    # target namespace

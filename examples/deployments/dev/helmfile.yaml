@@ -1,4 +1,4 @@
-charts:
+releases:
   - name: dev-paths-example
     namespace: dev
     chart: ../../charts/paths-example/
