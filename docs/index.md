@@ -1229,6 +1229,8 @@ A Helmfile hook is a per-release extension point that is composed of:
 Helmfile triggers various `events` while it is running.
 Once `events` are triggered, associated `hooks` are executed, by running the `command` with `args`. The standard output of the `command` will be displayed if `showlogs` is set and it's value is `true`.
 
+Hooks exec order follows the order of definition in the helmfile state.
+
 Currently supported `events` are:
 
 * `prepare`
