@@ -1,4 +1,4 @@
-charts:
+releases:
   - name: local-paths-example
     namespace: local
     chart: ../../charts/paths-example/
