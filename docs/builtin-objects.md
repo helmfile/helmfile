@@ -1,4 +1,4 @@
-# releaseset template built-in objects
+# helmfile template built-in objects
 
 - `Environment`: The information about the environment. This is set by the
   `--environment` flag. It has several objects inside of it:
