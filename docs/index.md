@@ -1427,9 +1427,8 @@ For your local use-case, aliasing it like `alias hi='helmfile --interactive'` wo
 
 ## Running Helmfile without an Internet connection
 
-Once you download all required charts into your machine, you can run `helmfile charts` to deploy your apps.
-It basically run only `helm upgrade --install` with your already-downloaded charts, hence no Internet connection is required.
-See #155 for more information on this topic.
+Once you download all required charts into your machine, you can run `helmfile sync --skip-deps` to deploy your apps.
+With the `--skip-deps` option, you can skip running "helm repo update" and "helm dependency build".
 
 ## Experimental Features
 
