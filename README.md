@@ -62,6 +62,8 @@ Note that we will try our best to document any backward incompatibility. And in 
 * Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 * macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
 
+> Make sure to run `helmfile init` once after installation. Helmfile uses the [helm-diff](https://github.com/databus23/helm-diff) plugin.
+
 ## Getting Started
 
 Let's start with a simple `helmfile` and gradually improve it to fit your use-case!
