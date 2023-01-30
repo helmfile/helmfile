@@ -3,13 +3,9 @@
 - `Environment`: The information about the environment. This is set by the
   `--environment` flag. It has several objects inside of it:
   - `Environment.Name`: The name of the environment
-- `StateFile`: The information about the state file. It has several objects
-  inside of it:
-  - `StateFile.Name`: The name of the current state file
-  - `StateFile.BasePath`: The base path of the current state file
-- `RootStateFile`: The information about the root state file. It has several objects
-  inside of it:
-  - `StateFile.Path`: The path of the root state file
+- `Path`: The file path to the current helmfile. 
+  - `Path.Dir`: The name of the directory in which the current helmfile resides
+  - `Path.Base`: The file name, or the last element of the path of the current helmfile file
 - `Values`: Values passed into the environment.
 - `StateValues`: alias for `Values`.
 - `Namespace`: The namespace to be released into
@@ -47,9 +43,6 @@ data:
   inside of it:
   - `StateFile.Name`: The name of the current state file
   - `StateFile.BasePath`: The base path of the current state file
-- `RootStateFile`: The information about the root state file. It has several objects
-  inside of it:
-  - `StateFile.Path`: The path of the root state file
 
 The built-in values always begin with a capital letter. This is in keeping with
 Go's naming convention. When you define your own values and template variables, you are free to use a
