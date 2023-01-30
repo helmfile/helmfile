@@ -2,7 +2,6 @@
 #  Source: /home/runner/work/helmfile/helmfile/test/e2e/template/helmfile/testdata/snapshot/issue_2098_release_template_needs/input.yaml
 
 filepath: input.yaml
-rootpath: testdata/snapshot/issue_2098_release_template_needs/input.yaml
 helmBinary: helm
 environments:
   default: {}
