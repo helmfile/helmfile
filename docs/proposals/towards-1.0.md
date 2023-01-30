@@ -6,7 +6,14 @@ Note that every breaking change should have an easy alternative way to achieve t
 
 ## The changes in 1.0
 
-1. Forbid the use of `environments` and `releases` within a single helmfile.yaml part
+1. [Forbid the use of `environments` and `releases` within a single helmfile.yaml part](#forbid-the-use-of-environments-and-releases-within-a-single-helmfileyaml-part)
+2. [Force `.gotmpl` (or `.tpl`) file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.](#force-gotmpl-or-tpl-file-extension-for-helmfileyaml-in-case-you-want-helmfile-to-render-it-as-a-go-template-before-yaml-parsing)
+3. [Remove the `--args` flag from the `helmfile` command](#remove-the---args-flag-from-the-helmfile-command)
+4. [Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`](#remove-helmfile_skip_insecure_template_functions-in-favor-of-helmfile_disable_insecure_features)
+5. [The long deprecated `charts.yaml` has been finally removed](#the-long-deprecated-chartsyaml-has-been-finally-removed)
+
+### Forbid the use of `environments` and `releases` within a single helmfile.yaml part
+
   - Helmfile currently relies on a hack called "double rendering" which no one understands correctly (I suppose) to solve the chicken-and-egg problem of rendering the helmfile template(which requires helmfile to parse `environments` as yaml first) and parsing the rendered helmfile as yaml(which requires helmfile to render the template first).
   - By forcing (or print a big warning) the user to do separate helmfile parts for `environments` and `releases`, it's very unlikely Helmfile needs double-rendering at all.
   - After this change, every helmfile.yaml written this way:
@@ -56,20 +63,26 @@ Note that every breaking change should have an easy alternative way to achieve t
     ```
     
     If you're already using any helmfile.yaml files that are written in the first style, do start using `---` today! It will probably reveal and fix unintended template evaluations. If you start using `---` today, you won't need to do anything after Helmfile 1.0.
-2. Force `.gotmpl` (or `.tpl`) file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.
+
+### Force `.gotmpl` (or `.tpl`) file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.
+
   - As the primary maintainer of the project, I'm tired of explaining why Helmfile renders go template expressions embedded in a yaml comment. [The latest example of it](https://github.com/helmfile/helmfile/issues/127).
   - When we first introduced helmfile the ability to render helmfile.yaml as a go template, I did propose it to require `.gotmpl` file extension to enable the feature. But none of active helmfile users and contributors at that time agreed with it (although I didn't have a very strong opinion on the matter either), so we enabled it without the extension. I consider it as a tech debt now.
 
-3. Remove the `--args` flag from the `helmfile` command
+### Remove the `--args` flag from the `helmfile` command
+
   - It has been provided as-is, and never intended to work reliably because it's fundamentally flawed because we have no way to specify which args to be passed to which `helm` commands being called by which `helmfile` command.
   - However, I periodically see a new user finds it's not working and reporting it as a bug([the most recent example](https://github.com/roboll/helmfile/issues/2034#issuecomment-1147059088)). It's not a fault of the user. It's our fault that left this broken feature.
   - Every use-case previsouly covered (by any chance) with `--args` should be covered in new `helmfile.yaml` fields or flags.
 
-4. Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`
+### Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`
+
   - This option didn't make much sense in practical. Generally, you'd want to disable all the insecure features altogether to make your deployment secure, or not disable any features. Disabling all is already possible via `HELMFILE_DISABLE_INSECURE_FEATURES `. In addition, `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` literally made every insecure template function to silently skipped without any error or warning, which made debugging unnecessarily hard when the user accidentally used an insecure function.
   - See https://github.com/helmfile/helmfile/pull/564 for more context.
 
-5. Helmfile used to load `helmfile.yaml` or `charts.yaml` when you omitted the `-f` flag. `charts.yaml` has been deprecated for a long time but never been removed. We take v1 as a change to finally remove it.
+### The long deprecated `charts.yaml` has been finally removed
+
+Helmfile used to load `helmfile.yaml` or `charts.yaml` when you omitted the `-f` flag. `charts.yaml` has been deprecated for a long time but never been removed. We take v1 as a change to finally remove it.
 
 ## After 1.0
 
