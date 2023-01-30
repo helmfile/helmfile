@@ -749,7 +749,6 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		enableLiveOutput:    a.EnableLiveOutput,
 		getHelm:             a.getHelm,
 		valsRuntime:         a.valsRuntime,
-		rootStatePath:       a.FileOrDir,
 	}
 
 	return ld.Load(file, op)

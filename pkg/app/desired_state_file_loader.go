@@ -38,8 +38,7 @@ type desiredStateLoader struct {
 	logger      *zap.SugaredLogger
 	valsRuntime vals.Evaluator
 
-	lockFilePath  string
-	rootStatePath string
+	lockFilePath string
 }
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
@@ -97,8 +96,6 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		}
 		st.OverrideChart = ld.chart
 	}
-
-	st.RootPath = ld.rootStatePath
 
 	return st, nil
 }

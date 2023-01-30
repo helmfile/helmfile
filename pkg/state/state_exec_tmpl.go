@@ -36,9 +36,8 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 		},
 	}
 	tmplData.StateValues = &tmplData.Values
-	sf := NewStateFileInfo(st.FilePath, st.basePath, st.RootPath)
+	sf := NewStateFileInfo(st.FilePath, st.basePath)
 	tmplData.StateFile = sf.StateFile
-	tmplData.RootStateFile = sf.RootStateFile
 	return tmplData
 }
 
