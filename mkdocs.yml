@@ -18,6 +18,7 @@ nav:
   - Getting Started:
     - Paths Overview: paths.md
     - Templating Funs: templating_funcs.md
+    - Built-in Objects: builtin-objects.md
   - Advanced Features:
     - Best Practices Guide: writing-helmfile.md
     - Advanced Features: advanced-features.md
