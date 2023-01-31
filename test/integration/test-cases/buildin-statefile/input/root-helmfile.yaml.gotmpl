@@ -14,8 +14,8 @@ releases:
           metadata:
             name: statefile
             labels:
-              statefileName: {{ .StateFile.Name  }}
-              statefileBasePath: {{ .StateFile.BasePath }}
+              statefileBase: {{ .Path.Base  }}
+              statefileDir: {{ .Path.Dir }}
           stringData:
             data: data
 helmfiles:

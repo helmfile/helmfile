@@ -8,8 +8,8 @@ metadata:
     chart: raw-0.2.5
     heritage: Helm
     release: build-in-objects-statefile
-    statefileBasePath: .
-    statefileName: sub-helmfile.yaml.gotmpl
+    statefileBase: sub-helmfile.yaml.gotmpl
+    statefileDir: .
   name: statefile
 stringData:
   data: data
@@ -24,8 +24,8 @@ metadata:
     chart: raw-0.2.5
     heritage: Helm
     release: build-in-objects-statefile
-    statefileBasePath: .
-    statefileName: root-helmfile.yaml.gotmpl
+    statefileBase: root-helmfile.yaml.gotmpl
+    statefileDir: .
   name: statefile
 stringData:
   data: data

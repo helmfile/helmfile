@@ -11,34 +11,31 @@ type TemplateSpec struct {
 	ReleaseSpec `yaml:",inline"`
 }
 
-// stateFile is the info about state file
-type StateFile struct {
-	// Name is the name of the current state file
-	Name string
-	// BasePath is the base path of the current state file
-	BasePath string
-
-	// RootPath is the root path of the state file
-	RootPath string
+// Path is the path info about state file
+type Path struct {
+	// Base is the name of the state file
+	Base string
+	// Dir is the name of the directory in which the current helmfile resides
+	Dir string
 }
 
 // stateFileInfo is the info about state file
 type StateFileInfo struct {
-	// Name is the name of the current state file
-	StateFile StateFile
+	// Path is the path info of the current state file
+	Path Path
 }
 
 // TrimPartInfo removes the part info from the state file name
-func (sf *StateFile) TrimPartInfo() {
-	sf.Name = regexp.MustCompile(`\.part\.\d+$`).ReplaceAllString(sf.Name, "")
+func (p *Path) TrimPartInfo() {
+	p.Base = regexp.MustCompile(`\.part\.\d+$`).ReplaceAllString(p.Base, "")
 }
 
 // NewStateFile creates a new StateFile
 func NewStateFileInfo(currentStateFileName, currentStateFileBasePath string) StateFileInfo {
-	csf := StateFile{Name: currentStateFileName, BasePath: currentStateFileBasePath}
-	csf.TrimPartInfo()
+	pt := Path{Base: currentStateFileName, Dir: currentStateFileBasePath}
+	pt.TrimPartInfo()
 
-	sfi := StateFileInfo{StateFile: csf}
+	sfi := StateFileInfo{Path: pt}
 
 	return sfi
 }
@@ -51,12 +48,12 @@ type EnvironmentTemplateData struct {
 	Namespace string
 	// Values is accessible as `.Values` and it contains default state values overrode by environment values and override values.
 	Values      map[string]interface{}
-	StateFile   StateFile
+	Path        Path
 	StateValues *map[string]interface{}
 }
 
 func NewEnvironmentTemplateData(environment environment.Environment, namespace string, values map[string]interface{}, stateFileInfo StateFileInfo) *EnvironmentTemplateData {
-	d := EnvironmentTemplateData{environment, namespace, values, stateFileInfo.StateFile, nil}
+	d := EnvironmentTemplateData{environment, namespace, values, stateFileInfo.Path, nil}
 	d.StateValues = &d.Values
 	return &d
 }
@@ -72,7 +69,7 @@ type releaseTemplateData struct {
 	// Values is accessible as `.Values` and it contains default state values overrode by environment values and override values.
 	Values      map[string]interface{}
 	StateValues *map[string]interface{}
-	StateFile   StateFile
+	Path        Path
 	// KubeContext is HelmState.OverrideKubeContext.
 	// You should better use Release.KubeContext as it might work as you'd expect even if HelmState.OverrideKubeContext is not set.
 	// See releaseTemplateDataRelease.KubeContext for more information.
