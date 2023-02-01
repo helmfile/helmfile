@@ -72,8 +72,8 @@ Suppose the `helmfile.yaml` representing the desired state of your helm releases
 
 ```yaml
 repositories:
- - name: prometheus-community
-   url: https://prometheus-community.github.io/helm-charts
+- name: prometheus-community
+  url: https://prometheus-community.github.io/helm-charts
 
 releases:
 - name: prom-norbac-ubuntu
