@@ -213,6 +213,8 @@ type Inherit struct {
 	Except   []string `yaml:"except,omitempty"`
 }
 
+type Inherits []Inherit
+
 // ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
@@ -353,7 +355,22 @@ type ReleaseSpec struct {
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
 
 	// Inherit is used to inherit a release template from a release or another release template
-	Inherit []Inherit `yaml:"inherit,omitempty"`
+	Inherit Inherits `yaml:"inherit,omitempty"`
+}
+
+func (r *Inherits) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var v0151 []Inherit
+	if err := unmarshal(&v0151); err != nil {
+		var v0150 Inherit
+		if err := unmarshal(&v0150); err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "releases[].inherit of map(%+v) has been deprecated and will be removed in v0.152.0. Wrap it into an array: %v\n", v0150, err)
+		*r = []Inherit{v0150}
+		return nil
+	}
+	*r = v0151
+	return nil
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
