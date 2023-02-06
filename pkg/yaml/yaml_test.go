@@ -20,8 +20,9 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 	tests := []struct {
 		Name string `yaml:"name"`
 		Info []struct {
-			Age     int    `yaml:"age"`
-			Address string `yaml:"address"`
+			Age        int    `yaml:"age"`
+			Address    string `yaml:"address"`
+			Annotation string `yaml:"annotation"`
 		} `yaml:"info"`
 
 		expected string
@@ -29,10 +30,18 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 		{
 			Name: "John",
 			Info: []struct {
-				Age     int    `yaml:"age"`
-				Address string `yaml:"address"`
-			}{{Age: 20, Address: "New York"}},
-			expected: "name: John\ninfo:\n- age: 20\n  address: New York\n",
+				Age        int    `yaml:"age"`
+				Address    string `yaml:"address"`
+				Annotation string `yaml:"annotation"`
+			}{{
+				Age:     20,
+				Address: "New York",
+				// See:
+				// - https://github.com/helmfile/helmfile/discussions/656
+				// - https://github.com/helmfile/helmfile/pull/675
+				Annotation: "on",
+			}},
+			expected: "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: \"on\"\n",
 		},
 	}
 
