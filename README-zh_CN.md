@@ -22,6 +22,7 @@
 
 </div>
 
+[English](./README.md) | [简体中文]
 
 # 关于
 
@@ -55,6 +56,9 @@ Helmfile 是一个声明式Helm Chart管理工具
 **方式3: 容器**
 
 详细见：[run as a container](https://helmfile.readthedocs.io/en/latest/#running-as-a-container)
+
+> 安装后请运行一次 `helmfile init`。 检查[helm-diff](https://github.com/databus23/helm-diff) 等插件安装正确。
+
 ## 使用
 
 让我们从最简单的 helmfile 开始，逐渐改进它以适应您的用例！
@@ -63,8 +67,8 @@ Helmfile 是一个声明式Helm Chart管理工具
 
 ```yaml
 repositories:
- - name: prometheus-community
-   url: https://prometheus-community.github.io/helm-charts
+- name: prometheus-community
+  url: https://prometheus-community.github.io/helm-charts
 
 releases:
 - name: prom-norbac-ubuntu

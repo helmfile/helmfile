@@ -22,6 +22,8 @@ Deploy Kubernetes Helm Charts
 
 </div>
 
+English | [简体中文](./README-zh_CN.md)
+
 ## About
 
 Helmfile is a declarative spec for deploying helm charts. It lets you...
