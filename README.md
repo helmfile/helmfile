@@ -55,12 +55,20 @@ Note that we will try our best to document any backward incompatibility. And in 
 
 ## Installation
 
-* download one of [releases](https://github.com/helmfile/helmfile/releases)
-* [run as a container](https://helmfile.readthedocs.io/en/latest/#running-as-a-container)
+**1: Binary Installation**
+
+download one of [releases](https://github.com/helmfile/helmfile/releases)
+
+**2: Package Manager**
+
 * Archlinux: install via `pacman -S helmfile`
 * openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`
 * Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 * macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
+
+**3: Container**
+
+For more details, see [run as a container](https://helmfile.readthedocs.io/en/latest/#running-as-a-container)
 
 > Make sure to run `helmfile init` once after installation. Helmfile uses the [helm-diff](https://github.com/databus23/helm-diff) plugin.
 
@@ -125,3 +133,7 @@ Helmfile has been used by many users in production:
 * ...
 
 For more users, please see: [Users](https://helmfile.readthedocs.io/en/latest/users/)
+
+## License
+
+[MIT](https://github.com/helmfile/helmfile/blob/main/LICENSE)
