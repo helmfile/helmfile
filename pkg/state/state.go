@@ -353,7 +353,7 @@ type ReleaseSpec struct {
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
 
 	// Inherit is used to inherit a release template from a release or another release template
-	Inherit Inherit `yaml:"inherit,omitempty"`
+	Inherit []Inherit `yaml:"inherit,omitempty"`
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
