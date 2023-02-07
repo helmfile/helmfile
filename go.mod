@@ -32,8 +32,6 @@ require (
 	k8s.io/apimachinery v0.26.1
 )
 
-replace gopkg.in/yaml.v3 => github.com/colega/go-yaml-yaml v0.0.0-20220720070545-aaba007ebc22
-
 replace github.com/goccy/go-yaml => github.com/helmfile/go-yaml v0.0.0-20230206025945-259d2ed450ae
 
 require (
