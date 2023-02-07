@@ -17,7 +17,7 @@ templates:
     labels:
       template1: template1
     inherit:
-      template: base
+    - template: base
       except:
       - labels
   template2:
@@ -29,14 +29,14 @@ templates:
     labels:
       template2: template2
     inherit:
-      template: base
+    - template: base
       except:
       - valuesTemplate
 
 releases:
 - name: foo1
   inherit:
-    template: template1
+  - template: template1
   values:
   - templates:
     - |
@@ -49,7 +49,7 @@ releases:
         {{` {{ (unset .Values "templates") | toYaml | nindent 2 }} `}}
 - name: foo2
   inherit:
-    template: template2
+  - template: template2
   values:
   - templates:
     - |

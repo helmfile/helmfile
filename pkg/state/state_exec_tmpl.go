@@ -154,66 +154,68 @@ func (e CyclicReleaseTemplateInheritanceError) Error() string {
 // a cyclic relese template inheritance.
 // This functions fails with a CyclicReleaseTemplateInheritanceError if it finds a cyclic inheritance.
 func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePath []string) (*ReleaseSpec, error) {
-	templateName := r.Inherit.Template
-	if templateName == "" {
-		return r, nil
-	}
-
-	path := append([]string{}, inheritancePath...)
-	path = append(path, templateName)
-
-	var cycleFound bool
-	for _, t := range inheritancePath {
-		if t == templateName {
-			cycleFound = true
-			break
-		}
-	}
-
-	if cycleFound {
-		return nil, CyclicReleaseTemplateInheritanceError{Message: fmt.Sprintf("cyclic inheritance detected: %s", strings.Join(path, "->"))}
-	}
-
-	template, defined := st.Templates[templateName]
-	if !defined {
-		return nil, fmt.Errorf("release %q tried to inherit inexistent release template %q", r.Name, templateName)
-	}
-
-	src, err := st.releaseWithInheritedTemplate(&template.ReleaseSpec, path)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load release template %q: %w", templateName, err)
-	}
-
-	for _, k := range r.Inherit.Except {
-		switch k {
-		case "labels":
-			src.Labels = map[string]string{}
-		case "values":
-			src.Values = nil
-		case "valuesTemplate":
-			src.ValuesTemplate = nil
-		case "setTemplate":
-			src.SetValuesTemplate = nil
-		case "set":
-			src.SetValues = nil
-		default:
-			return nil, fmt.Errorf("%q is not allowed under `inherit`. Allowed values are \"set\", \"setTemplate\", \"values\", \"valuesTemplate\", and \"labels\"", k)
-		}
-
-		st.logger.Debugf("excluded field %q when inheriting template %q to release %q", k, templateName, r.Name)
-	}
-
 	var merged ReleaseSpec
 
-	if err := mergo.Merge(&merged, src, mergo.WithAppendSlice, mergo.WithSliceDeepCopy); err != nil {
-		return nil, fmt.Errorf("unable to inherit release template %q: %w", templateName, err)
+	for _, inherit := range r.Inherit {
+		templateName := inherit.Template
+		if templateName == "" {
+			return r, nil
+		}
+
+		path := append([]string{}, inheritancePath...)
+		path = append(path, templateName)
+
+		var cycleFound bool
+		for _, t := range inheritancePath {
+			if t == templateName {
+				cycleFound = true
+				break
+			}
+		}
+
+		if cycleFound {
+			return nil, CyclicReleaseTemplateInheritanceError{Message: fmt.Sprintf("cyclic inheritance detected: %s", strings.Join(path, "->"))}
+		}
+
+		template, defined := st.Templates[templateName]
+		if !defined {
+			return nil, fmt.Errorf("release %q tried to inherit inexistent release template %q", r.Name, templateName)
+		}
+
+		src, err := st.releaseWithInheritedTemplate(&template.ReleaseSpec, path)
+		if err != nil {
+			return nil, fmt.Errorf("unable to load release template %q: %w", templateName, err)
+		}
+
+		for _, k := range inherit.Except {
+			switch k {
+			case "labels":
+				src.Labels = map[string]string{}
+			case "values":
+				src.Values = nil
+			case "valuesTemplate":
+				src.ValuesTemplate = nil
+			case "setTemplate":
+				src.SetValuesTemplate = nil
+			case "set":
+				src.SetValues = nil
+			default:
+				return nil, fmt.Errorf("%q is not allowed under `inherit`. Allowed values are \"set\", \"setTemplate\", \"values\", \"valuesTemplate\", and \"labels\"", k)
+			}
+
+			st.logger.Debugf("excluded field %q when inheriting template %q to release %q", k, templateName, r.Name)
+		}
+
+		if err := mergo.Merge(&merged, src, mergo.WithAppendSlice, mergo.WithSliceDeepCopy); err != nil {
+			return nil, fmt.Errorf("unable to inherit release template %q: %w", templateName, err)
+		}
 	}
 
 	if err := mergo.Merge(&merged, r, mergo.WithAppendSlice, mergo.WithSliceDeepCopy); err != nil {
 		return nil, fmt.Errorf("unable to load release %q: %w", r.Name, err)
 	}
 
-	merged.Inherit = Inherit{}
+	merged.Inherit = nil
 
 	return &merged, nil
 }

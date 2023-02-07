@@ -435,23 +435,23 @@ func TestTemplate_CyclicInheritance(t *testing.T) {
 templates:
   a:
     inherit:
-      template: b
+    - template: b
     values:
     - a.yaml
   b:
     inherit:
-      template: c
+    - template: c
     values:
     - b.yaml
   c:
     inherit:
-      template: a
+    - template: a
     values:
     - c.yaml
 releases:
 - name: app1
   inherit:
-    template: a
+  - template: a
   chart: incubator/raw
 `,
 			}
