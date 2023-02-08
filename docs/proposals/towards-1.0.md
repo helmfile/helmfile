@@ -7,7 +7,7 @@ Note that every breaking change should have an easy alternative way to achieve t
 ## The changes in 1.0
 
 1. [Forbid the use of `environments` and `releases` within a single helmfile.yaml part](#forbid-the-use-of-environments-and-releases-within-a-single-helmfileyaml-part)
-2. [Force `.gotmpl` (or `.tpl`) file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.](#force-gotmpl-or-tpl-file-extension-for-helmfileyaml-in-case-you-want-helmfile-to-render-it-as-a-go-template-before-yaml-parsing)
+2. [Force `.gotmpl` file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.](#force-gotmpl-file-extension-for-helmfileyaml-in-case-you-want-helmfile-to-render-it-as-a-go-template-before-yaml-parsing)
 3. [Remove the `--args` flag from the `helmfile` command](#remove-the---args-flag-from-the-helmfile-command)
 4. [Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`](#remove-helmfile_skip_insecure_template_functions-in-favor-of-helmfile_disable_insecure_features)
 5. [The long deprecated `charts.yaml` has been finally removed](#the-long-deprecated-chartsyaml-has-been-finally-removed)
@@ -64,7 +64,7 @@ Note that every breaking change should have an easy alternative way to achieve t
     
     If you're already using any helmfile.yaml files that are written in the first style, do start using `---` today! It will probably reveal and fix unintended template evaluations. If you start using `---` today, you won't need to do anything after Helmfile 1.0.
 
-### Force `.gotmpl` (or `.tpl`) file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.
+### Force `.gotmpl` file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.
 
   - As the primary maintainer of the project, I'm tired of explaining why Helmfile renders go template expressions embedded in a yaml comment. [The latest example of it](https://github.com/helmfile/helmfile/issues/127).
   - When we first introduced helmfile the ability to render helmfile.yaml as a go template, I did propose it to require `.gotmpl` file extension to enable the feature. But none of active helmfile users and contributors at that time agreed with it (although I didn't have a very strong opinion on the matter either), so we enabled it without the extension. I consider it as a tech debt now.
