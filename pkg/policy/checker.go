@@ -3,6 +3,8 @@ package policy
 
 import (
 	"errors"
+
+	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
 var (
@@ -17,7 +19,7 @@ func forbidEnvironmentsWithReleases(releaseState map[string]interface{}) (bool, 
 	_, hasEnvironments := releaseState["environments"]
 	_, hasReleases := releaseState["releases"]
 	if hasEnvironments && hasReleases {
-		return false, EnvironmentsAndReleasesWithinSameYamlPartErr
+		return runtime.V1Mode, EnvironmentsAndReleasesWithinSameYamlPartErr
 	}
 	return false, nil
 }
