@@ -104,7 +104,7 @@ func (hs *HelmState) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	isStrict, err := policy.Checker(helmStateInfo)
+	isStrict, err := policy.Checker(hs.FilePath, helmStateInfo)
 	if err != nil {
 		if isStrict {
 			return err

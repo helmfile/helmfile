@@ -96,6 +96,8 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 		var intermediate HelmState
 
+		intermediate.FilePath = file
+
 		err := decode(&intermediate)
 		if err == io.EOF {
 			break
