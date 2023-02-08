@@ -6,13 +6,13 @@ Note that every breaking change should have an easy alternative way to achieve t
 
 ## The changes in 1.0
 
-1. [Forbid the use of `environments` and `releases` within a single helmfile.yaml part](#forbid-the-use-of-environments-and-releases-within-a-single-helmfileyaml-part)
+1. [Forbid the use of `environments` and `releases` within a single helmfile.yaml.gotmpl part](#forbid-the-use-of-environments-and-releases-within-a-single-helmfileyamlgotmpl-part)
 2. [Force `.gotmpl` (or `.tpl`) file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.](#force-gotmpl-or-tpl-file-extension-for-helmfileyaml-in-case-you-want-helmfile-to-render-it-as-a-go-template-before-yaml-parsing)
 3. [Remove the `--args` flag from the `helmfile` command](#remove-the---args-flag-from-the-helmfile-command)
 4. [Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`](#remove-helmfile_skip_insecure_template_functions-in-favor-of-helmfile_disable_insecure_features)
 5. [The long deprecated `charts.yaml` has been finally removed](#the-long-deprecated-chartsyaml-has-been-finally-removed)
 
-### Forbid the use of `environments` and `releases` within a single helmfile.yaml part
+### Forbid the use of `environments` and `releases` within a single helmfile.yaml.gotmpl part
 
   - Helmfile currently relies on a hack called "double rendering" which no one understands correctly (I suppose) to solve the chicken-and-egg problem of rendering the helmfile template(which requires helmfile to parse `environments` as yaml first) and parsing the rendered helmfile as yaml(which requires helmfile to render the template first).
   - By forcing (or print a big warning) the user to do separate helmfile parts for `environments` and `releases`, it's very unlikely Helmfile needs double-rendering at all.
