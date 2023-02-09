@@ -82,7 +82,7 @@ Note that every breaking change should have an easy alternative way to achieve t
 
 ### The long deprecated `charts.yaml` has been finally removed
 
-Helmfile used to load `helmfile.yaml` or `charts.yaml` when you omitted the `-f` flag. `charts.yaml` has been deprecated for a long time but never been removed. We take v1 as a change to finally remove it.
+Helmfile used to load `helmfile.yaml` or `charts.yaml` when you omitted the `-f` flag. `charts.yaml` has been deprecated for a long time but never been removed. We take v1 as a chance to finally remove it.
 
 ## After 1.0
 
