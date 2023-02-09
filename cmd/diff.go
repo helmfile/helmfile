@@ -51,6 +51,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&diffOptions.Suppress, "suppress", nil, "suppress specified Kubernetes objects in the output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
 	f.BoolVar(&diffOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm diff upgrade --install --reuse-values"`)
 	f.BoolVar(&diffOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm diff upgrade --install --reset-values"`)
+	f.StringVar(&diffOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 
 	return cmd
 }
