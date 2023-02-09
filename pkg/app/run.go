@@ -21,16 +21,16 @@ type Run struct {
 	Ask func(string) bool
 }
 
-func NewRun(st *state.HelmState, helm helmexec.Interface, ctx Context) *Run {
+func NewRun(st *state.HelmState, helm helmexec.Interface, ctx Context) (*Run, error) {
 	if helm == nil {
-		panic("Assertion failed: helmexec.Interface must not be nil")
+		return nil, fmt.Errorf("Assertion failed: helmexec.Interface must not be nil")
 	}
 
 	if !helm.IsHelm3() {
-		panic("helmfile has deprecated helm2 since v1.0")
+		return nil, fmt.Errorf("helmfile has deprecated helm2 since v0.150.0")
 	}
 
-	return &Run{state: st, helm: helm, ctx: ctx}
+	return &Run{state: st, helm: helm, ctx: ctx}, nil
 }
 
 func (r *Run) askForConfirmation(msg string) bool {

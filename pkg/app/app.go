@@ -943,7 +943,10 @@ func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds
 	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState) (bool, []error) {
 		helm := a.getHelm(st)
 
-		run := NewRun(st, helm, ctx)
+		run, err := NewRun(st, helm, ctx)
+		if err != nil {
+			return false, []error{err}
+		}
 		return do(run)
 	}, includeTransitiveNeeds, o...)
 
