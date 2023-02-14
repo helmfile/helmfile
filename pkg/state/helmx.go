@@ -29,10 +29,10 @@ func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) []st
 func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec, helm helmexec.Interface) []string {
 	switch {
 	// helm.GetPostRenderer() comes from cmd flag.
-	case helm.GetPostRenderer() != "":
-		flags = append(flags, "--post-renderer", helm.GetPostRenderer())
 	case release.PostRenderer != nil && *release.PostRenderer != "":
 		flags = append(flags, "--post-renderer", *release.PostRenderer)
+	case helm.GetPostRenderer() != "":
+		flags = append(flags, "--post-renderer", helm.GetPostRenderer())
 	case st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "":
 		flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
 	}

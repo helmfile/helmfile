@@ -1,6 +1,3 @@
-helmDefaults:
-  postRenderer: ./add-cm1.bash
-
 releases:
 - name: foo
   chart: ../../../charts/raw

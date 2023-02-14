@@ -108,6 +108,7 @@ type SyncConfigProvider interface {
 
 type DiffConfigProvider interface {
 	Args() string
+	PostRenderer() string
 
 	Values() []string
 	Set() []string

@@ -1569,6 +1569,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		helm := r.helm
 
 		helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+		helm.SetPostRenderer(c.PostRenderer())
 
 		var errs []error
 
@@ -1872,6 +1873,8 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		if len(args) > 0 {
 			helm.SetExtraArgs(args...)
 		}
+
+		helm.SetPostRenderer(c.PostRenderer())
 
 		opts := &state.TemplateOpts{
 			Set:               c.Set(),

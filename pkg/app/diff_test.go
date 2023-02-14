@@ -150,6 +150,10 @@ func (a diffConfig) ResetValues() bool {
 	return !a.reuseValues
 }
 
+func (a diffConfig) PostRenderer() string {
+	return ""
+}
+
 func TestDiff(t *testing.T) {
 	type flags struct {
 		skipNeeds    bool
