@@ -522,7 +522,7 @@ Available Commands:
   init         Initialize the helmfile, includes version checking and installation of helm and plug-ins
   lint         Lint charts from state file (helm lint)
   list         List releases defined in state file
-  repos        Repos releases defined in state file
+  repos        Add chart repositories defined in state file
   status       Retrieve status of releases in state file
   sync         Sync releases defined in state file
   template     Template releases defined in state file
