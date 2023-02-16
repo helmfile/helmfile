@@ -340,8 +340,8 @@ github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1/go.mod h1:eXthEFrGJvWH
 github.com/colega/go-yaml-yaml v0.0.0-20220720070545-aaba007ebc22 h1:uVG5v+c6ndz9seCorYjQmlVlPbh3OMcMWJzAJZWdM/g=
 github.com/colega/go-yaml-yaml v0.0.0-20220720070545-aaba007ebc22/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 github.com/containerd/cgroups v1.0.4 h1:jN/mbWBEaz+T1pi5OFtnkQ+8qnmEbAr1Oo1FRm5B0dA=
-github.com/containerd/containerd v1.6.15 h1:4wWexxzLNHNE46aIETc6ge4TofO550v+BlLoANrbses=
-github.com/containerd/containerd v1.6.15/go.mod h1:U2NnBPIhzJDm59xF7xB2MMHnKtggpZ+phKg8o2TKj2c=
+github.com/containerd/containerd v1.6.18 h1:qZbsLvmyu+Vlty0/Ex5xc0z2YtKpIsb5n45mAMI+2Ns=
+github.com/containerd/containerd v1.6.18/go.mod h1:1RdCUu95+gc2v9t3IL+zIlpClSmew7/0YS8O5eQZrOw=
 github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc/go.mod h1:GL3xCUCBDV3CZiTSEKksMWbLE66hEyuu9qyDOOqM47Y=
 github.com/containerd/continuity v0.3.0 h1:nisirsYROK15TAMVukJOUyGJjz4BNQJBVsNvAXZJ/eg=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
