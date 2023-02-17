@@ -14,7 +14,7 @@ Helmfile integrates [vals]() to import configuration parameters from following b
 - Vault
 - SOPS
 
-See [Vals "Suported Backends"](https://github.com/variantdev/vals#suported-backends) for the full list of available backends.
+See [Vals "Suported Backends"](https://github.com/helmfile/vals#suported-backends) for the full list of available backends.
 
 This feature was implemented in https://github.com/roboll/helmfile/pull/906.
 If you're curious how it's designed and how it works, please consult the pull request.

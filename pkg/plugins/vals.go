@@ -3,7 +3,7 @@ package plugins
 import (
 	"sync"
 
-	"github.com/variantdev/vals"
+	"github.com/helmfile/vals"
 )
 
 const (

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"

@@ -14,6 +14,7 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.0
 	github.com/hashicorp/go-version v1.6.0
+	github.com/helmfile/vals v0.22.0
 	github.com/imdario/mergo v0.3.13
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
@@ -21,7 +22,6 @@ require (
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/variantdev/chartify v0.13.0
 	github.com/variantdev/dag v1.1.0
-	github.com/variantdev/vals v0.21.0
 	go.szostok.io/version v1.1.0
 	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
