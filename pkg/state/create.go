@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"

@@ -15,8 +15,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/chart"
 

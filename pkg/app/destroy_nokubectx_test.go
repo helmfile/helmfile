@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/variantdev/vals"
+	"github.com/helmfile/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"

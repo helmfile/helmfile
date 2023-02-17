@@ -17,10 +17,10 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
 	"github.com/tatsushid/go-prettytable"
 	"github.com/variantdev/chartify"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
