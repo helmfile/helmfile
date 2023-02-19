@@ -250,11 +250,13 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	newEnv := &environment.Environment{Name: name, Values: envVals}
 
 	if ctxEnv != nil {
-		// override environment values with context environment values
-		overEnv := ctxEnv.DeepCopy()
-		if err := mergo.Merge(newEnv, &overEnv, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+		intEnv := *ctxEnv
+
+		if err := mergo.Merge(&intEnv, newEnv, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
 			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
 		}
+
+		newEnv = &intEnv
 	}
 
 	return newEnv, nil
