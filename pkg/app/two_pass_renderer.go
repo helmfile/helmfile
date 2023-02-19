@@ -22,8 +22,12 @@ func prependLineNumbers(text string) string {
 	return buf.String()
 }
 
-func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environment, baseDir, filename string, content []byte) (*environment.Environment, *state.HelmState) {
-	tmplData := state.NewEnvironmentTemplateData(*firstPassEnv, r.namespace, map[string]interface{}{})
+func (r *desiredStateLoader) renderPrestate(firstPassEnv, overrode *environment.Environment, baseDir, filename string, content []byte) (*environment.Environment, *state.HelmState) {
+	initEnv, err := firstPassEnv.Merge(overrode)
+	if err != nil {
+		return firstPassEnv, nil
+	}
+	tmplData := state.NewEnvironmentTemplateData(*initEnv, r.namespace, map[string]interface{}{})
 	firstPassRenderer := tmpl.NewFirstPassRenderer(baseDir, tmplData)
 
 	// parse as much as we can, tolerate errors, this is a preparse
@@ -49,7 +53,7 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environmen
 	c := r.underlying()
 	c.Strict = false
 	// create preliminary state, as we may have an environment. Tolerate errors.
-	prestate, err := c.ParseAndLoad([]byte(sanitized), baseDir, filename, r.env, false, firstPassEnv)
+	prestate, err := c.ParseAndLoad([]byte(sanitized), baseDir, filename, r.env, false, firstPassEnv, overrode)
 	if err != nil {
 		if _, ok := err.(*state.StateLoadError); ok {
 			r.logger.Debugf("could not deduce `environment:` block, configuring only .Environment.Name. error: %v", err)
@@ -85,7 +89,7 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	}
 	r.logger.Debugf("%srendering starting for \"%s\": inherited=%v, overrode=%v", phase, filename, inherited, overrode)
 
-	initEnv, err := inherited.Merge(overrode)
+	initEnv, err := inherited.Merge(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +103,10 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	if runtime.V1Mode {
 		var err error
 
-		finalEnv = initEnv
+		finalEnv, err = initEnv.Merge(overrode)
+		if err != nil {
+			return nil, err
+		}
 
 		vals, err = finalEnv.GetMergedValues()
 		if err != nil {
@@ -107,8 +114,11 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 		}
 	} else {
 		r.logger.Debugf("first-pass uses: %v", initEnv)
-
-		renderedEnv, prestate := r.renderPrestate(initEnv, baseDir, filename, content)
+		firstPassEnv, err := initEnv.Merge(nil)
+		if err != nil {
+			return nil, err
+		}
+		renderedEnv, prestate := r.renderPrestate(firstPassEnv, overrode, baseDir, filename, content)
 
 		r.logger.Debugf("first-pass produced: %v", renderedEnv)
 
