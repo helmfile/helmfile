@@ -79,3 +79,120 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckOrderOfTopConfigKeys(t *testing.T) {
+	tests := []struct {
+		name    string
+		ix      int
+		key     string
+		wantErr bool
+	}{
+		{
+			name:    "no error when ix=0",
+			ix:      0,
+			key:     "bases",
+			wantErr: false,
+		},
+		{
+			name:    "no error when ix=1",
+			ix:      1,
+			key:     "environments",
+			wantErr: false,
+		},
+		{
+			name:    "no error when ix=2",
+			ix:      2,
+			key:     "releases",
+			wantErr: false,
+		},
+		{
+			name:    "error when ix=3",
+			ix:      3,
+			key:     "bases",
+			wantErr: true,
+		},
+		{
+			name:    "error when ix=1 and key=releases",
+			ix:      1,
+			key:     "releases",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkOrderOfTopConfigKeys(tt.ix, tt.key)
+			if tt.wantErr {
+				require.Error(t, err, "expected error, got=%v", err)
+			} else {
+				require.NoError(t, err, "expected no error but got error: %v", err)
+			}
+		})
+	}
+}
+
+func TestTopConfigKeysVerifier(t *testing.T) {
+	tests := []struct {
+		name            string
+		helmfileContent []byte
+		wantErr         bool
+	}{
+		{
+			name:            "no error when correct order[full items]",
+			helmfileContent: []byte("bases:\nenvironments:\nreleases:\n"),
+			wantErr:         false,
+		},
+		{
+			name:            "error when not correct order",
+			helmfileContent: []byte("bases:\nreleases:\nenvironments:\n"),
+			wantErr:         true,
+		},
+		{
+			name:            "error when not correct order 00",
+			helmfileContent: []byte("environments:\nbases:\n"),
+			wantErr:         true,
+		},
+		{
+			name:            "error when not correct order 01",
+			helmfileContent: []byte("environments:\nhelmDefaults:\nbases:\n"),
+			wantErr:         true,
+		},
+		{
+			name:            "error when not correct order 02",
+			helmfileContent: []byte("helmDefaults:\nenvironments:\nbases:\n"),
+			wantErr:         true,
+		},
+		{
+			name:            "error when not correct order 03",
+			helmfileContent: []byte("environments:\nva:\nve:\nbases:\n"),
+			wantErr:         true,
+		},
+		{
+			name:            "error when not correct order 04",
+			helmfileContent: []byte("bases:\nva:\nve:\nreleases:\n"),
+			wantErr:         false,
+		},
+		{
+			name:            "no error when only has bases",
+			helmfileContent: []byte("bases:\n"),
+		},
+		{
+			name:            "no error when only has environments",
+			helmfileContent: []byte("environments:\n"),
+		},
+		{
+			name:            "no error when only has releases",
+			helmfileContent: []byte("releases:\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := TopConfigKeysVerifier(tt.helmfileContent)
+			if tt.wantErr {
+				require.Error(t, err, "expected error, got=%v", err)
+			} else {
+				require.NoError(t, err, "expected no error but got error: %v", err)
+			}
+		})
+	}
+}
