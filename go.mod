@@ -13,7 +13,6 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.0
-	github.com/hashicorp/go-version v1.6.0
 	github.com/helmfile/vals v0.22.0
 	github.com/imdario/mergo v0.3.13
 	github.com/spf13/cobra v1.6.1
@@ -172,6 +171,7 @@ require (
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
+	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f // indirect
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c // indirect
 	github.com/josharian/intern v1.0.0 // indirect
