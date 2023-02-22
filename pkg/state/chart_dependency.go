@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	goversion "github.com/hashicorp/go-version"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/app/version"
@@ -384,13 +383,13 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 
 	// Make sure go run main.go works and compatible with old lock files.
 	if version.Version() != "" && lockedReqs.Version != "" {
-		lockedVersion, err := goversion.NewVersion(lockedReqs.Version)
+		lockedVersion, err := semver.NewVersion(lockedReqs.Version)
 
 		if err != nil {
 			return nil, false, err
 		}
 
-		currentVersion, err := goversion.NewVersion(version.Version())
+		currentVersion, err := semver.NewVersion(version.Version())
 
 		if err != nil {
 			return nil, false, err
