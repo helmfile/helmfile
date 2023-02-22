@@ -110,7 +110,7 @@ func TestIsTopOrderKey(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isTopOrderKey(tt.item); got != tt.want {
-				t.Errorf("isTopKey() = %v, want %v", got, tt.want)
+				t.Errorf("isTopOrderKey() = %v, want %v", got, tt.want)
 			}
 		})
 	}
