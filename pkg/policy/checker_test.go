@@ -83,27 +83,27 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 func TestIsTopOrderKey(t *testing.T) {
 	tests := []struct {
 		name string
-		item []byte
+		item string
 		want bool
 	}{
 		{
 			name: "is top order key[bases]",
-			item: []byte("bases:"),
+			item: "bases",
 			want: true,
 		},
 		{
 			name: "is top order key[environments]",
-			item: []byte("environments:"),
+			item: "environments",
 			want: true,
 		},
 		{
 			name: "is top order key[releases]",
-			item: []byte("releases:"),
+			item: "releases",
 			want: true,
 		},
 		{
 			name: "not top order key[helmDefaults]",
-			item: []byte("helmDefaults:"),
+			item: "helmDefaults",
 			want: false,
 		},
 	}
@@ -128,9 +128,14 @@ func TestTopConfigKeysVerifier(t *testing.T) {
 			wantErr:         false,
 		},
 		{
-			name:            "error when not correct order",
-			helmfileContent: []byte("bases:\nreleases:\nenvironments:\n"),
-			wantErr:         true,
+			name:            "no error when correct order 00",
+			helmfileContent: []byte("bases:\nva:\nve:\nreleases:\n"),
+			wantErr:         false,
+		},
+		{
+			name:            "no error when correct order 01",
+			helmfileContent: []byte("a:\ne:\n"),
+			wantErr:         false,
 		},
 		{
 			name:            "error when not correct order 00",
@@ -154,8 +159,8 @@ func TestTopConfigKeysVerifier(t *testing.T) {
 		},
 		{
 			name:            "error when not correct order 04",
-			helmfileContent: []byte("bases:\nva:\nve:\nreleases:\n"),
-			wantErr:         false,
+			helmfileContent: []byte("bases:\nreleases:\nenvironments:\n"),
+			wantErr:         true,
 		},
 		{
 			name:            "no error when only has bases",

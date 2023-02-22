@@ -49,34 +49,37 @@ func Checker(filePath string, helmState map[string]any) (bool, error) {
 	return false, nil
 }
 
-func isTopOrderKey(item []byte) bool {
-	key := strings.Split(string(item), ":")[0]
-	for k := range topkeysPriority {
-		if k == key {
-			return true
-		}
-	}
-	return false
+func isTopOrderKey(key string) bool {
+	_, ok := topkeysPriority[key]
+	return ok
 }
 
 // TopConfigKeysVerifier verifies the top-level config keys are defined in the correct order.
 func TopConfigKeysVerifier(helmfileContent []byte) error {
-	var keys [][]byte
+	var orderKeys, topKeys []string
 	clines := bytes.Split(helmfileContent, []byte("\n"))
 
 	for _, line := range clines {
-		if topConfigKeysRegex.Match(line) && isTopOrderKey(line) {
-			keys = append(keys, line)
+		if topConfigKeysRegex.Match(line) {
+			lineStr := strings.Split(string(line), ":")[0]
+			topKeys = append(topKeys, lineStr)
+			if isTopOrderKey(lineStr) {
+				orderKeys = append(orderKeys, lineStr)
+			}
 		}
 	}
 
-	if len(keys) == 0 {
+	if len(topKeys) == 0 {
 		return fmt.Errorf("no top-level config keys are found")
 	}
 
-	for i := 1; i < len(keys); i++ {
-		preKey := strings.Split(string(keys[i-1]), ":")[0]
-		currentKey := strings.Split(string(keys[i]), ":")[0]
+	if len(orderKeys) == 0 {
+		return nil
+	}
+
+	for i := 1; i < len(orderKeys); i++ {
+		preKey := orderKeys[i-1]
+		currentKey := orderKeys[i]
 		if topkeysPriority[preKey] > topkeysPriority[currentKey] {
 			return fmt.Errorf("top-level config key %s must be defined before %s", preKey, currentKey)
 		}
