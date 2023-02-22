@@ -15,10 +15,10 @@ import (
 var (
 	EnvironmentsAndReleasesWithinSameYamlPartErr = errors.New("environments and releases cannot be defined within the same YAML part. Use --- to extract the environments into a dedicated part")
 	topConfigKeysRegex                           = regexp.MustCompile(`^[a-zA-Z]+: *$`)
-	topkeysPriority                              = []string{
-		"bases",
-		"environments",
-		"releases",
+	topkeysPriority                              = map[string]int{
+		"bases":        0,
+		"environments": 1,
+		"releases":     2,
 	}
 )
 
@@ -49,29 +49,14 @@ func Checker(filePath string, helmState map[string]any) (bool, error) {
 	return false, nil
 }
 
-// checkOrderOfTopConfigKeys checks the order of top-level config keys.
-func checkOrderOfTopConfigKeys(ix int, key string) error {
-	if ix >= len(topkeysPriority) {
-		return fmt.Errorf("index %d must be less than %d", ix, len(topkeysPriority))
-	}
-
-	found := false
-	for _, k := range topkeysPriority {
-		if key == k {
-			found = true
-			break
+func isTopOrderKey(item []byte) bool {
+	key := strings.Split(string(item), ":")[0]
+	for k := range topkeysPriority {
+		if k == key {
+			return true
 		}
 	}
-	if !found {
-		return nil
-	}
-
-	for i := 0; i <= ix; i++ {
-		if topkeysPriority[i] == key {
-			return nil
-		}
-	}
-	return fmt.Errorf("top-level config key %s must be defined before %s", topkeysPriority[ix], key)
+	return false
 }
 
 // TopConfigKeysVerifier verifies the top-level config keys are defined in the correct order.
@@ -80,7 +65,7 @@ func TopConfigKeysVerifier(helmfileContent []byte) error {
 	clines := bytes.Split(helmfileContent, []byte("\n"))
 
 	for _, line := range clines {
-		if topConfigKeysRegex.Match(line) {
+		if topConfigKeysRegex.Match(line) && isTopOrderKey(line) {
 			keys = append(keys, line)
 		}
 	}
@@ -90,29 +75,10 @@ func TopConfigKeysVerifier(helmfileContent []byte) error {
 	}
 
 	for i := 1; i < len(keys); i++ {
-		key := strings.Split(string(keys[i]), ":")[0]
-		switch key {
-		case "bases":
-			for _, pk := range keys[:i] {
-				pks := strings.Split(string(pk), ":")[0]
-				if err := checkOrderOfTopConfigKeys(0, pks); err != nil {
-					return fmt.Errorf("bases must be defined at the top of the file")
-				}
-			}
-		case "environments":
-			for _, pk := range keys[:i] {
-				pks := strings.Split(string(pk), ":")[0]
-				if err := checkOrderOfTopConfigKeys(1, pks); err != nil {
-					return fmt.Errorf("environments must be defined after bases")
-				}
-			}
-		case "releases":
-			for _, pk := range keys[:i] {
-				pks := strings.Split(string(pk), ":")[0]
-				if err := checkOrderOfTopConfigKeys(2, pks); err != nil {
-					return fmt.Errorf("releases must be defined after environments")
-				}
-			}
+		preKey := strings.Split(string(keys[i-1]), ":")[0]
+		currentKey := strings.Split(string(keys[i]), ":")[0]
+		if topkeysPriority[preKey] > topkeysPriority[currentKey] {
+			return fmt.Errorf("top-level config key %s must be defined before %s", preKey, currentKey)
 		}
 	}
 	return nil

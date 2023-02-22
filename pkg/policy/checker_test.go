@@ -80,51 +80,37 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 	}
 }
 
-func TestCheckOrderOfTopConfigKeys(t *testing.T) {
+func TestIsTopOrderKey(t *testing.T) {
 	tests := []struct {
-		name    string
-		ix      int
-		key     string
-		wantErr bool
+		name string
+		item []byte
+		want bool
 	}{
 		{
-			name:    "no error when ix=0",
-			ix:      0,
-			key:     "bases",
-			wantErr: false,
+			name: "is top order key[bases]",
+			item: []byte("bases:"),
+			want: true,
 		},
 		{
-			name:    "no error when ix=1",
-			ix:      1,
-			key:     "environments",
-			wantErr: false,
+			name: "is top order key[environments]",
+			item: []byte("environments:"),
+			want: true,
 		},
 		{
-			name:    "no error when ix=2",
-			ix:      2,
-			key:     "releases",
-			wantErr: false,
+			name: "is top order key[releases]",
+			item: []byte("releases:"),
+			want: true,
 		},
 		{
-			name:    "error when ix=3",
-			ix:      3,
-			key:     "bases",
-			wantErr: true,
-		},
-		{
-			name:    "error when ix=1 and key=releases",
-			ix:      1,
-			key:     "releases",
-			wantErr: true,
+			name: "not top order key[helmDefaults]",
+			item: []byte("helmDefaults:"),
+			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checkOrderOfTopConfigKeys(tt.ix, tt.key)
-			if tt.wantErr {
-				require.Error(t, err, "expected error, got=%v", err)
-			} else {
-				require.NoError(t, err, "expected no error but got error: %v", err)
+			if got := isTopOrderKey(tt.item); got != tt.want {
+				t.Errorf("isTopKey() = %v, want %v", got, tt.want)
 			}
 		})
 	}
