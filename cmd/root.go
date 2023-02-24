@@ -47,7 +47,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		Use:           "helmfile",
 		Short:         globalUsage,
 		Long:          globalUsage,
-		Args:          cobra.MinimumNArgs(1),
 		Version:       version.Version(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
