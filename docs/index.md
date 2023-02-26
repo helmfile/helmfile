@@ -503,6 +503,8 @@ If you wish to treat your enviroment variables as strings always, even if they a
 
 ```
 Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot
+V1 mode = false
+YAML library = gopkg.in/yaml.v2
 
 Usage:
   helmfile [command]
@@ -538,7 +540,7 @@ Flags:
       --enable-live-output              Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
                                         It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.
   -e, --environment string              specify the environment name. defaults to "default"
-  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference. Specify - to load the config from the standard input.
+  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.yaml.gotmpl` or `helmfile.d`(means `helmfile.d/*.yaml` or `helmfile.d/*.yaml.gotmpl`) in this preference. Specify - to load the config from the standard input.
   -b, --helm-binary string              Path to the helm binary (default "helm")
   -h, --help                            help for helmfile
   -i, --interactive                     Request confirmation before attempting to modify clusters
