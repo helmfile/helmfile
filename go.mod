@@ -17,7 +17,7 @@ require (
 	github.com/imdario/mergo v0.3.13
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/variantdev/chartify v0.13.0
 	github.com/variantdev/dag v1.1.0
