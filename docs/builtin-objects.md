@@ -11,7 +11,7 @@
 
 it be used for the below tow cases:
 
-1. release specific template
+1. release definition
 ```
 templates:
   default:
