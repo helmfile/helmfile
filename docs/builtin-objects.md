@@ -9,16 +9,39 @@
 
 # release template built-in objects
 
-it be used for the below case:
+it be used for the below tow cases:
+
+1. release definition
 ```
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  # release template
-  name: {{`{{ .Release.Name }}`}}-1
-  namespace: {{`{{ .Release.Namespace }}`}}
-data:
-  foo: FOO
+templates:
+  default:
+    chart: stable/{{`{{ .Release.Name }}`}}
+    namespace: kube-system
+    values:
+    - config/{{`{{ .Release.Name }}`}}/values.yaml
+    - config/{{`{{ .Release.Name }}`}}/{{`{{ .Environment.Name }}`}}.yaml
+    secrets:
+    - config/{{`{{ .Release.Name }}`}}/secrets.yaml
+    - config/{{`{{ .Release.Name }}`}}/{{`{{ .Environment.Name }}`}}-secrets.yaml
+releases:
+- name: heapster
+  version: 0.3.2
+  inherit:
+    template: default
+- name: kubernetes-dashboard
+  version: 0.10.0
+  inherit:
+    template: default
+```
+
+2. release values template
+```
+releases:
+- name: some-release
+  chart: my-chart
+  values:
+    # This is a template file can use the built-in objects 
+    - path/to/values.gotmpl
 ```
 
 - `Release`: This object describes the release itself. It has several objects
