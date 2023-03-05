@@ -157,7 +157,18 @@ func (a *desiredStateLoader) underlying() *state.StateCreator {
 }
 
 func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
-	st, err := a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, env, overrodeEnv)
+	var st *state.HelmState
+	var err error
+	if runtime.V1Mode {
+		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, env, overrodeEnv)
+	} else {
+		merged, err := env.Merge(overrodeEnv)
+		if err != nil {
+			return nil, err
+		}
+
+		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, merged, nil)
+	}
 	if err != nil {
 		return nil, err
 	}
