@@ -3,7 +3,7 @@ environments:
     values:
       - base.yaml
       - override.yaml
-
+---
 repositories:
   - name: bitnami
     url: https://charts.bitnami.com/bitnami
