@@ -12,5 +12,6 @@ releases:
   - name: test
     chart: bitnami/nginx
     namespace: {{ .Values.ns }}
+    version: 13.2.27
     values:
       - values.yaml.gotmpl
