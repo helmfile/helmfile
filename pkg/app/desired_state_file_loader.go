@@ -161,6 +161,9 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 	var err error
 	if runtime.V1Mode {
 		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, env, overrodeEnv)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		merged, err := env.Merge(overrodeEnv)
 		if err != nil {
@@ -168,11 +171,10 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 		}
 
 		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, merged, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
-
 	helmfiles, err := st.ExpandedHelmfiles()
 	if err != nil {
 		return nil, err
