@@ -503,8 +503,8 @@ If you wish to treat your enviroment variables as strings always, even if they a
 
 ```
 Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot
-V1 mode = true
-YAML library = goccy/go-yaml
+V1 mode = false
+YAML library = gopkg.in/yaml.v2
 
 Usage:
   helmfile [command]
@@ -513,7 +513,9 @@ Available Commands:
   apply        Apply all resources from state file only when there are changes
   build        Build all resources from state file
   cache        Cache management
+  charts       DEPRECATED: sync releases from state file (helm upgrade --install)
   completion   Generate the autocompletion script for the specified shell
+  delete       DEPRECATED: delete releases from state file (helm delete)
   deps         Update charts based on their requirements
   destroy      Destroys and then purges releases
   diff         Diff releases defined in state file
