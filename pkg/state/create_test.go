@@ -20,7 +20,7 @@ func createFromYaml(content []byte, file string, env string, logger *zap.Sugared
 		fs:     filesystem.DefaultFileSystem(),
 		Strict: true,
 	}
-	return c.ParseAndLoad(content, filepath.Dir(file), file, env, true, nil)
+	return c.ParseAndLoad(content, filepath.Dir(file), file, env, true, nil, nil)
 }
 
 func TestReadFromYaml(t *testing.T) {
@@ -84,7 +84,7 @@ func (testEnv stateTestEnv) MustLoadStateWithEnableLiveOutput(t *testing.T, file
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", r, enableLiveOutput, "").
-		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, nil)
+		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -154,7 +154,7 @@ releaseNamespace: mynamespace
 		Name: "production",
 	}
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", r, false, "").
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, &env)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, &env, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -241,7 +241,7 @@ overrideNamespace: myns
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", r, false, "").
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
