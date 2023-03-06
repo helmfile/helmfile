@@ -32,8 +32,8 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm diff")
-	f.StringArrayVar(&diffOptions.Set, "set", nil, "additional values to be merged into the command")
-	f.StringArrayVar(&diffOptions.Values, "values", nil, "additional value files to be merged into the command")
+	f.StringArrayVar(&diffOptions.Set, "set", nil, "additional values to be merged into the helm command --set flag")
+	f.StringArrayVar(&diffOptions.Values, "values", nil, "additional value files to be merged into the helm command --values flag")
 	f.IntVar(&diffOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&diffOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the diff of available API versions")
 	f.BoolVar(&diffOptions.SkipNeeds, "skip-needs", true, `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`)

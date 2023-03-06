@@ -33,8 +33,8 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringArrayVar(&applyOptions.Set, "set", nil, "additional values to be merged into the command")
-	f.StringArrayVar(&applyOptions.Values, "values", nil, "additional value files to be merged into the command")
+	f.StringArrayVar(&applyOptions.Set, "set", nil, "additional values to be merged into the helm command --set flag")
+	f.StringArrayVar(&applyOptions.Values, "values", nil, "additional value files to be merged into the helm command --values flag")
 	f.IntVar(&applyOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&applyOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions")
 	f.IntVar(&applyOptions.Context, "context", 0, "output NUM lines of context around changes")
