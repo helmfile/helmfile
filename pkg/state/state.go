@@ -2791,6 +2791,11 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 
 			st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
 
+			// Load generated values back into memory
+			if err := st.loadValuesFileInMemory(valfile.Name()); err != nil {
+				return generatedFiles, fmt.Errorf("failed to load values file \"%s\": %v", valfile.Name(), err)
+			}
+
 			generatedFiles = append(generatedFiles, valfile.Name())
 		case map[interface{}]interface{}, map[string]interface{}:
 			valfile, err := createTempValuesFile(release, typedValue)
@@ -2810,12 +2815,40 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 				return generatedFiles, err
 			}
 
+			// Load generated values back into memory
+			if err := st.loadValuesFileInMemory(valfile.Name()); err != nil {
+				return generatedFiles, fmt.Errorf("failed to load values file \"%s\": %v", valfile.Name(), err)
+			}
+
 			generatedFiles = append(generatedFiles, valfile.Name())
 		default:
 			return generatedFiles, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
 		}
 	}
 	return generatedFiles, nil
+}
+
+func (st *HelmState) loadValuesFileInMemory(newValuesFile string) error {
+	var env environment.Environment
+	env.Values = st.RenderedValues
+	ld := NewEnvironmentValuesLoader(st.storage(), st.fs, st.logger, remote.NewRemote(st.logger, "", st.fs))
+
+	tmplData := NewEnvironmentTemplateData(env, "", map[string]interface{}{})
+
+	r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(newValuesFile), tmplData)
+	bytes, err := r.RenderToBytes(newValuesFile)
+	if err != nil {
+		return fmt.Errorf("failed to load environment values file \"%s\": %v", newValuesFile, err)
+	}
+	m := map[string]interface{}{}
+	if err := yaml.Unmarshal(bytes, &m); err != nil {
+		return fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", newValuesFile, err, bytes)
+	}
+	err = mergo.Merge(&st.RenderedValues, m, mergo.WithOverride)
+	if err != nil {
+		return fmt.Errorf("failed to merge values \"%v\" and %v.err: %v", st.RenderedValues, env.Values, err)
+	}
+	return nil
 }
 
 func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string, error) {
