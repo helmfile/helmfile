@@ -639,8 +639,8 @@ github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb/go.mod h1:+NfK9FKe
 github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
 github.com/helmfile/go-yaml v0.0.0-20230206025945-259d2ed450ae h1:7A1UNvxMfzQWGTEKKfj3k+m4Vjfd+PZnZkCs9iL7o/U=
 github.com/helmfile/go-yaml v0.0.0-20230206025945-259d2ed450ae/go.mod h1:JubOolP3gh0HpiBc4BLRD4YmjEjHAmIIB2aaXKkTfoE=
-github.com/helmfile/vals v0.22.0 h1:UZN3miHw/12GxyJyubOIFFzVwQQw0IR0hPZS1Syn2VI=
-github.com/helmfile/vals v0.22.0/go.mod h1:CC3DuP0Rv3IexXfTVMwwqBxNTcA574jpmEDa5A72Kto=
+github.com/helmfile/vals v0.23.0 h1:fQ4/pXsxY8ModScr0SQfSpBDhgPRc1LQ3OYNBLIeqyo=
+github.com/helmfile/vals v0.23.0/go.mod h1:eVNsG2EYe46nExbDgsLbBAEg6G2S1qHoVHRejbqVwTE=
 github.com/hokaccha/go-prettyjson v0.0.0-20190818114111-108c894c2c0e/go.mod h1:pFlLw2CfqZiIBOx6BuCeRLCrfxBJipTY0nIOF/VbGcI=
 github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f h1:7LYC+Yfkj3CTRcShK0KOL/w6iTiKyqqBA9a41Wnggw8=
 github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f/go.mod h1:pFlLw2CfqZiIBOx6BuCeRLCrfxBJipTY0nIOF/VbGcI=
