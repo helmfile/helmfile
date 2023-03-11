@@ -18,7 +18,6 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/plugin"
 
-	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
@@ -70,11 +69,6 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 	ver, err := semver.NewVersion(versionStr)
 	if err != nil {
 		return semver.Version{}, fmt.Errorf("error parsing helm version '%s'", versionStr)
-	}
-
-	// Support explicit helm3 opt-in via environment variable
-	if os.Getenv(envvar.Helm3) != "" && ver.Major() < 3 {
-		return *semver.MustParse("v3.0.0"), nil
 	}
 
 	return *ver, nil
