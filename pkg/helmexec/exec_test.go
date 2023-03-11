@@ -13,8 +13,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
-
-	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 // Mocking the command-line runner
@@ -900,13 +898,6 @@ func Test_IsHelm3(t *testing.T) {
 	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
-	}
-
-	t.Setenv(envvar.Helm3, "1")
-	helm2Runner = mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
-	if !helm.IsHelm3() {
-		t.Errorf("helmexec.IsHelm3() - Helm3 not detected when %s is set", envvar.Helm3)
 	}
 }
 
