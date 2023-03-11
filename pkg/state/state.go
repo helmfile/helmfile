@@ -40,6 +40,11 @@ const (
 	EmptyTimeout = -1
 )
 
+var (
+	PendingReleasesHelmFlags = []string{"--pending", "--uninstalling"}
+	AllReleasesHelmFlags     = append([]string{"--deployed", "--failed"}, PendingReleasesHelmFlags...)
+)
+
 // ReleaseSetSpec is release set spec
 type ReleaseSetSpec struct {
 	DefaultHelmBinary string `yaml:"helmBinary,omitempty"`
@@ -550,7 +555,7 @@ type syncPrepareResult struct {
 	files   []string
 }
 
-// SyncReleases wrapper for executing helm upgrade on the releases
+// prepareSyncReleases prepare for executing helm upgrade on the releases
 func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int, opt ...SyncOpt) ([]syncPrepareResult, []error) {
 	opts := &SyncOpts{}
 	for _, o := range opt {
@@ -665,7 +670,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 }
 
 func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
-	out, err := st.listReleases(context, helm, &release)
+	out, err := st.listReleases(context, helm, &release, AllReleasesHelmFlags)
 	if err != nil {
 		return false, err
 	} else if out != "" {
@@ -974,19 +979,21 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	return nil
 }
 
-func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
-	flags := st.connectionFlags(release)
-	if release.Namespace != "" {
-		flags = append(flags, "--namespace", release.Namespace)
+func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec, flags []string) (string, error) {
+	if len(flags) == 0 {
+		return "", fmt.Errorf("flags must be specified for listReleases")
 	}
-	flags = append(flags, "--uninstalling")
-	flags = append(flags, "--deployed", "--failed", "--pending")
-	return helm.List(context, "^"+release.Name+"$", flags...)
+	listFlags := st.connectionFlags(release)
+	if release.Namespace != "" {
+		listFlags = append(listFlags, "--namespace", release.Namespace)
+	}
+	listFlags = append(listFlags, flags...)
+	return helm.List(context, "^"+release.Name+"$", listFlags...)
 }
 
 func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	//retrieve the version
-	if out, err := st.listReleases(context, helm, release); err == nil {
+	if out, err := st.listReleases(context, helm, release, AllReleasesHelmFlags); err == nil {
 		chartName := filepath.Base(release.Chart)
 		//the regexp without escapes : .*\s.*\s.*\s.*\schartName-(.*?)\s
 		pat := regexp.MustCompile(".*\\s.*\\s.*\\s.*\\s" + chartName + "-(.*?)\\s")

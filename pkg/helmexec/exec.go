@@ -260,8 +260,7 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 
 	enableLiveOutput := false
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, &enableLiveOutput)
-	// In v2 we have been expecting `helm list FILTER` prints nothing.
-	// In v3 helm still prints the header like `NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION`,
+	// In v3 helm prints the header like `NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION`,
 	// which confuses helmfile's existing logic that treats any non-empty output from `helm list` is considered as the indication
 	// of the release to exist.
 	//
