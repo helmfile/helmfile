@@ -1413,7 +1413,6 @@ Do you really want to apply?
 		}
 
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-		r.helm.SetPostRenderer(c.PostRenderer())
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
@@ -1569,7 +1568,6 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		helm := r.helm
 
 		helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-		helm.SetPostRenderer(c.PostRenderer())
 
 		var errs []error
 
@@ -1799,7 +1797,6 @@ Do you really want to sync?
 	var errs []error
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-	r.helm.SetPostRenderer(c.PostRenderer())
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
@@ -1873,8 +1870,6 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		if len(args) > 0 {
 			helm.SetExtraArgs(args...)
 		}
-
-		helm.SetPostRenderer(c.PostRenderer())
 
 		opts := &state.TemplateOpts{
 			Set:               c.Set(),
