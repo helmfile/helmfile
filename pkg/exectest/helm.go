@@ -48,6 +48,9 @@ type Helm struct {
 	ReleasesMutex *sync.Mutex
 
 	Helm3 bool
+
+	WaitReleaseTimeout   int
+	WaitReleaseAvailable bool
 }
 
 type Release struct {
@@ -62,15 +65,17 @@ type Affected struct {
 }
 
 func (helm *Helm) SetWaitReleaseAvailable(waitReleaseAvailable bool) {
+	helm.WaitReleaseAvailable = waitReleaseAvailable
 }
 func (helm *Helm) GetWaitReleaseAvailable() bool {
-	return false
+	return helm.WaitReleaseAvailable
 }
 
 func (helm *Helm) SetWaitReleaseTimeout(waitReleaseTimeout int) {
+	helm.WaitReleaseTimeout = waitReleaseTimeout
 }
 func (helm *Helm) GetWaitReleaseTimeout() int {
-	return 300
+	return helm.WaitReleaseTimeout
 }
 
 func (helm *Helm) UpdateDeps(chart string) error {

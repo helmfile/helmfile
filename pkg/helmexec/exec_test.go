@@ -12,6 +12,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -991,4 +992,19 @@ func Test_ShowChart(t *testing.T) {
 	if metadata.Version != "3.2.0" {
 		t.Errorf("helmexec.ShowChart() - expected chart version was %s, received: %s", "3.2.0", metadata.Version)
 	}
+}
+
+func Test_WaitRelease(t *testing.T) {
+	helm := &execer{}
+	helm.SetWaitReleaseAvailable(true)
+	require.Equalf(t, true, helm.GetWaitReleaseAvailable(), "helm.GetWaitReleaseAvailable() should return true")
+
+	helm.SetWaitReleaseAvailable(false)
+	require.Equalf(t, false, helm.GetWaitReleaseAvailable(), "helm.GetWaitReleaseAvailable() should return false")
+
+	helm.SetWaitReleaseTimeout(10)
+	require.Equalf(t, 10, helm.GetWaitReleaseTimeout(), "helm.GetWaitReleaseTimeout() should return 10")
+
+	helm.SetWaitReleaseTimeout(0)
+	require.Equalf(t, 0, helm.GetWaitReleaseTimeout(), "helm.GetWaitReleaseTimeout() should return 0")
 }

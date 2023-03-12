@@ -2038,7 +2038,7 @@ func (st *HelmState) WaitReleaseAvailable(context helmexec.HelmContext, helm hel
 			} else {
 				st.logger.Debugf("release %s is still pending", release.Name)
 			}
-			if time.Since(startTime) > time.Duration(helm.GetWaitReleaseTimeout()) {
+			if time.Since(startTime) > time.Duration(helm.GetWaitReleaseTimeout())*time.Second {
 				result <- fmt.Errorf("timeout waiting for release %s to be available", release.Name)
 				return
 			}

@@ -1779,6 +1779,48 @@ func TestHelmState_DiffReleases(t *testing.T) {
 	}
 }
 
+func TestWaitReleaseAvailable(t *testing.T) {
+	r := &ReleaseSpec{
+		Name:      "releaseName",
+		Namespace: "default",
+	}
+	helm := &exectest.Helm{}
+	helm.SetWaitReleaseTimeout(5)
+	state := &HelmState{
+		logger: logger,
+	}
+
+	tests := []struct {
+		name    string
+		lists   map[exectest.ListKey]string
+		wantErr bool
+	}{
+		{
+			name: "no pending release",
+			lists: map[exectest.ListKey]string{
+				{Filter: "^releaseName$", Flags: "--namespacedefault--pending--uninstalling"}: ""},
+			wantErr: false,
+		},
+		{
+			name: "pending release",
+			lists: map[exectest.ListKey]string{
+				{Filter: "^releaseName$", Flags: "--namespacedefault--pending--uninstalling"}: "releaseName\tdefault\tpending-upgrade"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			helm.Lists = tt.lists
+			c := state.WaitReleaseAvailable(helmexec.HelmContext{}, helm, r)
+			err := <-c
+			if (err != nil) != tt.wantErr {
+				t.Errorf("WaitReleaseAvailable() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestHelmState_DiffFlags(t *testing.T) {
 	tests := []struct {
 		name          string
