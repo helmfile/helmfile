@@ -2506,9 +2506,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendHelmXFlags(flags, release)
 
+	postRenderer := ""
 	if opt != nil {
-		flags = st.appendPostRenderFlags(flags, release, opt.PostRenderer)
+		postRenderer = opt.PostRenderer
 	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2526,9 +2528,11 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 
 	flags = st.appendApiVersionsFlags(flags, release)
 
+	postRenderer := ""
 	if opt != nil {
-		flags = st.appendPostRenderFlags(flags, release, opt.PostRenderer)
+		postRenderer = opt.PostRenderer
 	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2567,9 +2571,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendHelmXFlags(flags, release)
 
+	postRenderer := ""
 	if opt != nil {
-		flags = st.appendPostRenderFlags(flags, release, opt.PostRenderer)
+		postRenderer = opt.PostRenderer
 	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
