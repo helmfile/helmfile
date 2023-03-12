@@ -21,6 +21,17 @@ func (helm *versionOnlyHelmExec) IsHelm3() bool {
 func (helm *noCallHelmExec) doPanic() {
 	panic("unexpected call to helm")
 }
+func (helm *noCallHelmExec) SetWaitReleaseAvailable(waitReleaseAvailable bool) {
+}
+func (helm *noCallHelmExec) GetWaitReleaseAvailable() bool {
+	return false
+}
+
+func (helm *noCallHelmExec) SetWaitReleaseTimeout(waitReleaseTimeout int) {
+}
+func (helm *noCallHelmExec) GetWaitReleaseTimeout() int {
+	return 300
+}
 
 func (helm *noCallHelmExec) TemplateRelease(name, chart string, flags ...string) error {
 	helm.doPanic()

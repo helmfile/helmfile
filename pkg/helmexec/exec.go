@@ -38,6 +38,8 @@ type execer struct {
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
+	WaitReleaseAvailable bool
+	WaitReleaseTimeout   int
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -121,6 +123,22 @@ func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, ku
 		runner:           runner,
 		decryptedSecrets: make(map[string]*decryptedSecret),
 	}
+}
+
+func (helm *execer) SetWaitReleaseAvailable(waitReleaseAvailable bool) {
+	helm.WaitReleaseAvailable = waitReleaseAvailable
+}
+
+func (helm *execer) SetWaitReleaseTimeout(waitReleaseTimeout int) {
+	helm.WaitReleaseTimeout = waitReleaseTimeout
+}
+
+func (helm *execer) GetWaitReleaseAvailable() bool {
+	return helm.WaitReleaseAvailable
+}
+
+func (helm *execer) GetWaitReleaseTimeout() int {
+	return helm.WaitReleaseTimeout
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {

@@ -35,6 +35,8 @@ func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&destroyOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&destroyOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	f.BoolVar(&destroyOptions.SkipCharts, "skip-charts", false, "don't prepare charts when destroying releases")
+	f.BoolVar(&destroyOptions.WaitReleaseAvailable, "wait-release-available", false, "wait for the release to be available in the cluster before proceeding to the next release")
+	f.IntVar(&destroyOptions.WaitReleaseTimeout, "wait-release-timeout", 300, "timeout in seconds for waiting for the release to be available in the cluster before proceeding to the next release")
 
 	return cmd
 }

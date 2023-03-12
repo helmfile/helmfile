@@ -11,6 +11,10 @@ type DeleteOptions struct {
 	SkipDeps bool
 	// SkipCharts makes Delete skip `withPreparedCharts`
 	SkipCharts bool
+	// WaitReleaseAvailable is true if the helm command should wait for the release to not be in a pending state
+	WaitReleaseAvailable bool
+	// WaitReleaseTimeout is the timeout for the helm command to wait for the release to not be in a pending state
+	WaitReleaseTimeout int
 }
 
 // NewDeleteOptions creates a new Apply
@@ -50,4 +54,14 @@ func (c *DeleteImpl) SkipDeps() bool {
 // SkipCharts returns skipCharts flag
 func (c *DeleteImpl) SkipCharts() bool {
 	return c.DeleteOptions.SkipCharts
+}
+
+// WaitReleaseAvailable returns the wait release available
+func (c *DeleteImpl) WaitReleaseAvailable() bool {
+	return c.DeleteOptions.WaitReleaseAvailable
+}
+
+// WaitReleaseTimeout returns the wait release timeout
+func (c *DeleteImpl) WaitReleaseTimeout() int {
+	return c.DeleteOptions.WaitReleaseTimeout
 }

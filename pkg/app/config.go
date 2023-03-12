@@ -41,7 +41,14 @@ type ReposConfigProvider interface {
 	IncludeTransitiveNeeds() bool
 }
 
+type WaitRelease interface {
+	WaitReleaseAvailable() bool
+	WaitReleaseTimeout() int
+}
+
 type ApplyConfigProvider interface {
+	WaitRelease
+
 	Args() string
 	PostRenderer() string
 
@@ -83,6 +90,7 @@ type ApplyConfigProvider interface {
 }
 
 type SyncConfigProvider interface {
+	WaitRelease
 	Args() string
 	PostRenderer() string
 
@@ -139,6 +147,7 @@ type DiffConfigProvider interface {
 
 // TODO: Remove this function once Helmfile v0.x
 type DeleteConfigProvider interface {
+	WaitRelease
 	Args() string
 
 	Purge() bool
@@ -151,6 +160,7 @@ type DeleteConfigProvider interface {
 }
 
 type DestroyConfigProvider interface {
+	WaitRelease
 	Args() string
 
 	SkipDeps() bool

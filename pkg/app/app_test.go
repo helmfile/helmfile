@@ -2214,9 +2214,20 @@ type applyConfig struct {
 	reuseValues            bool
 	postRenderer           string
 
+	waitReleaseAvailable bool
+	waitReleaseTimeout   int
+
 	// template-only options
 	includeCRDs, skipTests       bool
 	outputDir, outputDirTemplate string
+}
+
+func (a applyConfig) WaitReleaseAvailable() bool {
+	return a.waitReleaseAvailable
+}
+
+func (a applyConfig) WaitReleaseTimeout() int {
+	return a.waitReleaseTimeout
 }
 
 func (a applyConfig) Args() string {
@@ -2414,6 +2425,18 @@ type mockTemplates struct {
 
 type mockRepo struct {
 	Name string
+}
+
+func (helm *mockHelmExec) SetWaitReleaseAvailable(waitReleaseAvailable bool) {
+}
+func (helm *mockHelmExec) GetWaitReleaseAvailable() bool {
+	return false
+}
+
+func (helm *mockHelmExec) SetWaitReleaseTimeout(waitReleaseTimeout int) {
+}
+func (helm *mockHelmExec) GetWaitReleaseTimeout() int {
+	return 300
 }
 
 func (helm *mockHelmExec) TemplateRelease(name, chart string, flags ...string) error {

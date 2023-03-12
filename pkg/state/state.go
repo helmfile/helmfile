@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	"time"
 
 	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
@@ -796,16 +797,11 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else {
-					var args []string
-					if release.Namespace != "" {
-						args = append(args, "--namespace", release.Namespace)
-					}
-					deletionFlags := st.appendConnectionFlags(args, release)
 					m.Lock()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
-					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+					} else if err := st.DeleteRelease(context, helm, release); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
@@ -848,6 +844,19 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		return errs
 	}
 	return nil
+}
+
+// SyncRelease wrapper for executing helm upgrade on the release
+func (st *HelmState) SyncRelease(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec, flags ...string) error {
+	if helm.GetWaitReleaseAvailable() {
+		r := st.WaitReleaseAvailable(context, helm, release)
+		err := <-r
+		if err != nil {
+			return err
+		}
+	}
+	chart := normalizeChart(st.basePath, release.ChartPathOrName())
+	return helm.SyncRelease(context, release.Name, chart, flags...)
 }
 
 // SyncReleases wrapper for executing helm upgrade on the releases
@@ -893,7 +902,6 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
-				chart := normalizeChart(st.basePath, release.ChartPathOrName())
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
 
@@ -904,13 +912,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					if err != nil {
 						relErr = newReleaseFailedError(release, err)
 					} else if installed {
-						var args []string
-						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
 						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
-						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+						} else if err := st.DeleteRelease(context, helm, release); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
@@ -921,7 +927,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						}
 						m.Unlock()
 					}
-				} else if err := helm.SyncRelease(context, release.Name, chart, flags...); err != nil {
+				} else if err := st.SyncRelease(context, helm, release, flags...); err != nil {
 					m.Lock()
 					affectedReleases.Failed = append(affectedReleases.Failed, release)
 					m.Unlock()
@@ -2015,16 +2021,56 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 	})
 }
 
+// WaitReleaseAvailable waits for a release to not be in pending state
+func (st *HelmState) WaitReleaseAvailable(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) chan error {
+	result := make(chan error, 1)
+	go func() {
+		startTime := time.Now()
+		for {
+			o, err := st.listReleases(context, helm, release, PendingReleasesHelmFlags)
+			if err != nil {
+				result <- err
+				return
+			}
+			if len(o) == 0 {
+				result <- nil
+				return
+			} else {
+				st.logger.Debugf("release %s is still pending", release.Name)
+			}
+			if time.Since(startTime) > time.Duration(helm.GetWaitReleaseTimeout()) {
+				result <- fmt.Errorf("timeout waiting for release %s to be available", release.Name)
+				return
+			}
+			// TODO: make this configurable
+			time.Sleep(1 * time.Second)
+		}
+	}()
+	return result
+}
+
+// DeleteRelease wrapper for executing helm delete release
+func (st *HelmState) DeleteRelease(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) error {
+	if helm.GetWaitReleaseAvailable() {
+		r := st.WaitReleaseAvailable(context, helm, release)
+		err := <-r
+		if err != nil {
+			return err
+		}
+	}
+	flags := make([]string, 0)
+	flags = st.appendConnectionFlags(flags, release)
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
+	}
+	return helm.DeleteRelease(context, release.Name, flags...)
+}
+
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool) []error {
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
-		flags := make([]string, 0)
-		flags = st.appendConnectionFlags(flags, &release)
-		if release.Namespace != "" {
-			flags = append(flags, "--namespace", release.Namespace)
-		}
 		context := st.createHelmContext(&release, workerIndex)
 
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
@@ -2033,7 +2079,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			return err
 		}
 
-		if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
+		if err := st.DeleteRelease(context, helm, &release); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
 		}

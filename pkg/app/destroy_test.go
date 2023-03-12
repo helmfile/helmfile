@@ -40,6 +40,16 @@ type destroyConfig struct {
 	logger                 *zap.SugaredLogger
 	includeTransitiveNeeds bool
 	skipCharts             bool
+	waitReleaseAvailable   bool
+	waitReleaseTimeout     int
+}
+
+func (d destroyConfig) WaitReleaseAvailable() bool {
+	return d.waitReleaseAvailable
+}
+
+func (d destroyConfig) WaitReleaseTimeout() int {
+	return d.waitReleaseTimeout
 }
 
 func (d destroyConfig) Args() string {

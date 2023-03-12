@@ -8,6 +8,10 @@ type DestroyOptions struct {
 	SkipDeps bool
 	// SkipCharts makes Destroy skip `withPreparedCharts`
 	SkipCharts bool
+	// WaitReleaseAvailable is true if the helm command should wait for the release to not be in a pending state
+	WaitReleaseAvailable bool
+	// WaitReleaseTimeout is the timeout for the helm command to wait for the release to not be in a pending state
+	WaitReleaseTimeout int
 }
 
 // NewDestroyOptions creates a new Apply
@@ -42,4 +46,14 @@ func (c *DestroyImpl) SkipDeps() bool {
 // SkipCharts returns skipCharts flag
 func (c *DestroyImpl) SkipCharts() bool {
 	return c.DestroyOptions.SkipCharts
+}
+
+// WaitReleaseAvailable returns the wait release available
+func (c *DestroyImpl) WaitReleaseAvailable() bool {
+	return c.DestroyOptions.WaitReleaseAvailable
+}
+
+// WaitReleaseTimeout returns the wait release timeout
+func (c *DestroyImpl) WaitReleaseTimeout() int {
+	return c.DestroyOptions.WaitReleaseTimeout
 }

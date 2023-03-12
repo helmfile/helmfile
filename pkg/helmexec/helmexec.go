@@ -9,8 +9,23 @@ type Version struct {
 	Patch int
 }
 
+// PostRenderer is an interface for post renderers
+type PostRenderer interface {
+	SetPostRenderer(postRenderer string)
+	GetPostRenderer() string
+}
+
+type WaitRelease interface {
+	SetWaitReleaseAvailable(waitReleaseAvailable bool)
+	GetWaitReleaseAvailable() bool
+	SetWaitReleaseTimeout(waitReleaseTimeout int)
+	GetWaitReleaseTimeout() int
+}
+
 // Interface for executing helm commands
 type Interface interface {
+	PostRenderer
+	WaitRelease
 	SetExtraArgs(args ...string)
 	SetHelmBinary(bin string)
 	SetEnableLiveOutput(enableLiveOutput bool)

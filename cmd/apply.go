@@ -65,6 +65,8 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reuse-values"`)
 	f.BoolVar(&applyOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reset-values"`)
 	f.StringVar(&applyOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
+	f.BoolVar(&applyOptions.WaitReleaseAvailable, "wait-release-available", false, "wait for the release to be available in the cluster before proceeding to the next release")
+	f.IntVar(&applyOptions.WaitReleaseTimeout, "wait-release-timeout", 300, "timeout in seconds for waiting for the release to be available in the cluster before proceeding to the next release")
 
 	return cmd
 }

@@ -30,6 +30,10 @@ type SyncOptions struct {
 	ResetValues bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
+	// WaitReleaseAvailable is true if the helm command should wait for the release to not be in a pending state
+	WaitReleaseAvailable bool
+	// WaitReleaseTimeout is the timeout for the helm command to wait for the release to not be in a pending state
+	WaitReleaseTimeout int
 }
 
 // NewSyncOptions creates a new Apply
@@ -117,6 +121,8 @@ func (t *SyncImpl) ReuseValues() bool {
 	}
 	return false
 }
+
+// ResetValues returns the ResetValues.
 func (t *SyncImpl) ResetValues() bool {
 	return t.SyncOptions.ResetValues
 }
@@ -124,4 +130,14 @@ func (t *SyncImpl) ResetValues() bool {
 // PostRenderer returns the PostRenderer.
 func (t *SyncImpl) PostRenderer() string {
 	return t.SyncOptions.PostRenderer
+}
+
+// WaitReleaseAvailable returns the WaitReleaseAvailable.
+func (t *SyncImpl) WaitReleaseAvailable() bool {
+	return t.SyncOptions.WaitReleaseAvailable
+}
+
+// WaitReleaseTimeout returns the WaitReleaseTimeout.
+func (t *SyncImpl) WaitReleaseTimeout() int {
+	return t.SyncOptions.WaitReleaseTimeout
 }

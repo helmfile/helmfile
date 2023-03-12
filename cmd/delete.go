@@ -37,6 +37,8 @@ func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&deleteOptions.Purge, "purge", false, "purge releases i.e. free release names and histories")
 	f.BoolVar(&deleteOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	f.BoolVar(&deleteOptions.SkipCharts, "skip-charts", false, "don't prepare charts when deleting releases")
+	f.BoolVar(&deleteOptions.WaitReleaseAvailable, "wait-release-available", false, "wait for the release to be available in the cluster before proceeding to the next release")
+	f.IntVar(&deleteOptions.WaitReleaseTimeout, "wait-release-timeout", 300, "timeout in seconds for waiting for the release to be available in the cluster before proceeding to the next release")
 
 	return cmd
 }

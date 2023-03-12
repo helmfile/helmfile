@@ -61,6 +61,18 @@ type Affected struct {
 	Failed   []*Release
 }
 
+func (helm *Helm) SetWaitReleaseAvailable(waitReleaseAvailable bool) {
+}
+func (helm *Helm) GetWaitReleaseAvailable() bool {
+	return false
+}
+
+func (helm *Helm) SetWaitReleaseTimeout(waitReleaseTimeout int) {
+}
+func (helm *Helm) GetWaitReleaseTimeout() int {
+	return 300
+}
+
 func (helm *Helm) UpdateDeps(chart string) error {
 	if strings.Contains(chart, "error") {
 		return fmt.Errorf("simulated UpdateDeps failure for chart: %s", chart)

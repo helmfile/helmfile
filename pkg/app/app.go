@@ -1303,6 +1303,9 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
+	helm.SetWaitReleaseAvailable(c.WaitReleaseAvailable())
+	helm.SetWaitReleaseTimeout(c.WaitReleaseTimeout())
+
 	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, false, []error{err}
@@ -1488,6 +1491,9 @@ Do you really want to apply?
 func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
+
+	helm.SetWaitReleaseAvailable(c.WaitReleaseAvailable())
+	helm.SetWaitReleaseTimeout(c.WaitReleaseTimeout())
 
 	affectedReleases := state.AffectedReleases{}
 
@@ -1690,6 +1696,9 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
+
+	helm.SetWaitReleaseAvailable(c.WaitReleaseAvailable())
+	helm.SetWaitReleaseTimeout(c.WaitReleaseTimeout())
 
 	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
 	if err != nil {

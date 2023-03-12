@@ -57,6 +57,10 @@ type ApplyOptions struct {
 	ResetValues bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
+	// WaitReleaseAvailable is true if the helm command should wait for the release to not be in a pending state
+	WaitReleaseAvailable bool
+	// WaitReleaseTimeout is the timeout for the helm command to wait for the release to not be in a pending state
+	WaitReleaseTimeout int
 }
 
 // NewApply creates a new Apply
@@ -205,6 +209,7 @@ func (a *ApplyImpl) ReuseValues() bool {
 	return false
 }
 
+// ResetValues returns the ResetValues.
 func (a *ApplyImpl) ResetValues() bool {
 	return a.ApplyOptions.ResetValues
 }
@@ -212,4 +217,14 @@ func (a *ApplyImpl) ResetValues() bool {
 // PostRenderer returns the PostRenderer.
 func (a *ApplyImpl) PostRenderer() string {
 	return a.ApplyOptions.PostRenderer
+}
+
+// WaitReleaseAvailable returns the WaitReleaseAvailable.
+func (a *ApplyImpl) WaitReleaseAvailable() bool {
+	return a.ApplyOptions.WaitReleaseAvailable
+}
+
+// WaitReleaseTimeout returns the WaitReleaseTimeout.
+func (a *ApplyImpl) WaitReleaseTimeout() int {
+	return a.ApplyOptions.WaitReleaseTimeout
 }
