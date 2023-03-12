@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	helmV3ListFlags                   = "--kube-contextdefault--uninstalling--deployed--failed--pending"
-	helmV3ListFlagsWithoutKubeContext = "--uninstalling--deployed--failed--pending"
+	helmV3ListFlags                   = "--kube-contextdefault--deployed--failed--pending--uninstalling"
+	helmV3ListFlagsWithoutKubeContext = "--deployed--failed--pending--uninstalling"
 )
 
 func listFlags(namespace, kubeContext string) string {
@@ -27,7 +27,7 @@ func listFlags(namespace, kubeContext string) string {
 	if namespace != "" {
 		flags = append(flags, "--namespace", namespace)
 	}
-	flags = append(flags, "--uninstalling--deployed--failed--pending")
+	flags = append(flags, "--deployed--failed--pending--uninstalling")
 
 	return strings.Join(flags, "")
 }
