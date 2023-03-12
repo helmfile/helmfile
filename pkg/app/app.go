@@ -1881,6 +1881,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			OutputDirTemplate: c.OutputDirTemplate(),
 			SkipCleanup:       c.SkipCleanup(),
 			SkipTests:         c.SkipTests(),
+			PostRenderer:      c.PostRenderer(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})
