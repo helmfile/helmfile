@@ -1347,6 +1347,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 		ReuseValues:       c.ReuseValues(),
 		ResetValues:       c.ResetValues(),
+		PostRenderer:      c.PostRenderer(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1451,13 +1452,14 @@ Do you really want to apply?
 				subst.Releases = rs
 
 				syncOpts := &state.SyncOpts{
-					Set:         c.Set(),
-					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
-					SkipCRDs:    c.SkipCRDs(),
-					Wait:        c.Wait(),
-					WaitForJobs: c.WaitForJobs(),
-					ReuseValues: c.ReuseValues(),
-					ResetValues: c.ResetValues(),
+					Set:          c.Set(),
+					SkipCleanup:  c.RetainValuesFiles() || c.SkipCleanup(),
+					SkipCRDs:     c.SkipCRDs(),
+					Wait:         c.Wait(),
+					WaitForJobs:  c.WaitForJobs(),
+					ReuseValues:  c.ReuseValues(),
+					ResetValues:  c.ResetValues(),
+					PostRenderer: c.PostRenderer(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1580,6 +1582,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			SkipDiffOnInstall: c.SkipDiffOnInstall(),
 			ReuseValues:       c.ReuseValues(),
 			ResetValues:       c.ResetValues(),
+			PostRenderer:      c.PostRenderer(),
 		}
 
 		filtered := &Run{
@@ -1839,12 +1842,13 @@ Do you really want to sync?
 				subst.Releases = rs
 
 				opts := &state.SyncOpts{
-					Set:         c.Set(),
-					SkipCRDs:    c.SkipCRDs(),
-					Wait:        c.Wait(),
-					WaitForJobs: c.WaitForJobs(),
-					ReuseValues: c.ReuseValues(),
-					ResetValues: c.ResetValues(),
+					Set:          c.Set(),
+					SkipCRDs:     c.SkipCRDs(),
+					Wait:         c.Wait(),
+					WaitForJobs:  c.WaitForJobs(),
+					ReuseValues:  c.ReuseValues(),
+					ResetValues:  c.ResetValues(),
+					PostRenderer: c.PostRenderer(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

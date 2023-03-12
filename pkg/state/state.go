@@ -719,7 +719,7 @@ type SyncOpts struct {
 	WaitForJobs  bool
 	ReuseValues  bool
 	ResetValues  bool
-	postRenderer string
+	PostRenderer string
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -2507,7 +2507,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	flags = st.appendHelmXFlags(flags, release)
 
 	if opt != nil {
-		flags = st.appendPostRenderFlags(flags, release, opt.postRenderer)
+		flags = st.appendPostRenderFlags(flags, release, opt.PostRenderer)
 	}
 
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
