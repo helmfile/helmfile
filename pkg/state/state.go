@@ -598,7 +598,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
-				flags, files, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
+				flags, files, flagsErr := st.flagsForUpgrade(helm, release, workerIndex, opts)
 				mut.Unlock()
 				if flagsErr != nil {
 					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseFailedError(release, flagsErr)}, files: files}
@@ -712,13 +712,14 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 }
 
 type SyncOpts struct {
-	Set         []string
-	SkipCleanup bool
-	SkipCRDs    bool
-	Wait        bool
-	WaitForJobs bool
-	ReuseValues bool
-	ResetValues bool
+	Set          []string
+	SkipCleanup  bool
+	SkipCRDs     bool
+	Wait         bool
+	WaitForJobs  bool
+	ReuseValues  bool
+	ResetValues  bool
+	PostRenderer string
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1370,6 +1371,7 @@ type TemplateOpts struct {
 	OutputDirTemplate string
 	IncludeCRDs       bool
 	SkipTests         bool
+	PostRenderer      string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1397,7 +1399,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		st.ApplyOverrides(release)
 
-		flags, files, err := st.flagsForTemplate(helm, release, 0)
+		flags, files, err := st.flagsForTemplate(helm, release, 0, opts)
 
 		if !opts.SkipCleanup {
 			defer st.removeFiles(files)
@@ -1787,7 +1789,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
-				flags, files, err := st.flagsForDiff(helm, release, disableValidation, workerIndex)
+				flags, files, err := st.flagsForDiff(helm, release, disableValidation, workerIndex, opt)
 				mut.Unlock()
 				if err != nil {
 					errs = append(errs, err)
@@ -1878,6 +1880,7 @@ type DiffOpts struct {
 	SkipDiffOnInstall bool
 	ReuseValues       bool
 	ResetValues       bool
+	PostRenderer      string
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2451,7 +2454,7 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 	return flags
 }
 
-func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
 
 	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
@@ -2503,7 +2506,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendHelmXFlags(flags, release)
 
-	flags = st.appendPostRenderFlags(flags, release, helm)
+	postRenderer := ""
+	if opt != nil {
+		postRenderer = opt.PostRenderer
+	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2512,7 +2519,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	return append(flags, common...), clean, nil
 }
 
-func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error) {
 	var flags []string
 
 	flags = st.chartVersionFlags(release)
@@ -2521,7 +2528,11 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 
 	flags = st.appendApiVersionsFlags(flags, release)
 
-	flags = st.appendPostRenderFlags(flags, release, helm)
+	postRenderer := ""
+	if opt != nil {
+		postRenderer = opt.PostRenderer
+	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2530,7 +2541,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	return append(flags, common...), files, nil
 }
 
-func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
 
 	disableOpenAPIValidation := false
@@ -2560,7 +2571,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendHelmXFlags(flags, release)
 
-	flags = st.appendPostRenderFlags(flags, release, helm)
+	postRenderer := ""
+	if opt != nil {
+		postRenderer = opt.PostRenderer
+	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {

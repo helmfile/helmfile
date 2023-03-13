@@ -715,7 +715,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Version: tt.version,
 			}
 
-			args, _, err := state.flagsForUpgrade(helm, tt.release, 0)
+			args, _, err := state.flagsForUpgrade(helm, tt.release, 0, nil)
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}
@@ -827,7 +827,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 				Version: tt.version,
 			}
 
-			args, _, err := state.flagsForTemplate(helm, tt.release, 0)
+			args, _, err := state.flagsForTemplate(helm, tt.release, 0, &TemplateOpts{})
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}
@@ -1812,7 +1812,7 @@ func TestHelmState_DiffFlags(t *testing.T) {
 				RenderedValues: map[string]interface{}{},
 			}
 			for j := range tt.releases {
-				flags, _, errs := state.flagsForDiff(tt.helm, &tt.releases[j], false, 1)
+				flags, _, errs := state.flagsForDiff(tt.helm, &tt.releases[j], false, 1, nil)
 				if errs != nil {
 					t.Errorf("unexpected error: %v", errs)
 				}

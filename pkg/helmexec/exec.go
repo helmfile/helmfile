@@ -35,7 +35,6 @@ type execer struct {
 	logger               *zap.SugaredLogger
 	kubeContext          string
 	extra                []string
-	postRenderer         string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
@@ -134,14 +133,6 @@ func (helm *execer) SetHelmBinary(bin string) {
 
 func (helm *execer) SetEnableLiveOutput(enableLiveOutput bool) {
 	helm.enableLiveOutput = enableLiveOutput
-}
-
-func (helm *execer) SetPostRenderer(postRenderer string) {
-	helm.postRenderer = postRenderer
-}
-
-func (helm *execer) GetPostRenderer() string {
-	return helm.postRenderer
 }
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {

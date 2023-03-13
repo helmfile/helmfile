@@ -1347,6 +1347,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 		ReuseValues:       c.ReuseValues(),
 		ResetValues:       c.ResetValues(),
+		PostRenderer:      c.PostRenderer(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1413,7 +1414,6 @@ Do you really want to apply?
 		}
 
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-		r.helm.SetPostRenderer(c.PostRenderer())
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
@@ -1452,13 +1452,14 @@ Do you really want to apply?
 				subst.Releases = rs
 
 				syncOpts := &state.SyncOpts{
-					Set:         c.Set(),
-					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
-					SkipCRDs:    c.SkipCRDs(),
-					Wait:        c.Wait(),
-					WaitForJobs: c.WaitForJobs(),
-					ReuseValues: c.ReuseValues(),
-					ResetValues: c.ResetValues(),
+					Set:          c.Set(),
+					SkipCleanup:  c.RetainValuesFiles() || c.SkipCleanup(),
+					SkipCRDs:     c.SkipCRDs(),
+					Wait:         c.Wait(),
+					WaitForJobs:  c.WaitForJobs(),
+					ReuseValues:  c.ReuseValues(),
+					ResetValues:  c.ResetValues(),
+					PostRenderer: c.PostRenderer(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1569,7 +1570,6 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		helm := r.helm
 
 		helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-		helm.SetPostRenderer(c.PostRenderer())
 
 		var errs []error
 
@@ -1582,6 +1582,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			SkipDiffOnInstall: c.SkipDiffOnInstall(),
 			ReuseValues:       c.ReuseValues(),
 			ResetValues:       c.ResetValues(),
+			PostRenderer:      c.PostRenderer(),
 		}
 
 		filtered := &Run{
@@ -1799,7 +1800,6 @@ Do you really want to sync?
 	var errs []error
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-	r.helm.SetPostRenderer(c.PostRenderer())
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
@@ -1842,12 +1842,13 @@ Do you really want to sync?
 				subst.Releases = rs
 
 				opts := &state.SyncOpts{
-					Set:         c.Set(),
-					SkipCRDs:    c.SkipCRDs(),
-					Wait:        c.Wait(),
-					WaitForJobs: c.WaitForJobs(),
-					ReuseValues: c.ReuseValues(),
-					ResetValues: c.ResetValues(),
+					Set:          c.Set(),
+					SkipCRDs:     c.SkipCRDs(),
+					Wait:         c.Wait(),
+					WaitForJobs:  c.WaitForJobs(),
+					ReuseValues:  c.ReuseValues(),
+					ResetValues:  c.ResetValues(),
+					PostRenderer: c.PostRenderer(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))
@@ -1874,14 +1875,13 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			helm.SetExtraArgs(args...)
 		}
 
-		helm.SetPostRenderer(c.PostRenderer())
-
 		opts := &state.TemplateOpts{
 			Set:               c.Set(),
 			IncludeCRDs:       c.IncludeCRDs(),
 			OutputDirTemplate: c.OutputDirTemplate(),
 			SkipCleanup:       c.SkipCleanup(),
 			SkipTests:         c.SkipTests(),
+			PostRenderer:      c.PostRenderer(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

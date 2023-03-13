@@ -2439,15 +2439,13 @@ func (helm *mockHelmExec) BuildDeps(name, chart string, flags ...string) error {
 
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 }
+
 func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
+
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
 }
-func (helm *mockHelmExec) SetPostRenderer(postRenderer string) {
-}
-func (helm *mockHelmExec) GetPostRenderer() string {
-	return ""
-}
+
 func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	helm.repos = append(helm.repos, mockRepo{Name: name})
 	return nil
