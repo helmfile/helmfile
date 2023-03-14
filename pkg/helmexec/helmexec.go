@@ -10,11 +10,6 @@ type Version struct {
 }
 
 // PostRenderer is an interface for post renderers
-type PostRenderer interface {
-	SetPostRenderer(postRenderer string)
-	GetPostRenderer() string
-}
-
 type WaitRelease interface {
 	SetWaitReleaseAvailable(waitReleaseAvailable bool)
 	GetWaitReleaseAvailable() bool
@@ -24,7 +19,6 @@ type WaitRelease interface {
 
 // Interface for executing helm commands
 type Interface interface {
-	PostRenderer
 	WaitRelease
 	SetExtraArgs(args ...string)
 	SetHelmBinary(bin string)
