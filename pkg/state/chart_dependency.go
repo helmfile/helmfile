@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	goversion "github.com/hashicorp/go-version"
-	"github.com/r3labs/diff"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/app/version"
@@ -297,10 +295,7 @@ func (m *chartDependencyManager) lockFileName() string {
 }
 
 func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
-	if shell.IsHelm3() {
-		return m.updateHelm3(shell, wd, unresolved)
-	}
-	return m.updateHelm2(shell, wd, unresolved)
+	return m.updateHelm3(shell, wd, unresolved)
 }
 
 func (m *chartDependencyManager) updateHelm3(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
@@ -319,24 +314,6 @@ func (m *chartDependencyManager) updateHelm3(shell helmexec.DependencyUpdater, w
 	return m.doUpdate("Chart.lock", unresolved, shell, wd)
 }
 
-func (m *chartDependencyManager) updateHelm2(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
-	// Generate `Chart.yaml` of the temporary local chart
-	if err := m.writeBytes(filepath.Join(wd, "Chart.yaml"), []byte(fmt.Sprintf("name: %s\nversion: 1.0.0\n", m.Name))); err != nil {
-		return nil, err
-	}
-
-	// Generate `requirements.yaml` of the temporary local chart from the helmfile state
-	reqsContent, err := yaml.Marshal(unresolved.ToChartRequirements())
-	if err != nil {
-		return nil, err
-	}
-	if err := m.writeBytes(filepath.Join(wd, "requirements.yaml"), reqsContent); err != nil {
-		return nil, err
-	}
-
-	return m.doUpdate("requirements.lock", unresolved, shell, wd)
-}
-
 func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *UnresolvedDependencies, shell helmexec.DependencyUpdater, wd string) (*ResolvedDependencies, error) {
 	// Generate `requirements.lock` of the temporary local chart by coping `<basename>.lock`
 	lockFilePath := m.lockFileName()
@@ -346,7 +323,7 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 		return nil, err
 	}
 
-	if shell.IsHelm3() && originalLockFileContent != nil {
+	if originalLockFileContent != nil {
 		if err := m.writeBytes(filepath.Join(wd, chartLockFile), originalLockFileContent); err != nil {
 			return nil, err
 		}
@@ -371,24 +348,6 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 	sort.Slice(lockedReqs.ResolvedDependencies, func(i, j int) bool {
 		return lockedReqs.ResolvedDependencies[i].ChartName < lockedReqs.ResolvedDependencies[j].ChartName
 	})
-
-	// Don't update lock file if no dependency updated.
-	if !shell.IsHelm3() && originalLockFileContent != nil {
-		originalLockedReqs := &ChartLockedRequirements{}
-		if err := yaml.Unmarshal(originalLockFileContent, originalLockedReqs); err != nil {
-			return nil, err
-		}
-
-		changes, err := diff.Diff(originalLockedReqs.ResolvedDependencies, lockedReqs.ResolvedDependencies)
-
-		if err != nil {
-			return nil, err
-		}
-
-		if len(changes) == 0 {
-			lockedReqs.Generated = originalLockedReqs.Generated
-		}
-	}
 
 	lockedReqs.Version = version.Version()
 
@@ -424,13 +383,13 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 
 	// Make sure go run main.go works and compatible with old lock files.
 	if version.Version() != "" && lockedReqs.Version != "" {
-		lockedVersion, err := goversion.NewVersion(lockedReqs.Version)
+		lockedVersion, err := semver.NewVersion(lockedReqs.Version)
 
 		if err != nil {
 			return nil, false, err
 		}
 
-		currentVersion, err := goversion.NewVersion(version.Version())
+		currentVersion, err := semver.NewVersion(version.Version())
 
 		if err != nil {
 			return nil, false, err

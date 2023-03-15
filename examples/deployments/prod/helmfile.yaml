@@ -1,4 +1,4 @@
-charts:
+releases:
   - name: prod-paths-example
     namespace: prod
     chart: ../../charts/paths-example/

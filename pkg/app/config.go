@@ -19,6 +19,7 @@ type ConfigProvider interface {
 	loggingConfig
 }
 
+// TODO: Remove this function once Helmfile v0.x
 type DeprecatedChartsConfigProvider interface {
 	Values() []string
 
@@ -67,7 +68,9 @@ type ApplyConfigProvider interface {
 	Context() int
 	DiffOutput() string
 
+	// TODO: Remove this function once Helmfile v0.x
 	RetainValuesFiles() bool
+
 	Validate() bool
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
@@ -106,6 +109,7 @@ type SyncConfigProvider interface {
 
 type DiffConfigProvider interface {
 	Args() string
+	PostRenderer() string
 
 	Values() []string
 	Set() []string
@@ -135,11 +139,13 @@ type DiffConfigProvider interface {
 	valuesControlMode
 }
 
+// TODO: Remove this function once Helmfile v0.x
 type DeleteConfigProvider interface {
 	Args() string
 
 	Purge() bool
 	SkipDeps() bool
+	SkipCharts() bool
 
 	interactive
 	loggingConfig
@@ -150,6 +156,7 @@ type DestroyConfigProvider interface {
 	Args() string
 
 	SkipDeps() bool
+	SkipCharts() bool
 
 	interactive
 	loggingConfig
@@ -257,7 +264,8 @@ type InitConfigProvider interface {
 	Force() bool
 }
 
-// when enable reuse-values, reuse the last release's values and merge in any overrides values.
+// reset/reuse values helm cli flags handling for apply/sync/diff
 type valuesControlMode interface {
 	ReuseValues() bool
+	ResetValues() bool
 }

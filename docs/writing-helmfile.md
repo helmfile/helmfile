@@ -112,8 +112,8 @@ releases:
 
 Release Templating supports the following parts of release definition:
 - basic fields: `name`, `namespace`, `chart`, `version`
-- boolean fields: `installed`, `wait`, `waitForJobs`, `tillerless`, `verify` by the means of additional text
-  fields designed for templating only: `installedTemplate`, `waitTemplate`, `tillerlessTemplate`, `verifyTemplate`
+- boolean fields: `installed`, `wait`, `waitForJobs`, `verify` by the means of additional text
+  fields designed for templating only: `installedTemplate`, `waitTemplate`, `verifyTemplate`
   ```yaml
   # ...
     installedTemplate: '{{`{{ eq .Release.Namespace "kube-system" }}`}}'
@@ -328,7 +328,6 @@ Where the gotmpl file loaded in the second part looks like:
 
 ```yaml
 helmDefaults:
-  tillerNamespace: kube-system
   kubeContext: {{ .Values.kubeContext }}
   verify: false
   {{ if .Values.wait }}
@@ -347,7 +346,6 @@ So in `mydefaults.yaml.gotmpl`, both `.Values.kubeContext` and `.Values.wait` ar
 
 ```yaml
 helmDefaults:
-  tillerNamespace: kube-system
   kubeContext: test
   verify: false
   wait: false

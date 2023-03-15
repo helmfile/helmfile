@@ -2,12 +2,37 @@ package tmpl
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type EmptyStruct struct {
 }
 
-func TestGetStruct(t *testing.T) {
+func TestComplexStruct(t *testing.T) {
+	type CS struct {
+		Bar map[string]string
+	}
+	obj := CS{
+		Bar: map[string]string{
+			"foo": "bar",
+		},
+	}
+
+	existValue, err := get("Bar.foo", obj)
+	require.NoErrorf(t, err, "unexpected error: %v", err)
+	require.Equalf(t, existValue, "bar", "unexpected value for path Bar.foo in %v: expected=bar, actual=%v", obj, existValue)
+
+	noExistValue, err := get("Bar.baz", obj)
+	require.Errorf(t, err, "expected error but was not occurred")
+	require.Nilf(t, noExistValue, "expected nil but was not occurred")
+
+	noExistValueWithDefault, err := get("Bar.baz", "default", obj)
+	require.NoErrorf(t, err, "unexpected error: %v", err)
+	require.Equalf(t, noExistValueWithDefault, "default", "unexpected value for path Bar.baz in %v: expected=default, actual=%v", obj, noExistValueWithDefault)
+}
+
+func TestGetSimpleStruct(t *testing.T) {
 	type Foo struct{ Bar string }
 
 	obj := struct{ Foo }{Foo{Bar: "Bar"}}

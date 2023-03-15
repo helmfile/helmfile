@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/require"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -45,6 +45,7 @@ func TestTemplate(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
+			Helm3:                true,
 		}
 
 		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -236,7 +237,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string(nil)},
+				{Name: "test2", Flags: []string{}},
 			},
 		})
 	})
@@ -249,8 +250,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string(nil)},
-				{Name: "test3", Flags: []string(nil)},
+				{Name: "test2", Flags: []string{}},
+				{Name: "test3", Flags: []string{}},
 			},
 		})
 	})
@@ -264,8 +265,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string(nil)},
-				{Name: "test3", Flags: []string(nil)},
+				{Name: "test2", Flags: []string{}},
+				{Name: "test3", Flags: []string{}},
 			},
 		})
 	})
@@ -279,7 +280,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string(nil)},
+				{Name: "test2", Flags: []string{}},
 			},
 		})
 	})
@@ -293,8 +294,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string(nil)},
-				{Name: "test3", Flags: []string(nil)},
+				{Name: "test2", Flags: []string{}},
+				{Name: "test3", Flags: []string{}},
 			},
 		})
 	})
@@ -330,6 +331,7 @@ func TestTemplate_StrictParsing(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
+			Helm3:                true,
 		}
 
 		_ = runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -433,23 +435,23 @@ func TestTemplate_CyclicInheritance(t *testing.T) {
 templates:
   a:
     inherit:
-      template: b
+    - template: b
     values:
     - a.yaml
   b:
     inherit:
-      template: c
+    - template: c
     values:
     - b.yaml
   c:
     inherit:
-      template: a
+    - template: a
     values:
     - c.yaml
 releases:
 - name: app1
   inherit:
-    template: a
+  - template: a
   chart: incubator/raw
 `,
 			}

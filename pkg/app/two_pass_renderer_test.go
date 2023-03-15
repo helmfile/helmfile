@@ -1,27 +1,32 @@
 package app
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
+	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 // nolint: unparam
-func makeLoader(files map[string]string, env string) (*desiredStateLoader, *testhelper.TestFs) {
+func makeLoader(files map[string]string, env string) (*desiredStateLoader, *testhelper.TestFs, *bytes.Buffer) {
 	testfs := testhelper.NewTestFs(files)
 	logger := newAppTestLogger()
 	r := remote.NewRemote(logger, testfs.Cwd, testfs.ToFileSystem())
+	var buf bytes.Buffer
+	loaderLogger := helmexec.NewLogger(&buf, "debug")
 	return &desiredStateLoader{
 		env:       env,
 		namespace: "namespace",
-		logger:    newAppTestLogger(),
+		logger:    loaderLogger,
 		fs:        testfs.ToFileSystem(),
 		remote:    r,
-	}, testfs
+	}, testfs, &buf
 }
 
 func TestReadFromYaml_MakeEnvironmentHasNoSideEffects(t *testing.T) {
@@ -42,7 +47,7 @@ releases:
 		"/path/to/other/default/values.yaml": `SecondPass`,
 	}
 
-	r, testfs := makeLoader(files, "staging")
+	r, testfs, _ := makeLoader(files, "staging")
 	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -90,7 +95,7 @@ releases:
 		"/path/to/default/values.yaml": defaultValuesYaml,
 	}
 
-	r, _ := makeLoader(files, "staging")
+	r, _, _ := makeLoader(files, "staging")
 	// test the double rendering
 	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
@@ -117,6 +122,65 @@ releases:
 	}
 }
 
+func testReadFromYaml_RenderTemplateLog(t *testing.T) {
+	t.Helper()
+
+	yamlContent := []byte(`
+releases:
+- name: foo
+  chart: mychart1
+- name: bar
+
+`)
+
+	files := map[string]string{}
+
+	r, _, logs := makeLoader(files, "default")
+	// test the double rendering
+	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var state state.HelmState
+	err = yaml.Unmarshal(yamlBuf.Bytes(), &state)
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if len(state.Releases) != 2 {
+		t.Fatal("there should be 2 releases")
+	}
+
+	if state.Releases[0].Name != "foo" {
+		t.Errorf("release name should be hello")
+	}
+
+	if state.Releases[1].Name != "bar" {
+		t.Error("conditional release should have been present")
+	}
+
+	assertLogEqualsToSnapshot(t, logs.String())
+}
+
+func TestReadFromYaml_RenderTemplateLog(t *testing.T) {
+	v := runtime.V1Mode
+	t.Cleanup(func() {
+		runtime.V1Mode = v
+	})
+
+	t.Run("v0mode", func(t *testing.T) {
+		runtime.V1Mode = false
+		testReadFromYaml_RenderTemplateLog(t)
+	})
+
+	t.Run("v1mode", func(t *testing.T) {
+		runtime.V1Mode = true
+		testReadFromYaml_RenderTemplateLog(t)
+	})
+}
+
 func TestReadFromYaml_RenderTemplateWithValuesReferenceError(t *testing.T) {
 	defaultValuesYaml := ``
 
@@ -138,7 +202,7 @@ releases:
 		"/path/to/default/values.yaml": defaultValuesYaml,
 	}
 
-	r, _ := makeLoader(files, "staging")
+	r, _, _ := makeLoader(files, "staging")
 	// test the double rendering
 	_, err := r.renderTemplatesToYaml("", "", yamlContent)
 
@@ -174,7 +238,7 @@ releases:
 		"/path/to/values.yaml.gotmpl": defaultValuesYamlGotmpl,
 	}
 
-	r, _ := makeLoader(files, "staging")
+	r, _, _ := makeLoader(files, "staging")
 	rendered, _ := r.renderTemplatesToYaml("", "", yamlContent)
 
 	var state state.HelmState
@@ -200,7 +264,7 @@ func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 
 	files := map[string]string{}
 
-	r, _ := makeLoader(files, "staging")
+	r, _, _ := makeLoader(files, "staging")
 	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -231,7 +295,7 @@ releases:
   chart: mychart
 `)
 
-	r, _ := makeLoader(map[string]string{}, "staging")
+	r, _, _ := makeLoader(map[string]string{}, "staging")
 	_, err := r.renderTemplatesToYaml("", "", yamlContent)
 	if err == nil {
 		t.Fatalf("wanted error, none returned")

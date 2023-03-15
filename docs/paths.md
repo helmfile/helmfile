@@ -20,7 +20,7 @@ This is an example of a Helmfile manifest referencing a local value directly.
 
 Indirect:
 ```
-helmfile -f examples/deployments/local/charts.yaml sync
+helmfile -f examples/deployments/local/helmfile.yaml sync
 ```
 
 Direct:
@@ -35,7 +35,7 @@ This is an example of a Helmfile manifest using relative paths for values.
 
 Indirect:
 ```
-helmfile -f examples/deployments/dev/charts.yaml sync
+helmfile -f examples/deployments/dev/helmfile.yaml sync
 ```
 
 Direct:
@@ -52,7 +52,7 @@ NOTE: The `--values` is resolved relative to the CWD of the terminal *not* the H
 
 Indirect:
 ```
-helmfile -f examples/deployments/dev/charts.yaml sync --values values/replica-values.yaml
+helmfile -f examples/deployments/dev/helmfile.yaml sync --values values/replica-values.yaml
 ```
 
 Direct:

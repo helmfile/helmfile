@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -47,7 +47,7 @@ type StateCreator struct {
 
 	Strict bool
 
-	LoadFile func(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
+	LoadFile func(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
 
 	getHelm func(*HelmState) helmexec.Interface
 
@@ -96,6 +96,8 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 		var intermediate HelmState
 
+		intermediate.FilePath = file
+
 		err := decode(&intermediate)
 		if err == io.EOF {
 			break
@@ -108,6 +110,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 		}
 	}
 
+	// TODO: Remove this function once Helmfile v0.x
 	if len(state.DeprecatedReleases) > 0 {
 		if len(state.Releases) > 0 {
 			return nil, fmt.Errorf("failed to parse %s: you can't specify both `charts` and `releases` sections", file)
@@ -116,6 +119,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 		state.DeprecatedReleases = []ReleaseSpec{}
 	}
 
+	// TODO: Remove this function once Helmfile v0.x
 	if state.DeprecatedContext != "" && state.HelmDefaults.KubeContext == "" {
 		state.HelmDefaults.KubeContext = state.DeprecatedContext
 	}
@@ -134,10 +138,10 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 }
 
 // LoadEnvValues loads environment values files relative to the `baseDir`
-func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *environment.Environment, failOnMissingEnv bool) (*HelmState, error) {
+func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv, overrode *environment.Environment, failOnMissingEnv bool) (*HelmState, error) {
 	state := *target
 
-	e, err := c.loadEnvValues(&state, env, failOnMissingEnv, ctxEnv)
+	e, err := c.loadEnvValues(&state, env, failOnMissingEnv, ctxEnv, overrode)
 	if err != nil {
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
@@ -158,7 +162,7 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv *envi
 
 // Parses YAML into HelmState, while loading environment values files relative to the `baseDir`
 // evaluateBases=true means that this is NOT a base helmfile
-func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envName string, evaluateBases bool, envValues *environment.Environment) (*HelmState, error) {
+func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envName string, evaluateBases bool, envValues, overrode *environment.Environment) (*HelmState, error) {
 	state, err := c.Parse(content, baseDir, file)
 	if err != nil {
 		return nil, err
@@ -169,13 +173,13 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 			return nil, errors.New("nested `base` helmfile is unsupported. please submit a feature request if you need this!")
 		}
 	} else {
-		state, err = c.loadBases(envValues, state, baseDir)
+		state, err = c.loadBases(envValues, overrode, state, baseDir)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	state, err = c.LoadEnvValues(state, envName, envValues, evaluateBases)
+	state, err = c.LoadEnvValues(state, envName, envValues, overrode, evaluateBases)
 	if err != nil {
 		return nil, err
 	}
@@ -191,10 +195,10 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 	return state, nil
 }
 
-func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmState, baseDir string) (*HelmState, error) {
+func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment, st *HelmState, baseDir string) (*HelmState, error) {
 	layers := []*HelmState{}
 	for _, b := range st.Bases {
-		base, err := c.LoadFile(envValues, baseDir, b, false)
+		base, err := c.LoadFile(envValues, overrodeEnv, baseDir, b, false)
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +216,7 @@ func (c *StateCreator) loadBases(envValues *environment.Environment, st *HelmSta
 }
 
 // nolint: unparam
-func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv *environment.Environment) (*environment.Environment, error) {
+func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv, overrode *environment.Environment) (*environment.Environment, error) {
 	envVals := map[string]interface{}{}
 	envSpec, ok := st.Environments[name]
 	if ok {
@@ -225,7 +229,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		if len(envSpec.Secrets) > 0 {
 			var envSecretFiles []string
 			for _, urlOrPath := range envSpec.Secrets {
-				resolved, skipped, err := st.storage().resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath)
+				resolved, skipped, err := st.storage().resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath, envSpec.MissingFileHandlerConfig.resolveFileOptions()...)
 				if err != nil {
 					return nil, err
 				}
@@ -246,13 +250,23 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	newEnv := &environment.Environment{Name: name, Values: envVals}
 
 	if ctxEnv != nil {
-		intEnv := *ctxEnv
+		intCtxEnv := *ctxEnv
 
-		if err := mergo.Merge(&intEnv, newEnv, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+		if err := mergo.Merge(&intCtxEnv, newEnv, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
 			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
 		}
 
-		newEnv = &intEnv
+		newEnv = &intCtxEnv
+	}
+
+	if overrode != nil {
+		intOverrodeEnv := *newEnv
+
+		if err := mergo.Merge(&intOverrodeEnv, overrode, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+			return nil, fmt.Errorf("error while merging environment overrode values for \"%s\": %v", name, err)
+		}
+
+		newEnv = &intOverrodeEnv
 	}
 
 	return newEnv, nil
@@ -296,7 +310,7 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 				}
 
 				release := &ReleaseSpec{}
-				flags := st.appendConnectionFlags([]string{}, helm, release)
+				flags := st.appendConnectionFlags([]string{}, release)
 				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), urlOrPath, flags...)
 				if err != nil {
 					results <- secretResult{secret.id, nil, err, secret.path}

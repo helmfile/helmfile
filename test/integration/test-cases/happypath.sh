@@ -32,7 +32,7 @@ for output in $(ls -d ${dir}/tmp/*); do
     # e.g. test/integration/tmp/happypath-877c0dd4-helmx/helmx
     for release_dir in $(ls -d ${output}/*); do
         release_name=$(basename ${release_dir})
-        golden_dir=${happypath_case_output_dir}/v${helm_major_version}/${release_name}
+        golden_dir=${happypath_case_output_dir}/v3/${release_name}
         info "Comparing template output ${release_dir}/templates with ${golden_dir}"
         ./diff-yamls ${golden_dir} ${release_dir}/templates || fail "unexpected diff in template result for ${release_name}"
     done
@@ -69,6 +69,19 @@ ${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release shou
 
 info "Ensuring \"helmfile destroy\" doesn't fail when no releases installed"
 ${helmfile} -f ${happypath_case_input_dir}/${config_file} destroy || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
+
+info "Re-applying ${happypath_case_input_dir}/${config_file} with locked dependencies"
+${helmfile} -f ${happypath_case_input_dir}/${config_file} apply
+code=$?
+[ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
+${helm} list --namespace=${test_ns} || fail "unable to list releases"
+
+info "Deleting release with --skip-charts"
+${helmfile} -f ${happypath_case_input_dir}/${config_file} destroy --skip-charts
+${helm} status --namespace=${test_ns} httpbin &> /dev/null && fail "release should not exist anymore after a delete"
+
+info "Ensuring \"helmfile destroy --skip-charts\" doesn't fail when no releases installed"
+${helmfile} -f ${happypath_case_input_dir}/${config_file} destroy --skip-charts || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
 
 info "Ensuring \"helmfile template\" output does contain only YAML docs"
 (${helmfile} -f ${happypath_case_input_dir}/${config_file} template | kubectl apply -f -) || fail "\"helmfile template | kubectl apply -f -\" shouldn't fail"

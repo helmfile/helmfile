@@ -50,6 +50,15 @@ func get(path string, varArgs ...interface{}) (interface{}, error) {
 			}
 			return nil, &noValueError{fmt.Sprintf("no value exist for key \"%s\" in %v", keys[0], typedObj)}
 		}
+	case map[string]string:
+		v, ok = typedObj[keys[0]]
+		if !ok {
+			if defSet {
+				return def, nil
+			}
+			return nil, &noValueError{fmt.Sprintf("no value exist for key \"%s\" in %v", keys[0], typedObj)}
+		}
+		return v, nil
 	case map[interface{}]interface{}:
 		v, ok = typedObj[keys[0]]
 		if !ok {

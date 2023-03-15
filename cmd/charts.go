@@ -1,3 +1,4 @@
+// TODO: Remove this function once Helmfile v0.x
 package cmd
 
 import (
@@ -32,8 +33,8 @@ func NewChartsCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
-	f.StringArrayVar(&chartsOptions.Set, "set", nil, "additional values to be merged into the command")
-	f.StringArrayVar(&chartsOptions.Values, "values", nil, "additional value files to be merged into the command")
+	f.StringArrayVar(&chartsOptions.Set, "set", nil, "additional values to be merged into the helm command --set flag")
+	f.StringArrayVar(&chartsOptions.Values, "values", nil, "additional value files to be merged into the helm command --values flag")
 	f.IntVar(&chartsOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 
 	return cmd

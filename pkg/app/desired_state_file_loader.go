@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -100,7 +100,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 	return st, nil
 }
 
-func (ld *desiredStateLoader) loadFile(inheritedEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
+func (ld *desiredStateLoader) loadFile(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
 	path, err := ld.remote.Locate(file)
 	if err != nil {
 		return nil, fmt.Errorf("locate: %v", err)
@@ -109,7 +109,7 @@ func (ld *desiredStateLoader) loadFile(inheritedEnv *environment.Environment, ba
 		ld.logger.Debugf("fetched remote \"%s\" to local cache \"%s\" and loading the latter...", file, path)
 	}
 	file = path
-	return ld.loadFileWithOverrides(inheritedEnv, nil, baseDir, file, evaluateBases)
+	return ld.loadFileWithOverrides(inheritedEnv, overrodeEnv, baseDir, file, evaluateBases)
 }
 
 func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
@@ -157,16 +157,24 @@ func (a *desiredStateLoader) underlying() *state.StateCreator {
 }
 
 func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
-	merged, err := env.Merge(overrodeEnv)
-	if err != nil {
-		return nil, err
-	}
+	var st *state.HelmState
+	var err error
+	if runtime.V1Mode {
+		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, env, overrodeEnv)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		merged, err := env.Merge(overrodeEnv)
+		if err != nil {
+			return nil, err
+		}
 
-	st, err := a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, merged)
-	if err != nil {
-		return nil, err
+		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, merged, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	helmfiles, err := st.ExpandedHelmfiles()
 	if err != nil {
 		return nil, err
@@ -218,12 +226,6 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		)
 		if err != nil {
 			return nil, err
-		}
-
-		for i, r := range currentState.Releases {
-			if r.Chart == "" {
-				return nil, fmt.Errorf("error during %s parsing: encountered empty chart while reading release %q at index %d", id, r.Name, i)
-			}
 		}
 
 		if finalState == nil {

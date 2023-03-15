@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/require"
-	"github.com/variantdev/vals"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -54,12 +54,15 @@ func TestLabelParsing(t *testing.T) {
 
 func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type fields struct {
-		BaseChartPath      string
-		Context            string
+		BaseChartPath string
+		Context       string
+
+		// TODO: Remove this function once Helmfile v0.x
 		DeprecatedReleases []ReleaseSpec
-		Namespace          string
-		Repositories       []RepositorySpec
-		Releases           []ReleaseSpec
+
+		Namespace    string
+		Repositories []RepositorySpec
+		Releases     []ReleaseSpec
 	}
 	type args struct {
 		spec ReleaseSpec
@@ -82,11 +85,14 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	specWithNamespaceFromFields.Namespace = "test-namespace-field"
 
 	fieldsWithNamespace := fields{
-		BaseChartPath:      ".",
-		Context:            "test_context",
+		BaseChartPath: ".",
+		Context:       "test_context",
+
+		// TODO: Remove this function once Helmfile v0.x
 		DeprecatedReleases: nil,
-		Namespace:          specWithNamespaceFromFields.Namespace,
-		Repositories:       nil,
+
+		Namespace:    specWithNamespaceFromFields.Namespace,
+		Repositories: nil,
 		Releases: []ReleaseSpec{
 			specWithNamespace,
 		},
@@ -140,11 +146,13 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			state := &HelmState{
 				basePath: tt.fields.BaseChartPath,
 				ReleaseSetSpec: ReleaseSetSpec{
+					// TODO: Remove this function once Helmfile v0.x
 					DeprecatedContext:  tt.fields.Context,
 					DeprecatedReleases: tt.fields.DeprecatedReleases,
-					OverrideNamespace:  tt.fields.Namespace,
-					Repositories:       tt.fields.Repositories,
-					Releases:           tt.fields.Releases,
+
+					OverrideNamespace: tt.fields.Namespace,
+					Repositories:      tt.fields.Repositories,
+					Releases:          tt.fields.Releases,
 				},
 			}
 			if state.ApplyOverrides(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
@@ -400,7 +408,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--timeout", "123",
+				"--timeout", "123s",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -418,7 +426,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--timeout", "123",
+				"--timeout", "123s",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -524,79 +532,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--version", "0.1",
 				"--cleanup-on-fail",
 				"--namespace", "test-namespace",
-			},
-		},
-		{
-			name:     "tiller",
-			defaults: HelmSpec{},
-			release: &ReleaseSpec{
-				Chart:           "test/chart",
-				Version:         "0.1",
-				Name:            "test-charts",
-				TLS:             boolValue(true),
-				TillerNamespace: "tiller-system",
-				TLSKey:          "key.pem",
-				TLSCert:         "cert.pem",
-				TLSCACert:       "ca.pem",
-			},
-			want: []string{
-				"--version", "0.1",
-				"--tiller-namespace", "tiller-system",
-				"--tls",
-				"--tls-key", "key.pem",
-				"--tls-cert", "cert.pem",
-				"--tls-ca-cert", "ca.pem",
-			},
-		},
-		{
-			name: "tiller-override-defaults",
-			defaults: HelmSpec{
-				TLS:             false,
-				TillerNamespace: "a",
-				TLSKey:          "b.pem",
-				TLSCert:         "c.pem",
-				TLSCACert:       "d.pem",
-			},
-			release: &ReleaseSpec{
-				Chart:           "test/chart",
-				Version:         "0.1",
-				Name:            "test-charts",
-				TLS:             boolValue(true),
-				TillerNamespace: "tiller-system",
-				TLSKey:          "key.pem",
-				TLSCert:         "cert.pem",
-				TLSCACert:       "ca.pem",
-			},
-			want: []string{
-				"--version", "0.1",
-				"--tiller-namespace", "tiller-system",
-				"--tls",
-				"--tls-key", "key.pem",
-				"--tls-cert", "cert.pem",
-				"--tls-ca-cert", "ca.pem",
-			},
-		},
-		{
-			name: "tiller-from-defaults",
-			defaults: HelmSpec{
-				TLS:             true,
-				TillerNamespace: "tiller-system",
-				TLSKey:          "key.pem",
-				TLSCert:         "cert.pem",
-				TLSCACert:       "ca.pem",
-			},
-			release: &ReleaseSpec{
-				Chart:   "test/chart",
-				Version: "0.1",
-				Name:    "test-charts",
-			},
-			want: []string{
-				"--version", "0.1",
-				"--tiller-namespace", "tiller-system",
-				"--tls",
-				"--tls-key", "key.pem",
-				"--tls-cert", "cert.pem",
-				"--tls-ca-cert", "ca.pem",
 			},
 		},
 		{
@@ -768,9 +703,11 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			state := &HelmState{
 				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
+					// TODO: Remove this function once Helmfile v0.x
 					DeprecatedContext: "default",
-					Releases:          []ReleaseSpec{*tt.release},
-					HelmDefaults:      tt.defaults,
+
+					Releases:     []ReleaseSpec{*tt.release},
+					HelmDefaults: tt.defaults,
 				},
 				valsRuntime: valsRuntime,
 			}
@@ -778,7 +715,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Version: tt.version,
 			}
 
-			args, _, err := state.flagsForUpgrade(helm, tt.release, 0)
+			args, _, err := state.flagsForUpgrade(helm, tt.release, 0, nil)
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}
@@ -890,7 +827,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 				Version: tt.version,
 			}
 
-			args, _, err := state.flagsForTemplate(helm, tt.release, 0)
+			args, _, err := state.flagsForTemplate(helm, tt.release, 0, &TemplateOpts{})
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}
@@ -1254,18 +1191,6 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
 		},
 		{
-			name: "with tiller args",
-			releases: []ReleaseSpec{
-				{
-					Name:            "releaseName",
-					Chart:           "foo",
-					TillerNamespace: "tillerns",
-				},
-			},
-			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns", "--reset-values"}}},
-		},
-		{
 			name: "escaped values",
 			releases: []ReleaseSpec{
 				{
@@ -1468,6 +1393,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			state = injectFs(state, fs)
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
+				Helm3: true,
 			}
 			//simulate the helm.list call result
 			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$"}] = tt.listResult
@@ -1600,8 +1526,7 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 			},
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
@@ -1617,7 +1542,7 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 			//simulate the release is already installed
 			for i, release := range tt.releases {
 				if tt.installed != nil && tt.installed[i] {
-					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--deleting--deployed--failed--pending"}] = release.Name
+					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling--deployed--failed--pending"}] = release.Name
 				}
 			}
 
@@ -1714,8 +1639,7 @@ func TestGetDeployedVersion(t *testing.T) {
 			installedVersion: "3.2.0",
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
@@ -1730,7 +1654,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				Lists: map[exectest.ListKey]string{},
 			}
 			// simulate the helm.list call result
-			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$", Flags: "--deleting--deployed--failed--pending"}] = tt.listResult
+			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$", Flags: "--uninstalling--deployed--failed--pending"}] = tt.listResult
 
 			affectedReleases := AffectedReleases{}
 			state.SyncReleases(&affectedReleases, helm, []string{}, 1)
@@ -1759,18 +1683,6 @@ func TestHelmState_DiffReleases(t *testing.T) {
 			},
 			helm:         &exectest.Helm{},
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--reset-values"}}},
-		},
-		{
-			name: "with tiller args",
-			releases: []ReleaseSpec{
-				{
-					Name:            "releaseName",
-					Chart:           "foo",
-					TillerNamespace: "tillerns",
-				},
-			},
-			helm:         &exectest.Helm{},
-			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--tiller-namespace", "tillerns", "--reset-values"}}},
 		},
 		{
 			name: "escaped values",
@@ -1900,7 +1812,7 @@ func TestHelmState_DiffFlags(t *testing.T) {
 				RenderedValues: map[string]interface{}{},
 			}
 			for j := range tt.releases {
-				flags, _, errs := state.flagsForDiff(tt.helm, &tt.releases[j], false, 1)
+				flags, _, errs := state.flagsForDiff(tt.helm, &tt.releases[j], false, 1, nil)
 				if errs != nil {
 					t.Errorf("unexpected error: %v", errs)
 				}
@@ -2090,6 +2002,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 func TestHelmState_UpdateDeps(t *testing.T) {
 	helm := &exectest.Helm{
 		UpdateDepsCallbacks: map[string]func(string) error{},
+		Helm3:               true,
 	}
 
 	var generatedDir string
@@ -2111,7 +2024,7 @@ func TestHelmState_UpdateDeps(t *testing.T) {
 digest: sha256:8194b597c85bb3d1fee8476d4a486e952681d5c65f185ad5809f2118bc4079b5
 generated: 2019-05-16T15:42:45.50486+09:00
 `)
-			filename := filepath.Join(generatedDir, "requirements.lock")
+			filename := filepath.Join(generatedDir, "Chart.lock")
 			logger.Debugf("test: writing %s: %s", filename, content)
 			return os.WriteFile(filename, content, 0644)
 		}
@@ -2340,19 +2253,6 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			helm:    &exectest.Helm{},
 			wantErr: false,
 		},
-		{
-			name: "with tiller args",
-			releases: []ReleaseSpec{
-				{
-					Name:            "releaseA",
-					TillerNamespace: "tillerns",
-				},
-			},
-			helm: &exectest.Helm{},
-			want: []exectest.Release{
-				{Name: "releaseA", Flags: []string{"--tiller-namespace", "tillerns"}},
-			},
-		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -2392,13 +2292,12 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 
 func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 	tests := []struct {
-		name            string
-		cleanup         bool
-		releases        []ReleaseSpec
-		helm            *exectest.Helm
-		want            []exectest.Release
-		wantErr         bool
-		tillerNamespace string
+		name     string
+		cleanup  bool
+		releases []ReleaseSpec
+		helm     *exectest.Helm
+		want     []exectest.Release
+		wantErr  bool
 	}{
 		{
 			name: "happy path",
@@ -2408,7 +2307,7 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1"}}},
+			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1s"}}},
 		},
 		{
 			name:    "do cleanup",
@@ -2419,7 +2318,7 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []exectest.Release{{Name: "releaseB", Flags: []string{"--cleanup", "--timeout", "1"}}},
+			want: []exectest.Release{{Name: "releaseB", Flags: []string{"--timeout", "1s"}}},
 		},
 		{
 			name: "happy path",
@@ -2431,21 +2330,9 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 			helm:    &exectest.Helm{},
 			wantErr: true,
 		},
-		{
-			name: "with tiller args",
-			releases: []ReleaseSpec{
-				{
-					Name:            "releaseA",
-					TillerNamespace: "tillerns",
-				},
-			},
-			helm: &exectest.Helm{},
-			want: []exectest.Release{{Name: "releaseA", Flags: []string{"--timeout", "1", "--tiller-namespace", "tillerns"}}},
-		},
 	}
-	for i := range tests {
-		tt := tests[i]
-		f := func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: tt.releases,
@@ -2460,8 +2347,7 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 			if !reflect.DeepEqual(tt.helm.Releases, tt.want) {
 				t.Errorf("HelmState.TestReleases() for [%s] = %v, want %v", tt.name, tt.helm.Releases, tt.want)
 			}
-		}
-		t.Run(tt.name, f)
+		})
 	}
 }
 
@@ -2519,16 +2405,16 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 
 func TestHelmState_Delete(t *testing.T) {
 	tests := []struct {
-		name            string
-		deleted         []exectest.Release
-		wantErr         bool
-		desired         *bool
-		installed       bool
-		purge           bool
-		flags           string
-		tillerNamespace string
-		kubeContext     string
-		defKubeContext  string
+		name           string
+		deleted        []exectest.Release
+		wantErr        bool
+		desired        *bool
+		installed      bool
+		purge          bool
+		flags          string
+		namespace      string
+		kubeContext    string
+		defKubeContext string
 	}{
 		{
 			name:      "desired and installed (purge=false)",
@@ -2560,7 +2446,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: true,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "desired but not installed (purge=false)",
@@ -2576,7 +2462,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(true),
 			installed: false,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "installed but filtered (purge=false)",
@@ -2592,7 +2478,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: true,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:      "not installed, and filtered (purge=false)",
@@ -2608,17 +2494,7 @@ func TestHelmState_Delete(t *testing.T) {
 			desired:   boolValue(false),
 			installed: false,
 			purge:     true,
-			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{"--purge"}}},
-		},
-		{
-			name:            "with tiller args",
-			wantErr:         false,
-			desired:         nil,
-			installed:       true,
-			purge:           true,
-			tillerNamespace: "tillerns",
-			flags:           "--tiller-namespacetillerns",
-			deleted:         []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--tiller-namespace", "tillerns"}}},
+			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
 		},
 		{
 			name:        "with kubecontext",
@@ -2628,7 +2504,7 @@ func TestHelmState_Delete(t *testing.T) {
 			purge:       true,
 			kubeContext: "ctx",
 			flags:       "--kube-contextctx",
-			deleted:     []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "ctx"}}},
+			deleted:     []exectest.Release{{Name: "releaseA", Flags: []string{"--kube-context", "ctx"}}},
 		},
 		{
 			name:           "with default kubecontext",
@@ -2638,7 +2514,7 @@ func TestHelmState_Delete(t *testing.T) {
 			purge:          true,
 			defKubeContext: "defctx",
 			flags:          "--kube-contextdefctx",
-			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "defctx"}}},
+			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--kube-context", "defctx"}}},
 		},
 		{
 			name:           "with non-default and default kubecontexts",
@@ -2649,21 +2525,20 @@ func TestHelmState_Delete(t *testing.T) {
 			kubeContext:    "ctx",
 			defKubeContext: "defctx",
 			flags:          "--kube-contextctx",
-			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--purge", "--kube-context", "ctx"}}},
+			deleted:        []exectest.Release{{Name: "releaseA", Flags: []string{"--kube-context", "ctx"}}},
 		},
 	}
-	for i := range tests {
-		tt := tests[i]
-		f := func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			name := "releaseA"
 			if tt.wantErr {
 				name = "releaseA-error"
 			}
 			release := ReleaseSpec{
-				Name:            name,
-				Installed:       tt.desired,
-				TillerNamespace: tt.tillerNamespace,
-				KubeContext:     tt.kubeContext,
+				Name:        name,
+				Installed:   tt.desired,
+				Namespace:   tt.namespace,
+				KubeContext: tt.kubeContext,
 			}
 			releases := []ReleaseSpec{
 				release,
@@ -2681,6 +2556,7 @@ func TestHelmState_Delete(t *testing.T) {
 			helm := &exectest.Helm{
 				Lists:   map[exectest.ListKey]string{},
 				Deleted: []exectest.Release{},
+				Helm3:   true,
 			}
 			if tt.installed {
 				helm.Lists[exectest.ListKey{Filter: "^" + name + "$", Flags: tt.flags}] = name
@@ -2695,8 +2571,7 @@ func TestHelmState_Delete(t *testing.T) {
 			} else if !(reflect.DeepEqual(tt.deleted, helm.Deleted) && (len(affectedReleases.Deleted) == len(tt.deleted))) {
 				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, helm.Deleted)
 			}
-		}
-		t.Run(tt.name, f)
+		})
 	}
 }
 
@@ -2729,6 +2604,36 @@ func TestDiffpareSyncReleases(t *testing.T) {
 				ReuseValues: true,
 			},
 		},
+		{
+			name:  "force-reset-values",
+			flags: []string{"--reset-values"},
+			diffOptions: &DiffOpts{
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+		},
+		{
+			name:  "both-reset-reuse-values",
+			flags: []string{"--reset-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+		},
+		{
+			name:  "both-reset-reuse-default-reuse-values",
+			flags: []string{"--reset-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2748,6 +2653,7 @@ func TestDiffpareSyncReleases(t *testing.T) {
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
+			Helm3: true,
 		}
 		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
 
@@ -2789,6 +2695,36 @@ func TestPrepareSyncReleases(t *testing.T) {
 				ReuseValues: true,
 			},
 		},
+		{
+			name:  "force-reset-values",
+			flags: []string{"--reset-values"},
+			syncOptions: &SyncOpts{
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+		},
+		{
+			name:  "both-reset-reuse-values",
+			flags: []string{"--reset-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+		},
+		{
+			name:  "both-reset-reuse-default-reuse-values",
+			flags: []string{"--reset-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2808,6 +2744,7 @@ func TestPrepareSyncReleases(t *testing.T) {
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
+			Helm3: true,
 		}
 		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
 
@@ -3117,28 +3054,12 @@ func TestGenerateChartPath(t *testing.T) {
 			expected:  "/output-dir/release-name/chart-name/0.0.0",
 		},
 		{
-			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseTillerNamespace",
-			chartName: "chart-name",
-			release:   &ReleaseSpec{Name: "release-name", TillerNamespace: "tiller-namespace"},
-			outputDir: "/output-dir",
-			wantErr:   false,
-			expected:  "/output-dir/tiller-namespace/release-name/chart-name/latest",
-		},
-		{
 			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseNamespace",
 			chartName: "chart-name",
 			release:   &ReleaseSpec{Name: "release-name", Namespace: "release-namespace"},
 			outputDir: "/output-dir",
 			wantErr:   false,
 			expected:  "/output-dir/release-namespace/release-name/chart-name/latest",
-		},
-		{
-			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseTillerNamespaceAndGivenReleaseNamespace",
-			chartName: "chart-name",
-			release:   &ReleaseSpec{Name: "release-name", TillerNamespace: "tiller-namespace", Namespace: "release-namespace"},
-			outputDir: "/output-dir",
-			wantErr:   false,
-			expected:  "/output-dir/tiller-namespace/release-namespace/release-name/chart-name/latest",
 		},
 		{
 			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseKubeContext",
@@ -3155,22 +3076,6 @@ func TestGenerateChartPath(t *testing.T) {
 			outputDir: "/output-dir",
 			wantErr:   false,
 			expected:  "/output-dir/release-namespace/kube-context/release-name/chart-name/latest",
-		},
-		{
-			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseTillerNamespaceAndGivenReleaseKubeContext",
-			chartName: "chart-name",
-			release:   &ReleaseSpec{Name: "release-name", TillerNamespace: "tiller-namespace", KubeContext: "kube-context"},
-			outputDir: "/output-dir",
-			wantErr:   false,
-			expected:  "/output-dir/tiller-namespace/kube-context/release-name/chart-name/latest",
-		},
-		{
-			testName:  "PathGeneratedWithGivenOutputDirAndGivenReleaseTillerNamespaceAndGivenReleaseNamespaceAndGivenReleaseKubeContext",
-			chartName: "chart-name",
-			release:   &ReleaseSpec{Name: "release-name", TillerNamespace: "tiller-namespace", Namespace: "release-namespace", KubeContext: "kube-context"},
-			outputDir: "/output-dir",
-			wantErr:   false,
-			expected:  "/output-dir/tiller-namespace/release-namespace/kube-context/release-name/chart-name/latest",
 		},
 		{
 			testName:          "PathGeneratedWithGivenOutputDirAndGivenOutputDirTemplateWithFieldNameOutputDir",

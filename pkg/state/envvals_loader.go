@@ -75,9 +75,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
 				}
 				maps = append(maps, m)
-				if ld.logger != nil {
-					ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
-				}
+				ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
 			}
 		case map[interface{}]interface{}, map[string]interface{}:
 			maps = append(maps, strOrMap)

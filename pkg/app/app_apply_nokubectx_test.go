@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/variantdev/vals"
+	"github.com/helmfile/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -50,6 +50,7 @@ func TestApply_3(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
+			Helm3:                true,
 		}
 
 		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -183,10 +184,10 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode--reset-values"}:       helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
-				{Filter: "^my-release$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^my-release$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
@@ -231,7 +232,7 @@ releases:
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 ^external-secrets$ 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
@@ -285,13 +286,13 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode--reset-values"}:                      helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 kubernetes-external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
-				{Filter: "^external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
-				{Filter: "^my-release$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^my-release$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
@@ -341,10 +342,10 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--namespacedefault--detailed-exitcode--reset-values"}:                      helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
-				{Filter: "^my-release$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^my-release$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
@@ -390,13 +391,13 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 				kubernetes-external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
-				{Filter: "^external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
-				{Filter: "^my-release$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^my-release$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
@@ -446,11 +447,11 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^kubernetes-external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: ``,
-				{Filter: "^external-secrets$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: ``,
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
-				{Filter: "^my-release$", Flags: helmV2ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^my-release$", Flags: listFlags("default", "")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},

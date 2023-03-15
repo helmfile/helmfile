@@ -67,15 +67,6 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.InstalledTemplate = &resultTmpl
 	}
 
-	if result.TillerlessTemplate != nil {
-		ts := *result.TillerlessTemplate
-		resultTmpl, err := renderer.RenderTemplateContentToString([]byte(ts))
-		if err != nil {
-			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
-		}
-		result.TillerlessTemplate = &resultTmpl
-	}
-
 	if result.VerifyTemplate != nil {
 		ts := *result.VerifyTemplate
 		resultTmpl, err := renderer.RenderTemplateContentToString([]byte(ts))

@@ -24,7 +24,7 @@ Deploy Kubernetes Helm Charts
 
 ## Status
 
-March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see roboll/helmfile#1824 for more information.
+March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see [roboll/helmfile#1824](https://github.com/roboll/helmfile/issues/1824) for more information.
 
 Even though Helmfile is used in production environments [across multiple organizations](users.md), it is still in its early stage of development, hence versioned 0.x.
 
@@ -178,8 +178,6 @@ lockFilePath: path/to/lock.file
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
 helmDefaults:
-  tillerNamespace: tiller-namespace  #dedicated default key for tiller-namespace
-  tillerless: false                  #dedicated default key for tillerless
   kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
   cleanupOnFail: false               #dedicated default key for helm flag --cleanup-on-fail
   # additional and global args passed to helm (default "")
@@ -214,7 +212,8 @@ helmDefaults:
   # When set to `true`, skips running `helm dep up` and `helm dep build` on this release's chart.
   # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
   skipDeps: false
-  # if set to true, reuses the last release's values and merges them with ones provided in helmfile.
+  # If set to true, reuses the last release's values and merges them with ones provided in helmfile.
+  # This attribute, can be overriden in CLI with --reset/reuse-values flag of apply/sync/diff subcommands
   reuseValues: false
   # propagate `--post-renderer` to helmv3 template and helm install
   postRenderer: "path/to/postRenderer"
@@ -237,6 +236,10 @@ releases:
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
     condition: vault.enabled               # The values lookup key for filtering releases. Corresponds to the boolean value of `vault.enabled`, where `vault` is an arbitrary value
     missingFileHandler: Warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
+    missingFileHandlerConfig:
+      # Ignores missing git branch error so that the Debug/Info/Warn handler can treat a missing branch as non-error.
+      # See https://github.com/helmfile/helmfile/issues/392
+      ignoreMissingGitBranch: true
     # Values files used for rendering the chart
     values:
       # Value files passed via --values
@@ -289,10 +292,6 @@ releases:
     atomic: true
     # when true, cleans up any new resources created during a failed release (default false)
     cleanupOnFail: false
-    # name of the tiller namespace (default "")
-    tillerNamespace: vault
-    # if true, will use the helm-tiller plugin (default false)
-    tillerless: false
     # enable TLS for request to Tiller (default false)
     tls: true
     # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
@@ -405,6 +404,10 @@ environments:
     # Use "Warn", "Info", or "Debug" if you want helmfile to not fail when a values file is missing, while just leaving
     # a message about the missing file at the log-level.
     missingFileHandler: Error
+    missingFileHandlerConfig:
+      # Ignores missing git branch error so that the Debug/Info/Warn handler can treat a missing branch as non-error.
+      # See https://github.com/helmfile/helmfile/issues/392
+      ignoreMissingGitBranch: true
     # kubeContext to use for this environment
     kubeContext: kube-context
 
@@ -500,6 +503,8 @@ If you wish to treat your enviroment variables as strings always, even if they a
 
 ```
 Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot
+V1 mode = false
+YAML library = gopkg.in/yaml.v2
 
 Usage:
   helmfile [command]
@@ -519,7 +524,7 @@ Available Commands:
   init         Initialize the helmfile, includes version checking and installation of helm and plug-ins
   lint         Lint charts from state file (helm lint)
   list         List releases defined in state file
-  repos        Repos releases defined in state file
+  repos        Add chart repositories defined in state file
   status       Retrieve status of releases in state file
   sync         Sync releases defined in state file
   template     Template releases defined in state file
@@ -535,7 +540,7 @@ Flags:
       --enable-live-output              Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
                                         It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.
   -e, --environment string              specify the environment name. defaults to "default"
-  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference. Specify - to load the config from the standard input.
+  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.yaml.gotmpl` or `helmfile.d`(means `helmfile.d/*.yaml` or `helmfile.d/*.yaml.gotmpl`) in this preference. Specify - to load the config from the standard input.
   -b, --helm-binary string              Path to the helm binary (default "helm")
   -h, --help                            help for helmfile
   -i, --interactive                     Request confirmation before attempting to modify clusters
@@ -548,8 +553,8 @@ Flags:
                                         A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                         "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
                                         The name of a release can be used as a label: "--selector name=myrelease"
-      --state-values-file stringArray   specify state values in a YAML file
-      --state-values-set stringArray    set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+      --state-values-file stringArray   specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).
+      --state-values-set stringArray    set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).
   -v, --version                         version for helmfile
 
 Use "helmfile [command] --help" for more information about a command.
@@ -610,6 +615,7 @@ The `helmfile destroy` sub-command uninstalls and purges all the releases define
 `helmfile --interactive destroy` instructs Helmfile to request your confirmation before actually deleting releases.
 
 `destroy` basically runs `helm uninstall --purge` on all the targeted releases. If you don't want purging, use `helmfile delete` instead.
+If `--skip-charts` flag is not set, destory would prepare all releases, by fetching charts and templating them.
 
 ### delete (DEPRECATED)
 
@@ -618,6 +624,7 @@ The `helmfile delete` sub-command deletes all the releases defined in the manife
 `helmfile --interactive delete` instructs Helmfile to request your confirmation before actually deleting releases.
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
+If `--skip-charts` flag is not set, destory would prepare all releases, by fetching charts and templating them.
 
 ### secrets
 
@@ -1008,13 +1015,6 @@ environments:
       - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/production.secret.yaml
 ```
 
-## Tillerless
-
-With the [helm-tiller](https://github.com/rimusz/helm-tiller) plugin installed, you can work without tiller installed.
-
-To enable this mode, you need to define `tillerless: true` and set the `tillerNamespace` in the `helmDefaults` section
-or in the `releases` entries.
-
 ## DAG-aware installation/deletion ordering with `needs`
 
 `needs` controls the order of the installation/deletion of the release:
@@ -1231,6 +1231,8 @@ A Helmfile hook is a per-release extension point that is composed of:
 Helmfile triggers various `events` while it is running.
 Once `events` are triggered, associated `hooks` are executed, by running the `command` with `args`. The standard output of the `command` will be displayed if `showlogs` is set and it's value is `true`.
 
+Hooks exec order follows the order of definition in the helmfile state.
+
 Currently supported `events` are:
 
 * `prepare`
@@ -1427,9 +1429,8 @@ For your local use-case, aliasing it like `alias hi='helmfile --interactive'` wo
 
 ## Running Helmfile without an Internet connection
 
-Once you download all required charts into your machine, you can run `helmfile charts` to deploy your apps.
-It basically run only `helm upgrade --install` with your already-downloaded charts, hence no Internet connection is required.
-See #155 for more information on this topic.
+Once you download all required charts into your machine, you can run `helmfile sync --skip-deps` to deploy your apps.
+With the `--skip-deps` option, you can skip running "helm repo update" and "helm dependency build".
 
 ## Experimental Features
 

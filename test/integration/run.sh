@@ -68,15 +68,6 @@ function cleanup() {
 set -e
 trap cleanup EXIT
 info "Using namespace: ${test_ns}"
-# helm v2
-if helm version --client 2>/dev/null | grep '"v2\.'; then
-    helm_major_version=2
-    info "Using Helm version: $(helm version --short --client | grep -o v.*$)"
-    ${helm} init --stable-repo-url https://charts.helm.sh/stable --wait --override spec.template.spec.automountServiceAccountToken=true
-else # helm v3
-    helm_major_version=3
-    info "Using Helm version: $(helm version --short | grep -o v.*$)"
-fi
 ${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v${HELM_DIFF_VERSION}
 info "Using Kustomize version: $(kustomize version --short | grep -o 'v[0-9.]\+')"
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
@@ -85,12 +76,13 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
+. ${dir}/test-cases/kustomized-fetch.sh
 . ${dir}/test-cases/happypath.sh
 . ${dir}/test-cases/regression.sh
 . ${dir}/test-cases/secretssops.sh
 . ${dir}/test-cases/yaml-overwrite.sh
 . ${dir}/test-cases/chart-needs.sh
-. ${dir}/test-cases/postrender-diff.sh
+. ${dir}/test-cases/postrender.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 
