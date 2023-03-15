@@ -1098,7 +1098,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	releases := releasesNeedCharts(selected)
 
-	temp := make(map[PrepareChartKey]string, len(releases))
+	var prepareChartInfoMutex sync.Mutex
+
+	prepareChartInfo := make(map[PrepareChartKey]string, len(releases))
 
 	errs := []error{}
 
@@ -1302,11 +1304,15 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					return
 				}
-				temp[PrepareChartKey{
-					Namespace:   downloadRes.releaseNamespace,
-					KubeContext: downloadRes.releaseContext,
-					Name:        downloadRes.releaseName,
-				}] = downloadRes.chartPath
+				func() {
+					prepareChartInfoMutex.Lock()
+					defer prepareChartInfoMutex.Unlock()
+					prepareChartInfo[PrepareChartKey{
+						Namespace:   downloadRes.releaseNamespace,
+						KubeContext: downloadRes.releaseContext,
+						Name:        downloadRes.releaseName,
+					}] = downloadRes.chartPath
+				}()
 
 				if downloadRes.buildDeps {
 					builds = append(builds, downloadRes)
@@ -1325,7 +1331,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		}
 	}
 
-	return temp, nil
+	return prepareChartInfo, nil
 }
 
 // nolint: unparam
