@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/helmfile/helmfile/cmd"
-	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
 	"github.com/helmfile/helmfile/pkg/errors"
 )
@@ -19,16 +17,9 @@ func main() {
 
 	go func() {
 		sig = <-sigs
-	}()
 
-	globalConfig := new(config.GlobalOptions)
-	rootCmd, err := cmd.NewRootCmd(globalConfig)
-	errors.HandleExitCoder(err)
-
-	if err := rootCmd.Execute(); err != nil {
 		if sig != nil {
-			fmt.Fprintln(os.Stderr, err)
-			app.CleanWaitGroup.Wait()
+			// app.CleanWaitGroup.Wait()
 
 			// See http://tldp.org/LDP/abs/html/exitcodes.html
 			switch sig {
@@ -38,6 +29,13 @@ func main() {
 				os.Exit(143)
 			}
 		}
+	}()
+
+	globalConfig := new(config.GlobalOptions)
+	rootCmd, err := cmd.NewRootCmd(globalConfig)
+	errors.HandleExitCoder(err)
+
+	if err := rootCmd.Execute(); err != nil {
 		errors.HandleExitCoder(err)
 	}
 }
