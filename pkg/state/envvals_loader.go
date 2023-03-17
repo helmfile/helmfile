@@ -90,7 +90,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			if err != nil {
 				return nil, err
 			}
-			if err := mergo.Merge(&result, &vals, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+			if err := mergo.Merge(&result, &vals, mergo.WithOverride); err != nil {
 				return nil, fmt.Errorf("failed to merge %v: %v", m, err)
 			}
 		}

@@ -1550,7 +1550,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 				return []error{fmt.Errorf("unmarshalling yaml %s: %w", f, err)}
 			}
 
-			if err := mergo.Merge(&merged, &src, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+			if err := mergo.Merge(&merged, &src, mergo.WithOverride); err != nil {
 				return []error{fmt.Errorf("merging %s: %w", f, err)}
 			}
 		}
