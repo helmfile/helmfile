@@ -1,7 +1,6 @@
 package helmexec
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -35,16 +34,16 @@ type ShellRunner struct {
 
 // Execute a shell command
 func (shell ShellRunner) ExecuteContext(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	preparedCmd := exec.CommandContext(ctx, cmd, args...)
+	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 
 	if !enableLiveOutput {
-		return Output(preparedCmd, &logWriterGenerator{
+		return Output(ctx, preparedCmd, &logWriterGenerator{
 			log: shell.Logger,
 		})
 	} else {
-		return LiveOutput(preparedCmd, os.Stdout)
+		return LiveOutput(ctx, preparedCmd, os.Stdout)
 	}
 }
 
@@ -54,21 +53,21 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 
 	if !enableLiveOutput {
-		return Output(preparedCmd, &logWriterGenerator{
+		return Output(context.Background(), preparedCmd, &logWriterGenerator{
 			log: shell.Logger,
 		})
 	} else {
-		return LiveOutput(preparedCmd, os.Stdout)
+		return LiveOutput(context.Background(), preparedCmd, os.Stdout)
 	}
 }
 
 // Execute a shell command
 func (shell ShellRunner) ExecuteStdInContext(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
-	preparedCmd := exec.CommandContext(ctx, cmd, args...)
+	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 	preparedCmd.Stdin = stdin
-	return Output(preparedCmd, &logWriterGenerator{
+	return Output(ctx, preparedCmd, &logWriterGenerator{
 		log: shell.Logger,
 	})
 }
@@ -78,12 +77,12 @@ func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 	preparedCmd.Stdin = stdin
-	return Output(preparedCmd, &logWriterGenerator{
+	return Output(context.Background(), preparedCmd, &logWriterGenerator{
 		log: shell.Logger,
 	})
 }
 
-func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, error) {
+func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("exec: Stdout already set")
 	}
@@ -115,7 +114,18 @@ func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, er
 	c.Stdout = io.MultiWriter(append([]io.Writer{&stdout, &combined}, logWriters...)...)
 	c.Stderr = io.MultiWriter(append([]io.Writer{&stderr, &combined}, logWriters...)...)
 
-	err := c.Run()
+	var err error
+	ch := make(chan error)
+	go func() {
+		ch <- c.Run()
+	}()
+	select {
+	case err = <-ch:
+		break
+	case <-ctx.Done():
+		c.Process.Signal(os.Interrupt)
+		err = context.Canceled
+	}
 
 	if err != nil {
 		// TrimSpace is necessary, because otherwise helmfile prints the redundant new-lines after each error like:
@@ -138,25 +148,24 @@ func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, er
 	return stdout.Bytes(), err
 }
 
-func LiveOutput(c *exec.Cmd, stdout io.Writer) ([]byte, error) {
-	reader, writer := io.Pipe()
-	scannerStopped := make(chan struct{})
-
-	go func() {
-		defer close(scannerStopped)
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			fmt.Fprintln(stdout, scanner.Text())
-		}
-	}()
-
-	c.Stdout = writer
-	c.Stderr = writer
+func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, error) {
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
 	err := c.Start()
+
 	if err == nil {
-		err = c.Wait()
-		_ = writer.Close()
-		<-scannerStopped
+		ch := make(chan error)
+		go func() {
+			ch <- c.Wait()
+		}()
+
+		select {
+		case err = <-ch:
+			break
+		case <-ctx.Done():
+			c.Process.Signal(os.Interrupt)
+			err = context.Canceled
+		}
 	}
 
 	if err != nil {
