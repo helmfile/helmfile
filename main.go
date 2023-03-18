@@ -20,16 +20,16 @@ func main() {
 		sig = <-sigs
 
 		if sig != nil {
-			// app.CleanWaitGroup.Wait()
 			app.Cancel()
+			app.CleanWaitGroup.Wait()
 
 			// See http://tldp.org/LDP/abs/html/exitcodes.html
-			// switch sig {
-			// case syscall.SIGINT:
-			// 	os.Exit(130)
-			// case syscall.SIGTERM:
-			// 	os.Exit(143)
-			// }
+			switch sig {
+			case syscall.SIGINT:
+				os.Exit(130)
+			case syscall.SIGTERM:
+				os.Exit(143)
+			}
 		}
 	}()
 

@@ -3,6 +3,7 @@ package helmexec
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +22,8 @@ import (
 type Runner interface {
 	Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
 	ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
+	ExecuteContext(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
+	ExecuteStdInContext(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
 }
 
 // ShellRunner implemention for shell commands
@@ -31,6 +34,20 @@ type ShellRunner struct {
 }
 
 // Execute a shell command
+func (shell ShellRunner) ExecuteContext(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	preparedCmd := exec.CommandContext(ctx, cmd, args...)
+	preparedCmd.Dir = shell.Dir
+	preparedCmd.Env = mergeEnv(os.Environ(), env)
+
+	if !enableLiveOutput {
+		return Output(preparedCmd, &logWriterGenerator{
+			log: shell.Logger,
+		})
+	} else {
+		return LiveOutput(preparedCmd, os.Stdout)
+	}
+}
+
 func (shell ShellRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
@@ -46,6 +63,16 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 }
 
 // Execute a shell command
+func (shell ShellRunner) ExecuteStdInContext(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	preparedCmd := exec.CommandContext(ctx, cmd, args...)
+	preparedCmd.Dir = shell.Dir
+	preparedCmd.Env = mergeEnv(os.Environ(), env)
+	preparedCmd.Stdin = stdin
+	return Output(preparedCmd, &logWriterGenerator{
+		log: shell.Logger,
+	})
+}
+
 func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir

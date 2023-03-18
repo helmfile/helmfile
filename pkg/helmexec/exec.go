@@ -2,6 +2,7 @@ package helmexec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -38,6 +39,7 @@ type execer struct {
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
+	ctx                  context.Context
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -106,7 +108,7 @@ func redactedURL(chart string) string {
 }
 
 // New for running helm commands
-func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
+func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, kubeContext string, runner Runner, ctx context.Context) *execer {
 	// TODO: proper error handling
 	version, err := GetHelmVersion(helmBinary, runner)
 	if err != nil {
@@ -120,6 +122,7 @@ func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, ku
 		kubeContext:      kubeContext,
 		runner:           runner,
 		decryptedSecrets: make(map[string]*decryptedSecret),
+		ctx:              ctx,
 	}
 }
 
@@ -525,7 +528,7 @@ func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiv
 	if overrideEnableLiveOutput != nil {
 		enableLiveOutput = *overrideEnableLiveOutput
 	}
-	outBytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env, enableLiveOutput)
+	outBytes, err := helm.runner.ExecuteContext(helm.ctx, helm.helmBinary, cmdargs, env, enableLiveOutput)
 	return outBytes, err
 }
 
@@ -539,7 +542,7 @@ func (helm *execer) execStdIn(args []string, env map[string]string, stdin io.Rea
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	outBytes, err := helm.runner.ExecuteStdIn(helm.helmBinary, cmdargs, env, stdin)
+	outBytes, err := helm.runner.ExecuteStdInContext(helm.ctx, helm.helmBinary, cmdargs, env, stdin)
 	return outBytes, err
 }
 
@@ -547,7 +550,7 @@ func (helm *execer) azcli(name string) ([]byte, error) {
 	cmdargs := append(strings.Split("acr helm repo add --name", " "), name)
 	cmd := fmt.Sprintf("exec: az %s", strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	outBytes, err := helm.runner.Execute("az", cmdargs, map[string]string{}, false)
+	outBytes, err := helm.runner.ExecuteContext(helm.ctx, "az", cmdargs, map[string]string{}, false)
 	helm.logger.Debugf("%s: %s", cmd, outBytes)
 	return outBytes, err
 }

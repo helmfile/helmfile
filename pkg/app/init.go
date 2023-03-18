@@ -1,6 +1,7 @@
 package app
 
 import (
+	goContext "context"
 	"fmt"
 	"io"
 	"net/http"
@@ -163,7 +164,7 @@ func (h *HelmfileInit) WhetherContinue(ask string) error {
 
 func (h *HelmfileInit) CheckHelmPlugins() error {
 	settings := cli.New()
-	helm := helmexec.New(h.helmBinary, false, h.logger, "", h.runner)
+	helm := helmexec.New(h.helmBinary, false, h.logger, "", h.runner, goContext.Background())
 	for _, p := range helmPlugins {
 		pluginVersion, err := helmexec.GetPluginVersion(p.name, settings.PluginsDirectory)
 		if err != nil {
