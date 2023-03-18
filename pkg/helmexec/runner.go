@@ -124,7 +124,7 @@ func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterG
 		break
 	case <-ctx.Done():
 		c.Process.Signal(os.Interrupt)
-		err = context.Canceled
+		err = <-ch
 	}
 
 	if err != nil {
@@ -164,7 +164,7 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, err
 			break
 		case <-ctx.Done():
 			c.Process.Signal(os.Interrupt)
-			err = context.Canceled
+			err = <-ch
 		}
 	}
 
