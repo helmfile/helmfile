@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	goContext "context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 )
 
 var CleanWaitGroup sync.WaitGroup
+var Cancel goContext.CancelFunc
 
 // App is the main application object.
 type App struct {
@@ -49,6 +51,8 @@ type App struct {
 
 	helms      map[helmKey]helmexec.Interface
 	helmsMutex sync.Mutex
+
+	ctx goContext.Context
 }
 
 type HelmRelease struct {
@@ -62,6 +66,9 @@ type HelmRelease struct {
 }
 
 func New(conf ConfigProvider) *App {
+	ctx := goContext.Background()
+	ctx, Cancel = goContext.WithCancel(ctx)
+
 	return Init(&App{
 		OverrideKubeContext: conf.KubeContext(),
 		OverrideHelmBinary:  conf.HelmBinary(),
@@ -76,6 +83,7 @@ func New(conf ConfigProvider) *App {
 		ValuesFiles:         conf.StateValuesFiles(),
 		Set:                 conf.StateValuesSet(),
 		fs:                  filesystem.DefaultFileSystem(),
+		ctx:                 ctx,
 	})
 }
 
@@ -870,39 +878,40 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 		var (
 			processed bool
 			errs      []error
+			readCh    = make(chan struct{})
 		)
 
-		// Ensure every temporary files and directories generated while running
-		// the converge function is clean up before exiting this function in all the three cases below:
-		// - This function returned nil
-		// - This function returned an err
-		// - Helmfile received SIGINT or SIGTERM while running this function
-		// For the last case you also need a signal handler in main.go.
-		// Ideally though, this CleanWaitGroup should gone and be replaced by a context cancellation propagation.
-		// See https://github.com/helmfile/helmfile/pull/418 for more details.
-		CleanWaitGroup.Add(1)
-		defer func() {
-			defer CleanWaitGroup.Done()
-			cleanErr := context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
-			if retErr == nil {
-				retErr = cleanErr
-			} else if cleanErr != nil {
-				a.Logger.Debugf("Failed to clean up temporary files generated while processing %q: %v", templated.FilePath, cleanErr)
-			}
+		go func() {
+			defer close(readCh)
+			processed, errs = converge(templated)
 		}()
 
-		processed, errs = converge(templated)
+		select {
+		case <-a.ctx.Done():
+			// Canceled
+			err = goContext.Canceled
+			break
+		case <-readCh:
+			// Finished
+			processed, errs = converge(templated)
 
-		noMatchInHelmfiles = noMatchInHelmfiles && !processed
+			noMatchInHelmfiles = noMatchInHelmfiles && !processed
 
-		if opts.Reverse {
-			err = visitSubHelmfiles()
-			if err != nil {
-				return err
+			if opts.Reverse {
+				err = visitSubHelmfiles()
+				if err != nil {
+					return err
+				}
 			}
+			break
 		}
 
-		return nil
+		cleanErr := context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+		if cleanErr != nil {
+			a.Logger.Debugf("Failed to clean up temporary files generated while processing %q: %v", templated.FilePath, cleanErr)
+		}
+
+		return err
 	})
 
 	if err != nil {

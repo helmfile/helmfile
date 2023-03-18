@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"github.com/helmfile/helmfile/cmd"
+	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
 	"github.com/helmfile/helmfile/pkg/errors"
 )
@@ -20,14 +21,15 @@ func main() {
 
 		if sig != nil {
 			// app.CleanWaitGroup.Wait()
+			app.Cancel()
 
 			// See http://tldp.org/LDP/abs/html/exitcodes.html
-			switch sig {
-			case syscall.SIGINT:
-				os.Exit(130)
-			case syscall.SIGTERM:
-				os.Exit(143)
-			}
+			// switch sig {
+			// case syscall.SIGINT:
+			// 	os.Exit(130)
+			// case syscall.SIGTERM:
+			// 	os.Exit(143)
+			// }
 		}
 	}()
 
