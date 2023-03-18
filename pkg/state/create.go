@@ -124,9 +124,10 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 		state.HelmDefaults.KubeContext = state.DeprecatedContext
 	}
 
-	if c.overrideHelmBinary != "" && c.overrideHelmBinary != DefaultHelmBinary {
+	switch {
+	case c.overrideHelmBinary != "" && c.overrideHelmBinary != DefaultHelmBinary:
 		state.DefaultHelmBinary = c.overrideHelmBinary
-	} else if state.DefaultHelmBinary == "" {
+	case state.DefaultHelmBinary == "":
 		// Let `helmfile --helm-binary ""` not break this helmfile run
 		state.DefaultHelmBinary = DefaultHelmBinary
 	}
