@@ -98,7 +98,7 @@ func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterG
 	case err = <-ch:
 		break
 	case <-ctx.Done():
-		c.Process.Signal(os.Interrupt)
+		_ = c.Process.Signal(os.Interrupt)
 		err = <-ch
 	}
 
@@ -149,7 +149,7 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, err
 		case err = <-ch:
 			break
 		case <-ctx.Done():
-			c.Process.Signal(os.Interrupt)
+			_ = c.Process.Signal(os.Interrupt)
 			err = <-ch
 			_ = writer.Close()
 			<-scannerStopped
