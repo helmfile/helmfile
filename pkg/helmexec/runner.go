@@ -96,7 +96,6 @@ func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterG
 	}()
 	select {
 	case err = <-ch:
-		break
 	case <-ctx.Done():
 		_ = c.Process.Signal(os.Interrupt)
 		err = <-ch
@@ -147,13 +146,12 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, err
 
 		select {
 		case err = <-ch:
-			break
 		case <-ctx.Done():
 			_ = c.Process.Signal(os.Interrupt)
 			err = <-ch
-			_ = writer.Close()
-			<-scannerStopped
 		}
+		_ = writer.Close()
+		<-scannerStopped
 	}
 
 	if err != nil {
