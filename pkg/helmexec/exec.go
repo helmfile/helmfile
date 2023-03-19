@@ -77,7 +77,7 @@ func parseHelmVersion(versionStr string) (semver.Version, error) {
 
 func GetHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
 	// Autodetect from `helm version`
-	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil, false)
+	outBytes, err := runner.Execute(context.Background(), helmBinary, []string{"version", "--client", "--short"}, nil, false)
 	if err != nil {
 		return semver.Version{}, fmt.Errorf("error determining helm version: %w", err)
 	}
@@ -528,7 +528,7 @@ func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiv
 	if overrideEnableLiveOutput != nil {
 		enableLiveOutput = *overrideEnableLiveOutput
 	}
-	outBytes, err := helm.runner.ExecuteContext(helm.ctx, helm.helmBinary, cmdargs, env, enableLiveOutput)
+	outBytes, err := helm.runner.Execute(helm.ctx, helm.helmBinary, cmdargs, env, enableLiveOutput)
 	return outBytes, err
 }
 
@@ -542,7 +542,7 @@ func (helm *execer) execStdIn(args []string, env map[string]string, stdin io.Rea
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	outBytes, err := helm.runner.ExecuteStdInContext(helm.ctx, helm.helmBinary, cmdargs, env, stdin)
+	outBytes, err := helm.runner.ExecuteStdIn(helm.ctx, helm.helmBinary, cmdargs, env, stdin)
 	return outBytes, err
 }
 
@@ -550,7 +550,7 @@ func (helm *execer) azcli(name string) ([]byte, error) {
 	cmdargs := append(strings.Split("acr helm repo add --name", " "), name)
 	cmd := fmt.Sprintf("exec: az %s", strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	outBytes, err := helm.runner.ExecuteContext(helm.ctx, "az", cmdargs, map[string]string{}, false)
+	outBytes, err := helm.runner.Execute(helm.ctx, "az", cmdargs, map[string]string{}, false)
 	helm.logger.Debugf("%s: %s", cmd, outBytes)
 	return outBytes, err
 }

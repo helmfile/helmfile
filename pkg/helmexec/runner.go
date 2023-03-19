@@ -19,10 +19,8 @@ import (
 
 // Runner interface for shell commands
 type Runner interface {
-	Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
-	ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
-	ExecuteContext(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
-	ExecuteStdInContext(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
+	Execute(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
+	ExecuteStdIn(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
 }
 
 // ShellRunner implemention for shell commands
@@ -33,7 +31,7 @@ type ShellRunner struct {
 }
 
 // Execute a shell command
-func (shell ShellRunner) ExecuteContext(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+func (shell ShellRunner) Execute(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
@@ -47,37 +45,13 @@ func (shell ShellRunner) ExecuteContext(ctx context.Context, cmd string, args []
 	}
 }
 
-func (shell ShellRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	preparedCmd := exec.Command(cmd, args...)
-	preparedCmd.Dir = shell.Dir
-	preparedCmd.Env = mergeEnv(os.Environ(), env)
-
-	if !enableLiveOutput {
-		return Output(context.Background(), preparedCmd, &logWriterGenerator{
-			log: shell.Logger,
-		})
-	} else {
-		return LiveOutput(context.Background(), preparedCmd, os.Stdout)
-	}
-}
-
 // Execute a shell command
-func (shell ShellRunner) ExecuteStdInContext(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+func (shell ShellRunner) ExecuteStdIn(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 	preparedCmd.Stdin = stdin
 	return Output(ctx, preparedCmd, &logWriterGenerator{
-		log: shell.Logger,
-	})
-}
-
-func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
-	preparedCmd := exec.Command(cmd, args...)
-	preparedCmd.Dir = shell.Dir
-	preparedCmd.Env = mergeEnv(os.Environ(), env)
-	preparedCmd.Stdin = stdin
-	return Output(context.Background(), preparedCmd, &logWriterGenerator{
 		log: shell.Logger,
 	})
 }

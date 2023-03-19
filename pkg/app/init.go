@@ -108,7 +108,7 @@ func (h *HelmfileInit) installHelmOnWindows() error {
 		if err != nil {
 			return err
 		}
-		_, err = h.runner.Execute("cmd", []string{
+		_, err = h.runner.Execute(goContext.Background(), "cmd", []string{
 			"/c",
 			command,
 		}, nil, true)
@@ -139,7 +139,7 @@ func (h *HelmfileInit) InstallHelm() error {
 	if err != nil {
 		return err
 	}
-	_, err = h.runner.Execute("bash", []string{
+	_, err = h.runner.Execute(goContext.Background(), "bash", []string{
 		getHelmScript.Name(),
 		"--version",
 		HelmRecommendedVersion,

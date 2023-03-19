@@ -1,6 +1,7 @@
 package event
 
 import (
+	goContext "context"
 	"fmt"
 	"strings"
 
@@ -118,7 +119,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 			}
 		}
 
-		bytes, err := bus.Runner.Execute(command, args, map[string]string{}, false)
+		bytes, err := bus.Runner.Execute(goContext.Background(), command, args, map[string]string{}, false)
 		bus.Logger.Debugf("hook[%s]: %s\n", name, string(bytes))
 		if hook.ShowLogs {
 			prefix := fmt.Sprintf("\nhook[%s] logs | ", evt)
