@@ -59,6 +59,7 @@ jobs:
           flavor: latest=true
           tags: |
             type=raw,value=canary,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            type=ref,event=pr
             type=semver,pattern={{raw}}
 
       - name: Login to GitHub Container Registry
