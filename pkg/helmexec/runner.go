@@ -1,6 +1,7 @@
 package helmexec
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -123,8 +124,19 @@ func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterG
 }
 
 func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, error) {
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
+	reader, writer := io.Pipe()
+	scannerStopped := make(chan struct{})
+
+	go func() {
+		defer close(scannerStopped)
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			fmt.Fprintln(stdout, scanner.Text())
+		}
+	}()
+
+	c.Stdout = writer
+	c.Stderr = writer
 	err := c.Start()
 
 	if err == nil {
@@ -139,6 +151,8 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, err
 		case <-ctx.Done():
 			c.Process.Signal(os.Interrupt)
 			err = <-ch
+			_ = writer.Close()
+			<-scannerStopped
 		}
 	}
 
