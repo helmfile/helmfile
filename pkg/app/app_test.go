@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	goContext "context"
 	"errors"
 	"fmt"
 	"io"
@@ -2387,16 +2388,16 @@ func (d depsConfig) Concurrency() int {
 type mockRunner struct {
 }
 
-func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+func (mock *mockRunner) ExecuteStdIn(ctx goContext.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+func (mock *mockRunner) Execute(ctx goContext.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	return []byte{}, nil
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
-	execer := helmexec.New("helm", false, logger, kubeContext, &mockRunner{})
+	execer := helmexec.New("helm", false, logger, kubeContext, &mockRunner{}, goContext.Background())
 	return execer
 }
 
