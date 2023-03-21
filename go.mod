@@ -13,13 +13,13 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.1
+	github.com/helmfile/chartify v0.14.0
 	github.com/helmfile/vals v0.23.0
 	github.com/imdario/mergo v0.3.14
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.2
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
-	github.com/variantdev/chartify v0.13.0
 	github.com/variantdev/dag v1.1.0
 	go.szostok.io/version v1.1.0
 	go.uber.org/multierr v1.10.0

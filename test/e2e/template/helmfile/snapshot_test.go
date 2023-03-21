@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/helmfile/chartify/helmtesting"
 	"github.com/stretchr/testify/require"
-	"github.com/variantdev/chartify/helmtesting"
 
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/envvar"
