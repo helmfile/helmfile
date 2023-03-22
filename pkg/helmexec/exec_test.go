@@ -53,7 +53,8 @@ func TestNewHelmExec(t *testing.T) {
 }
 
 func Test_SetExtraArgs(t *testing.T) {
-	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	helm3Runner := mockRunner{output: []byte("Client: v3.2.4+ge29ce2a\n")}
+	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	helm.SetExtraArgs()
 	if len(helm.extra) != 0 {
 		t.Error("helmexec.SetExtraArgs() - passing no arguments should not change extra field")
