@@ -94,7 +94,7 @@ func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 	logger := NewLogger(&buffer, "debug")
 	helm := &execer{
 		helmBinary:  "helm",
-		version:     *semver.MustParse("3.3.2"),
+		version:     semver.MustParse("3.3.2"),
 		logger:      logger,
 		kubeContext: "dev",
 		runner:      &mockRunner{},
@@ -737,7 +737,7 @@ exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --des
 			buffer.Reset()
 			helm := &execer{
 				helmBinary:  tt.helmBin,
-				version:     *semver.MustParse(tt.helmVersion),
+				version:     semver.MustParse(tt.helmVersion),
 				logger:      logger,
 				kubeContext: "dev",
 				runner:      &mockRunner{},
@@ -786,7 +786,7 @@ exec: helm --kube-context dev chart export chart --destination path1 --untar --u
 			buffer.Reset()
 			helm := &execer{
 				helmBinary:  tt.helmBin,
-				version:     *semver.MustParse(tt.helmVersion),
+				version:     semver.MustParse(tt.helmVersion),
 				logger:      logger,
 				kubeContext: "dev",
 				runner:      &mockRunner{},
@@ -975,7 +975,7 @@ func Test_ShowChart(t *testing.T) {
 	showChartRunner := mockRunner{output: []byte("name: my-chart\nversion: 3.2.0\n")}
 	helm := &execer{
 		helmBinary:  "helm",
-		version:     *semver.MustParse("3.3.2"),
+		version:     semver.MustParse("3.3.2"),
 		logger:      NewLogger(os.Stdout, "info"),
 		kubeContext: "dev",
 		runner:      &showChartRunner,
@@ -990,5 +990,57 @@ func Test_ShowChart(t *testing.T) {
 	}
 	if metadata.Version != "3.2.0" {
 		t.Errorf("helmexec.ShowChart() - expected chart version was %s, received: %s", "3.2.0", metadata.Version)
+	}
+}
+
+func TestParseHelmVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    *semver.Version
+		wantErr bool
+	}{
+		{
+			name:    "helm 2",
+			version: "Client: v2.16.1+ge13bc94\n",
+			want:    semver.MustParse("v2.16.1+ge13bc94"),
+			wantErr: false,
+		},
+		{
+			name:    "helm 3",
+			version: "Client: v3.2.4+ge29ce2a\n",
+			want:    semver.MustParse("v3.2.4+ge29ce2a"),
+			wantErr: false,
+		},
+		{
+			name:    "helm 3 with os arch and build info",
+			version: "Client v3.7.1+7.el8+g8f33223\n",
+			want:    semver.MustParse("v3.7.1+7.el8"),
+			wantErr: false,
+		},
+		{
+			name:    "empty version",
+			version: "",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "invalid version",
+			version: "oooooo",
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseHelmVersion(tt.version)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseHelmVersion() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseHelmVersion() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
