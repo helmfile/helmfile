@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -27,6 +28,10 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	// Mock the output of helm version command, if version is empty, panic
+	if strings.Join(args, " ") == "version --client --short" {
+		return []byte("Client: v3.2.4+ge29ce2a\n"), nil
+	}
 	return mock.output, mock.err
 }
 
