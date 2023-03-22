@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -27,6 +28,10 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	if len(mock.output) == 0 && strings.Join(args, " ") == "version --client --short" {
+		return []byte("v3.2.4+ge29ce2a"), nil
+	}
+
 	return mock.output, mock.err
 }
 
@@ -39,8 +44,7 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 
 func TestNewHelmExec(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
-	helm3Runner := mockRunner{output: []byte("Client: v3.2.4+ge29ce2a\n")}
-	helm := New("helm", false, NewLogger(buffer, "debug"), "dev", &helm3Runner)
+	helm := MockExecer(NewLogger(buffer, "debug"), "dev")
 	if helm.kubeContext != "dev" {
 		t.Error("helmexec.New() - kubeContext")
 	}
@@ -53,8 +57,7 @@ func TestNewHelmExec(t *testing.T) {
 }
 
 func Test_SetExtraArgs(t *testing.T) {
-	helm3Runner := mockRunner{output: []byte("Client: v3.2.4+ge29ce2a\n")}
-	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
 	helm.SetExtraArgs()
 	if len(helm.extra) != 0 {
 		t.Error("helmexec.SetExtraArgs() - passing no arguments should not change extra field")
