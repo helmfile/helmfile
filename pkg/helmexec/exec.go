@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/helmfile/chartify"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"helm.sh/helm/v3/pkg/chart"
@@ -31,7 +32,7 @@ type decryptedSecret struct {
 type execer struct {
 	helmBinary           string
 	enableLiveOutput     bool
-	version              semver.Version
+	version              *semver.Version
 	runner               Runner
 	logger               *zap.SugaredLogger
 	kubeContext          string
@@ -59,27 +60,30 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 	return zap.New(core).Sugar()
 }
 
-func parseHelmVersion(versionStr string) (semver.Version, error) {
+func parseHelmVersion(versionStr string) (*semver.Version, error) {
 	if len(versionStr) == 0 {
-		return semver.Version{}, nil
+		return nil, fmt.Errorf("empty helm version")
 	}
 
-	versionStr = strings.TrimLeft(versionStr, "Client: ")
-	versionStr = strings.TrimRight(versionStr, "\n")
+	v, err := chartify.FindSemVerInfo(versionStr)
 
-	ver, err := semver.NewVersion(versionStr)
 	if err != nil {
-		return semver.Version{}, fmt.Errorf("error parsing helm version '%s'", versionStr)
+		return nil, fmt.Errorf("error find helm srmver version '%s': %w", versionStr, err)
 	}
 
-	return *ver, nil
+	ver, err := semver.NewVersion(v)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing helm version '%s'", versionStr)
+	}
+
+	return ver, nil
 }
 
-func GetHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
+func GetHelmVersion(helmBinary string, runner Runner) (*semver.Version, error) {
 	// Autodetect from `helm version`
 	outBytes, err := runner.Execute(context.Background(), helmBinary, []string{"version", "--client", "--short"}, nil, false)
 	if err != nil {
-		return semver.Version{}, fmt.Errorf("error determining helm version: %w", err)
+		return nil, fmt.Errorf("error determining helm version: %w", err)
 	}
 
 	return parseHelmVersion(string(outBytes))
@@ -155,7 +159,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 
 		// See https://github.com/helm/helm/pull/8777
 		if cons, err := semver.NewConstraint(">= 3.3.2"); err == nil {
-			if cons.Check(&helm.version) {
+			if cons.Check(helm.version) {
 				args = append(args, "--force-update")
 			}
 		} else {
@@ -453,7 +457,7 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 	var helmArgs []string
 	helm.logger.Infof("Pulling %v", chart)
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
-	if helmVersionConstraint.Check(&helm.version) {
+	if helmVersionConstraint.Check(helm.version) {
 		// in the 3.7.0 version, the chart pull has been replaced with helm pull
 		// https://github.com/helm/helm/releases/tag/v3.7.0
 		ociChartURL, ociChartTag := resolveOciChart(chart)
@@ -468,7 +472,7 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 
 func (helm *execer) ChartExport(chart string, path string, flags ...string) error {
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
-	if helmVersionConstraint.Check(&helm.version) {
+	if helmVersionConstraint.Check(helm.version) {
 		// in the 3.7.0 version, the chart export has been removed
 		// https://github.com/helm/helm/releases/tag/v3.7.0
 		return nil

@@ -17,10 +17,10 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/helmfile/chartify"
 	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
 	"github.com/tatsushid/go-prettytable"
-	"github.com/variantdev/chartify"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -1550,7 +1550,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 				return []error{fmt.Errorf("unmarshalling yaml %s: %w", f, err)}
 			}
 
-			if err := mergo.Merge(&merged, &src, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+			if err := mergo.Merge(&merged, &src, mergo.WithOverride); err != nil {
 				return []error{fmt.Errorf("merging %s: %w", f, err)}
 			}
 		}
