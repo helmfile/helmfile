@@ -14,11 +14,25 @@ import (
 func main() {
 	var sig os.Signal
 	sigs := make(chan os.Signal, 1)
+	errChan := make(chan error, 1)
+
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		sig = <-sigs
+		globalConfig := new(config.GlobalOptions)
+		rootCmd, err := cmd.NewRootCmd(globalConfig)
+		if err != nil {
+			errChan <- err
+			return
+		}
 
+		if err := rootCmd.Execute(); err != nil {
+			errChan <- err
+		}
+	}()
+
+	select {
+	case sig = <-sigs:
 		if sig != nil {
 			app.Cancel()
 			app.CleanWaitGroup.Wait()
@@ -31,13 +45,7 @@ func main() {
 				os.Exit(143)
 			}
 		}
-	}()
-
-	globalConfig := new(config.GlobalOptions)
-	rootCmd, err := cmd.NewRootCmd(globalConfig)
-	errors.HandleExitCoder(err)
-
-	if err := rootCmd.Execute(); err != nil {
+	case err := <-errChan:
 		errors.HandleExitCoder(err)
 	}
 }
