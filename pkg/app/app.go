@@ -1348,6 +1348,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		ReuseValues:       c.ReuseValues(),
 		ResetValues:       c.ResetValues(),
 		PostRenderer:      c.PostRenderer(),
+		DisableValidation: !c.Validate(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1583,6 +1584,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			ReuseValues:       c.ReuseValues(),
 			ResetValues:       c.ResetValues(),
 			PostRenderer:      c.PostRenderer(),
+			DisableValidation: !c.Validate(),
 		}
 
 		filtered := &Run{

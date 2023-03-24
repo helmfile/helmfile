@@ -1700,6 +1700,10 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, includeTests bool, s
 		flags = append(flags, "--color")
 	}
 
+	if opt.DisableValidation {
+		flags = append(flags, "--disable-validation")
+	}
+
 	if opt.Context > 0 {
 		flags = append(flags, "--context", fmt.Sprintf("%d", opt.Context))
 	}
@@ -1887,6 +1891,7 @@ type DiffOpts struct {
 	ReuseValues       bool
 	ResetValues       bool
 	PostRenderer      string
+	DisableValidation bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {

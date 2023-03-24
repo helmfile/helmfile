@@ -160,8 +160,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--disable-validation", "--reset-values"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -176,10 +176,10 @@ releases:
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
 				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
-				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--disable-validation", "--reset-values"}},
+				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--disable-validation", "--reset-values"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--disable-validation", "--reset-values"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -193,10 +193,10 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
-				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
-				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--disable-validation", "--reset-values"}},
+				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--disable-validation", "--reset-values"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--disable-validation", "--reset-values"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -209,7 +209,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -222,8 +222,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
-				{Name: "test3", Flags: []string{"--kube-context", "default", "--reset-values"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--disable-validation", "--reset-values"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -237,8 +237,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
-				{Name: "test3", Flags: []string{"--kube-context", "default", "--reset-values"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--disable-validation", "--reset-values"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -252,7 +252,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -266,8 +266,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			diffed: []exectest.Release{
-				{Name: "test2", Flags: []string{"--kube-context", "default", "--reset-values"}},
-				{Name: "test3", Flags: []string{"--kube-context", "default", "--reset-values"}},
+				{Name: "test2", Flags: []string{"--kube-context", "default", "--disable-validation", "--reset-values"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -280,8 +280,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks", "--reset-values"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks", "--reset-values"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks", "--disable-validation", "--reset-values"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
@@ -392,7 +392,7 @@ foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
 			diffed: []exectest.Release{
-				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default", "--disable-validation", "--reset-values"}},
 			},
 		})
 	})
