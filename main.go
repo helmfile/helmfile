@@ -26,9 +26,7 @@ func main() {
 			return
 		}
 
-		if err := rootCmd.Execute(); err != nil {
-			errChan <- err
-		}
+		errChan <- rootCmd.Execute()
 	}()
 
 	select {
