@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
@@ -242,7 +242,7 @@ environments:
 releases:
 - name: myrelease1
   chart: mychart1
-  installed: no
+  installed: false
   labels:
     id: myrelease1
 - name: myrelease2
@@ -253,7 +253,7 @@ releases:
 releases:
 - name: myrelease3
   chart: mychart1
-  installed: yes
+  installed: true
 - name: myrelease4
   chart: mychart1
   labels:

@@ -2,9 +2,9 @@ package environment
 
 import (
 	"github.com/imdario/mergo"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 type Environment struct {
@@ -15,8 +15,17 @@ type Environment struct {
 
 var EmptyEnvironment Environment
 
+// New return Environment with default name and values
+func New(name string) *Environment {
+	return &Environment{
+		Name:     name,
+		Values:   map[string]interface{}{},
+		Defaults: map[string]interface{}{},
+	}
+}
+
 func (e Environment) DeepCopy() Environment {
-	valuesBytes, err := maputil.YamlMarshal(e.Values)
+	valuesBytes, err := yaml.Marshal(e.Values)
 	if err != nil {
 		panic(err)
 	}
@@ -29,7 +38,7 @@ func (e Environment) DeepCopy() Environment {
 		panic(err)
 	}
 
-	defaultsBytes, err := maputil.YamlMarshal(e.Defaults)
+	defaultsBytes, err := yaml.Marshal(e.Defaults)
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +68,7 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 	}
 	copy := e.DeepCopy()
 	if other != nil {
-		if err := mergo.Merge(&copy, other, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+		if err := mergo.Merge(&copy, other, mergo.WithOverride); err != nil {
 			return nil, err
 		}
 	}
@@ -69,11 +78,11 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 func (e *Environment) GetMergedValues() (map[string]interface{}, error) {
 	vals := map[string]interface{}{}
 
-	if err := mergo.Merge(&vals, e.Defaults, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+	if err := mergo.Merge(&vals, e.Defaults, mergo.WithOverride); err != nil {
 		return nil, err
 	}
 
-	if err := mergo.Merge(&vals, e.Values, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+	if err := mergo.Merge(&vals, e.Values, mergo.WithOverride); err != nil {
 		return nil, err
 	}
 

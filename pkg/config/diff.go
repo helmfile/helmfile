@@ -38,6 +38,10 @@ type DiffOptions struct {
 	Output string
 	// ReuseValues is true if the helm command should reuse the values
 	ReuseValues bool
+	// ResetValues is true if helm command should reset values to charts' default
+	ResetValues bool
+	// Propagate '--post-renderer' to helmv3 template and helm install
+	PostRenderer string
 }
 
 // NewDiffOptions creates a new Apply
@@ -160,5 +164,17 @@ func (t *DiffImpl) SuppressSecrets() bool {
 
 // ReuseValues returns the ReuseValues.
 func (t *DiffImpl) ReuseValues() bool {
-	return t.DiffOptions.ReuseValues
+	if !t.ResetValues() {
+		return t.DiffOptions.ReuseValues
+	}
+	return false
+}
+
+func (t *DiffImpl) ResetValues() bool {
+	return t.DiffOptions.ResetValues
+}
+
+// PostRenderer returns the PostRenderer.
+func (t *DiffImpl) PostRenderer() string {
+	return t.DiffOptions.PostRenderer
 }

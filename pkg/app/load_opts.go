@@ -1,10 +1,8 @@
 package app
 
 import (
-	"gopkg.in/yaml.v3"
-
-	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 type LoadOpts struct {
@@ -22,7 +20,7 @@ type LoadOpts struct {
 }
 
 func (o LoadOpts) DeepCopy() LoadOpts {
-	bytes, err := maputil.YamlMarshal(o)
+	bytes, err := yaml.Marshal(o)
 	if err != nil {
 		panic(err)
 	}

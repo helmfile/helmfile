@@ -63,25 +63,23 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		{
 			name: "Has template expressions in boolean values",
 			input: ReleaseSpec{
-				Chart:              "test-chart",
-				Name:               "app-dev",
-				Namespace:          "dev",
-				Labels:             map[string]string{"id": "app"},
-				InstalledTemplate:  func(i string) *string { return &i }(`{{ eq .Release.Labels.id "app" | ternary "yes" "no" }}`),
-				VerifyTemplate:     func(i string) *string { return &i }(`{{ true }}`),
-				Verify:             func(i bool) *bool { return &i }(false),
-				WaitTemplate:       func(i string) *string { return &i }(`{{ false }}`),
-				TillerlessTemplate: func(i string) *string { return &i }(`yes`),
+				Chart:             "test-chart",
+				Name:              "app-dev",
+				Namespace:         "dev",
+				Labels:            map[string]string{"id": "app"},
+				InstalledTemplate: func(i string) *string { return &i }(`{{ eq .Release.Labels.id "app" | ternary "true" "false" }}`),
+				VerifyTemplate:    func(i string) *string { return &i }(`{{ true }}`),
+				Verify:            func(i bool) *bool { return &i }(false),
+				WaitTemplate:      func(i string) *string { return &i }(`{{ false }}`),
 			},
 			want: ReleaseSpec{
-				Chart:      "test-chart",
-				Name:       "app-dev",
-				Namespace:  "dev",
-				Labels:     map[string]string{"id": "app"},
-				Installed:  func(i bool) *bool { return &i }(true),
-				Verify:     func(i bool) *bool { return &i }(true),
-				Wait:       func(i bool) *bool { return &i }(false),
-				Tillerless: func(i bool) *bool { return &i }(true),
+				Chart:     "test-chart",
+				Name:      "app-dev",
+				Namespace: "dev",
+				Labels:    map[string]string{"id": "app"},
+				Installed: func(i bool) *bool { return &i }(true),
+				Verify:    func(i bool) *bool { return &i }(true),
+				Wait:      func(i bool) *bool { return &i }(false),
 			},
 		},
 		{
@@ -121,7 +119,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Verify:    nil,
 				Name:      "app",
 				Namespace: "dev",
-				Values:    []interface{}{map[interface{}]interface{}{"key": "app-val0"}},
+				Values:    []interface{}{map[string]interface{}{"key": "app-val0"}},
 			},
 		},
 	}
@@ -180,11 +178,6 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			if !reflect.DeepEqual(actual.Installed, tt.want.Installed) {
 				t.Errorf("expected actual.Installed %+v, got %+v",
 					boolPtrToString(tt.want.Installed), boolPtrToString(actual.Installed),
-				)
-			}
-			if !reflect.DeepEqual(actual.Tillerless, tt.want.Tillerless) {
-				t.Errorf("expected actual.Tillerless %+v, got %+v",
-					boolPtrToString(tt.want.Tillerless), boolPtrToString(actual.Tillerless),
 				)
 			}
 			if !reflect.DeepEqual(actual.Verify, tt.want.Verify) {

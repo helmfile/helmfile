@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/require"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -44,6 +44,7 @@ func TestLint(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
+			Helm3:                true,
 		}
 
 		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {

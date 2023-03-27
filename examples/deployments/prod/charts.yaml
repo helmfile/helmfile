@@ -1,6 +1,0 @@
-charts:
-  - name: prod-paths-example
-    namespace: prod
-    chart: ../../charts/paths-example/
-    values:
-    - ../../values/prod/paths-example/values.yaml # Values file (relative path to manifest)

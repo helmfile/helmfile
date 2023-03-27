@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,7 +10,7 @@ import (
 	"sync"
 	"text/tabwriter"
 
-	"github.com/variantdev/vals"
+	"github.com/helmfile/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/argparser"
@@ -19,6 +18,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/plugins"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 )
 
@@ -132,6 +132,7 @@ func (a *App) Repos(c ReposConfigProvider) error {
 	}, c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
+// TODO: Remove this function once Helmfile v0.x
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{
@@ -231,10 +232,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// Live output should never be enabled for the "template" subcommand to avoid breaking `helmfile template | kubectl apply -f -`
 		run.helm.SetEnableLiveOutput(false)
 
-		// `helm template` in helm v2 does not support local chart.
-		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
-			ForceDownload:          !run.helm.IsHelm3(),
 			SkipRepos:              c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
@@ -256,14 +254,11 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		// `helm template` in helm v2 does not support local chart.
-		// So, we set forceDownload=true for helm v2 only
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
-			ForceDownload: !run.helm.IsHelm3(),
-			SkipRepos:     c.SkipDeps(),
-			SkipDeps:      c.SkipDeps(),
-			SkipCleanup:   c.SkipCleanup(),
-			Concurrency:   c.Concurrency(),
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			SkipCleanup: c.SkipCleanup(),
+			Concurrency: c.Concurrency(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
 		})
@@ -457,45 +452,51 @@ func (a *App) Status(c StatusesConfigProvider) error {
 	}, false, SetFilter(true))
 }
 
+// TODO: Remove this function once Helmfile v0.x
 func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
-		}, func() {
+		if !c.SkipCharts() {
+			err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
+				SkipRepos:   c.SkipDeps(),
+				SkipDeps:    c.SkipDeps(),
+				Concurrency: c.Concurrency(),
+			}, func() {
+				ok, errs = a.delete(run, c.Purge(), c)
+			})
+
+			if err != nil {
+				errs = append(errs, err)
+			}
+		} else {
 			ok, errs = a.delete(run, c.Purge(), c)
-		})
-
-		if err != nil {
-			errs = append(errs, err)
 		}
-
 		return
 	}, false, SetReverse(true))
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
-		}, func() {
+		if !c.SkipCharts() {
+			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
+				SkipRepos:   c.SkipDeps(),
+				SkipDeps:    c.SkipDeps(),
+				Concurrency: c.Concurrency(),
+			}, func() {
+				ok, errs = a.delete(run, true, c)
+			})
+			if err != nil {
+				errs = append(errs, err)
+			}
+		} else {
 			ok, errs = a.delete(run, true, c)
-		})
-
-		if err != nil {
-			errs = append(errs, err)
 		}
-
 		return
 	}, false, SetReverse(true))
 }
 
 func (a *App) Test(c TestConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		if c.Cleanup() && run.helm.IsHelm3() {
+		if c.Cleanup() {
 			a.Logger.Warnf("warn: requested cleanup will not be applied. " +
 				"To clean up test resources with Helm 3, you have to remove them manually " +
 				"or set helm.sh/hook-delete-policy\n")
@@ -942,7 +943,10 @@ func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds
 	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState) (bool, []error) {
 		helm := a.getHelm(st)
 
-		run := NewRun(st, helm, ctx)
+		run, err := NewRun(st, helm, ctx)
+		if err != nil {
+			return false, []error{err}
+		}
 		return do(run)
 	}, includeTransitiveNeeds, o...)
 
@@ -1054,7 +1058,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	f := converge
 	if opts.Filter {
 		f = func(st *state.HelmState) (bool, []error) {
-			return processFilteredReleases(st, a.getHelm(st), func(st *state.HelmState) []error {
+			return processFilteredReleases(st, func(st *state.HelmState) []error {
 				_, err := converge(st)
 				return err
 			},
@@ -1071,7 +1075,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	return a.visitStates(fileOrDir, opts, fHelmStatsWithOverrides)
 }
 
-func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
+func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
 	if len(st.Selectors) > 0 {
 		err := st.FilterReleases(includeTransitiveNeeds)
 		if err != nil {
@@ -1079,7 +1083,7 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 		}
 	}
 
-	if err := checkDuplicates(helm, st, st.Releases); err != nil {
+	if err := checkDuplicates(st.Releases); err != nil {
 		return false, []error{err}
 	}
 
@@ -1090,7 +1094,7 @@ func processFilteredReleases(st *state.HelmState, helm helmexec.Interface, conve
 	return processed, errs
 }
 
-func checkDuplicates(helm helmexec.Interface, st *state.HelmState, releases []state.ReleaseSpec) error {
+func checkDuplicates(releases []state.ReleaseSpec) error {
 	type Key struct {
 		TillerNamespace, Name, KubeContext string
 	}
@@ -1098,13 +1102,6 @@ func checkDuplicates(helm helmexec.Interface, st *state.HelmState, releases []st
 	releaseNameCounts := map[Key]int{}
 	for _, r := range releases {
 		namespace := r.Namespace
-		if !helm.IsHelm3() {
-			if r.TillerNamespace != "" {
-				namespace = r.TillerNamespace
-			} else {
-				namespace = st.HelmDefaults.TillerNamespace
-			}
-		}
 		releaseNameCounts[Key{namespace, r.Name, r.KubeContext}]++
 	}
 	for name, c := range releaseNameCounts {
@@ -1128,7 +1125,7 @@ func checkDuplicates(helm helmexec.Interface, st *state.HelmState, releases []st
 
 func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
 	return func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
-		return processFilteredReleases(st, helm, func(st *state.HelmState) []error {
+		return processFilteredReleases(st, func(st *state.HelmState) []error {
 			return converge(st, helm)
 		}, includeTransitiveNeeds)
 	}
@@ -1164,10 +1161,20 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		}
 	} else {
 		var defaultFile string
-		if a.fs.FileExistsAt(DefaultHelmfile) {
+		DefaultGotmplHelmfile := DefaultHelmfile + ".gotmpl"
+		if a.fs.FileExistsAt(DefaultHelmfile) && a.fs.FileExistsAt(DefaultGotmplHelmfile) {
+			return []string{}, fmt.Errorf("both %s and %s.gotmpl exist. Please remove one of them", DefaultHelmfile, DefaultHelmfile)
+		}
+		switch {
+		case a.fs.FileExistsAt(DefaultHelmfile):
 			defaultFile = DefaultHelmfile
-		} else if a.fs.FileExistsAt(DeprecatedHelmfile) {
-			log.Printf(
+
+		case a.fs.FileExistsAt(DefaultGotmplHelmfile):
+			defaultFile = DefaultGotmplHelmfile
+
+		// TODO: Remove this block when we remove v0 code
+		case !runtime.V1Mode && a.fs.FileExistsAt(DeprecatedHelmfile):
+			a.Logger.Warnf(
 				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
 				DeprecatedHelmfile,
 				DeprecatedHelmfile,
@@ -1186,14 +1193,24 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 		case defaultFile != "":
 			return []string{defaultFile}, nil
 		default:
-			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml} or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile)
+			return []string{}, fmt.Errorf("no state file found. It must be named %s/*.{yaml,yml,yaml.gotmpl,yml.gotmpl}, %s, or %s, otherwise specified with the --file flag", DefaultHelmfileDirectory, DefaultHelmfile, DefaultGotmplHelmfile)
 		}
 	}
 
-	files, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml"))
+	files := []string{}
+
+	ymlFiles, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml"))
 	if err != nil {
 		return []string{}, err
 	}
+	gotmplFiles, err := a.fs.Glob(filepath.Join(helmfileDir, "*.y*ml.gotmpl"))
+	if err != nil {
+		return []string{}, err
+	}
+
+	files = append(files, ymlFiles...)
+	files = append(files, gotmplFiles...)
+
 	if opts.Reverse {
 		sort.Slice(files, func(i, j int) bool {
 			return files[j] < files[i]
@@ -1203,6 +1220,9 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 			return files[i] < files[j]
 		})
 	}
+
+	a.Logger.Debugf("found %d helmfile state files in %s: %s", len(ymlFiles)+len(gotmplFiles), helmfileDir, strings.Join(files, ", "))
+
 	return files, nil
 }
 
@@ -1264,7 +1284,7 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 		}
 	}
 
-	if err := checkDuplicates(r.helm, r.state, deduplicated); err != nil {
+	if err := checkDuplicates(deduplicated); err != nil {
 		return nil, nil, err
 	}
 
@@ -1326,6 +1346,8 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 		ReuseValues:       c.ReuseValues(),
+		ResetValues:       c.ResetValues(),
+		PostRenderer:      c.PostRenderer(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1392,7 +1414,6 @@ Do you really want to apply?
 		}
 
 		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-		r.helm.SetPostRenderer(c.PostRenderer())
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
@@ -1431,12 +1452,14 @@ Do you really want to apply?
 				subst.Releases = rs
 
 				syncOpts := &state.SyncOpts{
-					Set:         c.Set(),
-					SkipCleanup: c.RetainValuesFiles() || c.SkipCleanup(),
-					SkipCRDs:    c.SkipCRDs(),
-					Wait:        c.Wait(),
-					WaitForJobs: c.WaitForJobs(),
-					ReuseValues: c.ReuseValues(),
+					Set:          c.Set(),
+					SkipCleanup:  c.RetainValuesFiles() || c.SkipCleanup(),
+					SkipCRDs:     c.SkipCRDs(),
+					Wait:         c.Wait(),
+					WaitForJobs:  c.WaitForJobs(),
+					ReuseValues:  c.ReuseValues(),
+					ResetValues:  c.ResetValues(),
+					PostRenderer: c.PostRenderer(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1558,6 +1581,8 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			Set:               c.Set(),
 			SkipDiffOnInstall: c.SkipDiffOnInstall(),
 			ReuseValues:       c.ReuseValues(),
+			ResetValues:       c.ResetValues(),
+			PostRenderer:      c.PostRenderer(),
 		}
 
 		filtered := &Run{
@@ -1775,7 +1800,6 @@ Do you really want to sync?
 	var errs []error
 
 	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
-	r.helm.SetPostRenderer(c.PostRenderer())
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
@@ -1818,11 +1842,13 @@ Do you really want to sync?
 				subst.Releases = rs
 
 				opts := &state.SyncOpts{
-					Set:         c.Set(),
-					SkipCRDs:    c.SkipCRDs(),
-					Wait:        c.Wait(),
-					WaitForJobs: c.WaitForJobs(),
-					ReuseValues: c.ReuseValues(),
+					Set:          c.Set(),
+					SkipCRDs:     c.SkipCRDs(),
+					Wait:         c.Wait(),
+					WaitForJobs:  c.WaitForJobs(),
+					ReuseValues:  c.ReuseValues(),
+					ResetValues:  c.ResetValues(),
+					PostRenderer: c.PostRenderer(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))
@@ -1855,6 +1881,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			OutputDirTemplate: c.OutputDirTemplate(),
 			SkipCleanup:       c.SkipCleanup(),
 			SkipTests:         c.SkipTests(),
+			PostRenderer:      c.PostRenderer(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

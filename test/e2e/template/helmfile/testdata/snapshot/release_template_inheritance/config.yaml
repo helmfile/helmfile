@@ -1,0 +1,7 @@
+localChartRepoServer:
+  enabled: true
+  port: 18084
+helmfileArgs:
+- template
+# Prevent two releases foo and bar from racing and randomizing the log
+- --concurrency=1

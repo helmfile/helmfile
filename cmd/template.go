@@ -32,8 +32,8 @@ func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm template")
-	f.StringArrayVar(&templateOptions.Set, "set", nil, "additional values to be merged into the command")
-	f.StringArrayVar(&templateOptions.Values, "values", nil, "additional value files to be merged into the command")
+	f.StringArrayVar(&templateOptions.Set, "set", nil, "additional values to be merged into the helm command --set flag")
+	f.StringArrayVar(&templateOptions.Values, "values", nil, "additional value files to be merged into the helm command --values flag")
 	f.StringVar(&templateOptions.OutputDir, "output-dir", "", "output directory to pass to helm template (helm template --output-dir)")
 	f.StringVar(&templateOptions.OutputDirTemplate, "output-dir-template", "", "go text template for generating the output directory. Default: {{ .OutputDir }}/{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}-{{ .Release.Name}}")
 	f.IntVar(&templateOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")

@@ -32,8 +32,8 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm sync")
-	f.StringArrayVar(&syncOptions.Set, "set", nil, "additional values to be merged into the command")
-	f.StringArrayVar(&syncOptions.Values, "values", nil, "additional value files to be merged into the command")
+	f.StringArrayVar(&syncOptions.Set, "set", nil, "additional values to be merged into the helm command --set flag")
+	f.StringArrayVar(&syncOptions.Values, "values", nil, "additional value files to be merged into the helm command --values flag")
 	f.IntVar(&syncOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&syncOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the sync of available API versions")
 	f.BoolVar(&syncOptions.SkipNeeds, "skip-needs", true, `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`)
@@ -44,6 +44,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&syncOptions.Wait, "wait", false, `Override helmDefaults.wait setting "helm upgrade --install --wait"`)
 	f.BoolVar(&syncOptions.WaitForJobs, "wait-for-jobs", false, `Override helmDefaults.waitForJobs setting "helm upgrade --install --wait-for-jobs"`)
 	f.BoolVar(&syncOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reuse-values"`)
+	f.BoolVar(&syncOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reset-values"`)
 	f.StringVar(&syncOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 
 	return cmd

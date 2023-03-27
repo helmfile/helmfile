@@ -1,0 +1,6 @@
+releases:
+  - name: local-paths-example
+    namespace: local
+    chart: ../../charts/paths-example/
+    values:
+    - values.yaml # Values file (relative path to manifest)

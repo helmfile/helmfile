@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
-	"runtime"
+	goruntime "runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
 func TestCreateFuncMap(t *testing.T) {
@@ -126,7 +127,7 @@ func TestReadDir(t *testing.T) {
 		"sampleDirectory/file3.yaml",
 	}
 	var expectedArray []string
-	if runtime.GOOS == "windows" {
+	if goruntime.GOOS == "windows" {
 		expectedArray = expectedArrayWindows
 	} else {
 		expectedArray = expectedArrayUnix
@@ -177,16 +178,29 @@ func TestReadFile_PassAbsPath(t *testing.T) {
 	require.Equal(t, actual, expected)
 }
 
-func TestToYaml_UnsupportedNestedMapKey(t *testing.T) {
-	expected := "foo:\n  bar: BAR\n"
+func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
+	v := runtime.GoccyGoYaml
+	t.Cleanup(func() {
+		runtime.GoccyGoYaml = v
+	})
+
 	// nolint: unconvert
 	vals := Values(map[string]interface{}{
 		"foo": map[interface{}]interface{}{
 			"bar": "BAR",
 		},
 	})
+
+	runtime.GoccyGoYaml = true
+
 	actual, err := ToYaml(vals)
-	require.Equal(t, expected, actual)
+	require.Equal(t, "foo:\n  bar: BAR\n", actual)
+	require.NoError(t, err, "expected nil, but got: %v, when type: map[interface {}]interface {}", err)
+
+	runtime.GoccyGoYaml = false
+
+	actual, err = ToYaml(vals)
+	require.Equal(t, "foo:\n  bar: BAR\n", actual)
 	require.NoError(t, err, "expected nil, but got: %v, when type: map[interface {}]interface {}", err)
 }
 
@@ -205,19 +219,49 @@ func TestToYaml(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
-func TestFromYaml(t *testing.T) {
+func testFromYaml(t *testing.T, goccyGoYaml bool, expected Values) {
+	t.Helper()
+
+	v := runtime.GoccyGoYaml
+	runtime.GoccyGoYaml = goccyGoYaml
+	t.Cleanup(func() {
+		runtime.GoccyGoYaml = v
+	})
+
 	raw := `foo:
   bar: BAR
 `
-	// nolint: unconvert
-	expected := Values(map[string]interface{}{
-		"foo": map[string]interface{}{
-			"bar": "BAR",
-		},
-	})
 	actual, err := FromYaml(raw)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
+}
+
+func TestFromYaml(t *testing.T) {
+	t.Run("with goccy/go-yaml", func(t *testing.T) {
+		testFromYaml(
+			t,
+			true,
+			// nolint: unconvert
+			Values(map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "BAR",
+				},
+			}),
+		)
+	})
+
+	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+		testFromYaml(
+			t,
+			false,
+			// nolint: unconvert
+			Values(map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "BAR",
+				},
+			}),
+		)
+	})
 }
 
 func TestFromYamlToJson(t *testing.T) {
@@ -263,14 +307,44 @@ func TestSetValueAtPath_TwoComponents(t *testing.T) {
 }
 
 func TestTpl(t *testing.T) {
-	text := `foo: {{ .foo }}
-`
-	expected := `foo: FOO
-`
 	ctx := &Context{basePath: "."}
-	actual, err := ctx.Tpl(text, map[string]interface{}{"foo": "FOO"})
-	require.NoError(t, err)
-	require.Equal(t, expected, actual)
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		hasErr   bool
+		data     map[string]interface{}
+	}{
+		{
+			name:     "simple",
+			input:    `foo: {{ .foo }}`,
+			expected: `foo: Foo`,
+			data: map[string]interface{}{
+				"foo": "Foo",
+			},
+		},
+		{
+			name: "multiline_input",
+			input: `{{ .name }}
+end`,
+			expected: "multiline\nend",
+			data: map[string]interface{}{
+				"name": "multiline",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := ctx.Tpl(tt.input, tt.data)
+			if tt.hasErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.expected, actual)
+		})
+	}
 }
 
 func TestRequired(t *testing.T) {

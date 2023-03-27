@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
@@ -21,13 +22,17 @@ func prependLineNumbers(text string) string {
 	return buf.String()
 }
 
-func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environment, baseDir, filename string, content []byte) (*environment.Environment, *state.HelmState) {
-	tmplData := state.NewEnvironmentTemplateData(*firstPassEnv, r.namespace, map[string]interface{}{})
+func (r *desiredStateLoader) renderPrestate(firstPassEnv, overrode *environment.Environment, baseDir, filename string, content []byte) (*environment.Environment, *state.HelmState) {
+	initEnv, err := firstPassEnv.Merge(overrode)
+	if err != nil {
+		return firstPassEnv, nil
+	}
+	tmplData := state.NewEnvironmentTemplateData(*initEnv, r.namespace, map[string]interface{}{})
 	firstPassRenderer := tmpl.NewFirstPassRenderer(baseDir, tmplData)
 
 	// parse as much as we can, tolerate errors, this is a preparse
 	yamlBuf, err := firstPassRenderer.RenderTemplateContentToBuffer(content)
-	if err != nil && r.logger != nil {
+	if err != nil {
 		r.logger.Debugf("first-pass rendering input of \"%s\":\n%s", filename, prependLineNumbers(string(content)))
 		r.logger.Debugf("template syntax error: %v", err)
 		if yamlBuf == nil { // we have a template syntax error, let the second parse report
@@ -35,9 +40,7 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environmen
 		}
 	}
 	yamlData := yamlBuf.String()
-	if r.logger != nil {
-		r.logger.Debugf("first-pass rendering output of \"%s\":\n%s", filename, prependLineNumbers(yamlData))
-	}
+	r.logger.Debugf("first-pass rendering output of \"%s\":\n%s", filename, prependLineNumbers(yamlData))
 
 	// Work-around for https://github.com/golang/go/issues/24963
 	sanitized := strings.ReplaceAll(yamlData, "<no value>", "")
@@ -50,8 +53,8 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv *environment.Environmen
 	c := r.underlying()
 	c.Strict = false
 	// create preliminary state, as we may have an environment. Tolerate errors.
-	prestate, err := c.ParseAndLoad([]byte(sanitized), baseDir, filename, r.env, false, firstPassEnv)
-	if err != nil && r.logger != nil {
+	prestate, err := c.ParseAndLoad([]byte(sanitized), baseDir, filename, r.env, false, firstPassEnv, overrode)
+	if err != nil {
 		if _, ok := err.(*state.StateLoadError); ok {
 			r.logger.Debugf("could not deduce `environment:` block, configuring only .Environment.Name. error: %v", err)
 		}
@@ -80,60 +83,79 @@ func (r *desiredStateLoader) renderTemplatesToYamlWithEnv(baseDir, filename stri
 
 func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *environment.Environment, baseDir, filename string, content []byte) (*bytes.Buffer, error) {
 	// try a first pass render. This will always succeed, but can produce a limited env
-	if r.logger != nil {
-		r.logger.Debugf("first-pass rendering starting for \"%s\": inherited=%v, overrode=%v", filename, inherited, overrode)
+	var phase string
+	if !runtime.V1Mode {
+		phase = "first-pass "
 	}
+	r.logger.Debugf("%srendering starting for \"%s\": inherited=%v, overrode=%v", phase, filename, inherited, overrode)
 
-	initEnv, err := inherited.Merge(overrode)
+	initEnv, err := inherited.Merge(nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if r.logger != nil {
+	var (
+		renderingPhase string
+		finalEnv       *environment.Environment
+		vals           map[string]interface{}
+	)
+
+	if runtime.V1Mode {
+		var err error
+
+		finalEnv, err = initEnv.Merge(overrode)
+		if err != nil {
+			return nil, err
+		}
+
+		vals, err = finalEnv.GetMergedValues()
+		if err != nil {
+			return nil, err
+		}
+	} else {
 		r.logger.Debugf("first-pass uses: %v", initEnv)
-	}
+		firstPassEnv, err := initEnv.Merge(nil)
+		if err != nil {
+			return nil, err
+		}
+		renderedEnv, prestate := r.renderPrestate(firstPassEnv, overrode, baseDir, filename, content)
 
-	renderedEnv, prestate := r.renderPrestate(initEnv, baseDir, filename, content)
-
-	if r.logger != nil {
 		r.logger.Debugf("first-pass produced: %v", renderedEnv)
-	}
 
-	finalEnv, err := inherited.Merge(renderedEnv)
-	if err != nil {
-		return nil, err
-	}
+		mergedEnv, err := inherited.Merge(renderedEnv)
+		if err != nil {
+			return nil, err
+		}
 
-	finalEnv, err = finalEnv.Merge(overrode)
-	if err != nil {
-		return nil, err
-	}
+		mergedEnv, err = mergedEnv.Merge(overrode)
+		if err != nil {
+			return nil, err
+		}
 
-	if r.logger != nil {
-		r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *finalEnv)
-	}
+		r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *mergedEnv)
 
-	vals, err := finalEnv.GetMergedValues()
-	if err != nil {
-		return nil, err
-	}
+		renderingPhase = "second-pass "
 
-	if prestate != nil {
-		prestate.Env = *finalEnv
-		r.logger.Debugf("vals:\n%v\ndefaultVals:%v", vals, prestate.DefaultValues)
+		finalEnv = mergedEnv
+
+		vals, err = finalEnv.GetMergedValues()
+		if err != nil {
+			return nil, err
+		}
+
+		if prestate != nil {
+			prestate.Env = *mergedEnv
+			r.logger.Debugf("vals:\n%v\ndefaultVals:%v", vals, prestate.DefaultValues)
+		}
 	}
 
 	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals)
-	secondPassRenderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
-	yamlBuf, err := secondPassRenderer.RenderTemplateContentToBuffer(content)
+	renderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
+	yamlBuf, err := renderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
-		if r.logger != nil {
-			r.logger.Debugf("second-pass rendering failed, input of \"%s\":\n%s", filename, prependLineNumbers(string(content)))
-		}
+		r.logger.Debugf("%srendering failed, input of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(string(content)))
 		return nil, err
 	}
-	if r.logger != nil {
-		r.logger.Debugf("second-pass rendering result of \"%s\":\n%s", filename, prependLineNumbers(yamlBuf.String()))
-	}
+	r.logger.Debugf("%srendering result of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(yamlBuf.String()))
 	return yamlBuf, nil
 }

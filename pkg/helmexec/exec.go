@@ -12,14 +12,14 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/helmfile/chartify"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/plugin"
 
-	"github.com/helmfile/helmfile/pkg/envvar"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 type decryptedSecret struct {
@@ -31,12 +31,11 @@ type decryptedSecret struct {
 type execer struct {
 	helmBinary           string
 	enableLiveOutput     bool
-	version              semver.Version
+	version              *semver.Version
 	runner               Runner
 	logger               *zap.SugaredLogger
 	kubeContext          string
 	extra                []string
-	postRenderer         string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
@@ -59,32 +58,30 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 	return zap.New(core).Sugar()
 }
 
-func parseHelmVersion(versionStr string) (semver.Version, error) {
+func parseHelmVersion(versionStr string) (*semver.Version, error) {
 	if len(versionStr) == 0 {
-		return semver.Version{}, nil
+		return nil, fmt.Errorf("empty helm version")
 	}
 
-	versionStr = strings.TrimLeft(versionStr, "Client: ")
-	versionStr = strings.TrimRight(versionStr, "\n")
+	v, err := chartify.FindSemVerInfo(versionStr)
 
-	ver, err := semver.NewVersion(versionStr)
 	if err != nil {
-		return semver.Version{}, fmt.Errorf("error parsing helm version '%s'", versionStr)
+		return nil, fmt.Errorf("error find helm srmver version '%s': %w", versionStr, err)
 	}
 
-	// Support explicit helm3 opt-in via environment variable
-	if os.Getenv(envvar.Helm3) != "" && ver.Major() < 3 {
-		return *semver.MustParse("v3.0.0"), nil
+	ver, err := semver.NewVersion(v)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing helm version '%s'", versionStr)
 	}
 
-	return *ver, nil
+	return ver, nil
 }
 
-func GetHelmVersion(helmBinary string, runner Runner) (semver.Version, error) {
+func GetHelmVersion(helmBinary string, runner Runner) (*semver.Version, error) {
 	// Autodetect from `helm version`
 	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil, false)
 	if err != nil {
-		return semver.Version{}, fmt.Errorf("error determining helm version: %w", err)
+		return nil, fmt.Errorf("error determining helm version: %w", err)
 	}
 
 	return parseHelmVersion(string(outBytes))
@@ -142,14 +139,6 @@ func (helm *execer) SetEnableLiveOutput(enableLiveOutput bool) {
 	helm.enableLiveOutput = enableLiveOutput
 }
 
-func (helm *execer) SetPostRenderer(postRenderer string) {
-	helm.postRenderer = postRenderer
-}
-
-func (helm *execer) GetPostRenderer() string {
-	return helm.postRenderer
-}
-
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
 	var args []string
 	var out []byte
@@ -167,7 +156,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 
 		// See https://github.com/helm/helm/pull/8777
 		if cons, err := semver.NewConstraint(">= 3.3.2"); err == nil {
-			if cons.Check(&helm.version) {
+			if cons.Check(helm.version) {
 				args = append(args, "--force-update")
 			}
 		} else {
@@ -248,14 +237,10 @@ func (helm *execer) UpdateDeps(chart string) error {
 
 func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
 	helm.logger.Infof("Upgrading release=%v, chart=%v", name, redactedURL(chart))
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 
-	if helm.IsHelm3() {
-		flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
-	} else {
-		env["HELM_TILLER_HISTORY_MAX"] = strconv.Itoa(context.HistoryMax)
-	}
+	flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
 
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
 	helm.write(nil, out)
@@ -264,8 +249,8 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 
 func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Getting status %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
@@ -273,14 +258,9 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 
 func (helm *execer) List(context HelmContext, filter string, flags ...string) (string, error) {
 	helm.logger.Infof("Listing releases matching %v", filter)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
-	var args []string
-	if helm.IsHelm3() {
-		args = []string{"list", "--filter", filter}
-	} else {
-		args = []string{"list", filter}
-	}
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
+	args := []string{"list", "--filter", filter}
 
 	enableLiveOutput := false
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, &enableLiveOutput)
@@ -290,11 +270,9 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	// of the release to exist.
 	//
 	// This fixes it by removing the header from the v3 output, so that the output is formatted the same as that of v2.
-	if helm.IsHelm3() {
-		lines := strings.Split(string(out), "\n")
-		lines = lines[1:]
-		out = []byte(strings.Join(lines, "\n"))
-	}
+	lines := strings.Split(string(out), "\n")
+	lines = lines[1:]
+	out = []byte(strings.Join(lines, "\n"))
 	helm.write(nil, out)
 	return string(out), err
 }
@@ -320,8 +298,8 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		helm.decryptedSecretMutex.Unlock()
 
 		helm.logger.Infof("Decrypting secret %v", absPath)
-		preArgs := context.GetTillerlessArgs(helm)
-		env := context.getTillerlessEnv()
+		preArgs := make([]string, 0)
+		env := make(map[string]string)
 		settings := cli.New()
 		pluginVersion, err := GetPluginVersion("secrets", settings.PluginsDirectory)
 		if err != nil {
@@ -389,12 +367,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 
 func (helm *execer) TemplateRelease(name string, chart string, flags ...string) error {
 	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedURL(chart))
-	var args []string
-	if helm.IsHelm3() {
-		args = []string{"template", name, chart}
-	} else {
-		args = []string{"template", chart, "--name", name}
-	}
+	args := []string{"template", name, chart}
 
 	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
@@ -431,8 +404,8 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 	} else {
 		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedURL(chart))
 	}
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	var overrideEnableLiveOutput *bool = nil
 	if suppressDiff {
 		enableLiveOutput := false
@@ -481,7 +454,7 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 	var helmArgs []string
 	helm.logger.Infof("Pulling %v", chart)
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
-	if helmVersionConstraint.Check(&helm.version) {
+	if helmVersionConstraint.Check(helm.version) {
 		// in the 3.7.0 version, the chart pull has been replaced with helm pull
 		// https://github.com/helm/helm/releases/tag/v3.7.0
 		ociChartURL, ociChartTag := resolveOciChart(chart)
@@ -496,7 +469,7 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 
 func (helm *execer) ChartExport(chart string, path string, flags ...string) error {
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
-	if helmVersionConstraint.Check(&helm.version) {
+	if helmVersionConstraint.Check(helm.version) {
 		// in the 3.7.0 version, the chart export has been removed
 		// https://github.com/helm/helm/releases/tag/v3.7.0
 		return nil
@@ -511,8 +484,8 @@ func (helm *execer) ChartExport(chart string, path string, flags ...string) erro
 
 func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Deleting %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
@@ -520,8 +493,8 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 
 func (helm *execer) TestRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Testing %v", name)
-	preArgs := context.GetTillerlessArgs(helm)
-	env := context.getTillerlessEnv()
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
 	args := []string{"test", name}
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, nil)
 	helm.write(nil, out)
@@ -634,10 +607,6 @@ func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
 }
 
 func (helm *execer) ShowChart(chartPath string) (chart.Metadata, error) {
-	if !helm.IsHelm3() {
-		// show chart command isn't supported in helm2
-		return chart.Metadata{}, fmt.Errorf("helm show isn't supported in helm2")
-	}
 	var helmArgs = []string{"show", "chart", chartPath}
 	out, error := helm.exec(helmArgs, map[string]string{}, nil)
 	if error != nil {

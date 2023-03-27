@@ -17,21 +17,20 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/helmfile/chartify"
+	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
 	"github.com/tatsushid/go-prettytable"
-	"github.com/variantdev/chartify"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/policy"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 const (
@@ -50,11 +49,14 @@ type ReleaseSetSpec struct {
 
 	Environments map[string]EnvironmentSpec `yaml:"environments,omitempty"`
 
-	Bases               []string          `yaml:"bases,omitempty"`
-	HelmDefaults        HelmSpec          `yaml:"helmDefaults,omitempty"`
-	Helmfiles           []SubHelmfileSpec `yaml:"helmfiles,omitempty"`
-	DeprecatedContext   string            `yaml:"context,omitempty"`
-	DeprecatedReleases  []ReleaseSpec     `yaml:"charts,omitempty"`
+	Bases        []string          `yaml:"bases,omitempty"`
+	HelmDefaults HelmSpec          `yaml:"helmDefaults,omitempty"`
+	Helmfiles    []SubHelmfileSpec `yaml:"helmfiles,omitempty"`
+
+	// TODO: Remove this function once Helmfile v0.x
+	DeprecatedContext  string        `yaml:"context,omitempty"`
+	DeprecatedReleases []ReleaseSpec `yaml:"charts,omitempty"`
+
 	OverrideKubeContext string            `yaml:"kubeContext,omitempty"`
 	OverrideNamespace   string            `yaml:"namespace,omitempty"`
 	OverrideChart       string            `yaml:"chart,omitempty"`
@@ -80,24 +82,29 @@ type ReleaseSetSpec struct {
 	// non-existent path. The default behavior is to print a warning. Note the
 	// differing default compared to other MissingFileHandlers.
 	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
+	// MissingFileHandlerConfig is composed of various settings for the MissingFileHandler
+	MissingFileHandlerConfig MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
 
 	LockFile string `yaml:"lockFilePath,omitempty"`
+}
+
+type MissingFileHandlerConfig struct {
+	// IgnoreMissingGitBranch is set to true in order to let the missing file handler
+	// treat missing git branch errors like `pathspec 'develop' did not match any file(s) known to git` safe
+	// and ignored when the handler is set to Warn or Info.
+	IgnoreMissingGitBranch bool `yaml:"ignoreMissingGitBranch,omitempty"`
 }
 
 // helmStateAlias is helm state alias
 type helmStateAlias HelmState
 
-func (hs HelmState) MarshalYAML() (interface{}, error) {
-	return helmStateAlias(hs), nil
-}
-
-func (hs *HelmState) UnmarshalYAML(value *yaml.Node) error {
+func (hs *HelmState) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	helmStateInfo := make(map[string]interface{})
-	if err := value.DecodeWithOptions(&helmStateInfo, yaml.DecodeOptions{KnownFields: true}); err != nil {
+	if err := unmarshal(&helmStateInfo); err != nil {
 		return err
 	}
 
-	isStrict, err := policy.Checker(helmStateInfo)
+	isStrict, err := policy.Checker(hs.FilePath, helmStateInfo)
 	if err != nil {
 		if isStrict {
 			return err
@@ -105,7 +112,7 @@ func (hs *HelmState) UnmarshalYAML(value *yaml.Node) error {
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 	}
 
-	return value.DecodeWithOptions((*helmStateAlias)(hs), yaml.DecodeOptions{KnownFields: true})
+	return unmarshal((*helmStateAlias)(hs))
 }
 
 // HelmState structure for the helmfile
@@ -146,11 +153,9 @@ type SubhelmfileEnvironmentSpec struct {
 
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
-	KubeContext     string   `yaml:"kubeContext,omitempty"`
-	TillerNamespace string   `yaml:"tillerNamespace,omitempty"`
-	Tillerless      bool     `yaml:"tillerless"`
-	Args            []string `yaml:"args,omitempty"`
-	Verify          bool     `yaml:"verify"`
+	KubeContext string   `yaml:"kubeContext,omitempty"`
+	Args        []string `yaml:"args,omitempty"`
+	Verify      bool     `yaml:"verify"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -202,6 +207,13 @@ type RepositorySpec struct {
 	PassCredentials string `yaml:"passCredentials,omitempty"`
 	SkipTLSVerify   string `yaml:"skipTLSVerify,omitempty"`
 }
+
+type Inherit struct {
+	Template string   `yaml:"template,omitempty"`
+	Except   []string `yaml:"except,omitempty"`
+}
+
+type Inherits []Inherit
 
 // ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
@@ -292,9 +304,6 @@ type ReleaseSpec struct {
 
 	ValuesPathPrefix string `yaml:"valuesPathPrefix,omitempty"`
 
-	TillerNamespace string `yaml:"tillerNamespace,omitempty"`
-	Tillerless      *bool  `yaml:"tillerless,omitempty"`
-
 	KubeContext string `yaml:"kubeContext,omitempty"`
 
 	TLS       *bool  `yaml:"tls,omitempty"`
@@ -303,10 +312,9 @@ type ReleaseSpec struct {
 	TLSCert   string `yaml:"tlsCert,omitempty"`
 
 	// These values are used in templating
-	TillerlessTemplate *string `yaml:"tillerlessTemplate,omitempty"`
-	VerifyTemplate     *string `yaml:"verifyTemplate,omitempty"`
-	WaitTemplate       *string `yaml:"waitTemplate,omitempty"`
-	InstalledTemplate  *string `yaml:"installedTemplate,omitempty"`
+	VerifyTemplate    *string `yaml:"verifyTemplate,omitempty"`
+	WaitTemplate      *string `yaml:"waitTemplate,omitempty"`
+	InstalledTemplate *string `yaml:"installedTemplate,omitempty"`
 
 	// These settings requires helm-x integration to work
 	Dependencies          []Dependency  `yaml:"dependencies,omitempty"`
@@ -345,6 +353,24 @@ type ReleaseSpec struct {
 
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
+
+	// Inherit is used to inherit a release template from a release or another release template
+	Inherit Inherits `yaml:"inherit,omitempty"`
+}
+
+func (r *Inherits) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var v0151 []Inherit
+	if err := unmarshal(&v0151); err != nil {
+		var v0150 Inherit
+		if err := unmarshal(&v0150); err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "releases[].inherit of map(%+v) has been deprecated and will be removed in v0.152.0. Wrap it into an array: %v\n", v0150, err)
+		*r = []Inherit{v0150}
+		return nil
+	}
+	*r = v0151
+	return nil
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
@@ -394,8 +420,7 @@ const MissingFileHandlerWarn = "Warn"
 const MissingFileHandlerDebug = "Debug"
 
 var DefaultFetchOutputDirTemplate = path.Join(
-	"{{ .OutputDir }}{{ if .Release.TillerNamespace }}",
-	"{{ .Release.TillerNamespace }}{{ end }}{{ if .Release.Namespace }}",
+	"{{ .OutputDir }}{{ if .Release.Namespace }}",
 	"{{ .Release.Namespace }}{{ end }}{{ if .Release.KubeContext }}",
 	"{{ .Release.KubeContext }}{{ end }}",
 	"{{ .Release.Name }}",
@@ -426,8 +451,6 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 
 		if len(components) > 1 {
 			ns = components[len(components)-2]
-		} else if spec.TillerNamespace != "" {
-			ns = spec.TillerNamespace
 		} else {
 			ns = spec.Namespace
 		}
@@ -575,7 +598,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
-				flags, files, flagsErr := st.flagsForUpgrade(helm, release, workerIndex)
+				flags, files, flagsErr := st.flagsForUpgrade(helm, release, workerIndex, opts)
 				mut.Unlock()
 				if flagsErr != nil {
 					results <- syncPrepareResult{errors: []*ReleaseError{newReleaseFailedError(release, flagsErr)}, files: files}
@@ -616,11 +639,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--wait-for-jobs")
 				}
 
-				if opts.ReuseValues || st.HelmDefaults.ReuseValues {
-					flags = append(flags, "--reuse-values")
-				} else {
-					flags = append(flags, "--reset-values")
-				}
+				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues)
 
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
@@ -693,12 +712,14 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 }
 
 type SyncOpts struct {
-	Set         []string
-	SkipCleanup bool
-	SkipCRDs    bool
-	Wait        bool
-	WaitForJobs bool
-	ReuseValues bool
+	Set          []string
+	SkipCleanup  bool
+	SkipCRDs     bool
+	Wait         bool
+	WaitForJobs  bool
+	ReuseValues  bool
+	ResetValues  bool
+	PostRenderer string
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -715,17 +736,14 @@ func ReleaseToID(r *ReleaseSpec) string {
 		id += kc + "/"
 	}
 
-	tns := r.TillerNamespace
 	ns := r.Namespace
 
-	if tns != "" {
-		id += tns + "/"
-	} else if ns != "" {
+	if ns != "" {
 		id += ns + "/"
 	}
 
 	if kc != "" {
-		if tns == "" && ns == "" {
+		if ns == "" {
 			// This is intentional to avoid conflating kc=,ns=foo,name=bar and kc=foo,ns=,name=bar.
 			// Before https://github.com/roboll/helmfile/pull/1823 they were both `foo/bar` which turned out to break `needs` in many ways.
 			//
@@ -774,15 +792,10 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
-					if helm.IsHelm3() {
-						args = []string{}
-						if release.Namespace != "" {
-							args = append(args, "--namespace", release.Namespace)
-						}
-					} else {
-						args = []string{"--purge"}
+					if release.Namespace != "" {
+						args = append(args, "--namespace", release.Namespace)
 					}
-					deletionFlags := st.appendConnectionFlags(args, helm, release)
+					deletionFlags := st.appendConnectionFlags(args, release)
 					m.Lock()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
@@ -887,12 +900,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						relErr = newReleaseFailedError(release, err)
 					} else if installed {
 						var args []string
-						if helm.IsHelm3() {
-							args = []string{}
-						} else {
-							args = []string{"--purge"}
-						}
-						deletionFlags := st.appendConnectionFlags(args, helm, release)
+						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
 						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
@@ -967,15 +975,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 }
 
 func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
-	flags := st.connectionFlags(helm, release)
-	if helm.IsHelm3() {
-		if release.Namespace != "" {
-			flags = append(flags, "--namespace", release.Namespace)
-		}
-		flags = append(flags, "--uninstalling")
-	} else {
-		flags = append(flags, "--deleting")
+	flags := st.connectionFlags(release)
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
 	}
+	flags = append(flags, "--uninstalling")
 	flags = append(flags, "--deployed", "--failed", "--pending")
 	return helm.List(context, "^"+release.Name+"$", flags...)
 }
@@ -1094,18 +1098,14 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	releases := releasesNeedCharts(selected)
 
-	temp := make(map[PrepareChartKey]string, len(releases))
+	var prepareChartInfoMutex sync.Mutex
+
+	prepareChartInfo := make(map[PrepareChartKey]string, len(releases))
 
 	errs := []error{}
 
 	jobQueue := make(chan *ReleaseSpec, len(releases))
 	results := make(chan *chartPrepareResult, len(releases))
-
-	var helm3 bool
-
-	if helm != nil {
-		helm3 = helm.IsHelm3()
-	}
 
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
@@ -1184,10 +1184,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
 				skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
 
-				if chartification != nil {
+				if chartification != nil && helmfileCommand != "pull" {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
-						chartify.UseHelm3(helm3),
+						chartify.UseHelm3(true),
 						chartify.WithLogf(st.logger.Debugf),
 					)
 
@@ -1304,11 +1304,15 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					return
 				}
-				temp[PrepareChartKey{
-					Namespace:   downloadRes.releaseNamespace,
-					KubeContext: downloadRes.releaseContext,
-					Name:        downloadRes.releaseName,
-				}] = downloadRes.chartPath
+				func() {
+					prepareChartInfoMutex.Lock()
+					defer prepareChartInfoMutex.Unlock()
+					prepareChartInfo[PrepareChartKey{
+						Namespace:   downloadRes.releaseNamespace,
+						KubeContext: downloadRes.releaseContext,
+						Name:        downloadRes.releaseName,
+					}] = downloadRes.chartPath
+				}()
 
 				if downloadRes.buildDeps {
 					builds = append(builds, downloadRes)
@@ -1327,7 +1331,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		}
 	}
 
-	return temp, nil
+	return prepareChartInfo, nil
 }
 
 // nolint: unparam
@@ -1342,7 +1346,7 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
 	for _, r := range builds {
-		buildDepsFlags := getBuildDepsFlags(helm, r)
+		buildDepsFlags := getBuildDepsFlags(r)
 		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {
 			if r.chartFetchedByGoGetter {
 				diagnostic := fmt.Sprintf(
@@ -1373,6 +1377,7 @@ type TemplateOpts struct {
 	OutputDirTemplate string
 	IncludeCRDs       bool
 	SkipTests         bool
+	PostRenderer      string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1400,7 +1405,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		st.ApplyOverrides(release)
 
-		flags, files, err := st.flagsForTemplate(helm, release, 0)
+		flags, files, err := st.flagsForTemplate(helm, release, 0, opts)
 
 		if !opts.SkipCleanup {
 			defer st.removeFiles(files)
@@ -1545,15 +1550,15 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 				return []error{fmt.Errorf("unmarshalling yaml %s: %w", f, err)}
 			}
 
-			if err := mergo.Merge(&merged, &src, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+			if err := mergo.Merge(&merged, &src, mergo.WithOverride); err != nil {
 				return []error{fmt.Errorf("merging %s: %w", f, err)}
 			}
 		}
 
 		var buf bytes.Buffer
 
-		y := yaml.NewEncoder(&buf)
-		if err := y.Encode(merged); err != nil {
+		encoder := yaml.NewEncoder(&buf)
+		if err := encoder.Encode(merged); err != nil {
 			return []error{err}
 		}
 
@@ -1703,11 +1708,7 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, includeTests bool, s
 		flags = append(flags, "--output", opt.Output)
 	}
 
-	if opt.ReuseValues || st.HelmDefaults.ReuseValues {
-		flags = append(flags, "--reuse-values")
-	} else {
-		flags = append(flags, "--reset-values")
-	}
+	flags = st.appendValuesControlModeFlag(flags, opt.ReuseValues, opt.ResetValues)
 
 	if opt.Set != nil {
 		for _, s := range opt.Set {
@@ -1794,7 +1795,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
-				flags, files, err := st.flagsForDiff(helm, release, disableValidation, workerIndex)
+				flags, files, err := st.flagsForDiff(helm, release, disableValidation, workerIndex, opt)
 				mut.Unlock()
 				if err != nil {
 					errs = append(errs, err)
@@ -1849,14 +1850,6 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 }
 
 func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helmexec.HelmContext {
-	namespace := st.HelmDefaults.TillerNamespace
-	if spec.TillerNamespace != "" {
-		namespace = spec.TillerNamespace
-	}
-	tillerless := st.HelmDefaults.Tillerless
-	if spec.Tillerless != nil {
-		tillerless = *spec.Tillerless
-	}
 	historyMax := 10
 	if st.HelmDefaults.HistoryMax != nil {
 		historyMax = *st.HelmDefaults.HistoryMax
@@ -1866,10 +1859,8 @@ func (st *HelmState) createHelmContext(spec *ReleaseSpec, workerIndex int) helme
 	}
 
 	return helmexec.HelmContext{
-		Tillerless:      tillerless,
-		TillerNamespace: namespace,
-		WorkerIndex:     workerIndex,
-		HistoryMax:      historyMax,
+		WorkerIndex: workerIndex,
+		HistoryMax:  historyMax,
 	}
 }
 
@@ -1894,6 +1885,8 @@ type DiffOpts struct {
 	SkipCleanup       bool
 	SkipDiffOnInstall bool
 	ReuseValues       bool
+	ResetValues       bool
+	PostRenderer      string
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2012,10 +2005,10 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		st.ApplyOverrides(&release)
 
 		flags := []string{}
-		if helm.IsHelm3() && release.Namespace != "" {
+		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
-		flags = st.appendConnectionFlags(flags, helm, &release)
+		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -2026,12 +2019,9 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
-		flags := []string{}
-		if purge && !helm.IsHelm3() {
-			flags = append(flags, "--purge")
-		}
-		flags = st.appendConnectionFlags(flags, helm, &release)
-		if helm.IsHelm3() && release.Namespace != "" {
+		flags := make([]string, 0)
+		flags = st.appendConnectionFlags(flags, &release)
+		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
 		context := st.createHelmContext(&release, workerIndex)
@@ -2083,27 +2073,22 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 
 		flags := []string{}
-		if helm.IsHelm3() && release.Namespace != "" {
+		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
-		}
-		if cleanup && !helm.IsHelm3() {
-			flags = append(flags, "--cleanup")
 		}
 		if opts.Logs {
 			flags = append(flags, "--logs")
 		}
 
 		if timeout == EmptyTimeout {
-			flags = append(flags, st.timeoutFlags(helm, &release)...)
+			flags = append(flags, st.timeoutFlags(&release)...)
 		} else {
 			duration := strconv.Itoa(timeout)
-			if helm.IsHelm3() {
-				duration += "s"
-			}
+			duration += "s"
 			flags = append(flags, "--timeout", duration)
 		}
 
-		flags = st.appendConnectionFlags(flags, helm, &release)
+		flags = st.appendConnectionFlags(flags, &release)
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -2418,62 +2403,48 @@ func findChartDirectory(topLevelDir string) (string, error) {
 }
 
 // appendConnectionFlags append all the helm command-line flags related to K8s API and Tiller connection including the kubecontext
-func (st *HelmState) appendConnectionFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec) []string {
-	adds := st.connectionFlags(helm, release)
+func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec) []string {
+	adds := st.connectionFlags(release)
 	flags = append(flags, adds...)
 	return flags
 }
 
-func (st *HelmState) connectionFlags(helm helmexec.Interface, release *ReleaseSpec) []string {
+func (st *HelmState) connectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
-	tillerless := st.HelmDefaults.Tillerless
-	if release.Tillerless != nil {
-		tillerless = *release.Tillerless
+	if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
+		flags = append(flags, "--tls")
 	}
-	if !tillerless {
-		if !helm.IsHelm3() {
-			if release.TillerNamespace != "" {
-				flags = append(flags, "--tiller-namespace", release.TillerNamespace)
-			} else if st.HelmDefaults.TillerNamespace != "" {
-				flags = append(flags, "--tiller-namespace", st.HelmDefaults.TillerNamespace)
-			}
-		}
 
-		if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
-			flags = append(flags, "--tls")
-		}
+	if release.TLSKey != "" {
+		flags = append(flags, "--tls-key", release.TLSKey)
+	} else if st.HelmDefaults.TLSKey != "" {
+		flags = append(flags, "--tls-key", st.HelmDefaults.TLSKey)
+	}
 
-		if release.TLSKey != "" {
-			flags = append(flags, "--tls-key", release.TLSKey)
-		} else if st.HelmDefaults.TLSKey != "" {
-			flags = append(flags, "--tls-key", st.HelmDefaults.TLSKey)
-		}
+	if release.TLSCert != "" {
+		flags = append(flags, "--tls-cert", release.TLSCert)
+	} else if st.HelmDefaults.TLSCert != "" {
+		flags = append(flags, "--tls-cert", st.HelmDefaults.TLSCert)
+	}
 
-		if release.TLSCert != "" {
-			flags = append(flags, "--tls-cert", release.TLSCert)
-		} else if st.HelmDefaults.TLSCert != "" {
-			flags = append(flags, "--tls-cert", st.HelmDefaults.TLSCert)
-		}
+	if release.TLSCACert != "" {
+		flags = append(flags, "--tls-ca-cert", release.TLSCACert)
+	} else if st.HelmDefaults.TLSCACert != "" {
+		flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
+	}
 
-		if release.TLSCACert != "" {
-			flags = append(flags, "--tls-ca-cert", release.TLSCACert)
-		} else if st.HelmDefaults.TLSCACert != "" {
-			flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
-		}
-
-		if release.KubeContext != "" {
-			flags = append(flags, "--kube-context", release.KubeContext)
-		} else if st.Environments[st.Env.Name].KubeContext != "" {
-			flags = append(flags, "--kube-context", st.Environments[st.Env.Name].KubeContext)
-		} else if st.HelmDefaults.KubeContext != "" {
-			flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
-		}
+	if release.KubeContext != "" {
+		flags = append(flags, "--kube-context", release.KubeContext)
+	} else if st.Environments[st.Env.Name].KubeContext != "" {
+		flags = append(flags, "--kube-context", st.Environments[st.Env.Name].KubeContext)
+	} else if st.HelmDefaults.KubeContext != "" {
+		flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
 	}
 
 	return flags
 }
 
-func (st *HelmState) timeoutFlags(helm helmexec.Interface, release *ReleaseSpec) []string {
+func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 	var flags []string
 
 	timeout := st.HelmDefaults.Timeout
@@ -2482,16 +2453,14 @@ func (st *HelmState) timeoutFlags(helm helmexec.Interface, release *ReleaseSpec)
 	}
 	if timeout != 0 {
 		duration := strconv.Itoa(timeout)
-		if helm.IsHelm3() {
-			duration += "s"
-		}
+		duration += "s"
 		flags = append(flags, "--timeout", duration)
 	}
 
 	return flags
 }
 
-func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
 
 	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
@@ -2506,7 +2475,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--wait-for-jobs")
 	}
 
-	flags = append(flags, st.timeoutFlags(helm, release)...)
+	flags = append(flags, st.timeoutFlags(release)...)
 
 	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
 		flags = append(flags, "--force")
@@ -2539,11 +2508,15 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--disable-openapi-validation")
 	}
 
-	flags = st.appendConnectionFlags(flags, helm, release)
+	flags = st.appendConnectionFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
-	flags = st.appendPostRenderFlags(flags, release, helm)
+	postRenderer := ""
+	if opt != nil {
+		postRenderer = opt.PostRenderer
+	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2552,23 +2525,20 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	return append(flags, common...), clean, nil
 }
 
-func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error) {
 	var flags []string
 
-	// `helm template` in helm v2 does not support `--version` flag. So we fetch with the version flag and then template
-	// without the flag. See PrepareCharts function to see the Helmfile implementation of chart fetching.
-	//
-	// `helm template` in helm v3 supports `--version` and it automatically fetches the remote chart to template,
-	// so we skip fetching on helmfile-side and let helm fetch it.
-	if helm.IsHelm3() {
-		flags = st.chartVersionFlags(release)
-	}
+	flags = st.chartVersionFlags(release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
 	flags = st.appendApiVersionsFlags(flags, release)
 
-	flags = st.appendPostRenderFlags(flags, release, helm)
+	postRenderer := ""
+	if opt != nil {
+		postRenderer = opt.PostRenderer
+	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2577,7 +2547,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	return append(flags, common...), files, nil
 }
 
-func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
 
 	disableOpenAPIValidation := false
@@ -2603,11 +2573,15 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendApiVersionsFlags(flags, release)
 
-	flags = st.appendConnectionFlags(flags, helm, release)
+	flags = st.appendConnectionFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
-	flags = st.appendPostRenderFlags(flags, release, helm)
+	postRenderer := ""
+	if opt != nil {
+		postRenderer = opt.PostRenderer
+	}
+	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2625,6 +2599,16 @@ func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
 
 	if st.isDevelopment(release) {
 		flags = append(flags, "--devel")
+	}
+
+	return flags
+}
+
+func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues bool, resetValues bool) []string {
+	if !resetValues && (st.HelmDefaults.ReuseValues || reuseValues) {
+		flags = append(flags, "--reuse-values")
+	} else {
+		flags = append(flags, "--reset-values")
 	}
 
 	return flags
@@ -2708,7 +2692,7 @@ func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path s
 			return nil, err
 		}
 
-		return maputil.YamlMarshal(parsedYaml)
+		return yaml.Marshal(parsedYaml)
 	}
 
 	return rawBytes, nil
@@ -2784,13 +2768,19 @@ func (st *HelmState) removeFiles(files []string) {
 	}
 }
 
+func (c MissingFileHandlerConfig) resolveFileOptions() []resolveFileOption {
+	return []resolveFileOption{
+		ignoreMissingGitBranch(c.IgnoreMissingGitBranch),
+	}
+}
+
 func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []interface{}, missingFileHandler *string) ([]string, error) {
 	generatedFiles := []string{}
 
 	for _, value := range values {
 		switch typedValue := value.(type) {
 		case string:
-			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", typedValue)
+			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", typedValue, st.MissingFileHandlerConfig.resolveFileOptions()...)
 			if err != nil {
 				return generatedFiles, err
 			}
@@ -2891,12 +2881,12 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 
 		switch value := v.(type) {
 		case string:
-			paths, skip, err = st.storage().resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value)
+			paths, skip, err = st.storage().resolveFile(release.MissingFileHandler, "secrets", release.ValuesPathPrefix+value, st.MissingFileHandlerConfig.resolveFileOptions()...)
 			if err != nil {
 				return nil, err
 			}
 		default:
-			bs, err := maputil.YamlMarshal(value)
+			bs, err := yaml.Marshal(value)
 			if err != nil {
 				return nil, err
 			}
@@ -2926,7 +2916,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 		}
 		path := paths[0]
 
-		decryptFlags := st.appendConnectionFlags([]string{}, helm, release)
+		decryptFlags := st.appendConnectionFlags([]string{}, release)
 		valfile, err := helm.DecryptSecret(st.createHelmContext(release, workerIndex), path, decryptFlags...)
 		if err != nil {
 			return nil, err
@@ -3127,10 +3117,10 @@ func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
 }
 
 // UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
-// this is required to keep allowing string scalar for defining helmfile
-func (hf *SubHelmfileSpec) UnmarshalYAML(value *yaml.Node) error {
+// this is required go-yto keep allowing string scalar for defining helmfile
+func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var tmp interface{}
-	if err := value.Decode(&tmp); err != nil {
+	if err := unmarshal(&tmp); err != nil {
 		return err
 	}
 
@@ -3145,7 +3135,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(value *yaml.Node) error {
 
 			Environment SubhelmfileEnvironmentSpec `yaml:",inline"`
 		}
-		if err := value.Decode(&subHelmfileSpecTmp); err != nil {
+		if err := unmarshal(&subHelmfileSpecTmp); err != nil {
 			return err
 		}
 		hf.Path = subHelmfileSpecTmp.Path
@@ -3330,7 +3320,7 @@ func (st *HelmState) GenerateOutputFilePath(release *ReleaseSpec, outputFileTemp
 }
 
 func (st *HelmState) ToYaml() (string, error) {
-	if result, err := maputil.YamlMarshal(st); err != nil {
+	if result, err := yaml.Marshal(st); err != nil {
 		return "", err
 	} else {
 		return string(result), nil
@@ -3345,7 +3335,7 @@ func (st *HelmState) LoadYAMLForEmbedding(release *ReleaseSpec, entries []interf
 		case string:
 			var values map[string]interface{}
 
-			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", pathPrefix+t)
+			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", pathPrefix+t, st.MissingFileHandlerConfig.resolveFileOptions()...)
 			if err != nil {
 				return nil, err
 			}

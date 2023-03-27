@@ -85,7 +85,7 @@ It allows you to abstract away the repetitions in releases into a template, whic
 
 ```yaml
 templates:
-  default: &default
+  default:
     chart: stable/{{`{{ .Release.Name }}`}}
     namespace: kube-system
     # This prevents helmfile exiting when it encounters a missing file
@@ -102,16 +102,18 @@ templates:
 releases:
 - name: heapster
   version: 0.3.2
-  <<: *default
+  inherit:
+    template: default
 - name: kubernetes-dashboard
   version: 0.10.0
-  <<: *default
+  inherit:
+    template: default
 ```
 
 Release Templating supports the following parts of release definition:
 - basic fields: `name`, `namespace`, `chart`, `version`
-- boolean fields: `installed`, `wait`, `waitForJobs`, `tillerless`, `verify` by the means of additional text
-  fields designed for templating only: `installedTemplate`, `waitTemplate`, `tillerlessTemplate`, `verifyTemplate`
+- boolean fields: `installed`, `wait`, `waitForJobs`, `verify` by the means of additional text
+  fields designed for templating only: `installedTemplate`, `waitTemplate`, `verifyTemplate`
   ```yaml
   # ...
     installedTemplate: '{{`{{ eq .Release.Namespace "kube-system" }}`}}'
@@ -144,7 +146,13 @@ Release Templating supports the following parts of release definition:
   # ...
   ```
 
-See the [issue 428](https://github.com/roboll/helmfile/issues/428) for more context on how this is supposed to work.
+Previously, we've been using YAML anchors for release template inheritance.
+It turned out not work well when you wanted to nest templates for complex use cases and/or you want a fine control over which fields to inherit or not.
+Thus we added a new way for inheritance, which uses the `inherit` field we introduced above.
+
+See [issue helmfile/helmfile#435](https://github.com/helmfile/helmfile/issues/435#issuecomment-1362177510) for more context.
+
+You might also find [issue roboll/helmfile#428](https://github.com/roboll/helmfile/issues/428) useful for more context on how we originally designed the relase template and what it's supposed to solve.
 
 ## Layering Release Values
 
@@ -320,7 +328,6 @@ Where the gotmpl file loaded in the second part looks like:
 
 ```yaml
 helmDefaults:
-  tillerNamespace: kube-system
   kubeContext: {{ .Values.kubeContext }}
   verify: false
   {{ if .Values.wait }}
@@ -339,7 +346,6 @@ So in `mydefaults.yaml.gotmpl`, both `.Values.kubeContext` and `.Values.wait` ar
 
 ```yaml
 helmDefaults:
-  tillerNamespace: kube-system
   kubeContext: test
   verify: false
   wait: false

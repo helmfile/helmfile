@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/require"
-	"github.com/variantdev/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -42,6 +42,7 @@ func TestDiffWithNeeds(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
+			Helm3:                true,
 		}
 
 		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -316,6 +317,7 @@ func TestDiffWithInstalled(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
+			Helm3:                true,
 		}
 
 		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -385,7 +387,7 @@ releases:
 `,
 			selectors: []string{"name=a"},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^a$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^a$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 `,
 			},
@@ -409,7 +411,7 @@ releases:
 `,
 			selectors: []string{"name=a"},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^a$", Flags: helmV2ListFlags}: ``,
+				{Filter: "^a$", Flags: listFlags("default", "default")}: ``,
 			},
 		})
 	})

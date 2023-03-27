@@ -1,5 +1,0 @@
-charts:
-  # Published chart example
-  - name: grafana                         # helm release name
-    namespace: grafana                    # target namespace
-    chart: stable/grafana                 # chart reference (repository)

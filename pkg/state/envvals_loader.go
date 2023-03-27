@@ -6,13 +6,13 @@ import (
 
 	"github.com/imdario/mergo"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 type EnvironmentValuesLoader struct {
@@ -34,7 +34,7 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 	}
 }
 
-func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []interface{}, ctxEnv *environment.Environment) (map[string]interface{}, error) {
+func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []interface{}, ctxEnv *environment.Environment, envName string) (map[string]interface{}, error) {
 	result := map[string]interface{}{}
 
 	for _, entry := range valuesEntries {
@@ -53,7 +53,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			for _, f := range files {
 				var env environment.Environment
 				if ctxEnv == nil {
-					env = environment.EmptyEnvironment
+					env = *environment.New(envName)
 				} else {
 					env = *ctxEnv
 				}
@@ -69,9 +69,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
 				}
 				maps = append(maps, m)
-				if ld.logger != nil {
-					ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
-				}
+				ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
 			}
 		case map[interface{}]interface{}, map[string]interface{}:
 			maps = append(maps, strOrMap)
@@ -86,7 +84,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			if err != nil {
 				return nil, err
 			}
-			if err := mergo.Merge(&result, &vals, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+			if err := mergo.Merge(&result, &vals, mergo.WithOverride); err != nil {
 				return nil, fmt.Errorf("failed to merge %v: %v", m, err)
 			}
 		}

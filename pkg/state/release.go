@@ -3,10 +3,9 @@ package state
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/tmpl"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*ReleaseSpec, error) {
@@ -68,15 +67,6 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.InstalledTemplate = &resultTmpl
 	}
 
-	if result.TillerlessTemplate != nil {
-		ts := *result.TillerlessTemplate
-		resultTmpl, err := renderer.RenderTemplateContentToString([]byte(ts))
-		if err != nil {
-			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
-		}
-		result.TillerlessTemplate = &resultTmpl
-	}
-
 	if result.VerifyTemplate != nil {
 		ts := *result.VerifyTemplate
 		resultTmpl, err := renderer.RenderTemplateContentToString([]byte(ts))
@@ -99,23 +89,28 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		for i, t := range result.ValuesTemplate {
 			switch ts := t.(type) {
 			case map[interface{}]interface{}, map[string]interface{}:
-				serialized, err := maputil.YamlMarshal(ts)
+				serialized, err := yaml.Marshal(ts)
 				if err != nil {
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
 				}
 
 				s, err := renderer.RenderTemplateContentToBuffer(serialized)
 				if err != nil {
-					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, serialized, err)
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, string(serialized), err)
 				}
 
-				var deserialized map[interface{}]interface{}
+				var deserialized map[string]interface{}
 
 				if err := yaml.Unmarshal(s.Bytes(), &deserialized); err != nil {
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
 				}
 
-				result.ValuesTemplate[i] = deserialized
+				m, err := maputil.CastKeysToStrings(deserialized)
+				if err != nil {
+					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
+				}
+
+				result.ValuesTemplate[i] = m
 			}
 		}
 
@@ -132,6 +127,12 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%s\": %v", r.Name, i, ts, err)
 			}
 			result.Values[i] = s.String()
+		case map[interface{}]interface{}:
+			m, err := maputil.CastKeysToStrings(ts)
+			if err != nil {
+				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%s\": %v", r.Name, i, ts, err)
+			}
+			result.Values[i] = m
 		}
 	}
 
@@ -202,7 +203,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 }
 
 func (r ReleaseSpec) Clone() (*ReleaseSpec, error) {
-	serialized, err := maputil.YamlMarshal(r)
+	serialized, err := yaml.Marshal(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed cloning release \"%s\": %v", r.Name, err)
 	}

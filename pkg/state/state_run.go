@@ -22,16 +22,6 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 		concurrency = items
 	}
 
-	for _, r := range st.Releases {
-		if r.Tillerless != nil {
-			if *r.Tillerless {
-				concurrency = 1
-			}
-		} else if st.HelmDefaults.Tillerless {
-			concurrency = 1
-		}
-	}
-
 	// WaitGroup is required to wait until goroutine per job in job queue cleanly stops.
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(concurrency)

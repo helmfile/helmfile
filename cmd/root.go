@@ -47,7 +47,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		Use:           "helmfile",
 		Short:         globalUsage,
 		Long:          globalUsage,
-		Args:          cobra.MinimumNArgs(1),
 		Version:       version.Version(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -103,6 +102,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		),
 	)
 
+	// TODO: Remove this function once Helmfile v0.x
 	if !runtime.V1Mode {
 		cmd.AddCommand(
 			NewChartsCmd(globalImpl),
@@ -115,10 +115,10 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
 	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", app.DefaultHelmBinary, "Path to the helm binary")
-	fs.StringVarP(&globalOptions.File, "file", "f", "", "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.d`(means `helmfile.d/*.yaml`) in this preference. Specify - to load the config from the standard input.")
+	fs.StringVarP(&globalOptions.File, "file", "f", "", "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.yaml.gotmpl` or `helmfile.d`(means `helmfile.d/*.yaml` or `helmfile.d/*.yaml.gotmpl`) in this preference. Specify - to load the config from the standard input.")
 	fs.StringVarP(&globalOptions.Environment, "environment", "e", "", `specify the environment name. defaults to "default"`)
-	fs.StringArrayVar(&globalOptions.StateValuesSet, "state-values-set", nil, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
-	fs.StringArrayVar(&globalOptions.StateValuesFile, "state-values-file", nil, "specify state values in a YAML file")
+	fs.StringArrayVar(&globalOptions.StateValuesSet, "state-values-set", nil, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).")
+	fs.StringArrayVar(&globalOptions.StateValuesFile, "state-values-file", nil, "specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).")
 	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, "Silence output. Equivalent to log-level warn")
 	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", "Set kubectl context. Uses current context by default")
 	fs.BoolVar(&globalOptions.Debug, "debug", false, "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect")
@@ -127,7 +127,7 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.StringVar(&globalOptions.LogLevel, "log-level", "info", "Set log level, default info")
 	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}")
 	fs.StringVarP(&globalOptions.Chart, "chart", "c", "", "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}")
-	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar. 
+	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
 A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
 "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
 The name of a release can be used as a label: "--selector name=myrelease"`)

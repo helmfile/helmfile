@@ -1,0 +1,5 @@
+chartifyTempDir: environments_values_gotmpl_with_environment_name
+helmfileArgs:
+- --environment
+- test
+- template

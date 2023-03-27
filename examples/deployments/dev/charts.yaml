@@ -1,6 +1,0 @@
-charts:
-  - name: dev-paths-example
-    namespace: dev
-    chart: ../../charts/paths-example/
-    values:
-    - ../../values/dev/paths-example/values.yaml # Values file (relative path to manifest)

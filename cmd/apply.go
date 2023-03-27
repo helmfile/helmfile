@@ -33,8 +33,8 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringArrayVar(&applyOptions.Set, "set", nil, "additional values to be merged into the command")
-	f.StringArrayVar(&applyOptions.Values, "values", nil, "additional value files to be merged into the command")
+	f.StringArrayVar(&applyOptions.Set, "set", nil, "additional values to be merged into the helm command --set flag")
+	f.StringArrayVar(&applyOptions.Values, "values", nil, "additional value files to be merged into the helm command --values flag")
 	f.IntVar(&applyOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&applyOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the list of available API versions")
 	f.IntVar(&applyOptions.Context, "context", 0, "output NUM lines of context around changes")
@@ -42,8 +42,8 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.DetailedExitcode, "detailed-exitcode", false, "return a non-zero exit code 2 instead of 0 when there were changes detected AND the changes are synced successfully")
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
 	if !runtime.V1Mode {
+		// TODO: Remove this function once Helmfile v0.x
 		f.BoolVar(&applyOptions.RetainValuesFiles, "retain-values-files", false, "DEPRECATED: Use skip-cleanup instead")
-		// mark retain-values-files as deprecated, but keep it for backward compatibility, will be removed in the future
 		_ = f.MarkDeprecated("retain-values-files", "Use skip-cleanup instead")
 	}
 
@@ -63,6 +63,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.Wait, "wait", false, `Override helmDefaults.wait setting "helm upgrade --install --wait"`)
 	f.BoolVar(&applyOptions.WaitForJobs, "wait-for-jobs", false, `Override helmDefaults.waitForJobs setting "helm upgrade --install --wait-for-jobs"`)
 	f.BoolVar(&applyOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reuse-values"`)
+	f.BoolVar(&applyOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reset-values"`)
 	f.StringVar(&applyOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 
 	return cmd

@@ -8,8 +8,10 @@ import (
 )
 
 const (
-	DefaultHelmfile              = "helmfile.yaml"
-	DeprecatedHelmfile           = "charts.yaml"
+	DefaultHelmfile = "helmfile.yaml"
+	// TODO: Remove this function once Helmfile v0.x
+	DeprecatedHelmfile = "charts.yaml"
+
 	DefaultHelmfileDirectory     = "helmfile.d"
 	ExperimentalSelectorExplicit = "explicit-selector-inheritance" // value to remove default selector inheritance to sub-helmfiles and use the explicit one
 )

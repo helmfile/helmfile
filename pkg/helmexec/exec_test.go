@@ -5,17 +5,15 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
-
-	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 // Mocking the command-line runner
@@ -30,6 +28,10 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	if len(mock.output) == 0 && strings.Join(args, " ") == "version --client --short" {
+		return []byte("v3.2.4+ge29ce2a"), nil
+	}
+
 	return mock.output, mock.err
 }
 
@@ -92,36 +94,12 @@ func Test_SetEnableLiveOutput(t *testing.T) {
 	}
 }
 
-func Test_SetPostRenderer(t *testing.T) {
-	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
-	if helm.enableLiveOutput {
-		t.Error("helmexec.enableLiveOutput should not be enabled by default")
-	}
-	postRendererFoo := "/bin/rewrite-repo.sh"
-	helm.SetPostRenderer(postRendererFoo)
-	if helm.postRenderer != postRendererFoo {
-		t.Errorf("helmexec.SetPostRenderer() - actual = %s expect = %s", helm.postRenderer, postRendererFoo)
-	}
-}
-
-func Test_GetPostRenderer(t *testing.T) {
-	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
-	if helm.enableLiveOutput {
-		t.Error("helmexec.enableLiveOutput should not be enabled by default")
-	}
-	postRendererFoo := "/bin/rewrite-repo.sh"
-	helm.SetPostRenderer(postRendererFoo)
-	if helm.GetPostRenderer() != postRendererFoo {
-		t.Errorf("helmexec.GetPostRenderer() - actual = %s expect = %s", helm.GetPostRenderer(), postRendererFoo)
-	}
-}
-
 func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := &execer{
 		helmBinary:  "helm",
-		version:     *semver.MustParse("3.3.2"),
+		version:     semver.MustParse("3.3.2"),
 		logger:      logger,
 		kubeContext: "dev",
 		runner:      &mockRunner{},
@@ -277,7 +255,7 @@ func Test_SyncRelease(t *testing.T) {
 	helm := MockExecer(logger, "dev")
 	err := helm.SyncRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs")
 	expected := `Upgrading release=release, chart=chart
-exec: helm --kube-context dev upgrade --install release chart --timeout 10 --wait --wait-for-jobs
+exec: helm --kube-context dev upgrade --install release chart --timeout 10 --wait --wait-for-jobs --history-max 0
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -289,7 +267,7 @@ exec: helm --kube-context dev upgrade --install release chart --timeout 10 --wai
 	buffer.Reset()
 	err = helm.SyncRelease(HelmContext{}, "release", "chart")
 	expected = `Upgrading release=release, chart=chart
-exec: helm --kube-context dev upgrade --install release chart
+exec: helm --kube-context dev upgrade --install release chart --history-max 0
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -301,24 +279,7 @@ exec: helm --kube-context dev upgrade --install release chart
 	buffer.Reset()
 	err = helm.SyncRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz")
 	expected = `Upgrading release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
-exec: helm --kube-context dev upgrade --install release https://example_user:example_password@repo.example.com/chart.tgz
-`
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.SyncRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
-	}
-}
-
-func Test_SyncReleaseTillerless(t *testing.T) {
-	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
-	err := helm.SyncRelease(HelmContext{Tillerless: true, TillerNamespace: "foo"}, "release", "chart",
-		"--timeout 10", "--wait", "--wait-for-jobs")
-	expected := `Upgrading release=release, chart=chart
-exec: helm --kube-context dev tiller run foo -- helm upgrade --install release chart --timeout 10 --wait --wait-for-jobs
+exec: helm --kube-context dev upgrade --install release https://example_user:example_password@repo.example.com/chart.tgz --history-max 0
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -539,22 +500,6 @@ exec: helm --kube-context dev diff upgrade --allow-unreleased release chart
 	err = helm.DiffRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz", false)
 	expected = `Comparing release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
 exec: helm --kube-context dev diff upgrade --allow-unreleased release https://example_user:example_password@repo.example.com/chart.tgz
-`
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.DiffRelease()\nactual = %v\nexpect = %v", buffer.String(), expected)
-	}
-}
-
-func Test_DiffReleaseTillerless(t *testing.T) {
-	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
-	err := helm.DiffRelease(HelmContext{Tillerless: true}, "release", "chart", false, "--timeout 10", "--wait", "--wait-for-jobs")
-	expected := `Comparing release=release, chart=chart
-exec: helm --kube-context dev tiller run -- helm diff upgrade --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -797,7 +742,7 @@ exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --des
 			buffer.Reset()
 			helm := &execer{
 				helmBinary:  tt.helmBin,
-				version:     *semver.MustParse(tt.helmVersion),
+				version:     semver.MustParse(tt.helmVersion),
 				logger:      logger,
 				kubeContext: "dev",
 				runner:      &mockRunner{},
@@ -846,7 +791,7 @@ exec: helm --kube-context dev chart export chart --destination path1 --untar --u
 			buffer.Reset()
 			helm := &execer{
 				helmBinary:  tt.helmBin,
-				version:     *semver.MustParse(tt.helmVersion),
+				version:     semver.MustParse(tt.helmVersion),
 				logger:      logger,
 				kubeContext: "dev",
 				runner:      &mockRunner{},
@@ -887,31 +832,6 @@ func Test_LogLevels(t *testing.T) {
 	}
 }
 
-func Test_getTillerlessEnv(t *testing.T) {
-	context := HelmContext{Tillerless: true, TillerNamespace: "foo", WorkerIndex: 1}
-
-	os.Unsetenv("KUBECONFIG")
-	actual := context.getTillerlessEnv()
-	if val, found := actual["HELM_TILLER_SILENT"]; !found || val != "true" {
-		t.Errorf("getTillerlessEnv() HELM_TILLER_SILENT\nactual = %s\nexpect = true", val)
-	}
-	// This feature is disabled until it is fixed in helm
-	/*if val, found := actual["HELM_TILLER_PORT"]; !found || val != "44135" {
-		t.Errorf("getTillerlessEnv() HELM_TILLER_PORT\nactual = %s\nexpect = 44135", val)
-	}*/
-	if val, found := actual["KUBECONFIG"]; found {
-		t.Errorf("getTillerlessEnv() KUBECONFIG\nactual = %s\nexpect = nil", val)
-	}
-
-	t.Setenv("KUBECONFIG", "toto")
-	actual = context.getTillerlessEnv()
-	cwd, _ := os.Getwd()
-	expected := path.Join(cwd, "toto")
-	if val, found := actual["KUBECONFIG"]; !found || val != expected {
-		t.Errorf("getTillerlessEnv() KUBECONFIG\nactual = %s\nexpect = %s", val, expected)
-	}
-}
-
 func Test_mergeEnv(t *testing.T) {
 	actual := env2map(mergeEnv([]string{"A=1", "B=c=d", "E=2"}, map[string]string{"B": "3", "F": "4"}))
 	expected := map[string]string{"A": "1", "B": "3", "E": "2", "F": "4"}
@@ -926,7 +846,7 @@ func Test_Template(t *testing.T) {
 	helm := MockExecer(logger, "dev")
 	err := helm.TemplateRelease("release", "path/to/chart", "--values", "file.yml")
 	expected := `Templating release=release, chart=path/to/chart
-exec: helm --kube-context dev template path/to/chart --name release --values file.yml
+exec: helm --kube-context dev template release path/to/chart --values file.yml
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -938,7 +858,7 @@ exec: helm --kube-context dev template path/to/chart --name release --values fil
 	buffer.Reset()
 	err = helm.TemplateRelease("release", "https://example_user:example_password@repo.example.com/chart.tgz", "--values", "file.yml")
 	expected = `Templating release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
-exec: helm --kube-context dev template https://example_user:example_password@repo.example.com/chart.tgz --name release --values file.yml
+exec: helm --kube-context dev template release https://example_user:example_password@repo.example.com/chart.tgz --values file.yml
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -959,13 +879,6 @@ func Test_IsHelm3(t *testing.T) {
 	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
-	}
-
-	t.Setenv(envvar.Helm3, "1")
-	helm2Runner = mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
-	if !helm.IsHelm3() {
-		t.Errorf("helmexec.IsHelm3() - Helm3 not detected when %s is set", envvar.Helm3)
 	}
 }
 
@@ -1064,17 +977,10 @@ func Test_resolveOciChart(t *testing.T) {
 }
 
 func Test_ShowChart(t *testing.T) {
-	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
-	_, err := helm.ShowChart("fake-chart")
-	if err == nil {
-		t.Error("helmexec.ShowChart() - helm show isn't supported in helm2")
-	}
-
 	showChartRunner := mockRunner{output: []byte("name: my-chart\nversion: 3.2.0\n")}
-	helm = &execer{
+	helm := &execer{
 		helmBinary:  "helm",
-		version:     *semver.MustParse("3.3.2"),
+		version:     semver.MustParse("3.3.2"),
 		logger:      NewLogger(os.Stdout, "info"),
 		kubeContext: "dev",
 		runner:      &showChartRunner,
@@ -1089,5 +995,57 @@ func Test_ShowChart(t *testing.T) {
 	}
 	if metadata.Version != "3.2.0" {
 		t.Errorf("helmexec.ShowChart() - expected chart version was %s, received: %s", "3.2.0", metadata.Version)
+	}
+}
+
+func TestParseHelmVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    *semver.Version
+		wantErr bool
+	}{
+		{
+			name:    "helm 2",
+			version: "Client: v2.16.1+ge13bc94\n",
+			want:    semver.MustParse("v2.16.1+ge13bc94"),
+			wantErr: false,
+		},
+		{
+			name:    "helm 3",
+			version: "Client: v3.2.4+ge29ce2a\n",
+			want:    semver.MustParse("v3.2.4+ge29ce2a"),
+			wantErr: false,
+		},
+		{
+			name:    "helm 3 with os arch and build info",
+			version: "Client v3.7.1+7.el8+g8f33223\n",
+			want:    semver.MustParse("v3.7.1+7.el8"),
+			wantErr: false,
+		},
+		{
+			name:    "empty version",
+			version: "",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "invalid version",
+			version: "oooooo",
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseHelmVersion(tt.version)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseHelmVersion() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseHelmVersion() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

@@ -14,11 +14,11 @@ import (
 	"text/template"
 
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 type Values = map[string]interface{}
@@ -279,7 +279,7 @@ func (c *Context) Tpl(text string, data interface{}) (string, error) {
 }
 
 func ToYaml(v interface{}) (string, error) {
-	data, err := maputil.YamlMarshal(v)
+	data, err := yaml.Marshal(v)
 	if err != nil {
 		return "", err
 	}
@@ -287,11 +287,17 @@ func ToYaml(v interface{}) (string, error) {
 }
 
 func FromYaml(str string) (Values, error) {
-	m := Values{}
+	m := map[string]interface{}{}
 
 	if err := yaml.Unmarshal([]byte(str), &m); err != nil {
 		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
 	}
+
+	m, err := maputil.CastKeysToStrings(m)
+	if err != nil {
+		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
+	}
+
 	return m, nil
 }
 

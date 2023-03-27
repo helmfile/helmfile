@@ -1,10 +1,11 @@
+// TODO: Remove this function once Helmfile v0.x
 package config
 
 // ChartsOptions is the options for the build command
 type ChartsOptions struct {
-	// Set is the additional values to be merged into the command
+	// Set is the additional values to be merged into the helm command --set flag
 	Set []string
-	// Values is the additional value files to be merged into the command
+	// Values is the additional value files to be merged into the helm command --values flag
 	Values []string
 	// Concurrency is the maximum number of concurrent helm processes to run, 0 is unlimited
 	Concurrency int

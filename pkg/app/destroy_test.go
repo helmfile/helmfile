@@ -1,10 +1,11 @@
 package app
 
 import (
+	"strings"
 	"sync"
 	"testing"
 
-	"github.com/variantdev/vals"
+	"github.com/helmfile/vals"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -14,11 +15,22 @@ import (
 )
 
 const (
-	helmV2ListFlags                   = "--kube-contextdefault--deleting--deployed--failed--pending"
-	helmV2ListFlagsWithoutKubeContext = "--deleting--deployed--failed--pending"
 	helmV3ListFlags                   = "--kube-contextdefault--uninstalling--deployed--failed--pending"
 	helmV3ListFlagsWithoutKubeContext = "--uninstalling--deployed--failed--pending"
 )
+
+func listFlags(namespace, kubeContext string) string {
+	var flags []string
+	if kubeContext != "" {
+		flags = append(flags, "--kube-context", kubeContext)
+	}
+	if namespace != "" {
+		flags = append(flags, "--namespace", namespace)
+	}
+	flags = append(flags, "--uninstalling--deployed--failed--pending")
+
+	return strings.Join(flags, "")
+}
 
 type destroyConfig struct {
 	args                   string
@@ -27,10 +39,15 @@ type destroyConfig struct {
 	skipDeps               bool
 	logger                 *zap.SugaredLogger
 	includeTransitiveNeeds bool
+	skipCharts             bool
 }
 
 func (d destroyConfig) Args() string {
 	return d.args
+}
+
+func (d destroyConfig) SkipCharts() bool {
+	return d.skipCharts
 }
 
 func (d destroyConfig) Interactive() bool {
@@ -55,7 +72,6 @@ func (d destroyConfig) IncludeTransitiveNeeds() bool {
 
 func TestDestroy(t *testing.T) {
 	type testcase struct {
-		helm3       bool
 		ns          string
 		concurrency int
 		error       string
@@ -75,7 +91,7 @@ func TestDestroy(t *testing.T) {
 		wantDeletes := tc.deleted
 
 		var helm = &exectest.Helm{
-			Helm3:                tc.helm3,
+			Helm3:                true,
 			FailOnUnexpectedList: true,
 			FailOnUnexpectedDiff: true,
 			Lists:                tc.lists,
@@ -248,32 +264,32 @@ releases:
 			files: files,
 			diffs: map[exectest.DiffKey]error{},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				{Filter: "^frontend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^frontend-v3$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				{Filter: "^backend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^backend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^logging$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^logging$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 logging	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
 `,
-				{Filter: "^front-proxy$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^front-proxy$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
 `,
-				{Filter: "^servicemesh$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^servicemesh$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
 `,
-				{Filter: "^database$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^database$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
 `,
-				{Filter: "^anotherbackend$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
 `,
 			},
@@ -465,32 +481,32 @@ changing working directory back to "/path/to"
 			selectors: []string{"name=logging"},
 			diffs:     map[exectest.DiffKey]error{},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				{Filter: "^frontend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^frontend-v3$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				{Filter: "^backend-v2$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^backend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
 `,
-				{Filter: "^logging$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^logging$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 logging	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
 `,
-				{Filter: "^front-proxy$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^front-proxy$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
 `,
-				{Filter: "^servicemesh$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^servicemesh$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
 `,
-				{Filter: "^database$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^database$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
 `,
-				{Filter: "^anotherbackend$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
 `,
 			},
@@ -646,9 +662,9 @@ changing working directory back to "/path/to"
 			files: filesForTwoReleases,
 			diffs: map[exectest.DiffKey]error{},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				{Filter: "^backend-v1$", Flags: helmV2ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
 			},
 			// Disable concurrency to avoid in-deterministic result
@@ -714,13 +730,12 @@ changing working directory back to "/path/to"
 
 	t.Run("helm3", func(t *testing.T) {
 		check(t, testcase{
-			helm3: true,
 			files: filesForTwoReleases,
 			diffs: map[exectest.DiffKey]error{},
 			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: helmV3ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
-				{Filter: "^backend-v1$", Flags: helmV3ListFlags}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 `,
 			},
 			// Disable concurrency to avoid in-deterministic result

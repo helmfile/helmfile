@@ -2,7 +2,6 @@ package remote
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	neturl "net/url"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"github.com/hashicorp/go-getter/helper/url"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
@@ -27,6 +25,10 @@ func init() {
 }
 
 func CacheDir() string {
+	if h := os.Getenv(envvar.CacheHome); h != "" {
+		return h
+	}
+
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		// fall back to relative path with hidden directory
@@ -47,51 +49,6 @@ type Remote struct {
 	// Filesystem abstraction
 	// Inject any implementation of your choice, like an im-memory impl for testing, os.ReadFile for the real-world use.
 	fs *filesystem.FileSystem
-}
-
-func (r *Remote) Unmarshal(src string, dst interface{}) error {
-	bytes, err := r.GetBytes(src)
-	if err != nil {
-		return err
-	}
-
-	strs := strings.Split(src, "/")
-	file := strs[len(strs)-1]
-	ext := filepath.Ext(file)
-
-	{
-		r.Logger.Debugf("remote> unmarshalling %s", string(bytes))
-
-		var err error
-		switch ext {
-		case "json":
-			err = json.Unmarshal(bytes, dst)
-		default:
-			err = yaml.Unmarshal(bytes, dst)
-		}
-
-		r.Logger.Debugf("remote> unmarshalled to %v", dst)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *Remote) GetBytes(goGetterSrc string) ([]byte, error) {
-	f, err := r.Fetch(goGetterSrc)
-	if err != nil {
-		return nil, err
-	}
-
-	bytes, err := r.fs.ReadFile(f)
-	if err != nil {
-		return nil, fmt.Errorf("read file: %v", err)
-	}
-
-	return bytes, nil
 }
 
 // Locate takes an URL to a remote file or a path to a local file.

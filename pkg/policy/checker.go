@@ -3,6 +3,9 @@ package policy
 
 import (
 	"errors"
+	"path/filepath"
+
+	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
 var (
@@ -10,14 +13,14 @@ var (
 )
 
 // checkerFunc is a function that checks the helmState.
-type checkerFunc func(map[string]interface{}) (bool, error)
+type checkerFunc func(string, map[string]interface{}) (bool, error)
 
-func forbidEnvironmentsWithReleases(releaseState map[string]interface{}) (bool, error) {
+func forbidEnvironmentsWithReleases(filePath string, releaseState map[string]interface{}) (bool, error) {
 	// forbid environments and releases to be defined at the same yaml part
 	_, hasEnvironments := releaseState["environments"]
 	_, hasReleases := releaseState["releases"]
-	if hasEnvironments && hasReleases {
-		return false, EnvironmentsAndReleasesWithinSameYamlPartErr
+	if hasEnvironments && hasReleases && (filepath.Ext(filePath) == ".gotmpl" || !runtime.V1Mode) {
+		return runtime.V1Mode, EnvironmentsAndReleasesWithinSameYamlPartErr
 	}
 	return false, nil
 }
@@ -27,9 +30,9 @@ var checkerFuncs = []checkerFunc{
 }
 
 // Checker is a policy checker for the helmfile state.
-func Checker(helmState map[string]interface{}) (bool, error) {
+func Checker(filePath string, helmState map[string]interface{}) (bool, error) {
 	for _, fn := range checkerFuncs {
-		if isStrict, err := fn(helmState); err != nil {
+		if isStrict, err := fn(filePath, helmState); err != nil {
 			return isStrict, err
 		}
 	}

@@ -1,4 +1,4 @@
-FROM golang:1.19.2-alpine as builder
+FROM golang:1.20-alpine as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -15,7 +15,7 @@ FROM alpine:3.16
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
-RUN apk add --no-cache ca-certificates git bash curl jq openssh-client
+RUN apk add --no-cache ca-certificates git bash curl jq openssh-client gnupg
 
 # Set Helm home variables so that also non-root users can use plugins etc.
 ARG HOME="/helm"
@@ -27,9 +27,9 @@ ENV HELM_CONFIG_HOME="${HELM_CONFIG_HOME}"
 ARG HELM_DATA_HOME="${HOME}/.local/share/helm"
 ENV HELM_DATA_HOME="${HELM_DATA_HOME}"
 
-ARG HELM_VERSION="v3.10.3"
+ARG HELM_VERSION="v3.11.2"
 ENV HELM_VERSION="${HELM_VERSION}"
-ARG HELM_SHA256="950439759ece902157cf915b209b8d694e6f675eaab5099fb7894f30eeaee9a2"
+ARG HELM_SHA256="781d826daec584f9d50a01f0f7dadfd25a3312217a14aa2fbb85107b014ac8ca"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-linux-amd64.tar.gz"
 RUN set -x && \

@@ -114,14 +114,14 @@ The `required` function returns the second argument as-is only if it is not empt
 ```
 
 #### `fetchSecretValue`
-The `fetchSecretValue` function parses the argument as a [vals](https://github.com/variantdev/vals) ref URL, retrieves and returns the remote secret value referred by the URL. In case it failed to access the remote secret backend for whatever reason or the URL was invalid, the template rendering will fail with an error message.
+The `fetchSecretValue` function parses the argument as a [vals](https://github.com/helmfile/vals) ref URL, retrieves and returns the remote secret value referred by the URL. In case it failed to access the remote secret backend for whatever reason or the URL was invalid, the template rendering will fail with an error message.
 
 ```yaml
 {{ $fetchSecretValue :=  fetchSecretValue "secret/path" }}
 ```
 
 #### `expandSecretRefs`
-The `expandSecretRefs` function takes an object as the argument and expands every [vals](https://github.com/variantdev/vals) secret reference URL embedded in the object's values. See ["Remote Secrets" page in our documentation](./remote-secrets.md) for more information.
+The `expandSecretRefs` function takes an object as the argument and expands every [vals](https://github.com/helmfile/vals) secret reference URL embedded in the object's values. See ["Remote Secrets" page in our documentation](./remote-secrets.md) for more information.
 
 ```yaml
 {{ $expandSecretRefs :=  $value | expandSecretRefs }}
