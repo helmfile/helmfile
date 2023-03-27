@@ -18,50 +18,48 @@ Note that every breaking change should have an easy alternative way to achieve t
   - By forcing (or print a big warning) the user to do separate helmfile parts for `environments` and `releases`, it's very unlikely Helmfile needs double-rendering at all.
   - After this change, every helmfile.yaml written this way:
 
-    ```
-    environments:
-      default:
-        values:
-        - foo: bar
-    releases:
-    - name: myapp
-      chart: charts/myapp
-      values:
-      - {{ .Values | toYaml | nindent 4 }}
-    ```
+        environments:
+          default:
+            values:
+            - foo: bar
+        releases:
+        - name: myapp
+          chart: charts/myapp
+          values:
+          - {{ .Values | toYaml | nindent 4 }}
+
     must be rewritten like:
-    ```
-    environments:
-      default:
-        values:
-        - foo: bar
-    ---
-    releases:
-    - name: myapp
-      chart: charts/myapp
-      values:
-      - {{ .Values | toYaml | nindent 4 }}
-    ```
+
+        environments:
+          default:
+            values:
+            - foo: bar
+        ---
+        releases:
+        - name: myapp
+          chart: charts/myapp
+          values:
+          - {{ .Values | toYaml | nindent 4 }}
+
     It might not be a deal breaker as you already had to separate helmfile parts when you need to generate `environments` dynamically:
-    ```
-    environments:
-      default:
-        values:
-        - foo: bar
-    ---
-    environments:
-      default:
-        values:
-        - {{ .Values | toYaml | nindent 6}}}
-        - bar: baz
-    ---
-    releases:
-    - name: myapp
-      chart: charts/myapp
-      values:
-      - {{ .Values | toYaml | nindent 4 }}
-    ```
-    
+
+        environments:
+          default:
+            values:
+            - foo: bar
+        ---
+        environments:
+          default:
+            values:
+            - {{ .Values | toYaml | nindent 6}}}
+            - bar: baz
+        ---
+        releases:
+        - name: myapp
+          chart: charts/myapp
+          values:
+          - {{ .Values | toYaml | nindent 4 }}
+
     If you're already using any helmfile.yaml files that are written in the first style, do start using `---` today! It will probably reveal and fix unintended template evaluations. If you start using `---` today, you won't need to do anything after Helmfile 1.0.
 
 ### Force `.gotmpl` file extension for `helmfile.yaml` in case you want helmfile to render it as a go template before yaml parsing.
