@@ -792,9 +792,9 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 	key := createHelmKey(bin, kubectx)
 
 	if _, ok := a.helms[key]; !ok {
-		a.helms[key] = helmexec.New(bin, a.EnableLiveOutput, a.Logger, kubectx, &helmexec.ShellRunner{
+		a.helms[key] = helmexec.New(a.ctx, bin, a.EnableLiveOutput, a.Logger, kubectx, &helmexec.ShellRunner{
 			Logger: a.Logger,
-		}, a.ctx)
+		})
 	}
 
 	return a.helms[key]

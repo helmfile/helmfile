@@ -2397,7 +2397,7 @@ func (mock *mockRunner) Execute(ctx goContext.Context, cmd string, args []string
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
-	execer := helmexec.New("helm", false, logger, kubeContext, &mockRunner{}, goContext.Background())
+	execer := helmexec.New(goContext.Background(), "helm", false, logger, kubeContext, &mockRunner{})
 	return execer
 }
 

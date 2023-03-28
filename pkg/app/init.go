@@ -164,7 +164,7 @@ func (h *HelmfileInit) WhetherContinue(ask string) error {
 
 func (h *HelmfileInit) CheckHelmPlugins() error {
 	settings := cli.New()
-	helm := helmexec.New(h.helmBinary, false, h.logger, "", h.runner, goContext.Background())
+	helm := helmexec.New(goContext.Background(), h.helmBinary, false, h.logger, "", h.runner)
 	for _, p := range helmPlugins {
 		pluginVersion, err := helmexec.GetPluginVersion(p.name, settings.PluginsDirectory)
 		if err != nil {

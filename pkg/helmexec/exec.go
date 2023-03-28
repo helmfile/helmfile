@@ -112,7 +112,7 @@ func redactedURL(chart string) string {
 }
 
 // New for running helm commands
-func New(helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, kubeContext string, runner Runner, ctx context.Context) *execer {
+func New(ctx context.Context, helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	// TODO: proper error handling
 	version, err := GetHelmVersion(helmBinary, runner)
 	if err != nil {
