@@ -8,7 +8,7 @@ require (
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-test/deep v1.1.0
-	github.com/goccy/go-yaml v1.9.8
+	github.com/goccy/go-yaml v1.10.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.9
 	github.com/gosuri/uitable v0.0.4
@@ -32,8 +32,6 @@ require (
 )
 
 replace gopkg.in/yaml.v3 => github.com/colega/go-yaml-yaml v0.0.0-20220720070545-aaba007ebc22
-
-replace github.com/goccy/go-yaml => github.com/helmfile/go-yaml v0.0.0-20230206025945-259d2ed450ae
 
 require (
 	cloud.google.com/go v0.104.0 // indirect
