@@ -303,15 +303,9 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		},
 		func(id int) {
 			for secret := range secrets {
-				urlOrPath := secret.path
-				localPath, err := c.remote.Locate(urlOrPath)
-				if err == nil {
-					urlOrPath = localPath
-				}
-
 				release := &ReleaseSpec{}
 				flags := st.appendConnectionFlags([]string{}, release)
-				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), urlOrPath, flags...)
+				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), secret.path, flags...)
 				if err != nil {
 					results <- secretResult{secret.id, nil, err, secret.path}
 					continue

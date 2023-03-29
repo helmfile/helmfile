@@ -1140,7 +1140,7 @@ func (a *App) WrapWithoutSelector(converge func(*state.HelmState, helmexec.Inter
 }
 
 func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]string, error) {
-	path, err := a.remote.Locate(specifiedPath)
+	path, err := a.remote.Locate(specifiedPath, "states")
 	if err != nil {
 		return nil, fmt.Errorf("locate: %v", err)
 	}

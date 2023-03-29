@@ -101,7 +101,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 }
 
 func (ld *desiredStateLoader) loadFile(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*state.HelmState, error) {
-	path, err := ld.remote.Locate(file)
+	path, err := ld.remote.Locate(file, "states")
 	if err != nil {
 		return nil, fmt.Errorf("locate: %v", err)
 	}
