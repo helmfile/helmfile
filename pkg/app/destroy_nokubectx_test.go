@@ -403,17 +403,18 @@ release "front-proxy" processed
 release "logging" processed
 
 DELETED RELEASES:
-NAME
-frontend-v3
-frontend-v2
-frontend-v1
-backend-v2
-backend-v1
-anotherbackend
-servicemesh
-database
-front-proxy
-logging
+NAME             CHART                   VERSION    DURATION
+frontend-v3      charts/frontend                         0ms
+frontend-v2      charts/frontend                         0ms
+frontend-v1      charts/frontend                         0ms
+backend-v2       charts/backend                          0ms
+backend-v1       charts/backend                          0ms
+anotherbackend   charts/anotherbackend                   0ms
+servicemesh      charts/istio                            0ms
+database         charts/mysql                            0ms
+front-proxy      stable/envoy                            0ms
+logging          charts/fluent-bit                       0ms
+
 changing working directory back to "/path/to"
 `,
 		})
@@ -594,8 +595,9 @@ processing releases in group 1/1: logging
 release "logging" processed
 
 DELETED RELEASES:
-NAME
-logging
+NAME      CHART               VERSION    DURATION
+logging   charts/fluent-bit                   0ms
+
 changing working directory back to "/path/to"
 `,
 		})
@@ -664,9 +666,10 @@ processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
-NAME
-frontend-v1
-backend-v1
+NAME          CHART             VERSION    DURATION
+frontend-v1   charts/frontend                   0ms
+backend-v1    charts/backend                    0ms
+
 changing working directory back to "/path/to"
 `,
 		})
@@ -735,9 +738,10 @@ processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
-NAME
-frontend-v1
-backend-v1
+NAME          CHART             VERSION    DURATION
+frontend-v1   charts/frontend                   0ms
+backend-v1    charts/backend                    0ms
+
 changing working directory back to "/path/to"
 `,
 		})

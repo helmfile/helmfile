@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	"time"
 
 	"github.com/helmfile/chartify"
 	"github.com/helmfile/vals"
@@ -289,6 +291,7 @@ type ReleaseSpec struct {
 	Values    []interface{}     `yaml:"values,omitempty"`
 	Secrets   []interface{}     `yaml:"secrets,omitempty"`
 	SetValues []SetValue        `yaml:"set,omitempty"`
+	Duration  time.Duration     `yaml:"duration,omitempty"`
 
 	ValuesTemplate    []interface{} `yaml:"valuesTemplate,omitempty"`
 	SetValuesTemplate []SetValue    `yaml:"setTemplate,omitempty"`
@@ -797,6 +800,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					}
 					deletionFlags := st.appendConnectionFlags(args, release)
 					m.Lock()
+					start := time.Now()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
@@ -809,6 +813,8 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					} else {
 						affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 					}
+					elapsed := time.Since(start)
+					release.Duration = elapsed
 					m.Unlock()
 				}
 
@@ -892,6 +898,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
 
+				start := time.Now()
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else if !release.Desired() {
@@ -948,6 +955,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
+				elapsed := time.Since(start)
+				release.Duration = elapsed
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -2026,6 +2035,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		}
 		context := st.createHelmContext(&release, workerIndex)
 
+		start := time.Now()
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 
@@ -2041,6 +2051,8 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
 		}
+		elapsed := time.Since(start)
+		release.Duration = elapsed
 
 		affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
 		return nil
@@ -3060,17 +3072,38 @@ func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 	return output, nil
 }
 
+func formatDuration(duration time.Duration) string {
+	timeResult := ""
+
+	milliseconds := float64(duration.Milliseconds())
+	minutes := math.Floor(milliseconds / 60000)
+	milliseconds = milliseconds - (minutes * 60000)
+	seconds := math.Floor(milliseconds / 1000)
+	milliseconds = milliseconds - (seconds * 1000)
+
+	if minutes > 0 {
+		timeResult += fmt.Sprintf("%.0f", minutes) + "m"
+	}
+	if seconds > 0 {
+		timeResult += fmt.Sprintf("%.0f", seconds) + "s"
+	}
+	timeResult += fmt.Sprintf("%.0f", milliseconds) + "ms"
+
+	return timeResult
+}
+
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
 func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 	if ar.Upgraded != nil && len(ar.Upgraded) > 0 {
 		logger.Info("\nUPDATED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
-			prettytable.Column{Header: "VERSION", AlignRight: true},
+			prettytable.Column{Header: "VERSION", MinWidth: 6},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Upgraded {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, formatDuration(release.Duration))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3079,17 +3112,32 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 	}
 	if ar.Deleted != nil && len(ar.Deleted) > 0 {
 		logger.Info("\nDELETED RELEASES:")
-		logger.Info("NAME")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
+		)
+		tbl.Separator = "   "
 		for _, release := range ar.Deleted {
-			logger.Info(release.Name)
+			err := tbl.AddRow(release.Name, formatDuration(release.Duration))
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
 		}
+		logger.Info(tbl.String())
 	}
 	if ar.Failed != nil && len(ar.Failed) > 0 {
 		logger.Info("\nFAILED RELEASES:")
-		logger.Info("NAME")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "CHART", MinWidth: 6},
+			prettytable.Column{Header: "VERSION", AlignRight: true},
+		)
+		tbl.Separator = "   "
 		for _, release := range ar.Failed {
-			logger.Info(release.Name)
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
 		}
+		logger.Info(tbl.String())
 	}
 }
 
