@@ -61,8 +61,8 @@ getting deployed release version failed: unexpected list key: listkey(filter=^fo
 
 UPDATED RELEASES:
 NAME   CHART             VERSION   DURATION
-baz    stable/mychart3   3.1.0           0s         
-bar    stable/mychart2   3.1.0           0s        
-foo    stable/mychart1   3.1.0           0s       
+baz    stable/mychart3                   0s
+bar    stable/mychart2                   0s
+foo    stable/mychart1                   0s
 
 changing working directory back to "/path/to"

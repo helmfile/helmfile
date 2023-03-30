@@ -4,5 +4,5 @@ hook[preapply] logs |
 
 UPDATED RELEASES:
 NAME   CHART           VERSION   DURATION
-foo    incubator/raw                   0s 
+foo    incubator/raw                   0s
 

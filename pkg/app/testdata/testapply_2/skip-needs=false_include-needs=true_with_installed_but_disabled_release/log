@@ -100,5 +100,5 @@ my-release         incubator/raw   3.1.0           0s
 DELETED RELEASES:
 NAME                          DURATION
 kubernetes-external-secrets         0s
- 
+
 changing working directory back to "/path/to"
