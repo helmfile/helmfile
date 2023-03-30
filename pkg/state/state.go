@@ -290,7 +290,7 @@ type ReleaseSpec struct {
 	Values    []interface{}     `yaml:"values,omitempty"`
 	Secrets   []interface{}     `yaml:"secrets,omitempty"`
 	SetValues []SetValue        `yaml:"set,omitempty"`
-	Duration  time.Duration     `yaml:"duration,omitempty"`
+	duration  time.Duration
 
 	ValuesTemplate    []interface{} `yaml:"valuesTemplate,omitempty"`
 	SetValuesTemplate []SetValue    `yaml:"setTemplate,omitempty"`
@@ -812,8 +812,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					} else {
 						affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 					}
-					elapsed := time.Since(start)
-					release.Duration = elapsed
+					release.duration = time.Since(start)
 					m.Unlock()
 				}
 
@@ -954,8 +953,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
-				elapsed := time.Since(start)
-				release.Duration = elapsed
+				release.duration = time.Since(start)
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -2050,8 +2048,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
 		}
-		elapsed := time.Since(start)
-		release.Duration = elapsed
+		release.duration = time.Since(start)
 
 		affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
 		return nil
@@ -3082,7 +3079,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Upgraded {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.Duration.Round(time.Second))
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3096,7 +3093,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Deleted {
-			err := tbl.AddRow(release.Name, release.Duration.Round(time.Second))
+			err := tbl.AddRow(release.Name, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
