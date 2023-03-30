@@ -262,9 +262,9 @@ processing releases in group 1/2: default/default/external-secrets
 processing releases in group 2/2: default/default/my-release
 
 UPDATED RELEASES:
-NAME               CHART           VERSION    DURATION
-external-secrets   incubator/raw   3.1.0           0ms
-my-release         incubator/raw   3.1.0           0ms
+NAME               CHART           VERSION   DURATION
+external-secrets   incubator/raw   3.1.0           0s
+my-release         incubator/raw   3.1.0           0s
 
 changing working directory back to "/path/to"
 `,
@@ -423,9 +423,9 @@ hook[my-release]:
 hook[postsync] logs | 
 
 UPDATED RELEASES:
-NAME               CHART           VERSION    DURATION
-external-secrets   incubator/raw   3.1.0           0ms
-my-release         incubator/raw   3.1.0         5s1ms
+NAME               CHART           VERSION   DURATION
+external-secrets   incubator/raw   3.1.0           0s
+my-release         incubator/raw   3.1.0           5s
 
 changing working directory back to "/path/to"
 `,
@@ -560,10 +560,10 @@ processing releases in group 2/3: default/default/external-secrets
 processing releases in group 3/3: default/default/my-release
 
 UPDATED RELEASES:
-NAME                          CHART           VERSION    DURATION
-kubernetes-external-secrets   incubator/raw   3.1.0           0ms
-external-secrets              incubator/raw   3.1.0           0ms
-my-release                    incubator/raw   3.1.0           0ms
+NAME                          CHART           VERSION   DURATION
+kubernetes-external-secrets   incubator/raw   3.1.0           0s
+external-secrets              incubator/raw   3.1.0           0s
+my-release                    incubator/raw   3.1.0           0s
 
 changing working directory back to "/path/to"
 `,
@@ -686,10 +686,10 @@ processing releases in group 2/3: default//serviceB
 processing releases in group 3/3: default//serviceA
 
 UPDATED RELEASES:
-NAME       CHART      VERSION    DURATION
-serviceC   my/chart   3.1.0           0ms
-serviceB   my/chart   3.1.0           0ms
-serviceA   my/chart   3.1.0           0ms
+NAME       CHART      VERSION   DURATION
+serviceC   my/chart   3.1.0           0s
+serviceB   my/chart   3.1.0           0s
+serviceA   my/chart   3.1.0           0s
 
 changing working directory back to "/path/to"
 `,
@@ -831,14 +831,14 @@ processing releases in group 1/2: default/default/external-secrets
 processing releases in group 2/2: default/default/my-release
 
 UPDATED RELEASES:
-NAME               CHART           VERSION    DURATION
-external-secrets   incubator/raw   3.1.0           0ms
-my-release         incubator/raw   3.1.0           0ms
+NAME               CHART           VERSION   DURATION
+external-secrets   incubator/raw   3.1.0           0s
+my-release         incubator/raw   3.1.0           0s
 
 
 DELETED RELEASES:
-NAME                          CHART           VERSION    DURATION
-kubernetes-external-secrets   incubator/raw                   0ms
+NAME                          DURATION
+kubernetes-external-secrets         0s
 
 changing working directory back to "/path/to"
 `,
@@ -973,9 +973,9 @@ processing releases in group 1/2: default/default/external-secrets
 processing releases in group 2/2: default/default/my-release
 
 UPDATED RELEASES:
-NAME               CHART           VERSION    DURATION
-external-secrets   incubator/raw   3.1.0           0ms
-my-release         incubator/raw   3.1.0           0ms
+NAME               CHART           VERSION   DURATION
+external-secrets   incubator/raw   3.1.0           0s
+my-release         incubator/raw   3.1.0           0s
 
 changing working directory back to "/path/to"
 `,

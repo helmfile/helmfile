@@ -403,17 +403,17 @@ release "front-proxy" processed
 release "logging" processed
 
 DELETED RELEASES:
-NAME             CHART                   VERSION    DURATION
-frontend-v3      charts/frontend                         0ms
-frontend-v2      charts/frontend                         0ms
-frontend-v1      charts/frontend                         0ms
-backend-v2       charts/backend                          0ms
-backend-v1       charts/backend                          0ms
-anotherbackend   charts/anotherbackend                   0ms
-servicemesh      charts/istio                            0ms
-database         charts/mysql                            0ms
-front-proxy      stable/envoy                            0ms
-logging          charts/fluent-bit                       0ms
+NAME             DURATION
+frontend-v3            0s
+frontend-v2            0s
+frontend-v1            0s
+backend-v2             0s
+backend-v1             0s
+anotherbackend         0s
+servicemesh            0s
+database               0s
+front-proxy            0s
+logging                0s
 
 changing working directory back to "/path/to"
 `,
@@ -595,8 +595,8 @@ processing releases in group 1/1: logging
 release "logging" processed
 
 DELETED RELEASES:
-NAME      CHART               VERSION    DURATION
-logging   charts/fluent-bit                   0ms
+NAME      DURATION
+logging         0s
 
 changing working directory back to "/path/to"
 `,
@@ -666,9 +666,9 @@ processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
-NAME          CHART             VERSION    DURATION
-frontend-v1   charts/frontend                   0ms
-backend-v1    charts/backend                    0ms
+NAME          DURATION
+frontend-v1         0s
+backend-v1          0s
 
 changing working directory back to "/path/to"
 `,
@@ -738,9 +738,9 @@ processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
-NAME          CHART             VERSION    DURATION
-frontend-v1   charts/frontend                   0ms
-backend-v1    charts/backend                    0ms
+NAME          DURATION
+frontend-v1         0s
+backend-v1          0s
 
 changing working directory back to "/path/to"
 `,

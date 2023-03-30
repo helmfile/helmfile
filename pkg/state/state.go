@@ -3103,7 +3103,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Upgraded {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, formatDuration(release.Duration))
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.Duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3117,7 +3117,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Deleted {
-			err := tbl.AddRow(release.Name, formatDuration(release.Duration))
+			err := tbl.AddRow(release.Name, release.Duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
