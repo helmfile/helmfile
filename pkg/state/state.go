@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -3070,26 +3069,6 @@ func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 		}
 	}
 	return output, nil
-}
-
-func formatDuration(duration time.Duration) string {
-	timeResult := ""
-
-	milliseconds := float64(duration.Milliseconds())
-	minutes := math.Floor(milliseconds / 60000)
-	milliseconds = milliseconds - (minutes * 60000)
-	seconds := math.Floor(milliseconds / 1000)
-	milliseconds = milliseconds - (seconds * 1000)
-
-	if minutes > 0 {
-		timeResult += fmt.Sprintf("%.0f", minutes) + "m"
-	}
-	if seconds > 0 {
-		timeResult += fmt.Sprintf("%.0f", seconds) + "s"
-	}
-	timeResult += fmt.Sprintf("%.0f", milliseconds) + "ms"
-
-	return timeResult
 }
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
