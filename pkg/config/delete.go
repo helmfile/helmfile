@@ -44,7 +44,7 @@ func (c *DeleteImpl) Purge() bool {
 
 // SkipDeps returns the skip deps
 func (c *DeleteImpl) SkipDeps() bool {
-	return c.DeleteOptions.SkipDeps
+	return c.GlobalOptions.SkipDeps || c.DeleteOptions.SkipDeps
 }
 
 // SkipCharts returns skipCharts flag

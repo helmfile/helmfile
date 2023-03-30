@@ -40,7 +40,7 @@ func (c *WriteValuesImpl) Concurrency() int {
 
 // SkipDeps returns the skip deps
 func (c *WriteValuesImpl) SkipDeps() bool {
-	return c.WriteValuesOptions.SkipDeps
+	return c.GlobalOptions.SkipDeps || c.WriteValuesOptions.SkipDeps
 }
 
 // Set returns the Set

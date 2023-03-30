@@ -23,6 +23,10 @@ type GlobalOptions struct {
 	StateValuesSet []string
 	// StateValuesFiles is a list of state values files to use.
 	StateValuesFile []string
+	// SkipDeps is true if the running "helm repo update" and "helm dependency build" should be skipped
+	SkipDeps bool
+	// DisableForceUpdate is true if force updating repos is not desirable when executing "helm repo add"
+	DisableForceUpdate bool
 	// Quiet is true if the output should be quiet.
 	Quiet bool
 	// KubeContext is the name of the kubectl context to use.
@@ -130,6 +134,11 @@ func (g *GlobalImpl) StateValuesFiles() []string {
 // EnableLiveOutput return when to pipe the stdout and stderr from Helm live to the helmfile stdout
 func (g *GlobalImpl) EnableLiveOutput() bool {
 	return g.GlobalOptions.EnableLiveOutput
+}
+
+// DisableForceUpdate return when to disable forcing updates to repos upon adding
+func (g *GlobalImpl) DisableForceUpdate() bool {
+	return g.GlobalOptions.DisableForceUpdate
 }
 
 // Logger returns the logger

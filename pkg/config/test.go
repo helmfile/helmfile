@@ -47,7 +47,7 @@ func (t *TestImpl) Concurrency() int {
 
 // SkipDeps returns the skip deps
 func (t *TestImpl) SkipDeps() bool {
-	return t.TestOptions.SkipDeps
+	return t.GlobalOptions.SkipDeps || t.TestOptions.SkipDeps
 }
 
 // Cleanup returns the cleanup

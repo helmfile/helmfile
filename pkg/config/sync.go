@@ -73,7 +73,7 @@ func (t *SyncImpl) Set() []string {
 
 // SkipDeps returns the skip deps
 func (t *SyncImpl) SkipDeps() bool {
-	return t.SyncOptions.SkipDeps
+	return t.GlobalOptions.SkipDeps || t.SyncOptions.SkipDeps
 }
 
 // SkipNeeds returns the skip needs

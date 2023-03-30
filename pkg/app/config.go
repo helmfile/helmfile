@@ -6,6 +6,7 @@ type ConfigProvider interface {
 	Args() string
 	HelmBinary() string
 	EnableLiveOutput() bool
+	DisableForceUpdate() bool
 
 	FileOrDir() string
 	KubeContext() string
