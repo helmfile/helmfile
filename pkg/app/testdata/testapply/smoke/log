@@ -170,18 +170,18 @@ processing releases in group 4/5: default//backend-v2
 processing releases in group 5/5: default//frontend-v3
 
 UPDATED RELEASES:
-NAME             CHART                   VERSION
-logging          charts/fluent-bit         3.1.0
-front-proxy      stable/envoy              3.1.0
-database         charts/mysql              3.1.0
-servicemesh      charts/istio              3.1.0
-anotherbackend   charts/anotherbackend     3.1.0
-backend-v2       charts/backend            3.1.0
-frontend-v3      charts/frontend           3.1.0
+NAME             CHART                   VERSION   DURATION
+logging          charts/fluent-bit       3.1.0           0s
+front-proxy      stable/envoy            3.1.0           0s
+database         charts/mysql            3.1.0           0s
+servicemesh      charts/istio            3.1.0           0s
+anotherbackend   charts/anotherbackend   3.1.0           0s
+backend-v2       charts/backend          3.1.0           0s
+frontend-v3      charts/frontend         3.1.0           0s
 
 
 DELETED RELEASES:
-NAME
-frontend-v1
-backend-v1
+NAME          DURATION
+frontend-v1         0s
+backend-v1          0s
 changing working directory back to "/path/to"

@@ -60,9 +60,9 @@ processing releases in group 2/2: default//foo
 getting deployed release version failed: unexpected list key: listkey(filter=^foo$,flags=--kube-contextdefault--uninstalling--deployed--failed--pending) not found in 
 
 UPDATED RELEASES:
-NAME   CHART             VERSION
-baz    stable/mychart3          
-bar    stable/mychart2          
-foo    stable/mychart1          
+NAME   CHART             VERSION   DURATION
+baz    stable/mychart3   3.1.0           0s         
+bar    stable/mychart2   3.1.0           0s        
+foo    stable/mychart1   3.1.0           0s       
 
 changing working directory back to "/path/to"
