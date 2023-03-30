@@ -96,12 +96,12 @@ func Test_SetEnableLiveOutput(t *testing.T) {
 
 func Test_SetDisableForceUpdate(t *testing.T) {
 	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
-	if !helm.options.DisableForceUpdate {
-		t.Error("helmexec.options.ForceUpdate should be enabled by default")
+	if helm.options.DisableForceUpdate {
+		t.Error("helmexec.options.ForceUpdate should not be enabled by default")
 	}
-	helm.SetDisableForceUpdate(false)
+	helm.SetDisableForceUpdate(true)
 	if !helm.options.DisableForceUpdate {
-		t.Errorf("helmexec.SetDisableForceUpdate() - actual = %t expect = false", helm.options.DisableForceUpdate)
+		t.Errorf("helmexec.SetDisableForceUpdate() - actual = %t expect = true", helm.options.DisableForceUpdate)
 	}
 }
 
@@ -141,7 +141,7 @@ func Test_AddRepo_Helm_3_3_2_NoForceUpdate(t *testing.T) {
 	}
 	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
+exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
