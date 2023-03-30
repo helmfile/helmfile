@@ -22,7 +22,7 @@ require (
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/variantdev/dag v1.1.0
 	go.szostok.io/version v1.1.0
-	go.uber.org/multierr v1.10.0
+	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/term v0.6.0
