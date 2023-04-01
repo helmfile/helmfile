@@ -4,8 +4,6 @@ package config
 type LintOptions struct {
 	// Concurrency is the maximum number of concurrent helm processes to run, 0 is unlimited
 	Concurrency int
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// Set is the set flags to pass to helm lint
 	Set []string
 	// Values is the values flags to pass to helm lint
@@ -45,7 +43,7 @@ func (l *LintImpl) Concurrency() int {
 
 // SkipDeps returns the skip deps
 func (l *LintImpl) SkipDeps() bool {
-	return l.GlobalOptions.SkipDeps || l.LintOptions.SkipDeps
+	return l.GlobalOptions.SkipDeps
 }
 
 // Set returns the Set

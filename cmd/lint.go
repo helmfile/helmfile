@@ -32,7 +32,7 @@ func NewLintCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.IntVar(&lintOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
-	f.BoolVar(&lintOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
+	f.BoolVar(&globalCfg.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
 	f.StringArrayVar(&lintOptions.Set, "set", nil, "additional values to be merged into the helm command --set flag")
 	f.StringArrayVar(&lintOptions.Values, "values", nil, "additional value files to be merged into the helm command --values flag")

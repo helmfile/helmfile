@@ -4,8 +4,6 @@ package config
 type FetchOptions struct {
 	// Concurrency is the maximum number of concurrent helm processes to run, 0 is unlimited
 	Concurrency int
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// OutputDir is the output directory
 	OutputDir string
 	// OutputDirTemplate is the go template to generate the path of output directory
@@ -38,7 +36,7 @@ func (c *FetchImpl) Concurrency() int {
 
 // SkipDeps returns the skip deps
 func (c *FetchImpl) SkipDeps() bool {
-	return c.GlobalOptions.SkipDeps || c.FetchOptions.SkipDeps
+	return c.GlobalOptions.SkipDeps
 }
 
 // OutputDir returns the args

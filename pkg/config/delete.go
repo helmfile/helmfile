@@ -7,8 +7,6 @@ type DeleteOptions struct {
 	Concurrency int
 	// Purge is the purge flag
 	Purge bool
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// SkipCharts makes Delete skip `withPreparedCharts`
 	SkipCharts bool
 }
@@ -44,7 +42,7 @@ func (c *DeleteImpl) Purge() bool {
 
 // SkipDeps returns the skip deps
 func (c *DeleteImpl) SkipDeps() bool {
-	return c.GlobalOptions.SkipDeps || c.DeleteOptions.SkipDeps
+	return c.GlobalOptions.SkipDeps
 }
 
 // SkipCharts returns skipCharts flag

@@ -59,7 +59,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.ShowSecrets, "show-secrets", false, "do not redact secret values in the diff output. should be used for debug purpose only")
 	f.BoolVar(&applyOptions.NoHooks, "no-hooks", false, "do not diff changes made by hooks.")
 	f.BoolVar(&applyOptions.SuppressDiff, "suppress-diff", false, "suppress diff in the output. Usable in new installs")
-	f.BoolVar(&applyOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
+	f.BoolVar(&globalCfg.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	f.BoolVar(&applyOptions.Wait, "wait", false, `Override helmDefaults.wait setting "helm upgrade --install --wait"`)
 	f.BoolVar(&applyOptions.WaitForJobs, "wait-for-jobs", false, `Override helmDefaults.waitForJobs setting "helm upgrade --install --wait-for-jobs"`)
 	f.BoolVar(&applyOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reuse-values"`)

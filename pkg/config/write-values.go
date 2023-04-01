@@ -4,8 +4,6 @@ package config
 type WriteValuesOptions struct {
 	// Concurrency is the maximum number of concurrent helm processes to run, 0 is unlimited
 	Concurrency int
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// Set is the set flags to pass to helm write values
 	Set []string
 	// Values is the values flags to pass to helm write values
@@ -40,7 +38,7 @@ func (c *WriteValuesImpl) Concurrency() int {
 
 // SkipDeps returns the skip deps
 func (c *WriteValuesImpl) SkipDeps() bool {
-	return c.GlobalOptions.SkipDeps || c.WriteValuesOptions.SkipDeps
+	return c.GlobalOptions.SkipDeps
 }
 
 // Set returns the Set

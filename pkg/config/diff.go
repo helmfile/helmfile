@@ -6,8 +6,6 @@ type DiffOptions struct {
 	Set []string
 	// Values is the values flag
 	Values []string
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// DetailedExitcode is the detailed exit code
 	DetailedExitcode bool
 	// IncludeTests is the include tests flag
@@ -85,7 +83,7 @@ func (t *DiffImpl) Set() []string {
 
 // SkipDeps returns the skip deps
 func (t *DiffImpl) SkipDeps() bool {
-	return t.GlobalOptions.SkipDeps || t.DiffOptions.SkipDeps
+	return t.GlobalOptions.SkipDeps
 }
 
 // SkipNeeds returns the skip needs

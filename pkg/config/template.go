@@ -30,8 +30,6 @@ type TemplateOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// SkipCleanup is the skip cleanup flag
 	SkipCleanup bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
@@ -99,7 +97,7 @@ func (t *TemplateImpl) SkipCleanup() bool {
 
 // SkipDeps returns the skip deps
 func (t *TemplateImpl) SkipDeps() bool {
-	return t.GlobalOptions.SkipDeps || t.TemplateOptions.SkipDeps
+	return t.GlobalOptions.SkipDeps
 }
 
 // SkipNeeds returns the skip needs

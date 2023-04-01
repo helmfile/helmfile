@@ -39,14 +39,12 @@ type ApplyOptions struct {
 	Suppress []string
 	// SuppressSecrets is true if the secrets should be suppressed
 	SuppressSecrets bool
-	// SuppressDiff is true if the diff should be suppressed
+	// ShowSecrets is true if the secrets should be shown
 	ShowSecrets bool
 	// NoHooks skips checking for hooks
 	NoHooks bool
-	// SkipDeps is true if the running "helm repo update" and "helm dependency build" should be skipped
+	// SuppressDiff is true if the diff should be suppressed
 	SuppressDiff bool
-	// ShowSecrets is true if the secrets should be shown
-	SkipDeps bool
 	// Wait is true if the helm command should wait for the release to be deployed
 	Wait bool
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
@@ -146,7 +144,7 @@ func (a *ApplyImpl) SkipCleanup() bool {
 
 // SkipDeps returns the skip deps.
 func (a *ApplyImpl) SkipDeps() bool {
-	return a.GlobalOptions.SkipDeps || a.ApplyOptions.SkipDeps
+	return a.GlobalOptions.SkipDeps
 }
 
 // SkipDiffOnInstall returns the skip diff on install.

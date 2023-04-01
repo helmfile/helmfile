@@ -10,8 +10,6 @@ import (
 type TestOptions struct {
 	// Concurrency is the maximum number of concurrent helm processes to run, 0 is unlimited
 	Concurrency int
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// Cleanup is the cleanup flag
 	Cleanup bool
 	// Logs is the logs flagj
@@ -47,7 +45,7 @@ func (t *TestImpl) Concurrency() int {
 
 // SkipDeps returns the skip deps
 func (t *TestImpl) SkipDeps() bool {
-	return t.GlobalOptions.SkipDeps || t.TestOptions.SkipDeps
+	return t.GlobalOptions.SkipDeps
 }
 
 // Cleanup returns the cleanup
