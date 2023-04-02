@@ -36,11 +36,6 @@ func (c *WriteValuesImpl) Concurrency() int {
 	return c.WriteValuesOptions.Concurrency
 }
 
-// SkipDeps returns the skip deps
-func (c *WriteValuesImpl) SkipDeps() bool {
-	return c.GlobalOptions.SkipDeps
-}
-
 // Set returns the Set
 func (c *WriteValuesImpl) Set() []string {
 	return c.WriteValuesOptions.Set

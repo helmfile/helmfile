@@ -136,6 +136,11 @@ func (g *GlobalImpl) EnableLiveOutput() bool {
 	return g.GlobalOptions.EnableLiveOutput
 }
 
+// SkipDeps return if running "helm repo update" and "helm dependency build" should be skipped
+func (g *GlobalImpl) SkipDeps() bool {
+	return g.GlobalOptions.SkipDeps
+}
+
 // DisableForceUpdate return when to disable forcing updates to repos upon adding
 func (g *GlobalImpl) DisableForceUpdate() bool {
 	return g.GlobalOptions.DisableForceUpdate

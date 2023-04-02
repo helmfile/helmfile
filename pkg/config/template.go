@@ -95,11 +95,6 @@ func (t *TemplateImpl) SkipCleanup() bool {
 	return t.TemplateOptions.SkipCleanup
 }
 
-// SkipDeps returns the skip deps
-func (t *TemplateImpl) SkipDeps() bool {
-	return t.GlobalOptions.SkipDeps
-}
-
 // SkipNeeds returns the skip needs
 func (t *TemplateImpl) SkipNeeds() bool {
 	if !t.IncludeNeeds() {

@@ -40,11 +40,6 @@ func (c *DeleteImpl) Purge() bool {
 	return c.DeleteOptions.Purge
 }
 
-// SkipDeps returns the skip deps
-func (c *DeleteImpl) SkipDeps() bool {
-	return c.GlobalOptions.SkipDeps
-}
-
 // SkipCharts returns skipCharts flag
 func (c *DeleteImpl) SkipCharts() bool {
 	return c.DeleteOptions.SkipCharts

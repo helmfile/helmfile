@@ -142,11 +142,6 @@ func (a *ApplyImpl) SkipCleanup() bool {
 	return a.ApplyOptions.SkipCleanup
 }
 
-// SkipDeps returns the skip deps.
-func (a *ApplyImpl) SkipDeps() bool {
-	return a.GlobalOptions.SkipDeps
-}
-
 // SkipDiffOnInstall returns the skip diff on install.
 func (a *ApplyImpl) SkipDiffOnInstall() bool {
 	return a.ApplyOptions.SkipDiffOnInstall

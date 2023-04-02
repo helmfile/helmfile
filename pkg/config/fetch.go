@@ -34,11 +34,6 @@ func (c *FetchImpl) Concurrency() int {
 	return c.FetchOptions.Concurrency
 }
 
-// SkipDeps returns the skip deps
-func (c *FetchImpl) SkipDeps() bool {
-	return c.GlobalOptions.SkipDeps
-}
-
 // OutputDir returns the args
 func (c *FetchImpl) OutputDir() string {
 	return c.FetchOptions.OutputDir

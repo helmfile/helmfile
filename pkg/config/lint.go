@@ -41,11 +41,6 @@ func (l *LintImpl) Concurrency() int {
 	return l.LintOptions.Concurrency
 }
 
-// SkipDeps returns the skip deps
-func (l *LintImpl) SkipDeps() bool {
-	return l.GlobalOptions.SkipDeps
-}
-
 // Set returns the Set
 func (l *LintImpl) Set() []string {
 	return l.LintOptions.Set

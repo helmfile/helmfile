@@ -32,11 +32,6 @@ func (c *DestroyImpl) Concurrency() int {
 	return c.DestroyOptions.Concurrency
 }
 
-// SkipDeps returns the skip deps
-func (c *DestroyImpl) SkipDeps() bool {
-	return c.GlobalOptions.SkipDeps
-}
-
 // SkipCharts returns skipCharts flag
 func (c *DestroyImpl) SkipCharts() bool {
 	return c.DestroyOptions.SkipCharts

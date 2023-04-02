@@ -81,11 +81,6 @@ func (t *DiffImpl) Set() []string {
 	return t.DiffOptions.Set
 }
 
-// SkipDeps returns the skip deps
-func (t *DiffImpl) SkipDeps() bool {
-	return t.GlobalOptions.SkipDeps
-}
-
 // SkipNeeds returns the skip needs
 func (t *DiffImpl) SkipNeeds() bool {
 	if !t.IncludeNeeds() {
