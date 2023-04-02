@@ -29,9 +29,14 @@ type decryptedSecret struct {
 	err   error
 }
 
+type HelmExecOptions struct {
+	EnableLiveOutput   bool
+	DisableForceUpdate bool
+}
+
 type execer struct {
 	helmBinary           string
-	enableLiveOutput     bool
+	options              HelmExecOptions
 	version              *semver.Version
 	runner               Runner
 	logger               *zap.SugaredLogger
@@ -112,7 +117,7 @@ func redactedURL(chart string) string {
 }
 
 // New for running helm commands
-func New(ctx context.Context, helmBinary string, enableLiveOutput bool, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
+func New(ctx context.Context, helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
 	// TODO: proper error handling
 	version, err := GetHelmVersion(helmBinary, runner)
 	if err != nil {
@@ -120,7 +125,7 @@ func New(ctx context.Context, helmBinary string, enableLiveOutput bool, logger *
 	}
 	return &execer{
 		helmBinary:       helmBinary,
-		enableLiveOutput: enableLiveOutput,
+		options:          options,
 		version:          version,
 		logger:           logger,
 		kubeContext:      kubeContext,
@@ -139,7 +144,11 @@ func (helm *execer) SetHelmBinary(bin string) {
 }
 
 func (helm *execer) SetEnableLiveOutput(enableLiveOutput bool) {
-	helm.enableLiveOutput = enableLiveOutput
+	helm.options.EnableLiveOutput = enableLiveOutput
+}
+
+func (helm *execer) SetDisableForceUpdate(forceUpdate bool) {
+	helm.options.DisableForceUpdate = forceUpdate
 }
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
@@ -159,7 +168,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 
 		// See https://github.com/helm/helm/pull/8777
 		if cons, err := semver.NewConstraint(">= 3.3.2"); err == nil {
-			if cons.Check(helm.version) {
+			if !helm.options.DisableForceUpdate && cons.Check(helm.version) {
 				args = append(args, "--force-update")
 			}
 		} else {
@@ -528,7 +537,7 @@ func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiv
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	enableLiveOutput := helm.enableLiveOutput
+	enableLiveOutput := helm.options.EnableLiveOutput
 	if overrideEnableLiveOutput != nil {
 		enableLiveOutput = *overrideEnableLiveOutput
 	}

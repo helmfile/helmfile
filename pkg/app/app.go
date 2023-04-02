@@ -31,6 +31,7 @@ type App struct {
 	OverrideKubeContext string
 	OverrideHelmBinary  string
 	EnableLiveOutput    bool
+	DisableForceUpdate  bool
 
 	Logger      *zap.SugaredLogger
 	Env         string
@@ -73,6 +74,7 @@ func New(conf ConfigProvider) *App {
 		OverrideKubeContext: conf.KubeContext(),
 		OverrideHelmBinary:  conf.HelmBinary(),
 		EnableLiveOutput:    conf.EnableLiveOutput(),
+		DisableForceUpdate:  conf.DisableForceUpdate(),
 		Logger:              conf.Logger(),
 		Env:                 conf.Env(),
 		Namespace:           conf.Namespace(),
@@ -792,7 +794,7 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 	key := createHelmKey(bin, kubectx)
 
 	if _, ok := a.helms[key]; !ok {
-		a.helms[key] = helmexec.New(a.ctx, bin, a.EnableLiveOutput, a.Logger, kubectx, &helmexec.ShellRunner{
+		a.helms[key] = helmexec.New(a.ctx, bin, helmexec.HelmExecOptions{EnableLiveOutput: a.EnableLiveOutput, DisableForceUpdate: a.DisableForceUpdate}, a.Logger, kubectx, &helmexec.ShellRunner{
 			Logger: a.Logger,
 		})
 	}
@@ -1148,7 +1150,7 @@ func (a *App) WrapWithoutSelector(converge func(*state.HelmState, helmexec.Inter
 }
 
 func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]string, error) {
-	path, err := a.remote.Locate(specifiedPath)
+	path, err := a.remote.Locate(specifiedPath, "states")
 	if err != nil {
 		return nil, fmt.Errorf("locate: %v", err)
 	}

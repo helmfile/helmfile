@@ -304,3 +304,76 @@ type testGetter struct {
 func (t *testGetter) Get(wd, src, dst string) error {
 	return t.get(wd, src, dst)
 }
+
+func TestRemote_Fetch(t *testing.T) {
+	cleanfs := map[string]string{
+		CacheDir(): "",
+	}
+	cachefs := map[string]string{
+		filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.151.0/README.md"): "foo: bar",
+	}
+
+	type testcase struct {
+		files          map[string]string
+		expectCacheHit bool
+		cacheDirOpt    string
+	}
+
+	testcases := []testcase{
+		{files: cleanfs, expectCacheHit: false, cacheDirOpt: ""},
+		{files: cachefs, expectCacheHit: true, cacheDirOpt: ""},
+		{files: cleanfs, expectCacheHit: false, cacheDirOpt: "states"},
+		{files: cachefs, expectCacheHit: true, cacheDirOpt: "states"},
+	}
+
+	for i := range testcases {
+		testcase := testcases[i]
+
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			testfs := testhelper.NewTestFs(testcase.files)
+
+			hit := true
+
+			get := func(wd, src, dst string) error {
+				if wd != CacheDir() {
+					return fmt.Errorf("unexpected wd: %s", wd)
+				}
+				if src != "git::https://github.com/helmfile/helmfile.git?ref=v0.151.0" {
+					return fmt.Errorf("unexpected src: %s", src)
+				}
+
+				hit = false
+
+				return nil
+			}
+
+			getter := &testGetter{
+				get: get,
+			}
+			remote := &Remote{
+				Logger: helmexec.NewLogger(io.Discard, "debug"),
+				Home:   CacheDir(),
+				Getter: getter,
+				fs:     testfs.ToFileSystem(),
+			}
+
+			url := "git::https://github.com/helmfile/helmfile.git@README.md?ref=v0.151.0"
+			file, err := remote.Fetch(url)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			expectedFile := filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.151.0/README.md")
+			if file != expectedFile {
+				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
+			}
+
+			if testcase.expectCacheHit && !hit {
+				t.Errorf("unexpected result: unexpected cache miss")
+			}
+			if !testcase.expectCacheHit && hit {
+				t.Errorf("unexpected result: unexpected cache hit")
+			}
+		})
+	}
+}

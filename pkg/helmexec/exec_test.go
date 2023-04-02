@@ -36,7 +36,7 @@ func (mock *mockRunner) Execute(ctx context.Context, cmd string, args []string, 
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
-	execer := New(context.Background(), "helm", false, logger, kubeContext, &mockRunner{})
+	execer := New(context.Background(), "helm", HelmExecOptions{}, logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -85,12 +85,23 @@ func Test_SetHelmBinary(t *testing.T) {
 
 func Test_SetEnableLiveOutput(t *testing.T) {
 	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
-	if helm.enableLiveOutput {
-		t.Error("helmexec.enableLiveOutput should not be enabled by default")
+	if helm.options.EnableLiveOutput {
+		t.Error("helmexec.options.EnableLiveOutput should not be enabled by default")
 	}
 	helm.SetEnableLiveOutput(true)
-	if !helm.enableLiveOutput {
-		t.Errorf("helmexec.SetEnableLiveOutput() - actual = %t expect = true", helm.enableLiveOutput)
+	if !helm.options.EnableLiveOutput {
+		t.Errorf("helmexec.SetEnableLiveOutput() - actual = %t expect = true", helm.options.EnableLiveOutput)
+	}
+}
+
+func Test_SetDisableForceUpdate(t *testing.T) {
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	if helm.options.DisableForceUpdate {
+		t.Error("helmexec.options.ForceUpdate should not be enabled by default")
+	}
+	helm.SetDisableForceUpdate(true)
+	if !helm.options.DisableForceUpdate {
+		t.Errorf("helmexec.SetDisableForceUpdate() - actual = %t expect = true", helm.options.DisableForceUpdate)
 	}
 }
 
@@ -107,6 +118,30 @@ func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if buffer.String() != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_AddRepo_Helm_3_3_2_NoForceUpdate(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary:  "helm",
+		options:     HelmExecOptions{DisableForceUpdate: true},
+		version:     semver.MustParse("3.3.2"),
+		logger:      logger,
+		kubeContext: "dev",
+		runner:      &mockRunner{},
+	}
+	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "", "")
+	expected := `Adding repo myRepo https://repo.example.com/
+exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -322,7 +357,7 @@ func Test_BuildDeps(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a")}
-	helm := New(context.Background(), "helm", false, logger, "dev", &helm3Runner)
+	helm := New(context.Background(), "helm", HelmExecOptions{}, logger, "dev", &helm3Runner)
 	err := helm.BuildDeps("foo", "./chart/foo", []string{"--skip-refresh"}...)
 	expected := `Building dependency release=foo, chart=./chart/foo
 exec: helm --kube-context dev dependency build ./chart/foo --skip-refresh
@@ -364,7 +399,7 @@ v3.2.4+ge29ce2a
 
 	buffer.Reset()
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94")}
-	helm = New(context.Background(), "helm", false, logger, "dev", &helm2Runner)
+	helm = New(context.Background(), "helm", HelmExecOptions{}, logger, "dev", &helm2Runner)
 	err = helm.BuildDeps("foo", "./chart/foo")
 	expected = `Building dependency release=foo, chart=./chart/foo
 exec: helm --kube-context dev dependency build ./chart/foo
@@ -870,13 +905,13 @@ exec: helm --kube-context dev template release https://example_user:example_pass
 
 func Test_IsHelm3(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm := New(context.Background(), "helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Detected Helm 3 with Helm 2 version")
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
-	helm = New(context.Background(), "helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
@@ -907,14 +942,14 @@ func Test_GetPluginVersion(t *testing.T) {
 
 func Test_GetVersion(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New(context.Background(), "helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	ver := helm.GetVersion()
 	if ver.Major != 2 || ver.Minor != 16 || ver.Patch != 1 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm2 version; it was: %+v", ver)
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a\n")}
-	helm = New(context.Background(), "helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	ver = helm.GetVersion()
 	if ver.Major != 3 || ver.Minor != 2 || ver.Patch != 4 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm3 version; it was: %+v", ver)
@@ -923,7 +958,7 @@ func Test_GetVersion(t *testing.T) {
 
 func Test_IsVersionAtLeast(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New(context.Background(), "helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsVersionAtLeast("2.1.0") {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 not atleast 2.1")
 	}
