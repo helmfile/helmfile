@@ -2396,7 +2396,7 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
-	execer := helmexec.New("helm", false, logger, kubeContext, &mockRunner{})
+	execer := helmexec.New("helm", helmexec.HelmExecOptions{}, logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -2444,6 +2444,9 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
 
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+}
+
+func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {
 }
 
 func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {

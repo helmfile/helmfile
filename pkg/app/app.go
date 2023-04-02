@@ -29,6 +29,7 @@ type App struct {
 	OverrideKubeContext string
 	OverrideHelmBinary  string
 	EnableLiveOutput    bool
+	DisableForceUpdate  bool
 
 	Logger      *zap.SugaredLogger
 	Env         string
@@ -66,6 +67,7 @@ func New(conf ConfigProvider) *App {
 		OverrideKubeContext: conf.KubeContext(),
 		OverrideHelmBinary:  conf.HelmBinary(),
 		EnableLiveOutput:    conf.EnableLiveOutput(),
+		DisableForceUpdate:  conf.DisableForceUpdate(),
 		Logger:              conf.Logger(),
 		Env:                 conf.Env(),
 		Namespace:           conf.Namespace(),
@@ -784,7 +786,7 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 	key := createHelmKey(bin, kubectx)
 
 	if _, ok := a.helms[key]; !ok {
-		a.helms[key] = helmexec.New(bin, a.EnableLiveOutput, a.Logger, kubectx, &helmexec.ShellRunner{
+		a.helms[key] = helmexec.New(bin, helmexec.HelmExecOptions{EnableLiveOutput: a.EnableLiveOutput, DisableForceUpdate: a.DisableForceUpdate}, a.Logger, kubectx, &helmexec.ShellRunner{
 			Logger: a.Logger,
 		})
 	}
