@@ -68,6 +68,7 @@ func Marshal(v interface{}) ([]byte, error) {
 			&b,
 			yaml.Indent(2),
 			yaml.UseSingleQuote(true),
+			yaml.UseLiteralStyleIfMultiline(true),
 		)
 		err := yamlEncoder.Encode(v)
 		defer func() {
