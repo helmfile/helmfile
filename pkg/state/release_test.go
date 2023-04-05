@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
@@ -20,6 +21,13 @@ func TestExecuteTemplateExpressions(t *testing.T) {
 			"Name": "foo",
 		},
 	})
+
+	v := runtime.GoccyGoYaml
+	runtime.GoccyGoYaml = true
+	t.Cleanup(func() {
+		runtime.GoccyGoYaml = v
+	})
+
 	rs := ReleaseSpec{
 		Name:      "foo",
 		Chart:     "bar",

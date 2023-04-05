@@ -67,6 +67,7 @@ func Marshal(v interface{}) ([]byte, error) {
 		yamlEncoder := yaml.NewEncoder(
 			&b,
 			yaml.Indent(2),
+			yaml.UseSingleQuote(true),
 		)
 		err := yamlEncoder.Encode(v)
 		defer func() {
