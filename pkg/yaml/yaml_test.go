@@ -41,7 +41,7 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 				// - https://github.com/helmfile/helmfile/pull/675
 				Annotation: "on",
 			}},
-			expected: "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: \"on\"\n",
+			expected: "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: 'on'\n",
 		},
 	}
 
