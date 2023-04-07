@@ -438,9 +438,9 @@ bases:
 apiVersions:
 - example/v1
 
-# DEPRECATED: This is available only on Helm 2, which has been EOL since 2020
-# Configure a Kubernetes version to  pass to 'helm template' via the --kube-version flag:
-# See https://github.com/roboll/helmfile/pull/2002 for more information.
+# Set the kubeVersion to render the chart with your desired Kubernetes version.
+# The flag --kube-version was deprecated in helm v3 but it was added again.
+# For further information https://github.com/helm/helm/pull/904011
 kubeVersion: v1.21
 ```
 
