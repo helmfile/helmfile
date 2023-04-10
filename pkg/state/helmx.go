@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/helmfile/chartify"
 
@@ -134,6 +135,9 @@ func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (str
 		chart = dir
 	}
 
+	if strings.HasPrefix(chart, "oci://") {
+		return chart, nil
+	}
 	_, err := remote.Parse(chart)
 	if err != nil {
 		if force {

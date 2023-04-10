@@ -198,7 +198,7 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 	r.Logger.Debugf("remote> user: %s", u.User)
 	r.Logger.Debugf("remote> host: %s", u.Host)
 	r.Logger.Debugf("remote> dir: %s", u.Dir)
-	r.Logger.Debugf("remote> file: %s", u.File)
+	r.Logger.Debugf("remote> file: %s", file)
 
 	// This should be shared across variant commands, so that they can share cache for the shared imports
 	cacheBaseDir := ""
@@ -237,24 +237,26 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 		cacheDirPath = filepath.Join(r.Home, cacheKey, u.Dir)
 	}
 
+	// origin is for judging whether target is file or directory
+	// e.g. os.CacheDir()/helmfile/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0/origin
+	originDirOrFilePath := filepath.Join(cacheDirPath, "origin")
+
 	r.Logger.Debugf("remote> home: %s", r.Home)
 	r.Logger.Debugf("remote> getter dest: %s", getterDst)
 	r.Logger.Debugf("remote> cached dir: %s", cacheDirPath)
 
-	{
-		if r.fs.FileExistsAt(cacheDirPath) {
-			return "", fmt.Errorf("%s is not directory. please remove it so that variant could use it for dependency caching", getterDst)
-		}
+	if r.fs.FileExistsAt(cacheDirPath) {
+		return "", fmt.Errorf("%s is not directory. please remove it so that variant could use it for dependency caching", getterDst)
+	}
 
-		if u.Getter == "normal" {
-			cachedFilePath := filepath.Join(cacheDirPath, file)
-			ok, err := r.fs.FileExists(cachedFilePath)
-			if err == nil && ok {
-				cached = true
-			}
-		} else if r.fs.DirectoryExistsAt(cacheDirPath) {
+	if u.Getter == "normal" {
+		cachedFilePath := filepath.Join(cacheDirPath, file)
+		ok, err := r.fs.FileExists(cachedFilePath)
+		if err == nil && ok {
 			cached = true
 		}
+	} else if r.fs.DirectoryExistsAt(cacheDirPath) {
+		cached = true
 	}
 
 	if !cached {
@@ -296,7 +298,7 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 			}
 		}
 	}
-	return filepath.Join(cacheDirPath, file), nil
+	return filepath.Join(originDirOrFilePath, file), nil
 }
 
 type Getter interface {
@@ -318,13 +320,15 @@ type HttpGetter struct {
 func (g *GoGetter) Get(wd, src, dst string) error {
 	ctx := context.Background()
 
+	opts := []getter.ClientOption{}
+
 	get := &getter.Client{
 		Ctx:     ctx,
 		Src:     src,
 		Dst:     dst,
 		Pwd:     wd,
-		Mode:    getter.ClientModeDir,
-		Options: []getter.ClientOption{},
+		Mode:    getter.ClientModeAny,
+		Options: opts,
 	}
 
 	g.Logger.Debugf("client: %+v", *get)

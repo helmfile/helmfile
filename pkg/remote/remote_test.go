@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
@@ -17,7 +19,7 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 		CacheDir(): "",
 	}
 	cachefs := map[string]string{
-		filepath.Join(CacheDir(), "https_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml"): "foo: bar",
+		filepath.Join(CacheDir(), "https_github_com_cloudposse_helmfiles_git.ref=0.40.0/origin/releases/kiam.yaml"): "foo: bar",
 	}
 
 	testcases := []struct {
@@ -45,6 +47,8 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 
 				hit = false
 
+				testfs.AddFiles(cachefs)
+
 				return nil
 			}
 
@@ -70,7 +74,7 @@ func TestRemote_HttpsGitHub(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			expectedFile := filepath.Join(CacheDir(), "https_github_com_cloudposse_helmfiles_git.ref=0.40.0/releases/kiam.yaml")
+			expectedFile := filepath.Join(CacheDir(), "https_github_com_cloudposse_helmfiles_git.ref=0.40.0/origin/releases/kiam.yaml")
 			if file != expectedFile {
 				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
 			}
@@ -90,7 +94,7 @@ func TestRemote_SShGitHub(t *testing.T) {
 		CacheDir(): "",
 	}
 	cachefs := map[string]string{
-		filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0/releases/kiam.yaml"): "foo: bar",
+		filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0/origin/releases/kiam.yaml"): "foo: bar",
 	}
 
 	testcases := []struct {
@@ -118,6 +122,8 @@ func TestRemote_SShGitHub(t *testing.T) {
 
 				hit = false
 
+				testfs.AddFiles(cachefs)
+
 				return nil
 			}
 
@@ -137,7 +143,7 @@ func TestRemote_SShGitHub(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0/releases/kiam.yaml")
+			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0/origin/releases/kiam.yaml")
 			if file != expectedFile {
 				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
 			}
@@ -157,7 +163,7 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 		CacheDir(): "",
 	}
 	cachefs := map[string]string{
-		filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=redacted/releases/kiam.yaml"): "foo: bar",
+		filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0_sshkey=redacted/origin/releases/kiam.yaml"): "foo: bar",
 	}
 
 	testcases := []struct {
@@ -185,6 +191,8 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 
 				hit = false
 
+				testfs.AddFiles(cachefs)
+
 				return nil
 			}
 
@@ -204,7 +212,7 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=redacted/releases/kiam.yaml")
+			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0_sshkey=redacted/origin/releases/kiam.yaml")
 			if file != expectedFile {
 				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
 			}
@@ -297,6 +305,7 @@ func TestParse(t *testing.T) {
 		dir    string
 		file   string
 		query  string
+		user   string
 		err    string
 	}{
 		{
@@ -312,6 +321,24 @@ func TestParse(t *testing.T) {
 			dir:    "/stakater/Forecastle.git",
 			file:   "deployments/kubernetes/chart/forecastle",
 			query:  "ref=v1.0.54",
+			user:   "user:password",
+		},
+		{
+			name:   "remote path with full args",
+			input:  "git::https://user:password@github.com/stakater/Forecastle.git@deployments/kubernetes/chart/forecastle?ref=v1.0.54",
+			getter: "git",
+			scheme: "https",
+			dir:    "/stakater/Forecastle.git",
+			file:   "deployments/kubernetes/chart/forecastle",
+			query:  "ref=v1.0.54",
+			user:   "user:password",
+		},
+		{
+			name:   "remote path with no file",
+			input:  "git::https://github.com/stakater/Forecastle.git",
+			getter: "git",
+			scheme: "https",
+			dir:    "/stakater/Forecastle.git",
 		},
 		{
 			name:   "s3 scheme",
@@ -391,13 +418,14 @@ func TestParse(t *testing.T) {
 				t.Fatalf("Unexpected error:\n%s", diff)
 			}
 
-			var getter, scheme, dir, file, query string
+			var getter, scheme, dir, file, query, user string
 			if src != nil {
 				getter = src.Getter
 				scheme = src.Scheme
 				dir = src.Dir
 				file = src.File
 				query = src.RawQuery
+				user = src.User
 			}
 
 			if diff := cmp.Diff(tt.getter, getter); diff != "" {
@@ -419,6 +447,9 @@ func TestParse(t *testing.T) {
 			if diff := cmp.Diff(tt.query, query); diff != "" {
 				t.Fatalf("Unexpected query:\n%s", diff)
 			}
+			if diff := cmp.Diff(tt.user, user); diff != "" {
+				t.Fatalf("Unexpected user:\n%s", diff)
+			}
 		})
 	}
 }
@@ -436,7 +467,7 @@ func TestRemote_Fetch(t *testing.T) {
 		CacheDir(): "",
 	}
 	cachefs := map[string]string{
-		filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.151.0/README.md"): "foo: bar",
+		filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.151.0/origin/README.md"): "foo: bar",
 	}
 
 	testcases := []struct {
@@ -467,6 +498,8 @@ func TestRemote_Fetch(t *testing.T) {
 
 				hit = false
 
+				testfs.AddFiles(cachefs)
+
 				return nil
 			}
 
@@ -486,7 +519,7 @@ func TestRemote_Fetch(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			expectedFile := filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.151.0/README.md")
+			expectedFile := filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.151.0/origin/README.md")
 			if file != expectedFile {
 				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
 			}
@@ -497,6 +530,56 @@ func TestRemote_Fetch(t *testing.T) {
 			if !tt.expectCacheHit && hit {
 				t.Errorf("unexpected result: unexpected cache hit")
 			}
+		})
+	}
+}
+
+func TestRemote_CommonHttpUrl(t *testing.T) {
+	testcases := []struct {
+		name   string
+		input  string
+		rpath  string
+		errStr string
+	}{
+		{
+			name:  "common git url",
+			input: "git::https://github.com/helmfile/helmfile.git?ref=v0.153.1",
+			rpath: filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.153.1/origin"),
+		},
+		{
+			name:  "common git url with exist subpath",
+			input: "git::https://github.com/dragonflyoss/helm-charts.git@charts?ref=dragonfly-1.0.2",
+			rpath: filepath.Join(CacheDir(), "https_github_com_dragonflyoss_helm-charts_git.ref=dragonfly-1.0.2/origin/charts"),
+		},
+		{
+			name:  "common git url with no-exist subpath",
+			input: "git::https://github.com/dragonflyoss/helm-charts.git@no-existcharts?ref=dragonfly-1.0.2",
+			rpath: filepath.Join(CacheDir(), "https_github_com_dragonflyoss_helm-charts_git.ref=dragonfly-1.0.2/origin/no-existcharts"),
+		},
+		{
+			name:  "common http url",
+			input: "https://raw.githubusercontent.com/helmfile/testdata/main/remote-values/value.yaml",
+			rpath: filepath.Join(CacheDir(), "https_raw_githubusercontent_com_helmfile_testdata_main_remote-values_value_yaml/origin"),
+		},
+		{
+			name:   "common http no-exist url",
+			input:  "https://raw.githubusercontent.com/helmfile/testdata/main/remote-values/no-exist-value.yaml",
+			errStr: "get: bad response code: 404",
+		},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			remote := NewRemote(helmexec.NewLogger(io.Discard, "debug"), CacheDir(), filesystem.DefaultFileSystem())
+
+			rPath, err := remote.Fetch(tt.input)
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			}
+
+			require.Equalf(t, tt.errStr, errStr, "unexpected error: %s", err)
+			require.Equalf(t, tt.rpath, rPath, "unexpected rpath: %s", rPath)
 		})
 	}
 }

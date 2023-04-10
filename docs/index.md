@@ -251,6 +251,10 @@ releases:
     # Values files used for rendering the chart
     values:
       # Value files passed via --values
+      # `go-getter`-style URLs are supported. See https://helmfile.readthedocs.io/en/latest/#loading-remote-environment-values-files 
+      - git::https://gitlab.com/org/repository-name.git@/config/values-remote.yaml?ref=main
+      - https://raw.githubusercontent.com/helmfile/testdata/main/remote-values/value.yaml
+
       - vault.yaml
       # Inline values, passed via a temporary values file and --values, so that it doesn't suffer from type issues like --set
       - address: https://vault.example.com
@@ -967,12 +971,13 @@ You can read more infos about the feature proposal [here](https://github.com/rob
 
 ### Loading remote Environment values files
 
-Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
+Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files. We use `@` to separate dir and the file path. This is a good idea borrowed from [helm-git](https://github.com/aslafy-z/helm-git) :
 
 ```yaml
 environments:
   cluster-azure-us-west:
     values:
+      - https://raw.githubusercontent.com/helmfile/testdata/main/remote-values/value.yaml # common http url
       - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
       - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
       - git::https://gitlab.com/org/repository-name.git@/config/config.test.yaml?ref=main # Public Gilab Repo
