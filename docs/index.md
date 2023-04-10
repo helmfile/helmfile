@@ -440,7 +440,7 @@ apiVersions:
 
 # Set the kubeVersion to render the chart with your desired Kubernetes version.
 # The flag --kube-version was deprecated in helm v3 but it was added again.
-# For further information https://github.com/helm/helm/pull/904011
+# For further information https://github.com/helm/helm/issues/7326
 kubeVersion: v1.21
 ```
 
