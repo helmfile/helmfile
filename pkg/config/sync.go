@@ -16,8 +16,6 @@ type SyncOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// SkipCrds is the skip crds flag
 	SkipCRDs bool
 	// Wait is the wait flag
@@ -69,11 +67,6 @@ func (t *SyncImpl) IncludeTransitiveNeeds() bool {
 // Set returns the Set
 func (t *SyncImpl) Set() []string {
 	return t.SyncOptions.Set
-}
-
-// SkipDeps returns the skip deps
-func (t *SyncImpl) SkipDeps() bool {
-	return t.SyncOptions.SkipDeps
 }
 
 // SkipNeeds returns the skip needs

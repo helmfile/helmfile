@@ -4,8 +4,6 @@ package config
 type DestroyOptions struct {
 	// Concurrency is the maximum number of concurrent helm processes to run, 0 is unlimited
 	Concurrency int
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// SkipCharts makes Destroy skip `withPreparedCharts`
 	SkipCharts bool
 }
@@ -32,11 +30,6 @@ func NewDestroyImpl(g *GlobalImpl, b *DestroyOptions) *DestroyImpl {
 // Concurrency returns the concurrency
 func (c *DestroyImpl) Concurrency() int {
 	return c.DestroyOptions.Concurrency
-}
-
-// SkipDeps returns the skip deps
-func (c *DestroyImpl) SkipDeps() bool {
-	return c.DestroyOptions.SkipDeps
 }
 
 // SkipCharts returns skipCharts flag
