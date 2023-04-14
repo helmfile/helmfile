@@ -11,6 +11,13 @@ import (
 func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 	t.Helper()
 
+	var yamlLibraryName string
+	if goccyGoYaml {
+		yamlLibraryName = "goccy/go-yaml"
+	} else {
+		yamlLibraryName = "gopkg.in/yaml.v2"
+	}
+
 	v := runtime.GoccyGoYaml
 	runtime.GoccyGoYaml = goccyGoYaml
 	t.Cleanup(func() {
@@ -25,7 +32,7 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 			Annotation string `yaml:"annotation"`
 		} `yaml:"info"`
 
-		expected string
+		expected map[string]string
 	}{
 		{
 			Name: "John",
@@ -41,14 +48,17 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 				// - https://github.com/helmfile/helmfile/pull/675
 				Annotation: "on",
 			}},
-			expected: "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: \"on\"\n",
+			expected: map[string]string{
+				"goccy/go-yaml":    "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: 'on'\n",
+				"gopkg.in/yaml.v2": "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: \"on\"\n",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		actual, err := Marshal(tt)
 		require.NoError(t, err)
-		require.Equal(t, tt.expected, string(actual))
+		require.Equal(t, tt.expected[yamlLibraryName], string(actual))
 	}
 }
 
