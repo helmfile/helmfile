@@ -208,6 +208,7 @@ type TemplateConfigProvider interface {
 	SkipTests() bool
 	OutputDir() string
 	IncludeCRDs() bool
+	KubeVersion() string
 
 	DAGConfig
 
