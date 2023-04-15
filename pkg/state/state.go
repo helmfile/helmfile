@@ -1040,6 +1040,7 @@ type ChartPrepareOptions struct {
 	OutputDirTemplate      string
 	IncludeTransitiveNeeds bool
 	Concurrency            int
+	KubeVersion            string
 }
 
 type chartPrepareResult struct {
@@ -1384,6 +1385,7 @@ type TemplateOpts struct {
 	IncludeCRDs       bool
 	SkipTests         bool
 	PostRenderer      string
+	KubeVersion       string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -2540,13 +2542,14 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 
 	flags = st.appendHelmXFlags(flags, release)
 
-	flags = st.appendApiVersionsFlags(flags, release)
-
 	postRenderer := ""
+	kubeVersion := ""
 	if opt != nil {
 		postRenderer = opt.PostRenderer
+		kubeVersion = opt.KubeVersion
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
+	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2579,7 +2582,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-validation")
 	}
 
-	flags = st.appendApiVersionsFlags(flags, release)
+	// TODO:
+	// `helm diff` has `--kube-version` flag from v3.5.0, but only respected when `helm diff upgrade --disable-validation`.
+	// `helm template --validate` and `helm upgrade --dry-run` ignore `--kube-version` flag.
+	// For the moment, not specifying kubeVersion.
+	flags = st.appendApiVersionsFlags(flags, release, "")
 
 	flags = st.appendConnectionFlags(flags, release)
 
@@ -2622,7 +2629,7 @@ func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues boo
 	return flags
 }
 
-func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec) []string {
+func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec, kubeVersion string) []string {
 	if len(r.ApiVersions) != 0 {
 		for _, a := range r.ApiVersions {
 			flags = append(flags, "--api-versions", a)
@@ -2633,9 +2640,12 @@ func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec) []st
 		}
 	}
 
-	if r.KubeVersion != "" {
+	switch {
+	case kubeVersion != "":
+		flags = append(flags, "--kube-version", kubeVersion)
+	case r.KubeVersion != "":
 		flags = append(flags, "--kube-version", r.KubeVersion)
-	} else if st.KubeVersion != "" {
+	case st.KubeVersion != "":
 		flags = append(flags, "--kube-version", st.KubeVersion)
 	}
 

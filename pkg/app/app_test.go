@@ -2097,6 +2097,7 @@ type configImpl struct {
 	includeNeeds           bool
 	includeTransitiveNeeds bool
 	skipCharts             bool
+	kubeVersion            string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2179,6 +2180,10 @@ func (c configImpl) PostRenderer() string {
 	return ""
 }
 
+func (c configImpl) KubeVersion() string {
+	return c.kubeVersion
+}
+
 type applyConfig struct {
 	args   string
 	values []string
@@ -2213,6 +2218,7 @@ type applyConfig struct {
 	waitForJobs            bool
 	reuseValues            bool
 	postRenderer           string
+	kubeVersion            string
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2359,6 +2365,10 @@ func (a applyConfig) ResetValues() bool {
 
 func (a applyConfig) PostRenderer() string {
 	return a.postRenderer
+}
+
+func (a applyConfig) KubeVersion() string {
+	return a.kubeVersion
 }
 
 type depsConfig struct {
