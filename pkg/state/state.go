@@ -2582,6 +2582,10 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-validation")
 	}
 
+	// TODO:
+	// `helm diff` has `--kube-version` flag from v3.5.0, but only respected when `helm diff upgrade --disable-validation`.
+	// `helm template --validate` and `helm upgrade --dry-run` ignore `--kube-version` flag.
+	// For the moment, not specifying kubeVersion.
 	flags = st.appendApiVersionsFlags(flags, release, "")
 
 	flags = st.appendConnectionFlags(flags, release)
