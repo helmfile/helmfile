@@ -262,9 +262,170 @@ processing releases in group 1/2: default/default/external-secrets
 processing releases in group 2/2: default/default/my-release
 
 UPDATED RELEASES:
-NAME               CHART           VERSION
-external-secrets   incubator/raw     3.1.0
-my-release         incubator/raw     3.1.0
+NAME               CHART           VERSION   DURATION
+external-secrets   incubator/raw   3.1.0           0s
+my-release         incubator/raw   3.1.0           0s
+
+changing working directory back to "/path/to"
+`,
+		})
+	})
+
+	t.Run("check-duration", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds: true,
+			},
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+{{ $mark := "a" }}
+
+releases:
+- name: kubernetes-external-secrets
+  chart: incubator/raw
+  namespace: kube-system
+
+- name: external-secrets
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - kube-system/kubernetes-external-secrets
+
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+  labels:
+    app: test
+  needs:
+  - default/external-secrets
+  hooks:
+    - name: my-release
+      events:
+        - postsync
+      showlogs: true
+      command: sleep
+      args: [5s]
+`,
+			},
+			selectors: []string{"app=test"},
+			upgraded: []exectest.Release{
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+				`,
+			},
+			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
+			concurrency: 1,
+			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
+first-pass uses: &{default map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23:   hooks:
+24:     - name: my-release
+25:       events:
+26:         - postsync
+27:       showlogs: true
+28:       command: sleep
+29:       args: [5s]
+30: 
+
+first-pass produced: &{default map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: 
+ 2: 
+ 3: releases:
+ 4: - name: kubernetes-external-secrets
+ 5:   chart: incubator/raw
+ 6:   namespace: kube-system
+ 7: 
+ 8: - name: external-secrets
+ 9:   chart: incubator/raw
+10:   namespace: default
+11:   labels:
+12:     app: test
+13:   needs:
+14:   - kube-system/kubernetes-external-secrets
+15: 
+16: - name: my-release
+17:   chart: incubator/raw
+18:   namespace: default
+19:   labels:
+20:     app: test
+21:   needs:
+22:   - default/external-secrets
+23:   hooks:
+24:     - name: my-release
+25:       events:
+26:         - postsync
+27:       showlogs: true
+28:       command: sleep
+29:       args: [5s]
+30: 
+
+merged environment: &{default map[] map[]}
+2 release(s) matching app=test found in helmfile.yaml
+
+Affected releases are:
+  external-secrets (incubator/raw) UPDATED
+  my-release (incubator/raw) UPDATED
+
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     default/default/external-secrets
+2     default/default/my-release
+
+processing releases in group 1/2: default/default/external-secrets
+processing releases in group 2/2: default/default/my-release
+hook[my-release]: stateFilePath=helmfile.yaml, basePath=.
+
+hook[my-release]: triggered by event "postsync"
+
+hook[my-release]: 
+
+
+hook[postsync] logs | 
+
+UPDATED RELEASES:
+NAME               CHART           VERSION   DURATION
+external-secrets   incubator/raw   3.1.0           0s
+my-release         incubator/raw   3.1.0           5s
 
 changing working directory back to "/path/to"
 `,
@@ -399,10 +560,10 @@ processing releases in group 2/3: default/default/external-secrets
 processing releases in group 3/3: default/default/my-release
 
 UPDATED RELEASES:
-NAME                          CHART           VERSION
-kubernetes-external-secrets   incubator/raw     3.1.0
-external-secrets              incubator/raw     3.1.0
-my-release                    incubator/raw     3.1.0
+NAME                          CHART           VERSION   DURATION
+kubernetes-external-secrets   incubator/raw   3.1.0           0s
+external-secrets              incubator/raw   3.1.0           0s
+my-release                    incubator/raw   3.1.0           0s
 
 changing working directory back to "/path/to"
 `,
@@ -525,10 +686,10 @@ processing releases in group 2/3: default//serviceB
 processing releases in group 3/3: default//serviceA
 
 UPDATED RELEASES:
-NAME       CHART      VERSION
-serviceC   my/chart     3.1.0
-serviceB   my/chart     3.1.0
-serviceA   my/chart     3.1.0
+NAME       CHART      VERSION   DURATION
+serviceC   my/chart   3.1.0           0s
+serviceB   my/chart   3.1.0           0s
+serviceA   my/chart   3.1.0           0s
 
 changing working directory back to "/path/to"
 `,
@@ -670,14 +831,15 @@ processing releases in group 1/2: default/default/external-secrets
 processing releases in group 2/2: default/default/my-release
 
 UPDATED RELEASES:
-NAME               CHART           VERSION
-external-secrets   incubator/raw     3.1.0
-my-release         incubator/raw     3.1.0
+NAME               CHART           VERSION   DURATION
+external-secrets   incubator/raw   3.1.0           0s
+my-release         incubator/raw   3.1.0           0s
 
 
 DELETED RELEASES:
-NAME
-kubernetes-external-secrets
+NAME                          DURATION
+kubernetes-external-secrets         0s
+
 changing working directory back to "/path/to"
 `,
 		})
@@ -811,9 +973,9 @@ processing releases in group 1/2: default/default/external-secrets
 processing releases in group 2/2: default/default/my-release
 
 UPDATED RELEASES:
-NAME               CHART           VERSION
-external-secrets   incubator/raw     3.1.0
-my-release         incubator/raw     3.1.0
+NAME               CHART           VERSION   DURATION
+external-secrets   incubator/raw   3.1.0           0s
+my-release         incubator/raw   3.1.0           0s
 
 changing working directory back to "/path/to"
 `,

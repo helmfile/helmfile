@@ -63,6 +63,6 @@ processing releases in group 1/1: default/default/foo
 getting deployed release version failed: unexpected list key: {^foo$ --kube-contextdefault--deleting--deployed--failed--pending}
 
 UPDATED RELEASES:
-NAME   CHART           VERSION
-foo    incubator/raw          
+NAME   CHART           VERSION   DURATION
+foo    incubator/raw                   0s
 

@@ -15,10 +15,11 @@ hook[presync] logs | foo
 hook[presync] logs | 
 
 UPDATED RELEASES:
-NAME   CHART           VERSION
-foo    incubator/raw     3.1.0
+NAME   CHART           VERSION   DURATION
+foo    incubator/raw   3.1.0           0s
 
 
 DELETED RELEASES:
-NAME
-bar
+NAME   DURATION
+bar          0s
+

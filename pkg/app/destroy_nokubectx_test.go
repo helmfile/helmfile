@@ -403,17 +403,18 @@ release "front-proxy" processed
 release "logging" processed
 
 DELETED RELEASES:
-NAME
-frontend-v3
-frontend-v2
-frontend-v1
-backend-v2
-backend-v1
-anotherbackend
-servicemesh
-database
-front-proxy
-logging
+NAME             DURATION
+frontend-v3            0s
+frontend-v2            0s
+frontend-v1            0s
+backend-v2             0s
+backend-v1             0s
+anotherbackend         0s
+servicemesh            0s
+database               0s
+front-proxy            0s
+logging                0s
+
 changing working directory back to "/path/to"
 `,
 		})
@@ -594,8 +595,9 @@ processing releases in group 1/1: logging
 release "logging" processed
 
 DELETED RELEASES:
-NAME
-logging
+NAME      DURATION
+logging         0s
+
 changing working directory back to "/path/to"
 `,
 		})
@@ -664,9 +666,10 @@ processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
-NAME
-frontend-v1
-backend-v1
+NAME          DURATION
+frontend-v1         0s
+backend-v1          0s
+
 changing working directory back to "/path/to"
 `,
 		})
@@ -735,9 +738,10 @@ processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
-NAME
-frontend-v1
-backend-v1
+NAME          DURATION
+frontend-v1         0s
+backend-v1          0s
+
 changing working directory back to "/path/to"
 `,
 		})

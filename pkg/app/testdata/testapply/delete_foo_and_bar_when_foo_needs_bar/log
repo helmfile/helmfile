@@ -56,7 +56,8 @@ processing releases in group 1/2: default//foo
 processing releases in group 2/2: default//bar
 
 DELETED RELEASES:
-NAME
-foo
-bar
+NAME   DURATION
+foo          0s
+bar          0s
+
 changing working directory back to "/path/to"
