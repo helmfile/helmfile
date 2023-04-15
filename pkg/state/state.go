@@ -2636,11 +2636,12 @@ func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec, kube
 		}
 	}
 
-	if kubeVersion != "" {
+	switch {
+	case kubeVersion != "":
 		flags = append(flags, "--kube-version", kubeVersion)
-	} else if r.KubeVersion != "" {
+	case r.KubeVersion != "":
 		flags = append(flags, "--kube-version", r.KubeVersion)
-	} else if st.KubeVersion != "" {
+	case st.KubeVersion != "":
 		flags = append(flags, "--kube-version", st.KubeVersion)
 	}
 
