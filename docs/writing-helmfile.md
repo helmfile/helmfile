@@ -289,7 +289,7 @@ bases:
 ---
 # Part 2: Reused Defaults
 bases:
-  - mydefaults.yaml
+  - mydefaults.yaml.gotmpl
 ---
 # Part 3: Dynamic Releases
 releases:
