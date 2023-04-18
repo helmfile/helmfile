@@ -103,11 +103,11 @@ releases:
 - name: heapster
   version: 0.3.2
   inherit:
-    template: default
+  - template: default
 - name: kubernetes-dashboard
   version: 0.10.0
   inherit:
-    template: default
+  - template: default
 ```
 
 Release Templating supports the following parts of release definition:
