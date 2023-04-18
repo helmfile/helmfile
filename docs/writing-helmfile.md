@@ -296,10 +296,10 @@ releases:
   - name: test1
     chart: mychart-{{ .Values.myname }}
     values:
-      replicaCount: 1
-      image:
-        repository: "nginx"
-        tag: "latest"
+      - replicaCount: 1
+        image:
+          repository: "nginx"
+          tag: "latest"
 ```
 
 Suppose the `myenv.yaml` and `test.env.yaml` loaded in the first part looks like:
@@ -366,7 +366,7 @@ releases:
       image:
         repository: "nginx"
         tag: "latest"
-````
+```
 
 hence rendered to:
 
