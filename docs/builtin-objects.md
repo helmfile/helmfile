@@ -27,11 +27,11 @@ releases:
 - name: heapster
   version: 0.3.2
   inherit:
-    template: default
+  - template: default
 - name: kubernetes-dashboard
   version: 0.10.0
   inherit:
-    template: default
+  - template: default
 ```
 
 2. release values template
@@ -40,7 +40,7 @@ releases:
 - name: some-release
   chart: my-chart
   values:
-    # This is a template file can use the built-in objects 
+    # This is a template file can use the built-in objects
     - path/to/values.gotmpl
 ```
 
