@@ -111,40 +111,41 @@ releases:
 ```
 
 Release Templating supports the following parts of release definition:
+
 - basic fields: `name`, `namespace`, `chart`, `version`
+
 - boolean fields: `installed`, `wait`, `waitForJobs`, `verify` by the means of additional text
   fields designed for templating only: `installedTemplate`, `waitTemplate`, `verifyTemplate`
-  ```yaml
-  # ...
-    installedTemplate: '{{`{{ eq .Release.Namespace "kube-system" }}`}}'
-    waitTemplate: '{{`{{ eq .Release.Labels.tag "safe" | not }}`}}'
-  # ...
-  ```
+
+        # ...
+          installedTemplate: '{{`{{ eq .Release.Namespace "kube-system" }}`}}'
+          waitTemplate: '{{`{{ eq .Release.Labels.tag "safe" | not }}`}}'
+        # ...
+
 - `set` block values:
-  ```yaml
-  # ...
-    setTemplate:
-    - name: '{{`{{ .Release.Name }}`}}'
-      values: '{{`{{ .Release.Namespace }}`}}'
-  # ...
-  ```
+
+        # ...
+          setTemplate:
+          - name: '{{`{{ .Release.Name }}`}}'
+            values: '{{`{{ .Release.Namespace }}`}}'
+        # ...
+
 - `values` and `secrets` file paths:
-  ```yaml
-  # ...
-    valuesTemplate:
-    - config/{{`{{ .Release.Name }}`}}/values.yaml
-    secrets:
-    - config/{{`{{ .Release.Name }}`}}/secrets.yaml
-  # ...
-  ```
+
+        # ...
+          valuesTemplate:
+          - config/{{`{{ .Release.Name }}`}}/values.yaml
+          secrets:
+          - config/{{`{{ .Release.Name }}`}}/secrets.yaml
+        # ...
+
 - inline `values` map:
-  ```yaml
-  # ...
-    valuesTemplate:
-    - image:
-        tag: `{{ .Release.Labels.tag }}`
-  # ...
-  ```
+
+        # ...
+          valuesTemplate:
+          - image:
+              tag: '{{`{{ .Release.Labels.tag }}`}}'
+        # ...
 
 Previously, we've been using YAML anchors for release template inheritance.
 It turned out not work well when you wanted to nest templates for complex use cases and/or you want a fine control over which fields to inherit or not.
