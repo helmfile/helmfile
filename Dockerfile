@@ -1,4 +1,4 @@
-FROM golang:1.20-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.20-alpine as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -7,11 +7,12 @@ COPY go.mod go.sum /workspace/helmfile/
 RUN go mod download
 
 COPY . /workspace/helmfile
-RUN make static-linux
+ARG TARGETARCH
+RUN make static-linux-${TARGETARCH}
 
 # -----------------------------------------------------------------------------
 
-FROM alpine:3.16
+FROM --platform=$BUILDPLATFORM alpine:3.16
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
@@ -89,6 +90,7 @@ RUN helm plugin install https://github.com/databus23/helm-diff --version v3.6.0 
 # Allow users other than root to use helm plugins located in root home
 RUN chmod 751 ${HOME}
 
-COPY --from=builder /workspace/helmfile/dist/helmfile_linux_amd64 /usr/local/bin/helmfile
+ARG TARGETARCH
+COPY --from=builder /workspace/helmfile/dist/helmfile_linux_${TARGETARCH} /usr/local/bin/helmfile
 
 CMD ["/usr/local/bin/helmfile"]
