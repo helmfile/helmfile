@@ -12,7 +12,7 @@ RUN make static-${TARGETOS}-${TARGETARCH}
 
 # -----------------------------------------------------------------------------
 
-FROM --platform=$BUILDPLATFORM ubuntu:20.04
+FROM ubuntu:20.04
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
