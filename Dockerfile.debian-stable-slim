@@ -12,7 +12,7 @@ RUN make static-${TARGETOS}-${TARGETARCH}
 
 # -----------------------------------------------------------------------------
 
-FROM --platform=$BUILDPLATFORM debian:stable-slim
+FROM debian:stable-slim
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 

@@ -12,7 +12,7 @@ RUN make static-${TARGETOS}-${TARGETARCH}
 
 # -----------------------------------------------------------------------------
 
-FROM --platform=$BUILDPLATFORM alpine:3.16
+FROM alpine:3.16
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
