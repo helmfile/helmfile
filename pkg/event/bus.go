@@ -47,6 +47,9 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 		bus.Runner = helmexec.ShellRunner{
 			Dir:    bus.BasePath,
 			Logger: bus.Logger,
+			// It would be better to pass app.Ctx here, but it requires a lot of work.
+			// It seems that this code only for running hooks, which took not to long time as helm.
+			Ctx: goContext.TODO(),
 		}
 	}
 
@@ -119,7 +122,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 			}
 		}
 
-		bytes, err := bus.Runner.Execute(goContext.Background(), command, args, map[string]string{}, false)
+		bytes, err := bus.Runner.Execute(command, args, map[string]string{}, false)
 		bus.Logger.Debugf("hook[%s]: %s\n", name, string(bytes))
 		if hook.ShowLogs {
 			prefix := fmt.Sprintf("\nhook[%s] logs | ", evt)

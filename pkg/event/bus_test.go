@@ -1,7 +1,6 @@
 package event
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"testing"
@@ -16,11 +15,11 @@ import (
 type runner struct {
 }
 
-func (r *runner) ExecuteStdIn(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+func (r *runner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
 	return []byte(""), nil
 }
 
-func (r *runner) Execute(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+func (r *runner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	if cmd == "ng" {
 		return nil, fmt.Errorf("cmd failed due to invalid cmd: %s", cmd)
 	}

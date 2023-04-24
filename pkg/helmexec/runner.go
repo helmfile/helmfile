@@ -20,8 +20,8 @@ import (
 
 // Runner interface for shell commands
 type Runner interface {
-	Execute(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
-	ExecuteStdIn(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
+	Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
+	ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
 }
 
 // ShellRunner implemention for shell commands
@@ -29,30 +29,31 @@ type ShellRunner struct {
 	Dir string
 
 	Logger *zap.SugaredLogger
+	Ctx    context.Context
 }
 
 // Execute a shell command
-func (shell ShellRunner) Execute(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+func (shell ShellRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 
 	if !enableLiveOutput {
-		return Output(ctx, preparedCmd, &logWriterGenerator{
+		return Output(shell.Ctx, preparedCmd, &logWriterGenerator{
 			log: shell.Logger,
 		})
 	} else {
-		return LiveOutput(ctx, preparedCmd, os.Stdout)
+		return LiveOutput(shell.Ctx, preparedCmd, os.Stdout)
 	}
 }
 
 // Execute a shell command
-func (shell ShellRunner) ExecuteStdIn(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 	preparedCmd.Stdin = stdin
-	return Output(ctx, preparedCmd, &logWriterGenerator{
+	return Output(shell.Ctx, preparedCmd, &logWriterGenerator{
 		log: shell.Logger,
 	})
 }

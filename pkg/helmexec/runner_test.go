@@ -33,8 +33,9 @@ func TestShellRunner_Execute(t *testing.T) {
 			var buffer bytes.Buffer
 			shell := ShellRunner{
 				Logger: NewLogger(&buffer, "debug"),
+				Ctx:    context.TODO(),
 			}
-			got, err := shell.Execute(context.Background(), "echo", strings.Split("template", " "), map[string]string{}, tt.enableLiveOutput)
+			got, err := shell.Execute("echo", strings.Split("template", " "), map[string]string{}, tt.enableLiveOutput)
 
 			if err != nil {
 				t.Errorf("Execute() has produced an error = %v", err)

@@ -1,7 +1,6 @@
 package app
 
 import (
-	goContext "context"
 	"fmt"
 	"io"
 	"net/http"
@@ -108,7 +107,7 @@ func (h *HelmfileInit) installHelmOnWindows() error {
 		if err != nil {
 			return err
 		}
-		_, err = h.runner.Execute(goContext.Background(), "cmd", []string{
+		_, err = h.runner.Execute("cmd", []string{
 			"/c",
 			command,
 		}, nil, true)
@@ -139,7 +138,7 @@ func (h *HelmfileInit) InstallHelm() error {
 	if err != nil {
 		return err
 	}
-	_, err = h.runner.Execute(goContext.Background(), "bash", []string{
+	_, err = h.runner.Execute("bash", []string{
 		getHelmScript.Name(),
 		"--version",
 		HelmRecommendedVersion,
@@ -164,7 +163,7 @@ func (h *HelmfileInit) WhetherContinue(ask string) error {
 
 func (h *HelmfileInit) CheckHelmPlugins() error {
 	settings := cli.New()
-	helm := helmexec.New(goContext.Background(), h.helmBinary, helmexec.HelmExecOptions{}, h.logger, "", h.runner)
+	helm := helmexec.New(h.helmBinary, helmexec.HelmExecOptions{}, h.logger, "", h.runner)
 	for _, p := range helmPlugins {
 		pluginVersion, err := helmexec.GetPluginVersion(p.name, settings.PluginsDirectory)
 		if err != nil {

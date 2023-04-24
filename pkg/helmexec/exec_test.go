@@ -2,7 +2,6 @@ package helmexec
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -24,11 +23,11 @@ type mockRunner struct {
 	err    error
 }
 
-func (mock *mockRunner) ExecuteStdIn(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
 	return mock.output, mock.err
 }
 
-func (mock *mockRunner) Execute(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	if len(mock.output) == 0 && strings.Join(args, " ") == "version --client --short" {
 		return []byte("v3.2.4+ge29ce2a"), nil
 	}
@@ -36,7 +35,7 @@ func (mock *mockRunner) Execute(ctx context.Context, cmd string, args []string, 
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
-	execer := New(context.Background(), "helm", HelmExecOptions{}, logger, kubeContext, &mockRunner{})
+	execer := New("helm", HelmExecOptions{}, logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -357,7 +356,7 @@ func Test_BuildDeps(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a")}
-	helm := New(context.Background(), "helm", HelmExecOptions{}, logger, "dev", &helm3Runner)
+	helm := New("helm", HelmExecOptions{}, logger, "dev", &helm3Runner)
 	err := helm.BuildDeps("foo", "./chart/foo", []string{"--skip-refresh"}...)
 	expected := `Building dependency release=foo, chart=./chart/foo
 exec: helm --kube-context dev dependency build ./chart/foo --skip-refresh
@@ -399,7 +398,7 @@ v3.2.4+ge29ce2a
 
 	buffer.Reset()
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94")}
-	helm = New(context.Background(), "helm", HelmExecOptions{}, logger, "dev", &helm2Runner)
+	helm = New("helm", HelmExecOptions{}, logger, "dev", &helm2Runner)
 	err = helm.BuildDeps("foo", "./chart/foo")
 	expected = `Building dependency release=foo, chart=./chart/foo
 exec: helm --kube-context dev dependency build ./chart/foo
@@ -905,13 +904,13 @@ exec: helm --kube-context dev template release https://example_user:example_pass
 
 func Test_IsHelm3(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm := New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Detected Helm 3 with Helm 2 version")
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
-	helm = New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
@@ -942,14 +941,14 @@ func Test_GetPluginVersion(t *testing.T) {
 
 func Test_GetVersion(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	ver := helm.GetVersion()
 	if ver.Major != 2 || ver.Minor != 16 || ver.Patch != 1 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm2 version; it was: %+v", ver)
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a\n")}
-	helm = New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	ver = helm.GetVersion()
 	if ver.Major != 3 || ver.Minor != 2 || ver.Patch != 4 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm3 version; it was: %+v", ver)
@@ -958,7 +957,7 @@ func Test_GetVersion(t *testing.T) {
 
 func Test_IsVersionAtLeast(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New(context.Background(), "helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsVersionAtLeast("2.1.0") {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 not atleast 2.1")
 	}
