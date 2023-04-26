@@ -62,8 +62,8 @@ func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (str
 		chart = dir
 	}
 
-	if _, err := os.Stat(chart); err == nil {
-		abs, err := filepath.Abs(chart)
+	if _, err := st.fs.Stat(chart); err == nil {
+		abs, err := st.fs.Abs(chart)
 		if err != nil {
 			return abs, err
 		}
