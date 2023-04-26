@@ -252,7 +252,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		return nil, &UndefinedEnvError{msg: fmt.Sprintf("environment \"%s\" is not defined", name)}
 	}
 
-	newEnv := &environment.Environment{Name: name, Values: envVals}
+	newEnv := &environment.Environment{Name: name, Values: envVals, KubeContext: envSpec.KubeContext}
 
 	if ctxEnv != nil {
 		intCtxEnv := *ctxEnv

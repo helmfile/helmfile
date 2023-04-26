@@ -8,9 +8,10 @@ import (
 )
 
 type Environment struct {
-	Name     string
-	Values   map[string]interface{}
-	Defaults map[string]interface{}
+	Name        string
+	KubeContext string
+	Values      map[string]interface{}
+	Defaults    map[string]interface{}
 }
 
 var EmptyEnvironment Environment
@@ -18,9 +19,10 @@ var EmptyEnvironment Environment
 // New return Environment with default name and values
 func New(name string) *Environment {
 	return &Environment{
-		Name:     name,
-		Values:   map[string]interface{}{},
-		Defaults: map[string]interface{}{},
+		Name:        name,
+		KubeContext: "",
+		Values:      map[string]interface{}{},
+		Defaults:    map[string]interface{}{},
 	}
 }
 
@@ -52,9 +54,10 @@ func (e Environment) DeepCopy() Environment {
 	}
 
 	return Environment{
-		Name:     e.Name,
-		Values:   values,
-		Defaults: defaults,
+		Name:        e.Name,
+		KubeContext: e.KubeContext,
+		Values:      values,
+		Defaults:    defaults,
 	}
 }
 
