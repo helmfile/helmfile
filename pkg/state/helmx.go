@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/helmfile/chartify"
 
@@ -48,15 +49,39 @@ func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
 	return st.goGetterChart(r.Chart, r.Directory, r.CacheDir(), r.ForceGoGetter)
 }
 
+// goGetterChart looks for a chart directory in known places, and returns either the full path or an error.
+//
+// This does not ensure that the chart is well-formed; only that the requested filename exists.
+//
+// Order of resolution:
+// - relative to current working directory
+// - if path is absolute or begins with '.', error out here
+// - URL
 func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (string, error) {
 	if dir != "" && chart == "" {
 		chart = dir
 	}
 
+	if _, err := os.Stat(chart); err == nil {
+		abs, err := filepath.Abs(chart)
+		if err != nil {
+			return abs, err
+		}
+		return abs, nil
+	}
+
+	if filepath.IsAbs(chart) || strings.HasPrefix(chart, ".") {
+		return chart, fmt.Errorf("chart path %q not found", chart)
+	}
+
+	if strings.HasPrefix(chart, "oci://") {
+		return chart, nil
+	}
+
 	_, err := remote.Parse(chart)
 	if err != nil {
 		if force {
-			return "", fmt.Errorf("Parsing url from dir failed due to error %q.\nContinuing the process assuming this is a regular Helm chart or a local dir.", err.Error())
+			return "", fmt.Errorf("Parsing url from dir failed due to error %q.\nContinuing the process assuming this is a regular Helm chart.", err.Error())
 		}
 	} else {
 		r := remote.NewRemote(st.logger, "", st.fs)
@@ -106,6 +131,10 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 		if err != nil {
 			return nil, clean, err
+		}
+
+		if filepath.IsAbs(dependenceChart) {
+			dependenceChart = fmt.Sprintf("file://%s", dependenceChart)
 		}
 
 		c.Opts.AdhocChartDependencies = append(c.Opts.AdhocChartDependencies, chartify.ChartDependency{
