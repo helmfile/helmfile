@@ -157,7 +157,7 @@ type HelmSpec struct {
 	KubeContext string   `yaml:"kubeContext,omitempty"`
 	Args        []string `yaml:"args,omitempty"`
 	Verify      bool     `yaml:"verify"`
-	// EnableDDNS, when set to true, enable DNS lookups when rendering templates
+	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS bool `yaml:"enableDNS"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
@@ -235,7 +235,7 @@ type ReleaseSpec struct {
 	// Verify enables signature verification on fetched chart.
 	// Beware some (or many?) chart repositories and charts don't seem to support it.
 	Verify *bool `yaml:"verify,omitempty"`
-	// EnableDDNS, when set to true, enable DNS lookups when rendering templates
+	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS *bool `yaml:"enableDNS,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel *bool `yaml:"devel,omitempty"`
