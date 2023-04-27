@@ -236,6 +236,41 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "enable-dns",
+			defaults: HelmSpec{
+				EnableDNS: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				EnableDNS: &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--enable-dns",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "enable-dns-from-default",
+			defaults: HelmSpec{
+				EnableDNS: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				EnableDNS: &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "force",
 			defaults: HelmSpec{
 				Force: false,

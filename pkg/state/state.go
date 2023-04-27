@@ -157,6 +157,8 @@ type HelmSpec struct {
 	KubeContext string   `yaml:"kubeContext,omitempty"`
 	Args        []string `yaml:"args,omitempty"`
 	Verify      bool     `yaml:"verify"`
+	// EnableDNS, when set to true, enable DNS lookups when rendering templates
+	EnableDNS bool `yaml:"enableDNS"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -233,6 +235,8 @@ type ReleaseSpec struct {
 	// Verify enables signature verification on fetched chart.
 	// Beware some (or many?) chart repositories and charts don't seem to support it.
 	Verify *bool `yaml:"verify,omitempty"`
+	// EnableDNS, when set to true, enable DNS lookups when rendering templates
+	EnableDNS *bool `yaml:"enableDNS,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel *bool `yaml:"devel,omitempty"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -2475,6 +2479,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
+	}
+
+	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
+		flags = append(flags, "--enable-dns")
 	}
 
 	if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
