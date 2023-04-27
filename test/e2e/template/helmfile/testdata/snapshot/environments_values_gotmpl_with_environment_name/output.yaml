@@ -1,5 +1,5 @@
-Building dependency release=raw, chart=$WD/testdata/charts/raw-0.0.1
-Templating release=raw, chart=$WD/testdata/charts/raw-0.0.1
+Building dependency release=raw, chart=../../charts/raw-0.0.1
+Templating release=raw, chart=../../charts/raw-0.0.1
 ---
 # Source: raw/templates/resources.yaml
 envName: test
