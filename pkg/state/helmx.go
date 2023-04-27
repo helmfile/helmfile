@@ -63,11 +63,7 @@ func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (str
 	}
 
 	if _, err := st.fs.Stat(chart); err == nil {
-		abs, err := st.fs.Abs(chart)
-		if err != nil {
-			return abs, err
-		}
-		return abs, nil
+		return chart, nil
 	}
 
 	if filepath.IsAbs(chart) || strings.HasPrefix(chart, ".") {
@@ -131,6 +127,13 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 		if err != nil {
 			return nil, clean, err
+		}
+
+		if strings.HasPrefix(dependenceChart, ".") {
+			dependenceChart, err = st.fs.Abs(dependenceChart)
+			if err != nil {
+				return nil, clean, err
+			}
 		}
 
 		if filepath.IsAbs(dependenceChart) {
