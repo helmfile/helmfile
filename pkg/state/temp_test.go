@@ -38,39 +38,39 @@ func TestGenerateID(t *testing.T) {
 	run(testcase{
 		subject: "baseline",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw"},
-		want:    "foo-values-77cb4d7f9b",
+		want:    "foo-values-76d4857b56",
 	})
 
 	run(testcase{
 		subject: "different bytes content",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw"},
 		data:    []byte(`{"k":"v"}`),
-		want:    "foo-values-6f6bc74b55",
+		want:    "foo-values-55d59fb487",
 	})
 
 	run(testcase{
 		subject: "different map content",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw"},
 		data:    map[string]interface{}{"k": "v"},
-		want:    "foo-values-57dfc6cb8f",
+		want:    "foo-values-7c8d99f9f7",
 	})
 
 	run(testcase{
 		subject: "different chart",
 		release: ReleaseSpec{Name: "foo", Chart: "stable/envoy"},
-		want:    "foo-values-74594bb67",
+		want:    "foo-values-7467f76549",
 	})
 
 	run(testcase{
 		subject: "different name",
 		release: ReleaseSpec{Name: "bar", Chart: "incubator/raw"},
-		want:    "bar-values-bdbb54d7",
+		want:    "bar-values-dbdf465b7",
 	})
 
 	run(testcase{
 		subject: "specific ns",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw", Namespace: "myns"},
-		want:    "myns-foo-values-677dcd477",
+		want:    "myns-foo-values-6d4874d757",
 	})
 
 	for id, n := range ids {
