@@ -257,7 +257,7 @@ type ReleaseSpec struct {
 	CleanupOnFail *bool `yaml:"cleanupOnFail,omitempty"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
-	// Condition, when set, evaluate the mapping specified in this string to a boolean which decides whether or not to process the release
+	// Condition, when set, evaluates the mapping specified in this string or the string itself to a boolean which decides whether or not to process the release
 	Condition string `yaml:"condition,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
@@ -2192,9 +2192,14 @@ func ConditionEnabled(r ReleaseSpec, values map[string]interface{}) (bool, error
 	if len(r.Condition) == 0 {
 		return true, nil
 	}
+
+	if conditionMatch, err := strconv.ParseBool(r.Condition); err == nil {
+		return conditionMatch, nil
+	}
+
 	conditionSplit := strings.Split(r.Condition, ".")
 	if len(conditionSplit) != 2 {
-		return false, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
+		return false, fmt.Errorf("condition value must be either in the form 'foo.enabled' where 'foo' can be modified as necessary or string that can be evaluated to bool")
 	}
 	if v, ok := values[conditionSplit[0]]; ok {
 		if v == nil {
