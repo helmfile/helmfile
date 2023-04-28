@@ -196,9 +196,13 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 }
 
 func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment, st *HelmState, baseDir string) (*HelmState, error) {
+	var newOverrodeEnv environment.Environment
+	if overrodeEnv != nil {
+		newOverrodeEnv = overrodeEnv.DeepCopy()
+	}
 	layers := []*HelmState{}
 	for _, b := range st.Bases {
-		base, err := c.LoadFile(envValues, overrodeEnv, baseDir, b, false)
+		base, err := c.LoadFile(envValues, &newOverrodeEnv, baseDir, b, false)
 		if err != nil {
 			return nil, err
 		}
