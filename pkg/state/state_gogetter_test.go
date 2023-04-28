@@ -28,6 +28,34 @@ func TestGoGetter(t *testing.T) {
 			out:   "raw/incubator",
 			err:   "",
 		},
+		{
+			chart: "oci://my-oci-registry/helm-repo/envoy",
+			dir:   "",
+			force: false,
+			out:   "oci://my-oci-registry/helm-repo/envoy",
+			err:   "",
+		},
+		{
+			chart: "testdata",
+			dir:   "",
+			force: false,
+			out:   "testdata",
+			err:   "",
+		},
+		{
+			chart: "./testdata",
+			dir:   "",
+			force: false,
+			out:   "./testdata",
+			err:   "",
+		},
+		{
+			chart: "./noexist",
+			dir:   "",
+			force: false,
+			out:   "",
+			err:   "chart path ./noexist not found",
+		},
 	}
 
 	for i, tc := range testcases {

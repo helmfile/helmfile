@@ -67,7 +67,7 @@ func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (str
 	}
 
 	if filepath.IsAbs(chart) || strings.HasPrefix(chart, ".") {
-		return chart, fmt.Errorf("chart path %q not found", chart)
+		return "", fmt.Errorf("chart path %s not found", chart)
 	}
 
 	if strings.HasPrefix(chart, "oci://") {
@@ -134,10 +134,6 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			if err != nil {
 				return nil, clean, err
 			}
-		}
-
-		if filepath.IsAbs(dependenceChart) {
-			dependenceChart = fmt.Sprintf("file://%s", dependenceChart)
 		}
 
 		c.Opts.AdhocChartDependencies = append(c.Opts.AdhocChartDependencies, chartify.ChartDependency{
