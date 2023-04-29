@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,19 +14,25 @@ import (
 func main() {
 	var sig os.Signal
 	sigs := make(chan os.Signal, 1)
+	errChan := make(chan error, 1)
+
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		sig = <-sigs
+		globalConfig := new(config.GlobalOptions)
+		rootCmd, err := cmd.NewRootCmd(globalConfig)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		errChan <- rootCmd.Execute()
 	}()
 
-	globalConfig := new(config.GlobalOptions)
-	rootCmd, err := cmd.NewRootCmd(globalConfig)
-	errors.HandleExitCoder(err)
-
-	if err := rootCmd.Execute(); err != nil {
+	select {
+	case sig = <-sigs:
 		if sig != nil {
-			fmt.Fprintln(os.Stderr, err)
+			app.Cancel()
 			app.CleanWaitGroup.Wait()
 
 			// See http://tldp.org/LDP/abs/html/exitcodes.html
@@ -38,6 +43,7 @@ func main() {
 				os.Exit(143)
 			}
 		}
+	case err := <-errChan:
 		errors.HandleExitCoder(err)
 	}
 }

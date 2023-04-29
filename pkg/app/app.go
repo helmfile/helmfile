@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	goContext "context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 )
 
 var CleanWaitGroup sync.WaitGroup
+var Cancel goContext.CancelFunc
 
 // App is the main application object.
 type App struct {
@@ -50,6 +52,8 @@ type App struct {
 
 	helms      map[helmKey]helmexec.Interface
 	helmsMutex sync.Mutex
+
+	ctx goContext.Context
 }
 
 type HelmRelease struct {
@@ -63,6 +67,9 @@ type HelmRelease struct {
 }
 
 func New(conf ConfigProvider) *App {
+	ctx := goContext.Background()
+	ctx, Cancel = goContext.WithCancel(ctx)
+
 	return Init(&App{
 		OverrideKubeContext: conf.KubeContext(),
 		OverrideHelmBinary:  conf.HelmBinary(),
@@ -78,6 +85,7 @@ func New(conf ConfigProvider) *App {
 		ValuesFiles:         conf.StateValuesFiles(),
 		Set:                 conf.StateValuesSet(),
 		fs:                  filesystem.DefaultFileSystem(),
+		ctx:                 ctx,
 	})
 }
 
@@ -98,6 +106,7 @@ func Init(app *App) *App {
 func (a *App) Init(c InitConfigProvider) error {
 	runner := &helmexec.ShellRunner{
 		Logger: a.Logger,
+		Ctx:    a.ctx,
 	}
 	helmfileInit := NewHelmfileInit(a.OverrideHelmBinary, c, a.Logger, runner)
 	return helmfileInit.Initialize()
@@ -788,6 +797,7 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 	if _, ok := a.helms[key]; !ok {
 		a.helms[key] = helmexec.New(bin, helmexec.HelmExecOptions{EnableLiveOutput: a.EnableLiveOutput, DisableForceUpdate: a.DisableForceUpdate}, a.Logger, kubectx, &helmexec.ShellRunner{
 			Logger: a.Logger,
+			Ctx:    a.ctx,
 		})
 	}
 

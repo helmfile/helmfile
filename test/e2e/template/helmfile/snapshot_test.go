@@ -75,6 +75,7 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 	logger := helmexec.NewLogger(os.Stderr, "info")
 	runner := &helmexec.ShellRunner{
 		Logger: logger,
+		Ctx:    context.TODO(),
 	}
 
 	c := fakeInit{}
