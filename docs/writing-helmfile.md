@@ -103,48 +103,49 @@ releases:
 - name: heapster
   version: 0.3.2
   inherit:
-    template: default
+  - template: default
 - name: kubernetes-dashboard
   version: 0.10.0
   inherit:
-    template: default
+  - template: default
 ```
 
 Release Templating supports the following parts of release definition:
+
 - basic fields: `name`, `namespace`, `chart`, `version`
+
 - boolean fields: `installed`, `wait`, `waitForJobs`, `verify` by the means of additional text
   fields designed for templating only: `installedTemplate`, `waitTemplate`, `verifyTemplate`
-  ```yaml
-  # ...
-    installedTemplate: '{{`{{ eq .Release.Namespace "kube-system" }}`}}'
-    waitTemplate: '{{`{{ eq .Release.Labels.tag "safe" | not }}`}}'
-  # ...
-  ```
+
+        # ...
+          installedTemplate: '{{`{{ eq .Release.Namespace "kube-system" }}`}}'
+          waitTemplate: '{{`{{ eq .Release.Labels.tag "safe" | not }}`}}'
+        # ...
+
 - `set` block values:
-  ```yaml
-  # ...
-    setTemplate:
-    - name: '{{`{{ .Release.Name }}`}}'
-      values: '{{`{{ .Release.Namespace }}`}}'
-  # ...
-  ```
+
+        # ...
+          setTemplate:
+          - name: '{{`{{ .Release.Name }}`}}'
+            values: '{{`{{ .Release.Namespace }}`}}'
+        # ...
+
 - `values` and `secrets` file paths:
-  ```yaml
-  # ...
-    valuesTemplate:
-    - config/{{`{{ .Release.Name }}`}}/values.yaml
-    secrets:
-    - config/{{`{{ .Release.Name }}`}}/secrets.yaml
-  # ...
-  ```
+
+        # ...
+          valuesTemplate:
+          - config/{{`{{ .Release.Name }}`}}/values.yaml
+          secrets:
+          - config/{{`{{ .Release.Name }}`}}/secrets.yaml
+        # ...
+
 - inline `values` map:
-  ```yaml
-  # ...
-    valuesTemplate:
-    - image:
-        tag: `{{ .Release.Labels.tag }}`
-  # ...
-  ```
+
+        # ...
+          valuesTemplate:
+          - image:
+              tag: '{{`{{ .Release.Labels.tag }}`}}'
+        # ...
 
 Previously, we've been using YAML anchors for release template inheritance.
 It turned out not work well when you wanted to nest templates for complex use cases and/or you want a fine control over which fields to inherit or not.
@@ -289,17 +290,17 @@ bases:
 ---
 # Part 2: Reused Defaults
 bases:
-  - mydefaults.yaml
+  - mydefaults.yaml.gotmpl
 ---
 # Part 3: Dynamic Releases
 releases:
   - name: test1
     chart: mychart-{{ .Values.myname }}
     values:
-      replicaCount: 1
-      image:
-        repository: "nginx"
-        tag: "latest"
+      - replicaCount: 1
+        image:
+          repository: "nginx"
+          tag: "latest"
 ```
 
 Suppose the `myenv.yaml` and `test.env.yaml` loaded in the first part looks like:
@@ -366,7 +367,7 @@ releases:
       image:
         repository: "nginx"
         tag: "latest"
-````
+```
 
 hence rendered to:
 

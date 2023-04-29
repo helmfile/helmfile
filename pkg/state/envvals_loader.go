@@ -42,13 +42,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 
 		switch strOrMap := entry.(type) {
 		case string:
-			urlOrPath := strOrMap
-			localPath, err := ld.remote.Locate(urlOrPath)
-			if err == nil {
-				urlOrPath = localPath
-			}
-
-			files, skipped, err := ld.storage.resolveFile(missingFileHandler, "environment values", urlOrPath)
+			files, skipped, err := ld.storage.resolveFile(missingFileHandler, "environment values", entry.(string))
 			if err != nil {
 				return nil, err
 			}
@@ -90,7 +84,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			if err != nil {
 				return nil, err
 			}
-			if err := mergo.Merge(&result, &vals, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+			if err := mergo.Merge(&result, &vals, mergo.WithOverride); err != nil {
 				return nil, fmt.Errorf("failed to merge %v: %v", m, err)
 			}
 		}

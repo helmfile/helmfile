@@ -1,6 +1,7 @@
 package event
 
 import (
+	goContext "context"
 	"fmt"
 	"strings"
 
@@ -46,6 +47,9 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 		bus.Runner = helmexec.ShellRunner{
 			Dir:    bus.BasePath,
 			Logger: bus.Logger,
+			// It would be better to pass app.Ctx here, but it requires a lot of work.
+			// It seems that this code only for running hooks, which took not to long time as helm.
+			Ctx: goContext.TODO(),
 		}
 	}
 

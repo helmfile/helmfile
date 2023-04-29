@@ -115,10 +115,12 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
 	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", app.DefaultHelmBinary, "Path to the helm binary")
-	fs.StringVarP(&globalOptions.File, "file", "f", "", "load config from file or directory. defaults to `helmfile.yaml` or `helmfile.yaml.gotmpl` or `helmfile.d`(means `helmfile.d/*.yaml` or `helmfile.d/*.yaml.gotmpl`) in this preference. Specify - to load the config from the standard input.")
-	fs.StringVarP(&globalOptions.Environment, "environment", "e", "", `specify the environment name. defaults to "default"`)
+	fs.StringVarP(&globalOptions.File, "file", "f", "", "load config from file or directory. defaults to \"`helmfile.yaml`\" or \"helmfile.yaml.gotmpl\" or \"helmfile.d\" (means \"helmfile.d/*.yaml\" or \"helmfile.d/*.yaml.gotmpl\") in this preference. Specify - to load the config from the standard input.")
+	fs.StringVarP(&globalOptions.Environment, "environment", "e", "", `specify the environment name. Overrides "HELMFILE_ENVIRONMENT" OS environment variable when specified. defaults to "default"`)
 	fs.StringArrayVar(&globalOptions.StateValuesSet, "state-values-set", nil, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).")
 	fs.StringArrayVar(&globalOptions.StateValuesFile, "state-values-file", nil, "specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).")
+	fs.BoolVar(&globalOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
+	fs.BoolVar(&globalOptions.DisableForceUpdate, "disable-force-update", false, `do not force helm repos to update when executing "helm repo add"`)
 	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, "Silence output. Equivalent to log-level warn")
 	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", "Set kubectl context. Uses current context by default")
 	fs.BoolVar(&globalOptions.Debug, "debug", false, "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect")

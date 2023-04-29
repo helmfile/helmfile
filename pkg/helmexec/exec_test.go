@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -27,11 +28,14 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	if len(mock.output) == 0 && strings.Join(args, " ") == "version --client --short" {
+		return []byte("v3.2.4+ge29ce2a"), nil
+	}
 	return mock.output, mock.err
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
-	execer := New("helm", false, logger, kubeContext, &mockRunner{})
+	execer := New("helm", HelmExecOptions{}, logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -80,12 +84,23 @@ func Test_SetHelmBinary(t *testing.T) {
 
 func Test_SetEnableLiveOutput(t *testing.T) {
 	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
-	if helm.enableLiveOutput {
-		t.Error("helmexec.enableLiveOutput should not be enabled by default")
+	if helm.options.EnableLiveOutput {
+		t.Error("helmexec.options.EnableLiveOutput should not be enabled by default")
 	}
 	helm.SetEnableLiveOutput(true)
-	if !helm.enableLiveOutput {
-		t.Errorf("helmexec.SetEnableLiveOutput() - actual = %t expect = true", helm.enableLiveOutput)
+	if !helm.options.EnableLiveOutput {
+		t.Errorf("helmexec.SetEnableLiveOutput() - actual = %t expect = true", helm.options.EnableLiveOutput)
+	}
+}
+
+func Test_SetDisableForceUpdate(t *testing.T) {
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	if helm.options.DisableForceUpdate {
+		t.Error("helmexec.options.ForceUpdate should not be enabled by default")
+	}
+	helm.SetDisableForceUpdate(true)
+	if !helm.options.DisableForceUpdate {
+		t.Errorf("helmexec.SetDisableForceUpdate() - actual = %t expect = true", helm.options.DisableForceUpdate)
 	}
 }
 
@@ -94,7 +109,7 @@ func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 	logger := NewLogger(&buffer, "debug")
 	helm := &execer{
 		helmBinary:  "helm",
-		version:     *semver.MustParse("3.3.2"),
+		version:     semver.MustParse("3.3.2"),
 		logger:      logger,
 		kubeContext: "dev",
 		runner:      &mockRunner{},
@@ -102,6 +117,30 @@ func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "", "")
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if buffer.String() != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_AddRepo_Helm_3_3_2_NoForceUpdate(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary:  "helm",
+		options:     HelmExecOptions{DisableForceUpdate: true},
+		version:     semver.MustParse("3.3.2"),
+		logger:      logger,
+		kubeContext: "dev",
+		runner:      &mockRunner{},
+	}
+	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", "", "")
+	expected := `Adding repo myRepo https://repo.example.com/
+exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -317,7 +356,7 @@ func Test_BuildDeps(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a")}
-	helm := New("helm", false, logger, "dev", &helm3Runner)
+	helm := New("helm", HelmExecOptions{}, logger, "dev", &helm3Runner)
 	err := helm.BuildDeps("foo", "./chart/foo", []string{"--skip-refresh"}...)
 	expected := `Building dependency release=foo, chart=./chart/foo
 exec: helm --kube-context dev dependency build ./chart/foo --skip-refresh
@@ -359,7 +398,7 @@ v3.2.4+ge29ce2a
 
 	buffer.Reset()
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94")}
-	helm = New("helm", false, logger, "dev", &helm2Runner)
+	helm = New("helm", HelmExecOptions{}, logger, "dev", &helm2Runner)
 	err = helm.BuildDeps("foo", "./chart/foo")
 	expected = `Building dependency release=foo, chart=./chart/foo
 exec: helm --kube-context dev dependency build ./chart/foo
@@ -737,7 +776,7 @@ exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --des
 			buffer.Reset()
 			helm := &execer{
 				helmBinary:  tt.helmBin,
-				version:     *semver.MustParse(tt.helmVersion),
+				version:     semver.MustParse(tt.helmVersion),
 				logger:      logger,
 				kubeContext: "dev",
 				runner:      &mockRunner{},
@@ -786,7 +825,7 @@ exec: helm --kube-context dev chart export chart --destination path1 --untar --u
 			buffer.Reset()
 			helm := &execer{
 				helmBinary:  tt.helmBin,
-				version:     *semver.MustParse(tt.helmVersion),
+				version:     semver.MustParse(tt.helmVersion),
 				logger:      logger,
 				kubeContext: "dev",
 				runner:      &mockRunner{},
@@ -865,13 +904,13 @@ exec: helm --kube-context dev template release https://example_user:example_pass
 
 func Test_IsHelm3(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Detected Helm 3 with Helm 2 version")
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
-	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
@@ -902,14 +941,14 @@ func Test_GetPluginVersion(t *testing.T) {
 
 func Test_GetVersion(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	ver := helm.GetVersion()
 	if ver.Major != 2 || ver.Minor != 16 || ver.Patch != 1 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm2 version; it was: %+v", ver)
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a\n")}
-	helm = New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
 	ver = helm.GetVersion()
 	if ver.Major != 3 || ver.Minor != 2 || ver.Patch != 4 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm3 version; it was: %+v", ver)
@@ -918,7 +957,7 @@ func Test_GetVersion(t *testing.T) {
 
 func Test_IsVersionAtLeast(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New("helm", false, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
 	if !helm.IsVersionAtLeast("2.1.0") {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 not atleast 2.1")
 	}
@@ -975,7 +1014,7 @@ func Test_ShowChart(t *testing.T) {
 	showChartRunner := mockRunner{output: []byte("name: my-chart\nversion: 3.2.0\n")}
 	helm := &execer{
 		helmBinary:  "helm",
-		version:     *semver.MustParse("3.3.2"),
+		version:     semver.MustParse("3.3.2"),
 		logger:      NewLogger(os.Stdout, "info"),
 		kubeContext: "dev",
 		runner:      &showChartRunner,
@@ -990,5 +1029,57 @@ func Test_ShowChart(t *testing.T) {
 	}
 	if metadata.Version != "3.2.0" {
 		t.Errorf("helmexec.ShowChart() - expected chart version was %s, received: %s", "3.2.0", metadata.Version)
+	}
+}
+
+func TestParseHelmVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    *semver.Version
+		wantErr bool
+	}{
+		{
+			name:    "helm 2",
+			version: "Client: v2.16.1+ge13bc94\n",
+			want:    semver.MustParse("v2.16.1+ge13bc94"),
+			wantErr: false,
+		},
+		{
+			name:    "helm 3",
+			version: "Client: v3.2.4+ge29ce2a\n",
+			want:    semver.MustParse("v3.2.4+ge29ce2a"),
+			wantErr: false,
+		},
+		{
+			name:    "helm 3 with os arch and build info",
+			version: "Client v3.7.1+7.el8+g8f33223\n",
+			want:    semver.MustParse("v3.7.1+7.el8"),
+			wantErr: false,
+		},
+		{
+			name:    "empty version",
+			version: "",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "invalid version",
+			version: "oooooo",
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseHelmVersion(tt.version)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseHelmVersion() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseHelmVersion() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

@@ -236,6 +236,41 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "enable-dns",
+			defaults: HelmSpec{
+				EnableDNS: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				EnableDNS: &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--enable-dns",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "enable-dns-from-default",
+			defaults: HelmSpec{
+				EnableDNS: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				EnableDNS: &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "force",
 			defaults: HelmSpec{
 				Force: false,
@@ -736,12 +771,13 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 	postRendererRelease := "foo-release.sh"
 
 	tests := []struct {
-		name     string
-		version  *semver.Version
-		defaults HelmSpec
-		release  *ReleaseSpec
-		want     []string
-		wantErr  string
+		name         string
+		version      *semver.Version
+		defaults     HelmSpec
+		release      *ReleaseSpec
+		templateOpts TemplateOpts
+		want         []string
+		wantErr      string
 	}{
 		{
 			name: "post-renderer-flags-use-helmdefault",
@@ -810,6 +846,55 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		{
+			name: "kube-version-flag-should-be-used",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			templateOpts: TemplateOpts{
+				KubeVersion: "1.100",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--kube-version", "1.100",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "kube-version-flag-should-be-respected",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+				KubeVersion:     "1.25",
+			},
+			templateOpts: TemplateOpts{
+				KubeVersion: "1.100",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--kube-version", "1.100",
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -827,7 +912,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 				Version: tt.version,
 			}
 
-			args, _, err := state.flagsForTemplate(helm, tt.release, 0, &TemplateOpts{})
+			args, _, err := state.flagsForTemplate(helm, tt.release, 0, &(tt.templateOpts))
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}

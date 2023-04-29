@@ -438,9 +438,9 @@ bases:
 apiVersions:
 - example/v1
 
-# DEPRECATED: This is available only on Helm 2, which has been EOL since 2020
-# Configure a Kubernetes version to  pass to 'helm template' via the --kube-version flag:
-# See https://github.com/roboll/helmfile/pull/2002 for more information.
+# Set the kubeVersion to render the chart with your desired Kubernetes version.
+# The flag --kube-version was deprecated in helm v3 but it was added again.
+# For further information https://github.com/helm/helm/issues/7326
 kubeVersion: v1.21
 ```
 
@@ -499,6 +499,21 @@ releases:
 
 If you wish to treat your enviroment variables as strings always, even if they are boolean or numeric values you can use `{{ env "ENV_NAME" | quote }}` or `"{{ env "ENV_NAME" }}"`. These approaches also work with `requiredEnv`.
 
+### Useful internal Helmfile environment variables
+
+Helmfile uses some OS environment variables to override default behaviour:
+
+* `HELMFILE_DISABLE_INSECURE_FEATURES` - disable insecure features, expecting `true` lower case
+* `HELMFILE_DISABLE_RUNNER_UNIQUE_ID` - disable unique logging ID, expecting any non-empty value
+* `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` - disable insecure template functions, expecting `true` lower case
+* `HELMFILE_EXPERIMENTAL` - enable experimental features, expecting `true` lower case
+* `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](https://helmfile.readthedocs.io/en/latest/#environment), it has lower priority than CLI argument `--environment`
+* `HELMFILE_TEMPDIR` - specify directory to store temporary files
+* `HELMFILE_UPGRADE_NOTICE_DISABLED` - expecting any non-empty value to skip the check for the latest version of Helmfile in [helmfile version](https://helmfile.readthedocs.io/en/latest/#version)
+* `HELMFILE_V1MODE` - Helmfile v0.x behaves like v1.x with `true`, Helmfile v1.x behaves like v0.x with `false` as value
+* `HELMFILE_GOCCY_GOYAML` - use *goccy/go-yaml* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile v0.x and `true` by default for Helmfile v1.x.
+* `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
+
 ## CLI Reference
 
 ```
@@ -537,10 +552,11 @@ Flags:
   -c, --chart string                    Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}
       --color                           Output with color
       --debug                           Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
+      --disable-force-update            do not force helm repos to update when executing "helm repo add"
       --enable-live-output              Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
                                         It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.
-  -e, --environment string              specify the environment name. defaults to "default"
-  -f, --file helmfile.yaml              load config from file or directory. defaults to helmfile.yaml or `helmfile.yaml.gotmpl` or `helmfile.d`(means `helmfile.d/*.yaml` or `helmfile.d/*.yaml.gotmpl`) in this preference. Specify - to load the config from the standard input.
+  -e, --environment string              specify the environment name. Overrides "HELMFILE_ENVIRONMENT" OS environment variable when specified. defaults to "default"
+  -f, --file helmfile.yaml              load config from file or directory. defaults to "helmfile.yaml" or "helmfile.yaml.gotmpl" or "helmfile.d" (means "helmfile.d/*.yaml" or "helmfile.d/*.yaml.gotmpl") in this preference. Specify - to load the config from the standard input.
   -b, --helm-binary string              Path to the helm binary (default "helm")
   -h, --help                            help for helmfile
   -i, --interactive                     Request confirmation before attempting to modify clusters
@@ -553,6 +569,7 @@ Flags:
                                         A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                         "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
                                         The name of a release can be used as a label: "--selector name=myrelease"
+      --skip-deps                       skip running "helm repo update" and "helm dependency build"
       --state-values-file stringArray   specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).
       --state-values-set stringArray    set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).
   -v, --version                         version for helmfile

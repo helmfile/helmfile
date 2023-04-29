@@ -57,11 +57,12 @@ GROUP RELEASES
 processing releases in group 1/1: default//foo
 
 UPDATED RELEASES:
-NAME   CHART             VERSION
-foo    stable/mychart1     3.1.0
+NAME   CHART             VERSION   DURATION
+foo    stable/mychart1   3.1.0           0s
 
 
 DELETED RELEASES:
-NAME
-bar
+NAME   DURATION
+bar          0s
+
 changing working directory back to "/path/to"

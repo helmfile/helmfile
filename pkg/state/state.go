@@ -16,11 +16,12 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	"time"
 
+	"github.com/helmfile/chartify"
 	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
 	"github.com/tatsushid/go-prettytable"
-	"github.com/variantdev/chartify"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -156,6 +157,8 @@ type HelmSpec struct {
 	KubeContext string   `yaml:"kubeContext,omitempty"`
 	Args        []string `yaml:"args,omitempty"`
 	Verify      bool     `yaml:"verify"`
+	// EnableDNS, when set to true, enable DNS lookups when rendering templates
+	EnableDNS bool `yaml:"enableDNS"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -232,6 +235,8 @@ type ReleaseSpec struct {
 	// Verify enables signature verification on fetched chart.
 	// Beware some (or many?) chart repositories and charts don't seem to support it.
 	Verify *bool `yaml:"verify,omitempty"`
+	// EnableDNS, when set to true, enable DNS lookups when rendering templates
+	EnableDNS *bool `yaml:"enableDNS,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel *bool `yaml:"devel,omitempty"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -289,6 +294,7 @@ type ReleaseSpec struct {
 	Values    []interface{}     `yaml:"values,omitempty"`
 	Secrets   []interface{}     `yaml:"secrets,omitempty"`
 	SetValues []SetValue        `yaml:"set,omitempty"`
+	duration  time.Duration
 
 	ValuesTemplate    []interface{} `yaml:"valuesTemplate,omitempty"`
 	SetValuesTemplate []SetValue    `yaml:"setTemplate,omitempty"`
@@ -797,6 +803,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					}
 					deletionFlags := st.appendConnectionFlags(args, release)
 					m.Lock()
+					start := time.Now()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
@@ -809,6 +816,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					} else {
 						affectedReleases.Deleted = append(affectedReleases.Deleted, release)
 					}
+					release.duration = time.Since(start)
 					m.Unlock()
 				}
 
@@ -892,6 +900,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
 
+				start := time.Now()
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else if !release.Desired() {
@@ -948,6 +957,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
+				release.duration = time.Since(start)
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -1034,6 +1044,7 @@ type ChartPrepareOptions struct {
 	OutputDirTemplate      string
 	IncludeTransitiveNeeds bool
 	Concurrency            int
+	KubeVersion            string
 }
 
 type chartPrepareResult struct {
@@ -1098,7 +1109,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	releases := releasesNeedCharts(selected)
 
-	temp := make(map[PrepareChartKey]string, len(releases))
+	var prepareChartInfoMutex sync.Mutex
+
+	prepareChartInfo := make(map[PrepareChartKey]string, len(releases))
 
 	errs := []error{}
 
@@ -1302,11 +1315,15 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					return
 				}
-				temp[PrepareChartKey{
-					Namespace:   downloadRes.releaseNamespace,
-					KubeContext: downloadRes.releaseContext,
-					Name:        downloadRes.releaseName,
-				}] = downloadRes.chartPath
+				func() {
+					prepareChartInfoMutex.Lock()
+					defer prepareChartInfoMutex.Unlock()
+					prepareChartInfo[PrepareChartKey{
+						Namespace:   downloadRes.releaseNamespace,
+						KubeContext: downloadRes.releaseContext,
+						Name:        downloadRes.releaseName,
+					}] = downloadRes.chartPath
+				}()
 
 				if downloadRes.buildDeps {
 					builds = append(builds, downloadRes)
@@ -1325,7 +1342,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		}
 	}
 
-	return temp, nil
+	return prepareChartInfo, nil
 }
 
 // nolint: unparam
@@ -1372,6 +1389,7 @@ type TemplateOpts struct {
 	IncludeCRDs       bool
 	SkipTests         bool
 	PostRenderer      string
+	KubeVersion       string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1544,7 +1562,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 				return []error{fmt.Errorf("unmarshalling yaml %s: %w", f, err)}
 			}
 
-			if err := mergo.Merge(&merged, &src, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+			if err := mergo.Merge(&merged, &src, mergo.WithOverride); err != nil {
 				return []error{fmt.Errorf("merging %s: %w", f, err)}
 			}
 		}
@@ -2024,6 +2042,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		}
 		context := st.createHelmContext(&release, workerIndex)
 
+		start := time.Now()
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 
@@ -2039,6 +2058,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
 		}
+		release.duration = time.Since(start)
 
 		affectedReleases.Deleted = append(affectedReleases.Deleted, &release)
 		return nil
@@ -2465,6 +2485,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--verify")
 	}
 
+	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
+		flags = append(flags, "--enable-dns")
+	}
+
 	if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
 		flags = append(flags, "--wait")
 	}
@@ -2530,13 +2554,14 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 
 	flags = st.appendHelmXFlags(flags, release)
 
-	flags = st.appendApiVersionsFlags(flags, release)
-
 	postRenderer := ""
+	kubeVersion := ""
 	if opt != nil {
 		postRenderer = opt.PostRenderer
+		kubeVersion = opt.KubeVersion
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
+	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2569,7 +2594,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-validation")
 	}
 
-	flags = st.appendApiVersionsFlags(flags, release)
+	// TODO:
+	// `helm diff` has `--kube-version` flag from v3.5.0, but only respected when `helm diff upgrade --disable-validation`.
+	// `helm template --validate` and `helm upgrade --dry-run` ignore `--kube-version` flag.
+	// For the moment, not specifying kubeVersion.
+	flags = st.appendApiVersionsFlags(flags, release, "")
 
 	flags = st.appendConnectionFlags(flags, release)
 
@@ -2612,7 +2641,7 @@ func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues boo
 	return flags
 }
 
-func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec) []string {
+func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec, kubeVersion string) []string {
 	if len(r.ApiVersions) != 0 {
 		for _, a := range r.ApiVersions {
 			flags = append(flags, "--api-versions", a)
@@ -2623,9 +2652,12 @@ func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec) []st
 		}
 	}
 
-	if r.KubeVersion != "" {
+	switch {
+	case kubeVersion != "":
+		flags = append(flags, "--kube-version", kubeVersion)
+	case r.KubeVersion != "":
 		flags = append(flags, "--kube-version", r.KubeVersion)
-	} else if st.KubeVersion != "" {
+	case st.KubeVersion != "":
 		flags = append(flags, "--kube-version", st.KubeVersion)
 	}
 
@@ -3064,11 +3096,12 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info("\nUPDATED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
-			prettytable.Column{Header: "VERSION", AlignRight: true},
+			prettytable.Column{Header: "VERSION", MinWidth: 6},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Upgraded {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3077,17 +3110,32 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 	}
 	if ar.Deleted != nil && len(ar.Deleted) > 0 {
 		logger.Info("\nDELETED RELEASES:")
-		logger.Info("NAME")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
+		)
+		tbl.Separator = "   "
 		for _, release := range ar.Deleted {
-			logger.Info(release.Name)
+			err := tbl.AddRow(release.Name, release.duration.Round(time.Second))
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
 		}
+		logger.Info(tbl.String())
 	}
 	if ar.Failed != nil && len(ar.Failed) > 0 {
 		logger.Info("\nFAILED RELEASES:")
-		logger.Info("NAME")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "CHART", MinWidth: 6},
+			prettytable.Column{Header: "VERSION", AlignRight: true},
+		)
+		tbl.Separator = "   "
 		for _, release := range ar.Failed {
-			logger.Info(release.Name)
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
 		}
+		logger.Info(tbl.String())
 	}
 }
 

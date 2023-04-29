@@ -2097,6 +2097,7 @@ type configImpl struct {
 	includeNeeds           bool
 	includeTransitiveNeeds bool
 	skipCharts             bool
+	kubeVersion            string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2179,6 +2180,10 @@ func (c configImpl) PostRenderer() string {
 	return ""
 }
 
+func (c configImpl) KubeVersion() string {
+	return c.kubeVersion
+}
+
 type applyConfig struct {
 	args   string
 	values []string
@@ -2214,6 +2219,7 @@ type applyConfig struct {
 	waitForJobs            bool
 	reuseValues            bool
 	postRenderer           string
+	kubeVersion            string
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2366,6 +2372,10 @@ func (a applyConfig) PostRenderer() string {
 	return a.postRenderer
 }
 
+func (a applyConfig) KubeVersion() string {
+	return a.kubeVersion
+}
+
 type depsConfig struct {
 	skipRepos              bool
 	includeTransitiveNeeds bool
@@ -2401,7 +2411,7 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 }
 
 func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
-	execer := helmexec.New("helm", false, logger, kubeContext, &mockRunner{})
+	execer := helmexec.New("helm", helmexec.HelmExecOptions{}, logger, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -2449,6 +2459,9 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
 
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+}
+
+func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {
 }
 
 func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {

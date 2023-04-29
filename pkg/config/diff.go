@@ -6,8 +6,6 @@ type DiffOptions struct {
 	Set []string
 	// Values is the values flag
 	Values []string
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// DetailedExitcode is the detailed exit code
 	DetailedExitcode bool
 	// StripTrailingCr is true if trailing carriage returns should be stripped during diffing
@@ -83,11 +81,6 @@ func (t *DiffImpl) IncludeTransitiveNeeds() bool {
 // Set returns the Set
 func (t *DiffImpl) Set() []string {
 	return t.DiffOptions.Set
-}
-
-// SkipDeps returns the skip deps
-func (t *DiffImpl) SkipDeps() bool {
-	return t.DiffOptions.SkipDeps
 }
 
 // SkipNeeds returns the skip needs

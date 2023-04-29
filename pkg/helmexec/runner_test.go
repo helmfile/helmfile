@@ -2,6 +2,7 @@ package helmexec
 
 import (
 	"bytes"
+	"context"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -32,6 +33,7 @@ func TestShellRunner_Execute(t *testing.T) {
 			var buffer bytes.Buffer
 			shell := ShellRunner{
 				Logger: NewLogger(&buffer, "debug"),
+				Ctx:    context.TODO(),
 			}
 			got, err := shell.Execute("echo", strings.Split("template", " "), map[string]string{}, tt.enableLiveOutput)
 
@@ -72,7 +74,7 @@ Usage:  helm template [NAME] [CHART] [flags]
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &bytes.Buffer{}
-			got, err := LiveOutput(tt.cmd, w)
+			got, err := LiveOutput(context.Background(), tt.cmd, w)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LiveOutput() error = %v, wantErr %v", err, tt.wantErr)
 				return

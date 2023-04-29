@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	goContext "context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,12 +24,14 @@ import (
 )
 
 var CleanWaitGroup sync.WaitGroup
+var Cancel goContext.CancelFunc
 
 // App is the main application object.
 type App struct {
 	OverrideKubeContext string
 	OverrideHelmBinary  string
 	EnableLiveOutput    bool
+	DisableForceUpdate  bool
 
 	Logger      *zap.SugaredLogger
 	Env         string
@@ -49,6 +52,8 @@ type App struct {
 
 	helms      map[helmKey]helmexec.Interface
 	helmsMutex sync.Mutex
+
+	ctx goContext.Context
 }
 
 type HelmRelease struct {
@@ -62,10 +67,14 @@ type HelmRelease struct {
 }
 
 func New(conf ConfigProvider) *App {
+	ctx := goContext.Background()
+	ctx, Cancel = goContext.WithCancel(ctx)
+
 	return Init(&App{
 		OverrideKubeContext: conf.KubeContext(),
 		OverrideHelmBinary:  conf.HelmBinary(),
 		EnableLiveOutput:    conf.EnableLiveOutput(),
+		DisableForceUpdate:  conf.DisableForceUpdate(),
 		Logger:              conf.Logger(),
 		Env:                 conf.Env(),
 		Namespace:           conf.Namespace(),
@@ -76,6 +85,7 @@ func New(conf ConfigProvider) *App {
 		ValuesFiles:         conf.StateValuesFiles(),
 		Set:                 conf.StateValuesSet(),
 		fs:                  filesystem.DefaultFileSystem(),
+		ctx:                 ctx,
 	})
 }
 
@@ -96,6 +106,7 @@ func Init(app *App) *App {
 func (a *App) Init(c InitConfigProvider) error {
 	runner := &helmexec.ShellRunner{
 		Logger: a.Logger,
+		Ctx:    a.ctx,
 	}
 	helmfileInit := NewHelmfileInit(a.OverrideHelmBinary, c, a.Logger, runner)
 	return helmfileInit.Initialize()
@@ -784,8 +795,9 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 	key := createHelmKey(bin, kubectx)
 
 	if _, ok := a.helms[key]; !ok {
-		a.helms[key] = helmexec.New(bin, a.EnableLiveOutput, a.Logger, kubectx, &helmexec.ShellRunner{
+		a.helms[key] = helmexec.New(bin, helmexec.HelmExecOptions{EnableLiveOutput: a.EnableLiveOutput, DisableForceUpdate: a.DisableForceUpdate}, a.Logger, kubectx, &helmexec.ShellRunner{
 			Logger: a.Logger,
+			Ctx:    a.ctx,
 		})
 	}
 
@@ -1140,7 +1152,7 @@ func (a *App) WrapWithoutSelector(converge func(*state.HelmState, helmexec.Inter
 }
 
 func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]string, error) {
-	path, err := a.remote.Locate(specifiedPath)
+	path, err := a.remote.Locate(specifiedPath, "states")
 	if err != nil {
 		return nil, fmt.Errorf("locate: %v", err)
 	}
@@ -1882,6 +1894,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			SkipCleanup:       c.SkipCleanup(),
 			SkipTests:         c.SkipTests(),
 			PostRenderer:      c.PostRenderer(),
+			KubeVersion:       c.KubeVersion(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

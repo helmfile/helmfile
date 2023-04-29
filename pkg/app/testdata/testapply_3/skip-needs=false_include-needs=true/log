@@ -87,9 +87,9 @@ processing releases in group 2/3: default/external-secrets
 processing releases in group 3/3: default/my-release
 
 UPDATED RELEASES:
-NAME                          CHART           VERSION
-kubernetes-external-secrets   incubator/raw     3.1.0
-external-secrets              incubator/raw     3.1.0
-my-release                    incubator/raw     3.1.0
+NAME                          CHART           VERSION   DURATION
+kubernetes-external-secrets   incubator/raw   3.1.0           0s
+external-secrets              incubator/raw   3.1.0           0s
+my-release                    incubator/raw   3.1.0           0s
 
 changing working directory back to "/path/to"

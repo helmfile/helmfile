@@ -30,12 +30,12 @@ type TemplateOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
-	// SkipDeps is the skip deps flag
-	SkipDeps bool
 	// SkipCleanup is the skip cleanup flag
 	SkipCleanup bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
+	// KubeVersion is the kube-version flag
+	KubeVersion string
 }
 
 // NewTemplateOptions creates a new Apply
@@ -97,11 +97,6 @@ func (t *TemplateImpl) SkipCleanup() bool {
 	return t.TemplateOptions.SkipCleanup
 }
 
-// SkipDeps returns the skip deps
-func (t *TemplateImpl) SkipDeps() bool {
-	return t.TemplateOptions.SkipDeps
-}
-
 // SkipNeeds returns the skip needs
 func (t *TemplateImpl) SkipNeeds() bool {
 	if !t.IncludeNeeds() {
@@ -129,4 +124,9 @@ func (t *TemplateImpl) Values() []string {
 // PostRenderer returns the PostRenderer.
 func (t *TemplateImpl) PostRenderer() string {
 	return t.TemplateOptions.PostRenderer
+}
+
+// KubeVersion returns the the KubeVersion.
+func (t *TemplateImpl) KubeVersion() string {
+	return t.TemplateOptions.KubeVersion
 }

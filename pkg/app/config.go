@@ -6,6 +6,8 @@ type ConfigProvider interface {
 	Args() string
 	HelmBinary() string
 	EnableLiveOutput() bool
+	DisableForceUpdate() bool
+	SkipDeps() bool
 
 	FileOrDir() string
 	KubeContext() string
@@ -208,6 +210,7 @@ type TemplateConfigProvider interface {
 	SkipTests() bool
 	OutputDir() string
 	IncludeCRDs() bool
+	KubeVersion() string
 
 	DAGConfig
 

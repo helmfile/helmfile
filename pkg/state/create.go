@@ -151,7 +151,7 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv, over
 		return nil, err
 	}
 
-	if err := mergo.Merge(&e.Defaults, newDefaults, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+	if err := mergo.Merge(&e.Defaults, newDefaults, mergo.WithOverride); err != nil {
 		return nil, err
 	}
 
@@ -252,7 +252,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	if ctxEnv != nil {
 		intCtxEnv := *ctxEnv
 
-		if err := mergo.Merge(&intCtxEnv, newEnv, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+		if err := mergo.Merge(&intCtxEnv, newEnv, mergo.WithOverride); err != nil {
 			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
 		}
 
@@ -262,7 +262,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	if overrode != nil {
 		intOverrodeEnv := *newEnv
 
-		if err := mergo.Merge(&intOverrodeEnv, overrode, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+		if err := mergo.Merge(&intOverrodeEnv, overrode, mergo.WithOverride); err != nil {
 			return nil, fmt.Errorf("error while merging environment overrode values for \"%s\": %v", name, err)
 		}
 
@@ -303,15 +303,9 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		},
 		func(id int) {
 			for secret := range secrets {
-				urlOrPath := secret.path
-				localPath, err := c.remote.Locate(urlOrPath)
-				if err == nil {
-					urlOrPath = localPath
-				}
-
 				release := &ReleaseSpec{}
 				flags := st.appendConnectionFlags([]string{}, release)
-				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), urlOrPath, flags...)
+				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), secret.path, flags...)
 				if err != nil {
 					results <- secretResult{secret.id, nil, err, secret.path}
 					continue
@@ -358,7 +352,7 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 				if result.err != nil {
 					errs = append(errs, result.err)
 				} else {
-					if err := mergo.Merge(&envVals, &result.result, mergo.WithOverride, mergo.WithOverwriteWithEmptyValue); err != nil {
+					if err := mergo.Merge(&envVals, &result.result, mergo.WithOverride); err != nil {
 						errs = append(errs, fmt.Errorf("failed to load environment secrets file \"%s\": %v", result.path, err))
 					}
 				}
