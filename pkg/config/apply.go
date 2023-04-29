@@ -16,8 +16,8 @@ type ApplyOptions struct {
 	Output string
 	// DetailedExitcode is true if the exit code should be 2 instead of 0 if there were changes detected and the changes were synced successfully
 	DetailedExitcode bool
-	// StripTrailingCr is true if trailing carriage returns should be stripped during diffing
-	StripTrailingCr bool
+	// StripTrailingCR is true if trailing carriage returns should be stripped during diffing
+	StripTrailingCR bool
 	// TODO: Remove this function once Helmfile v0.x
 	// DEPRECATED: Use skip-cleanup instead
 	RetainValuesFiles bool
@@ -97,9 +97,9 @@ func (a *ApplyImpl) DetailedExitcode() bool {
 	return a.ApplyOptions.DetailedExitcode
 }
 
-// StripTrailingCr is true if trailing carriage returns should be stripped during diffing
-func (a *ApplyImpl) StripTrailingCr() bool {
-	return a.ApplyOptions.StripTrailingCr
+// StripTrailingCR is true if trailing carriage returns should be stripped during diffing
+func (a *ApplyImpl) StripTrailingCR() bool {
+	return a.ApplyOptions.StripTrailingCR
 }
 
 // DiffOutput returns the diff output.

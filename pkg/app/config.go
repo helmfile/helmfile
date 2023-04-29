@@ -63,7 +63,7 @@ type ApplyConfigProvider interface {
 	SuppressDiff() bool
 
 	DetailedExitcode() bool
-	StripTrailingCr() bool
+	StripTrailingCR() bool
 
 	Color() bool
 	NoColor() bool
@@ -131,7 +131,7 @@ type DiffConfigProvider interface {
 	DAGConfig
 
 	DetailedExitcode() bool
-	StripTrailingCr() bool
+	StripTrailingCR() bool
 	Color() bool
 	NoColor() bool
 	Context() int
