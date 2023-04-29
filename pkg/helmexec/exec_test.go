@@ -31,7 +31,6 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 	if len(mock.output) == 0 && strings.Join(args, " ") == "version --client --short" {
 		return []byte("v3.2.4+ge29ce2a"), nil
 	}
-
 	return mock.output, mock.err
 }
 

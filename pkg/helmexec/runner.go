@@ -3,6 +3,7 @@ package helmexec
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -28,6 +29,7 @@ type ShellRunner struct {
 	Dir string
 
 	Logger *zap.SugaredLogger
+	Ctx    context.Context
 }
 
 // Execute a shell command
@@ -37,11 +39,11 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 
 	if !enableLiveOutput {
-		return Output(preparedCmd, &logWriterGenerator{
+		return Output(shell.Ctx, preparedCmd, &logWriterGenerator{
 			log: shell.Logger,
 		})
 	} else {
-		return LiveOutput(preparedCmd, os.Stdout)
+		return LiveOutput(shell.Ctx, preparedCmd, os.Stdout)
 	}
 }
 
@@ -51,12 +53,12 @@ func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 	preparedCmd.Stdin = stdin
-	return Output(preparedCmd, &logWriterGenerator{
+	return Output(shell.Ctx, preparedCmd, &logWriterGenerator{
 		log: shell.Logger,
 	})
 }
 
-func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, error) {
+func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("exec: Stdout already set")
 	}
@@ -88,7 +90,17 @@ func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, er
 	c.Stdout = io.MultiWriter(append([]io.Writer{&stdout, &combined}, logWriters...)...)
 	c.Stderr = io.MultiWriter(append([]io.Writer{&stderr, &combined}, logWriters...)...)
 
-	err := c.Run()
+	var err error
+	ch := make(chan error)
+	go func() {
+		ch <- c.Run()
+	}()
+	select {
+	case err = <-ch:
+	case <-ctx.Done():
+		_ = c.Process.Signal(os.Interrupt)
+		err = <-ch
+	}
 
 	if err != nil {
 		// TrimSpace is necessary, because otherwise helmfile prints the redundant new-lines after each error like:
@@ -111,7 +123,7 @@ func Output(c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, er
 	return stdout.Bytes(), err
 }
 
-func LiveOutput(c *exec.Cmd, stdout io.Writer) ([]byte, error) {
+func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, error) {
 	reader, writer := io.Pipe()
 	scannerStopped := make(chan struct{})
 
@@ -126,8 +138,19 @@ func LiveOutput(c *exec.Cmd, stdout io.Writer) ([]byte, error) {
 	c.Stdout = writer
 	c.Stderr = writer
 	err := c.Start()
+
 	if err == nil {
-		err = c.Wait()
+		ch := make(chan error)
+		go func() {
+			ch <- c.Wait()
+		}()
+
+		select {
+		case err = <-ch:
+		case <-ctx.Done():
+			_ = c.Process.Signal(os.Interrupt)
+			err = <-ch
+		}
 		_ = writer.Close()
 		<-scannerStopped
 	}
