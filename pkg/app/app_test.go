@@ -2211,7 +2211,7 @@ type applyConfig struct {
 	diffOutput             string
 	concurrency            int
 	detailedExitcode       bool
-	stripTrailingCr         bool
+	stripTrailingCr        bool
 	interactive            bool
 	skipDiffOnInstall      bool
 	logger                 *zap.SugaredLogger
