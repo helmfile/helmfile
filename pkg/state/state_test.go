@@ -3225,3 +3225,33 @@ func TestGenerateChartPath(t *testing.T) {
 		})
 	}
 }
+
+func TestCommonDiffFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		// stripTrailingCR is a flag to strip trailing carriage returns from the output
+		stripTrailingCR bool
+		expected        []string
+	}{
+		{
+			name:            "stripTrailingCR enabled",
+			stripTrailingCR: true,
+			expected: []string{
+				"--strip-trailing-cr",
+				"--reset-values",
+			},
+		},
+		{
+			name: "stripTrailingCR disenabled",
+			expected: []string{
+				"--reset-values",
+			},
+		},
+	}
+	for _, tt := range tests {
+		st := &HelmState{}
+		result := st.commonDiffFlags(false, tt.stripTrailingCR, false, []string{}, false, false, false, &DiffOpts{})
+
+		require.Equal(t, tt.expected, result)
+	}
+}
