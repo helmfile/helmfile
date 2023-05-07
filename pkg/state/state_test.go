@@ -1853,7 +1853,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]interface{}{},
 			}
-			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, []string{}, false, false, false, false, false)
+			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, []string{}, false, false, false, false, false)
 			if len(errs) > 0 {
 				t.Errorf("unexpected error: %v", errs)
 			}
@@ -2069,7 +2069,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				return nil
 			}
 			state = injectFs(state, testfs)
-			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, []string{}, false, false, false, false, false); len(errs) > 0 {
+			if _, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, []string{}, false, false, false, false, false); len(errs) > 0 {
 				t.Errorf("unexpected errors: %v", errs)
 			}
 
@@ -2740,7 +2740,7 @@ func TestDiffpareSyncReleases(t *testing.T) {
 			Lists: map[exectest.ListKey]string{},
 			Helm3: true,
 		}
-		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, []string{}, false, false, false, tt.diffOptions)
+		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
 
 		require.Len(t, es, 0)
 		require.Len(t, results, 1)
@@ -3223,5 +3223,35 @@ func TestGenerateChartPath(t *testing.T) {
 			}
 			require.Equalf(t, tt.expected, got, "GenerateChartPath() got \"%v\", want \"%v\"", got, tt.expected)
 		})
+	}
+}
+
+func TestCommonDiffFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		// stripTrailingCR is a flag to strip trailing carriage returns from the output
+		stripTrailingCR bool
+		expected        []string
+	}{
+		{
+			name:            "stripTrailingCR enabled",
+			stripTrailingCR: true,
+			expected: []string{
+				"--strip-trailing-cr",
+				"--reset-values",
+			},
+		},
+		{
+			name: "stripTrailingCR disenabled",
+			expected: []string{
+				"--reset-values",
+			},
+		},
+	}
+	for _, tt := range tests {
+		st := &HelmState{}
+		result := st.commonDiffFlags(false, tt.stripTrailingCR, false, []string{}, false, false, false, &DiffOpts{})
+
+		require.Equal(t, tt.expected, result)
 	}
 }
