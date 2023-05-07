@@ -1,0 +1,10 @@
+resources:
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: test
+    spec:
+      {{- with .Values.specificValues.myContainers }}
+      containers:
+          {{ toYaml . | nindent 8 }}
+      {{- end }}

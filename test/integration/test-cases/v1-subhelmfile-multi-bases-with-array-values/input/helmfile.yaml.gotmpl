@@ -1,0 +1,13 @@
+bases:
+  - environments.yaml.gotmpl
+
+---
+
+helmfiles:
+  - path: subhelmfile.yaml.gotmpl
+    selectorsInherited: true
+    values:
+    {{- with .Values.myExample }}
+    - specificValues:
+        {{ toYaml . | nindent 8 }}
+    {{- end }}
