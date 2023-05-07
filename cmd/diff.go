@@ -44,6 +44,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&diffOptions.ShowSecrets, "show-secrets", false, "do not redact secret values in the output. should be used for debug purpose only")
 	f.BoolVar(&diffOptions.NoHooks, "no-hooks", false, "do not diff changes made by hooks.")
 	f.BoolVar(&diffOptions.DetailedExitcode, "detailed-exitcode", false, "return a detailed exit code")
+	f.BoolVar(&diffOptions.StripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	f.IntVar(&diffOptions.Context, "context", 0, "output NUM lines of context around changes")
 	f.StringVar(&diffOptions.Output, "output", "", "output format for diff plugin")
 	f.BoolVar(&diffOptions.SuppressSecrets, "suppress-secrets", false, "suppress secrets in the output. highly recommended to specify on CI/CD use-cases")

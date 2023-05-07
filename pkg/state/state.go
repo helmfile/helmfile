@@ -1679,11 +1679,15 @@ type diffPrepareResult struct {
 	upgradeDueToSkippedDiff bool
 }
 
-func (st *HelmState) commonDiffFlags(detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
+func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
 	var flags []string
 
 	if detailedExitCode {
 		flags = append(flags, "--detailed-exitcode")
+	}
+
+	if stripTrailingCR {
+		flags = append(flags, "--strip-trailing-cr")
 	}
 
 	if includeTests {
@@ -1731,7 +1735,7 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, includeTests bool, s
 	return flags
 }
 
-func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opts ...DiffOpt) ([]diffPrepareResult, []error) {
+func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opts ...DiffOpt) ([]diffPrepareResult, []error) {
 	opt := &DiffOpts{}
 	for _, o := range opts {
 		o.Apply(opt)
@@ -1775,7 +1779,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	jobs := make(chan *ReleaseSpec, numReleases)
 	results := make(chan diffPrepareResult, numReleases)
 	resultsMap := map[string]diffPrepareResult{}
-	commonDiffFlags := st.commonDiffFlags(detailedExitCode, includeTests, suppress, suppressSecrets, showSecrets, noHooks, opt)
+	commonDiffFlags := st.commonDiffFlags(detailedExitCode, stripTrailingCR, includeTests, suppress, suppressSecrets, showSecrets, noHooks, opt)
 
 	rs := []diffPrepareResult{}
 	errs := []error{}
@@ -1915,13 +1919,13 @@ type DiffOpt interface{ Apply(*DiffOpts) }
 // For example, terraform-provider-helmfile runs a helmfile-diff on `terraform plan` and another on `terraform apply`.
 // `terraform`, by design, fails when helmfile-diff outputs were not equivalent.
 // Stabilized helmfile-diff output rescues that.
-func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode bool, includeTests bool, suppress []string, suppressSecrets, showSecrets, noHooks bool, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
+func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets, showSecrets, noHooks bool, suppressDiff, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error) {
 	opts := &DiffOpts{}
 	for _, o := range opt {
 		o.Apply(opts)
 	}
 
-	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, includeTests, suppress, suppressSecrets, showSecrets, noHooks, opts)
+	preps, prepErrs := st.prepareDiffReleases(helm, additionalValues, workerLimit, detailedExitCode, stripTrailingCR, includeTests, suppress, suppressSecrets, showSecrets, noHooks, opts)
 
 	if !opts.SkipCleanup {
 		defer func() {

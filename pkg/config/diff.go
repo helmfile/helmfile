@@ -8,6 +8,8 @@ type DiffOptions struct {
 	Values []string
 	// DetailedExitcode is the detailed exit code
 	DetailedExitcode bool
+	// StripTrailingCR is true if trailing carriage returns should be stripped during diffing
+	StripTrailingCR bool
 	// IncludeTests is the include tests flag
 	IncludeTests bool
 	// SkipNeeds is the include crds flag
@@ -108,6 +110,11 @@ func (t *DiffImpl) Context() int {
 // DetailedExitCode returns the detailed exit code
 func (t *DiffImpl) DetailedExitcode() bool {
 	return t.DiffOptions.DetailedExitcode
+}
+
+// StripTrailingCR is true if trailing carriage returns should be stripped during diffing
+func (a *DiffImpl) StripTrailingCR() bool {
+	return a.DiffOptions.StripTrailingCR
 }
 
 // Output returns the output
