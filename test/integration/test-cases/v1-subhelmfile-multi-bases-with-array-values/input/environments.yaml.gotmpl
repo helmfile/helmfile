@@ -1,0 +1,14 @@
+environments:
+  dev:
+    values:
+      - myExample:
+          myContainers:
+            - name: test-container
+              image: registry.k8s.io/busybox
+              command: [ "/bin/sh", "-c", "env" ]
+---
+helmDefaults:
+  verify: false
+  wait: true
+  timeout: 1800
+  tls: false

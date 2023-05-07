@@ -1,0 +1,15 @@
+bases:
+  - environments.yaml.gotmpl
+  - repositories.yaml
+---
+
+releases:
+  - name: helmfile-test
+    namespace: namespace-test
+    labels:
+      release: "{{`{{ .Release.Name }}`}}"
+      namespace: "{{`{{ .Release.Namespace }}`}}"
+    chart: incubator/raw
+    version: 0.1.0
+    values:
+      - "./values.yaml.gotmpl"

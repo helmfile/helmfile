@@ -1,0 +1,3 @@
+repositories:
+  - name: incubator
+    url: https://charts.helm.sh/incubator/
