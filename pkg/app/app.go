@@ -1315,6 +1315,8 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
+	helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+
 	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, false, []error{err}
@@ -1424,8 +1426,6 @@ Do you really want to apply?
 		})); len(preapplyErrors) > 0 {
 			return true, false, preapplyErrors
 		}
-
-		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
