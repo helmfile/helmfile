@@ -57,7 +57,7 @@ func expectNoCallsToHelmVersion(app *App) {
 	}
 
 	app.helms = map[helmKey]helmexec.Interface{
-		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): &versionOnlyHelmExec{isHelm3: true},
+		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): testutil.NewV3HelmExec(true),
 	}
 }
 
