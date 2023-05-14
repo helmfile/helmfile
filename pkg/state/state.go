@@ -187,6 +187,8 @@ type HelmSpec struct {
 	ReuseValues bool `yaml:"reuseValues"`
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
+	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
+	Cascade *string `yaml:"cascade,omitempty"`
 
 	TLS                      bool   `yaml:"tls"`
 	TLSCACert                string `yaml:"tlsCACert,omitempty"`
@@ -359,6 +361,9 @@ type ReleaseSpec struct {
 
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
+
+	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
+	Cascade *string `yaml:"cascade,omitempty"`
 
 	// Inherit is used to inherit a release template from a release or another release template
 	Inherit Inherits `yaml:"inherit,omitempty"`
@@ -767,7 +772,7 @@ func ReleaseToID(r *ReleaseSpec) string {
 }
 
 // DeleteReleasesForSync deletes releases that are marked for deletion
-func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, helm helmexec.Interface, workerLimit int) []error {
+func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, helm helmexec.Interface, workerLimit int, cascade string) []error {
 	errs := []error{}
 
 	releases := st.Releases
@@ -801,7 +806,9 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					if release.Namespace != "" {
 						args = append(args, "--namespace", release.Namespace)
 					}
-					deletionFlags := st.appendConnectionFlags(args, release)
+					args = st.appendConnectionFlags(args, release)
+					deletionFlags := st.appendCascadeFlags(args, helm, release, cascade)
+
 					m.Lock()
 					start := time.Now()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
@@ -2031,15 +2038,17 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
-func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool) []error {
+func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error {
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
 		flags := make([]string, 0)
 		flags = st.appendConnectionFlags(flags, &release)
+		flags = st.appendCascadeFlags(flags, helm, &release, cascade)
 		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
+
 		context := st.createHelmContext(&release, workerIndex)
 
 		start := time.Now()

@@ -56,6 +56,8 @@ type ApplyOptions struct {
 	ResetValues bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
+	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
+	Cascade string
 }
 
 // NewApply creates a new Apply
@@ -211,4 +213,9 @@ func (a *ApplyImpl) ResetValues() bool {
 // PostRenderer returns the PostRenderer.
 func (a *ApplyImpl) PostRenderer() string {
 	return a.ApplyOptions.PostRenderer
+}
+
+// Cascade returns cascade flag
+func (a *ApplyImpl) Cascade() string {
+	return a.ApplyOptions.Cascade
 }
