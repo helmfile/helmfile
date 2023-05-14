@@ -41,6 +41,7 @@ func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec,
 
 // append post-renderer flags to helm flags
 func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, cascade string) []string {
+	// see https://github.com/helm/helm/releases/tag/v3.12.0
 	if !helm.IsVersionAtLeast("3.12.0") {
 		st.logger.Warnf("Ignoring --cascade flag because helm version is less than 3.12.0")
 		return flags
