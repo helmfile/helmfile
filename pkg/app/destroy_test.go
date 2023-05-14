@@ -318,7 +318,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: database
  3:   chart: charts/mysql
@@ -372,7 +372,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 51:   chart: charts/fluent-bit
 52: - name: front-proxy
 53:   chart: stable/envoy
-54:
+54: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -380,7 +380,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: database
  3:   chart: charts/mysql
@@ -434,7 +434,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 51:   chart: charts/fluent-bit
 52: - name: front-proxy
 53:   chart: stable/envoy
-54:
+54: 
 
 merged environment: &{default map[] map[]}
 10 release(s) found in helmfile.yaml
@@ -527,7 +527,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: database
  3:   chart: charts/mysql
@@ -581,7 +581,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
 51:   chart: charts/fluent-bit
 52: - name: front-proxy
 53:   chart: stable/envoy
-54:
+54: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -589,7 +589,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: database
  3:   chart: charts/mysql
@@ -643,7 +643,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 51:   chart: charts/fluent-bit
 52: - name: front-proxy
 53:   chart: stable/envoy
-54:
+54: 
 
 merged environment: &{default map[] map[]}
 1 release(s) matching name=logging found in helmfile.yaml
@@ -685,7 +685,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: backend-v1
  3:   chart: charts/backend
@@ -694,7 +694,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
  6:   chart: charts/frontend
  7:   needs:
  8:   - backend-v1
- 9:
+ 9: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -702,7 +702,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: backend-v1
  3:   chart: charts/backend
@@ -711,7 +711,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  6:   chart: charts/frontend
  7:   needs:
  8:   - backend-v1
- 9:
+ 9: 
 
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
@@ -757,7 +757,7 @@ changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
 first-pass uses: &{default map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: backend-v1
  3:   chart: charts/backend
@@ -766,7 +766,7 @@ first-pass rendering output of "helmfile.yaml.part.0":
  6:   chart: charts/frontend
  7:   needs:
  8:   - backend-v1
- 9:
+ 9: 
 
 first-pass produced: &{default map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
@@ -774,7 +774,7 @@ vals:
 map[]
 defaultVals:[]
 second-pass rendering result of "helmfile.yaml.part.0":
- 0:
+ 0: 
  1: releases:
  2: - name: backend-v1
  3:   chart: charts/backend
@@ -783,7 +783,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  6:   chart: charts/frontend
  7:   needs:
  8:   - backend-v1
- 9:
+ 9: 
 
 merged environment: &{default map[] map[]}
 2 release(s) found in helmfile.yaml
