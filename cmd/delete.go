@@ -33,6 +33,7 @@ func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
+	f.StringVar(&deleteOptions.Cascade, "cascade", "", "pass cascade to helm exec, default: background")
 	f.IntVar(&deleteOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&deleteOptions.Purge, "purge", false, "purge releases i.e. free release names and histories")
 	f.BoolVar(&deleteOptions.SkipCharts, "skip-charts", false, "don't prepare charts when deleting releases")

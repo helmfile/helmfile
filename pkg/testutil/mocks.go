@@ -1,6 +1,7 @@
-package app
+package testutil
 
 import (
+	"github.com/blang/semver"
 	"helm.sh/helm/v3/pkg/chart"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -9,13 +10,32 @@ import (
 type noCallHelmExec struct {
 }
 
-type versionOnlyHelmExec struct {
+type V3HelmExec struct {
 	*noCallHelmExec
 	isHelm3 bool
 }
 
-func (helm *versionOnlyHelmExec) IsHelm3() bool {
+func NewV3HelmExec(isHelm3 bool) *V3HelmExec {
+	return &V3HelmExec{noCallHelmExec: &noCallHelmExec{}, isHelm3: isHelm3}
+}
+
+type VersionHelmExec struct {
+	*noCallHelmExec
+	version string
+}
+
+func NewVersionHelmExec(version string) *VersionHelmExec {
+	return &VersionHelmExec{noCallHelmExec: &noCallHelmExec{}, version: version}
+}
+
+func (helm *V3HelmExec) IsHelm3() bool {
 	return helm.isHelm3
+}
+
+func (helm *VersionHelmExec) IsVersionAtLeast(ver string) bool {
+	currentSemVer := semver.MustParse(helm.version)
+	verSemVer := semver.MustParse(ver)
+	return currentSemVer.GTE(verSemVer)
 }
 
 func (helm *noCallHelmExec) doPanic() {

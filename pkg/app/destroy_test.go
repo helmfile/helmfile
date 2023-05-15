@@ -34,6 +34,7 @@ func listFlags(namespace, kubeContext string) string {
 
 type destroyConfig struct {
 	args                   string
+	cascade                string
 	concurrency            int
 	interactive            bool
 	skipDeps               bool
@@ -44,6 +45,10 @@ type destroyConfig struct {
 
 func (d destroyConfig) Args() string {
 	return d.args
+}
+
+func (d destroyConfig) Cascade() string {
+	return d.cascade
 }
 
 func (d destroyConfig) SkipCharts() bool {

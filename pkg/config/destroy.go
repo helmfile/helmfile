@@ -6,6 +6,8 @@ type DestroyOptions struct {
 	Concurrency int
 	// SkipCharts makes Destroy skip `withPreparedCharts`
 	SkipCharts bool
+	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
+	Cascade string
 }
 
 // NewDestroyOptions creates a new Apply
@@ -35,4 +37,9 @@ func (c *DestroyImpl) Concurrency() int {
 // SkipCharts returns skipCharts flag
 func (c *DestroyImpl) SkipCharts() bool {
 	return c.DestroyOptions.SkipCharts
+}
+
+// Cascade returns cascade flag
+func (c *DestroyImpl) Cascade() string {
+	return c.DestroyOptions.Cascade
 }

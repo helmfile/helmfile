@@ -9,6 +9,8 @@ type DeleteOptions struct {
 	Purge bool
 	// SkipCharts makes Delete skip `withPreparedCharts`
 	SkipCharts bool
+	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
+	Cascade string
 }
 
 // NewDeleteOptions creates a new Apply
@@ -43,4 +45,9 @@ func (c *DeleteImpl) Purge() bool {
 // SkipCharts returns skipCharts flag
 func (c *DeleteImpl) SkipCharts() bool {
 	return c.DeleteOptions.SkipCharts
+}
+
+// Cascade returns cascade flag
+func (c *DeleteImpl) Cascade() string {
+	return c.DeleteOptions.Cascade
 }
