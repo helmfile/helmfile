@@ -39,6 +39,24 @@ func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec,
 	return flags
 }
 
+// append post-renderer flags to helm flags
+func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, cascade string) []string {
+	// see https://github.com/helm/helm/releases/tag/v3.12.0
+	if !helm.IsVersionAtLeast("3.12.0") {
+		return flags
+	}
+	switch {
+	// postRenderer arg comes from cmd flag.
+	case release.Cascade != nil && *release.Cascade != "":
+		flags = append(flags, "--cascade", *release.Cascade)
+	case cascade != "":
+		flags = append(flags, "--cascade", cascade)
+	case st.HelmDefaults.Cascade != nil && *st.HelmDefaults.Cascade != "":
+		flags = append(flags, "--cascade", *st.HelmDefaults.Cascade)
+	}
+	return flags
+}
+
 type Chartify struct {
 	Opts  *chartify.ChartifyOpts
 	Clean func()

@@ -46,6 +46,7 @@ type ReposConfigProvider interface {
 type ApplyConfigProvider interface {
 	Args() string
 	PostRenderer() string
+	Cascade() string
 
 	Values() []string
 	Set() []string
@@ -88,6 +89,7 @@ type ApplyConfigProvider interface {
 type SyncConfigProvider interface {
 	Args() string
 	PostRenderer() string
+	Cascade() string
 
 	Values() []string
 	Set() []string
@@ -144,6 +146,7 @@ type DiffConfigProvider interface {
 // TODO: Remove this function once Helmfile v0.x
 type DeleteConfigProvider interface {
 	Args() string
+	Cascade() string
 
 	Purge() bool
 	SkipDeps() bool
@@ -156,6 +159,7 @@ type DeleteConfigProvider interface {
 
 type DestroyConfigProvider interface {
 	Args() string
+	Cascade() string
 
 	SkipDeps() bool
 	SkipCharts() bool

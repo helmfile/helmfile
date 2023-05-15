@@ -1441,7 +1441,7 @@ Do you really want to apply?
 
 				subst.Releases = rs
 
-				return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
+				return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency(), c.Cascade())
 			}))
 
 			if len(deletionErrs) > 0 {
@@ -1560,7 +1560,7 @@ Do you really want to delete?
 
 		if len(releasesToDelete) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toDelete, Reverse: true, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
-				return subst.DeleteReleases(&affectedReleases, helm, c.Concurrency(), purge)
+				return subst.DeleteReleases(&affectedReleases, helm, c.Concurrency(), purge, c.Cascade())
 			}))
 
 			if len(deletionErrs) > 0 {
@@ -1832,7 +1832,7 @@ Do you really want to sync?
 
 				subst.Releases = rs
 
-				return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency())
+				return subst.DeleteReleasesForSync(&affectedReleases, helm, c.Concurrency(), c.Cascade())
 			}))
 
 			if len(deletionErrs) > 0 {

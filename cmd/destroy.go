@@ -32,6 +32,7 @@ func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
+	f.StringVar(&destroyOptions.Cascade, "cascade", "", "pass cascade to helm exec, default: background")
 	f.IntVar(&destroyOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&destroyOptions.SkipCharts, "skip-charts", false, "don't prepare charts when destroying releases")
 

@@ -57,7 +57,7 @@ func expectNoCallsToHelmVersion(app *App) {
 	}
 
 	app.helms = map[helmKey]helmexec.Interface{
-		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): &versionOnlyHelmExec{isHelm3: true},
+		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): testutil.NewV3HelmExec(true),
 	}
 }
 
@@ -2185,8 +2185,9 @@ func (c configImpl) KubeVersion() string {
 }
 
 type applyConfig struct {
-	args   string
-	values []string
+	args    string
+	cascade string
+	values  []string
 
 	// TODO: Remove this function once Helmfile v0.x
 	retainValuesFiles bool
@@ -2228,6 +2229,10 @@ type applyConfig struct {
 
 func (a applyConfig) Args() string {
 	return a.args
+}
+
+func (a applyConfig) Cascade() string {
+	return a.cascade
 }
 
 func (a applyConfig) Wait() bool {
