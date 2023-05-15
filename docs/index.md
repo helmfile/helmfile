@@ -218,7 +218,7 @@ helmDefaults:
   # propagate `--post-renderer` to helmv3 template and helm install
   postRenderer: "path/to/postRenderer"
   #	cascade `--cascade` to helmv3 delete, available values: background, foreground, or orphan, default: background
-	cascade: "background" 
+  cascade: "background" 
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
