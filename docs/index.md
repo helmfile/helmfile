@@ -326,7 +326,7 @@ releases:
     skipDeps: false
     # propagate `--post-renderer` to helmv3 template and helm install
     postRenderer: "path/to/postRenderer"
-    #	cascade `--cascade` to helmv3 delete, available values: background, foreground, or orphan, default: background
+    # cascade `--cascade` to helmv3 delete, available values: background, foreground, or orphan, default: background
     cascade: "background" 
 
   # Local chart example
