@@ -1,6 +1,6 @@
 processing file "helmfile.yaml" in directory "."
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
+first-pass uses: &{default  map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
@@ -16,8 +16,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
 11:     args: ["foo"]
 12: 
 
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default map[] map[]}
+first-pass produced: &{default  map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -36,7 +36,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 11:     args: ["foo"]
 12: 
 
-merged environment: &{default map[] map[]}
+merged environment: &{default  map[] map[]}
 1 release(s) matching name=foo found in helmfile.yaml
 
 Affected releases are:
