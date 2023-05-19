@@ -1353,6 +1353,67 @@ releases:
 For templating, imagine that you created a hook that generates a helm chart on-the-fly by running an external tool like ksonnet, kustomize, or your own template engine.
 It will allow you to write your helm releases with any language you like, while still leveraging goodies provided by helm.
 
+### Hooks, Kubectl and Environments
+
+Hooks can also be used in combination with small tasks using `kubectl` directly,
+e.g.: in order to install a custom storage class.
+
+In the following example, a specific release depends on a custom storage class.
+Further, all enviroments have a default kube context configured where releases are deployed into.
+The `.Environment.KubeContext` is used in order to apply / remove the YAML to the correct context depending on the environment.
+
+`environments.yaml`:
+
+```yaml
+environments:
+  dev:
+    values:
+    - ../values/default.yaml
+    - ../values/dev.yaml
+    kubeContext: dev-cluster
+  prod:
+    values:
+    - ../values/default.yaml
+    - ../values/prod.yaml
+    kubeContext: prod-cluster
+```
+
+`helmfile.yaml`:
+
+```yaml
+bases:
+  - ./environments.yaml
+
+---
+releases:
+  - name: myService
+    namespace: my-ns
+    installed: true
+    chart: mychart
+    version: "1.2.3"
+    values:
+      - ../services/my-service/values.yaml.gotmpl
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: "kubectl"
+        args:
+          - "apply"
+          - "-f"
+          - "./custom-storage-class.yaml"
+          - "--context"
+          - "{{`{{.Environment.KubeContext}}`}}"
+      - events: ["postuninstall"]
+        showlogs: true
+        command: "kubectl"
+        args:
+          - "delete"
+          - "-f"
+          - "./custom-storage-class.yaml"
+          - "--context"
+          - "{{`{{.Environment.KubeContext}}`}}"
+```
+
 ### Global Hooks
 
 In contrast to the per release hooks mentioned above these are run only once at the very beginning and end of the execution of a helmfile command and only the `prepare` and `cleanup` hooks are available respectively.
