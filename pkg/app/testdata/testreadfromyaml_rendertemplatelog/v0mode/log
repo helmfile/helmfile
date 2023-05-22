@@ -1,5 +1,5 @@
-first-pass rendering starting for "": inherited=&{default map[] map[]}, overrode=<nil>
-first-pass uses: &{default map[] map[]}
+first-pass rendering starting for "": inherited=&{default  map[] map[]}, overrode=<nil>
+first-pass uses: &{default  map[] map[]}
 first-pass rendering output of "":
  0: 
  1: releases:
@@ -9,8 +9,8 @@ first-pass rendering output of "":
  5: 
  6: 
 
-first-pass produced: &{default map[] map[]}
-first-pass rendering result of "": {default map[] map[]}
+first-pass produced: &{default  map[] map[]}
+first-pass rendering result of "": {default  map[] map[]}
 vals:
 map[]
 defaultVals:[]

@@ -3,13 +3,14 @@
 - `Environment`: The information about the environment. This is set by the
   `--environment` flag. It has several objects inside of it:
   - `Environment.Name`: The name of the environment
+  - `Environment.KubeContext`: The kube context to be used by default for releases in the environment.
 - `Values`: Values passed into the environment.
 - `StateValues`: alias for `Values`.
 - `Namespace`: The namespace to be released into
 
 # release template built-in objects
 
-it be used for the below tow cases:
+it be used for the below two cases:
 
 1. release definition
 ```
@@ -56,6 +57,7 @@ releases:
 - `Environment`: The information about the environment. This is set by the
   `--environment` flag. It has several objects inside of it:
   - `Environment.Name`: The name of the environment
+  - `Environment.KubeContext`: The kube context to be used by default for releases in the environment.
 - `Chart`: The chart name for the release.
 - `KubeContext`: The kube context to be used for the release
 - `Namespace`: The namespace to be released into

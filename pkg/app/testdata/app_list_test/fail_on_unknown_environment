@@ -1,8 +1,8 @@
 found 3 helmfile state files in helmfile.d: /path/to/helmfile.d/helmfile_1.yaml, /path/to/helmfile.d/helmfile_2.yaml, /path/to/helmfile.d/helmfile_3.yaml
 processing file "helmfile_1.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"
-first-pass rendering starting for "helmfile_1.yaml.part.0": inherited=&{staging map[] map[]}, overrode=<nil>
-first-pass uses: &{staging map[] map[]}
+first-pass rendering starting for "helmfile_1.yaml.part.0": inherited=&{staging  map[] map[]}, overrode=<nil>
+first-pass uses: &{staging  map[] map[]}
 first-pass rendering output of "helmfile_1.yaml.part.0":
  0: 
  1: environments:
@@ -54,8 +54,8 @@ first-pass rendering output of "helmfile_1.yaml.part.0":
 47:   - test2
 48: 
 
-first-pass produced: &{staging map[] map[]}
-first-pass rendering result of "helmfile_1.yaml.part.0": {staging map[] map[]}
+first-pass produced: &{staging  map[] map[]}
+first-pass rendering result of "helmfile_1.yaml.part.0": {staging  map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -113,8 +113,8 @@ second-pass rendering result of "helmfile_1.yaml.part.0":
 changing working directory back to "/path/to"
 processing file "helmfile_2.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"
-first-pass rendering starting for "helmfile_2.yaml.part.0": inherited=&{staging map[] map[]}, overrode=<nil>
-first-pass uses: &{staging map[] map[]}
+first-pass rendering starting for "helmfile_2.yaml.part.0": inherited=&{staging  map[] map[]}, overrode=<nil>
+first-pass uses: &{staging  map[] map[]}
 first-pass rendering output of "helmfile_2.yaml.part.0":
  0: 
  1: environments:
@@ -139,8 +139,8 @@ first-pass rendering output of "helmfile_2.yaml.part.0":
 20:   version: 11.6.22
 21: 
 
-first-pass produced: &{staging map[] map[]}
-first-pass rendering result of "helmfile_2.yaml.part.0": {staging map[] map[]}
+first-pass produced: &{staging  map[] map[]}
+first-pass rendering result of "helmfile_2.yaml.part.0": {staging  map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -171,8 +171,8 @@ second-pass rendering result of "helmfile_2.yaml.part.0":
 changing working directory back to "/path/to"
 processing file "helmfile_3.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"
-first-pass rendering starting for "helmfile_3.yaml.part.0": inherited=&{staging map[] map[]}, overrode=<nil>
-first-pass uses: &{staging map[] map[]}
+first-pass rendering starting for "helmfile_3.yaml.part.0": inherited=&{staging  map[] map[]}, overrode=<nil>
+first-pass uses: &{staging  map[] map[]}
 first-pass rendering output of "helmfile_3.yaml.part.0":
  0: 
  1: releases:
@@ -181,8 +181,8 @@ first-pass rendering output of "helmfile_3.yaml.part.0":
  4:   namespace: kube-system
  5: 
 
-first-pass produced: &{staging map[] map[]}
-first-pass rendering result of "helmfile_3.yaml.part.0": {staging map[] map[]}
+first-pass produced: &{staging  map[] map[]}
+first-pass rendering result of "helmfile_3.yaml.part.0": {staging  map[] map[]}
 vals:
 map[]
 defaultVals:[]
