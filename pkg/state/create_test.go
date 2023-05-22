@@ -489,3 +489,58 @@ func TestReadFromYaml_Helmfiles_Selectors(t *testing.T) {
 		require.Equalf(t, test.helmfiles, st.Helmfiles, "for path %s", test.path)
 	}
 }
+
+func TestReadFromYaml_EnvironmentContext(t *testing.T) {
+	yamlFile := "/example/path/to/helmfile.yaml"
+	yamlContent := []byte(`environments:
+  production:
+    values: []
+    kubeContext: myCtx
+
+releases:
+- name: myrelease
+  namespace: mynamespace
+  chart: mychart
+  values:
+  - values.yaml.gotmpl
+`)
+
+	valuesFile := "/example/path/to/values.yaml.gotmpl"
+	valuesContent := []byte(`envName: {{ .Environment.Name }}
+envContext: {{ .Environment.KubeContext }}
+releaseName: {{ .Release.Name }}
+releaseContext: {{ .Release.KubeContext }}
+`)
+
+	expectedValues := `envName: production
+envContext: myCtx
+releaseName: myrelease
+releaseContext: 
+`
+
+	testFs := testhelper.NewTestFs(map[string]string{
+		valuesFile: string(valuesContent),
+	})
+	testFs.Cwd = "/example/path/to"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", r, false, "").
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	release := state.Releases[0]
+
+	state.ApplyOverrides(&release)
+
+	actualValuesData, err := state.RenderReleaseValuesFileToBytes(&release, valuesFile)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	actualValues := string(actualValuesData)
+
+	if !reflect.DeepEqual(expectedValues, actualValues) {
+		t.Errorf("unexpected values: expected=%v, actual=%v", expectedValues, actualValues)
+	}
+}
