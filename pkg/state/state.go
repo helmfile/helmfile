@@ -1052,6 +1052,7 @@ type ChartPrepareOptions struct {
 	IncludeTransitiveNeeds bool
 	Concurrency            int
 	KubeVersion            string
+	Set                    []string
 }
 
 type chartPrepareResult struct {
@@ -1225,6 +1226,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					chartifyOpts.KubeVersion = release.KubeVersion
 					chartifyOpts.ApiVersions = release.ApiVersions
+					var flags []string
+					for _, s := range opts.Set {
+						flags = append(flags, "--set", s)
+					}
+					chartifyOpts.SetFlags = flags
 
 					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
