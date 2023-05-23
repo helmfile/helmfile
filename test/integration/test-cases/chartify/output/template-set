@@ -1,0 +1,61 @@
+---
+# Source: httpbin/templates/patched_resources.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: httpbin
+    chart: httpbin-0.1.0
+    heritage: Helm
+    release: httpbin
+  name: httpbin-httpbin
+spec:
+  ports:
+  - name: httpbin
+    port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: httpbin
+    release: httpbin
+  type: LoadBalancer
+---
+# Source: httpbin/templates/patched_resources.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: httpbin
+    chart: httpbin-0.1.0
+    heritage: Helm
+    release: httpbin
+  name: httpbin-httpbin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        release: httpbin
+    spec:
+      containers:
+      - image: docker.io/citizenstig/httpbin:v2
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+        name: httpbin
+        ports:
+        - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+        resources: {}
+status: {}

@@ -251,6 +251,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			Set:                    c.Set(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
