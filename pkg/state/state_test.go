@@ -2436,6 +2436,110 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 	}
 }
 
+func TestConditionEnabled(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition string
+		values    map[string]interface{}
+		want      bool
+		wantErr   bool
+		wantPanic bool
+	}{
+		{
+			name:      "enabled",
+			condition: "foo.enabled",
+			values: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"enabled": true,
+				},
+			},
+			want: true,
+		},
+		{
+			name:      "disabled",
+			condition: "foo.enabled",
+			values: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"enabled": false,
+				},
+			},
+			want: false,
+		},
+		{
+			name:      "missing enabled",
+			condition: "foo.enabled",
+			values: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"something else": false,
+				},
+			},
+			want: false,
+		},
+		{
+			name:      "foo nil",
+			condition: "foo.enabled",
+			values: map[string]interface{}{
+				"foo": nil,
+			},
+			wantPanic: true,
+		},
+		{
+			name:      "foo missing",
+			condition: "foo.enabled",
+			values:    map[string]interface{}{},
+			wantPanic: true,
+		},
+		{
+			name:      "wrong suffix",
+			condition: "services.foo_enabled",
+			want:      false,
+			wantErr:   true,
+		},
+		{
+			name:      "too short condition",
+			condition: "rnd42",
+			want:      false,
+			wantErr:   true,
+		},
+		{
+			name:      "too long condition",
+			condition: "rnd42.really.enabled",
+			want:      false,
+			wantErr:   true,
+		},
+		{
+			name:      "empty",
+			condition: "",
+			want:      true,
+		},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.wantPanic {
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("ConditionEnabled() for %s expected panic", tt.name)
+					}
+				}()
+			}
+			res, err := ConditionEnabled(ReleaseSpec{Condition: tt.condition}, tt.values)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ConditionEnabled() for %s expected err response", tt.name)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("ConditionEnabled() for %s unexpected err %v", tt.name, err)
+			}
+			if res != tt.want {
+				t.Errorf("ConditionEnabled() for %s = %v, want %v", tt.name, res, tt.want)
+			}
+		})
+	}
+}
+
 func TestHelmState_NoReleaseMatched(t *testing.T) {
 	releases := []ReleaseSpec{
 		{
