@@ -2208,7 +2208,7 @@ func ConditionEnabled(r ReleaseSpec, values map[string]interface{}) (bool, error
 		return true, nil
 	}
 	conditionSplit := strings.Split(r.Condition, ".")
-	if len(conditionSplit) != 2 {
+	if len(conditionSplit) != 2 || conditionSplit[1] != "enabled" {
 		return false, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
 	}
 	if v, ok := values[conditionSplit[0]]; ok {
