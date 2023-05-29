@@ -1270,7 +1270,7 @@ Hooks associated to `prepare` events are triggered after each release in your he
 Hooks associated to `presync` events are triggered before each release is synced (installed or upgraded) on the cluster.
 This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
-`preapply` hooks are triggered before a release is uninstalled, installed, or upgraded as part of `helmfile apply`.
+`preapply` hooks are triggered before a release is installed, or upgraded as part of `helmfile apply`.
 This is the ideal event to hook into when you are going to use `helmfile apply` for every kind of change and you want the hook to be triggered regardless of whether the releases have changed or not. Be sure to make each `preapply` hook command idempotent. Otherwise, rerunning helmfile-apply on a transient failure may end up either breaking your cluster, or the hook that runs for the second time will never succeed.
 
 `preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
