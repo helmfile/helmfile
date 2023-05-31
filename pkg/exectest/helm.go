@@ -29,7 +29,7 @@ type DiffKey struct {
 
 type Helm struct {
 	Charts               []string
-	Repo                 []string
+	Repo                 []interface{}
 	Releases             []Release
 	Deleted              []Release
 	Linted               []Release
@@ -95,7 +95,7 @@ func (helm *Helm) SetEnableLiveOutput(enableLiveOutput bool) {
 func (helm *Helm) SetDisableForceUpdate(forceUpdate bool) {
 }
 func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify bool) error {
-	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, passCredentials}
+	helm.Repo = []interface{}{name, repository, cafile, certfile, keyfile, username, password, managed, passCredentials, skipTLSVerify}
 	return nil
 }
 func (helm *Helm) UpdateRepo() error {
