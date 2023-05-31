@@ -16,7 +16,7 @@ type Interface interface {
 	SetEnableLiveOutput(enableLiveOutput bool)
 	SetDisableForceUpdate(forceUpdate bool)
 
-	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error
+	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify bool) error
 	UpdateRepo() error
 	RegistryLogin(name string, username string, password string) error
 	BuildDeps(name, chart string, flags ...string) error
