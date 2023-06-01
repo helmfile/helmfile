@@ -77,7 +77,7 @@ func (helm *noCallHelmExec) SetDisableForceUpdate(forceUpdate bool) {
 	helm.doPanic()
 }
 
-func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
+func (helm *noCallHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify bool) error {
 	helm.doPanic()
 	return nil
 }

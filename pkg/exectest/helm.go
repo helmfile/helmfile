@@ -94,8 +94,8 @@ func (helm *Helm) SetEnableLiveOutput(enableLiveOutput bool) {
 }
 func (helm *Helm) SetDisableForceUpdate(forceUpdate bool) {
 }
-func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
-	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, passCredentials, skipTLSVerify}
+func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify bool) error {
+	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, passCredentials, fmt.Sprintf("%v", skipTLSVerify)}
 	return nil
 }
 func (helm *Helm) UpdateRepo() error {

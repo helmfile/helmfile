@@ -2469,7 +2469,7 @@ func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
 func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {
 }
 
-func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
+func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify bool) error {
 	helm.repos = append(helm.repos, mockRepo{Name: name})
 	return nil
 }
