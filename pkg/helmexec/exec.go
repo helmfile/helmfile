@@ -148,7 +148,7 @@ func (helm *execer) SetDisableForceUpdate(forceUpdate bool) {
 	helm.options.DisableForceUpdate = forceUpdate
 }
 
-func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify string) error {
+func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify bool) error {
 	var args []string
 	var out []byte
 	var err error
@@ -184,7 +184,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		if passCredentials == "true" {
 			args = append(args, "--pass-credentials")
 		}
-		if skipTLSVerify == "true" {
+		if skipTLSVerify {
 			args = append(args, "--insecure-skip-tls-verify")
 		}
 		helm.logger.Infof("Adding repo %v %v", name, repository)
