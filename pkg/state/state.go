@@ -209,7 +209,7 @@ type RepositorySpec struct {
 	Password        string `yaml:"password,omitempty"`
 	Managed         string `yaml:"managed,omitempty"`
 	OCI             bool   `yaml:"oci,omitempty"`
-	PassCredentials string `yaml:"passCredentials,omitempty"`
+	PassCredentials bool   `yaml:"passCredentials,omitempty"`
 	SkipTLSVerify   bool   `yaml:"skipTLSVerify,omitempty"`
 }
 
@@ -499,7 +499,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 
 type RepoUpdater interface {
 	IsHelm3() bool
-	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials string, skipTLSVerify bool) error
+	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error
 	UpdateRepo() error
 	RegistryLogin(name string, username string, password string) error
 }
