@@ -1073,7 +1073,6 @@ func Test_normalizeChart(t *testing.T) {
 }
 
 // mocking helmexec.Interface
-
 func TestHelmState_SyncRepos(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1095,7 +1094,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "false", "false"},
 		},
 		{
 			name: "ACR hosted repository",
@@ -1106,7 +1105,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "", "", "", "", "", "", "acr", "", "false"},
+			want: []string{"name", "", "", "", "", "", "", "acr", "false", "false"},
 		},
 		{
 			name: "repository with cert and key",
@@ -1121,7 +1120,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", "", "false", "false"},
 		},
 		{
 			name: "repository with ca file",
@@ -1135,7 +1134,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", "", "", "false"},
+			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", "", "false", "false"},
 		},
 		{
 			name: "repository with username and password",
@@ -1150,7 +1149,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "false", "false"},
 		},
 		{
 			name: "repository with username and password and pass-credentials",
@@ -1185,7 +1184,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				"NAME_PASSWORD": "example_password",
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "false", "false"},
 		},
 		{
 			name: "repository with username and password and environment with username and password",
@@ -1204,7 +1203,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				"NAME_PASSWORD": "example_password2",
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user1", "example_password1", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user1", "example_password1", "", "false", "false"},
 		},
 		{
 			name: "repository with skip-tls-verify",
@@ -1220,7 +1219,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "", "true"},
+			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "false", "true"},
 		},
 	}
 	for i := range tests {
