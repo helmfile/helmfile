@@ -1073,7 +1073,6 @@ func Test_normalizeChart(t *testing.T) {
 }
 
 // mocking helmexec.Interface
-
 func TestHelmState_SyncRepos(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1086,17 +1085,16 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			name: "normal repository",
 			repos: []RepositorySpec{
 				{
-					Name:            "name",
-					URL:             "http://example.com/",
-					CertFile:        "",
-					KeyFile:         "",
-					Username:        "",
-					Password:        "",
-					PassCredentials: "",
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "",
+					KeyFile:  "",
+					Username: "",
+					Password: "",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "false", "false"},
 		},
 		{
 			name: "ACR hosted repository",
@@ -1107,54 +1105,51 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "", "", "", "", "", "", "acr", "", "false"},
+			want: []string{"name", "", "", "", "", "", "", "acr", "false", "false"},
 		},
 		{
 			name: "repository with cert and key",
 			repos: []RepositorySpec{
 				{
-					Name:            "name",
-					URL:             "http://example.com/",
-					CertFile:        "certfile",
-					KeyFile:         "keyfile",
-					Username:        "",
-					Password:        "",
-					PassCredentials: "",
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "certfile",
+					KeyFile:  "keyfile",
+					Username: "",
+					Password: "",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "certfile", "keyfile", "", "", "", "false", "false"},
 		},
 		{
 			name: "repository with ca file",
 			repos: []RepositorySpec{
 				{
-					Name:            "name",
-					URL:             "http://example.com/",
-					CaFile:          "cafile",
-					Username:        "",
-					Password:        "",
-					PassCredentials: "",
+					Name:     "name",
+					URL:      "http://example.com/",
+					CaFile:   "cafile",
+					Username: "",
+					Password: "",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", "", "", "false"},
+			want: []string{"name", "http://example.com/", "cafile", "", "", "", "", "", "false", "false"},
 		},
 		{
 			name: "repository with username and password",
 			repos: []RepositorySpec{
 				{
-					Name:            "name",
-					URL:             "http://example.com/",
-					CertFile:        "",
-					KeyFile:         "",
-					Username:        "example_user",
-					Password:        "example_password",
-					PassCredentials: "",
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "",
+					KeyFile:  "",
+					Username: "example_user",
+					Password: "example_password",
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "false", "false"},
 		},
 		{
 			name: "repository with username and password and pass-credentials",
@@ -1166,7 +1161,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 					KeyFile:         "",
 					Username:        "example_user",
 					Password:        "example_password",
-					PassCredentials: "true",
+					PassCredentials: true,
 				},
 			},
 			helm: &exectest.Helm{},
@@ -1176,13 +1171,12 @@ func TestHelmState_SyncRepos(t *testing.T) {
 			name: "repository without username and password and environment with username and password",
 			repos: []RepositorySpec{
 				{
-					Name:            "name",
-					URL:             "http://example.com/",
-					CertFile:        "",
-					KeyFile:         "",
-					Username:        "",
-					Password:        "",
-					PassCredentials: "",
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "",
+					KeyFile:  "",
+					Username: "",
+					Password: "",
 				},
 			},
 			envs: map[string]string{
@@ -1190,19 +1184,18 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				"NAME_PASSWORD": "example_password",
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user", "example_password", "", "false", "false"},
 		},
 		{
 			name: "repository with username and password and environment with username and password",
 			repos: []RepositorySpec{
 				{
-					Name:            "name",
-					URL:             "http://example.com/",
-					CertFile:        "",
-					KeyFile:         "",
-					Username:        "example_user1",
-					Password:        "example_password1",
-					PassCredentials: "",
+					Name:     "name",
+					URL:      "http://example.com/",
+					CertFile: "",
+					KeyFile:  "",
+					Username: "example_user1",
+					Password: "example_password1",
 				},
 			},
 			envs: map[string]string{
@@ -1210,24 +1203,23 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				"NAME_PASSWORD": "example_password2",
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "example_user1", "example_password1", "", "", "false"},
+			want: []string{"name", "http://example.com/", "", "", "", "example_user1", "example_password1", "", "false", "false"},
 		},
 		{
 			name: "repository with skip-tls-verify",
 			repos: []RepositorySpec{
 				{
-					Name:            "name",
-					URL:             "http://example.com/",
-					CertFile:        "",
-					KeyFile:         "",
-					Username:        "",
-					Password:        "",
-					PassCredentials: "",
-					SkipTLSVerify:   true,
+					Name:          "name",
+					URL:           "http://example.com/",
+					CertFile:      "",
+					KeyFile:       "",
+					Username:      "",
+					Password:      "",
+					SkipTLSVerify: true,
 				},
 			},
 			helm: &exectest.Helm{},
-			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "", "true"},
+			want: []string{"name", "http://example.com/", "", "", "", "", "", "", "false", "true"},
 		},
 	}
 	for i := range tests {
