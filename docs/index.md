@@ -1077,6 +1077,7 @@ When using selectors/labels, `needs` are ignored by default. This behaviour can 
 | `--skip-needs` | `true` | `needs` are ignored (default behavior).  |
 | `--include-needs` | `false` | The direct `needs` of the selected release(s) will be included. |
 | `--include-transitive-needs` | `false` | The direct and transitive `needs` of the selected release(s) will be included. |
+
 Let's look at an example to illustrate how the different parameters work:
 
 ```yaml
