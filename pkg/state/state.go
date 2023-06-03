@@ -190,12 +190,8 @@ type HelmSpec struct {
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade *string `yaml:"cascade,omitempty"`
 
-	TLS                      bool   `yaml:"tls"`
-	TLSCACert                string `yaml:"tlsCACert,omitempty"`
-	TLSKey                   string `yaml:"tlsKey,omitempty"`
-	TLSCert                  string `yaml:"tlsCert,omitempty"`
-	DisableValidation        *bool  `yaml:"disableValidation,omitempty"`
-	DisableOpenAPIValidation *bool  `yaml:"disableOpenAPIValidation,omitempty"`
+	DisableValidation        *bool `yaml:"disableValidation,omitempty"`
+	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -313,11 +309,6 @@ type ReleaseSpec struct {
 	ValuesPathPrefix string `yaml:"valuesPathPrefix,omitempty"`
 
 	KubeContext string `yaml:"kubeContext,omitempty"`
-
-	TLS       *bool  `yaml:"tls,omitempty"`
-	TLSCACert string `yaml:"tlsCACert,omitempty"`
-	TLSKey    string `yaml:"tlsKey,omitempty"`
-	TLSCert   string `yaml:"tlsCert,omitempty"`
 
 	// These values are used in templating
 	VerifyTemplate    *string `yaml:"verifyTemplate,omitempty"`
@@ -2435,7 +2426,7 @@ func findChartDirectory(topLevelDir string) (string, error) {
 	return topLevelDir, errors.New("no Chart.yaml found")
 }
 
-// appendConnectionFlags append all the helm command-line flags related to K8s API and Tiller connection including the kubecontext
+// appendConnectionFlags append all the helm command-line flags related to K8s API including the kubecontext
 func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec) []string {
 	adds := st.connectionFlags(release)
 	flags = append(flags, adds...)
@@ -2444,28 +2435,6 @@ func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec)
 
 func (st *HelmState) connectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
-	if release.TLS != nil && *release.TLS || release.TLS == nil && st.HelmDefaults.TLS {
-		flags = append(flags, "--tls")
-	}
-
-	if release.TLSKey != "" {
-		flags = append(flags, "--tls-key", release.TLSKey)
-	} else if st.HelmDefaults.TLSKey != "" {
-		flags = append(flags, "--tls-key", st.HelmDefaults.TLSKey)
-	}
-
-	if release.TLSCert != "" {
-		flags = append(flags, "--tls-cert", release.TLSCert)
-	} else if st.HelmDefaults.TLSCert != "" {
-		flags = append(flags, "--tls-cert", st.HelmDefaults.TLSCert)
-	}
-
-	if release.TLSCACert != "" {
-		flags = append(flags, "--tls-ca-cert", release.TLSCACert)
-	} else if st.HelmDefaults.TLSCACert != "" {
-		flags = append(flags, "--tls-ca-cert", st.HelmDefaults.TLSCACert)
-	}
-
 	if release.KubeContext != "" {
 		flags = append(flags, "--kube-context", release.KubeContext)
 	} else if st.Environments[st.Env.Name].KubeContext != "" {

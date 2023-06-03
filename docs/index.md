@@ -195,14 +195,6 @@ helmDefaults:
   recreatePods: true
   # forces resource update through delete/recreate if needed (default false)
   force: false
-  # enable TLS for request to Tiller (default false)
-  tls: true
-  # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
-  tlsCACert: "path/to/ca.pem"
-  # path to TLS certificate file (default "$HELM_HOME/cert.pem")
-  tlsCert: "path/to/cert.pem"
-  # path to TLS key file (default "$HELM_HOME/key.pem")
-  tlsKey: "path/to/key.pem"
   # limit the maximum number of revisions saved per release. Use 0 for no limit. (default 10)
   historyMax: 10
   # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
@@ -294,16 +286,7 @@ releases:
     atomic: true
     # when true, cleans up any new resources created during a failed release (default false)
     cleanupOnFail: false
-    # enable TLS for request to Tiller (default false)
-    tls: true
-    # path to TLS CA certificate file (default "$HELM_HOME/ca.pem")
-    tlsCACert: "path/to/ca.pem"
-    # path to TLS certificate file (default "$HELM_HOME/cert.pem")
-    tlsCert: "path/to/cert.pem"
-    # path to TLS key file (default "$HELM_HOME/key.pem")
-    tlsKey: "path/to/key.pem"
     # --kube-context to be passed to helm commands
-    # CAUTION: this doesn't work as expected for `tilerless: true`.
     # See https://github.com/roboll/helmfile/issues/642
     # (default "", which means the standard kubeconfig, either ~/kubeconfig or the file pointed by $KUBECONFIG environment variable)
     kubeContext: kube-context
