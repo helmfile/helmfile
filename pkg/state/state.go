@@ -2426,7 +2426,7 @@ func findChartDirectory(topLevelDir string) (string, error) {
 	return topLevelDir, errors.New("no Chart.yaml found")
 }
 
-// appendConnectionFlags append all the helm command-line flags related to K8s API and Tiller connection including the kubecontext
+// appendConnectionFlags append all the helm command-line flags related to K8s API including the kubecontext
 func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec) []string {
 	adds := st.connectionFlags(release)
 	flags = append(flags, adds...)
