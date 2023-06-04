@@ -2605,15 +2605,18 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendConnectionFlags(flags, release)
 
-	diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
-	if err != nil {
-		return nil, nil, err
-	}
-	dv, _ := semver.NewVersion("v3.8.1")
+	if st.HelmDefaults.InsecureSkipTLSVerify || release.InsecureSkipTLSVerify {
+		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+		if err != nil {
+			return nil, nil, err
+		}
+		dv, _ := semver.NewVersion("v3.8.1")
 
-	if diffVersion.LessThan(dv) && (st.HelmDefaults.InsecureSkipTLSVerify || release.InsecureSkipTLSVerify) {
-		return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s", diffVersion)
+		if diffVersion.LessThan(dv) {
+			return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s, please use v3.8.1", diffVersion)
+		}
 	}
+
 	flags = st.appendChartDownloadTLSFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
