@@ -309,8 +309,7 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		func(id int) {
 			for secret := range secrets {
 				release := &ReleaseSpec{}
-				flags := st.appendConnectionFlags([]string{}, release)
-				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), secret.path, flags...)
+				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), secret.path)
 				if err != nil {
 					results <- secretResult{secret.id, nil, err, secret.path}
 					continue

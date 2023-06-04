@@ -3344,3 +3344,44 @@ func TestCommonDiffFlags(t *testing.T) {
 		require.Equal(t, tt.expected, result)
 	}
 }
+
+func TestAppendChartDownloadTLSFlags(t *testing.T) {
+	tests := []struct {
+		name                         string
+		defaultInsecureSkipTLSVerify bool
+		releaseInsecureSkipTLSVerify bool
+		expected                     []string
+	}{
+		{
+			name:                         "defaultInsecureSkipTLSVerify is true and releaseInsecureSkipTLSVerify is false",
+			defaultInsecureSkipTLSVerify: true,
+			releaseInsecureSkipTLSVerify: false,
+			expected:                     []string{"--insecure-skip-tls-verify"},
+		},
+		{
+			name:                         "defaultInsecureSkipTLSVerify is false and releaseInsecureSkipTLSVerify is true",
+			defaultInsecureSkipTLSVerify: false,
+			releaseInsecureSkipTLSVerify: true,
+			expected:                     []string{"--insecure-skip-tls-verify"},
+		},
+		{
+			name:                         "defaultInsecureSkipTLSVerify is false and releaseInsecureSkipTLSVerify is false",
+			defaultInsecureSkipTLSVerify: false,
+			releaseInsecureSkipTLSVerify: false,
+			expected:                     []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			release := &ReleaseSpec{}
+			st.HelmDefaults.InsecureSkipTLSVerify = tt.defaultInsecureSkipTLSVerify
+			release.InsecureSkipTLSVerify = tt.releaseInsecureSkipTLSVerify
+
+			result := st.appendChartDownloadTLSFlags([]string{}, release)
+
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
