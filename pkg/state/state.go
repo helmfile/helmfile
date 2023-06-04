@@ -18,11 +18,13 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/helmfile/chartify"
 	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/cli"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
@@ -2571,6 +2573,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 }
 
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
+	settings := cli.New()
 	flags := st.chartVersionFlags(release)
 
 	disableOpenAPIValidation := false
@@ -2601,6 +2604,16 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	flags = st.appendApiVersionsFlags(flags, release, "")
 
 	flags = st.appendConnectionFlags(flags, release)
+
+	diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+	if err != nil {
+		return nil, nil, err
+	}
+	dv, _ := semver.NewVersion("v3.8.1")
+
+	if diffVersion.LessThan(dv) && (st.HelmDefaults.InsecureSkipTLSVerify || release.InsecureSkipTLSVerify) {
+		return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s", diffVersion)
+	}
 	flags = st.appendChartDownloadTLSFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)

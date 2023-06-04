@@ -103,7 +103,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.0"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
