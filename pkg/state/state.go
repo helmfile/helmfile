@@ -18,11 +18,13 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/helmfile/chartify"
 	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/cli"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
@@ -192,6 +194,8 @@ type HelmSpec struct {
 
 	DisableValidation        *bool `yaml:"disableValidation,omitempty"`
 	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
+	// InsecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
+	InsecureSkipTLSVerify bool `yaml:"insecureSkipTLSVerify,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -309,6 +313,9 @@ type ReleaseSpec struct {
 	ValuesPathPrefix string `yaml:"valuesPathPrefix,omitempty"`
 
 	KubeContext string `yaml:"kubeContext,omitempty"`
+
+	// InsecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart.
+	InsecureSkipTLSVerify bool `yaml:"insecureSkipTLSVerify,omitempty"`
 
 	// These values are used in templating
 	VerifyTemplate    *string `yaml:"verifyTemplate,omitempty"`
@@ -983,7 +990,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 }
 
 func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
-	flags := st.connectionFlags(release)
+	flags := st.kubeConnectionFlags(release)
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
 	}
@@ -2113,6 +2120,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 
 		flags = st.appendConnectionFlags(flags, &release)
+		flags = st.appendChartDownloadTLSFlags(flags, &release)
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -2428,12 +2436,12 @@ func findChartDirectory(topLevelDir string) (string, error) {
 
 // appendConnectionFlags append all the helm command-line flags related to K8s API including the kubecontext
 func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec) []string {
-	adds := st.connectionFlags(release)
-	flags = append(flags, adds...)
+	kubeFlagAdds := st.kubeConnectionFlags(release)
+	flags = append(flags, kubeFlagAdds...)
 	return flags
 }
 
-func (st *HelmState) connectionFlags(release *ReleaseSpec) []string {
+func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
 	if release.KubeContext != "" {
 		flags = append(flags, "--kube-context", release.KubeContext)
@@ -2442,7 +2450,16 @@ func (st *HelmState) connectionFlags(release *ReleaseSpec) []string {
 	} else if st.HelmDefaults.KubeContext != "" {
 		flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
 	}
+	return flags
+}
 
+func (st *HelmState) appendChartDownloadTLSFlags(flags []string, release *ReleaseSpec) []string {
+	switch {
+	case release.InsecureSkipTLSVerify:
+		flags = append(flags, "--insecure-skip-tls-verify")
+	case st.HelmDefaults.InsecureSkipTLSVerify:
+		flags = append(flags, "--insecure-skip-tls-verify")
+	}
 	return flags
 }
 
@@ -2515,6 +2532,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	}
 
 	flags = st.appendConnectionFlags(flags, release)
+	flags = st.appendChartDownloadTLSFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
@@ -2555,6 +2573,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 }
 
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
+	settings := cli.New()
 	flags := st.chartVersionFlags(release)
 
 	disableOpenAPIValidation := false
@@ -2585,6 +2604,20 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	flags = st.appendApiVersionsFlags(flags, release, "")
 
 	flags = st.appendConnectionFlags(flags, release)
+
+	if st.HelmDefaults.InsecureSkipTLSVerify || release.InsecureSkipTLSVerify {
+		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+		if err != nil {
+			return nil, nil, err
+		}
+		dv, _ := semver.NewVersion("v3.8.1")
+
+		if diffVersion.LessThan(dv) {
+			return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s, please use at least v3.8.1", diffVersion)
+		}
+	}
+
+	flags = st.appendChartDownloadTLSFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
@@ -2930,8 +2963,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 		}
 		path := paths[0]
 
-		decryptFlags := st.appendConnectionFlags([]string{}, release)
-		valfile, err := helm.DecryptSecret(st.createHelmContext(release, workerIndex), path, decryptFlags...)
+		valfile, err := helm.DecryptSecret(st.createHelmContext(release, workerIndex), path)
 		if err != nil {
 			return nil, err
 		}

@@ -211,6 +211,8 @@ helmDefaults:
   postRenderer: "path/to/postRenderer"
   #	cascade `--cascade` to helmv3 delete, available values: background, foreground, or orphan, default: background
   cascade: "background" 
+  # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
+  insecureSkipTLSVerify: false
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
@@ -311,6 +313,8 @@ releases:
     postRenderer: "path/to/postRenderer"
     # cascade `--cascade` to helmv3 delete, available values: background, foreground, or orphan, default: background
     cascade: "background" 
+    # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
+    insecureSkipTLSVerify: false
 
   # Local chart example
   - name: grafana                            # name of this release

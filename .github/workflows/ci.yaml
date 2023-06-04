@@ -72,7 +72,7 @@ jobs:
            # we will mark this combination as failable,
            # and instruct users to upgrade helm and helm-secrets at once.
            plugin-secrets-version: 4.0.0
-           plugin-diff-version: 3.8.0
+           plugin-diff-version: 3.8.1
            extra-helmfile-flags:
            v1mode:
          - helm-version: v3.12.0
@@ -84,14 +84,14 @@ jobs:
          - helm-version: v3.12.0
            kustomize-version: v4.5.7
            plugin-secrets-version: 4.0.0
-           plugin-diff-version: 3.8.0
+           plugin-diff-version: 3.8.1
            extra-helmfile-flags:
            v1mode:
          # Helmfile v1
          - helm-version: v3.12.0
            kustomize-version: v4.5.7
            plugin-secrets-version: 4.0.0
-           plugin-diff-version: 3.8.0
+           plugin-diff-version: 3.8.1
            extra-helmfile-flags:
            v1mode: "true"
          # In case you need to test some optional helmfile features,
@@ -99,7 +99,7 @@ jobs:
          - helm-version: v3.12.0
            kustomize-version: v4.5.7
            plugin-secrets-version: 4.0.0
-           plugin-diff-version: 3.8.0
+           plugin-diff-version: 3.8.1
            extra-helmfile-flags: "--enable-live-output"
            v1mode:
     steps:
