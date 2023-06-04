@@ -194,7 +194,7 @@ type HelmSpec struct {
 
 	DisableValidation        *bool `yaml:"disableValidation,omitempty"`
 	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
-	// InsecureSkipTLSVerify is true if the TLS verification should be skipped.
+	// InsecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
 	InsecureSkipTLSVerify bool `yaml:"insecureSkipTLSVerify,omitempty"`
 }
 
@@ -314,7 +314,7 @@ type ReleaseSpec struct {
 
 	KubeContext string `yaml:"kubeContext,omitempty"`
 
-	// InsecureSkipTLSVerify is true if the TLS verification should be skipped.
+	// InsecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart.
 	InsecureSkipTLSVerify bool `yaml:"insecureSkipTLSVerify,omitempty"`
 
 	// These values are used in templating
