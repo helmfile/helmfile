@@ -196,4 +196,5 @@ second-pass rendering result of "helmfile_3.yaml.part.0":
  4:   namespace: kube-system
  5: 
 
+merged environment: &{shared  map[] map[]}
 changing working directory back to "/path/to"

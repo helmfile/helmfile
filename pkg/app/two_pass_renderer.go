@@ -53,7 +53,7 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv, overrode *environment.
 	c := r.underlying()
 	c.Strict = false
 	// create preliminary state, as we may have an environment. Tolerate errors.
-	prestate, err := c.ParseAndLoad([]byte(sanitized), baseDir, filename, r.env, false, firstPassEnv, overrode)
+	prestate, err := c.ParseAndLoad([]byte(sanitized), baseDir, filename, r.env, true, false, firstPassEnv, overrode)
 	if err != nil {
 		if _, ok := err.(*state.StateLoadError); ok {
 			r.logger.Debugf("could not deduce `environment:` block, configuring only .Environment.Name. error: %v", err)

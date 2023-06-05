@@ -160,7 +160,7 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 	var st *state.HelmState
 	var err error
 	if runtime.V1Mode {
-		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, env, overrodeEnv)
+		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, env, overrodeEnv)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +170,7 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 			return nil, err
 		}
 
-		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, evaluateBases, merged, nil)
+		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, merged, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -241,6 +241,19 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		env = &finalState.Env
 
 		ld.logger.Debugf("merged environment: %v", env)
+	}
+
+	// We defer the missing env detection and failure until
+	// all the helmfile parts are loaded and merged.
+	// Otherwise, any single helmfile part missing the env would fail the whole helmfile run.
+	// That's problematic, because each helmfile part is supposed to be incomplete, and
+	// they become complete only after merging all the parts.
+	// See https://github.com/helmfile/helmfile/issues/807 for the rationale of this.
+	if _, ok := finalState.Environments[env.Name]; evaluateBases && env.Name != state.DefaultEnv && !ok {
+		return nil, &state.StateLoadError{
+			Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
+			Cause: &state.UndefinedEnvError{Env: env.Name},
+		}
 	}
 
 	return finalState, nil
