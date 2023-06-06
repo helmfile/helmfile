@@ -74,7 +74,7 @@ Usage:  helm template [NAME] [CHART] [flags]
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &bytes.Buffer{}
-			got, err := LiveOutput(context.Background(), tt.cmd, w)
+			got, err := LiveOutput(context.Background(), tt.cmd, false, w)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LiveOutput() error = %v, wantErr %v", err, tt.wantErr)
 				return

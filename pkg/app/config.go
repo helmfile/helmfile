@@ -6,6 +6,7 @@ type ConfigProvider interface {
 	Args() string
 	HelmBinary() string
 	EnableLiveOutput() bool
+	StripArgsValuesOnExitError() bool
 	DisableForceUpdate() bool
 	SkipDeps() bool
 

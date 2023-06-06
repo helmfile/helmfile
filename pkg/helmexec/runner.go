@@ -28,6 +28,8 @@ type Runner interface {
 type ShellRunner struct {
 	Dir string
 
+	StripArgsValuesOnExitError bool
+
 	Logger *zap.SugaredLogger
 	Ctx    context.Context
 }
@@ -39,11 +41,11 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 
 	if !enableLiveOutput {
-		return Output(shell.Ctx, preparedCmd, &logWriterGenerator{
+		return Output(shell.Ctx, preparedCmd, shell.StripArgsValuesOnExitError, &logWriterGenerator{
 			log: shell.Logger,
 		})
 	} else {
-		return LiveOutput(shell.Ctx, preparedCmd, os.Stdout)
+		return LiveOutput(shell.Ctx, preparedCmd, shell.StripArgsValuesOnExitError, os.Stdout)
 	}
 }
 
@@ -53,12 +55,12 @@ func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 	preparedCmd.Stdin = stdin
-	return Output(shell.Ctx, preparedCmd, &logWriterGenerator{
+	return Output(shell.Ctx, preparedCmd, shell.StripArgsValuesOnExitError, &logWriterGenerator{
 		log: shell.Logger,
 	})
 }
 
-func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterGenerator) ([]byte, error) {
+func Output(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, logWriterGenerators ...*logWriterGenerator) ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("exec: Stdout already set")
 	}
@@ -114,7 +116,7 @@ func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterG
 			// so that helmfile could return its own exit code accordingly
 			waitStatus := ee.Sys().(syscall.WaitStatus)
 			exitStatus := waitStatus.ExitStatus()
-			err = newExitError(c.Path, c.Args, exitStatus, ee, stderr.String(), combined.String())
+			err = newExitError(c.Path, c.Args, exitStatus, ee, stderr.String(), combined.String(), stripArgsValuesOnExitError)
 		default:
 			panic(fmt.Sprintf("unexpected error: %v", err))
 		}
@@ -123,7 +125,7 @@ func Output(ctx context.Context, c *exec.Cmd, logWriterGenerators ...*logWriterG
 	return stdout.Bytes(), err
 }
 
-func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, error) {
+func LiveOutput(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, stdout io.Writer) ([]byte, error) {
 	reader, writer := io.Pipe()
 	scannerStopped := make(chan struct{})
 
@@ -162,7 +164,7 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stdout io.Writer) ([]byte, err
 			// so that helmfile could return its own exit code accordingly
 			waitStatus := ee.Sys().(syscall.WaitStatus)
 			exitStatus := waitStatus.ExitStatus()
-			err = newExitError(c.Path, c.Args, exitStatus, ee, "", "")
+			err = newExitError(c.Path, c.Args, exitStatus, ee, "", "", stripArgsValuesOnExitError)
 		default:
 			panic(fmt.Sprintf("unexpected error: %v", err))
 		}
