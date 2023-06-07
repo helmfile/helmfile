@@ -175,7 +175,7 @@ func (c *Context) EnvExec(envs map[string]interface{}, command string, args []in
 	g.Go(func() error {
 		// We use CombinedOutput to produce helpful error messages
 		// See https://github.com/roboll/helmfile/issues/1158
-		bs, err := helmexec.Output(context.Background(), cmd)
+		bs, err := helmexec.Output(context.Background(), cmd, false)
 		if err != nil {
 			return err
 		}
