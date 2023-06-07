@@ -120,6 +120,7 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.StringArrayVar(&globalOptions.StateValuesSet, "state-values-set", nil, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).")
 	fs.StringArrayVar(&globalOptions.StateValuesFile, "state-values-file", nil, "specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).")
 	fs.BoolVar(&globalOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
+	fs.BoolVar(&globalOptions.StripArgsValuesOnExitError, "strip-args-values-on-exit-error", true, `Strip the potential secret values of the helm command args contained in a helmfile error message`)
 	fs.BoolVar(&globalOptions.DisableForceUpdate, "disable-force-update", false, `do not force helm repos to update when executing "helm repo add"`)
 	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, "Silence output. Equivalent to log-level warn")
 	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", "Set kubectl context. Uses current context by default")

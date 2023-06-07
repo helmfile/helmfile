@@ -25,6 +25,8 @@ type GlobalOptions struct {
 	StateValuesFile []string
 	// SkipDeps is true if the running "helm repo update" and "helm dependency build" should be skipped
 	SkipDeps bool
+	// StripArgsValuesOnExitError is true if the ARGS output on exit error should be suppressed
+	StripArgsValuesOnExitError bool
 	// DisableForceUpdate is true if force updating repos is not desirable when executing "helm repo add"
 	DisableForceUpdate bool
 	// Quiet is true if the output should be quiet.
@@ -139,6 +141,11 @@ func (g *GlobalImpl) EnableLiveOutput() bool {
 // SkipDeps return if running "helm repo update" and "helm dependency build" should be skipped
 func (g *GlobalImpl) SkipDeps() bool {
 	return g.GlobalOptions.SkipDeps
+}
+
+// StripArgsValuesOnExitError return if the ARGS output on exit error should be suppressed
+func (g *GlobalImpl) StripArgsValuesOnExitError() bool {
+	return g.GlobalOptions.StripArgsValuesOnExitError
 }
 
 // DisableForceUpdate return when to disable forcing updates to repos upon adding

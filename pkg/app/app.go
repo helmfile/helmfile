@@ -28,10 +28,11 @@ var Cancel goContext.CancelFunc
 
 // App is the main application object.
 type App struct {
-	OverrideKubeContext string
-	OverrideHelmBinary  string
-	EnableLiveOutput    bool
-	DisableForceUpdate  bool
+	OverrideKubeContext        string
+	OverrideHelmBinary         string
+	EnableLiveOutput           bool
+	StripArgsValuesOnExitError bool
+	DisableForceUpdate         bool
 
 	Logger      *zap.SugaredLogger
 	Env         string
@@ -71,21 +72,22 @@ func New(conf ConfigProvider) *App {
 	ctx, Cancel = goContext.WithCancel(ctx)
 
 	return Init(&App{
-		OverrideKubeContext: conf.KubeContext(),
-		OverrideHelmBinary:  conf.HelmBinary(),
-		EnableLiveOutput:    conf.EnableLiveOutput(),
-		DisableForceUpdate:  conf.DisableForceUpdate(),
-		Logger:              conf.Logger(),
-		Env:                 conf.Env(),
-		Namespace:           conf.Namespace(),
-		Chart:               conf.Chart(),
-		Selectors:           conf.Selectors(),
-		Args:                conf.Args(),
-		FileOrDir:           conf.FileOrDir(),
-		ValuesFiles:         conf.StateValuesFiles(),
-		Set:                 conf.StateValuesSet(),
-		fs:                  filesystem.DefaultFileSystem(),
-		ctx:                 ctx,
+		OverrideKubeContext:        conf.KubeContext(),
+		OverrideHelmBinary:         conf.HelmBinary(),
+		EnableLiveOutput:           conf.EnableLiveOutput(),
+		StripArgsValuesOnExitError: conf.StripArgsValuesOnExitError(),
+		DisableForceUpdate:         conf.DisableForceUpdate(),
+		Logger:                     conf.Logger(),
+		Env:                        conf.Env(),
+		Namespace:                  conf.Namespace(),
+		Chart:                      conf.Chart(),
+		Selectors:                  conf.Selectors(),
+		Args:                       conf.Args(),
+		FileOrDir:                  conf.FileOrDir(),
+		ValuesFiles:                conf.StateValuesFiles(),
+		Set:                        conf.StateValuesSet(),
+		fs:                         filesystem.DefaultFileSystem(),
+		ctx:                        ctx,
 	})
 }
 
@@ -105,8 +107,9 @@ func Init(app *App) *App {
 
 func (a *App) Init(c InitConfigProvider) error {
 	runner := &helmexec.ShellRunner{
-		Logger: a.Logger,
-		Ctx:    a.ctx,
+		Logger:                     a.Logger,
+		Ctx:                        a.ctx,
+		StripArgsValuesOnExitError: a.StripArgsValuesOnExitError,
 	}
 	helmfileInit := NewHelmfileInit(a.OverrideHelmBinary, c, a.Logger, runner)
 	return helmfileInit.Initialize()
@@ -797,8 +800,9 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 
 	if _, ok := a.helms[key]; !ok {
 		a.helms[key] = helmexec.New(bin, helmexec.HelmExecOptions{EnableLiveOutput: a.EnableLiveOutput, DisableForceUpdate: a.DisableForceUpdate}, a.Logger, kubectx, &helmexec.ShellRunner{
-			Logger: a.Logger,
-			Ctx:    a.ctx,
+			Logger:                     a.Logger,
+			Ctx:                        a.ctx,
+			StripArgsValuesOnExitError: a.StripArgsValuesOnExitError,
 		})
 	}
 

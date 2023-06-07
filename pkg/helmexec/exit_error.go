@@ -5,13 +5,16 @@ import (
 	"strings"
 )
 
-func newExitError(path string, args []string, exitStatus int, err error, stderr, combined string) ExitError {
+func newExitError(path string, args []string, exitStatus int, err error, stderr, combined string, stripArgsValuesOnExitError bool) ExitError {
 	var out string
 
 	out += fmt.Sprintf("PATH:\n%s", Indent(path, "  "))
 
 	out += "\n\nARGS:"
 	for i, a := range args {
+		if i > 0 && strings.HasPrefix(args[i-1], "--set") && stripArgsValuesOnExitError {
+			a = "*** STRIP ***"
+		}
 		out += fmt.Sprintf("\n%s", Indent(fmt.Sprintf("%d: %s (%d bytes)", i, a, len(a)), "  "))
 	}
 
