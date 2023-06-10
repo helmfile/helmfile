@@ -169,6 +169,7 @@ second-pass rendering result of "helmfile_2.yaml.part.0":
 20:   version: 11.6.22
 21: 
 
+merged environment: &{development  map[] map[]}
 changing working directory back to "/path/to"
 processing file "helmfile_3.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"
@@ -195,4 +196,5 @@ second-pass rendering result of "helmfile_3.yaml.part.0":
  4:   namespace: kube-system
  5: 
 
+merged environment: &{development  map[] map[]}
 changing working directory back to "/path/to"

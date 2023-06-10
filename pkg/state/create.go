@@ -22,20 +22,20 @@ const (
 )
 
 type StateLoadError struct {
-	msg   string
+	Msg   string
 	Cause error
 }
 
 func (e *StateLoadError) Error() string {
-	return fmt.Sprintf("%s: %v", e.msg, e.Cause)
+	return fmt.Sprintf("%s: %v", e.Msg, e.Cause)
 }
 
 type UndefinedEnvError struct {
-	msg string
+	Env string
 }
 
 func (e *UndefinedEnvError) Error() string {
-	return e.msg
+	return fmt.Sprintf("environment \"%s\" is not defined", e.Env)
 }
 
 type StateCreator struct {
@@ -138,7 +138,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 }
 
 // LoadEnvValues loads environment values files relative to the `baseDir`
-func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv, overrode *environment.Environment, failOnMissingEnv bool) (*HelmState, error) {
+func (c *StateCreator) LoadEnvValues(target *HelmState, env string, failOnMissingEnv bool, ctxEnv, overrode *environment.Environment) (*HelmState, error) {
 	state := *target
 
 	e, err := c.loadEnvValues(&state, env, failOnMissingEnv, ctxEnv, overrode)
@@ -162,7 +162,7 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, ctxEnv, over
 
 // Parses YAML into HelmState, while loading environment values files relative to the `baseDir`
 // evaluateBases=true means that this is NOT a base helmfile
-func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envName string, evaluateBases bool, envValues, overrode *environment.Environment) (*HelmState, error) {
+func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envName string, failOnMissingEnv, evaluateBases bool, envValues, overrode *environment.Environment) (*HelmState, error) {
 	state, err := c.Parse(content, baseDir, file)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 		}
 	}
 
-	state, err = c.LoadEnvValues(state, envName, envValues, overrode, evaluateBases)
+	state, err = c.LoadEnvValues(state, envName, failOnMissingEnv, envValues, overrode)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 			}
 		}
 	} else if ctxEnv == nil && name != DefaultEnv && failOnMissingEnv {
-		return nil, &UndefinedEnvError{msg: fmt.Sprintf("environment \"%s\" is not defined", name)}
+		return nil, &UndefinedEnvError{Env: name}
 	}
 
 	newEnv := &environment.Environment{Name: name, Values: envVals, KubeContext: envSpec.KubeContext}
