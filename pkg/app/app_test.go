@@ -4052,10 +4052,13 @@ releases:
 
 	expectNoCallsToHelm(app)
 
-	out := testutil.CaptureStdout(func() {
+	out, err := testutil.CaptureStdout(func() {
 		err := app.PrintState(configImpl{})
 		assert.Nil(t, err)
 	})
+
+	assert.Nil(t, err)
+
 	assert.True(t, strings.Count(out, "---") == 1,
 		"state should contain '---' yaml doc separator:\n%s\n", out)
 	assert.True(t, strings.Contains(out, "helmfile.yaml"),
@@ -4098,10 +4101,11 @@ releases:
 
 	expectNoCallsToHelm(app)
 
-	out := testutil.CaptureStdout(func() {
+	out, err := testutil.CaptureStdout(func() {
 		err := app.PrintState(configImpl{})
 		assert.Nil(t, err)
 	})
+	assert.Nil(t, err)
 	assert.True(t, strings.Count(out, "---") == 2,
 		"state should contain '---' yaml doc separators:\n%s\n", out)
 	assert.True(t, strings.Contains(out, "second.yaml"),
@@ -4158,10 +4162,11 @@ releases:
 
 	expectNoCallsToHelm(app)
 
-	out := testutil.CaptureStdout(func() {
+	out, err := testutil.CaptureStdout(func() {
 		err := app.ListReleases(configImpl{})
 		assert.Nil(t, err)
 	})
+	assert.Nil(t, err)
 
 	expected := `NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
 myrelease1	testNamespace	true   	false    	common:label,id:myrelease1	mychart1	       

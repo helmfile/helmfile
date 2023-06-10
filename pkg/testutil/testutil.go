@@ -5,14 +5,13 @@ import (
 	"io"
 	"log"
 	"os"
-	"sync"
 )
 
 // CaptureStdout is a helper function to capture stdout.
-func CaptureStdout(f func()) string {
+func CaptureStdout(f func()) (string, error) {
 	reader, writer, err := os.Pipe()
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	stdout := os.Stdout
 	defer func() {
@@ -21,20 +20,12 @@ func CaptureStdout(f func()) string {
 	}()
 	os.Stdout = writer
 	log.SetOutput(writer)
-	out := make(chan string)
-	wg := new(sync.WaitGroup)
-	wg.Add(1)
-	go func() {
-		var buf bytes.Buffer
-		wg.Done()
-		_, err = io.Copy(&buf, reader)
-		if err != nil {
-			panic(err)
-		}
-		out <- buf.String()
-	}()
-	wg.Wait()
 	f()
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, reader)
+	if err != nil {
+		return "", err
+	}
 	_ = writer.Close()
-	return <-out
+	return buf.String(), nil
 }
