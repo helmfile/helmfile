@@ -21,11 +21,11 @@ func CaptureStdout(f func()) (string, error) {
 	os.Stdout = writer
 	log.SetOutput(writer)
 	f()
+	_ = writer.Close()
 	var buf bytes.Buffer
 	_, err = io.Copy(&buf, reader)
 	if err != nil {
 		return "", err
 	}
-	_ = writer.Close()
 	return buf.String(), nil
 }
