@@ -24,19 +24,20 @@ func CaptureStdout(f func()) (string, error) {
 	out := make(chan string)
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
+	var ioCopyErr error
 	go func() {
 		var buf bytes.Buffer
 		wg.Done()
-		_, err = io.Copy(&buf, reader)
-		if err != nil {
+		_, ioCopyErr = io.Copy(&buf, reader)
+		if ioCopyErr != nil {
 			return
 		}
 		out <- buf.String()
 	}()
 	wg.Wait()
 	f()
-	if err != nil {
-		return "", err
+	if ioCopyErr != nil {
+		return "", ioCopyErr
 	}
 	_ = writer.Close()
 	return <-out, nil
