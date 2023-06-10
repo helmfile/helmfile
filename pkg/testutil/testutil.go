@@ -25,9 +25,12 @@ func CaptureStdout(f func()) (string, error) {
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 	var ioCopyErr error
+	var ioCopyErrLock sync.Mutex
 	go func() {
 		var buf bytes.Buffer
 		wg.Done()
+		ioCopyErrLock.Lock()
+		defer ioCopyErrLock.Unlock()
 		_, ioCopyErr = io.Copy(&buf, reader)
 		if ioCopyErr != nil {
 			return
@@ -36,6 +39,8 @@ func CaptureStdout(f func()) (string, error) {
 	}()
 	wg.Wait()
 	f()
+	ioCopyErrLock.Lock()
+	defer ioCopyErrLock.Unlock()
 	if ioCopyErr != nil {
 		return "", ioCopyErr
 	}
