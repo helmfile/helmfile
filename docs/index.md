@@ -1073,6 +1073,7 @@ That is, `myapp1` and `myapp2` are deleted first, then `servicemesh`, and finall
 ### Selectors and `needs`
 
 When using selectors/labels, `needs` are ignored by default. This behaviour can be overruled with a few parameters:
+
 | Parameter | default | Description |
 |---|---|---|
 | `--skip-needs` | `true` | `needs` are ignored (default behavior).  |
@@ -1136,19 +1137,19 @@ In case you want more control over how multiple `helmfile.yaml` files are organi
 Suppose you have multiple microservices organized in a Git repository that looks like:
 
 * `myteam/` (sometimes it is equivalent to a k8s ns, that is `kube-system` for `clusterops` team)
-  * `apps/`
-    * `filebeat/`
-      * `helmfile.yaml` (no `charts/` exists, because it depends on the stable/filebeat chart hosted on the official helm charts repository)
-      * `README.md` (each app managed by my team has a dedicated README maintained by the owners of the app)
-    * `metricbeat/`
-      * `helmfile.yaml`
-      * `README.md`
-    * `elastalert-operator/`
-      * `helmfile.yaml`
-      * `README.md`
-      * `charts/`
+    * `apps/`
+        * `filebeat/`
+            * `helmfile.yaml` (no `charts/` exists because it depends on the stable/filebeat chart hosted on the official helm charts repository)
+            * `README.md` (each app managed by my team has a dedicated README maintained by the owners of the app)
+        * `metricbeat/`
+            * `helmfile.yaml`
+            * `README.md`
         * `elastalert-operator/`
-          * `<the content of the local helm chart>`
+            * `helmfile.yaml`
+            * `README.md`
+            * `charts/`
+                * `elastalert-operator/`
+                    * `<the content of the local helm chart>`
 
 The benefits of this structure is that you can run `git diff` to locate in which directory=microservice a git commit has changes.
 It allows your CI system to run a workflow for the changed microservice only.
