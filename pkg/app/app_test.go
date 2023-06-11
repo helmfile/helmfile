@@ -4105,7 +4105,7 @@ releases:
 		err := app.PrintState(configImpl{})
 		assert.Nil(t, err)
 	})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, strings.Count(out, "---") == 2,
 		"state should contain '---' yaml doc separators:\n%s\n", out)
 	assert.True(t, strings.Contains(out, "second.yaml"),
@@ -4166,7 +4166,7 @@ releases:
 		err := app.ListReleases(configImpl{})
 		assert.Nil(t, err)
 	})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	expected := `NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                    	CHART   	VERSION
 myrelease1	testNamespace	true   	false    	common:label,id:myrelease1	mychart1	       

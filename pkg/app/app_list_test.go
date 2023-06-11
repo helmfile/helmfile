@@ -282,7 +282,7 @@ releases:
 		err := app.ListReleases(cfg)
 		assert.Nil(t, err)
 	})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	expected := `[{"name":"myrelease1","namespace":"testNamespace","enabled":true,"installed":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"testNamespace","enabled":false,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"testNamespace","enabled":true,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"testNamespace","enabled":true,"installed":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
 `
