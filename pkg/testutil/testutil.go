@@ -30,20 +30,20 @@ func CaptureStdout(f func()) (string, error) {
 		var buf bytes.Buffer
 		wg.Done()
 		ioCopyErrLock.Lock()
-		defer ioCopyErrLock.Unlock()
 		_, ioCopyErr = io.Copy(&buf, reader)
 		if ioCopyErr != nil {
 			return
 		}
+		ioCopyErrLock.Unlock()
 		out <- buf.String()
 	}()
 	wg.Wait()
 	f()
 	ioCopyErrLock.Lock()
-	defer ioCopyErrLock.Unlock()
 	if ioCopyErr != nil {
 		return "", ioCopyErr
 	}
+	ioCopyErrLock.Unlock()
 	_ = writer.Close()
 	return <-out, nil
 }
