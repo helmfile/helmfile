@@ -21,14 +21,16 @@ func CaptureStdout(f func()) (string, error) {
 	}()
 	os.Stdout = writer
 	log.SetOutput(writer)
-	out := make(chan string)
+	out := make(chan string, 1)
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 	var ioCopyErr error
 	go func() {
 		var buf bytes.Buffer
+		defer wg.Done()
+			wg.Done()
+		}()
 		_, ioCopyErr = io.Copy(&buf, reader)
-		wg.Done()
 		out <- buf.String()
 	}()
 	f()
