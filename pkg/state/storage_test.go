@@ -140,3 +140,65 @@ func TestStorage_resolveFile(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizePath(t *testing.T) {
+	tests := []struct {
+		name string
+		base string
+		path string
+		want string
+	}{
+		{
+			name: "unix path relative path",
+			base: "/root",
+			path: "local/timespan-application.yml",
+			want: "/local/timespan-application.yml",
+		},
+		{
+			name: "unix path absolute path",
+			base: "/data",
+			path: "/root/data/timespan-application.yml",
+			want: "/root/data/timespan-application.yml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storageIns := NewStorage(tt.base, helmexec.NewLogger(io.Discard, "debug"), filesystem.DefaultFileSystem())
+			if got := storageIns.normalizePath(tt.path); got != tt.want {
+				t.Errorf("normalizePath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestJoinBase(t *testing.T) {
+	tests := []struct {
+		name string
+		base string
+		path string
+		want string
+	}{
+		{
+			name: "joinBase with non-root base",
+			base: "/root",
+			path: "local/timespan-application.yml",
+			want: "/local/timespan-application.yml",
+		},
+		{
+			name: "joinBase with root path",
+			base: "/",
+			path: "data/timespan-application.yml",
+			want: "/data/timespan-application.yml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storageIns := NewStorage(tt.base, helmexec.NewLogger(io.Discard, "debug"), filesystem.DefaultFileSystem())
+			if got := storageIns.JoinBase(tt.path); got != tt.want {
+				t.Errorf("JoinBase() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
