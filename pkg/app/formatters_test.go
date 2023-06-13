@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/helmfile/helmfile/pkg/testutil"
 )
 
@@ -36,9 +38,12 @@ func TestFormatAsTable(t *testing.T) {
 		t.Errorf("error reading %s: %v", tableoutput, err)
 	}
 
-	result := testutil.CaptureStdout(func() {
+	result, err := testutil.CaptureStdout(func() {
 		FormatAsTable(h)
 	})
+
+	assert.NoError(t, err)
+
 	if result != string(expectd) {
 		t.Errorf("FormatAsTable() = %v, want %v", result, string(expectd))
 	}
@@ -70,9 +75,11 @@ func TestFormatAsJson(t *testing.T) {
 	if err != nil {
 		t.Errorf("error reading %s: %v", output, err)
 	}
-	result := testutil.CaptureStdout(func() {
+	result, err := testutil.CaptureStdout(func() {
 		FormatAsJson(h)
 	})
+
+	assert.NoError(t, err)
 
 	if result != string(expectd) {
 		t.Errorf("FormatAsJson() = %v, want %v", result, string(expectd))

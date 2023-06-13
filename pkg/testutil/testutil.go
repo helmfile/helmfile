@@ -9,10 +9,10 @@ import (
 )
 
 // CaptureStdout is a helper function to capture stdout.
-func CaptureStdout(f func()) string {
+func CaptureStdout(f func()) (string, error) {
 	reader, writer, err := os.Pipe()
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	stdout := os.Stdout
 	defer func() {
@@ -21,20 +21,21 @@ func CaptureStdout(f func()) string {
 	}()
 	os.Stdout = writer
 	log.SetOutput(writer)
-	out := make(chan string)
+	out := make(chan string, 1)
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
+	var ioCopyErr error
 	go func() {
 		var buf bytes.Buffer
-		wg.Done()
-		_, err = io.Copy(&buf, reader)
-		if err != nil {
-			panic(err)
-		}
+		defer wg.Done()
+		_, ioCopyErr = io.Copy(&buf, reader)
 		out <- buf.String()
 	}()
-	wg.Wait()
 	f()
 	_ = writer.Close()
-	return <-out
+	wg.Wait()
+	if ioCopyErr != nil {
+		return "", ioCopyErr
+	}
+	return <-out, nil
 }
