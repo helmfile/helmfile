@@ -4057,7 +4057,7 @@ releases:
 		assert.Nil(t, err)
 	})
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.True(t, strings.Count(out, "---") == 1,
 		"state should contain '---' yaml doc separator:\n%s\n", out)
