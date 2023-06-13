@@ -3,6 +3,8 @@ package testutil
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestCaptureStdout tests the CaptureStdout function.
@@ -30,9 +32,10 @@ func TestCaptureStdout(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := CaptureStdout(func() {
+		result, err := CaptureStdout(func() {
 			fmt.Print(test.output)
 		})
+		assert.NoError(t, err)
 		if result != test.expected {
 			t.Errorf("CaptureStdout() = %v, want %v", result, test.expected)
 		}
