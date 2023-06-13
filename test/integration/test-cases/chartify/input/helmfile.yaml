@@ -11,4 +11,6 @@ releases:
           - path: "/spec/strategy/type"
             op: replace
             value: Recreate
-
+    set:
+      - name: image.pullPolicy
+        value: Always
