@@ -45,7 +45,7 @@ spec:
     spec:
       containers:
       - image: docker.io/citizenstig/httpbin:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         livenessProbe:
           httpGet:
             path: /

@@ -1224,11 +1224,13 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					chartifyOpts.KubeVersion = release.KubeVersion
 					chartifyOpts.ApiVersions = release.ApiVersions
+					// https://github.com/helmfile/helmfile/pull/867
+					// https://github.com/helmfile/helmfile/issues/895
 					var flags []string
 					for _, s := range opts.Set {
 						flags = append(flags, "--set", s)
 					}
-					chartifyOpts.SetFlags = flags
+					chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
 
 					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
