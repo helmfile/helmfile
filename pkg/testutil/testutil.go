@@ -28,8 +28,6 @@ func CaptureStdout(f func()) (string, error) {
 	go func() {
 		var buf bytes.Buffer
 		defer wg.Done()
-			wg.Done()
-		}()
 		_, ioCopyErr = io.Copy(&buf, reader)
 		out <- buf.String()
 	}()
