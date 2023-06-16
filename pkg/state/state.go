@@ -48,7 +48,7 @@ type ReleaseSetSpec struct {
 	DefaultHelmBinary string `yaml:"helmBinary,omitempty"`
 
 	// DefaultValues is the default values to be overrode by environment values and command-line overrides
-	DefaultValues []interface{} `yaml:"values,omitempty"`
+	DefaultValues []any `yaml:"values,omitempty"`
 
 	Environments map[string]EnvironmentSpec `yaml:"environments,omitempty"`
 
@@ -101,8 +101,8 @@ type MissingFileHandlerConfig struct {
 // helmStateAlias is helm state alias
 type helmStateAlias HelmState
 
-func (hs *HelmState) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	helmStateInfo := make(map[string]interface{})
+func (hs *HelmState) UnmarshalYAML(unmarshal func(any) error) error {
+	helmStateInfo := make(map[string]any)
 	if err := unmarshal(&helmStateInfo); err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ type HelmState struct {
 	// RenderedValues is the helmfile-wide values that is `.Values`
 	// which is accessible from within the whole helmfile go template.
 	// Note that this is usually computed by DesiredStateLoader from ReleaseSetSpec.Env
-	RenderedValues map[string]interface{}
+	RenderedValues map[string]any
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options
@@ -151,7 +151,7 @@ type SubHelmfileSpec struct {
 
 // SubhelmfileEnvironmentSpec is the environment spec for a subhelmfile
 type SubhelmfileEnvironmentSpec struct {
-	OverrideValues []interface{} `yaml:"values,omitempty"`
+	OverrideValues []any `yaml:"values,omitempty"`
 }
 
 // HelmSpec to defines helmDefault values
@@ -293,13 +293,13 @@ type ReleaseSpec struct {
 	Name      string            `yaml:"name,omitempty"`
 	Namespace string            `yaml:"namespace,omitempty"`
 	Labels    map[string]string `yaml:"labels,omitempty"`
-	Values    []interface{}     `yaml:"values,omitempty"`
-	Secrets   []interface{}     `yaml:"secrets,omitempty"`
+	Values    []any             `yaml:"values,omitempty"`
+	Secrets   []any             `yaml:"secrets,omitempty"`
 	SetValues []SetValue        `yaml:"set,omitempty"`
 	duration  time.Duration
 
-	ValuesTemplate    []interface{} `yaml:"valuesTemplate,omitempty"`
-	SetValuesTemplate []SetValue    `yaml:"setTemplate,omitempty"`
+	ValuesTemplate    []any      `yaml:"valuesTemplate,omitempty"`
+	SetValuesTemplate []SetValue `yaml:"setTemplate,omitempty"`
 
 	// Capabilities.APIVersions
 	ApiVersions []string `yaml:"apiVersions,omitempty"`
@@ -323,17 +323,17 @@ type ReleaseSpec struct {
 	InstalledTemplate *string `yaml:"installedTemplate,omitempty"`
 
 	// These settings requires helm-x integration to work
-	Dependencies          []Dependency  `yaml:"dependencies,omitempty"`
-	JSONPatches           []interface{} `yaml:"jsonPatches,omitempty"`
-	StrategicMergePatches []interface{} `yaml:"strategicMergePatches,omitempty"`
+	Dependencies          []Dependency `yaml:"dependencies,omitempty"`
+	JSONPatches           []any        `yaml:"jsonPatches,omitempty"`
+	StrategicMergePatches []any        `yaml:"strategicMergePatches,omitempty"`
 
 	// Transformers is the list of Kustomize transformers
 	//
 	// Each item can be a path to a YAML or go template file, or an embedded transformer declaration as a YAML hash.
 	// It's often used to add common labels and annotations to your resources.
 	// See https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead for more information.
-	Transformers []interface{} `yaml:"transformers,omitempty"`
-	Adopt        []string      `yaml:"adopt,omitempty"`
+	Transformers []any    `yaml:"transformers,omitempty"`
+	Adopt        []string `yaml:"adopt,omitempty"`
 
 	//version of the chart that has really been installed cause desired version may be fuzzy (~2.0.0)
 	installedVersion string
@@ -367,7 +367,7 @@ type ReleaseSpec struct {
 	Inherit Inherits `yaml:"inherit,omitempty"`
 }
 
-func (r *Inherits) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
 	var v0151 []Inherit
 	if err := unmarshal(&v0151); err != nil {
 		var v0150 Inherit
@@ -1561,10 +1561,10 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 
 		st.logger.Infof("Writing values file %s", outputValuesFile)
 
-		merged := map[string]interface{}{}
+		merged := map[string]any{}
 
 		for _, f := range append(generatedFiles, additionalValues...) {
-			src := map[string]interface{}{}
+			src := map[string]any{}
 
 			srcBytes, err := st.fs.ReadFile(f)
 			if err != nil {
@@ -2152,7 +2152,7 @@ func (st *HelmState) SelectReleases(includeTransitiveNeeds bool) ([]Release, err
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]interface{}, includeTransitiveNeeds bool) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]any, includeTransitiveNeeds bool) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -2203,7 +2203,7 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 	return filteredReleases, nil
 }
 
-func ConditionEnabled(r ReleaseSpec, values map[string]interface{}) (bool, error) {
+func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 	var conditionMatch bool
 	if len(r.Condition) == 0 {
 		return true, nil
@@ -2216,7 +2216,7 @@ func ConditionEnabled(r ReleaseSpec, values map[string]interface{}) (bool, error
 		if v == nil {
 			panic(fmt.Sprintf("environment values field '%s' is nil", conditionSplit[0]))
 		}
-		if v.(map[string]interface{})["enabled"] == true {
+		if v.(map[string]any)["enabled"] == true {
 			conditionMatch = true
 		}
 	} else {
@@ -2308,7 +2308,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		Logger:        st.logger,
 		Fs:            st.fs,
 	}
-	data := map[string]interface{}{
+	data := map[string]any{
 		"HelmfileCommand": helmfileCmd,
 	}
 	return bus.Trigger(evt, evtErr, data)
@@ -2346,7 +2346,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Fs:            st.fs,
 	}
 	vals := st.Values()
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Values":          vals,
 		"Release":         r,
 		"HelmfileCommand": helmfileCmd,
@@ -2730,7 +2730,7 @@ func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path s
 	}
 
 	if match {
-		var rawYaml map[string]interface{}
+		var rawYaml map[string]any
 
 		if err := yaml.Unmarshal(rawBytes, &rawYaml); err != nil {
 			return nil, err
@@ -2823,7 +2823,7 @@ func (c MissingFileHandlerConfig) resolveFileOptions() []resolveFileOption {
 	}
 }
 
-func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []interface{}, missingFileHandler *string) ([]string, error) {
+func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []any, missingFileHandler *string) ([]string, error) {
 	generatedFiles := []string{}
 
 	for _, value := range values {
@@ -2862,7 +2862,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 			st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
 
 			generatedFiles = append(generatedFiles, valfile.Name())
-		case map[interface{}]interface{}, map[string]interface{}:
+		case map[any]any, map[string]any:
 			valfile, err := createTempValuesFile(release, typedValue)
 			if err != nil {
 				return generatedFiles, err
@@ -2889,7 +2889,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 }
 
 func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string, error) {
-	values := []interface{}{}
+	values := []any{}
 	for _, v := range release.Values {
 		switch typedValue := v.(type) {
 		case string:
@@ -2900,12 +2900,12 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 		}
 	}
 
-	valuesMapSecretsRendered, err := st.valsRuntime.Eval(map[string]interface{}{"values": values})
+	valuesMapSecretsRendered, err := st.valsRuntime.Eval(map[string]any{"values": values})
 	if err != nil {
 		return nil, err
 	}
 
-	valuesSecretsRendered, ok := valuesMapSecretsRendered["values"].([]interface{})
+	valuesSecretsRendered, ok := valuesMapSecretsRendered["values"].([]any)
 	if !ok {
 		return nil, fmt.Errorf("Failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
 	}
@@ -2919,7 +2919,7 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 }
 
 func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
-	var generatedDecryptedFiles []interface{}
+	var generatedDecryptedFiles []any
 
 	for _, v := range release.Secrets {
 		var (
@@ -3091,12 +3091,12 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 	output := make([]string, len(input))
 	if len(input) > 0 {
-		mapRendered, err := e.Eval(map[string]interface{}{"values": input})
+		mapRendered, err := e.Eval(map[string]any{"values": input})
 		if err != nil {
 			return nil, err
 		}
 
-		rendered, ok := mapRendered["values"].([]interface{})
+		rendered, ok := mapRendered["values"].([]any)
 		if !ok {
 			return nil, fmt.Errorf("type %T isn't supported", mapRendered["values"])
 		}
@@ -3165,12 +3165,12 @@ func escape(value string) string {
 
 // MarshalYAML will ensure we correctly marshal SubHelmfileSpec structure correctly so it can be unmarshalled at some
 // future time
-func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
+func (p SubHelmfileSpec) MarshalYAML() (any, error) {
 	type SubHelmfileSpecTmp struct {
-		Path               string        `yaml:"path,omitempty"`
-		Selectors          []string      `yaml:"selectors,omitempty"`
-		SelectorsInherited bool          `yaml:"selectorsInherited,omitempty"`
-		OverrideValues     []interface{} `yaml:"values,omitempty"`
+		Path               string   `yaml:"path,omitempty"`
+		Selectors          []string `yaml:"selectors,omitempty"`
+		SelectorsInherited bool     `yaml:"selectorsInherited,omitempty"`
+		OverrideValues     []any    `yaml:"values,omitempty"`
 	}
 	return &SubHelmfileSpecTmp{
 		Path:               p.Path,
@@ -3182,8 +3182,8 @@ func (p SubHelmfileSpec) MarshalYAML() (interface{}, error) {
 
 // UnmarshalYAML will unmarshal the helmfile yaml section and fill the SubHelmfileSpec structure
 // this is required go-yto keep allowing string scalar for defining helmfile
-func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var tmp interface{}
+func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(any) error) error {
+	var tmp any
 	if err := unmarshal(&tmp); err != nil {
 		return err
 	}
@@ -3191,7 +3191,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	switch i := tmp.(type) {
 	case string: // single path definition without sub items, legacy sub helmfile definition
 		hf.Path = i
-	case map[interface{}]interface{}, map[string]interface{}: // helmfile path with sub section
+	case map[any]any, map[string]any: // helmfile path with sub section
 		var subHelmfileSpecTmp struct {
 			Path               string   `yaml:"path"`
 			Selectors          []string `yaml:"selectors"`
@@ -3391,13 +3391,13 @@ func (st *HelmState) ToYaml() (string, error) {
 	}
 }
 
-func (st *HelmState) LoadYAMLForEmbedding(release *ReleaseSpec, entries []interface{}, missingFileHandler *string, pathPrefix string) ([]interface{}, error) {
-	var result []interface{}
+func (st *HelmState) LoadYAMLForEmbedding(release *ReleaseSpec, entries []any, missingFileHandler *string, pathPrefix string) ([]any, error) {
+	var result []any
 
 	for _, v := range entries {
 		switch t := v.(type) {
 		case string:
-			var values map[string]interface{}
+			var values map[string]any
 
 			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", pathPrefix+t, st.MissingFileHandlerConfig.resolveFileOptions()...)
 			if err != nil {

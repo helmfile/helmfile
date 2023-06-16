@@ -88,7 +88,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 	if len(result.ValuesTemplate) > 0 {
 		for i, t := range result.ValuesTemplate {
 			switch ts := t.(type) {
-			case map[interface{}]interface{}, map[string]interface{}:
+			case map[any]any, map[string]any:
 				serialized, err := yaml.Marshal(ts)
 				if err != nil {
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
@@ -99,7 +99,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, string(serialized), err)
 				}
 
-				var deserialized map[string]interface{}
+				var deserialized map[string]any
 
 				if err := yaml.Unmarshal(s.Bytes(), &deserialized); err != nil {
 					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%v\": %v", r.Name, i, ts, err)
@@ -114,7 +114,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 			}
 		}
 
-		var newvals []interface{}
+		var newvals []any
 		newvals = append(newvals, result.ValuesTemplate...)
 		result.Values = append(newvals, result.Values...)
 	}
@@ -127,7 +127,7 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%s\": %v", r.Name, i, ts, err)
 			}
 			result.Values[i] = s.String()
-		case map[interface{}]interface{}:
+		case map[any]any:
 			m, err := maputil.CastKeysToStrings(ts)
 			if err != nil {
 				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".values[%d] = \"%s\": %v", r.Name, i, ts, err)

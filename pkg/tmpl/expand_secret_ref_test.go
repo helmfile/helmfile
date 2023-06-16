@@ -15,10 +15,10 @@ func Test_fetchSecretValue(t *testing.T) {
 	secretsClient = c
 
 	secretPath := "ref+vault://key/#path"
-	expectArg := make(map[string]interface{})
+	expectArg := make(map[string]any)
 	expectArg["key"] = secretPath
 
-	valsResult := make(map[string]interface{})
+	valsResult := make(map[string]any)
 	valsResult["key"] = "key_value"
 	c.EXPECT().Eval(expectArg).Return(valsResult, nil)
 	result, err := fetchSecretValue(secretPath)
@@ -33,7 +33,7 @@ func Test_fetchSecretValue_error(t *testing.T) {
 	secretsClient = c
 
 	secretPath := "ref+vault://key/#path"
-	expectArg := make(map[string]interface{})
+	expectArg := make(map[string]any)
 	expectArg["key"] = secretPath
 
 	expectedErr := errors.New("some error")
@@ -50,10 +50,10 @@ func Test_fetchSecretValue_no_key(t *testing.T) {
 	secretsClient = c
 
 	secretPath := "ref+vault://key/#path"
-	expectArg := make(map[string]interface{})
+	expectArg := make(map[string]any)
 	expectArg["key"] = secretPath
 
-	valsResult := make(map[string]interface{})
+	valsResult := make(map[string]any)
 	c.EXPECT().Eval(expectArg).Return(valsResult, nil)
 	result, err := fetchSecretValue(secretPath)
 	assert.Error(t, err, "unexpected error occurred, map[] doesn't have 'key' key")
@@ -67,10 +67,10 @@ func Test_fetchSecretValue_invalid_type(t *testing.T) {
 	secretsClient = c
 
 	secretPath := "ref+vault://key/#path"
-	expectArg := make(map[string]interface{})
+	expectArg := make(map[string]any)
 	expectArg["key"] = secretPath
 
-	valsResult := make(map[string]interface{})
+	valsResult := make(map[string]any)
 	valsResult["key"] = 10
 	c.EXPECT().Eval(expectArg).Return(valsResult, nil)
 	result, err := fetchSecretValue(secretPath)

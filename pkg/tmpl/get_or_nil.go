@@ -14,10 +14,10 @@ func (e *noValueError) Error() string {
 	return e.msg
 }
 
-func get(path string, varArgs ...interface{}) (interface{}, error) {
+func get(path string, varArgs ...any) (any, error) {
 	var defSet bool
-	var def interface{}
-	var obj interface{}
+	var def any
+	var obj any
 	switch len(varArgs) {
 	case 1:
 		defSet = false
@@ -35,14 +35,14 @@ func get(path string, varArgs ...interface{}) (interface{}, error) {
 		return obj, nil
 	}
 	keys := strings.Split(path, ".")
-	var v interface{}
+	var v any
 	var ok bool
 	switch typedObj := obj.(type) {
-	case *map[string]interface{}:
+	case *map[string]any:
 		obj = *typedObj
 	}
 	switch typedObj := obj.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		v, ok = typedObj[keys[0]]
 		if !ok {
 			if defSet {
@@ -59,7 +59,7 @@ func get(path string, varArgs ...interface{}) (interface{}, error) {
 			return nil, &noValueError{fmt.Sprintf("no value exist for key \"%s\" in %v", keys[0], typedObj)}
 		}
 		return v, nil
-	case map[interface{}]interface{}:
+	case map[any]any:
 		v, ok = typedObj[keys[0]]
 		if !ok {
 			if defSet {
@@ -70,7 +70,7 @@ func get(path string, varArgs ...interface{}) (interface{}, error) {
 	default:
 		maybeStruct := reflect.ValueOf(typedObj)
 		if maybeStruct.Kind() != reflect.Struct {
-			return nil, &noValueError{fmt.Sprintf("unexpected type(%v) of value for key \"%s\": it must be either map[string]interface{} or any struct", reflect.TypeOf(obj), keys[0])}
+			return nil, &noValueError{fmt.Sprintf("unexpected type(%v) of value for key \"%s\": it must be either map[string]any or any struct", reflect.TypeOf(obj), keys[0])}
 		} else if maybeStruct.NumField() < 1 {
 			return nil, &noValueError{fmt.Sprintf("no accessible struct fields for key \"%s\"", keys[0])}
 		}
@@ -90,7 +90,7 @@ func get(path string, varArgs ...interface{}) (interface{}, error) {
 	return get(strings.Join(keys[1:], "."), v)
 }
 
-func getOrNil(path string, o interface{}) (interface{}, error) {
+func getOrNil(path string, o any) (any, error) {
 	v, err := get(path, o)
 	if err != nil {
 		switch err.(type) {

@@ -12,7 +12,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
-func (st *HelmState) Values() map[string]interface{} {
+func (st *HelmState) Values() map[string]any {
 	if st.RenderedValues == nil {
 		panic("[bug] RenderedValues is nil")
 	}
@@ -20,7 +20,7 @@ func (st *HelmState) Values() map[string]interface{} {
 	return st.RenderedValues
 }
 
-func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]interface{}) releaseTemplateData {
+func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]any) releaseTemplateData {
 	tmplData := releaseTemplateData{
 		Environment: st.Env,
 		KubeContext: st.OverrideKubeContext,

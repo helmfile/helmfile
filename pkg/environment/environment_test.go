@@ -11,8 +11,8 @@ import (
 func TestMerge_OverwriteNilValue_Issue1150(t *testing.T) {
 	dst := &Environment{
 		Name: "dst",
-		Values: map[string]interface{}{
-			"components": map[string]interface{}{
+		Values: map[string]any{
+			"components": map[string]any{
 				"etcd-operator": nil,
 			},
 		},
@@ -21,9 +21,9 @@ func TestMerge_OverwriteNilValue_Issue1150(t *testing.T) {
 
 	src := &Environment{
 		Name: "src",
-		Values: map[string]interface{}{
-			"components": map[string]interface{}{
-				"etcd-operator": map[string]interface{}{
+		Values: map[string]any{
+			"components": map[string]any{
+				"etcd-operator": map[string]any{
 					"version": "0.10.3",
 				},
 			},
@@ -38,9 +38,9 @@ func TestMerge_OverwriteNilValue_Issue1150(t *testing.T) {
 
 	actual := merged.Values
 
-	expected := map[string]interface{}{
-		"components": map[string]interface{}{
-			"etcd-operator": map[string]interface{}{
+	expected := map[string]any{
+		"components": map[string]any{
+			"etcd-operator": map[string]any{
 				"version": "0.10.3",
 			},
 		},
@@ -55,9 +55,9 @@ func TestMerge_OverwriteNilValue_Issue1150(t *testing.T) {
 func TestMerge_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	dst := &Environment{
 		Name: "dst",
-		Values: map[string]interface{}{
-			"components": map[string]interface{}{
-				"etcd-operator": map[string]interface{}{
+		Values: map[string]any{
+			"components": map[string]any{
+				"etcd-operator": map[string]any{
 					"version": "0.10.0",
 				},
 			},
@@ -67,9 +67,9 @@ func TestMerge_OverwriteWithNilValue_Issue1154(t *testing.T) {
 
 	src := &Environment{
 		Name: "src",
-		Values: map[string]interface{}{
-			"components": map[string]interface{}{
-				"etcd-operator": map[string]interface{}{
+		Values: map[string]any{
+			"components": map[string]any{
+				"etcd-operator": map[string]any{
 					"version": "0.10.3",
 				},
 				"prometheus": nil,
@@ -85,9 +85,9 @@ func TestMerge_OverwriteWithNilValue_Issue1154(t *testing.T) {
 
 	actual := merged.Values
 
-	expected := map[string]interface{}{
-		"components": map[string]interface{}{
-			"etcd-operator": map[string]interface{}{
+	expected := map[string]any{
+		"components": map[string]any{
+			"etcd-operator": map[string]any{
 				"version": "0.10.3",
 			},
 			"prometheus": nil,

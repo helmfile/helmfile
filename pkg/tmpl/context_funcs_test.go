@@ -21,8 +21,8 @@ func TestCreateFuncMap(t *testing.T) {
 		disableInsecureFeatures = false
 		ctx := &Context{basePath: "."}
 		funcMaps := ctx.createFuncMap()
-		args := make([]interface{}, 0)
-		outputExec, _ := funcMaps["exec"].(func(command string, args []interface{}, inputs ...string) (string, error))("ls", args)
+		args := make([]any, 0)
+		outputExec, _ := funcMaps["exec"].(func(command string, args []any, inputs ...string) (string, error))("ls", args)
 		require.Contains(t, outputExec, "context.go")
 	}
 
@@ -36,8 +36,8 @@ func TestCreateFuncMap_DisabledInsecureFeatures(t *testing.T) {
 		disableInsecureFeatures = true
 		ctx := &Context{basePath: "."}
 		funcMaps := ctx.createFuncMap()
-		args := make([]interface{}, 0)
-		_, err1 := funcMaps["exec"].(func(command string, args []interface{}, inputs ...string) (string, error))("ls", args)
+		args := make([]any, 0)
+		_, err1 := funcMaps["exec"].(func(command string, args []any, inputs ...string) (string, error))("ls", args)
 		require.ErrorIs(t, err1, DisableInsecureFeaturesErr)
 		_, err2 := funcMaps["readFile"].(func(filename string) (string, error))("context_funcs_test.go")
 		require.ErrorIs(t, err2, DisableInsecureFeaturesErr)
@@ -53,8 +53,8 @@ func TestCreateFuncMap_SkipInsecureTemplateFunctions(t *testing.T) {
 		skipInsecureTemplateFunctions = true
 		ctx := &Context{basePath: "."}
 		funcMaps := ctx.createFuncMap()
-		args := make([]interface{}, 0)
-		actual1, err1 := funcMaps["exec"].(func(command string, args []interface{}, inputs ...string) (string, error))("ls", args)
+		args := make([]any, 0)
+		actual1, err1 := funcMaps["exec"].(func(command string, args []any, inputs ...string) (string, error))("ls", args)
 		require.Equal(t, "", actual1)
 		require.ErrorIs(t, err1, nil)
 		actual2, err2 := funcMaps["readFile"].(func(filename string) (string, error))("context_funcs_test.go")
@@ -185,8 +185,8 @@ func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
 	})
 
 	// nolint: unconvert
-	vals := Values(map[string]interface{}{
-		"foo": map[interface{}]interface{}{
+	vals := Values(map[string]any{
+		"foo": map[any]any{
 			"bar": "BAR",
 		},
 	})
@@ -209,8 +209,8 @@ func TestToYaml(t *testing.T) {
   bar: BAR
 `
 	// nolint: unconvert
-	vals := Values(map[string]interface{}{
-		"foo": map[string]interface{}{
+	vals := Values(map[string]any{
+		"foo": map[string]any{
 			"bar": "BAR",
 		},
 	})
@@ -242,8 +242,8 @@ func TestFromYaml(t *testing.T) {
 			t,
 			true,
 			// nolint: unconvert
-			Values(map[string]interface{}{
-				"foo": map[string]interface{}{
+			Values(map[string]any{
+				"foo": map[string]any{
 					"bar": "BAR",
 				},
 			}),
@@ -255,8 +255,8 @@ func TestFromYaml(t *testing.T) {
 			t,
 			false,
 			// nolint: unconvert
-			Values(map[string]interface{}{
-				"foo": map[string]interface{}{
+			Values(map[string]any{
+				"foo": map[string]any{
 					"bar": "BAR",
 				},
 			}),
@@ -279,10 +279,10 @@ func TestFromYamlToJson(t *testing.T) {
 }
 
 func TestSetValueAtPath_OneComponent(t *testing.T) {
-	input := map[string]interface{}{
+	input := map[string]any{
 		"foo": "",
 	}
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"foo": "FOO",
 	}
 	actual, err := SetValueAtPath("foo", "FOO", input)
@@ -291,13 +291,13 @@ func TestSetValueAtPath_OneComponent(t *testing.T) {
 }
 
 func TestSetValueAtPath_TwoComponents(t *testing.T) {
-	input := map[string]interface{}{
-		"foo": map[interface{}]interface{}{
+	input := map[string]any{
+		"foo": map[any]any{
 			"bar": "",
 		},
 	}
-	expected := map[string]interface{}{
-		"foo": map[interface{}]interface{}{
+	expected := map[string]any{
+		"foo": map[any]any{
 			"bar": "FOO_BAR",
 		},
 	}
@@ -313,13 +313,13 @@ func TestTpl(t *testing.T) {
 		input    string
 		expected string
 		hasErr   bool
-		data     map[string]interface{}
+		data     map[string]any
 	}{
 		{
 			name:     "simple",
 			input:    `foo: {{ .foo }}`,
 			expected: `foo: Foo`,
-			data: map[string]interface{}{
+			data: map[string]any{
 				"foo": "Foo",
 			},
 		},
@@ -328,7 +328,7 @@ func TestTpl(t *testing.T) {
 			input: `{{ .name }}
 end`,
 			expected: "multiline\nend",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "multiline",
 			},
 		},
@@ -350,12 +350,12 @@ end`,
 func TestRequired(t *testing.T) {
 	type args struct {
 		warn string
-		val  interface{}
+		val  any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    interface{}
+		want    any
 		wantErr bool
 	}{
 		{
@@ -422,12 +422,12 @@ func TestExec(t *testing.T) {
 
 	// test that the command is executed
 	expected := "foo\n"
-	output, err := ctx.Exec("echo", []interface{}{"foo"}, "")
+	output, err := ctx.Exec("echo", []any{"foo"}, "")
 	require.Nilf(t, err, "Expected no error to be returned when executing command")
 	require.Equalf(t, expected, output, "Expected %s to be returned when executing command", expected)
 
 	// test that the command is executed with no-zero exit code
-	_, err = ctx.Exec("bash", []interface{}{"-c", "exit 1"}, "")
+	_, err = ctx.Exec("bash", []any{"-c", "exit 1"}, "")
 	require.Error(t, err, "Expected error to be returned when executing command with non-zero exit code")
 }
 
@@ -441,27 +441,27 @@ func TestEnvExec(t *testing.T) {
 	testKey := "testkey"
 
 	// test that the command is executed with environment variables
-	output, err := ctx.EnvExec(map[string]interface{}{testKey: "foo"}, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+	output, err := ctx.EnvExec(map[string]any{testKey: "foo"}, "bash", []any{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 
 	require.Nilf(t, err, "Expected no error to be returned when executing command with environment variables")
 
 	require.Equalf(t, expected, output, "Expected %s to be returned when executing command with environment variables", expected)
 
 	// test that the command is executed with invalid environment variables
-	output, err = ctx.EnvExec(map[string]interface{}{testKey: 123}, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+	output, err = ctx.EnvExec(map[string]any{testKey: 123}, "bash", []any{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 
 	require.Errorf(t, err, "Expected error to be returned when executing command with invalid environment variables")
 	require.Emptyf(t, output, "Expected empty string to be returned when executing command with invalid environment variables")
 
 	// test that the command is executed with no environment variables
-	output, err = ctx.EnvExec(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+	output, err = ctx.EnvExec(nil, "bash", []any{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 	require.Nilf(t, err, "Expected no error to be returned when executing command with no environment variables")
 
 	require.Emptyf(t, output, "Expected empty string to be returned when executing command with no environment variables")
 
 	// test that the command is executed with os environment variables
 	t.Setenv(testKey, "foo")
-	output, err = ctx.EnvExec(nil, "bash", []interface{}{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
+	output, err = ctx.EnvExec(nil, "bash", []any{"-c", fmt.Sprintf("echo -n $%s", testKey)}, "")
 
 	require.Nilf(t, err, "Expected no error to be returned when executing command with environment variables")
 

@@ -9,7 +9,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
-var emptyEnvTmplData = map[string]interface{}{
+var emptyEnvTmplData = map[string]any{
 	"Environment": environment.EmptyEnvironment,
 	"Namespace":   "",
 }

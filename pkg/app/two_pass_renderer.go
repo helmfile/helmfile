@@ -27,7 +27,7 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv, overrode *environment.
 	if err != nil {
 		return firstPassEnv, nil
 	}
-	tmplData := state.NewEnvironmentTemplateData(*initEnv, r.namespace, map[string]interface{}{})
+	tmplData := state.NewEnvironmentTemplateData(*initEnv, r.namespace, map[string]any{})
 	firstPassRenderer := tmpl.NewFirstPassRenderer(baseDir, tmplData)
 
 	// parse as much as we can, tolerate errors, this is a preparse
@@ -72,7 +72,7 @@ type RenderOpts struct {
 }
 
 func (r *desiredStateLoader) renderTemplatesToYaml(baseDir, filename string, content []byte) (*bytes.Buffer, error) {
-	env := &environment.Environment{Name: r.env, Values: map[string]interface{}(nil)}
+	env := &environment.Environment{Name: r.env, Values: map[string]any(nil)}
 
 	return r.renderTemplatesToYamlWithEnv(baseDir, filename, content, env, nil)
 }
@@ -97,7 +97,7 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	var (
 		renderingPhase string
 		finalEnv       *environment.Environment
-		vals           map[string]interface{}
+		vals           map[string]any
 	)
 
 	if runtime.V1Mode {

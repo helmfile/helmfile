@@ -9,7 +9,7 @@ import (
 func NewCLIConfigImpl(g *GlobalImpl) error {
 	optsSet := g.RawStateValuesSet()
 	if len(optsSet) > 0 {
-		set := map[string]interface{}{}
+		set := map[string]any{}
 		for i := range optsSet {
 			ops := strings.Split(optsSet[i], ",")
 			for j := range ops {

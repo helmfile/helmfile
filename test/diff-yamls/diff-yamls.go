@@ -128,7 +128,7 @@ func globYamlFilenames(dir string) (sets.Set[string], error) {
 	return set, nil
 }
 
-type resource map[string]interface{}
+type resource map[string]any
 
 type meta struct {
 	apiVersion string
@@ -146,7 +146,7 @@ func (res resource) getMeta() meta {
 	m.apiVersion = apiVersion
 	kind, _ := res["kind"].(string)
 	m.kind = kind
-	metadata, _ := res["metadata"].(map[string]interface{})
+	metadata, _ := res["metadata"].(map[string]any)
 	name, _ := metadata["name"].(string)
 	m.name = name
 	namespace, _ := metadata["namespace"].(string)

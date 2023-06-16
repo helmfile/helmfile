@@ -10,8 +10,8 @@ import (
 type Environment struct {
 	Name        string
 	KubeContext string
-	Values      map[string]interface{}
-	Defaults    map[string]interface{}
+	Values      map[string]any
+	Defaults    map[string]any
 }
 
 var EmptyEnvironment Environment
@@ -21,8 +21,8 @@ func New(name string) *Environment {
 	return &Environment{
 		Name:        name,
 		KubeContext: "",
-		Values:      map[string]interface{}{},
-		Defaults:    map[string]interface{}{},
+		Values:      map[string]any{},
+		Defaults:    map[string]any{},
 	}
 }
 
@@ -31,7 +31,7 @@ func (e Environment) DeepCopy() Environment {
 	if err != nil {
 		panic(err)
 	}
-	var values map[string]interface{}
+	var values map[string]any
 	if err := yaml.Unmarshal(valuesBytes, &values); err != nil {
 		panic(err)
 	}
@@ -44,7 +44,7 @@ func (e Environment) DeepCopy() Environment {
 	if err != nil {
 		panic(err)
 	}
-	var defaults map[string]interface{}
+	var defaults map[string]any
 	if err := yaml.Unmarshal(defaultsBytes, &defaults); err != nil {
 		panic(err)
 	}
@@ -78,8 +78,8 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 	return &copy, nil
 }
 
-func (e *Environment) GetMergedValues() (map[string]interface{}, error) {
-	vals := map[string]interface{}{}
+func (e *Environment) GetMergedValues() (map[string]any, error) {
+	vals := map[string]any{}
 
 	if err := mergo.Merge(&vals, e.Defaults, mergo.WithOverride); err != nil {
 		return nil, err

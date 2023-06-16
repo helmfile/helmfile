@@ -11,7 +11,7 @@ import (
 )
 
 type Encoder interface {
-	Encode(interface{}) error
+	Encode(any) error
 	Close() error
 }
 
@@ -24,7 +24,7 @@ func NewEncoder(w io.Writer) Encoder {
 	return v2.NewEncoder(w)
 }
 
-func Unmarshal(data []byte, v interface{}) error {
+func Unmarshal(data []byte, v any) error {
 	if runtime.GoccyGoYaml {
 		return yaml.Unmarshal(data, v)
 	}
@@ -36,7 +36,7 @@ func Unmarshal(data []byte, v interface{}) error {
 // contained within the YAML document stream per each call.
 // When strict is true, this function ensures that every field found in the YAML document
 // to have the corresponding field in the decoded Go struct.
-func NewDecoder(data []byte, strict bool) func(interface{}) error {
+func NewDecoder(data []byte, strict bool) func(any) error {
 	if runtime.GoccyGoYaml {
 		var opts []yaml.DecodeOption
 		if strict {
@@ -48,7 +48,7 @@ func NewDecoder(data []byte, strict bool) func(interface{}) error {
 			opts...,
 		)
 
-		return func(v interface{}) error {
+		return func(v any) error {
 			return decoder.Decode(v)
 		}
 	}
@@ -56,12 +56,12 @@ func NewDecoder(data []byte, strict bool) func(interface{}) error {
 	decoder := v2.NewDecoder(bytes.NewReader(data))
 	decoder.SetStrict(strict)
 
-	return func(v interface{}) error {
+	return func(v any) error {
 		return decoder.Decode(v)
 	}
 }
 
-func Marshal(v interface{}) ([]byte, error) {
+func Marshal(v any) ([]byte, error) {
 	if runtime.GoccyGoYaml {
 		var b bytes.Buffer
 		yamlEncoder := yaml.NewEncoder(

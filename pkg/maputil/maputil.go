@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-func CastKeysToStrings(s interface{}) (map[string]interface{}, error) {
-	new := map[string]interface{}{}
+func CastKeysToStrings(s any) (map[string]any, error) {
+	new := map[string]any{}
 	switch src := s.(type) {
-	case map[interface{}]interface{}:
+	case map[any]any:
 		for k, v := range src {
 			var strK string
 			switch typedK := k.(type) {
@@ -25,7 +25,7 @@ func CastKeysToStrings(s interface{}) (map[string]interface{}, error) {
 
 			new[strK] = castedV
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		for k, v := range src {
 			castedV, err := recursivelyStringifyMapKey(v)
 			if err != nil {
@@ -38,17 +38,17 @@ func CastKeysToStrings(s interface{}) (map[string]interface{}, error) {
 	return new, nil
 }
 
-func recursivelyStringifyMapKey(v interface{}) (interface{}, error) {
-	var castedV interface{}
+func recursivelyStringifyMapKey(v any) (any, error) {
+	var castedV any
 	switch typedV := v.(type) {
-	case map[interface{}]interface{}, map[string]interface{}:
+	case map[any]any, map[string]any:
 		tmp, err := CastKeysToStrings(typedV)
 		if err != nil {
 			return nil, err
 		}
 		castedV = tmp
-	case []interface{}:
-		a := []interface{}{}
+	case []any:
+		a := []any{}
 		for i := range typedV {
 			res, err := recursivelyStringifyMapKey(typedV[i])
 			if err != nil {
@@ -64,28 +64,28 @@ func recursivelyStringifyMapKey(v interface{}) (interface{}, error) {
 }
 
 type arg interface {
-	getMap(map[string]interface{}) map[string]interface{}
-	set(map[string]interface{}, string)
+	getMap(map[string]any) map[string]any
+	set(map[string]any, string)
 }
 
 type keyArg struct {
 	key string
 }
 
-func (a keyArg) getMap(m map[string]interface{}) map[string]interface{} {
+func (a keyArg) getMap(m map[string]any) map[string]any {
 	_, ok := m[a.key]
 	if !ok {
-		m[a.key] = map[string]interface{}{}
+		m[a.key] = map[string]any{}
 	}
 	switch t := m[a.key].(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return t
 	default:
 		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
 	}
 }
 
-func (a keyArg) set(m map[string]interface{}, value string) {
+func (a keyArg) set(m map[string]any, value string) {
 	m[a.key] = value
 }
 
@@ -94,15 +94,15 @@ type indexedKeyArg struct {
 	index int
 }
 
-func (a indexedKeyArg) getArray(m map[string]interface{}) []interface{} {
+func (a indexedKeyArg) getArray(m map[string]any) []any {
 	_, ok := m[a.key]
 	if !ok {
-		m[a.key] = make([]interface{}, a.index+1)
+		m[a.key] = make([]any, a.index+1)
 	}
 	switch t := m[a.key].(type) {
-	case []interface{}:
+	case []any:
 		if len(t) <= a.index {
-			t2 := make([]interface{}, a.index+1)
+			t2 := make([]any, a.index+1)
 			copy(t2, t)
 			t = t2
 		}
@@ -112,20 +112,20 @@ func (a indexedKeyArg) getArray(m map[string]interface{}) []interface{} {
 	}
 }
 
-func (a indexedKeyArg) getMap(m map[string]interface{}) map[string]interface{} {
+func (a indexedKeyArg) getMap(m map[string]any) map[string]any {
 	t := a.getArray(m)
 	if t[a.index] == nil {
-		t[a.index] = map[string]interface{}{}
+		t[a.index] = map[string]any{}
 	}
 	switch t := t[a.index].(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return t
 	default:
 		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
 	}
 }
 
-func (a indexedKeyArg) set(m map[string]interface{}, value string) {
+func (a indexedKeyArg) set(m map[string]any, value string) {
 	t := a.getArray(m)
 	t[a.index] = value
 	m[a.key] = t
@@ -178,7 +178,7 @@ func ParseKey(key string) []string {
 	return r
 }
 
-func Set(m map[string]interface{}, key []string, value string) {
+func Set(m map[string]any, key []string, value string) {
 	if len(key) == 0 {
 		panic(fmt.Errorf("bug: unexpected length of key: %d", len(key)))
 	}

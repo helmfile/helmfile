@@ -31,8 +31,8 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Version:        "{{ .Release.Name }}-0.1",
 				Name:           "test-app",
 				Namespace:      "test-namespace-{{ .Release.Name }}",
-				ValuesTemplate: []interface{}{"config/{{ .Environment.Name }}/{{ .Release.Name }}/values.yaml"},
-				Secrets:        []interface{}{"config/{{ .Environment.Name }}/{{ .Release.Name }}/secrets.yaml"},
+				ValuesTemplate: []any{"config/{{ .Environment.Name }}/{{ .Release.Name }}/values.yaml"},
+				Secrets:        []any{"config/{{ .Environment.Name }}/{{ .Release.Name }}/secrets.yaml"},
 				Labels:         map[string]string{"id": "{{ .Release.Name }}"},
 			},
 			want: ReleaseSpec{
@@ -40,8 +40,8 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Version:   "test-app-0.1",
 				Name:      "test-app",
 				Namespace: "test-namespace-test-app",
-				Values:    []interface{}{"config/test_env/test-app/values.yaml"},
-				Secrets:   []interface{}{"config/test_env/test-app/secrets.yaml"},
+				Values:    []any{"config/test_env/test-app/values.yaml"},
+				Secrets:   []any{"config/test_env/test-app/secrets.yaml"},
 				Labels:    map[string]string{"id": "test-app"},
 			},
 		},
@@ -112,14 +112,14 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Verify:         nil,
 				Name:           "app",
 				Namespace:      "dev",
-				ValuesTemplate: []interface{}{map[string]string{"key": "{{ .Release.Name }}-val0"}},
+				ValuesTemplate: []any{map[string]string{"key": "{{ .Release.Name }}-val0"}},
 			},
 			want: ReleaseSpec{
 				Chart:     "test-charts/chart",
 				Verify:    nil,
 				Name:      "app",
 				Namespace: "dev",
-				Values:    []interface{}{map[string]interface{}{"key": "app-val0"}},
+				Values:    []any{map[string]any{"key": "app-val0"}},
 			},
 		},
 	}
@@ -140,7 +140,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 						tt.input,
 					},
 				},
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 
 			r, err := state.ExecuteTemplates()
@@ -237,7 +237,7 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 						tt.input,
 					},
 				},
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 
 			r, err := state.ExecuteTemplates()
