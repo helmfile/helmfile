@@ -15,7 +15,7 @@ type ConfigProvider interface {
 	Namespace() string
 	Chart() string
 	Selectors() []string
-	StateValuesSet() map[string]interface{}
+	StateValuesSet() map[string]any
 	StateValuesFiles() []string
 	Env() string
 
@@ -266,7 +266,7 @@ type ListConfigProvider interface {
 	SkipCharts() bool
 }
 
-type CacheConfigProvider interface{}
+type CacheConfigProvider any
 
 type InitConfigProvider interface {
 	Force() bool

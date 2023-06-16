@@ -21,7 +21,7 @@ type tmplTestCase struct {
 	// tmplString is the template string to be parsed
 	tmplString string
 	// data is the data to be passed to the template
-	data interface{}
+	data any
 	// wantErr is true if the template should fail to parse
 	wantErr bool
 	// output is the expected output of the template
@@ -172,9 +172,9 @@ var fromYamlTestCases = []tmplTestCase{
 
 var setValueAtPathTestCases = []tmplTestCase{
 	{
-		data: map[string]interface{}{
-			"root": map[string]interface{}{
-				"testKey": map[string]interface{}{
+		data: map[string]any{
+			"root": map[string]any{
+				"testKey": map[string]any{
 					"testKey2": "test",
 				},
 			},
@@ -185,7 +185,7 @@ var setValueAtPathTestCases = []tmplTestCase{
 		output: "testNewValue",
 	},
 	{
-		data: map[string]interface{}{
+		data: map[string]any{
 			"root": "test",
 		},
 		wantErr:    true,
@@ -196,9 +196,9 @@ var setValueAtPathTestCases = []tmplTestCase{
 
 var getTestCases = []tmplTestCase{
 	{
-		data: map[string]interface{}{
-			"root": map[string]interface{}{
-				"testGetKey": map[string]interface{}{
+		data: map[string]any{
+			"root": map[string]any{
+				"testGetKey": map[string]any{
 					"testGetKey2": "test",
 				},
 			},
@@ -208,9 +208,9 @@ var getTestCases = []tmplTestCase{
 		output:     "test",
 	},
 	{
-		data: map[string]interface{}{
-			"root": map[string]interface{}{
-				"testGetKey": map[string]interface{}{
+		data: map[string]any{
+			"root": map[string]any{
+				"testGetKey": map[string]any{
 					"testGetKey2": "test",
 				},
 			},
@@ -223,7 +223,7 @@ var getTestCases = []tmplTestCase{
 
 var tplTestCases = []tmplTestCase{
 	{
-		data: map[string]interface{}{
+		data: map[string]any{
 			"root": "tplvalue",
 		},
 		name:       "tpl",
@@ -231,7 +231,7 @@ var tplTestCases = []tmplTestCase{
 		output:     "tplvalue",
 	},
 	{
-		data:       map[string]interface{}{},
+		data:       map[string]any{},
 		name:       "tplInvalidTemplate",
 		wantErr:    true,
 		tmplString: `{{ . | tpl "{{ .root }}" }}`,

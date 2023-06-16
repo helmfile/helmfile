@@ -33,14 +33,14 @@ func (_m *MockvalClient) EXPECT() *MockvalClientMockRecorder {
 }
 
 // Eval mocks base method
-func (_m *MockvalClient) Eval(template map[string]interface{}) (map[string]interface{}, error) {
+func (_m *MockvalClient) Eval(template map[string]any) (map[string]any, error) {
 	ret := _m.ctrl.Call(_m, "Eval", template)
-	ret0, _ := ret[0].(map[string]interface{})
+	ret0, _ := ret[0].(map[string]any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Eval indicates an expected call of Eval
-func (_mr *MockvalClientMockRecorder) Eval(arg0 interface{}) *gomock.Call {
+func (_mr *MockvalClientMockRecorder) Eval(arg0 any) *gomock.Call {
 	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "Eval", reflect.TypeOf((*MockvalClient)(nil).Eval), arg0)
 }

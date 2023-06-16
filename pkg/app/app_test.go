@@ -40,7 +40,7 @@ func injectFs(app *App, fs *testhelper.TestFs) *App {
 	if app.Set == nil {
 		// Consistent behavior with NewGlobalImpl.
 		// Doesn't really belong here, but simplest place for it until some refactoring happens
-		app.Set = make(map[string]interface{})
+		app.Set = make(map[string]any)
 	}
 
 	app.fs = fs.ToFileSystem()
@@ -1019,7 +1019,7 @@ bar: "bar1"
 			Selectors:           []string{},
 			Env:                 "default",
 			ValuesFiles:         []string{"overrides.yaml"},
-			Set:                 map[string]interface{}{"bar": "bar2", "baz": "baz1"},
+			Set:                 map[string]any{"bar": "bar2", "baz": "baz1"},
 			FileOrDir:           "helmfile.yaml",
 		}, files)
 
@@ -1140,7 +1140,7 @@ x:
 				Selectors:           []string{},
 				Env:                 testcase.env,
 				ValuesFiles:         []string{"overrides.yaml"},
-				Set:                 map[string]interface{}{"x": map[string]interface{}{"hoge": "hoge_set", "fuga": "fuga_set"}},
+				Set:                 map[string]any{"x": map[string]any{"hoge": "hoge_set", "fuga": "fuga_set"}},
 				FileOrDir:           "helmfile.yaml",
 			}, files)
 
@@ -1920,15 +1920,15 @@ releases:
 // See https://github.com/roboll/helmfile/issues/623
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_MergeMapsVariousKeys(t *testing.T) {
 	type testcase struct {
-		overrideValues interface{}
+		overrideValues any
 		expected       string
 	}
 	testcases := []testcase{
-		{map[interface{}]interface{}{"foo": "FOO"}, `FOO`},
-		{map[interface{}]interface{}{"foo": map[interface{}]interface{}{"foo": "FOO"}}, `map[foo:FOO]`},
-		{map[interface{}]interface{}{"foo": map[string]interface{}{"foo": "FOO"}}, `map[foo:FOO]`},
-		{map[interface{}]interface{}{"foo": []interface{}{"foo"}}, `[foo]`},
-		{map[interface{}]interface{}{"foo": "FOO"}, `FOO`},
+		{map[any]any{"foo": "FOO"}, `FOO`},
+		{map[any]any{"foo": map[any]any{"foo": "FOO"}}, `map[foo:FOO]`},
+		{map[any]any{"foo": map[string]any{"foo": "FOO"}}, `map[foo:FOO]`},
+		{map[any]any{"foo": []any{"foo"}}, `[foo]`},
+		{map[any]any{"foo": "FOO"}, `FOO`},
 	}
 	for i := range testcases {
 		tc := testcases[i]
@@ -1960,7 +1960,7 @@ releases:
 		opts := LoadOpts{
 			CalleePath: statePath,
 			Environment: state.SubhelmfileEnvironmentSpec{
-				OverrideValues: []interface{}{tc.overrideValues},
+				OverrideValues: []any{tc.overrideValues},
 			},
 			Reverse: true,
 		}
@@ -2017,7 +2017,7 @@ releases:
 		{stateInline, `{{ if hasKey .Environment.Values "bar" }}{{ .Environment.Values.bar.baz }}{{ end }}`, `BAZ`},
 		{stateInline, `{{ if (keys .Environment.Values | has "foo") }}{{ .Environment.Values.foo }}{{ end }}`, `FOO`},
 		// See https://github.com/roboll/helmfile/issues/624
-		// This fails when .Environment.Values.bar is not map[string]interface{}. At the time of #624 it was map[interface{}]interface{}, which sprig's dict funcs don't support.
+		// This fails when .Environment.Values.bar is not map[string]any. At the time of #624 it was map[any]any, which sprig's dict funcs don't support.
 		{stateInline, `{{ if (keys .Environment.Values | has "bar") }}{{ if (keys .Environment.Values.bar | has "baz") }}{{ .Environment.Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
 		{stateExternal, `{{ getOrNil "foo" .Environment.Values }}`, `FOO`},
 		{stateExternal, `{{ getOrNil "baz" (getOrNil "bar" .Environment.Values) }}`, `BAZ`},
@@ -2035,7 +2035,7 @@ releases:
 		{stateInline, `{{ if hasKey .Values "bar" }}{{ .Values.bar.baz }}{{ end }}`, `BAZ`},
 		{stateInline, `{{ if (keys .Values | has "foo") }}{{ .Values.foo }}{{ end }}`, `FOO`},
 		// See https://github.com/roboll/helmfile/issues/624
-		// This fails when .Values.bar is not map[string]interface{}. At the time of #624 it was map[interface{}]interface{}, which sprig's dict funcs don't support.
+		// This fails when .Values.bar is not map[string]any. At the time of #624 it was map[any]any, which sprig's dict funcs don't support.
 		{stateInline, `{{ if (keys .Values | has "bar") }}{{ if (keys .Values.bar | has "baz") }}{{ .Values.bar.baz }}{{ end }}{{ end }}`, `BAZ`},
 		{stateExternal, `{{ getOrNil "foo" .Values }}`, `FOO`},
 		{stateExternal, `{{ getOrNil "baz" (getOrNil "bar" .Values) }}`, `BAZ`},
@@ -4204,9 +4204,9 @@ releases:
     value: val-{{"{{ .Release.Name }}"}}
 `,
 	}
-	expectedValues := []interface{}{
-		map[string]interface{}{"val1": "zipkin"},
-		map[string]interface{}{"val2": "val2"}}
+	expectedValues := []any{
+		map[string]any{"val1": "zipkin"},
+		map[string]any{"val2": "val2"}}
 	expectedSetValues := []state.SetValue{
 		{Name: "name-zipkin", Value: "val-zipkin"},
 		{Name: "name", Value: "val"}}

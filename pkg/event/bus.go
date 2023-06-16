@@ -42,7 +42,7 @@ type Bus struct {
 	Logger *zap.SugaredLogger
 }
 
-func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}) (bool, error) {
+func (bus *Bus) Trigger(evt string, evtErr error, context map[string]any) (bool, error) {
 	if bus.Runner == nil {
 		bus.Runner = helmexec.ShellRunner{
 			Dir:    bus.BasePath,
@@ -94,7 +94,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]interface{}
 
 		bus.Logger.Debugf("hook[%s]: stateFilePath=%s, basePath=%s\n", name, bus.StateFilePath, bus.BasePath)
 
-		data := map[string]interface{}{
+		data := map[string]any{
 			"Environment": bus.Env,
 			"Namespace":   bus.Namespace,
 			"Event": event{

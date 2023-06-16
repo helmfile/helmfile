@@ -10,7 +10,7 @@ import (
 
 // TestTextRenderer tests the text renderer.
 func TestNewTextRenderer(t *testing.T) {
-	tData := map[string]interface{}{
+	tData := map[string]any{
 		"foo": "bar",
 	}
 	tr := NewTextRenderer(filesystem.DefaultFileSystem(), ".", tData)
@@ -20,7 +20,7 @@ func TestNewTextRenderer(t *testing.T) {
 
 // TestTextRenderer tests the text renderer.
 func TestTextRender(t *testing.T) {
-	tData := map[string]interface{}{
+	tData := map[string]any{
 		"foot": "bart",
 	}
 	tr := NewTextRenderer(filesystem.DefaultFileSystem(), ".", tData)

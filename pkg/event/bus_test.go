@@ -159,7 +159,7 @@ func TestTrigger(t *testing.T) {
 		}
 
 		bus.Runner = &runner{}
-		data := map[string]interface{}{
+		data := map[string]any{
 			"Release":         "myrel",
 			"HelmfileCommand": "mycmd",
 		}

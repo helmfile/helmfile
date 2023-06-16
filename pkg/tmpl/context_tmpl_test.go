@@ -40,8 +40,8 @@ func TestRenderTemplate_WithData(t *testing.T) {
   bar: FOO_BAR
 `
 	expectedFilename := "values.yaml"
-	data := map[string]interface{}{
-		"foo": map[string]interface{}{
+	data := map[string]any{
+		"foo": map[string]any{
 			"bar": "FOO_BAR",
 		},
 	}
@@ -69,7 +69,7 @@ func TestRenderTemplate_AccessingMissingKeyWithGetOrNil(t *testing.T) {
   bar: <no value>
 `
 	expectedFilename := "values.yaml"
-	data := map[string]interface{}{}
+	data := map[string]any{}
 	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
@@ -94,7 +94,7 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
   bar: DEFAULT
 `
 	expectedFilename := "values.yaml"
-	data := map[string]interface{}{}
+	data := map[string]any{}
 	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
 		if filename != expectedFilename {
 			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
@@ -111,7 +111,7 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 	}
 }
 
-func renderTemplateToString(s string, data ...interface{}) (string, error) {
+func renderTemplateToString(s string, data ...any) (string, error) {
 	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected call to readFile: filename=%s", filename)
 	}}}
@@ -126,7 +126,7 @@ func Test_renderTemplateToString(t *testing.T) {
 	type args struct {
 		s    string
 		envs map[string]string
-		data interface{}
+		data any
 	}
 	tests := []struct {
 		name    string
@@ -184,7 +184,7 @@ func Test_renderTemplateToString(t *testing.T) {
 			args: args{
 				s:    `{{ . | get "Foo" }}, {{ . | get "Bar" "2" }}`,
 				envs: map[string]string{},
-				data: map[string]interface{}{
+				data: map[string]any{
 					"Foo": "1",
 				},
 			},
@@ -253,14 +253,14 @@ func TestRenderTemplate_Required(t *testing.T) {
 	tests := []struct {
 		name    string
 		s       string
-		data    map[string]interface{}
+		data    map[string]any
 		want    string
 		wantErr bool
 	}{
 		{
 			name: ".foo is existed",
 			s:    `{{ required ".foo.bar is required" .foo }}`,
-			data: map[string]interface{}{
+			data: map[string]any{
 				"foo": "bar",
 			},
 			want:    "bar",
@@ -269,8 +269,8 @@ func TestRenderTemplate_Required(t *testing.T) {
 		{
 			name: ".foo.bar is existed",
 			s:    `{{ required "foo.bar is required" .foo.bar }}`,
-			data: map[string]interface{}{
-				"foo": map[string]interface{}{
+			data: map[string]any{
+				"foo": map[string]any{
 					"bar": "FOO_BAR",
 				},
 			},
@@ -280,8 +280,8 @@ func TestRenderTemplate_Required(t *testing.T) {
 		{
 			name: ".foo.bar is existed but value is nil",
 			s:    `{{ required "foo.bar is required" .foo.bar }}`,
-			data: map[string]interface{}{
-				"foo": map[string]interface{}{
+			data: map[string]any{
+				"foo": map[string]any{
 					"bar": nil,
 				},
 			},
@@ -290,8 +290,8 @@ func TestRenderTemplate_Required(t *testing.T) {
 		{
 			name: ".foo.bar is existed but value is empty string",
 			s:    `{{ required "foo.bar is required" .foo.bar }}`,
-			data: map[string]interface{}{
-				"foo": map[string]interface{}{
+			data: map[string]any{
+				"foo": map[string]any{
 					"bar": "",
 				},
 			},
@@ -300,7 +300,7 @@ func TestRenderTemplate_Required(t *testing.T) {
 		{
 			name: ".foo is nil",
 			s:    `{{ required "foo is required" .foo }}`,
-			data: map[string]interface{}{
+			data: map[string]any{
 				"foo": nil,
 			},
 			wantErr: true,
@@ -308,7 +308,7 @@ func TestRenderTemplate_Required(t *testing.T) {
 		{
 			name: ".foo is a empty string",
 			s:    `{{ required "foo is required" .foo }}`,
-			data: map[string]interface{}{
+			data: map[string]any{
 				"foo": "",
 			},
 			wantErr: true,

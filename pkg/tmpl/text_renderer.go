@@ -7,14 +7,14 @@ import (
 type templateTextRenderer struct {
 	ReadText func(string) ([]byte, error)
 	Context  *Context
-	Data     interface{}
+	Data     any
 }
 
 type TextRenderer interface {
 	RenderTemplateText(text string) (string, error)
 }
 
-func NewTextRenderer(fs *filesystem.FileSystem, basePath string, data interface{}) *templateTextRenderer {
+func NewTextRenderer(fs *filesystem.FileSystem, basePath string, data any) *templateTextRenderer {
 	return &templateTextRenderer{
 		ReadText: fs.ReadFile,
 		Context: &Context{

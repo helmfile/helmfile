@@ -1350,7 +1350,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			if errs := state.SyncReleases(&AffectedReleases{}, tt.helm, []string{}, 1); len(errs) > 0 {
 				if len(errs) != len(tt.wantErrorMsgs) {
@@ -1418,7 +1418,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			release: ReleaseSpec{
 				Name:   "foo",
 				Chart:  "../../foo-bar",
-				Values: []interface{}{"noexistent.values.yaml"},
+				Values: []any{"noexistent.values.yaml"},
 			},
 			listResult:    ``,
 			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist in "."`,
@@ -1428,7 +1428,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			release: ReleaseSpec{
 				Name:   "foo",
 				Chart:  "../../foo-bar",
-				Values: []interface{}{"noexistent.values.yaml"},
+				Values: []any{"noexistent.values.yaml"},
 			},
 			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
 										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
@@ -1439,7 +1439,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			release: ReleaseSpec{
 				Name:      "foo",
 				Chart:     "../../foo-bar",
-				Values:    []interface{}{"noexistent.values.yaml"},
+				Values:    []any{"noexistent.values.yaml"},
 				Installed: &no,
 			},
 			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
@@ -1457,7 +1457,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			fs := testhelper.NewTestFs(map[string]string{})
 			state = injectFs(state, fs)
@@ -1604,7 +1604,7 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
@@ -1717,7 +1717,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 
 			helm := &exectest.Helm{
@@ -1836,7 +1836,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			_, errs := state.DiffReleases(tt.helm, []string{}, 1, false, false, false, []string{}, false, false, false, false, false)
 			if len(errs) > 0 {
@@ -1879,7 +1879,7 @@ func TestHelmState_DiffFlags(t *testing.T) {
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			for j := range tt.releases {
 				flags, _, errs := state.flagsForDiff(tt.helm, &tt.releases[j], false, 1, nil)
@@ -1918,8 +1918,8 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 				{
 					Name:  "releaseName",
 					Chart: "foo",
-					Values: []interface{}{
-						map[interface{}]interface{}{
+					Values: []any{
+						map[any]any{
 							"someList": "a,b,c",
 						},
 					},
@@ -1934,8 +1934,8 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 				{
 					Name:  "releaseName",
 					Chart: "foo",
-					Values: []interface{}{
-						map[interface{}]interface{}{
+					Values: []any{
+						map[any]any{
 							"someList": "a,b,c",
 						},
 						"someFile",
@@ -1956,7 +1956,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: FOO`,
@@ -2005,8 +2005,8 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				{
 					Name:  "releaseName",
 					Chart: "foo",
-					Values: []interface{}{
-						map[interface{}]interface{}{
+					Values: []any{
+						map[any]any{
 							"someList": "a,b,c",
 						},
 					},
@@ -2021,8 +2021,8 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				{
 					Name:  "releaseName",
 					Chart: "foo",
-					Values: []interface{}{
-						map[interface{}]interface{}{
+					Values: []any{
+						map[any]any{
 							"someList": "a,b,c",
 						},
 						"someFile",
@@ -2043,7 +2043,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			testfs := testhelper.NewTestFs(map[string]string{
 				"/path/to/someFile": `foo: bar
@@ -2301,7 +2301,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			releases: []ReleaseSpec{
 				{
 					Name: "error",
-					Values: []interface{}{
+					Values: []any{
 						"foo.yaml",
 					},
 				},
@@ -2314,7 +2314,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 			releases: []ReleaseSpec{
 				{
 					Name: "error",
-					Values: []interface{}{
+					Values: []any{
 						"foo.yaml",
 					},
 					Installed: boolValue(false),
@@ -2425,7 +2425,7 @@ func TestConditionEnabled(t *testing.T) {
 	tests := []struct {
 		name      string
 		condition string
-		values    map[string]interface{}
+		values    map[string]any
 		want      bool
 		wantErr   bool
 		wantPanic bool
@@ -2433,8 +2433,8 @@ func TestConditionEnabled(t *testing.T) {
 		{
 			name:      "enabled",
 			condition: "foo.enabled",
-			values: map[string]interface{}{
-				"foo": map[string]interface{}{
+			values: map[string]any{
+				"foo": map[string]any{
 					"enabled": true,
 				},
 			},
@@ -2443,8 +2443,8 @@ func TestConditionEnabled(t *testing.T) {
 		{
 			name:      "disabled",
 			condition: "foo.enabled",
-			values: map[string]interface{}{
-				"foo": map[string]interface{}{
+			values: map[string]any{
+				"foo": map[string]any{
 					"enabled": false,
 				},
 			},
@@ -2453,8 +2453,8 @@ func TestConditionEnabled(t *testing.T) {
 		{
 			name:      "missing enabled",
 			condition: "foo.enabled",
-			values: map[string]interface{}{
-				"foo": map[string]interface{}{
+			values: map[string]any{
+				"foo": map[string]any{
 					"something else": false,
 				},
 			},
@@ -2463,7 +2463,7 @@ func TestConditionEnabled(t *testing.T) {
 		{
 			name:      "foo nil",
 			condition: "foo.enabled",
-			values: map[string]interface{}{
+			values: map[string]any{
 				"foo": nil,
 			},
 			wantPanic: true,
@@ -2471,7 +2471,7 @@ func TestConditionEnabled(t *testing.T) {
 		{
 			name:      "foo missing",
 			condition: "foo.enabled",
-			values:    map[string]interface{}{},
+			values:    map[string]any{},
 			wantPanic: true,
 		},
 		{
@@ -2564,7 +2564,7 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 					Releases: releases,
 				},
 				logger:         logger,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			state.Selectors = []string{tt.labels}
 			errs := state.FilterReleases(false)
@@ -2725,7 +2725,7 @@ func TestHelmState_Delete(t *testing.T) {
 					Releases: releases,
 				},
 				logger:         logger,
-				RenderedValues: map[string]interface{}{},
+				RenderedValues: map[string]any{},
 			}
 			helm := &exectest.Helm{
 				Lists:   map[exectest.ListKey]string{},

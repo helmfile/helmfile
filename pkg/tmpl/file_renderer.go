@@ -11,10 +11,10 @@ import (
 type FileRenderer struct {
 	fs      *filesystem.FileSystem
 	Context *Context
-	Data    interface{}
+	Data    any
 }
 
-func NewFileRenderer(fs *filesystem.FileSystem, basePath string, data interface{}) *FileRenderer {
+func NewFileRenderer(fs *filesystem.FileSystem, basePath string, data any) *FileRenderer {
 	return &FileRenderer{
 		fs: fs,
 		Context: &Context{
@@ -25,7 +25,7 @@ func NewFileRenderer(fs *filesystem.FileSystem, basePath string, data interface{
 	}
 }
 
-func NewFirstPassRenderer(basePath string, data interface{}) *FileRenderer {
+func NewFirstPassRenderer(basePath string, data any) *FileRenderer {
 	fs := filesystem.DefaultFileSystem()
 	return &FileRenderer{
 		fs: fs,

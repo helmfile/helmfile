@@ -34,11 +34,11 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 	}
 }
 
-func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []interface{}, ctxEnv *environment.Environment, envName string) (map[string]interface{}, error) {
-	result := map[string]interface{}{}
+func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
+	result := map[string]any{}
 
 	for _, entry := range valuesEntries {
-		maps := []interface{}{}
+		maps := []any{}
 
 		switch strOrMap := entry.(type) {
 		case string:
@@ -58,27 +58,27 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 					env = *ctxEnv
 				}
 
-				tmplData := NewEnvironmentTemplateData(env, "", map[string]interface{}{})
+				tmplData := NewEnvironmentTemplateData(env, "", map[string]any{})
 				r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
 				bytes, err := r.RenderToBytes(f)
 				if err != nil {
 					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)
 				}
-				m := map[string]interface{}{}
+				m := map[string]any{}
 				if err := yaml.Unmarshal(bytes, &m); err != nil {
 					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
 				}
 				maps = append(maps, m)
 				ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
 			}
-		case map[interface{}]interface{}, map[string]interface{}:
+		case map[any]any, map[string]any:
 			maps = append(maps, strOrMap)
 		default:
 			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", strOrMap, strOrMap)
 		}
 		for _, m := range maps {
 			// All the nested map key should be string. Otherwise we get strange errors due to that
-			// mergo or reflect is unable to merge map[interface{}]interface{} with map[string]interface{} or vice versa.
+			// mergo or reflect is unable to merge map[any]any with map[string]any or vice versa.
 			// See https://github.com/roboll/helmfile/issues/677
 			vals, err := maputil.CastKeysToStrings(m)
 			if err != nil {

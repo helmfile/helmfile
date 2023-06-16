@@ -43,14 +43,14 @@ func (c *Context) newTemplate() *template.Template {
 	return tmpl
 }
 
-func (c *Context) RenderTemplateToBuffer(s string, data ...interface{}) (*bytes.Buffer, error) {
+func (c *Context) RenderTemplateToBuffer(s string, data ...any) (*bytes.Buffer, error) {
 	var t, parseErr = c.newTemplate().Parse(s)
 	if parseErr != nil {
 		return nil, parseErr
 	}
 
 	var tplString bytes.Buffer
-	var d interface{}
+	var d any
 	if len(data) > 0 {
 		d = data[0]
 	}

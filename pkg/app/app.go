@@ -41,7 +41,7 @@ type App struct {
 	Selectors   []string
 	Args        string
 	ValuesFiles []string
-	Set         map[string]interface{}
+	Set         map[string]any
 
 	FileOrDir string
 
@@ -1056,7 +1056,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		o(&opts)
 	}
 
-	envvals := []interface{}{}
+	envvals := []any{}
 
 	for _, v := range a.ValuesFiles {
 		envvals = append(envvals, v)

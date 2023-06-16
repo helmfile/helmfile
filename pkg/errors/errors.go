@@ -51,11 +51,11 @@ type ExitCoder interface {
 // ExitError fulfills both the builtin `error` interface and `ExitCoder`
 type ExitError struct {
 	exitCode int
-	message  interface{}
+	message  any
 }
 
 // NewExitError makes a new *ExitError
-func NewExitError(message interface{}, exitCode int) *ExitError {
+func NewExitError(message any, exitCode int) *ExitError {
 	return &ExitError{
 		exitCode: exitCode,
 		message:  message,

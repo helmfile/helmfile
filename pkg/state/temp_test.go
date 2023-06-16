@@ -10,7 +10,7 @@ func TestGenerateID(t *testing.T) {
 	type testcase struct {
 		subject string
 		release ReleaseSpec
-		data    interface{}
+		data    any
 		want    string
 	}
 
@@ -51,7 +51,7 @@ func TestGenerateID(t *testing.T) {
 	run(testcase{
 		subject: "different map content",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw"},
-		data:    map[string]interface{}{"k": "v"},
+		data:    map[string]any{"k": "v"},
 		want:    "foo-values-77cdb7dbb6",
 	})
 

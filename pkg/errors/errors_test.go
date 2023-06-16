@@ -41,7 +41,7 @@ var (
 	}
 )
 
-func expect(t *testing.T, a interface{}, b interface{}) {
+func expect(t *testing.T, a any, b any) {
 	_, fn, line, _ := runtime.Caller(1)
 	fn = strings.Replace(fn, wd+"/", "", -1)
 
