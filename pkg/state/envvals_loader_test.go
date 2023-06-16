@@ -29,13 +29,13 @@ func newLoader() *EnvironmentValuesLoader {
 func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.5.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.5.yaml"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected := map[string]interface{}{
-		"affinity": map[string]interface{}{},
+	expected := map[string]any{
+		"affinity": map[string]any{},
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
@@ -46,10 +46,10 @@ func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 	l := newLoader()
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"envName": "test",
 	}
-	emptyExpected := map[string]interface{}{
+	emptyExpected := map[string]any{
 		"envName": nil,
 	}
 
@@ -57,7 +57,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 		name     string
 		env      *environment.Environment
 		envName  string
-		expected map[string]interface{}
+		expected map[string]any
 	}{
 		{
 			name:     "env is nil but envName is not",
@@ -87,7 +87,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.6.yaml.gotmpl"}, tt.env, tt.envName)
+			actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.6.yaml.gotmpl"}, tt.env, tt.envName)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,12 +103,12 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"name": string("value"),
 	}
 
@@ -121,14 +121,14 @@ func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected := map[string]interface{}{
-		"components": map[string]interface{}{
-			"etcd-operator": map[string]interface{}{
+	expected := map[string]any{
+		"components": map[string]any{
+			"etcd-operator": map[string]any{
 				"version": "0.10.3",
 			},
 		},
@@ -143,14 +143,14 @@ func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected := map[string]interface{}{
-		"components": map[string]interface{}{
-			"etcd-operator": map[string]interface{}{
+	expected := map[string]any{
+		"components": map[string]any{
+			"etcd-operator": map[string]any{
 				"version": "0.10.3",
 			},
 			"prometheus": nil,
@@ -166,14 +166,14 @@ func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []interface{}{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected := map[string]interface{}{
-		"addons": map[string]interface{}{
-			"mychart": map[string]interface{}{
+	expected := map[string]any{
+		"addons": map[string]any{
+			"mychart": map[string]any{
 				"skip":      false,
 				"name":      "mychart",
 				"namespace": "kube-system",

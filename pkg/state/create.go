@@ -222,7 +222,7 @@ func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment
 
 // nolint: unparam
 func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv, overrode *environment.Environment) (*environment.Environment, error) {
-	envVals := map[string]interface{}{}
+	envVals := map[string]any{}
 	envSpec, ok := st.Environments[name]
 	if ok {
 		var err error
@@ -277,7 +277,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	return newEnv, nil
 }
 
-func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]interface{}) error {
+func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]any) error {
 	var errs []error
 
 	helm := c.getHelm(st)
@@ -286,7 +286,7 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 
 	type secretResult struct {
 		id     int
-		result map[string]interface{}
+		result map[string]any
 		err    error
 		path   string
 	}
@@ -327,13 +327,13 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
 					continue
 				}
-				m := map[string]interface{}{}
+				m := map[string]any{}
 				if err := yaml.Unmarshal(bytes, &m); err != nil {
 					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
 					continue
 				}
 				// All the nested map key should be string. Otherwise we get strange errors due to that
-				// mergo or reflect is unable to merge map[interface{}]interface{} with map[string]interface{} or vice versa.
+				// mergo or reflect is unable to merge map[any]any with map[string]any or vice versa.
 				// See https://github.com/roboll/helmfile/issues/677
 				vals, err := maputil.CastKeysToStrings(m)
 				if err != nil {
@@ -373,10 +373,10 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 	return nil
 }
 
-func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []interface{}, remote *remote.Remote, ctxEnv *environment.Environment, envName string) (map[string]interface{}, error) {
-	var envVals map[string]interface{}
+func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []any, remote *remote.Remote, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
+	var envVals map[string]any
 
-	valuesEntries := append([]interface{}{}, entries...)
+	valuesEntries := append([]any{}, entries...)
 	ld := NewEnvironmentValuesLoader(st.storage(), st.fs, st.logger, remote)
 	var err error
 	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries, ctxEnv, envName)

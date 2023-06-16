@@ -123,7 +123,7 @@ env: {{ .Environment.Name }}
 	barTextFile := "/example/path/to/bar.txt"
 	barTextContent := []byte("BAR")
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"foo": "FOO",
 		"bar": "BAR",
 		// As the file doesn't have an file extension ".gotmpl", this template expression should not be evaluated
@@ -212,7 +212,7 @@ bar: {{ readFile "bar.txt" }}
 	barTextFile := "/example/path/to/bar.txt"
 	barTextContent := []byte("BAR")
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"foo": "FOO",
 		"bar": "BAR",
 		// As the file doesn't have an file extension ".gotmpl", this template expression should not be evaluated

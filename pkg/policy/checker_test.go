@@ -13,7 +13,7 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 		name        string
 		filePath    string
 		v1mode      bool
-		helmState   map[string]interface{}
+		helmState   map[string]any
 		expectedErr bool
 		isStrict    bool
 	}{
@@ -21,8 +21,8 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 			name:     "no error when only releases",
 			filePath: "helmfile.yaml",
 			v1mode:   false,
-			helmState: map[string]interface{}{
-				"releases": interface{}(nil),
+			helmState: map[string]any{
+				"releases": any(nil),
 			},
 			expectedErr: false,
 			isStrict:    false,
@@ -31,8 +31,8 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 			name:     "no error when only environments",
 			filePath: "helmfile.yaml",
 			v1mode:   false,
-			helmState: map[string]interface{}{
-				"environments": map[string]interface{}{},
+			helmState: map[string]any{
+				"environments": map[string]any{},
 			},
 			expectedErr: false,
 			isStrict:    false,
@@ -41,9 +41,9 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 			name:     "error when both releases and environments",
 			filePath: "helmfile.yaml",
 			v1mode:   false,
-			helmState: map[string]interface{}{
-				"environments": interface{}(nil),
-				"releases":     interface{}(nil),
+			helmState: map[string]any{
+				"environments": any(nil),
+				"releases":     any(nil),
 			},
 			expectedErr: true,
 			isStrict:    false,
@@ -52,9 +52,9 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 			name:     "no error when both releases and environments for plain yaml on v1",
 			filePath: "helmfile.yaml",
 			v1mode:   true,
-			helmState: map[string]interface{}{
-				"environments": interface{}(nil),
-				"releases":     interface{}(nil),
+			helmState: map[string]any{
+				"environments": any(nil),
+				"releases":     any(nil),
 			},
 			expectedErr: false,
 			isStrict:    false,

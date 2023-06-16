@@ -22,7 +22,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
-type Values = map[string]interface{}
+type Values = map[string]any
 
 var DisableInsecureFeaturesErr = DisableInsecureFeaturesError{envvar.DisableInsecureFeatures + " is active, insecure function calls are disabled"}
 
@@ -65,10 +65,10 @@ func (c *Context) createFuncMap() template.FuncMap {
 	}
 	if c.preRender || skipInsecureTemplateFunctions {
 		// disable potential side-effect template calls
-		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
+		funcMap["exec"] = func(string, []any, ...string) (string, error) {
 			return "", nil
 		}
-		funcMap["envExec"] = func(map[string]interface{}, string, []interface{}, ...string) (string, error) {
+		funcMap["envExec"] = func(map[string]any, string, []any, ...string) (string, error) {
 			return "", nil
 		}
 		funcMap["readFile"] = func(string) (string, error) {
@@ -83,7 +83,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 	}
 	if disableInsecureFeatures {
 		// disable insecure functions
-		funcMap["exec"] = func(string, []interface{}, ...string) (string, error) {
+		funcMap["exec"] = func(string, []any, ...string) (string, error) {
 			return "", DisableInsecureFeaturesErr
 		}
 		funcMap["readFile"] = func(string) (string, error) {
@@ -101,7 +101,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 }
 
 // TODO: in the next major version, remove this function.
-func (c *Context) EnvExec(envs map[string]interface{}, command string, args []interface{}, inputs ...string) (string, error) {
+func (c *Context) EnvExec(envs map[string]any, command string, args []any, inputs ...string) (string, error) {
 	var input string
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -192,7 +192,7 @@ func (c *Context) EnvExec(envs map[string]interface{}, command string, args []in
 	return string(bytes), nil
 }
 
-func (c *Context) Exec(command string, args []interface{}, inputs ...string) (string, error) {
+func (c *Context) Exec(command string, args []any, inputs ...string) (string, error) {
 	return c.EnvExec(nil, command, args, inputs...)
 }
 
@@ -271,7 +271,7 @@ func (c *Context) ReadDirEntries(path string) ([]fs.DirEntry, error) {
 	return entries, nil
 }
 
-func (c *Context) Tpl(text string, data interface{}) (string, error) {
+func (c *Context) Tpl(text string, data any) (string, error) {
 	buf, err := c.RenderTemplateToBuffer(text, data)
 	if err != nil {
 		return "", err
@@ -279,7 +279,7 @@ func (c *Context) Tpl(text string, data interface{}) (string, error) {
 	return buf.String(), nil
 }
 
-func ToYaml(v interface{}) (string, error) {
+func ToYaml(v any) (string, error) {
 	data, err := yaml.Marshal(v)
 	if err != nil {
 		return "", err
@@ -288,7 +288,7 @@ func ToYaml(v interface{}) (string, error) {
 }
 
 func FromYaml(str string) (Values, error) {
-	m := map[string]interface{}{}
+	m := map[string]any{}
 
 	if err := yaml.Unmarshal([]byte(str), &m); err != nil {
 		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
@@ -302,23 +302,23 @@ func FromYaml(str string) (Values, error) {
 	return m, nil
 }
 
-func SetValueAtPath(path string, value interface{}, values Values) (Values, error) {
-	var current interface{}
+func SetValueAtPath(path string, value any, values Values) (Values, error) {
+	var current any
 	current = values
 	components := strings.Split(path, ".")
 	pathToMap := components[:len(components)-1]
 	key := components[len(components)-1]
 	for _, k := range pathToMap {
-		var elem interface{}
+		var elem any
 
 		switch typedCurrent := current.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			v, exists := typedCurrent[k]
 			if !exists {
 				return nil, fmt.Errorf("failed to set value at path \"%s\": value for key \"%s\" does not exist", path, k)
 			}
 			elem = v
-		case map[interface{}]interface{}:
+		case map[any]any:
 			v, exists := typedCurrent[k]
 			if !exists {
 				return nil, fmt.Errorf("failed to set value at path \"%s\": value for key \"%s\" does not exist", path, k)
@@ -329,7 +329,7 @@ func SetValueAtPath(path string, value interface{}, values Values) (Values, erro
 		}
 
 		switch typedElem := elem.(type) {
-		case map[string]interface{}, map[interface{}]interface{}:
+		case map[string]any, map[any]any:
 			current = typedElem
 		default:
 			return nil, fmt.Errorf("failed to set value at path \"%s\": value for key \"%s\" was not a map", path, k)
@@ -337,9 +337,9 @@ func SetValueAtPath(path string, value interface{}, values Values) (Values, erro
 	}
 
 	switch typedCurrent := current.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		typedCurrent[key] = value
-	case map[interface{}]interface{}:
+	case map[any]any:
 		typedCurrent[key] = value
 	default:
 		return nil, fmt.Errorf("failed to set value at path \"%s\": value for key \"%s\" was not a map", path, key)
@@ -355,7 +355,7 @@ func RequiredEnv(name string) (string, error) {
 	return "", fmt.Errorf("required env var `%s` is not set", name)
 }
 
-func Required(warn string, val interface{}) (interface{}, error) {
+func Required(warn string, val any) (any, error) {
 	if val == nil {
 		return nil, fmt.Errorf(warn)
 	} else if _, ok := val.(string); ok {

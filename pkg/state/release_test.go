@@ -11,13 +11,13 @@ import (
 )
 
 func TestExecuteTemplateExpressions(t *testing.T) {
-	render := tmpl.NewFileRenderer(filesystem.DefaultFileSystem(), "", map[string]interface{}{
-		"Values": map[string]interface{}{
-			"foo": map[string]interface{}{
+	render := tmpl.NewFileRenderer(filesystem.DefaultFileSystem(), "", map[string]any{
+		"Values": map[string]any{
+			"foo": map[string]any{
 				"releaseName": "foo",
 			},
 		},
-		"Release": map[string]interface{}{
+		"Release": map[string]any{
 			"Name": "foo",
 		},
 	})
@@ -32,8 +32,8 @@ func TestExecuteTemplateExpressions(t *testing.T) {
 		Name:      "foo",
 		Chart:     "bar",
 		Namespace: "baz",
-		ValuesTemplate: []interface{}{
-			map[string]interface{}{
+		ValuesTemplate: []any{
+			map[string]any{
 				"fullnameOverride": "{{ .Values | get (printf \"%s.releaseName\" .Release.Name) .Release.Name }}",
 			},
 		},
@@ -41,5 +41,5 @@ func TestExecuteTemplateExpressions(t *testing.T) {
 	result, err := rs.ExecuteTemplateExpressions(render)
 
 	require.NoErrorf(t, err, "failed to execute template expressions: %v", err)
-	require.Equalf(t, result.ValuesTemplate[0].(map[string]interface{})["fullnameOverride"], "foo", "failed to execute template expressions")
+	require.Equalf(t, result.ValuesTemplate[0].(map[string]any)["fullnameOverride"], "foo", "failed to execute template expressions")
 }

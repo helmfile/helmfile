@@ -72,19 +72,19 @@ func (g *GlobalOptions) SetLogger(logger *zap.SugaredLogger) {
 // GlobalImpl is the global configuration for the Helmfile CLI.
 type GlobalImpl struct {
 	*GlobalOptions
-	set map[string]interface{}
+	set map[string]any
 }
 
 // NewGlobalImpl creates a new GlobalImpl.
 func NewGlobalImpl(opts *GlobalOptions) *GlobalImpl {
 	return &GlobalImpl{
 		GlobalOptions: opts,
-		set:           make(map[string]interface{}),
+		set:           make(map[string]any),
 	}
 }
 
 // Setset sets the set
-func (g *GlobalImpl) SetSet(set map[string]interface{}) {
+func (g *GlobalImpl) SetSet(set map[string]any) {
 	g.set = set
 }
 
@@ -119,7 +119,7 @@ func (g *GlobalImpl) Selectors() []string {
 }
 
 // StateValuesSet returns the set
-func (g *GlobalImpl) StateValuesSet() map[string]interface{} {
+func (g *GlobalImpl) StateValuesSet() map[string]any {
 	return g.set
 }
 

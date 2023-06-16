@@ -60,7 +60,7 @@ func TestGetSimpleStruct(t *testing.T) {
 }
 
 func TestGetMap(t *testing.T) {
-	obj := map[string]interface{}{"Foo": map[string]interface{}{"Bar": "Bar"}}
+	obj := map[string]any{"Foo": map[string]any{"Bar": "Bar"}}
 
 	v1, err := get("Foo.Bar", obj)
 
@@ -79,7 +79,7 @@ func TestGetMap(t *testing.T) {
 }
 
 func TestGetMapPtr(t *testing.T) {
-	obj := map[string]interface{}{"Foo": map[string]interface{}{"Bar": "Bar"}}
+	obj := map[string]any{"Foo": map[string]any{"Bar": "Bar"}}
 	objPrt := &obj
 
 	v1, err := get("Foo.Bar", objPrt)
@@ -99,7 +99,7 @@ func TestGetMapPtr(t *testing.T) {
 }
 
 func TestGet_Default(t *testing.T) {
-	obj := map[string]interface{}{"Foo": map[string]interface{}{}, "foo": 1}
+	obj := map[string]any{"Foo": map[string]any{}, "foo": 1}
 
 	v1, err := get("Foo.Bar", "Bar", obj)
 
@@ -151,7 +151,7 @@ func TestGetOrNilStruct(t *testing.T) {
 }
 
 func TestGetOrNilMap(t *testing.T) {
-	obj := map[string]interface{}{"Foo": map[string]interface{}{"Bar": "Bar"}}
+	obj := map[string]any{"Foo": map[string]any{"Bar": "Bar"}}
 
 	v1, err := getOrNil("Foo.Bar", obj)
 

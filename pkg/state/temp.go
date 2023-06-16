@@ -14,7 +14,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
-func createTempValuesFile(release *ReleaseSpec, data interface{}) (*os.File, error) {
+func createTempValuesFile(release *ReleaseSpec, data any) (*os.File, error) {
 	p, err := tempValuesFilePath(release, data)
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func createTempValuesFile(release *ReleaseSpec, data interface{}) (*os.File, err
 	return f, nil
 }
 
-func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error) {
+func tempValuesFilePath(release *ReleaseSpec, data any) (*string, error) {
 	id, err := generateValuesID(release, data)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func tempValuesFilePath(release *ReleaseSpec, data interface{}) (*string, error)
 	return &d, nil
 }
 
-func generateValuesID(release *ReleaseSpec, data interface{}) (string, error) {
+func generateValuesID(release *ReleaseSpec, data any) (string, error) {
 	var id []string
 
 	if release.Namespace != "" {
@@ -63,7 +63,7 @@ func generateValuesID(release *ReleaseSpec, data interface{}) (string, error) {
 
 	id = append(id, release.Name, "values")
 
-	hash, err := HashObject([]interface{}{release, data})
+	hash, err := HashObject([]any{release, data})
 	if err != nil {
 		return "", err
 	}
@@ -73,7 +73,7 @@ func generateValuesID(release *ReleaseSpec, data interface{}) (string, error) {
 	return strings.Join(id, "-"), nil
 }
 
-func HashObject(obj interface{}) (string, error) {
+func HashObject(obj any) (string, error) {
 	hash := fnv.New32a()
 
 	hash.Reset()

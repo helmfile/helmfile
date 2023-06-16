@@ -11,14 +11,14 @@ import (
 
 // to generate mock run mockgen -source=expand_secret_ref.go -destination=expand_secrets_mock.go -package=tmpl
 type valClient interface {
-	Eval(template map[string]interface{}) (map[string]interface{}, error)
+	Eval(template map[string]any) (map[string]any, error)
 }
 
 var once sync.Once
 var secretsClient valClient
 
 func fetchSecretValue(path string) (string, error) {
-	tmpMap := make(map[string]interface{})
+	tmpMap := make(map[string]any)
 	tmpMap["key"] = path
 	resultMap, err := fetchSecretValues(tmpMap)
 	if err != nil {
@@ -38,7 +38,7 @@ func fetchSecretValue(path string) (string, error) {
 	return result, nil
 }
 
-func fetchSecretValues(values map[string]interface{}) (map[string]interface{}, error) {
+func fetchSecretValues(values map[string]any) (map[string]any, error) {
 	var err error
 	// below lines are for tests
 	once.Do(func() {
