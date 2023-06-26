@@ -176,27 +176,37 @@ func TestJoinBase(t *testing.T) {
 	tests := []struct {
 		name string
 		base string
+		goos string
 		path string
 		want string
 	}{
 		{
 			name: "joinBase with non-root base",
 			base: "/root",
+			goos: "linux",
 			path: "local/timespan-application.yml",
 			want: "/local/timespan-application.yml",
 		},
 		{
 			name: "joinBase with root path",
 			base: "/",
+			goos: "linux",
 			path: "data/timespan-application.yml",
 			want: "/data/timespan-application.yml",
+		},
+		{
+			name: "windows joinBase",
+			base: "",
+			goos: "windows",
+			path: "data\\timespan-application.yml",
+			want: "data\\\\timespan-application.yml",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storageIns := NewStorage(tt.base, helmexec.NewLogger(io.Discard, "debug"), filesystem.DefaultFileSystem())
-			if got := storageIns.JoinBase(tt.path); got != tt.want {
+			if got := storageIns.JoinBase(tt.path, tt.goos); got != tt.want {
 				t.Errorf("JoinBase() = %v, want %v", got, tt.want)
 			}
 		})
