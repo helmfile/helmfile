@@ -114,3 +114,6 @@ Helmfile 已经被许多用户在生产环境中使用:
 
 [MIT](https://github.com/helmfile/helmfile/blob/main/LICENSE)
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=helmfile/helmfile&type=Date)](https://star-history.com/#helmfile/helmfile&Date)
