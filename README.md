@@ -139,3 +139,7 @@ For more users, please see: [Users](https://helmfile.readthedocs.io/en/latest/us
 ## License
 
 [MIT](https://github.com/helmfile/helmfile/blob/main/LICENSE)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=helmfile/helmfile&type=Date)](https://star-history.com/#helmfile/helmfile&Date)
