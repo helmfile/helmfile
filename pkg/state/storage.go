@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -135,11 +136,18 @@ func (st *Storage) normalizePath(path string) string {
 	if u != nil && (u.Scheme != "" || filepath.IsAbs(path)) {
 		return path
 	} else {
-		return st.JoinBase(path)
+		return st.JoinBase(path, runtime.GOOS)
 	}
 }
 
 // JoinBase returns an absolute path in the form basePath/relative
-func (st *Storage) JoinBase(relPath string) string {
-	return filepath.Join(st.basePath, relPath)
+// Helm's setFiles command does not support unescaped filepath separators (\) on Windows.
+// Instead, it requires double backslashes (\\) as filepath separators.
+// See https://github.com/helm/helm/issues/9537
+func (st *Storage) JoinBase(relPath, GOOS string) string {
+	path := filepath.Join(st.basePath, relPath)
+	if GOOS == "windows" {
+		return strings.ReplaceAll(path, "\\", "\\\\")
+	}
+	return path
 }
