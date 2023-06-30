@@ -21,7 +21,7 @@ releases:
           namespace: {{`{{ .Release.Namespace }}`}}
         data:
           bar: BAR
-  skipDiffOutput: true
+  suppressDiff: true
 - name: baz
   chart: ../../../charts/raw
   values:

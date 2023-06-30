@@ -315,8 +315,8 @@ releases:
     cascade: "background"
     # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
     insecureSkipTLSVerify: false
-    # skipDiffOutput skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
-    skipDiffOutput: false
+    # suppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
+    suppressDiff: false
 
 
   # Local chart example

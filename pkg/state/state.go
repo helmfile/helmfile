@@ -367,7 +367,7 @@ type ReleaseSpec struct {
 	Inherit Inherits `yaml:"inherit,omitempty"`
 
 	// SkipDiffOutput skip the helm diff output. Useful for charts which produces large not helpful diff.
-	SkipDiffOutput *bool `yaml:"skipDiffOutput,omitempty"`
+	SkipDiffOutput *bool `yaml:"suppressDiff,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -1818,13 +1818,13 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				st.ApplyOverrides(release)
 
-				skipDiffOutput := false
+				suppressDiff := false
 				if release.SkipDiffOutput != nil && *release.SkipDiffOutput {
-					skipDiffOutput = true
+					suppressDiff = true
 				}
 
 				if opt.SkipDiffOnInstall && !isInstalled(release) {
-					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, skipOutput: skipDiffOutput}
+					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, skipOutput: suppressDiff}
 					continue
 				}
 
@@ -1858,9 +1858,9 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					for i, e := range errs {
 						rsErrs[i] = newReleaseFailedError(release, e)
 					}
-					results <- diffPrepareResult{errors: rsErrs, files: files, skipOutput: skipDiffOutput}
+					results <- diffPrepareResult{errors: rsErrs, files: files, skipOutput: suppressDiff}
 				} else {
-					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}, files: files, skipOutput: skipDiffOutput}
+					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}, files: files, skipOutput: suppressDiff}
 				}
 			}
 		},
