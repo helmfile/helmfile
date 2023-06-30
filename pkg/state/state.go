@@ -2566,6 +2566,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
+	flags = st.appendChartDownloadTLSFlags(flags, release)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
