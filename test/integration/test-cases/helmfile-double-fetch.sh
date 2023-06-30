@@ -14,7 +14,7 @@ ${helmfile} -f ${helmfile_double_fetch_case_input_dir}/${config_file} fetch --de
 diff -u ${helmfile_double_fetch_case_output_dir}/fetch_first ${helmfile_double_fetch_template_reverse} || fail "\"helmfile fetch\" should be consistent"
 
 info "Comparing template/helmfile_double_fetch_second"
-${helmfile} -f ${helmfile_double_fetch_case_input_dir}/${config_file} fetch --debug --output-dir /tmp/chartdir 2>&1 | grep -v `pwd` > ${helmfile_double_fetch_template_reverse} || fail "\"helmfile template\" shouldn't fail"
+${helmfile} -f ${helmfile_double_fetch_case_input_dir}/${config_file} fetch --debug --output-dir /tmp/chartdir 2>&1 | grep -v `pwd` > ${helmfile_double_fetch_template_reverse} || fail "\"helmfile fetch\" shouldn't fail"
 diff -u ${helmfile_double_fetch_case_output_dir}/fetch_second ${helmfile_double_fetch_template_reverse} || fail "\"helmfile fetch\" should be consistent"
 
 
