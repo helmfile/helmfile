@@ -1,4 +1,4 @@
-processing file "helmfile.yaml" in directory "test-cases/helmfile-double-fetch/input"
+processing file "helmfile.yaml" in directory "test/integration/test-cases/helmfile_double_fetch/input"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
 first-pass uses: &{default  map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
