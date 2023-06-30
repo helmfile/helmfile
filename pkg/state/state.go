@@ -366,8 +366,8 @@ type ReleaseSpec struct {
 	// Inherit is used to inherit a release template from a release or another release template
 	Inherit Inherits `yaml:"inherit,omitempty"`
 
-	// SkipDiffOutput skip the helm diff output. Useful for charts which produces large not helpful diff.
-	SkipDiffOutput *bool `yaml:"suppressDiff,omitempty"`
+	// SuppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff.
+	SuppressDiff *bool `yaml:"suppressDiff,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -1693,7 +1693,7 @@ type diffPrepareResult struct {
 	errors                  []*ReleaseError
 	files                   []string
 	upgradeDueToSkippedDiff bool
-	skipOutput              bool
+	suppressDiff            bool
 }
 
 func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
@@ -1819,12 +1819,12 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				st.ApplyOverrides(release)
 
 				suppressDiff := false
-				if release.SkipDiffOutput != nil && *release.SkipDiffOutput {
+				if release.SuppressDiff != nil && *release.SuppressDiff {
 					suppressDiff = true
 				}
 
 				if opt.SkipDiffOnInstall && !isInstalled(release) {
-					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, skipOutput: suppressDiff}
+					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, suppressDiff: suppressDiff}
 					continue
 				}
 
@@ -1858,9 +1858,9 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					for i, e := range errs {
 						rsErrs[i] = newReleaseFailedError(release, e)
 					}
-					results <- diffPrepareResult{errors: rsErrs, files: files, skipOutput: suppressDiff}
+					results <- diffPrepareResult{errors: rsErrs, files: files, suppressDiff: suppressDiff}
 				} else {
-					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}, files: files, skipOutput: suppressDiff}
+					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}, files: files, suppressDiff: suppressDiff}
 				}
 			}
 		},
@@ -1986,14 +1986,14 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				release := prep.release
 				buf := &bytes.Buffer{}
 
-				suppressDiff := suppressDiff
-				if prep.skipOutput {
-					suppressDiff = true
+				releaseSuppressDiff := suppressDiff
+				if prep.suppressDiff {
+					releaseSuppressDiff = true
 				}
 
 				if prep.upgradeDueToSkippedDiff {
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
-				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.ChartPathOrName()), suppressDiff, flags...); err != nil {
+				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.ChartPathOrName()), releaseSuppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
