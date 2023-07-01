@@ -1,0 +1,23 @@
+Building dependency release=foo, chart=../../../charts/raw
+Building dependency release=baz, chart=../../../charts/raw
+Templating release=foo, chart=../../../charts/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-1
+  namespace: helmfile-tests
+data:
+  foo: FOO
+
+Templating release=baz, chart=../../../charts/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: baz-3
+  namespace: helmfile-tests
+data:
+  baz: BAZ
