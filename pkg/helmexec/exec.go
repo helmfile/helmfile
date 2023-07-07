@@ -205,7 +205,10 @@ func (helm *execer) UpdateRepo() error {
 	return err
 }
 
-func (helm *execer) RegistryLogin(repository string, username string, password string) error {
+func (helm *execer) RegistryLogin(repository string, username string, password string, skipTLSVerify bool) error {
+	if !(username != "" && password != "") {
+		return nil
+	}
 	helm.logger.Info("Logging in to registry")
 	args := []string{
 		"registry",
@@ -214,6 +217,9 @@ func (helm *execer) RegistryLogin(repository string, username string, password s
 		"--username",
 		username,
 		"--password-stdin",
+	}
+	if skipTLSVerify {
+		args = append(args, "--insecure")
 	}
 	buffer := bytes.Buffer{}
 	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))

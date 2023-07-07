@@ -85,7 +85,7 @@ func (helm *noCallHelmExec) UpdateRepo() error {
 	helm.doPanic()
 	return nil
 }
-func (helm *noCallHelmExec) RegistryLogin(name string, username string, password string) error {
+func (helm *noCallHelmExec) RegistryLogin(name string, username string, password string, skipTLSVerify bool) error {
 	helm.doPanic()
 	return nil
 }

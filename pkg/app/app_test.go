@@ -2476,7 +2476,7 @@ func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, u
 func (helm *mockHelmExec) UpdateRepo() error {
 	return nil
 }
-func (helm *mockHelmExec) RegistryLogin(name string, username string, password string) error {
+func (helm *mockHelmExec) RegistryLogin(name string, username string, password string, skipTLSVerify bool) error {
 	return nil
 }
 func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
