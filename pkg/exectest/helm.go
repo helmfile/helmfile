@@ -101,7 +101,7 @@ func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username,
 func (helm *Helm) UpdateRepo() error {
 	return nil
 }
-func (helm *Helm) RegistryLogin(name string, username string, password string, skipTLSVerify bool) error {
+func (helm *Helm) RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
 	return nil
 }
 func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {

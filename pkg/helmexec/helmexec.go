@@ -18,7 +18,7 @@ type Interface interface {
 
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error
 	UpdateRepo() error
-	RegistryLogin(name string, username string, password string, skipTLSVerify bool) error
+	RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error
 	BuildDeps(name, chart string, flags ...string) error
 	UpdateDeps(chart string) error
 	SyncRelease(context HelmContext, name, chart string, flags ...string) error

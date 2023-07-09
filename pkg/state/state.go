@@ -501,7 +501,7 @@ type RepoUpdater interface {
 	IsHelm3() bool
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error
 	UpdateRepo() error
-	RegistryLogin(name string, username string, password string, skipTLSVerify bool) error
+	RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error
 }
 
 func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]string, error) {
@@ -514,7 +514,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		username, password := gatherUsernamePassword(repo.Name, repo.Username, repo.Password)
 		var err error
 		if repo.OCI {
-			err = helm.RegistryLogin(repo.URL, username, password, repo.SkipTLSVerify)
+			err = helm.RegistryLogin(repo.URL, username, password, repo.CaFile, repo.CertFile, repo.KeyFile, repo.SkipTLSVerify)
 		} else {
 			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, username, password, repo.Managed, repo.PassCredentials, repo.SkipTLSVerify)
 		}

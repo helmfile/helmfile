@@ -172,12 +172,6 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 			panic(err)
 		}
 
-		if certfile != "" && keyfile != "" {
-			args = append(args, "--cert-file", certfile, "--key-file", keyfile)
-		}
-		if cafile != "" {
-			args = append(args, "--ca-file", cafile)
-		}
 		if username != "" && password != "" {
 			args = append(args, "--username", username, "--password", password)
 		}
@@ -205,24 +199,42 @@ func (helm *execer) UpdateRepo() error {
 	return err
 }
 
-func (helm *execer) RegistryLogin(repository string, username string, password string, skipTLSVerify bool) error {
-	if !(username != "" && password != "") {
-		return nil
-	}
-	helm.logger.Info("Logging in to registry")
+func (helm *execer) RegistryLogin(repository, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
+	needLogin := false
+	buffer := bytes.Buffer{}
 	args := []string{
 		"registry",
 		"login",
 		repository,
-		"--username",
-		username,
-		"--password-stdin",
+	}
+	helmVersionConstraint, _ := semver.NewConstraint(">= 3.12.0")
+	if helmVersionConstraint.Check(helm.version) {
+		// in the 3.12.0 version, the registry login support --key-file --cert-file and --ca-file
+		// https://github.com/helm/helm/releases/tag/v3.12.0
+		if certFile != "" && keyFile != "" {
+			args = append(args, "--cert-file", certFile, "--key-file", keyFile)
+			needLogin = true
+		}
+		if caFile != "" {
+			args = append(args, "--ca-file", caFile)
+			needLogin = true
+		}
+	}
+	if username != "" && password != "" {
+		args = append(args, "--username", username, "--password-stdin", password)
+		buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+		needLogin = true
 	}
 	if skipTLSVerify {
 		args = append(args, "--insecure")
+		needLogin = true
 	}
-	buffer := bytes.Buffer{}
-	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+
+	if !needLogin {
+		return nil
+	}
+
+	helm.logger.Info("Logging in to registry")
 	out, err := helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
 	helm.info(out)
 	return err
