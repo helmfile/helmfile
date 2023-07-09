@@ -172,6 +172,12 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 			panic(err)
 		}
 
+		if certfile != "" && keyfile != "" {
+			args = append(args, "--cert-file", certfile, "--key-file", keyfile)
+		}
+		if cafile != "" {
+			args = append(args, "--ca-file", cafile)
+		}
 		if username != "" && password != "" {
 			args = append(args, "--username", username, "--password", password)
 		}
