@@ -206,7 +206,10 @@ func (helm *execer) UpdateRepo() error {
 }
 
 func (helm *execer) RegistryLogin(repository, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
-	needLogin := false
+	if !(username != "" && password != "") {
+		return nil
+	}
+
 	buffer := bytes.Buffer{}
 	args := []string{
 		"registry",
@@ -219,26 +222,18 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 		// https://github.com/helm/helm/releases/tag/v3.12.0
 		if certFile != "" && keyFile != "" {
 			args = append(args, "--cert-file", certFile, "--key-file", keyFile)
-			needLogin = true
 		}
 		if caFile != "" {
 			args = append(args, "--ca-file", caFile)
-			needLogin = true
 		}
 	}
-	if username != "" && password != "" {
-		args = append(args, "--username", username, "--password-stdin", password)
-		buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
-		needLogin = true
-	}
+
 	if skipTLSVerify {
 		args = append(args, "--insecure")
-		needLogin = true
 	}
 
-	if !needLogin {
-		return nil
-	}
+	args = append(args, "--username", username, "--password-stdin", password)
+	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
 
 	helm.logger.Info("Logging in to registry")
 	out, err := helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
