@@ -755,7 +755,7 @@ func Test_ChartPull(t *testing.T) {
 			chartPath:   "path1",
 			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
 			listResult: `Pulling chart
-exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
+exec: helm --kube-context dev chart pull chart
 `,
 		},
 		{
