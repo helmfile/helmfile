@@ -3479,11 +3479,23 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	if st.fs.DirectoryExistsAt(chartPath) {
 		st.logger.Debugf("chart already exists at %s", chartPath)
 	} else {
-		err := helm.ChartPull(qualifiedChartName, chartPath)
+		flags := []string{}
+		repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
+		if repo != nil {
+			if repo.CaFile != "" {
+				flags = append(flags, "--ca-file", repo.CaFile)
+			}
+			if repo.CertFile != "" && repo.KeyFile != "" {
+				flags = append(flags, "--cert-file", repo.CertFile, "--key-file", repo.KeyFile)
+			}
+		}
+
+		err := helm.ChartPull(qualifiedChartName, chartPath, flags...)
 		if err != nil {
 			return nil, err
 		}
-		err = helm.ChartExport(qualifiedChartName, chartPath)
+
+		err = helm.ChartExport(qualifiedChartName, chartPath, flags...)
 		if err != nil {
 			return nil, err
 		}

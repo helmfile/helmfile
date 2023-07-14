@@ -206,7 +206,7 @@ func (helm *execer) UpdateRepo() error {
 }
 
 func (helm *execer) RegistryLogin(repository, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
-	if !(username != "" && password != "") {
+	if username == "" || password == "" {
 		return nil
 	}
 
