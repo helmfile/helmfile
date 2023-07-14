@@ -50,7 +50,7 @@ func (helm *noCallHelmExec) ChartPull(chart string, path string, flags ...string
 	helm.doPanic()
 	return nil
 }
-func (helm *noCallHelmExec) ChartExport(chart string, path string, flags ...string) error {
+func (helm *noCallHelmExec) ChartExport(chart string, path string) error {
 	helm.doPanic()
 	return nil
 }

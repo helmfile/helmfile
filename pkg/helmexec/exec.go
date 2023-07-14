@@ -487,15 +487,16 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 		// https://github.com/helm/helm/releases/tag/v3.7.0
 		ociChartURL, ociChartTag := resolveOciChart(chart)
 		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--destination", path, "--untar"}
+		helmArgs = append(helmArgs, flags...)
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
 	}
-	out, err := helm.exec(append(helmArgs, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
+	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
 	helm.info(out)
 	return err
 }
 
-func (helm *execer) ChartExport(chart string, path string, flags ...string) error {
+func (helm *execer) ChartExport(chart string, path string) error {
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
 	if helmVersionConstraint.Check(helm.version) {
 		// in the 3.7.0 version, the chart export has been removed
@@ -505,7 +506,8 @@ func (helm *execer) ChartExport(chart string, path string, flags ...string) erro
 	var helmArgs []string
 	helm.logger.Infof("Exporting %v", chart)
 	helmArgs = []string{"chart", "export", chart, "--destination", path}
-	out, err := helm.exec(append(helmArgs, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
+	// no extra flags
+	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
 	helm.info(out)
 	return err
 }

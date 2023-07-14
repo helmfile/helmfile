@@ -26,7 +26,7 @@ type Interface interface {
 	TemplateRelease(name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
 	ChartPull(chart string, path string, flags ...string) error
-	ChartExport(chart string, path string, flags ...string) error
+	ChartExport(chart string, path string) error
 	Lint(name, chart string, flags ...string) error
 	ReleaseStatus(context HelmContext, name string, flags ...string) error
 	DeleteRelease(context HelmContext, name string, flags ...string) error

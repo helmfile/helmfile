@@ -198,7 +198,7 @@ func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
 func (helm *Helm) ChartPull(chart string, path string, flags ...string) error {
 	return nil
 }
-func (helm *Helm) ChartExport(chart string, path string, flags ...string) error {
+func (helm *Helm) ChartExport(chart string, path string) error {
 	return nil
 }
 func (helm *Helm) IsHelm3() bool {

@@ -2445,7 +2445,7 @@ func (helm *mockHelmExec) ChartPull(chart string, path string, flags ...string) 
 	return nil
 }
 
-func (helm *mockHelmExec) ChartExport(chart string, path string, flags ...string) error {
+func (helm *mockHelmExec) ChartExport(chart string, path string) error {
 	return nil
 }
 
