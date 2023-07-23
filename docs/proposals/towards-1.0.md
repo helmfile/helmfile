@@ -75,7 +75,7 @@ Note that every breaking change should have an easy alternative way to achieve t
 
 ### Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`
 
-  - This option didn't make much sense in practical. Generally, you'd want to disable all the insecure features altogether to make your deployment secure, or not disable any features. Disabling all is already possible via `HELMFILE_DISABLE_INSECURE_FEATURES `. In addition, `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` literally made every insecure template function to silently skipped without any error or warning, which made debugging unnecessarily hard when the user accidentally used an insecure function.
+  - This option didn't make much sense in practice. Generally, you'd want to disable all the insecure features altogether to make your deployment secure, or not disable any features. Disabling all is already possible via `HELMFILE_DISABLE_INSECURE_FEATURES `. In addition, `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` literally made every insecure template function to silently skipped without any error or warning, which made debugging unnecessarily hard when the user accidentally used an insecure function.
   - See https://github.com/helmfile/helmfile/pull/564 for more context.
 
 ### The long deprecated `charts.yaml` has been finally removed
