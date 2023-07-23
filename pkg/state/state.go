@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -431,7 +430,7 @@ const MissingFileHandlerWarn = "Warn"
 // MissingFileHandlerDebug is the debug returned when a file is missing
 const MissingFileHandlerDebug = "Debug"
 
-var DefaultFetchOutputDirTemplate = path.Join(
+var DefaultFetchOutputDirTemplate = filepath.Join(
 	"{{ .OutputDir }}{{ if .Release.Namespace }}",
 	"{{ .Release.Namespace }}{{ end }}{{ if .Release.KubeContext }}",
 	"{{ .Release.KubeContext }}{{ end }}",
@@ -3477,15 +3476,19 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	pathElems = append(pathElems, release.Name, chartName, chartVersion)
 
-	chartPath := path.Join(pathElems...)
+	chartPath := filepath.Join(pathElems...)
 
-	err := helm.ChartPull(qualifiedChartName, chartPath)
-	if err != nil {
-		return nil, err
-	}
-	err = helm.ChartExport(qualifiedChartName, chartPath)
-	if err != nil {
-		return nil, err
+	if st.fs.DirectoryExistsAt(chartPath) {
+		st.logger.Debugf("chart already exists at %s", chartPath)
+	} else {
+		err := helm.ChartPull(qualifiedChartName, chartPath)
+		if err != nil {
+			return nil, err
+		}
+		err = helm.ChartExport(qualifiedChartName, chartPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	fullChartPath, err := findChartDirectory(chartPath)

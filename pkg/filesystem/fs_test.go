@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -102,7 +102,7 @@ func TestFsTeadFile(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			dir := t.TempDir()
-			yamlPath := path.Join(dir, c.path)
+			yamlPath := filepath.Join(dir, c.path)
 
 			dfs := DefaultFileSystem()
 			tmpfile, err := os.Create(yamlPath)
