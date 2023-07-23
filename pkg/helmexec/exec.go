@@ -506,7 +506,7 @@ func (helm *execer) ChartExport(chart string, path string) error {
 	var helmArgs []string
 	helm.logger.Infof("Exporting %v", chart)
 	helmArgs = []string{"chart", "export", chart, "--destination", path}
-	// no extra flags
+	// no extra flags for before v3.7.0, details in helm chart export --help
 	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
 	helm.info(out)
 	return err
