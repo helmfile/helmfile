@@ -1,0 +1,7 @@
+Building dependency release=raw, chart=../../../charts/raw-0.0.1
+Templating release=raw, chart=../../../charts/raw-0.0.1
+---
+# Source: raw/templates/resources.yaml
+subhelmfile: test
+envName: test
+

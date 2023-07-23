@@ -241,15 +241,33 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		env = &finalState.Env
 
 		ld.logger.Debugf("merged environment: %v", env)
+
+		if len(finalState.Environments) == 0 {
+			continue
+		}
+
+		// At this point, we are sure that the env has been
+		// read from the vanilla or rendered YAML document.
+		// We can now check if the env is defined in it and fail accordingly.
+		// See https://github.com/helmfile/helmfile/issues/913
+
+		// We defer the missing env detection and failure until
+		// all the helmfile parts are loaded and merged.
+		// Otherwise, any single helmfile part missing the env would fail the whole helmfile run.
+		// That's problematic, because each helmfile part is supposed to be incomplete, and
+		// they become complete only after merging all the parts.
+		// See https://github.com/helmfile/helmfile/issues/807 for the rationale of this.
+		if _, ok := finalState.Environments[env.Name]; evaluateBases && env.Name != state.DefaultEnv && !ok {
+			return nil, &state.StateLoadError{
+				Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
+				Cause: &state.UndefinedEnvError{Env: env.Name},
+			}
+		}
 	}
 
-	// We defer the missing env detection and failure until
-	// all the helmfile parts are loaded and merged.
-	// Otherwise, any single helmfile part missing the env would fail the whole helmfile run.
-	// That's problematic, because each helmfile part is supposed to be incomplete, and
-	// they become complete only after merging all the parts.
-	// See https://github.com/helmfile/helmfile/issues/807 for the rationale of this.
-	if _, ok := finalState.Environments[env.Name]; evaluateBases && env.Name != state.DefaultEnv && !ok {
+	// If environments are not defined in the helmfile at all although the env is specified,
+	// it's a missing env situation. Let's fail.
+	if len(finalState.Environments) == 0 && evaluateBases && env.Name != state.DefaultEnv {
 		return nil, &state.StateLoadError{
 			Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
 			Cause: &state.UndefinedEnvError{Env: env.Name},
