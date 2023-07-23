@@ -1,0 +1,8 @@
+repositories:
+  - name: docker
+    url: registry-1.docker.io
+    oci: true
+releases:
+  - name: docker/bitnamicharts/matomo
+    chart: docker/bitnamicharts/matomo
+    version: "1.1.2"

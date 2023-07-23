@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"testing"
 )
@@ -55,9 +55,9 @@ func TestDownloadfile(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			dir := t.TempDir()
-			downfile := path.Join(dir, "down.txt")
+			downfile := filepath.Join(dir, "down.txt")
 			if c.filepath != "" {
-				downfile = path.Join(dir, c.filepath)
+				downfile = filepath.Join(dir, c.filepath)
 			}
 
 			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
