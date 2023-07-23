@@ -265,5 +265,14 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		}
 	}
 
+	// If environments are not defined in the helmfile at all although the env is specified,
+	// it's a missing env situation. Let's fail.
+	if len(finalState.Environments) == 0 && evaluateBases && env.Name != state.DefaultEnv {
+		return nil, &state.StateLoadError{
+			Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
+			Cause: &state.UndefinedEnvError{Env: env.Name},
+		}
+	}
+
 	return finalState, nil
 }
