@@ -2445,7 +2445,7 @@ func (helm *mockHelmExec) ChartPull(chart string, path string, flags ...string) 
 	return nil
 }
 
-func (helm *mockHelmExec) ChartExport(chart string, path string, flags ...string) error {
+func (helm *mockHelmExec) ChartExport(chart string, path string) error {
 	return nil
 }
 
@@ -2476,7 +2476,7 @@ func (helm *mockHelmExec) AddRepo(name, repository, cafile, certfile, keyfile, u
 func (helm *mockHelmExec) UpdateRepo() error {
 	return nil
 }
-func (helm *mockHelmExec) RegistryLogin(name string, username string, password string) error {
+func (helm *mockHelmExec) RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
 	return nil
 }
 func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
