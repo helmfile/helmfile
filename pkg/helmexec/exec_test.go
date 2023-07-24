@@ -755,7 +755,7 @@ func Test_ChartPull(t *testing.T) {
 			chartPath:   "path1",
 			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
 			listResult: `Pulling chart
-exec: helm --kube-context dev chart pull chart --untar --untardir /tmp/dir
+exec: helm --kube-context dev chart pull chart
 `,
 		},
 		{
@@ -802,7 +802,6 @@ func Test_ChartExport(t *testing.T) {
 		helmVersion   string
 		chartName     string
 		chartPath     string
-		chartFlags    []string
 		listResult    string
 		expectedError string
 	}{
@@ -812,9 +811,8 @@ func Test_ChartExport(t *testing.T) {
 			helmVersion: "v3.6.0",
 			chartName:   "chart",
 			chartPath:   "path1",
-			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
 			listResult: `Exporting chart
-exec: helm --kube-context dev chart export chart --destination path1 --untar --untardir /tmp/dir
+exec: helm --kube-context dev chart export chart --destination path1
 `,
 			expectedError: "",
 		},
@@ -830,7 +828,7 @@ exec: helm --kube-context dev chart export chart --destination path1 --untar --u
 				kubeContext: "dev",
 				runner:      &mockRunner{},
 			}
-			err := helm.ChartExport(tt.chartName, tt.chartPath, tt.chartFlags...)
+			err := helm.ChartExport(tt.chartName, tt.chartPath)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}

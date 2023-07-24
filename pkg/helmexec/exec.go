@@ -205,18 +205,37 @@ func (helm *execer) UpdateRepo() error {
 	return err
 }
 
-func (helm *execer) RegistryLogin(repository string, username string, password string) error {
-	helm.logger.Info("Logging in to registry")
+func (helm *execer) RegistryLogin(repository, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
+	if username == "" || password == "" {
+		return nil
+	}
+
+	buffer := bytes.Buffer{}
 	args := []string{
 		"registry",
 		"login",
 		repository,
-		"--username",
-		username,
-		"--password-stdin",
 	}
-	buffer := bytes.Buffer{}
+	helmVersionConstraint, _ := semver.NewConstraint(">= 3.12.0")
+	if helmVersionConstraint.Check(helm.version) {
+		// in the 3.12.0 version, the registry login support --key-file --cert-file and --ca-file
+		// https://github.com/helm/helm/releases/tag/v3.12.0
+		if certFile != "" && keyFile != "" {
+			args = append(args, "--cert-file", certFile, "--key-file", keyFile)
+		}
+		if caFile != "" {
+			args = append(args, "--ca-file", caFile)
+		}
+	}
+
+	if skipTLSVerify {
+		args = append(args, "--insecure")
+	}
+
+	args = append(args, "--username", username, "--password-stdin", password)
 	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+
+	helm.logger.Info("Logging in to registry")
 	out, err := helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
 	helm.info(out)
 	return err
@@ -468,15 +487,16 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 		// https://github.com/helm/helm/releases/tag/v3.7.0
 		ociChartURL, ociChartTag := resolveOciChart(chart)
 		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--destination", path, "--untar"}
+		helmArgs = append(helmArgs, flags...)
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
 	}
-	out, err := helm.exec(append(helmArgs, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
+	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
 	helm.info(out)
 	return err
 }
 
-func (helm *execer) ChartExport(chart string, path string, flags ...string) error {
+func (helm *execer) ChartExport(chart string, path string) error {
 	helmVersionConstraint, _ := semver.NewConstraint(">= 3.7.0")
 	if helmVersionConstraint.Check(helm.version) {
 		// in the 3.7.0 version, the chart export has been removed
@@ -486,7 +506,8 @@ func (helm *execer) ChartExport(chart string, path string, flags ...string) erro
 	var helmArgs []string
 	helm.logger.Infof("Exporting %v", chart)
 	helmArgs = []string{"chart", "export", chart, "--destination", path}
-	out, err := helm.exec(append(helmArgs, flags...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
+	// no extra flags for before v3.7.0, details in helm chart export --help
+	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
 	helm.info(out)
 	return err
 }

@@ -501,7 +501,7 @@ type RepoUpdater interface {
 	IsHelm3() bool
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error
 	UpdateRepo() error
-	RegistryLogin(name string, username string, password string) error
+	RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error
 }
 
 func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]string, error) {
@@ -514,9 +514,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		username, password := gatherUsernamePassword(repo.Name, repo.Username, repo.Password)
 		var err error
 		if repo.OCI {
-			if username != "" && password != "" {
-				err = helm.RegistryLogin(repo.URL, username, password)
-			}
+			err = helm.RegistryLogin(repo.URL, username, password, repo.CaFile, repo.CertFile, repo.KeyFile, repo.SkipTLSVerify)
 		} else {
 			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, username, password, repo.Managed, repo.PassCredentials, repo.SkipTLSVerify)
 		}
@@ -3481,10 +3479,25 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	if st.fs.DirectoryExistsAt(chartPath) {
 		st.logger.Debugf("chart already exists at %s", chartPath)
 	} else {
-		err := helm.ChartPull(qualifiedChartName, chartPath)
+		flags := []string{}
+		repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
+		if repo != nil {
+			if repo.CaFile != "" {
+				flags = append(flags, "--ca-file", repo.CaFile)
+			}
+			if repo.CertFile != "" && repo.KeyFile != "" {
+				flags = append(flags, "--cert-file", repo.CertFile, "--key-file", repo.KeyFile)
+			}
+			if repo.SkipTLSVerify {
+				flags = append(flags, "--insecure-skip-tls-verify")
+			}
+		}
+
+		err := helm.ChartPull(qualifiedChartName, chartPath, flags...)
 		if err != nil {
 			return nil, err
 		}
+
 		err = helm.ChartExport(qualifiedChartName, chartPath)
 		if err != nil {
 			return nil, err
