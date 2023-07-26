@@ -10,6 +10,7 @@ import (
 type Environment struct {
 	Name        string
 	KubeContext string
+	Namespace   string
 	Values      map[string]any
 	Defaults    map[string]any
 }
@@ -21,6 +22,7 @@ func New(name string) *Environment {
 	return &Environment{
 		Name:        name,
 		KubeContext: "",
+		Namespace:   "",
 		Values:      map[string]any{},
 		Defaults:    map[string]any{},
 	}
@@ -56,6 +58,7 @@ func (e Environment) DeepCopy() Environment {
 	return Environment{
 		Name:        e.Name,
 		KubeContext: e.KubeContext,
+		Namespace:   e.Namespace,
 		Values:      values,
 		Defaults:    defaults,
 	}

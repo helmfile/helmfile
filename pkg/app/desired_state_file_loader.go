@@ -91,6 +91,9 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, errors.New("err: Cannot use option --namespace and set attribute namespace.")
 		}
 		st.OverrideNamespace = ld.namespace
+		// HelmDefaults.Namespace is also overridden in here
+		// to set default release value properly.
+		st.HelmDefaults.Namespace = ld.namespace
 	}
 
 	if ld.chart != "" {

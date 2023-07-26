@@ -254,8 +254,8 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 			},
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
@@ -313,8 +313,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
 53:   chart: stable/envoy
 54: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -375,7 +375,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 53:   chart: stable/envoy
 54: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 10 release(s) found in helmfile.yaml
 
 processing 5 groups of releases in this order:
@@ -463,8 +463,8 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 			},
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
@@ -522,8 +522,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
 53:   chart: stable/envoy
 54: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -584,7 +584,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 53:   chart: stable/envoy
 54: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 1 release(s) matching name=logging found in helmfile.yaml
 
 processing 1 groups of releases in this order:
@@ -621,8 +621,8 @@ changing working directory back to "/path/to"
 			},
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
@@ -635,8 +635,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
  8:   - backend-v1
  9: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -652,7 +652,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  8:   - backend-v1
  9: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 2 release(s) found in helmfile.yaml
 
 processing 2 groups of releases in this order:
@@ -693,8 +693,8 @@ changing working directory back to "/path/to"
 			},
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
@@ -707,8 +707,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
  8:   - backend-v1
  9: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -724,7 +724,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  8:   - backend-v1
  9: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 2 release(s) found in helmfile.yaml
 
 processing 2 groups of releases in this order:

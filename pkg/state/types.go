@@ -21,8 +21,15 @@ type EnvironmentTemplateData struct {
 }
 
 func NewEnvironmentTemplateData(environment environment.Environment, namespace string, values map[string]any) *EnvironmentTemplateData {
-	d := EnvironmentTemplateData{environment, namespace, values, nil}
+	d := EnvironmentTemplateData{
+		Environment: environment,
+		Namespace:   namespace,
+		Values:      values,
+	}
 	d.StateValues = &d.Values
+	if d.Namespace == "" {
+		d.Namespace = environment.Namespace
+	}
 	return &d
 }
 

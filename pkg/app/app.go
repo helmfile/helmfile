@@ -1115,20 +1115,23 @@ func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmSt
 
 func checkDuplicates(releases []state.ReleaseSpec) error {
 	type Key struct {
-		TillerNamespace, Name, KubeContext string
+		Namespace, Name, KubeContext string
 	}
 
 	releaseNameCounts := map[Key]int{}
 	for _, r := range releases {
-		namespace := r.Namespace
-		releaseNameCounts[Key{namespace, r.Name, r.KubeContext}]++
+		releaseNameCounts[Key{
+			Namespace:   r.Namespace,
+			Name:        r.Name,
+			KubeContext: r.KubeContext,
+		}]++
 	}
 	for name, c := range releaseNameCounts {
 		if c > 1 {
 			var msg string
 
-			if name.TillerNamespace != "" {
-				msg += fmt.Sprintf(" in namespace %q", name.TillerNamespace)
+			if name.Namespace != "" {
+				msg += fmt.Sprintf(" in namespace %q", name.Namespace)
 			}
 
 			if name.KubeContext != "" {

@@ -30,7 +30,7 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 		Release: releaseTemplateDataRelease{
 			Name:        release.Name,
 			Chart:       release.Chart,
-			Namespace:   release.Namespace,
+			Namespace:   st.getReleaseNamespace(release),
 			Labels:      release.Labels,
 			KubeContext: release.KubeContext,
 		},
@@ -95,6 +95,9 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 
 		if release.KubeContext == "" {
 			release.KubeContext = r.HelmDefaults.KubeContext
+		}
+		if release.Namespace == "" {
+			release.Namespace = r.HelmDefaults.Namespace
 		}
 		if release.Labels == nil {
 			release.Labels = map[string]string{}

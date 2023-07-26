@@ -178,6 +178,7 @@ lockFilePath: path/to/lock.file
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
 helmDefaults:
   kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
+  namespace: default                 #dedicated default key for namespace (--namespace)
   cleanupOnFail: false               #dedicated default key for helm flag --cleanup-on-fail
   # additional and global args passed to helm (default "")
   args:
@@ -407,6 +408,8 @@ environments:
       ignoreMissingGitBranch: true
     # kubeContext to use for this environment
     kubeContext: kube-context
+    # namespace to use for this environment
+    namespace: default
 
 #
 # Advanced Configuration: Layering
@@ -1368,11 +1371,18 @@ environments:
     - ../values/default.yaml
     - ../values/dev.yaml
     kubeContext: dev-cluster
-  prod:
+  customer-01:
     values:
     - ../values/default.yaml
     - ../values/prod.yaml
     kubeContext: prod-cluster
+    namespace: customer-01
+  customer-02:
+    values:
+    - ../values/default.yaml
+    - ../values/prod.yaml
+    kubeContext: prod-cluster
+    namespace: customer-02
 ```
 
 `helmfile.yaml`:

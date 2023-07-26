@@ -3430,8 +3430,8 @@ releases:
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: 
@@ -3458,8 +3458,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
 22:   - default/external-secrets
 23: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -3489,7 +3489,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 22:   - default/external-secrets
 23: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
 err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
@@ -3534,8 +3534,8 @@ releases:
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: 
@@ -3562,8 +3562,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
 22:   - default/external-secrets
 23: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -3593,7 +3593,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 22:   - default/external-secrets
 23: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 0 release(s) matching app=test_non_existent found in helmfile.yaml
 
 changing working directory back to "/path/to"
@@ -3629,8 +3629,8 @@ releases:
 			error:       `in ./helmfile.yaml: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
@@ -3643,8 +3643,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
  8:   - ns1/bar
  9: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -3660,7 +3660,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  8:   - ns1/bar
  9: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 1 release(s) matching name=foo found in helmfile.yaml
 
 err: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
@@ -3693,8 +3693,8 @@ releases:
 			error:       "in ./helmfile.yaml: release(s) \"default//foo\" depend(s) on an undefined release \"default/ns1/bar\". Perhaps you made a typo in \"needs\" or forgot defining a release named \"bar\" with appropriate \"namespace\" and \"kubeContext\"?",
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
@@ -3707,8 +3707,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
  8:   - ns1/bar
  9: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -3724,7 +3724,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  8:   - ns1/bar
  9: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 2 release(s) found in helmfile.yaml
 
 err: release(s) "default//foo" depend(s) on an undefined release "default/ns1/bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
@@ -3761,8 +3761,8 @@ releases:
 			error:       "in ./helmfile.yaml: found 2 duplicate releases with ID \"default//foo\"",
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: releases:
@@ -3779,8 +3779,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
 12:   - ns1/bar
 13: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -3800,7 +3800,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 12:   - ns1/bar
 13: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 err: found 2 duplicate releases with ID "default//foo"
 changing working directory back to "/path/to"
 `,
@@ -3940,8 +3940,8 @@ releases:
 			},
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: repositories:
@@ -3952,8 +3952,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
  6:   chart: /path/to/charts/example
  7: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -3967,7 +3967,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  6:   chart: /path/to/charts/example
  7: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 There are no repositories defined in your helmfile.yaml.
 This means helmfile cannot update your dependencies or create a lock file.
 See https://github.com/roboll/helmfile/issues/878 for more information.

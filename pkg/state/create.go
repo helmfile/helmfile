@@ -263,7 +263,12 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		return nil, &UndefinedEnvError{Env: name}
 	}
 
-	newEnv := &environment.Environment{Name: name, Values: envVals, KubeContext: envSpec.KubeContext}
+	newEnv := &environment.Environment{
+		Name:        name,
+		Values:      envVals,
+		KubeContext: envSpec.KubeContext,
+		Namespace:   envSpec.Namespace,
+	}
 
 	if ctxEnv != nil {
 		intCtxEnv := *ctxEnv

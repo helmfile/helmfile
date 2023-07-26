@@ -110,7 +110,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			WorkaroundOutputDirIssue:    true,
 			EnableKustomizeAlphaPlugins: true,
 			ChartVersion:                release.Version,
-			Namespace:                   release.Namespace,
+			Namespace:                   st.getReleaseNamespace(release),
 			ID:                          ReleaseToID(release),
 		},
 	}

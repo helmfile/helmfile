@@ -148,6 +148,7 @@ type SubhelmfileEnvironmentSpec struct {
 // HelmSpec to defines helmDefault values
 type HelmSpec struct {
 	KubeContext string   `yaml:"kubeContext,omitempty"`
+	Namespace   string   `yaml:"namespace,omitempty"`
 	Args        []string `yaml:"args,omitempty"`
 	DiffArgs    []string `yaml:"diffArgs,omitempty"`
 	Verify      bool     `yaml:"verify"`
@@ -442,6 +443,8 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 	}
 	if st.OverrideNamespace != "" {
 		spec.Namespace = st.OverrideNamespace
+	} else {
+		spec.Namespace = st.getReleaseNamespace(spec)
 	}
 
 	var needs []string
@@ -798,12 +801,12 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
-					if release.Namespace != "" {
-						args = append(args, "--namespace", release.Namespace)
+					if ns := st.getReleaseNamespace(release); ns != "" {
+						args = append(args, "--namespace", ns)
 					}
+
 					args = st.appendConnectionFlags(args, release)
 					deletionFlags := st.appendCascadeFlags(args, helm, release, cascade)
-
 					m.Lock()
 					start := time.Now()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
@@ -988,8 +991,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 
 func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	flags := st.kubeConnectionFlags(release)
-	if release.Namespace != "" {
-		flags = append(flags, "--namespace", release.Namespace)
+	if ns := st.getReleaseNamespace(release); ns != "" {
+		flags = append(flags, "--namespace", ns)
 	}
 	flags = append(flags, "--uninstalling")
 	flags = append(flags, "--deployed", "--failed", "--pending")
@@ -2045,8 +2048,8 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		st.ApplyOverrides(&release)
 
 		flags := []string{}
-		if release.Namespace != "" {
-			flags = append(flags, "--namespace", release.Namespace)
+		if ns := st.getReleaseNamespace(&release); ns != "" {
+			flags = append(flags, "--namespace", ns)
 		}
 		flags = st.appendConnectionFlags(flags, &release)
 
@@ -2062,8 +2065,8 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		flags := make([]string, 0)
 		flags = st.appendConnectionFlags(flags, &release)
 		flags = st.appendCascadeFlags(flags, helm, &release, cascade)
-		if release.Namespace != "" {
-			flags = append(flags, "--namespace", release.Namespace)
+		if ns := st.getReleaseNamespace(&release); ns != "" {
+			flags = append(flags, "--namespace", ns)
 		}
 
 		context := st.createHelmContext(&release, workerIndex)
@@ -2117,8 +2120,8 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 
 		flags := []string{}
-		if release.Namespace != "" {
-			flags = append(flags, "--namespace", release.Namespace)
+		if ns := st.getReleaseNamespace(&release); ns != "" {
+			flags = append(flags, "--namespace", ns)
 		}
 		if opts.Logs {
 			flags = append(flags, "--logs")
@@ -2468,14 +2471,32 @@ func (st *HelmState) appendKeyringFlags(flags []string, release *ReleaseSpec) []
 
 func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
-	if release.KubeContext != "" {
-		flags = append(flags, "--kube-context", release.KubeContext)
-	} else if st.Environments[st.Env.Name].KubeContext != "" {
-		flags = append(flags, "--kube-context", st.Environments[st.Env.Name].KubeContext)
-	} else if st.HelmDefaults.KubeContext != "" {
-		flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
+	if ctx := st.getKubeContext(release); ctx != "" {
+		flags = append(flags, "--kube-context", ctx)
 	}
 	return flags
+}
+
+func (st *HelmState) getKubeContext(release *ReleaseSpec) string {
+	if ctx := release.KubeContext; ctx != "" {
+		return ctx
+	} else if ctx := st.Environments[st.Env.Name].KubeContext; ctx != "" {
+		return ctx
+	} else if ctx := st.HelmDefaults.KubeContext; ctx != "" {
+		return ctx
+	}
+	return ""
+}
+
+func (st *HelmState) getReleaseNamespace(release *ReleaseSpec) string {
+	if ns := release.Namespace; ns != "" {
+		return ns
+	} else if ns := st.Environments[st.Env.Name].Namespace; ns != "" {
+		return ns
+	} else if ns := st.HelmDefaults.Namespace; ns != "" {
+		return ns
+	}
+	return ""
 }
 
 func (st *HelmState) appendChartDownloadTLSFlags(flags []string, release *ReleaseSpec) []string {
@@ -3028,8 +3049,8 @@ func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *Relea
 
 func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
 	flags := []string{}
-	if release.Namespace != "" {
-		flags = append(flags, "--namespace", release.Namespace)
+	if ns := st.getReleaseNamespace(release); ns != "" {
+		flags = append(flags, "--namespace", ns)
 	}
 
 	var files []string

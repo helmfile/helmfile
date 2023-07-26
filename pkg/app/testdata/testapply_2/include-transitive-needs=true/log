@@ -1,7 +1,7 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default   map[] map[]}, overrode=<nil>
+first-pass uses: &{default   map[] map[]}
 first-pass rendering output of "helmfile.yaml.part.0":
  0: 
  1: 
@@ -24,8 +24,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
 18:   chart: my/chart
 19: 
 
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+first-pass produced: &{default   map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default   map[] map[]}
 vals:
 map[]
 defaultVals:[]
@@ -51,7 +51,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 18:   chart: my/chart
 19: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default   map[] map[]}
 3 release(s) matching name=serviceA found in helmfile.yaml
 
 Affected releases are:

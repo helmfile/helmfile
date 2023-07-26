@@ -4,6 +4,7 @@ type EnvironmentSpec struct {
 	Values      []any    `yaml:"values,omitempty"`
 	Secrets     []string `yaml:"secrets,omitempty"`
 	KubeContext string   `yaml:"kubeContext,omitempty"`
+	Namespace   string   `yaml:"namespace,omitempty"`
 
 	// MissingFileHandler instructs helmfile to fail when unable to find a environment values file listed
 	// under `environments.NAME.values`.
