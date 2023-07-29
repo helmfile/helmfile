@@ -258,7 +258,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		// That's problematic, because each helmfile part is supposed to be incomplete, and
 		// they become complete only after merging all the parts.
 		// See https://github.com/helmfile/helmfile/issues/807 for the rationale of this.
-		if _, ok := finalState.Environments[env.Name]; evaluateBases && env.Name != state.DefaultEnv && !hasEnv && !ok {
+		if _, ok := finalState.Environments[env.Name]; evaluateBases && env.Name != state.DefaultEnv && !ok {
 			return nil, &state.StateLoadError{
 				Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
 				Cause: &state.UndefinedEnvError{Env: env.Name},
