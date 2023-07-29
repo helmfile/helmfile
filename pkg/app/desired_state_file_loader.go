@@ -189,6 +189,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 	normalizedContent := bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 	parts := bytes.Split(normalizedContent, []byte("\n---\n"))
 
+	hasEnv := env != nil || overrodeEnv != nil
 	var finalState *state.HelmState
 
 	for i, part := range parts {
@@ -257,7 +258,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		// That's problematic, because each helmfile part is supposed to be incomplete, and
 		// they become complete only after merging all the parts.
 		// See https://github.com/helmfile/helmfile/issues/807 for the rationale of this.
-		if _, ok := finalState.Environments[env.Name]; evaluateBases && env.Name != state.DefaultEnv && !ok {
+		if _, ok := finalState.Environments[env.Name]; evaluateBases && env.Name != state.DefaultEnv && !hasEnv && !ok {
 			return nil, &state.StateLoadError{
 				Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
 				Cause: &state.UndefinedEnvError{Env: env.Name},
@@ -267,7 +268,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 
 	// If environments are not defined in the helmfile at all although the env is specified,
 	// it's a missing env situation. Let's fail.
-	if len(finalState.Environments) == 0 && evaluateBases && env.Name != state.DefaultEnv {
+	if len(finalState.Environments) == 0 && evaluateBases && !hasEnv && env.Name != state.DefaultEnv {
 		return nil, &state.StateLoadError{
 			Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
 			Cause: &state.UndefinedEnvError{Env: env.Name},
