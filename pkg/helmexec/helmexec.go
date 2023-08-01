@@ -31,7 +31,7 @@ type Interface interface {
 	ReleaseStatus(context HelmContext, name string, flags ...string) error
 	DeleteRelease(context HelmContext, name string, flags ...string) error
 	TestRelease(context HelmContext, name string, flags ...string) error
-	List(context HelmContext, filter string, flags ...string) (string, error)
+	List(context HelmContext, filter string, flags ...string) (HelmReleaseOutput, error)
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
 	IsHelm3() bool
 	GetVersion() Version
