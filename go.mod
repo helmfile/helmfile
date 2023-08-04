@@ -14,7 +14,7 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.2
 	github.com/helmfile/chartify v0.15.0
-	github.com/helmfile/vals v0.26.1
+	github.com/helmfile/vals v0.26.2
 	github.com/imdario/mergo v0.3.16
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5

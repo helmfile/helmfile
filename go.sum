@@ -659,8 +659,8 @@ github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 h1:xixZ2bWeofWV68J
 github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87/go.mod h1:CtWFDAQgb7dxtzFs4tWbplKIe2jSi3+5vKbgIO0SLnQ=
 github.com/helmfile/chartify v0.15.0 h1:dxDPK1GdGhijJ7bw2hYmq9mmp3Q6jvNGDoJc1LtTybg=
 github.com/helmfile/chartify v0.15.0/go.mod h1:7pmJlGn79CDMBD1+NbDJtE3L7q0hZf5GyBCJrV78vLA=
-github.com/helmfile/vals v0.26.1 h1:AWdwDxS/q/7LAwYiEDgQ4WRdrmFcIaw3vvfeqdQlSGs=
-github.com/helmfile/vals v0.26.1/go.mod h1:Umvg1mKqazaUBjOl74I0u25obw34w603YxoPlhDIvtc=
+github.com/helmfile/vals v0.26.2 h1:iJMml5kKMeyJnvoXRFf0AHEuC4wNaNGLh034vxxPNW4=
+github.com/helmfile/vals v0.26.2/go.mod h1:Umvg1mKqazaUBjOl74I0u25obw34w603YxoPlhDIvtc=
 github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f h1:7LYC+Yfkj3CTRcShK0KOL/w6iTiKyqqBA9a41Wnggw8=
 github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f/go.mod h1:pFlLw2CfqZiIBOx6BuCeRLCrfxBJipTY0nIOF/VbGcI=
 github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef h1:A9HsByNhogrvm9cWb28sjiS3i7tcKCkflWFEkHfuAgM=
