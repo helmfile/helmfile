@@ -1,15 +1,7 @@
-environments:
-  test:
-    values:
-    - foo: test
-
----
-
 releases:
-- name: test
+- name: noEnvs 
   chart: ../../../charts/raw-0.0.1
   values:
   - templates:
     - |
-      subhelmfile: {{ .Values.foo }}
       envName: {{ .Values.envName }}

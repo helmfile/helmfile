@@ -6,7 +6,7 @@ environments:
 ---
 
 releases:
-- name: raw
+- name: prod
   chart: ../../../charts/raw-0.0.1
   values:
   - templates:
