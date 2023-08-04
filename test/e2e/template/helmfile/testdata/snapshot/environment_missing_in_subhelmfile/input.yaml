@@ -10,3 +10,6 @@ helmfiles:
 - path: helmfiles/prod.yaml
   values:
   - envName: {{ .Values.envName }}
+- path: helmfiles/noEnvs.yaml
+  values:
+  - envName: {{ .Values.envName }}
