@@ -188,9 +188,12 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
 	// Allows part-splitting to work with CLRF-ed content
 	normalizedContent := bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
-	err := policy.TopConfigKeysVerifier(normalizedContent)
+	isStrict, err := policy.TopConfigKeysVerifier(filename, normalizedContent)
 	if err != nil {
-		return nil, err
+		if isStrict {
+			return nil, err
+		}
+		ld.logger.Warnf("WARNING: %v", err)
 	}
 	parts := bytes.Split(normalizedContent, []byte("\n---\n"))
 
