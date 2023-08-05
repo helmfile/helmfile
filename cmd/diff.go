@@ -31,6 +31,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
+	f.StringVar(&diffOptions.DiffArgs, "diff-args", "", `pass args to helm helm-diff`)
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm diff")
 	f.StringArrayVar(&diffOptions.Set, "set", nil, "additional values to be merged into the helm command --set flag")
 	f.StringArrayVar(&diffOptions.Values, "values", nil, "additional value files to be merged into the helm command --values flag")

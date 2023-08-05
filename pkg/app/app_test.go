@@ -2215,6 +2215,7 @@ type applyConfig struct {
 	stripTrailingCR        bool
 	interactive            bool
 	skipDiffOnInstall      bool
+	diffArgs               string
 	logger                 *zap.SugaredLogger
 	wait                   bool
 	waitForJobs            bool
@@ -2346,6 +2347,10 @@ func (a applyConfig) RetainValuesFiles() bool {
 
 func (a applyConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
+}
+
+func (a applyConfig) DiffArgs() string {
+	return a.diffArgs
 }
 
 // helmfile-template-only flags
