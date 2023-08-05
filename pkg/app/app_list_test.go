@@ -41,7 +41,7 @@ func testListWithEnvironment(t *testing.T, cfg configImpl) {
 environments:
   development: {}
   shared: {}
-
+---
 releases:
 - name: logging
   chart: incubator/raw
@@ -87,14 +87,14 @@ releases:
   - test2
 `,
 				"/path/to/helmfile.d/helmfile_2.yaml": `
-environments:
-  test: {}
-  shared: {}
-
 repositories:
 - name: bitnami
   url: https://charts.bitnami.com/bitnami
 
+environments:
+  test: {}
+  shared: {}
+---
 releases:
 - name: cache
   namespace: my-app
