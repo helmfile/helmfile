@@ -5,3 +5,9 @@ Templating release=test, chart=../../../charts/raw-0.0.1
 subhelmfile: test
 envName: test
 
+Building dependency release=no-envs, chart=../../../charts/raw-0.0.1
+Templating release=no-envs, chart=../../../charts/raw-0.0.1
+---
+# Source: raw/templates/resources.yaml
+envName: test
+
