@@ -1,5 +1,5 @@
 releases:
-- name: noEnvs 
+- name: no-envs 
   chart: ../../../charts/raw-0.0.1
   values:
   - templates:
