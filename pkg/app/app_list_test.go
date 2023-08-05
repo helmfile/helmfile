@@ -87,14 +87,14 @@ releases:
   - test2
 `,
 				"/path/to/helmfile.d/helmfile_2.yaml": `
-repositories:
-- name: bitnami
-  url: https://charts.bitnami.com/bitnami
-
 environments:
   test: {}
   shared: {}
 ---
+repositories:
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami
+
 releases:
 - name: cache
   namespace: my-app
