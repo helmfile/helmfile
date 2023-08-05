@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -47,7 +46,7 @@ func forbidEnvironmentsWithReleases(filePath string, content []byte) (bool, erro
 		return false, nil
 	}
 	for i := 0; i < len(result)-1; i++ {
-		if result[i] != "---" && result[i+1] != "---" && filepath.Ext(filePath) == ".gotmpl" {
+		if result[i] != "---" && result[i+1] != "---" {
 			return runtime.V1Mode, EnvironmentsAndReleasesWithinSameYamlPartErr
 		}
 	}
