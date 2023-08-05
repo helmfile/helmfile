@@ -1,0 +1,7 @@
+releases:
+- name: no-values
+  chart: ../../../charts/raw-0.0.1
+  values:
+  - templates:
+    - |
+      envName: {{ .Values.envName }}

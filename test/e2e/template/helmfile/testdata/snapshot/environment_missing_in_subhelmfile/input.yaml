@@ -13,3 +13,4 @@ helmfiles:
 - path: helmfiles/no-envs.yaml
   values:
   - envName: {{ .Values.envName }}
+- path: helmfiles/no-values.yaml
