@@ -29,7 +29,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/policy"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
@@ -104,14 +103,6 @@ func (hs *HelmState) UnmarshalYAML(unmarshal func(any) error) error {
 	helmStateInfo := make(map[string]any)
 	if err := unmarshal(&helmStateInfo); err != nil {
 		return err
-	}
-
-	isStrict, err := policy.Checker(hs.FilePath, helmStateInfo)
-	if err != nil {
-		if isStrict {
-			return err
-		}
-		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 	}
 
 	return unmarshal((*helmStateAlias)(hs))
