@@ -235,7 +235,7 @@ releases:
 			diffs: map[exectest.DiffKey]error{
 				{Name: "kubernetes-external-secrets", Chart: "incubator/raw", Flags: "--kube-context default --namespace kube-system --detailed-exitcode --reset-values"}: nil,
 				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}:                helmexec.ExitError{Code: 2},
-				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default--namespace default --detailed-exitcode --reset-values"}:                      nil,
+				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default--namespace default --detailed-exitcode --reset-values"}:                       nil,
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,

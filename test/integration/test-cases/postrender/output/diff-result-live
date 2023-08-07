@@ -1,6 +1,8 @@
 Live output is enabled
 Building dependency release=foo, chart=../../../charts/raw
 Building dependency release=baz, chart=../../../charts/raw
+Listing releases matching ^foo$
+Listing releases matching ^baz$
 ********************
 
 	Release was not present in Helm.  Diff will show entire contents as new.
@@ -49,3 +51,7 @@ helmfile-tests, cm1, ConfigMap (v1) has been added:
 +   name: cm1
 Comparing release=foo, chart=../../../charts/raw
 Comparing release=baz, chart=../../../charts/raw
+Affected releases are:
+  baz (../../../charts/raw) UPDATED
+  foo (../../../charts/raw) UPDATED
+
