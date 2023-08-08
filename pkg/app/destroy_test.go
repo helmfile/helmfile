@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	helmV3ListFlags                   = "--kube-contextdefault--uninstalling--deployed--failed--pending"
-	helmV3ListFlagsWithoutKubeContext = "--uninstalling--deployed--failed--pending"
+	helmV3ListFlags                   = "--kube-context default --uninstalling --deployed --failed --pending"
+	helmV3ListFlagsWithoutKubeContext = "--uninstalling --deployed --failed --pending"
 )
 
 func listFlags(namespace, kubeContext string) string {
@@ -27,9 +27,9 @@ func listFlags(namespace, kubeContext string) string {
 	if namespace != "" {
 		flags = append(flags, "--namespace", namespace)
 	}
-	flags = append(flags, "--uninstalling--deployed--failed--pending")
+	flags = append(flags, "--uninstalling --deployed --failed --pending")
 
-	return strings.Join(flags, "")
+	return strings.Join(flags, " ")
 }
 
 type destroyConfig struct {
