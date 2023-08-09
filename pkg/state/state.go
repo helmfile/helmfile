@@ -1910,6 +1910,7 @@ type DiffOpts struct {
 	Set               []string
 	SkipCleanup       bool
 	SkipDiffOnInstall bool
+	DiffArgs          string
 	ReuseValues       bool
 	ResetValues       bool
 	PostRenderer      string

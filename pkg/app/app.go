@@ -1369,10 +1369,16 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		PostRenderer:      c.PostRenderer(),
 	}
 
+	// join --args and --diff-args together to one string.
+	args := strings.Join([]string{c.Args(), c.DiffArgs()}, " ")
+	helm.SetExtraArgs(argparser.GetArgs(args, r.state)...)
+
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
 	if len(errs) > 0 {
 		return false, false, errs
 	}
+
+	helm.SetExtraArgs()
 
 	var toDelete []state.ReleaseSpec
 	for _, r := range releasesToBeDeleted {
@@ -1586,7 +1592,8 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 	ok, errs := a.withNeeds(r, c, true, func(st *state.HelmState) []error {
 		helm := r.helm
 
-		helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+		args := strings.Join([]string{c.Args(), c.DiffArgs()}, " ")
+		helm.SetExtraArgs(argparser.GetArgs(args, r.state)...)
 
 		var errs []error
 
@@ -1610,6 +1617,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		}
 		infoMsg, updated, deleted, errs = filtered.diff(true, c.DetailedExitcode(), c, opts)
 
+		helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
 		return errs
 	})
 

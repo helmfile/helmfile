@@ -16,6 +16,7 @@ import (
 
 type diffConfig struct {
 	args                   string
+	diffArgs               string
 	values                 []string
 	retainValuesFiles      bool
 	set                    []string
@@ -45,6 +46,10 @@ type diffConfig struct {
 
 func (a diffConfig) Args() string {
 	return a.args
+}
+
+func (a diffConfig) DiffArgs() string {
+	return a.diffArgs
 }
 
 func (a diffConfig) Values() []string {

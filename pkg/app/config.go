@@ -79,6 +79,8 @@ type ApplyConfigProvider interface {
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
 
+	DiffArgs() string
+
 	DAGConfig
 
 	concurrencyConfig
@@ -130,6 +132,7 @@ type DiffConfigProvider interface {
 	NoHooks() bool
 	SuppressDiff() bool
 	SkipDiffOnInstall() bool
+	DiffArgs() string
 
 	DAGConfig
 
