@@ -34,6 +34,8 @@ type ApplyOptions struct {
 	IncludeTransitiveNeeds bool
 	// SkipDiffOnInstall is true if the diff should be skipped on install
 	SkipDiffOnInstall bool
+	// DiffArgs is the list of arguments to pass to the helm-diff.
+	DiffArgs string
 	// IncludeTests is true if the tests should be included
 	IncludeTests bool
 	// Suppress is true if the output should be suppressed
@@ -153,6 +155,11 @@ func (a *ApplyImpl) SkipCleanup() bool {
 // SkipDiffOnInstall returns the skip diff on install.
 func (a *ApplyImpl) SkipDiffOnInstall() bool {
 	return a.ApplyOptions.SkipDiffOnInstall
+}
+
+// DiffArgs is the list of arguments to pass to helm-diff.
+func (a *ApplyImpl) DiffArgs() string {
+	return a.ApplyOptions.DiffArgs
 }
 
 // SkipNeeds returns the skip needs.

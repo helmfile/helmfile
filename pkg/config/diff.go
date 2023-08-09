@@ -42,6 +42,8 @@ type DiffOptions struct {
 	ResetValues bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
+	// DiffArgs is the list of arguments to pass to helm-diff.
+	DiffArgs string
 }
 
 // NewDiffOptions creates a new Apply
@@ -145,6 +147,11 @@ func (t *DiffImpl) SkipCRDs() bool {
 // SkipDiffOnInstall returns the skip diff on install
 func (t *DiffImpl) SkipDiffOnInstall() bool {
 	return t.DiffOptions.SkipDiffOnInstall
+}
+
+// DiffArgs returns the list of arguments to pass to helm-diff.
+func (t *DiffImpl) DiffArgs() string {
+	return t.DiffOptions.DiffArgs
 }
 
 // Suppress returns the suppress

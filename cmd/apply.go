@@ -41,6 +41,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&applyOptions.Output, "output", "", "output format for diff plugin")
 	f.BoolVar(&applyOptions.DetailedExitcode, "detailed-exitcode", false, "return a non-zero exit code 2 instead of 0 when there were changes detected AND the changes are synced successfully")
 	f.BoolVar(&applyOptions.StripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
+	f.StringVar(&applyOptions.DiffArgs, "diff-args", "", `pass args to helm helm-diff`)
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
 	if !runtime.V1Mode {
 		// TODO: Remove this function once Helmfile v0.x
