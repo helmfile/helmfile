@@ -256,7 +256,6 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - depguard
     - usestdlibvars
     - reassign
     - errcheck
@@ -287,6 +286,7 @@ linters:
     # - dogsled
     # - dupl
   # don't enable:
+  # - depguard
   # - deadcode
   # - gochecknoglobals
   # - gochecknoinits
