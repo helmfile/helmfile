@@ -9,7 +9,7 @@ on:
     paths-ignore: [ '**.md', '**/docs/**' ]
 
 env:
-  GO_VERSION: 1.20
+  GO_VERSION: 1.21
 
 jobs:
   lint:
@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: '1.20'
+          go-version: '1.21'
 
       - name: Checkout code
         uses: actions/checkout@v3
@@ -27,4 +27,4 @@ jobs:
       - name: Golangci lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.51.0
+          version: v1.54.1
