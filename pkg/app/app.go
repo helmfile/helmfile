@@ -582,7 +582,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			errs = append(errs, err)
 		}
 
-		return
+		return false, errs
 	}, false, SetFilter(true))
 }
 

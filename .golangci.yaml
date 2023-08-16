@@ -278,13 +278,6 @@ linters:
     - unused
     - whitespace
     - gci
-    # - gocritic
-    # - godox
-    # - gosec
-    # - interfacer
-    # - stylecheck
-    # - dogsled
-    # - dupl
   # don't enable:
   # - depguard
   # - deadcode
@@ -295,6 +288,13 @@ linters:
   # - maligned
   # - prealloc
   # - varcheck
+  # - gocritic
+  # - godox
+  # - gosec
+  # - interfacer
+  # - stylecheck
+  # - dogsled
+  # - dupl
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
