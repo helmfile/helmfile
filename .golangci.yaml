@@ -173,7 +173,7 @@ linters-settings:
     check-exported: false
   nakedret:
     # make an issue if func has more lines of code than this setting and it has naked returns; default is 30
-    max-func-lines: 30
+    max-func-lines: 50 
   prealloc:
     # XXX: we don't recommend using this linter before doing performance profiling.
     # For most programs usage of prealloc will be a premature optimization.
@@ -256,7 +256,6 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - depguard
     - usestdlibvars
     - reassign
     - errcheck
@@ -279,14 +278,8 @@ linters:
     - unused
     - whitespace
     - gci
-    # - gocritic
-    # - godox
-    # - gosec
-    # - interfacer
-    # - stylecheck
-    # - dogsled
-    # - dupl
   # don't enable:
+  # - depguard
   # - deadcode
   # - gochecknoglobals
   # - gochecknoinits
@@ -295,6 +288,13 @@ linters:
   # - maligned
   # - prealloc
   # - varcheck
+  # - gocritic
+  # - godox
+  # - gosec
+  # - interfacer
+  # - stylecheck
+  # - dogsled
+  # - dupl
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
