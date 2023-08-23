@@ -11,7 +11,7 @@ fi
 if [ ! $(minikube status --format '{{.ClusterStatus}}') == "Running" ]; then
     fail "Minikube Cluster is not running."
 fi
-if ! kubectl version --short 1> /dev/null; then
+if ! kubectl version 1> /dev/null; then
     fail "Could not connect to minikube apiserver"
 fi
 if ! hash curl 1>/dev/null; then
