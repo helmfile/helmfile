@@ -63,27 +63,16 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ### Running as a container
 
-The [Helmfile Docker images are available in GHCR](https://github.com/helmfile/helmfile/pkgs/container/helmfile). There is no `latest` tag, since the `0.x` versions can contain breaking changes, so make sure you pick the right tag. Example using `helmfile 0.145.2`:
+The [Helmfile Docker images are available in GHCR](https://github.com/helmfile/helmfile/pkgs/container/helmfile). There is no `latest` tag, since the `0.x` versions can contain breaking changes, so make sure you pick the right tag. Example using `helmfile 0.156.0`:
 
 ```sh-session
-# helm 2
-$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.145.2 helmfile sync
-
-# helm 3
-$ docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:helm3-v0.145.2 helmfile sync
+$ docker run --rm --net=host -v "${HOME}/.kube:/helm/.kube" -v "${HOME}/.config/helm:/helm/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.156.0 helmfile sync
 ```
 
-You can also use shims to make calling the binaries easier:
+You can also use a shim to make calling the binary easier:
 
 ```sh-session
-# helm 2
-$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.helm:/root/.helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.145.2 helmfile "$@"' |
-    tee helmfile
-$ chmod +x helmfile
-$ ./helmfile sync
-
-# helm 3
-$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/root/.kube" -v "${HOME}/.config/helm:/root/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:helm3-v0.145.2 helmfile "$@"' |
+$ printf '%s\n' '#!/bin/sh' 'docker run --rm --net=host -v "${HOME}/.kube:/helm/.kube" -v "${HOME}/.config/helm:/helm/.config/helm" -v "${PWD}:/wd" --workdir /wd ghcr.io/helmfile/helmfile:v0.156.0 helmfile "$@"' |
     tee helmfile
 $ chmod +x helmfile
 $ ./helmfile sync
