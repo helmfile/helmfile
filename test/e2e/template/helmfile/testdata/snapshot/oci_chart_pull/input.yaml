@@ -1,6 +1,6 @@
 repositories:
 - name: myrepo
-  url: localhost:5000/myrepo
+  url: localhost:5001/myrepo
   oci: true
 
 releases:
