@@ -149,6 +149,7 @@ type HelmSpec struct {
 	KubeContext string   `yaml:"kubeContext,omitempty"`
 	Args        []string `yaml:"args,omitempty"`
 	Verify      bool     `yaml:"verify"`
+	Keyring     string   `yaml:"keyring,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS bool `yaml:"enableDNS"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
@@ -199,6 +200,8 @@ type RepositorySpec struct {
 	Password        string `yaml:"password,omitempty"`
 	Managed         string `yaml:"managed,omitempty"`
 	OCI             bool   `yaml:"oci,omitempty"`
+	Verify          bool   `yaml:"verify,omitempty"`
+	Keyring         string `yaml:"keyring,omitempty"`
 	PassCredentials bool   `yaml:"passCredentials,omitempty"`
 	SkipTLSVerify   bool   `yaml:"skipTLSVerify,omitempty"`
 }
@@ -226,7 +229,8 @@ type ReleaseSpec struct {
 	Version string `yaml:"version,omitempty"`
 	// Verify enables signature verification on fetched chart.
 	// Beware some (or many?) chart repositories and charts don't seem to support it.
-	Verify *bool `yaml:"verify,omitempty"`
+	Verify  *bool  `yaml:"verify,omitempty"`
+	Keyring string `yaml:"keyring,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS *bool `yaml:"enableDNS,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
@@ -2447,6 +2451,18 @@ func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec)
 	return flags
 }
 
+// appendKeyringFlags append all the helm command-line flags related to keyring
+func (st *HelmState) appendKeyringFlags(flags []string, release *ReleaseSpec) []string {
+	switch {
+	case release.Keyring != "":
+		flags = append(flags, "--keyring", release.Keyring)
+	case st.HelmDefaults.Keyring != "":
+		flags = append(flags, "--keyring", st.HelmDefaults.Keyring)
+	}
+
+	return flags
+}
+
 func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
 	if release.KubeContext != "" {
@@ -2491,6 +2507,8 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
 	}
+
+	flags = st.appendKeyringFlags(flags, release)
 
 	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
 		flags = append(flags, "--enable-dns")
@@ -3482,6 +3500,12 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 			}
 			if repo.SkipTLSVerify {
 				flags = append(flags, "--insecure-skip-tls-verify")
+			}
+			if repo.Verify {
+				flags = append(flags, "--verify")
+			}
+			if repo.Keyring != "" {
+				flags = append(flags, "--keyring", repo.Keyring)
 			}
 		}
 
