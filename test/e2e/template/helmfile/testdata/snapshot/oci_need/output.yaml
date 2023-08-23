@@ -1,6 +1,6 @@
 Building dependency release=foo, chart=$WD/temp1/foo
 Saving 1 charts
-Downloading raw from repo oci://localhost:5000/myrepo
+Downloading raw from repo oci://localhost:5002/myrepo
 Deleting outdated charts
 
 Templating release=foo, chart=$WD/temp1/foo
