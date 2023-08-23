@@ -172,7 +172,7 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 			// run the docker registry v2 and push the test charts to the registry
 			// so that it can be accessed by helm and helmfile as a oci registry based chart repository.
 			if config.LocalDockerRegistry.Enabled {
-				containerName := "helmfile_docker_registry"
+				containerName := strings.Join([]string{"helmfile_docker_registry", name}, "_")
 
 				hostPort := config.LocalDockerRegistry.Port
 				if hostPort <= 0 {
