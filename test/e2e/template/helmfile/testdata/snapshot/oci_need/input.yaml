@@ -23,5 +23,5 @@ releases:
           bar: BAR
   dependencies:
   - alias: dep
-    chart: oci://localhost:5000/myrepo/raw
+    chart: oci://localhost:5002/myrepo/raw
     version: 0.1.0

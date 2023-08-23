@@ -1,6 +1,6 @@
 localDockerRegistry:
   enabled: true
-  port: 5000
+  port: 5002
 chartifyTempDir: temp1
 helmfileArgs:
 - template
