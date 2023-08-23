@@ -155,6 +155,8 @@ repositories:
   password: optional_password
   oci: true
   passCredentials: true
+  verify: true
+  keyring: path/to/keyring.gpg
 # Advanced configuration: You can use a ca bundle to use an https repo
 # with a self-signed certificate
 - name: insecure
@@ -185,6 +187,7 @@ helmDefaults:
     - "--set k=v"
   # verify the chart before upgrading (only works with packaged charts not directories) (default false)
   verify: true
+  keyring: path/to/keyring.gpg
   # wait for k8s resources via --wait. (default false)
   wait: true
   # if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout (default false, Implemented in Helm3.5)
@@ -277,6 +280,7 @@ releases:
       - vault_secret.yaml
     # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods and force.
     verify: true
+    keyring: path/to/keyring.gpg
     wait: true
     waitForJobs: true
     timeout: 60
