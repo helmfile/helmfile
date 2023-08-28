@@ -94,6 +94,12 @@ releases:
     value: false
 ```
 
+Ensure we have the required helmfile plugins:
+
+```console
+helmfile init
+```
+
 Sync your Kubernetes cluster state to the desired one by running:
 
 ```console
