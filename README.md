@@ -59,7 +59,7 @@ Note that we will try our best to document any backward incompatibility. And in 
 
 **1: Binary Installation**
 
-download one of [releases](https://github.com/helmfile/helmfile/releases)
+Download one of [releases](https://github.com/helmfile/helmfile/releases)
 
 **2: Package Manager**
 
