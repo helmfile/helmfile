@@ -32,6 +32,13 @@ The `envExec` function allows you to run a command with environment variables de
 {{ $cmdOutpot := envExec (dict "envKey" "envValue") "./mycmd" (list "arg1" "arg2" "--flag1") }}
 ```
 
+#### `isFile`
+The `isFile` function allows you to check if a file exists. On failure, the template rendering will fail with an error message.
+
+```yaml
+{{ if isFile "./myfile" }}
+```
+
 #### `readFile`
 The `readFile` function allows you to read a file and return its content as the function output. On failure, the template rendering will fail with an error message.
 
