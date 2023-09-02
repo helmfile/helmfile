@@ -28,7 +28,7 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v4
       with:
         go-version: '1.21'
     - name: Env
@@ -41,7 +41,7 @@ jobs:
     - name: Prepare tar to upload built binaries
       run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
     - name: Upload built binaries
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: built-binaries-${{ github.run_id }}
         path: built-binaries.tar
@@ -103,7 +103,7 @@ jobs:
            extra-helmfile-flags: "--enable-live-output"
            v1mode:
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Cache libraries
       uses: actions/cache@v2
       env:
@@ -116,14 +116,14 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v4
       with:
         go-version: '1.21'
     - name: Env
       run: go env
 
     - name: Download built binaries
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: built-binaries-${{ github.run_id }}
     - name: Extract tar to get built binaries
@@ -158,7 +158,7 @@ jobs:
         run: |
             sudo apt-get -y install expect
       - name: Download built binaries
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: built-binaries-${{ github.run_id }}
       - name: Extract tar to get built binaries
