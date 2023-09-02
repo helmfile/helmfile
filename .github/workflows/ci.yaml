@@ -9,6 +9,17 @@ on:
     paths-ignore: [ '**.md', '**/docs/**' ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.54.2
 
   tests:
     runs-on: ubuntu-latest
