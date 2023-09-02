@@ -57,8 +57,8 @@ minikube:
 vault:
 	docker kill $$(docker ps -a --filter "name=vault" -q) || true
 	docker run -d -p8200:8200 --rm --name vault vault:1.2.0 server -dev -dev-root-token-id=toor
-	docker run --rm --network="host" -e VAULT_ADDR=$$VAULT_ADDR -e VAULT_TOKEN=$$VAULT_TOKEN  vault:1.2.0 secrets enable -path=sops transit
-	docker run --rm --network="host" -e VAULT_ADDR=$$VAULT_ADDR -e VAULT_TOKEN=$$VAULT_TOKEN  vault:1.2.0 write sops/keys/key type=rsa-4096
+	docker run --rm --network="host" --cap-add IPC_LOCK -e VAULT_ADDR=$$VAULT_ADDR -e VAULT_TOKEN=$$VAULT_TOKEN  vault:1.2.0 secrets enable -path=sops transit
+	docker run --rm --network="host" --cap-add IPC_LOCK -e VAULT_ADDR=$$VAULT_ADDR -e VAULT_TOKEN=$$VAULT_TOKEN  vault:1.2.0 write sops/keys/key type=rsa-4096
 .PHONY: vault
 
 sops:
