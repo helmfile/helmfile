@@ -62,8 +62,10 @@ second-pass rendering result of "helmfile.yaml.part.0":
 24: 
 
 merged environment: &{default  map[] map[]}
+WARNING: release external-secrets needs kubernetes-external-secrets, but kubernetes-external-secrets is not installed
 2 release(s) matching app=test found in helmfile.yaml
 
+WARNING: release external-secrets needs kubernetes-external-secrets, but kubernetes-external-secrets is not installed
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
   kubernetes-external-secrets (incubator/raw) DELETED
@@ -89,6 +91,7 @@ GROUP RELEASES
 2     default/my-release
 
 processing releases in group 1/2: default/external-secrets
+WARNING: release external-secrets needs kubernetes-external-secrets, but kubernetes-external-secrets is not installed
 processing releases in group 2/2: default/my-release
 
 UPDATED RELEASES:

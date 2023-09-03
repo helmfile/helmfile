@@ -121,6 +121,7 @@ second-pass rendering result of "helmfile_1.yaml.part.1":
 43: 
 
 merged environment: &{development  map[] map[]}
+WARNING: release test2 needs disabled, but disabled is not installed
 changing working directory back to "/path/to"
 processing file "helmfile_2.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"

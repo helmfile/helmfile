@@ -32,6 +32,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  9: 
 
 merged environment: &{default  map[] map[]}
+WARNING: release foo needs bar, but bar is not installed
 2 release(s) found in helmfile.yaml
 
 processing 2 groups of releases in this order:
@@ -41,6 +42,7 @@ GROUP RELEASES
 
 processing releases in group 1/2: bar
 processing releases in group 2/2: foo
+WARNING: release foo needs bar, but bar is not installed
 Affected releases are:
   bar (mychart2) DELETED
   foo (mychart1) UPDATED

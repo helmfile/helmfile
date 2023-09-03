@@ -34,6 +34,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 10: 
 
 merged environment: &{default  map[] map[]}
+WARNING: release bar needs foo, but foo is not installed
 2 release(s) found in helmfile.yaml
 
 Affected releases are:
