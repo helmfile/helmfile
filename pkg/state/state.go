@@ -459,7 +459,7 @@ var DefaultFetchOutputDirTemplate = filepath.Join(
 	"{{ or .Release.Version \"latest\" }}",
 )
 
-func (st *HelmState) ReFormatNeeds(spec *ReleaseSpec) ([]string, error) {
+func (st *HelmState) ReFormatNeeds(spec *ReleaseSpec) []string {
 	var needs []string
 	releaseInstalledInfo := make(map[string]bool)
 	for _, r := range st.OrginReleases {
@@ -477,7 +477,7 @@ func (st *HelmState) ReFormatNeeds(spec *ReleaseSpec) ([]string, error) {
 
 		name = components[len(components)-1]
 		if !releaseInstalledInfo[name] {
-			return nil, fmt.Errorf("release %s needs %s, but it is not installed", spec.Name, name)
+			st.logger.Warnf("WARNING: %s", fmt.Sprintf("release %s needs %s, but %s is not installed", spec.Name, name, name))
 		}
 
 		if len(components) > 1 {
@@ -513,10 +513,10 @@ func (st *HelmState) ReFormatNeeds(spec *ReleaseSpec) ([]string, error) {
 
 		needs = append(needs, strings.Join(componentsAfterOverride, "/"))
 	}
-	return needs, nil
+	return needs
 }
 
-func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) error {
+func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 	if st.OverrideKubeContext != "" {
 		spec.KubeContext = st.OverrideKubeContext
 	}
@@ -524,12 +524,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) error {
 		spec.Namespace = st.OverrideNamespace
 	}
 
-	needs, err := st.ReFormatNeeds(spec)
-	if err != nil {
-		return err
-	}
-	spec.Needs = needs
-	return nil
+	spec.Needs = st.ReFormatNeeds(spec)
 }
 
 type RepoUpdater interface {
@@ -627,10 +622,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 		func(workerIndex int) {
 			for release := range jobs {
 				errs := []*ReleaseError{}
-				applyOverridesErr := st.ApplyOverrides(release)
-				if applyOverridesErr != nil {
-					errs = append(errs, newReleaseFailedError(release, applyOverridesErr))
-				}
+				st.ApplyOverrides(release)
 
 				// If `installed: false`, the only potential operation on this release would be uninstalling.
 				// We skip generating values files in that case, because for an uninstall with `helm delete`, we don't need to those.
@@ -1470,10 +1462,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			continue
 		}
 
-		err := st.ApplyOverrides(release)
-		if err != nil {
-			errs = append(errs, err)
-		}
+		st.ApplyOverrides(release)
 
 		flags, files, err := st.flagsForTemplate(helm, release, 0, opts)
 
@@ -1573,10 +1562,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 			continue
 		}
 
-		err := st.ApplyOverrides(release)
-		if err != nil {
-			return []error{err}
-		}
+		st.ApplyOverrides(release)
 
 		generatedFiles, err := st.generateValuesFiles(helm, release, i)
 		if err != nil {
@@ -1866,11 +1852,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 			for release := range jobs {
 				errs := []error{}
 
-				err := st.ApplyOverrides(release)
-
-				if err != nil {
-					errs = append(errs, err)
-				}
+				st.ApplyOverrides(release)
 
 				suppressDiff := false
 				if release.SuppressDiff != nil && *release.SuppressDiff {
@@ -2104,10 +2086,7 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 			return nil
 		}
 
-		err := st.ApplyOverrides(&release)
-		if err != nil {
-			return err
-		}
+		st.ApplyOverrides(&release)
 
 		flags := []string{}
 		if release.Namespace != "" {
@@ -2122,11 +2101,7 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error {
 	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
-		err := st.ApplyOverrides(&release)
-		if err != nil {
-			affectedReleases.Failed = append(affectedReleases.Failed, &release)
-			return err
-		}
+		st.ApplyOverrides(&release)
 
 		flags := make([]string, 0)
 		flags = st.appendConnectionFlags(flags, &release)
@@ -2217,10 +2192,7 @@ func (st *HelmState) GetReleasesWithOverrides() ([]ReleaseSpec, error) {
 	var rs []ReleaseSpec
 	for _, r := range st.Releases {
 		spec := r
-		err := st.ApplyOverrides(&spec)
-		if err != nil {
-			return nil, err
-		}
+		st.ApplyOverrides(&spec)
 		rs = append(rs, spec)
 	}
 	return rs, nil
