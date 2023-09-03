@@ -67,6 +67,7 @@ type ReleaseSetSpec struct {
 	Repositories        []RepositorySpec  `yaml:"repositories,omitempty"`
 	CommonLabels        map[string]string `yaml:"commonLabels,omitempty"`
 	Releases            []ReleaseSpec     `yaml:"releases,omitempty"`
+	OrginReleases       []ReleaseSpec     `yaml:"-"`
 	Selectors           []string          `yaml:"-"`
 
 	// Capabilities.APIVersions
@@ -461,7 +462,7 @@ var DefaultFetchOutputDirTemplate = filepath.Join(
 func (st *HelmState) ReFormatNeeds(spec *ReleaseSpec) ([]string, error) {
 	var needs []string
 	releaseInstalledInfo := make(map[string]bool)
-	for _, r := range st.Releases {
+	for _, r := range st.OrginReleases {
 		releaseInstalledInfo[r.Name] = r.Desired()
 	}
 
