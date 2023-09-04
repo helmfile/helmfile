@@ -102,6 +102,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 44: 
 
 merged environment: &{default  map[] map[]}
+WARNING: release test2 needs disabled, but disabled is not installed
 1 release(s) matching name=test2 found in helmfile.yaml
 
 processing 2 groups of releases in this order:
@@ -111,4 +112,5 @@ GROUP RELEASES
 
 processing releases in group 1/2: default/kube-system/disabled
 processing releases in group 2/2: default//test2
+WARNING: release test2 needs disabled, but disabled is not installed
 changing working directory back to "/path/to"
