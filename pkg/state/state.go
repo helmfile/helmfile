@@ -459,7 +459,7 @@ var DefaultFetchOutputDirTemplate = filepath.Join(
 	"{{ or .Release.Version \"latest\" }}",
 )
 
-func (st *HelmState) ReFormatNeeds(spec *ReleaseSpec) []string {
+func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 	var needs []string
 	releaseInstalledInfo := make(map[string]bool)
 	for _, r := range st.OrginReleases {
@@ -524,7 +524,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 		spec.Namespace = st.OverrideNamespace
 	}
 
-	spec.Needs = st.ReFormatNeeds(spec)
+	spec.Needs = st.reformat(spec)
 }
 
 type RepoUpdater interface {
