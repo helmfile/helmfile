@@ -23,5 +23,19 @@ builds:
       - amd64
       - arm64
       - "386"
+
 changelog:
-  use: github-native
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*[Ff]eat[(\\w)]*:+.*$'
+      order: 0
+    - title: "Fixes"
+      regexp: '^.*fix[(\\w)]*.*$'
+      order: 1
+    - title: "Dependencies"
+      regexp: '^.*(deps|bump)[(\\w)]*.*$'
+      order: 2
+    - title: Others
+      order: 999
