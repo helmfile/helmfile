@@ -9,144 +9,125 @@ on:
     paths-ignore: [ '**.md', '**/docs/**' ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.54.2
 
   tests:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - name: Cache libraries
-      uses: actions/cache@v2
-      env:
-        cache-name: cache-go
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.21'
-    - name: Env
-      run: go env
-    - name: Build
-      run: make build build-test-tools
-    - name: Test
-      run: make check test
-
-    - name: Prepare tar to upload built binaries
-      run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
-    - name: Upload built binaries
-      uses: actions/upload-artifact@v2
-      with:
-        name: built-binaries-${{ github.run_id }}
-        path: built-binaries.tar
-        retention-days: 1
-    - name: Display built binaries
-      run: ls -l helmfile diff-yamls dyff
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: make build build-test-tools
+      - name: Test
+        run: make check test
+      - name: Archive built binaries
+        run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
+      - uses: actions/upload-artifact@v3
+        with:
+          name: built-binaries-${{ github.run_id }}
+          path: built-binaries.tar
+          retention-days: 1
+      - name: Display built binaries
+        run: ls -l helmfile diff-yamls dyff
 
   integration_tests:
     needs: tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
-       include:
-         # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
-         # That's why we cover only 2 Helm minor versions in this matrix.
-         # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
-         - helm-version: v3.11.3
-           kustomize-version: v4.4.1
-           plugin-secrets-version: 3.15.0
-           plugin-diff-version: 3.7.0
-           extra-helmfile-flags:
-           v1mode:
-         - helm-version: v3.11.3
-           kustomize-version: v4.5.7
-           # We assume that the helm-secrets plugin is supposed to
-           # work with the two most recent helm minor versions.
-           # Once it turned out to be not practically true,
-           # we will mark this combination as failable,
-           # and instruct users to upgrade helm and helm-secrets at once.
-           plugin-secrets-version: 4.0.0
-           plugin-diff-version: 3.8.1
-           extra-helmfile-flags:
-           v1mode:
-         - helm-version: v3.12.3
-           kustomize-version: v4.4.1
-           plugin-secrets-version: 3.15.0
-           plugin-diff-version: 3.7.0
-           extra-helmfile-flags:
-           v1mode:
-         - helm-version: v3.12.3
-           kustomize-version: v4.5.7
-           plugin-secrets-version: 4.0.0
-           plugin-diff-version: 3.8.1
-           extra-helmfile-flags:
-           v1mode:
-         # Helmfile v1
-         - helm-version: v3.12.3
-           kustomize-version: v4.5.7
-           plugin-secrets-version: 4.0.0
-           plugin-diff-version: 3.8.1
-           extra-helmfile-flags:
-           v1mode: "true"
-         # In case you need to test some optional helmfile features,
-         # enable it via extra-helmfile-flags below.
-         - helm-version: v3.12.3
-           kustomize-version: v4.5.7
-           plugin-secrets-version: 4.0.0
-           plugin-diff-version: 3.8.1
-           extra-helmfile-flags: "--enable-live-output"
-           v1mode:
+        include:
+          # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
+          # That's why we cover only 2 Helm minor versions in this matrix.
+          # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
+          - helm-version: v3.11.3
+            kustomize-version: v4.4.1
+            plugin-secrets-version: 3.15.0
+            plugin-diff-version: 3.7.0
+            extra-helmfile-flags: ''
+            v1mode: ''
+          - helm-version: v3.11.3
+            kustomize-version: v4.5.7
+            # We assume that the helm-secrets plugin is supposed to
+            # work with the two most recent helm minor versions.
+            # Once it turned out to be not practically true,
+            # we will mark this combination as failable,
+            # and instruct users to upgrade helm and helm-secrets at once.
+            plugin-secrets-version: 4.0.0
+            plugin-diff-version: 3.8.1
+            extra-helmfile-flags: ''
+            v1mode: ''
+          - helm-version: v3.12.3
+            kustomize-version: v4.4.1
+            plugin-secrets-version: 3.15.0
+            plugin-diff-version: 3.7.0
+            extra-helmfile-flags: ''
+            v1mode: ''
+          - helm-version: v3.12.3
+            kustomize-version: v4.5.7
+            plugin-secrets-version: 4.0.0
+            plugin-diff-version: 3.8.1
+            extra-helmfile-flags: ''
+            v1mode: ''
+          # Helmfile v1
+          - helm-version: v3.12.3
+            kustomize-version: v4.5.7
+            plugin-secrets-version: 4.0.0
+            plugin-diff-version: 3.8.1
+            extra-helmfile-flags: ''
+            v1mode: 'true'
+          # In case you need to test some optional helmfile features,
+          # enable it via extra-helmfile-flags below.
+          - helm-version: v3.12.3
+            kustomize-version: v4.5.7
+            plugin-secrets-version: 4.0.0
+            plugin-diff-version: 3.8.1
+            extra-helmfile-flags: '--enable-live-output'
+            v1mode: ''
     steps:
-    - uses: actions/checkout@v2
-    - name: Cache libraries
-      uses: actions/cache@v2
-      env:
-        cache-name: cache-go
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.21'
-    - name: Env
-      run: go env
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
 
-    - name: Download built binaries
-      uses: actions/download-artifact@v2
-      with:
-        name: built-binaries-${{ github.run_id }}
-    - name: Extract tar to get built binaries
-      run: tar -xvf built-binaries.tar
-    - name: Display built binaries
-      run: ls -l helmfile diff-yamls dyff
+      - uses: actions/download-artifact@v3
+        with:
+          name: built-binaries-${{ github.run_id }}
+      - name: Extract tar to get built binaries
+        run: tar -xvf built-binaries.tar
+      - name: Display built binaries
+        run: ls -l helmfile diff-yamls dyff
 
-    - name: Install test dependencies
-      env:
-        HELM_VERSION: ${{ matrix.helm-version }}
-        KUSTOMIZE_VERSION: ${{ matrix.kustomize-version }}
-      run: make -C .github/workflows helm vault sops kustomize
-    - name: Start minikube
-      uses: medyagh/setup-minikube@latest
-    - name: Execute integration tests
-      env:
-        HELM_SECRETS_VERSION: ${{ matrix.plugin-secrets-version }}
-        HELM_DIFF_VERSION: ${{ matrix.plugin-diff-version }}
-        HELMFILE_HELM3: 1
-        TERM: xterm
-        EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
-        HELMFILE_V1MODE: ${{ matrix.v1mode }}
-      run: make integration
+      - name: Install test dependencies
+        env:
+          HELM_VERSION: ${{ matrix.helm-version }}
+          KUSTOMIZE_VERSION: ${{ matrix.kustomize-version }}
+        run: make -C .github/workflows helm vault sops kustomize
+      - name: Start minikube
+        uses: medyagh/setup-minikube@latest
+      - name: Execute integration tests
+        run: make integration
+        env:
+          HELM_SECRETS_VERSION: ${{ matrix.plugin-secrets-version }}
+          HELM_DIFF_VERSION: ${{ matrix.plugin-diff-version }}
+          HELMFILE_HELM3: 1
+          TERM: xterm
+          EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
+          HELMFILE_V1MODE: ${{ matrix.v1mode }}
+
   e2e_tests:
     needs: tests
     runs-on: ubuntu-latest
@@ -154,18 +135,16 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Install package
-        run: |
-            sudo apt-get -y install expect
-      - name: Download built binaries
-        uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: built-binaries-${{ github.run_id }}
       - name: Extract tar to get built binaries
         run: tar -xvf built-binaries.tar
       - name: Display built binaries
         run: ls -l helmfile diff-yamls dyff
+      - name: Install package
+        run: sudo apt-get -y install expect
       - name: Run helmfile init
+        run: bash test/e2e/helmfile-init/init_linux.sh
         env:
           TERM: xterm
-        run: bash test/e2e/helmfile-init/init_linux.sh
