@@ -1593,6 +1593,12 @@ repositories:
     url: https://<MyRegistry>.azurecr.io/helm/v1/repo
 ```
 
+### Java Runner
+The [jhelmfile](https://github.com/paichinger/jhelmfile) library can be used to run `helmfile` using java. It's a wrapper library which can be configured to run helmfile via an installed binary or using docker. It provides conviniece to create helmfile commands programmatically, run them  and map their output to java objects which can then be used for further processing.  
+  
+[jhelmfile](https://github.com/paichinger/jhelmfile) is a convient way to write testsagainst your helmfiles by leveraging one of the powerful testing frameworks the java ecosystem provided, e.g. [junit](https://junit.org/junit5/). 
+Have a look at the [testing](#testing) section of the helmfile documentation for more information and an example.
+
 ## OCI Registries
 
 In order to use OCI chart registries firstly they must be marked in the repository list as OCI enabled, e.g.
@@ -1637,6 +1643,74 @@ repositories:
 export MY_OCI_REGISTRY_USERNAME=spongebob
 export MY_OCI_REGISTRY_PASSWORD=squarepants
 ```
+
+## Testing
+### Why tests?
+A helmfile setup can easily become rather complex. Depending on the size, architecture and amount of environments of the application it can easily grow to hundreds or even thousands of lines containing lots of go-templates like if/else/with/range and such, which might be hard to comprehend for colleagues or even yourself after a while. In such a case you might want to think about writing tests against your helmfile setup for multiple reasons: 
+
+- **Prevent Future Bugs**: Tests can catch regressions - new code changes that break existing functionality.
+- **Documentation**: Tests can serve as documentation by showing how the code is intended to work.
+- **Refactoring**: When refactoring or optimizing code, tests can ensure the new code still meets its requirements and doesn't break anything.
+- **Quality Assurance**: Tests provide a way to ensure a certain level of quality in the your setup, which can increase trust from users and stakeholders.
+- **Reduce Costs**: Catching bugs early in the development process is often much cheaper than fixing them after the software has been released.
+
+### The challenge
+As helmfile is a CLI tool it also has the typical issues when it comes to testing CLI tools being one of them: 
+helmfile prints its results to the standard output (error) stream and returns exit codes. This makes it difficult to programmatically detect and handle results and errors in tests. 
+### Unit tests with jhelmfile
+To tackle this problem the [jhelmfile](https://github.com/paichinger/jhelmfile) project was initiated. jhelmfile is a java library which can be used to run the helmfile. It provides convience to easily assebmle helmfile commands programmatically, run them and mapping the output to java objects which can then be used run verifications against using one of the powerful testing frameworks the java ecosystem provides. 
+jhelmfile supports the basic helmfile commands and parameters. E.g. you can use the `build` command to create the `helmfile build ...` output and the write tests against those. Or you can use the `sync` command to generate actual kubernetes resources and then test those.  
+#### Example
+Let's assume you have the following `helmfile.yaml`:
+```
+repositories:
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+environments:
+  testing:
+    values:
+      - prometheusRbacCreate: true
+  production:
+    values:
+      - prometheusRbacCreate: false
+---
+releases:
+  - name: prom-norbac-ubuntu
+    namespace: prometheus
+    chart: prometheus-community/prometheus
+    set:
+      - name: rbac.create
+        value: {{ .Values.prometheusRbacCreate }}
+```
+To test if the templating for the `prometheusRbacCreate`-value is working as expected you could write a test using jhelmfile like this:
+```java
+@Test
+@DisplayName("Test rbac-create values for testing and production.")
+void testRbacCreate() {
+	// Load helmfile.yaml
+	File helmfileYaml = new File(this.getClass().getResource("/helmfiles/helmfile.yaml").getFile());
+	// Create build commands for different environments
+	BuildCommand testingBuild = BuildCommand.builder()
+			.helmfileYaml(helmfileYaml)
+			.environment("testing")
+			.build();
+	BuildCommand productionBuild = BuildCommand.builder()
+			.helmfileYaml(helmfileYaml)
+			.environment("production")
+			.build();
+	// Create a runtime for helmfile using a binary
+	BinaryRuntime runtime = BinaryRuntime.builder().helmfileBinaryPath("helmfile").build();
+	// Exectute both build commands and capture the helmfile output
+	HelmfileBuild testingResult = runtime.build(testingBuild);
+	HelmfileBuild productionResult = runtime.build(productionBuild);
+	// Verify if the results are as expected
+	assertThat(testingResult.releases().get(0).set().get("rbac.create"), equalTo("true"));
+	assertThat(productionResult.releases().get(0).set().get("rbac.create"), equalTo("false"));
+}
+```
+The code above creates two `build` commands: one for the `testing` environment and one for `production`. Then it executes those and verifies that the result is as expected.
+To see the full example, see github: 
+[jhelmfile-example](https://github.com/paichinger/jhelmfile/blob/main/examples/jhelmfile-junit/src/test/java/HelmfileDocumentationShowCase.java)
 
 ## Attribution
 
