@@ -44,9 +44,9 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ## Highlights
 
-**Declarative**: Write, version-control, apply the desired state file for visibility and reproducibility.
+**Declarative**: Write, version-control, and apply the desired state file for visibility and reproducibility.
 
-**Modules**: Modularize common patterns of your infrastructure, distribute it via Git, S3, etc. to be reused across the entire company (See [#648](https://github.com/roboll/helmfile/pull/648))
+**Modules**: Modularize common patterns of your infrastructure and distribute it via Git, S3, etc., to be reused across the entire company (See [#648](https://github.com/roboll/helmfile/pull/648))
 
 **Versatility**: Manage your cluster consisting of charts, [kustomizations](https://github.com/kubernetes-sigs/kustomize), and directories of Kubernetes resources, turning everything to Helm releases (See [#673](https://github.com/roboll/helmfile/pull/673))
 
@@ -96,6 +96,14 @@ releases:
   set:
   - name: rbac.create
     value: false
+```
+
+Install required dependencies using [init](https://helmfile.readthedocs.io/en/latest/#init):
+
+```console
+
+```console
+helmfile init
 ```
 
 Sync your Kubernetes cluster state to the desired one by running:
