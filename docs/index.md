@@ -98,6 +98,12 @@ releases:
     value: false
 ```
 
+Install required dependencies using [init](https://helmfile.readthedocs.io/en/latest/#init):
+
+```console
+helmfile init
+```
+
 Sync your Kubernetes cluster state to the desired one by running:
 
 ```console
