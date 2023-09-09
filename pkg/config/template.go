@@ -69,7 +69,7 @@ func (t *TemplateImpl) IncludeCRDs() bool {
 
 // IncludeNeeds returns the include needs
 func (t *TemplateImpl) IncludeNeeds() bool {
-	return t.TemplateOptions.IncludeNeeds || t.IncludeTransitiveNeeds()
+	return t.TemplateOptions.IncludeNeeds
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs

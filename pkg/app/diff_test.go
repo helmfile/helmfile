@@ -81,7 +81,7 @@ func (a diffConfig) SkipNeeds() bool {
 }
 
 func (a diffConfig) IncludeNeeds() bool {
-	return a.includeNeeds || a.IncludeTransitiveNeeds()
+	return a.includeNeeds
 }
 
 func (a diffConfig) IncludeTransitiveNeeds() bool {

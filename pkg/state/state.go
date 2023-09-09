@@ -1045,6 +1045,7 @@ type ChartPrepareOptions struct {
 	OutputDir              string
 	OutputDirTemplate      string
 	IncludeTransitiveNeeds bool
+	IncludeNeeds           bool
 	Concurrency            int
 	KubeVersion            string
 	Set                    []string
@@ -2208,9 +2209,7 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		}
 		filteredReleases = append(filteredReleases, res)
 	}
-	if includeTransitiveNeeds {
-		unmarkNeedsAndTransitives(filteredReleases, releases)
-	}
+	unmarkNeeds(filteredReleases, releases, includeTransitiveNeeds)
 	return filteredReleases, nil
 }
 
@@ -2237,38 +2236,43 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 	return conditionMatch, nil
 }
 
-func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
-	needsWithTranstives := collectAllNeedsWithTransitives(filteredReleases, allReleases)
-	unmarkReleases(needsWithTranstives, filteredReleases)
+func unmarkNeeds(filteredReleases []Release, allReleases []ReleaseSpec, includeTransitiveNeeds bool) {
+	needsWithTranstives := collectAllNeeds(filteredReleases, allReleases, includeTransitiveNeeds)
+	unmarkReleases(needsWithTranstives, filteredReleases, includeTransitiveNeeds)
 }
 
-func collectAllNeedsWithTransitives(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
-	needsWithTranstives := map[string]struct{}{}
+func collectAllNeeds(filteredReleases []Release, allReleases []ReleaseSpec, includeTransitiveNeeds bool) map[string]struct{} {
+	needs := map[string]struct{}{}
 	for _, r := range filteredReleases {
 		if !r.Filtered {
-			collectNeedsWithTransitives(r.ReleaseSpec, allReleases, needsWithTranstives)
+			collectNeeds(r.ReleaseSpec, allReleases, needs, includeTransitiveNeeds)
 		}
 	}
-	return needsWithTranstives
+	return needs
 }
 
-func unmarkReleases(toUnmark map[string]struct{}, releases []Release) {
+func unmarkReleases(toUnmark map[string]struct{}, releases []Release, includeTransitiveNeeds bool) {
 	for i, r := range releases {
 		if _, ok := toUnmark[ReleaseToID(&r.ReleaseSpec)]; ok {
+			if releases[i].Filtered && !includeTransitiveNeeds {
+				releases[i].Needs = nil
+			}
 			releases[i].Filtered = false
 		}
 	}
 }
 
-func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec, needsWithTranstives map[string]struct{}) {
+func collectNeeds(release ReleaseSpec, allReleases []ReleaseSpec, needs map[string]struct{}, includeTransitiveNeeds bool) {
 	for _, id := range release.Needs {
-		if _, exists := needsWithTranstives[id]; !exists {
-			needsWithTranstives[id] = struct{}{}
-			releaseParts := strings.Split(id, "/")
-			releaseName := releaseParts[len(releaseParts)-1]
-			for _, r := range allReleases {
-				if r.Name == releaseName {
-					collectNeedsWithTransitives(r, allReleases, needsWithTranstives)
+		if _, exists := needs[id]; !exists {
+			needs[id] = struct{}{}
+			if includeTransitiveNeeds {
+				releaseParts := strings.Split(id, "/")
+				releaseName := releaseParts[len(releaseParts)-1]
+				for _, r := range allReleases {
+					if r.Name == releaseName {
+						collectNeeds(r, allReleases, needs, includeTransitiveNeeds)
+					}
 				}
 			}
 		}

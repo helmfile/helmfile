@@ -189,7 +189,8 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			IncludeCRDs:            &includeCRDs,
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
@@ -255,8 +256,9 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Set:                    c.Set(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -327,7 +329,8 @@ func (a *App) Lint(c LintConfigProvider) error {
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 		}, func() {
 			ok, lintErrs, errs = a.lint(run, c)
 		})
@@ -420,7 +423,8 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			SkipCleanup:            c.RetainValuesFiles() || c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -973,7 +977,7 @@ func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds
 	return err
 }
 
-func printBatches(batches [][]state.Release) string {
+func printBatches(batches [][]state.ReleaseSpec) string {
 	buf := &bytes.Buffer{}
 
 	w := new(tabwriter.Writer)
@@ -985,7 +989,7 @@ func printBatches(batches [][]state.Release) string {
 	for i, batch := range batches {
 		ids := []string{}
 		for _, r := range batch {
-			ids = append(ids, state.ReleaseToID(&r.ReleaseSpec))
+			ids = append(ids, state.ReleaseToID(&r))
 		}
 		fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
 	}
@@ -1005,7 +1009,7 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 	return withBatches(opts.Purpose, templated, batches, helm, logger, converge)
 }
 
-func withBatches(purpose string, templated *state.HelmState, batches [][]state.Release, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
+func withBatches(purpose string, templated *state.HelmState, batches [][]state.ReleaseSpec, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
 	numBatches := len(batches)
 
 	if purpose == "" {
@@ -1018,10 +1022,7 @@ func withBatches(purpose string, templated *state.HelmState, batches [][]state.R
 
 	for i, batch := range batches {
 		var targets []state.ReleaseSpec
-
-		for _, marked := range batch {
-			targets = append(targets, marked.ReleaseSpec)
-		}
+		targets = append(targets, batch...)
 
 		var releaseIds []string
 		for _, r := range targets {
@@ -1347,9 +1348,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	var toApplyWithNeeds []state.ReleaseSpec
 
 	for _, rs := range plan {
-		for _, r := range rs {
-			toApplyWithNeeds = append(toApplyWithNeeds, r.ReleaseSpec)
-		}
+		toApplyWithNeeds = append(toApplyWithNeeds, rs...)
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
@@ -1743,9 +1742,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	var toSyncWithNeeds []state.ReleaseSpec
 
 	for _, rs := range batches {
-		for _, r := range rs {
-			toSyncWithNeeds = append(toSyncWithNeeds, r.ReleaseSpec)
-		}
+		toSyncWithNeeds = append(toSyncWithNeeds, rs...)
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
@@ -1948,9 +1945,7 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 	var selectedReleasesWithNeeds []state.ReleaseSpec
 
 	for _, rs := range batches {
-		for _, r := range rs {
-			selectedReleasesWithNeeds = append(selectedReleasesWithNeeds, r.ReleaseSpec)
-		}
+		selectedReleasesWithNeeds = append(selectedReleasesWithNeeds, rs...)
 	}
 
 	var toRender []state.ReleaseSpec

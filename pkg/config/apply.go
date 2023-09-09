@@ -113,7 +113,7 @@ func (a *ApplyImpl) DiffOutput() string {
 
 // IncludeNeeds returns the include needs.
 func (a *ApplyImpl) IncludeNeeds() bool {
-	return a.ApplyOptions.IncludeNeeds || a.IncludeTransitiveNeeds()
+	return a.ApplyOptions.IncludeNeeds
 }
 
 // IncludeTests returns the include tests.

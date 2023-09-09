@@ -2141,7 +2141,7 @@ func (c configImpl) SkipTests() bool {
 }
 
 func (c configImpl) IncludeNeeds() bool {
-	return c.includeNeeds || c.IncludeTransitiveNeeds()
+	return c.includeNeeds
 }
 
 func (c configImpl) IncludeTransitiveNeeds() bool {
@@ -2273,7 +2273,7 @@ func (a applyConfig) SkipNeeds() bool {
 }
 
 func (a applyConfig) IncludeNeeds() bool {
-	return a.includeNeeds || a.IncludeTransitiveNeeds()
+	return a.includeNeeds
 }
 
 func (a applyConfig) IncludeTransitiveNeeds() bool {
