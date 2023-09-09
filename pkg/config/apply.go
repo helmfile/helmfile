@@ -164,7 +164,7 @@ func (a *ApplyImpl) DiffArgs() string {
 
 // SkipNeeds returns the skip needs.
 func (a *ApplyImpl) SkipNeeds() bool {
-	if !a.IncludeNeeds() {
+	if !a.IncludeNeeds() && !a.IncludeTransitiveNeeds() {
 		return a.ApplyOptions.SkipNeeds
 	}
 	return false

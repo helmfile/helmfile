@@ -73,7 +73,7 @@ func (t *SyncImpl) Set() []string {
 
 // SkipNeeds returns the skip needs
 func (t *SyncImpl) SkipNeeds() bool {
-	if !t.IncludeNeeds() {
+	if !t.IncludeNeeds() && !t.IncludeTransitiveNeeds() {
 		return t.SyncOptions.SkipNeeds
 	}
 

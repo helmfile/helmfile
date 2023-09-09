@@ -87,7 +87,7 @@ func (t *DiffImpl) Set() []string {
 
 // SkipNeeds returns the skip needs
 func (t *DiffImpl) SkipNeeds() bool {
-	if !t.IncludeNeeds() {
+	if !t.IncludeNeeds() && !t.IncludeTransitiveNeeds() {
 		return t.DiffOptions.SkipNeeds
 	}
 

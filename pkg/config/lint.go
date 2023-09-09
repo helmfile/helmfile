@@ -68,7 +68,7 @@ func (l *LintImpl) IncludeTransitiveNeeds() bool {
 
 // SkipNeeds returns the skip needs
 func (l *LintImpl) SkipNeeds() bool {
-	if !l.IncludeNeeds() {
+	if !l.IncludeNeeds() && !l.IncludeTransitiveNeeds() {
 		return l.LintOptions.SkipNeeds
 	}
 

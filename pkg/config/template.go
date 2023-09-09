@@ -99,7 +99,7 @@ func (t *TemplateImpl) SkipCleanup() bool {
 
 // SkipNeeds returns the skip needs
 func (t *TemplateImpl) SkipNeeds() bool {
-	if !t.IncludeNeeds() {
+	if !t.IncludeNeeds() && !t.IncludeTransitiveNeeds() {
 		return t.TemplateOptions.SkipNeeds
 	}
 
