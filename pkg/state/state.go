@@ -2215,6 +2215,11 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		filteredReleases = append(filteredReleases, res)
 	}
 	if needsOptions.SkipNeeds {
+		for i, r := range filteredReleases {
+			if r.Needs != nil {
+				filteredReleases[i].ReleaseSpec.Needs = nil
+			}
+		}
 		return filteredReleases, nil
 	}
 	if needsOptions.IncludeTransitiveNeeds || needsOptions.IncludeNeeds {
