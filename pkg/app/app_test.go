@@ -110,7 +110,11 @@ releases:
 
 	err := app.ForEachState(
 		noop,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 	if err != nil {
@@ -162,7 +166,11 @@ BAZ: 4
 
 	err := app.ForEachState(
 		Noop,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 	if err != nil {
@@ -204,7 +212,11 @@ releases:
 
 	err := app.ForEachState(
 		Noop,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 	if err == nil {
@@ -249,7 +261,11 @@ releases:
 
 	err := app.ForEachState(
 		Noop,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 	if err != nil {
@@ -301,7 +317,11 @@ releases:
 
 			err := app.ForEachState(
 				Noop,
-				false,
+				state.NeedsOptions{
+					SkipNeeds:              true,
+					IncludeNeeds:           false,
+					IncludeTransitiveNeeds: false,
+				},
 				SetFilter(true),
 			)
 			if testcase.expectErr && err == nil {
@@ -368,7 +388,11 @@ releases:
 
 		err := app.ForEachState(
 			Noop,
-			false,
+			state.NeedsOptions{
+				SkipNeeds:              true,
+				IncludeNeeds:           false,
+				IncludeTransitiveNeeds: false,
+			},
 			SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
@@ -423,7 +447,11 @@ releases:
 
 		err := app.ForEachState(
 			Noop,
-			false,
+			state.NeedsOptions{
+				SkipNeeds:              true,
+				IncludeNeeds:           false,
+				IncludeTransitiveNeeds: false,
+			},
 			SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
@@ -537,7 +565,11 @@ releases:
 
 			err := app.ForEachState(
 				collectReleases,
-				false,
+				state.NeedsOptions{
+					SkipNeeds:              true,
+					IncludeNeeds:           false,
+					IncludeTransitiveNeeds: false,
+				},
 				SetFilter(true),
 			)
 			if testcase.expectErr {
@@ -778,7 +810,11 @@ func runFilterSubHelmFilesTests(testcases []struct {
 
 		err := app.ForEachState(
 			collectReleases,
-			false,
+			state.NeedsOptions{
+				SkipNeeds:              true,
+				IncludeNeeds:           false,
+				IncludeTransitiveNeeds: false,
+			},
 			SetFilter(true),
 		)
 		if testcase.expectErr {
@@ -864,7 +900,11 @@ ns: INLINE_NS
 
 	err := app.ForEachState(
 		collectReleases,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 
@@ -961,7 +1001,11 @@ releases:
 
 		err := app.ForEachState(
 			collectReleases,
-			false,
+			state.NeedsOptions{
+				SkipNeeds:              true,
+				IncludeNeeds:           false,
+				IncludeTransitiveNeeds: false,
+			},
 			SetReverse(testcase.reverse),
 			SetFilter(true),
 		)
@@ -1027,7 +1071,11 @@ bar: "bar1"
 
 		err := app.ForEachState(
 			collectReleases,
-			false,
+			state.NeedsOptions{
+				SkipNeeds:              true,
+				IncludeNeeds:           false,
+				IncludeTransitiveNeeds: false,
+			},
 			SetFilter(true),
 		)
 		if err != nil {
@@ -1148,7 +1196,11 @@ x:
 
 			err := app.ForEachState(
 				collectReleases,
-				false,
+				state.NeedsOptions{
+					SkipNeeds:              true,
+					IncludeNeeds:           false,
+					IncludeTransitiveNeeds: false,
+				},
 				SetFilter(true),
 			)
 			if err != nil {
@@ -1199,7 +1251,11 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 	if err != nil {
@@ -1255,7 +1311,11 @@ releases:
 
 			err := app.ForEachState(
 				collectReleases,
-				false,
+				state.NeedsOptions{
+					SkipNeeds:              true,
+					IncludeNeeds:           false,
+					IncludeTransitiveNeeds: false,
+				},
 				SetFilter(true),
 			)
 			if err != nil {
@@ -1304,7 +1364,11 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 
@@ -1346,7 +1410,11 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 
@@ -1392,7 +1460,11 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
-		false,
+		state.NeedsOptions{
+			SkipNeeds:              true,
+			IncludeNeeds:           false,
+			IncludeTransitiveNeeds: false,
+		},
 		SetFilter(true),
 	)
 
@@ -4234,7 +4306,11 @@ releases:
 
 	err := app.ForEachState(
 		collectReleases,
-		false,
+		state.NeedsOptions{
+			IncludeTransitiveNeeds: false,
+			IncludeNeeds:           false,
+			SkipNeeds:              true,
+		},
 		SetFilter(true),
 	)
 	if err != nil {

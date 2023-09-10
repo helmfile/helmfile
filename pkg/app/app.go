@@ -133,7 +133,11 @@ func (a *App) Deps(c DepsConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipRepos(),
+		IncludeNeeds:           c.IncludeTransitiveNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, SetFilter(true))
 }
 
 func (a *App) Repos(c ReposConfigProvider) error {
@@ -145,7 +149,11 @@ func (a *App) Repos(c ReposConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              !c.IncludeTransitiveNeeds(),
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, SetFilter(true))
 }
 
 // TODO: Remove this function once Helmfile v0.x
@@ -164,7 +172,11 @@ func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              !c.IncludeTransitiveNeeds(),
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, SetFilter(true))
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {
@@ -221,7 +233,11 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		}
 
 		return matched, criticalErrs
-	}, c.IncludeTransitiveNeeds())
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 
 	if err != nil {
 		return err
@@ -268,7 +284,11 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 }
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
@@ -287,7 +307,11 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              !c.IncludeTransitiveNeeds(),
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, SetFilter(true))
 }
 
 type MultiError struct {
@@ -344,7 +368,11 @@ func (a *App) Lint(c LintConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 
 	if err != nil {
 		return err
@@ -374,7 +402,11 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
@@ -399,7 +431,11 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 }
 
 func (a *App) Apply(c ApplyConfigProvider) error {
@@ -440,7 +476,11 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), opts...)
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, opts...)
 
 	if err != nil {
 		return err
@@ -470,7 +510,11 @@ func (a *App) Status(c StatusesConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 }
 
 // TODO: Remove this function once Helmfile v0.x
@@ -492,7 +536,11 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 			ok, errs = a.delete(run, c.Purge(), c)
 		}
 		return
-	}, false, SetReverse(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetReverse(true))
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
@@ -512,7 +560,11 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 			ok, errs = a.delete(run, true, c)
 		}
 		return
-	}, false, SetReverse(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetReverse(true))
 }
 
 func (a *App) Test(c TestConfigProvider) error {
@@ -536,7 +588,11 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
@@ -589,7 +645,11 @@ func (a *App) PrintState(c StateConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 }
 
 func (a *App) ListReleases(c ListConfigProvider) error {
@@ -622,7 +682,11 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		releases = append(releases, stateReleases...)
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 
 	if err != nil {
 		return err
@@ -962,7 +1026,7 @@ var (
 	}
 )
 
-func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds bool, o ...LoadOption) error {
+func (a *App) ForEachState(do func(*Run) (bool, []error), needsOptions state.NeedsOptions, o ...LoadOption) error {
 	ctx := NewContext()
 	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState) (bool, []error) {
 		helm := a.getHelm(st)
@@ -972,7 +1036,7 @@ func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds
 			return false, []error{err}
 		}
 		return do(run)
-	}, includeTransitiveNeeds, o...)
+	}, needsOptions, o...)
 
 	return err
 }
@@ -1051,7 +1115,7 @@ type Opts struct {
 	DAGEnabled bool
 }
 
-func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge func(*state.HelmState) (bool, []error), includeTransitiveNeeds bool, opt ...LoadOption) error {
+func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge func(*state.HelmState) (bool, []error), needsOptions state.NeedsOptions, opt ...LoadOption) error {
 	opts := LoadOpts{
 		Selectors: a.Selectors,
 	}
@@ -1083,7 +1147,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 				_, err := converge(st)
 				return err
 			},
-				includeTransitiveNeeds)
+				needsOptions)
 		}
 	}
 
@@ -1096,9 +1160,9 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	return a.visitStates(fileOrDir, opts, fHelmStatsWithOverrides)
 }
 
-func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
+func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, needsOptions state.NeedsOptions) (bool, []error) {
 	if len(st.Selectors) > 0 {
-		err := st.FilterReleases(includeTransitiveNeeds)
+		err := st.FilterReleases(needsOptions)
 		if err != nil {
 			return false, []error{err}
 		}
@@ -1144,11 +1208,11 @@ func checkDuplicates(releases []state.ReleaseSpec) error {
 	return nil
 }
 
-func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
-	return func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
+func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface, needsOptions state.NeedsOptions) (bool, []error) {
+	return func(st *state.HelmState, helm helmexec.Interface, needsOptions state.NeedsOptions) (bool, []error) {
 		return processFilteredReleases(st, func(st *state.HelmState) []error {
 			return converge(st, helm)
-		}, includeTransitiveNeeds)
+		}, needsOptions)
 	}
 }
 
@@ -1247,8 +1311,8 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 	return files, nil
 }
 
-func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
-	selected, err := r.state.GetSelectedReleases(includeTransitiveNeeds)
+func (a *App) getSelectedReleases(r *Run, needsOptions state.NeedsOptions) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
+	selected, err := r.state.GetSelectedReleases(needsOptions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1326,7 +1390,11 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 
 	helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 	if err != nil {
 		return false, false, []error{err}
 	}
@@ -1517,7 +1585,11 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	affectedReleases := state.AffectedReleases{}
 
-	toSync, _, err := a.getSelectedReleases(r, false)
+	toSync, _, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1670,7 +1742,11 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 
 	allReleases := st.Releases
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, false)
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1720,7 +1796,11 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1918,7 +1998,11 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state.HelmState) []error) (bool, []error) {
 	st := r.state
 
-	selectedReleases, deduplicated, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	selectedReleases, deduplicated, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -2001,7 +2085,7 @@ func (a *App) test(r *Run, c TestConfigProvider) []error {
 
 	st := r.state
 
-	toTest, _, err := a.getSelectedReleases(r, false)
+	toTest, _, err := a.getSelectedReleases(r, state.NeedsOptions{})
 	if err != nil {
 		return []error{err}
 	}
@@ -2023,7 +2107,7 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	toRender, _, err := a.getSelectedReleases(r, false)
+	toRender, _, err := a.getSelectedReleases(r, state.NeedsOptions{})
 	if err != nil {
 		return false, []error{err}
 	}

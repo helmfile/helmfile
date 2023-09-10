@@ -89,6 +89,12 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 	return nil
 }
 
+type NeedsOptions struct {
+	IncludeNeeds           bool
+	IncludeTransitiveNeeds bool
+	SkipNeeds              bool
+}
+
 type PlanOptions struct {
 	Purpose                string
 	Reverse                bool
@@ -99,7 +105,11 @@ type PlanOptions struct {
 }
 
 func (st *HelmState) PlanReleases(opts PlanOptions) ([][]ReleaseSpec, error) {
-	marked, err := st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
+	marked, err := st.GetSelectedReleases(NeedsOptions{
+		IncludeNeeds:           opts.IncludeNeeds,
+		IncludeTransitiveNeeds: opts.IncludeTransitiveNeeds,
+		SkipNeeds:              opts.SkipNeeds,
+	})
 	if err != nil {
 		return nil, err
 	}
