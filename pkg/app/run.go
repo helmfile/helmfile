@@ -104,6 +104,12 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {
+	if !c.SkipRepos() {
+		if err := r.ctx.SyncReposOnce(r.state, r.helm); err != nil {
+			return []error{err}
+		}
+	}
+
 	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	return r.state.UpdateDeps(r.helm, c.IncludeTransitiveNeeds())
