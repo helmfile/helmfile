@@ -1107,7 +1107,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		selected, err = st.GetSelectedReleases(NeedsOptions{
 			IncludeTransitiveNeeds: opts.IncludeTransitiveNeeds,
 			IncludeNeeds:           opts.IncludeNeeds,
-			SkipNeeds:              true,
+			SkipNeeds:              opts.SkipNeeds,
 		})
 		if err != nil {
 			return nil, []error{err}
