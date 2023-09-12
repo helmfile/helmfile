@@ -52,6 +52,7 @@ func DefaultFileSystem() *FileSystem {
 	dfs.FileExistsAt = dfs.fileExistsAtDefault
 	dfs.DirectoryExistsAt = dfs.directoryExistsDefault
 	dfs.FileExists = dfs.fileExistsDefault
+	dfs.Abs = dfs.absDefault
 	return &dfs
 }
 
@@ -110,13 +111,20 @@ func (filesystem *FileSystem) readFile(name string) ([]byte, error) {
 }
 
 func (filesystem *FileSystem) fileExistsAtDefault(path string) bool {
+	path, err := filesystem.Abs(path)
+	if err != nil {
+		return false
+	}
 	fileInfo, err := filesystem.Stat(path)
 	return err == nil && fileInfo.Mode().IsRegular()
 }
 
 func (filesystem *FileSystem) fileExistsDefault(path string) (bool, error) {
-	_, err := filesystem.Stat(path)
-
+	path, err := filesystem.Abs(path)
+	if err != nil {
+		return false, err
+	}
+	_, err = filesystem.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -127,6 +135,22 @@ func (filesystem *FileSystem) fileExistsDefault(path string) (bool, error) {
 }
 
 func (filesystem *FileSystem) directoryExistsDefault(path string) bool {
+	path, err := filesystem.Abs(path)
+	if err != nil {
+		return false
+	}
 	fileInfo, err := filesystem.Stat(path)
 	return err == nil && fileInfo.Mode().IsDir()
+}
+
+func (filesystem *FileSystem) absDefault(path string) (string, error) {
+	if !filepath.IsAbs(path) && !filepath.IsLocal(path) {
+		basePath, err := filesystem.Getwd()
+		if err != nil {
+			return "", err
+		}
+		basePath, err = filepath.EvalSymlinks(basePath)
+		return filepath.EvalSymlinks(filepath.Join(basePath, path))
+	}
+	return filepath.Abs(path)
 }
