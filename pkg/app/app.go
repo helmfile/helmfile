@@ -30,6 +30,7 @@ var Cancel goContext.CancelFunc
 type App struct {
 	OverrideKubeContext        string
 	OverrideHelmBinary         string
+	OverrideKustomizeBinary    string
 	EnableLiveOutput           bool
 	StripArgsValuesOnExitError bool
 	DisableForceUpdate         bool
@@ -74,6 +75,7 @@ func New(conf ConfigProvider) *App {
 	return Init(&App{
 		OverrideKubeContext:        conf.KubeContext(),
 		OverrideHelmBinary:         conf.HelmBinary(),
+		OverrideKustomizeBinary:    conf.KustomizeBinary(),
 		EnableLiveOutput:           conf.EnableLiveOutput(),
 		StripArgsValuesOnExitError: conf.StripArgsValuesOnExitError(),
 		DisableForceUpdate:         conf.DisableForceUpdate(),
@@ -758,11 +760,12 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		logger:    a.Logger,
 		remote:    a.remote,
 
-		overrideKubeContext: a.OverrideKubeContext,
-		overrideHelmBinary:  a.OverrideHelmBinary,
-		enableLiveOutput:    a.EnableLiveOutput,
-		getHelm:             a.getHelm,
-		valsRuntime:         a.valsRuntime,
+		overrideKubeContext:     a.OverrideKubeContext,
+		overrideHelmBinary:      a.OverrideHelmBinary,
+		overrideKustomizeBinary: a.OverrideKustomizeBinary,
+		enableLiveOutput:        a.EnableLiveOutput,
+		getHelm:                 a.getHelm,
+		valsRuntime:             a.valsRuntime,
 	}
 
 	return ld.Load(file, op)

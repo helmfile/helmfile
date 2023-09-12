@@ -20,13 +20,15 @@ import (
 )
 
 const (
-	DefaultHelmBinary = state.DefaultHelmBinary
+	DefaultHelmBinary      = state.DefaultHelmBinary
+	DefaultKustomizeBinary = state.DefaultKustomizeBinary
 )
 
 type desiredStateLoader struct {
-	overrideKubeContext string
-	overrideHelmBinary  string
-	enableLiveOutput    bool
+	overrideKubeContext     string
+	overrideHelmBinary      string
+	overrideKustomizeBinary string
+	enableLiveOutput        bool
 
 	env       string
 	namespace string
@@ -152,7 +154,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.remote, a.enableLiveOutput, a.lockFilePath)
+	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.overrideKustomizeBinary, a.remote, a.enableLiveOutput, a.lockFilePath)
 	c.LoadFile = a.loadFile
 	return c
 }

@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	DefaultHelmBinary = "helm"
+	DefaultHelmBinary      = "helm"
+	DefaultKustomizeBinary = "kustomize"
 )
 
 type StateLoadError struct {
@@ -53,6 +54,8 @@ type StateCreator struct {
 
 	overrideHelmBinary string
 
+	overrideKustomizeBinary string
+
 	enableLiveOutput bool
 
 	remote *remote.Remote
@@ -60,7 +63,7 @@ type StateCreator struct {
 	lockFile string
 }
 
-func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, overrideKustomizeBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string) *StateCreator {
 	return &StateCreator{
 		logger: logger,
 
@@ -69,8 +72,9 @@ func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntim
 		valsRuntime: valsRuntime,
 		getHelm:     getHelm,
 
-		overrideHelmBinary: overrideHelmBinary,
-		enableLiveOutput:   enableLiveOutput,
+		overrideHelmBinary:      overrideHelmBinary,
+		overrideKustomizeBinary: overrideKustomizeBinary,
+		enableLiveOutput:        enableLiveOutput,
 
 		remote: remote,
 
@@ -129,6 +133,13 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 	} else if state.DefaultHelmBinary == "" {
 		// Let `helmfile --helm-binary ""` not break this helmfile run
 		state.DefaultHelmBinary = DefaultHelmBinary
+	}
+
+	if c.overrideKustomizeBinary != "" && c.overrideKustomizeBinary != DefaultKustomizeBinary {
+		state.DefaultKustomizeBinary = c.overrideKustomizeBinary
+	} else if state.DefaultKustomizeBinary == "" {
+		// Let `helmfile --kustomize-binary ""` not break this helmfile run
+		state.DefaultKustomizeBinary = DefaultKustomizeBinary
 	}
 
 	state.logger = c.logger
