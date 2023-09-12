@@ -419,7 +419,9 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			Wait:                   c.Wait(),
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			SkipNeeds:              c.SkipNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 		}, func() {
@@ -461,6 +463,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 			IncludeNeeds:           c.IncludeNeeds(),
+			SkipNeeds:              c.SkipNeeds(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -1915,7 +1918,7 @@ Do you really want to sync?
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		if len(releasesToDelete) > 0 {
-			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
