@@ -148,6 +148,7 @@ type SubhelmfileEnvironmentSpec struct {
 type HelmSpec struct {
 	KubeContext string   `yaml:"kubeContext,omitempty"`
 	Args        []string `yaml:"args,omitempty"`
+	DiffArgs    []string `yaml:"diffArgs,omitempty"`
 	Verify      bool     `yaml:"verify"`
 	Keyring     string   `yaml:"keyring,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates

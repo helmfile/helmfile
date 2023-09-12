@@ -180,6 +180,8 @@ helmDefaults:
   # additional and global args passed to helm (default "")
   args:
     - "--set k=v"
+  diffArgs:
+    - "--suppress-secrets"
   # verify the chart before upgrading (only works with packaged charts not directories) (default false)
   verify: true
   keyring: path/to/keyring.gpg

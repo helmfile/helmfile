@@ -83,7 +83,7 @@ func analyzeArgs(am *argMap, args string) {
 	}
 }
 
-func GetArgs(args string, state *state.HelmState) []string {
+func GetArgs(args string, state *state.HelmState, withDiffArgs bool) []string {
 	argsMap := newArgMap()
 
 	if len(args) > 0 {
@@ -92,6 +92,10 @@ func GetArgs(args string, state *state.HelmState) []string {
 
 	if len(state.HelmDefaults.Args) > 0 {
 		analyzeArgs(argsMap, strings.Join(state.HelmDefaults.Args, " "))
+	}
+
+	if len(state.HelmDefaults.DiffArgs) > 0 && withDiffArgs {
+		analyzeArgs(argsMap, strings.Join(state.HelmDefaults.DiffArgs, " "))
 	}
 
 	var argArr []string
