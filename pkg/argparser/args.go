@@ -16,6 +16,9 @@ type argMap struct {
 	m     map[string][]*keyVal
 	flags []string
 }
+type GetArgsOptions struct {
+	WithDiffArgs bool
+}
 
 // isNewFlag checks if the given arg is a new flag
 func isNewFlag(flag string) bool {
@@ -83,7 +86,7 @@ func analyzeArgs(am *argMap, args string) {
 	}
 }
 
-func GetArgs(args string, state *state.HelmState, withDiffArgs bool) []string {
+func GetArgs(args string, state *state.HelmState, opts *GetArgsOptions) []string {
 	argsMap := newArgMap()
 
 	if len(args) > 0 {
@@ -94,7 +97,7 @@ func GetArgs(args string, state *state.HelmState, withDiffArgs bool) []string {
 		analyzeArgs(argsMap, strings.Join(state.HelmDefaults.Args, " "))
 	}
 
-	if len(state.HelmDefaults.DiffArgs) > 0 && withDiffArgs {
+	if len(state.HelmDefaults.DiffArgs) > 0 && opts != nil && opts.WithDiffArgs {
 		analyzeArgs(argsMap, strings.Join(state.HelmDefaults.DiffArgs, " "))
 	}
 

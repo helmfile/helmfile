@@ -16,13 +16,13 @@ func TestGetArgs(t *testing.T) {
 		expected        string
 		defaultArgs     []string
 		defaultDiffArgs []string
-		withDiffArgs    bool
+		opts            *GetArgsOptions
 	}{
 		{
 			args:            "-f a.yaml -f b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false",
 			defaultArgs:     []string{"--recreate-pods", "--force"},
 			defaultDiffArgs: []string{"--suppress", "Deployment"},
-			withDiffArgs:    true,
+			opts:            &GetArgsOptions{WithDiffArgs: true},
 			expected:        "-f a.yaml -f b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false --recreate-pods --force --suppress Deployment",
 		},
 		{
@@ -39,6 +39,7 @@ func TestGetArgs(t *testing.T) {
 			args:            "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true",
 			defaultArgs:     []string{"--recreate-pods", "--force"},
 			defaultDiffArgs: []string{"--suppress", "Deployment"},
+			opts:            &GetArgsOptions{},
 			expected:        "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --recreate-pods --force",
 		},
 	}
@@ -49,7 +50,7 @@ func TestGetArgs(t *testing.T) {
 				HelmDefaults: Helmdefaults,
 			},
 		}
-		receivedArgs := GetArgs(test.args, testState, test.withDiffArgs)
+		receivedArgs := GetArgs(test.args, testState, test.opts)
 
 		require.Equalf(t, test.expected, strings.Join(receivedArgs, " "), "expected args %s, received args %s", test.expected, strings.Join(receivedArgs, " "))
 	}
