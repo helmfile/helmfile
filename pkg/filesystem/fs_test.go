@@ -12,28 +12,58 @@ import (
 func NewTestFileSystem() FileSystem {
 	replaceffs := FileSystem{
 		Stat: func(s string) (os.FileInfo, error) {
-			if strings.HasPrefix(s, "existing_file") {
+			if strings.HasSuffix(s, "existing_file.txt") {
 				return fileStat{mode: 0}, nil
 			}
-			if strings.HasPrefix(s, "existing_dir") {
+			if strings.HasSuffix(s, "existing_dir") {
 				return fileStat{mode: fs.ModeDir}, nil
 			}
 			return nil, errors.New("Error")
+		},
+		Getwd: func() (string, error) {
+			return "/test/dir", nil
+		},
+		EvalSymlinks: func(s string) (string, error) {
+			if s == "/test/dir" {
+				return "/real/dir", nil
+			} else {
+				return s, nil
+			}
 		},
 	}
 	return *FromFileSystem(replaceffs)
 }
 
+func TestFs_resolveSymlinks(t *testing.T) {
+	ffs := NewTestFileSystem()
+	path, _ := ffs.resolveSymlinks("../existing_file.txt")
+	if path != "/real/existing_file.txt" {
+		t.Errorf("Expected absolute path %s but got %s", "/real/existing_file.txt", path)
+	}
+	path, _ = ffs.resolveSymlinks("./existing_file.txt")
+	if path != "./existing_file.txt" {
+		t.Errorf("Expected local path %s but got %s", "./existing_file.txt", path)
+	}
+	path, _ = ffs.resolveSymlinks("existing_file.txt")
+	if path != "existing_file.txt" {
+		t.Errorf("Expected local path %s but got %s", "existing_file.txt", path)
+	}
+	path, _ = ffs.resolveSymlinks("/a/b/c/existing_file.txt")
+	if path != "/a/b/c/existing_file.txt" {
+		t.Errorf("Expected absolute path %s but got %s", "/a/b/c/existing_file.txt", path)
+	}
+}
+
 func TestFs_fileExistsDefault(t *testing.T) {
 	ffs := NewTestFileSystem()
-	var exists, _ = ffs.FileExists("existing_file.txt")
+	exists, _ := ffs.FileExists("existing_file.txt")
 	if !exists {
 		t.Errorf("Expected file %s, not found", "existing_file.txt")
 	}
 
-	exists, _ = ffs.FileExists("non_existing_file.txt")
+	exists, _ = ffs.FileExists("missing_file.txt")
 	if exists {
-		t.Errorf("Not expected file %s, found", "non_existing_file.txt")
+		t.Errorf("Not expected file %s, found", "missing_file.txt")
 	}
 
 	dfs := DefaultFileSystem()
@@ -46,14 +76,14 @@ func TestFs_fileExistsDefault(t *testing.T) {
 func TestFs_fileExistsAtDefault(t *testing.T) {
 	ffs := NewTestFileSystem()
 
-	var exists = ffs.FileExistsAt("existing_file.txt")
+	exists := ffs.FileExistsAt("existing_file.txt")
 	if !exists {
 		t.Errorf("Expected file %s, not found", "existing_file.txt")
 	}
 
-	exists = ffs.FileExistsAt("non_existing_file.txt")
+	exists = ffs.FileExistsAt("missing_file.txt")
 	if exists {
-		t.Errorf("Not expected file %s, found", "non_existing_file.txt")
+		t.Errorf("Not expected file %s, found", "missing_file.txt")
 	}
 
 	exists = ffs.FileExistsAt("existing_dir")
@@ -70,12 +100,12 @@ func TestFs_fileExistsAtDefault(t *testing.T) {
 
 func TestFs_directoryExistsDefault(t *testing.T) {
 	ffs := NewTestFileSystem()
-	var exists = ffs.DirectoryExistsAt("existing_dir")
+	exists := ffs.DirectoryExistsAt("existing_dir")
 	if !exists {
 		t.Errorf("Expected file %s, not found", "existing_dir")
 	}
 
-	exists = ffs.DirectoryExistsAt("not_existing_dir")
+	exists = ffs.DirectoryExistsAt("missing_dir")
 	if exists {
 		t.Errorf("Not expected file %s, found", "existing_dir")
 	}
@@ -148,7 +178,8 @@ func TestFs_DefaultBuilder(t *testing.T) {
 		ffs.Stat == nil ||
 		ffs.Getwd == nil ||
 		ffs.Chdir == nil ||
-		ffs.Abs == nil {
+		ffs.Abs == nil ||
+		ffs.EvalSymlinks == nil {
 		t.Errorf("Missing functions in DefaultFileSystem")
 	}
 }
