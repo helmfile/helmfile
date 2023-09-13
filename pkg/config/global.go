@@ -13,8 +13,10 @@ import (
 
 // GlobalOptions is the global configuration for the Helmfile CLI.
 type GlobalOptions struct {
-	// helmBinary is the path to the Helm binary.
+	// HelmBinary is the path to the Helm binary.
 	HelmBinary string
+	// KustomizeBinary is the path to the Kustomize binary.
+	KustomizeBinary string
 	// File is the path to the Helmfile.
 	File string
 	// Environment is the name of the environment to use.
@@ -91,6 +93,11 @@ func (g *GlobalImpl) SetSet(set map[string]any) {
 // HelmBinary returns the path to the Helm binary.
 func (g *GlobalImpl) HelmBinary() string {
 	return g.GlobalOptions.HelmBinary
+}
+
+// KustomizeBinary returns the path to the Kustomize binary.
+func (g *GlobalImpl) KustomizeBinary() string {
+	return g.GlobalOptions.KustomizeBinary
 }
 
 // KubeContext returns the name of the kubectl context to use.

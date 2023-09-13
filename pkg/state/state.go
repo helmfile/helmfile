@@ -43,7 +43,8 @@ const (
 
 // ReleaseSetSpec is release set spec
 type ReleaseSetSpec struct {
-	DefaultHelmBinary string `yaml:"helmBinary,omitempty"`
+	DefaultHelmBinary      string `yaml:"helmBinary,omitempty"`
+	DefaultKustomizeBinary string `yaml:"kustomizeBinary,omitempty"`
 
 	// DefaultValues is the default values to be overrode by environment values and command-line overrides
 	DefaultValues []any `yaml:"values,omitempty"`
@@ -1199,6 +1200,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				if chartification != nil && helmfileCommand != "pull" {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
+						chartify.KustomizeBin(st.DefaultKustomizeBinary),
 						chartify.UseHelm3(true),
 						chartify.WithLogf(st.logger.Debugf),
 					)

@@ -5,6 +5,7 @@ import "go.uber.org/zap"
 type ConfigProvider interface {
 	Args() string
 	HelmBinary() string
+	KustomizeBinary() string
 	EnableLiveOutput() bool
 	StripArgsValuesOnExitError() bool
 	DisableForceUpdate() bool

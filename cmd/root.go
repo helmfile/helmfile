@@ -115,6 +115,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
 	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", app.DefaultHelmBinary, "Path to the helm binary")
+	fs.StringVarP(&globalOptions.KustomizeBinary, "kustomize-binary", "k", app.DefaultKustomizeBinary, "Path to the kustomize binary")
 	fs.StringVarP(&globalOptions.File, "file", "f", "", "load config from file or directory. defaults to \"`helmfile.yaml`\" or \"helmfile.yaml.gotmpl\" or \"helmfile.d\" (means \"helmfile.d/*.yaml\" or \"helmfile.d/*.yaml.gotmpl\") in this preference. Specify - to load the config from the standard input.")
 	fs.StringVarP(&globalOptions.Environment, "environment", "e", "", `specify the environment name. Overrides "HELMFILE_ENVIRONMENT" OS environment variable when specified. defaults to "default"`)
 	fs.StringArrayVar(&globalOptions.StateValuesSet, "state-values-set", nil, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).")
