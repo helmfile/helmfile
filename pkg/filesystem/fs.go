@@ -34,17 +34,18 @@ type FileSystem struct {
 	Getwd             func() (string, error)
 	Chdir             func(string) error
 	Abs               func(string) (string, error)
+	EvalSymlinks      func(string) (string, error)
 }
 
 func DefaultFileSystem() *FileSystem {
 	dfs := FileSystem{
-		ReadDir:    os.ReadDir,
-		DeleteFile: os.Remove,
-		Stat:       os.Stat,
-		Glob:       filepath.Glob,
-		Getwd:      os.Getwd,
-		Chdir:      os.Chdir,
-		Abs:        filepath.Abs,
+		ReadDir:      os.ReadDir,
+		DeleteFile:   os.Remove,
+		Stat:         os.Stat,
+		Glob:         filepath.Glob,
+		Getwd:        os.Getwd,
+		Chdir:        os.Chdir,
+		EvalSymlinks: filepath.EvalSymlinks,
 	}
 
 	dfs.Stat = dfs.stat
@@ -92,7 +93,9 @@ func FromFileSystem(params FileSystem) *FileSystem {
 	if params.Abs != nil {
 		dfs.Abs = params.Abs
 	}
-
+	if params.EvalSymlinks != nil {
+		dfs.EvalSymlinks = params.EvalSymlinks
+	}
 	return dfs
 }
 
@@ -111,7 +114,7 @@ func (filesystem *FileSystem) readFile(name string) ([]byte, error) {
 }
 
 func (filesystem *FileSystem) fileExistsAtDefault(path string) bool {
-	path, err := filesystem.Abs(path)
+	path, err := filesystem.resolveSymlinks(path)
 	if err != nil {
 		return false
 	}
@@ -120,7 +123,7 @@ func (filesystem *FileSystem) fileExistsAtDefault(path string) bool {
 }
 
 func (filesystem *FileSystem) fileExistsDefault(path string) (bool, error) {
-	path, err := filesystem.Abs(path)
+	path, err := filesystem.resolveSymlinks(path)
 	if err != nil {
 		return false, err
 	}
@@ -135,7 +138,7 @@ func (filesystem *FileSystem) fileExistsDefault(path string) (bool, error) {
 }
 
 func (filesystem *FileSystem) directoryExistsDefault(path string) bool {
-	path, err := filesystem.Abs(path)
+	path, err := filesystem.resolveSymlinks(path)
 	if err != nil {
 		return false
 	}
@@ -143,14 +146,30 @@ func (filesystem *FileSystem) directoryExistsDefault(path string) bool {
 	return err == nil && fileInfo.Mode().IsDir()
 }
 
-func (filesystem *FileSystem) absDefault(path string) (string, error) {
+func (filesystem *FileSystem) resolveSymlinks(path string) (string, error) {
 	if !filepath.IsAbs(path) && !filepath.IsLocal(path) {
 		basePath, err := filesystem.Getwd()
 		if err != nil {
 			return "", err
 		}
-		basePath, err = filepath.EvalSymlinks(basePath)
-		return filepath.EvalSymlinks(filepath.Join(basePath, path))
+
+		basePath, err = filesystem.EvalSymlinks(basePath)
+		if err != nil {
+			return "", err
+		}
+		path, err := filesystem.EvalSymlinks(filepath.Join(basePath, path))
+		if err != nil {
+			return "", err
+		}
+		return path, nil
+	}
+	return path, nil
+}
+
+func (filesystem *FileSystem) absDefault(path string) (string, error) {
+	path, err := filesystem.resolveSymlinks(path)
+	if err != nil {
+		return "", err
 	}
 	return filepath.Abs(path)
 }
