@@ -48,10 +48,6 @@ func TestFs_resolveSymlinks(t *testing.T) {
 	if path != "existing_file.txt" {
 		t.Errorf("Expected local path %s but got %s", "existing_file.txt", path)
 	}
-	path, _ = ffs.resolveSymlinks("existing_file.txt")
-	if path != "existing_file.txt" {
-		t.Errorf("Expected absolute path %s but got %s", "existing_file.txt", path)
-	}
 	path, _ = ffs.resolveSymlinks("/a/b/c/existing_file.txt")
 	if path != "/a/b/c/existing_file.txt" {
 		t.Errorf("Expected absolute path %s but got %s", "/a/b/c/existing_file.txt", path)
