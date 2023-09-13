@@ -167,6 +167,8 @@ repositories:
 # Path to alternative helm binary (--helm-binary)
 helmBinary: path/to/helm3
 
+# Path to alternative kustomize binary (--kustomize-binary)
+kustomizeBinary: path/to/kustomize
 
 # Path to alternative lock file. The default is <state file name>.lock, i.e for helmfile.yaml it's helmfile.lock.
 lockFilePath: path/to/lock.file
@@ -554,6 +556,7 @@ Flags:
   -h, --help                              help for helmfile
   -i, --interactive                       Request confirmation before attempting to modify clusters
       --kube-context string               Set kubectl context. Uses current context by default
+  -k, --kustomize-binary string           Path to the kustomize binary (default "kustomize")
       --log-level string                  Set log level, default info (default "info")
   -n, --namespace string                  Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
       --no-color                          Output without color
@@ -565,7 +568,7 @@ Flags:
       --skip-deps                         skip running "helm repo update" and "helm dependency build"
       --state-values-file stringArray     specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).
       --state-values-set stringArray      set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).
-      --strip-args-values-on-exit-error   On exit error, strip the values of the args
+      --strip-args-values-on-exit-error   Strip the potential secret values of the helm command args contained in a helmfile error message (default true)
   -v, --version                           version for helmfile
 
 Use "helmfile [command] --help" for more information about a command.

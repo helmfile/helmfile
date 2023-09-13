@@ -3,6 +3,7 @@
 
 filepath: input.yaml
 helmBinary: helm
+kustomizeBinary: kustomize
 environments:
   default: {}
 repositories:
