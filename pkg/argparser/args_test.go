@@ -12,38 +12,45 @@ import (
 // TestGetArgs tests the GetArgs function
 func TestGetArgs(t *testing.T) {
 	tests := []struct {
-		args        string
-		expected    string
-		defaultArgs []string
+		args            string
+		expected        string
+		defaultArgs     []string
+		defaultDiffArgs []string
+		opts            *GetArgsOptions
 	}{
 		{
-			args:        "-f a.yaml -f b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false",
-			defaultArgs: []string{"--recreate-pods", "--force"},
-			expected:    "-f a.yaml -f b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false --recreate-pods --force",
+			args:            "-f a.yaml -f b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false",
+			defaultArgs:     []string{"--recreate-pods", "--force"},
+			defaultDiffArgs: []string{"--suppress", "Deployment"},
+			opts:            &GetArgsOptions{WithDiffArgs: true},
+			expected:        "-f a.yaml -f b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false --recreate-pods --force --suppress Deployment",
 		},
 		{
-			args:        "-e  a.yaml   -d b.yaml   -i --set app1.bootstrap=true --set app2.bootstrap=false",
-			defaultArgs: []string{"-q www", "-w"},
-			expected:    "-e a.yaml -d b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false -q www -w",
+			args:            "-e  a.yaml   -d b.yaml   -i --set app1.bootstrap=true --set app2.bootstrap=false",
+			defaultArgs:     []string{"-q www", "-w"},
+			defaultDiffArgs: []string{},
+			expected:        "-e a.yaml -d b.yaml -i --set app1.bootstrap=true --set app2.bootstrap=false -q www -w",
 		},
 		{
 			args:     "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false",
 			expected: "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false",
 		},
 		{
-			args:        "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true",
-			defaultArgs: []string{"--recreate-pods", "--force"},
-			expected:    "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --recreate-pods --force",
+			args:            "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true",
+			defaultArgs:     []string{"--recreate-pods", "--force"},
+			defaultDiffArgs: []string{"--suppress", "Deployment"},
+			opts:            &GetArgsOptions{},
+			expected:        "--timeout=3600 --set app1.bootstrap=true --set app2.bootstrap=false,app3.bootstrap=true --recreate-pods --force",
 		},
 	}
 	for _, test := range tests {
-		Helmdefaults := state.HelmSpec{KubeContext: "test", Args: test.defaultArgs}
+		Helmdefaults := state.HelmSpec{KubeContext: "test", Args: test.defaultArgs, DiffArgs: test.defaultDiffArgs}
 		testState := &state.HelmState{
 			ReleaseSetSpec: state.ReleaseSetSpec{
 				HelmDefaults: Helmdefaults,
 			},
 		}
-		receivedArgs := GetArgs(test.args, testState)
+		receivedArgs := GetArgs(test.args, testState, test.opts)
 
 		require.Equalf(t, test.expected, strings.Join(receivedArgs, " "), "expected args %s, received args %s", test.expected, strings.Join(receivedArgs, " "))
 	}
