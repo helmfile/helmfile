@@ -105,13 +105,13 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
 
 	return r.state.UpdateDeps(r.helm, c.IncludeTransitiveNeeds())
 }
 
 func (r *Run) Repos(c ReposConfigProvider) error {
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state)...)
+	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
 
 	return r.ctx.SyncReposOnce(r.state, r.helm)
 }
