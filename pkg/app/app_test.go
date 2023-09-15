@@ -2755,8 +2755,9 @@ releases:
 
 func TestApply(t *testing.T) {
 	type fields struct {
-		skipNeeds    bool
-		includeNeeds bool
+		skipNeeds              bool
+		includeNeeds           bool
+		includeTransitiveNeeds bool
 	}
 	testcases := []struct {
 		name              string
@@ -2778,6 +2779,10 @@ func TestApply(t *testing.T) {
 		// complex test cases for smoke testing
 		//
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "smoke",
 			loc:  location(),
 			files: map[string]string{
@@ -2899,6 +2904,10 @@ backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 		// noop: no changes
 		//
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "noop",
 			loc:  location(),
 			files: map[string]string{
@@ -2929,6 +2938,10 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 		// install
 		//
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "install",
 			loc:  location(),
 			files: map[string]string{
@@ -2962,6 +2975,10 @@ releases:
 		// install with upgrade
 		//
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "install-with-upgrade-with-validation-control",
 			loc:  location(),
 			files: map[string]string{
@@ -3006,6 +3023,10 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 		// install with upgrade and --skip-diff-on-install
 		//
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name:              "install-with-upgrade-with-skip-diff-on-install",
 			loc:               location(),
 			skipDiffOnInstall: true,
@@ -3050,6 +3071,10 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 		// upgrades
 		//
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "upgrade when foo needs bar",
 			loc:  location(),
 			files: map[string]string{
@@ -3073,6 +3098,10 @@ releases:
 			},
 		},
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "upgrade when bar needs foo",
 			loc:  location(),
 			files: map[string]string{
@@ -3096,6 +3125,10 @@ releases:
 			},
 		},
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "upgrade when foo needs bar, with ns override",
 			loc:  location(),
 			ns:   "testNamespace",
@@ -3120,6 +3153,10 @@ releases:
 			},
 		},
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "upgrade when bar needs foo, with ns override",
 			loc:  location(),
 			ns:   "testNamespace",
@@ -3144,6 +3181,10 @@ releases:
 			},
 		},
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "upgrade when ns1/foo needs ns2/bar",
 			loc:  location(),
 			files: map[string]string{
@@ -3169,6 +3210,10 @@ releases:
 			},
 		},
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "upgrade when ns2/bar needs ns1/foo",
 			loc:  location(),
 			files: map[string]string{
@@ -3197,6 +3242,10 @@ releases:
 		// deletes: deleting all releases in the correct order
 		//
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "delete foo and bar when foo needs bar",
 			loc:  location(),
 			files: map[string]string{
@@ -3231,7 +3280,11 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 		},
 		{
 			name: "delete foo and bar when bar needs foo",
-			loc:  location(),
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
+			loc: location(),
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
 releases:
@@ -3280,6 +3333,10 @@ releases:
   - bar
 `,
 			},
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-context default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-context default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
@@ -3300,6 +3357,10 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 			},
 		},
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "delete bar when foo needs bar",
 			loc:  location(),
 			files: map[string]string{
@@ -3334,6 +3395,10 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 			},
 		},
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "delete foo when bar needs foo",
 			loc:  location(),
 			files: map[string]string{
@@ -3368,6 +3433,10 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 			},
 		},
 		{
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			name: "delete bar when bar needs foo",
 			loc:  location(),
 			files: map[string]string{
@@ -3599,9 +3668,13 @@ releases:
 `,
 			},
 			selectors: []string{"app=test_non_existent"},
-			diffs:     map[exectest.DiffKey]error{},
-			upgraded:  []exectest.Release{},
-			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
+			diffs:    map[exectest.DiffKey]error{},
+			upgraded: []exectest.Release{},
+			error:    "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
 			log: `processing file "helmfile.yaml" in directory "."
@@ -3678,6 +3751,10 @@ changing working directory back to "/path/to"
 			name:      "unselected release in needs",
 			loc:       location(),
 			selectors: []string{"name=foo"},
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
 releases:
@@ -3741,7 +3818,11 @@ changing working directory back to "/path/to"
 		},
 		{
 			name: "non-existent release in needs",
-			loc:  location(),
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
+			},
+			loc: location(),
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
 releases:
@@ -3821,6 +3902,10 @@ releases:
   needs:
   - ns1/bar
 `,
+			},
+			fields: fields{
+				skipNeeds:    false,
+				includeNeeds: true,
 			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "bar", Chart: "mychart3", Flags: "--kube-context default --namespace ns1 --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
@@ -3925,10 +4010,12 @@ changing working directory back to "/path/to"
 
 				applyErr := app.Apply(applyConfig{
 					// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
-					concurrency:       tc.concurrency,
-					logger:            logger,
-					skipDiffOnInstall: tc.skipDiffOnInstall,
-					skipNeeds:         tc.fields.skipNeeds,
+					concurrency:            tc.concurrency,
+					logger:                 logger,
+					skipDiffOnInstall:      tc.skipDiffOnInstall,
+					skipNeeds:              tc.fields.skipNeeds,
+					includeNeeds:           tc.fields.includeNeeds,
+					includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
 				})
 				switch {
 				case tc.error == "" && applyErr != nil:
