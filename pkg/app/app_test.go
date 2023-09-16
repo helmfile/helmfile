@@ -2887,13 +2887,13 @@ backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
 			upgraded: []exectest.Release{
+				{Name: "database", Flags: []string{}},
+				{Name: "frontend-v3", Flags: []string{}},
+				{Name: "backend-v2", Flags: []string{}},
+				{Name: "anotherbackend", Flags: []string{}},
+				{Name: "servicemesh", Flags: []string{}},
 				{Name: "logging", Flags: []string{}},
 				{Name: "front-proxy", Flags: []string{}},
-				{Name: "database", Flags: []string{}},
-				{Name: "servicemesh", Flags: []string{}},
-				{Name: "anotherbackend", Flags: []string{}},
-				{Name: "backend-v2", Flags: []string{}},
-				{Name: "frontend-v3", Flags: []string{}},
 			},
 			deleted: []exectest.Release{
 				{Name: "frontend-v1", Flags: []string{}},
@@ -2962,8 +2962,8 @@ releases:
 			lists: map[exectest.ListKey]string{},
 			upgraded: []exectest.Release{
 				{Name: "baz", Flags: []string{}},
-				{Name: "bar", Flags: []string{}},
 				{Name: "foo", Flags: []string{}},
+				{Name: "bar", Flags: []string{}},
 			},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
@@ -3009,8 +3009,8 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 			},
 			upgraded: []exectest.Release{
 				{Name: "baz", Flags: []string{"--kube-context", "default"}},
-				{Name: "bar", Flags: []string{"--kube-context", "default"}},
 				{Name: "foo", Flags: []string{"--kube-context", "default"}},
+				{Name: "bar", Flags: []string{"--kube-context", "default"}},
 			},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
@@ -3056,8 +3056,8 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 			},
 			upgraded: []exectest.Release{
 				{Name: "baz", Flags: []string{"--kube-context", "default"}},
-				{Name: "bar", Flags: []string{"--kube-context", "default"}},
 				{Name: "foo", Flags: []string{"--kube-context", "default"}},
+				{Name: "bar", Flags: []string{"--kube-context", "default"}},
 			},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
