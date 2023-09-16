@@ -380,7 +380,7 @@ merged environment: &{default  map[] map[]}
 
 processing 1 groups of releases in this order:
 GROUP RELEASES
-1     front-proxy, logging, servicemesh, anotherbackend, backend-v2, backend-v1, frontend-v3, frontend-v2, frontend-v1, database 
+1     front-proxy, logging, servicemesh, anotherbackend, backend-v2, backend-v1, frontend-v3, frontend-v2, frontend-v1, database
 
 processing releases in group 1/1: front-proxy, logging, servicemesh, anotherbackend, backend-v2, backend-v1, frontend-v3, frontend-v2, frontend-v1, database
 release "front-proxy" processed
@@ -405,13 +405,7 @@ backend-v1             0s
 frontend-v3            0s
 frontend-v2            0s
 frontend-v1            0s
-backend-v2             0s
-backend-v1             0s
-anotherbackend         0s
-servicemesh            0s
 database               0s
-front-proxy            0s
-logging                0s
 
 changing working directory back to "/path/to"
 `,
