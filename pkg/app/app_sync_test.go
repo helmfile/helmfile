@@ -968,8 +968,8 @@ GROUP RELEASES
 3     default/default/my-release
 
 processing releases in group 1/3: default/kube-system/kubernetes-external-secrets
-processing releases in group 2/2: default/default/external-secrets
-processing releases in group 3/2: default/default/my-release
+processing releases in group 2/3: default/default/external-secrets
+processing releases in group 3/3: default/default/my-release
 
 UPDATED RELEASES:
 NAME               CHART           VERSION   DURATION
