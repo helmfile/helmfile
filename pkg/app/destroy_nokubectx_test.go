@@ -241,16 +241,16 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 			concurrency: 1,
 			upgraded:    []exectest.Release{},
 			deleted: []exectest.Release{
+				{Name: "front-proxy", Flags: []string{}},
+				{Name: "logging", Flags: []string{}},
+				{Name: "servicemesh", Flags: []string{}},
+				{Name: "anotherbackend", Flags: []string{}},
+				{Name: "backend-v2", Flags: []string{}},
+				{Name: "backend-v1", Flags: []string{}},
 				{Name: "frontend-v3", Flags: []string{}},
 				{Name: "frontend-v2", Flags: []string{}},
 				{Name: "frontend-v1", Flags: []string{}},
-				{Name: "backend-v2", Flags: []string{}},
-				{Name: "backend-v1", Flags: []string{}},
-				{Name: "anotherbackend", Flags: []string{}},
-				{Name: "servicemesh", Flags: []string{}},
 				{Name: "database", Flags: []string{}},
-				{Name: "front-proxy", Flags: []string{}},
-				{Name: "logging", Flags: []string{}},
 			},
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
@@ -378,32 +378,30 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default  map[] map[]}
 10 release(s) found in helmfile.yaml
 
-processing 5 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
-1     frontend-v3, frontend-v2, frontend-v1
-2     backend-v2, backend-v1
-3     anotherbackend
-4     servicemesh, database
-5     front-proxy, logging
+1     front-proxy, logging, servicemesh, anotherbackend, backend-v2, backend-v1, frontend-v3, frontend-v2, frontend-v1, database 
 
-processing releases in group 1/5: frontend-v3, frontend-v2, frontend-v1
+processing releases in group 1/1: front-proxy, logging, servicemesh, anotherbackend, backend-v2, backend-v1, frontend-v3, frontend-v2, frontend-v1, database
+release "front-proxy" processed
+release "logging" processed
+release "servicemesh" processed
+release "anotherbackend" processed
+release "backend-v2" processed
+release "backend-v1" processed
 release "frontend-v3" processed
 release "frontend-v2" processed
 release "frontend-v1" processed
-processing releases in group 2/5: backend-v2, backend-v1
-release "backend-v2" processed
-release "backend-v1" processed
-processing releases in group 3/5: anotherbackend
-release "anotherbackend" processed
-processing releases in group 4/5: servicemesh, database
-release "servicemesh" processed
 release "database" processed
-processing releases in group 5/5: front-proxy, logging
-release "front-proxy" processed
-release "logging" processed
 
 DELETED RELEASES:
 NAME             DURATION
+front-proxy            0s
+logging                0s
+servicemesh            0s
+anotherbackend         0s
+backend-v2             0s
+backend-v1             0s
 frontend-v3            0s
 frontend-v2            0s
 frontend-v1            0s
@@ -655,14 +653,12 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default  map[] map[]}
 2 release(s) found in helmfile.yaml
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
-1     frontend-v1
-2     backend-v1
+1     frontend-v1, backend-v1
 
-processing releases in group 1/2: frontend-v1
+processing releases in group 1/1: frontend-v1, backend-v1
 release "frontend-v1" processed
-processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
@@ -727,14 +723,12 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default  map[] map[]}
 2 release(s) found in helmfile.yaml
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
-1     frontend-v1
-2     backend-v1
+1     frontend-v1, backend-v1
 
-processing releases in group 1/2: frontend-v1
+processing releases in group 1/1: frontend-v1, backend-v1
 release "frontend-v1" processed
-processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
 DELETED RELEASES:
