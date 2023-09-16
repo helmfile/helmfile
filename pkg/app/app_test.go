@@ -2780,8 +2780,7 @@ func TestApply(t *testing.T) {
 		//
 		{
 			fields: fields{
-				skipNeeds:    false,
-				includeNeeds: true,
+				skipNeeds: true,
 			},
 			name: "smoke",
 			loc:  location(),
@@ -2905,8 +2904,7 @@ backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 		//
 		{
 			fields: fields{
-				skipNeeds:    false,
-				includeNeeds: true,
+				skipNeeds: true,
 			},
 			name: "noop",
 			loc:  location(),
@@ -2939,8 +2937,7 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 		//
 		{
 			fields: fields{
-				skipNeeds:    false,
-				includeNeeds: true,
+				skipNeeds: true,
 			},
 			name: "install",
 			loc:  location(),
@@ -2976,8 +2973,7 @@ releases:
 		//
 		{
 			fields: fields{
-				skipNeeds:    false,
-				includeNeeds: true,
+				skipNeeds: true,
 			},
 			name: "install-with-upgrade-with-validation-control",
 			loc:  location(),
@@ -3024,8 +3020,7 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 		//
 		{
 			fields: fields{
-				skipNeeds:    false,
-				includeNeeds: true,
+				skipNeeds: true,
 			},
 			name:              "install-with-upgrade-with-skip-diff-on-install",
 			loc:               location(),
