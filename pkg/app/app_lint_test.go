@@ -173,11 +173,17 @@ releases:
 		}
 	}
 
-	t.Run("fail on unselected need by default", func(t *testing.T) {
+	t.Run("skip-needs=true on selected by default", func(t *testing.T) {
 		check(t, testcase{
 			fields: fields{
 				skipNeeds: true,
 			},
+			selectors: []string{"app=test"},
+		})
+	})
+
+	t.Run("fail on unselected need by default when skip-need=false", func(t *testing.T) {
+		check(t, testcase{
 			selectors: []string{"app=test"},
 			error:     `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 		})
