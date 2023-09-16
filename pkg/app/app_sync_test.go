@@ -253,13 +253,11 @@ Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/default/external-secrets, default/default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-processing releases in group 2/2: default/default/my-release
+processing releases in group 1/1: default/default/external-secrets, default/default/my-release
 
 UPDATED RELEASES:
 NAME               CHART           VERSION   DURATION
