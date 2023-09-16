@@ -60,7 +60,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default  map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
+3 release(s) matching app=test found in helmfile.yaml
 
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
@@ -75,13 +75,15 @@ GROUP RELEASES
 invoking preapply hooks for releases in group 1/3: default/default/my-release
 invoking preapply hooks for releases in group 2/3: default/default/external-secrets
 invoking preapply hooks for releases in group 3/3: default/kube-system/kubernetes-external-secrets
-processing 2 groups of releases in this order:
+processing 3 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/kube-system/kubernetes-external-secrets
+2     default/default/external-secrets
+3     default/default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-processing releases in group 2/2: default/default/my-release
+processing releases in group 1/3: default/kube-system/kubernetes-external-secrets
+processing releases in group 2/3: default/default/external-secrets
+processing releases in group 3/3: default/default/my-release
 
 UPDATED RELEASES:
 NAME               CHART           VERSION   DURATION
