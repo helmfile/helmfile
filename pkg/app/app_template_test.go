@@ -203,8 +203,6 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			templated: []exectest.Release{
-				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
 				{Name: "my-release", Flags: []string{"--namespace", "default"}},
