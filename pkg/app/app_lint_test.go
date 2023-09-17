@@ -179,6 +179,7 @@ releases:
 				skipNeeds: true,
 			},
 			selectors: []string{"app=test"},
+			linted:    []exectest.Release{{Name: "external-secrets", Flags: []string{"--namespace", "default"}}, {Name: "my-release", Flags: []string{"--namespace", "default"}}},
 		})
 	})
 
