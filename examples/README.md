@@ -17,7 +17,7 @@ releases:
     # DB host, port, and connection opts for the environment
     values:
     - "deploy/environments/{{ env "RAILS_ENV" }}/values.yaml"
-    # DB username and password encrypted with helm-secrets(mozilla/sops)
+    # DB username and password encrypted with helm-secrets (getsops/sops)
     secrets:
     - "deploy/environments/{{ env "RAILS_ENV" }}/secrets.yaml"
 ```
