@@ -60,9 +60,9 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default  map[] map[]}
-1 release(s) matching app=test found in helmfile.yaml
+2 release(s) matching app=test found in helmfile.yaml
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
 1     default/external-secrets, default/my-release
 
