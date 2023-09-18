@@ -10,7 +10,7 @@ require (
 	github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-test/deep v1.1.0
-	github.com/goccy/go-yaml v1.11.0
+	github.com/goccy/go-yaml v1.11.2
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.9
 	github.com/gosuri/uitable v0.0.4
