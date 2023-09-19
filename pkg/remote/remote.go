@@ -3,20 +3,18 @@ package remote
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
 	"io"
-	"path"
-
 	"net/http"
 	neturl "net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
 	"go.uber.org/multierr"
@@ -270,12 +268,10 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 		r.Logger.Debugf("remote> downloading %s to %s", getterSrc, getterDst)
 
 		if u.Getter == "normal" && u.Scheme == "s3" {
-
 			err := r.S3Getter.Get(r.Home, path, cacheDirPath)
 			if err != nil {
 				return "", multierr.Append(err, err)
 			}
-
 		} else if u.Getter == "normal" && (u.Scheme == "https" || u.Scheme == "http") {
 			err := r.HttpGetter.Get(r.Home, path, cacheDirPath)
 			if err != nil {
@@ -294,9 +290,7 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 				return "", err
 			}
 		}
-
 	}
-
 	return filepath.Join(cacheDirPath, file), nil
 }
 
@@ -338,7 +332,6 @@ func (g *GoGetter) Get(wd, src, dst string) error {
 }
 
 func (g *S3Getter) Get(wd, src, dst string) error {
-
 	u, err := url.Parse(src)
 	if err != nil {
 		return err
@@ -411,7 +404,6 @@ func (g *S3Getter) Get(wd, src, dst string) error {
 }
 
 func (g *HttpGetter) Get(wd, src, dst string) error {
-
 	u, err := url.Parse(src)
 	if err != nil {
 		return err
@@ -430,18 +422,18 @@ func (g *HttpGetter) Get(wd, src, dst string) error {
 	}
 
 	resp, err := http.Get(src)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Printf("Error %v", err)
-			g.Logger.Errorf("Error closing connection to remote data source\n%v", err)
-		}
-	}(resp.Body)
 
 	if err != nil {
 		fmt.Printf("Error %v", err)
 		return err
 	}
+
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			g.Logger.Errorf("Error closing connection to remote data source\n%v", err)
+		}
+	}()
 
 	localFile, err := os.Create(targetFilePath)
 	if err != nil {
@@ -463,7 +455,6 @@ func (g *HttpGetter) Get(wd, src, dst string) error {
 }
 
 func (g *S3Getter) S3FileExists(path string) (string, error) {
-
 	g.Logger.Debugf("Parsing S3 URL %s", path)
 	bucket, key, err := ParseS3Url(path)
 	if err != nil {
@@ -504,6 +495,9 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 			Region: aws.String(bucketRegion),
 		},
 	})
+	if err != nil {
+		g.Logger.Error(err)
+	}
 	g.Logger.Debugf("Creating new s3 client to check if object exists")
 	s3Client = s3.New(regionSession)
 	headObjectInput := &s3.HeadObjectInput{
@@ -517,7 +511,10 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 }
 
 func HttpFileExists(path string) error {
-	_, err := http.Head(path)
+	head, err := http.Head(path)
+	defer func() {
+		_ = head.Body.Close()
+	}()
 	return err
 }
 
