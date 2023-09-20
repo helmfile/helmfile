@@ -536,7 +536,7 @@ func (a *App) Test(c TestConfigProvider) error {
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
-	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
+	return a.ForEachState(func(run *Run) (res bool, errs []error) {
 		if c.DAG() {
 			err := a.dag(run)
 
@@ -544,7 +544,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 				errs = append(errs, err)
 			}
 
-			return
+			return res, errs
 		}
 
 		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
@@ -594,7 +594,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			errs = append(errs, err)
 		}
 
-		return
+		return res, errs
 	}, false, SetFilter(true))
 }
 
