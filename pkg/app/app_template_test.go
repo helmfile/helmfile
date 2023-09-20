@@ -177,7 +177,7 @@ releases:
 	t.Run("fail on unselected need by default", func(t *testing.T) {
 		check(t, testcase{
 			selectors: []string{"app=test"},
-			error:     `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:     `in ./helmfile.yaml: release(s) "default/default/external-secrets" depend(s) on an undefined release "default/kube-system/kubernetes-external-secrets". Perhaps you made a typo in "needs" or forgot defining a release named "kubernetes-external-secrets" with appropriate "namespace" and "kubeContext"?`,
 		})
 	})
 
