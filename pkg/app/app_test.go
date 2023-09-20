@@ -2092,6 +2092,7 @@ type configImpl struct {
 	skipCRDs    bool
 	skipDeps    bool
 	skipTests   bool
+	dag         bool
 
 	skipNeeds              bool
 	includeNeeds           bool
@@ -2166,6 +2167,10 @@ func (c configImpl) Concurrency() int {
 
 func (c configImpl) EmbedValues() bool {
 	return false
+}
+
+func (c configImpl) DAG() bool {
+	return c.dag
 }
 
 func (c configImpl) Output() string {

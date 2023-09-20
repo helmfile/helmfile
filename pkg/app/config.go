@@ -251,6 +251,7 @@ type StatusesConfigProvider interface {
 
 type StateConfigProvider interface {
 	EmbedValues() bool
+	DAG() bool
 }
 
 type concurrencyConfig interface {
