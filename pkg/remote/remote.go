@@ -244,8 +244,8 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 
 		if u.Getter == "normal" {
 			cachedFilePath := filepath.Join(cacheDirPath, file)
-			_, err := os.Stat(cachedFilePath)
-			if err == nil {
+			ok, err := r.fs.FileExists(cachedFilePath)
+			if err == nil && ok {
 				cached = true
 			}
 		} else if r.fs.DirectoryExistsAt(cacheDirPath) {
@@ -512,6 +512,10 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 
 func HttpFileExists(path string) error {
 	head, err := http.Head(path)
+	statusOK := head.StatusCode >= 200 && head.StatusCode < 300
+	if !statusOK {
+		return fmt.Errorf("%s is not exists: head request get http code %d", path, head.StatusCode)
+	}
 	defer func() {
 		_ = head.Body.Close()
 	}()
