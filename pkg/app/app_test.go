@@ -3529,7 +3529,6 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 				skipNeeds:    false,
 				includeNeeds: true,
 			},
-			error: `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
 {{ $mark := "a" }}
@@ -3558,8 +3557,9 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
-				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}:       helmexec.ExitError{Code: 2},
+				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}:                helmexec.ExitError{Code: 2},
+				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}:                      helmexec.ExitError{Code: 2},
+				{Name: "kubernetes-external-secrets", Chart: "incubator/raw", Flags: "--kube-context default --namespace kube-system --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
 			},
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -3626,9 +3626,41 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default  map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
+3 release(s) matching app=test found in helmfile.yaml
 
-err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+Affected releases are:
+  external-secrets (incubator/raw) UPDATED
+  kubernetes-external-secrets (incubator/raw) UPDATED
+  my-release (incubator/raw) UPDATED
+
+invoking preapply hooks for 3 groups of releases in this order:
+GROUP RELEASES
+1     default/default/my-release
+2     default/default/external-secrets
+3     default/kube-system/kubernetes-external-secrets
+
+invoking preapply hooks for releases in group 1/3: default/default/my-release
+invoking preapply hooks for releases in group 2/3: default/default/external-secrets
+invoking preapply hooks for releases in group 3/3: default/kube-system/kubernetes-external-secrets
+processing 3 groups of releases in this order:
+GROUP RELEASES
+1     default/kube-system/kubernetes-external-secrets
+2     default/default/external-secrets
+3     default/default/my-release
+
+processing releases in group 1/3: default/kube-system/kubernetes-external-secrets
+getting deployed release version failed: Failed to get the version for: raw
+processing releases in group 2/3: default/default/external-secrets
+getting deployed release version failed: Failed to get the version for: raw
+processing releases in group 3/3: default/default/my-release
+getting deployed release version failed: Failed to get the version for: raw
+
+UPDATED RELEASES:
+NAME                          CHART           VERSION   DURATION
+kubernetes-external-secrets   incubator/raw                   0s
+external-secrets              incubator/raw                   0s
+my-release                    incubator/raw                   0s
+
 changing working directory back to "/path/to"
 `,
 		},
@@ -3748,7 +3780,7 @@ changing working directory back to "/path/to"
 			selectors: []string{"name=foo"},
 			fields: fields{
 				skipNeeds:    false,
-				includeNeeds: true,
+				includeNeeds: false,
 			},
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
@@ -3763,14 +3795,14 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "baz", Chart: "mychart3", Flags: "--kube-context default --namespace ns1 --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "mychart3", Flags: "--kube-context default --namespace ns1 --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
 				{Name: "foo", Chart: "mychart1", Flags: "--kube-context default --detailed-exitcode --reset-values"}:                 helmexec.ExitError{Code: 2},
 			},
 			lists:       map[exectest.ListKey]string{},
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:       `in ./helmfile.yaml: release(s) "default//foo" depend(s) on an undefined release "default/ns1/bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?`,
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
@@ -3807,7 +3839,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default  map[] map[]}
 1 release(s) matching name=foo found in helmfile.yaml
 
-err: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release(s) "default//foo" depend(s) on an undefined release "default/ns1/bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
 changing working directory back to "/path/to"
 `,
 		},
