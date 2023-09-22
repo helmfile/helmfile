@@ -986,7 +986,7 @@ releases:
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:       `in ./helmfile.yaml: release(s) "default/default/external-secrets" depend(s) on an undefined release "default/kube-system/kubernetes-external-secrets". Perhaps you made a typo in "needs" or forgot defining a release named "kubernetes-external-secrets" with appropriate "namespace" and "kubeContext"?`,
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
@@ -1051,7 +1051,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default  map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
-err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release(s) "default/default/external-secrets" depend(s) on an undefined release "default/kube-system/kubernetes-external-secrets". Perhaps you made a typo in "needs" or forgot defining a release named "kubernetes-external-secrets" with appropriate "namespace" and "kubeContext"?
 changing working directory back to "/path/to"
 `,
 		},
@@ -1187,7 +1187,7 @@ releases:
 			upgraded:    []exectest.Release{},
 			deleted:     []exectest.Release{},
 			concurrency: 1,
-			error:       `in ./helmfile.yaml: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:       `in ./helmfile.yaml: release(s) "default//foo" depend(s) on an undefined release "default//bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?`,
 			log: `processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
 first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
@@ -1222,7 +1222,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default  map[] map[]}
 1 release(s) matching name=foo found in helmfile.yaml
 
-err: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release(s) "default//foo" depend(s) on an undefined release "default//bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
 changing working directory back to "/path/to"
 `,
 		},
