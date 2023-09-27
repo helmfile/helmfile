@@ -28,6 +28,7 @@ type unresolvedChartDependency struct {
 	Repository string `yaml:"repository"`
 	// VersionConstraint is the version constraint of the dependent chart. "*" means the latest version.
 	VersionConstraint string `yaml:"version"`
+	Alias             string `yaml:"alias"`
 }
 
 type ResolvedChartDependency struct {
@@ -40,6 +41,7 @@ type ResolvedChartDependency struct {
 	// Version is the version number of the dependent chart.
 	// In the context of helmfile this can be omitted. When omitted, it is considered `*` which results helm/helmfile fetching the latest version.
 	Version string `yaml:"version"`
+	Alias   string `yaml:"alias"`
 }
 
 type UnresolvedDependencies struct {
@@ -57,11 +59,12 @@ type ChartLockedRequirements struct {
 	Generated            string                    `yaml:"generated"`
 }
 
-func (d *UnresolvedDependencies) Add(chart, url, versionConstraint string) error {
+func (d *UnresolvedDependencies) Add(release, chart, url, versionConstraint string) error {
 	dep := unresolvedChartDependency{
 		ChartName:         chart,
 		Repository:        url,
 		VersionConstraint: versionConstraint,
+		Alias:             release,
 	}
 	return d.add(dep)
 }
@@ -104,18 +107,22 @@ func (d *ResolvedDependencies) add(dep ResolvedChartDependency) error {
 	} else {
 		deps = append(deps, dep)
 	}
-	d.deps[dep.ChartName] = deps
+	d.deps[dep.Alias] = deps
 	return nil
 }
 
-func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, error) {
+func (d *ResolvedDependencies) Get(chart, versionConstraint, release string) (string, error) {
 	if versionConstraint == "" {
 		versionConstraint = "*"
 	}
 
-	deps, exists := d.deps[chart]
+	deps, exists := d.deps[release]
+
 	if exists {
 		for _, dep := range deps {
+			if dep.Alias != release {
+				continue
+			}
 			constraint, err := semver.NewConstraint(versionConstraint)
 			if err != nil {
 				return "", err
@@ -129,7 +136,7 @@ func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, err
 			}
 		}
 	}
-	return "", fmt.Errorf("no resolved dependency found for \"%s\", running \"helmfile deps\" may resolve the issue", chart)
+	return "", fmt.Errorf("no resolved dependency found for release \"%s\" and chart \"%s\", running \"helmfile deps\" may resolve the issue", release, chart)
 }
 
 func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {
@@ -179,13 +186,12 @@ func resolveDependencies(st *HelmState, depMan *chartDependencyManager, unresolv
 		if !ok {
 			continue
 		}
-
-		ver, err := resolved.Get(chart, r.Version)
+		resolvedChart, err := resolved.Get(chart, r.Version, r.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		updated.Releases[i].Version = ver
+		updated.Releases[i].Version = resolvedChart
 	}
 
 	return &updated, nil
@@ -241,7 +247,7 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 			url = fmt.Sprintf("oci://%s", url)
 		}
 
-		if err := unresolved.Add(chart, url, r.Version); err != nil {
+		if err := unresolved.Add(r.Name, chart, url, r.Version); err != nil {
 			return "", nil, err
 		}
 	}
@@ -350,6 +356,10 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 	})
 
 	lockedReqs.Version = version.Version()
+	// set alias in lock because it is not added by helm directly
+	for i, lockedReq := range lockedReqs.ResolvedDependencies {
+		lockedReqs.ResolvedDependencies[i].Alias = unresolved.deps[lockedReq.ChartName][i].Alias
+	}
 
 	updatedLockFileContent, err = yaml.Marshal(lockedReqs)
 

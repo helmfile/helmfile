@@ -44,6 +44,7 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 							ChartName:         "abc",
 							Repository:        "oci://localhost:5000/aaa",
 							VersionConstraint: "0.1.0",
+							Alias:             "foo",
 						},
 					},
 				},

@@ -1,0 +1,8 @@
+Adding repo myrepo http://localhost:18082/
+"myrepo" has been added to your repositories
+
+Templating release=raw, chart=myrepo/raw
+---
+# Source: raw/templates/resources.yaml
+chartVersion: 0.0.1
+

@@ -2119,10 +2119,12 @@ generated: 2019-05-16T15:42:45.50486+09:00
 					Chart: "published/deeper",
 				},
 				{
+					Name:    "envoy1",
 					Chart:   "stable/envoy",
 					Version: "1.5.0",
 				},
 				{
+					Name:    "envoy2",
 					Chart:   "stable/envoy",
 					Version: "1.4.0",
 				},
@@ -2267,6 +2269,129 @@ func TestHelmState_ResolveDeps_NoLockFile_WithCustomLockFile(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+func TestHelmState_ResolveDeps_LockFile_DifferentVersions(t *testing.T) {
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	state := &HelmState{
+		basePath: "/src",
+		FilePath: "/src/helmfile.yaml",
+		ReleaseSetSpec: ReleaseSetSpec{
+			LockFile: "lock-file",
+			Releases: []ReleaseSpec{
+				{
+					Name:    "envoy1",
+					Chart:   "stable/envoy",
+					Version: "1.0.0",
+				},
+				{
+					Name:    "envoy2",
+					Chart:   "stable/envoy",
+					Version: ">=1.0.0, <1.1.0",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://kubernetes-charts.storage.googleapis.com",
+				},
+			},
+		},
+		logger: logger,
+		fs: &filesystem.FileSystem{
+			ReadFile: func(f string) ([]byte, error) {
+				if f == "lock-file" {
+					return []byte(`
+dependencies:
+- name: envoy
+  repository: https://kubernetes-charts.storage.googleapis.com
+  version: 1.0.0
+  alias: envoy1
+- name: envoy
+  repository: https://kubernetes-charts.storage.googleapis.com
+  version: 1.0.0
+  alias: envoy2
+`), nil
+				}
+				return nil, fmt.Errorf("stub: unexpected file: %s", f)
+			},
+		},
+	}
+
+	resolved, err := state.ResolveDeps()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if resolved.Releases[0].Version != "1.0.0" {
+		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.0.0, got=%s", resolved.Releases[0].Version)
+	}
+
+	if resolved.Releases[1].Version != "1.0.0" {
+		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.0.0, got=%s", resolved.Releases[1].Version)
+	}
+}
+
+func TestHelmState_ResolveDeps_LockFile_SameVersions(t *testing.T) {
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	state := &HelmState{
+		basePath: "/src",
+		FilePath: "/src/helmfile.yaml",
+		ReleaseSetSpec: ReleaseSetSpec{
+			LockFile: "lock-file",
+			Releases: []ReleaseSpec{
+				{
+					Name:    "envoy1",
+					Chart:   "stable/envoy",
+					Version: "1.0.0",
+				},
+				{
+					Name:    "envoy2",
+					Chart:   "stable/envoy",
+					Version: "1.0.0",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://kubernetes-charts.storage.googleapis.com",
+				},
+			},
+		},
+		logger: logger,
+		fs: &filesystem.FileSystem{
+			ReadFile: func(f string) ([]byte, error) {
+				if f == "lock-file" {
+					return []byte(`
+dependencies:
+- name: envoy
+  repository: https://kubernetes-charts.storage.googleapis.com
+  version: 1.0.0
+  alias: envoy1
+- name: envoy
+  repository: https://kubernetes-charts.storage.googleapis.com
+  version: 1.0.0
+  alias: envoy2
+`), nil
+				}
+				return nil, fmt.Errorf("stub: unexpected file: %s", f)
+			},
+		},
+	}
+
+	resolved, err := state.ResolveDeps()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if resolved.Releases[0].Version != "1.0.0" {
+		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.0.0, got=%s", resolved.Releases[0].Version)
+	}
+
+	if resolved.Releases[1].Version != "1.0.0" {
+		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.0.0, got=%s", resolved.Releases[1].Version)
+	}
+}
+
 func TestHelmState_ReleaseStatuses(t *testing.T) {
 	tests := []struct {
 		name     string
