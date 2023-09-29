@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -208,6 +207,8 @@ type HelmSpec struct {
 	DeleteWait bool `yaml:"deleteWait"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout int `yaml:"deleteTimeout"`
+	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
+	SyncReleaseLabels bool `yaml:"syncReleaseLabels"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -408,6 +409,8 @@ type ReleaseSpec struct {
 	DeleteWait *bool `yaml:"deleteWait,omitempty"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
+	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
+	SyncReleaseLabels bool `yaml:"syncReleaseLabels"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -783,6 +786,7 @@ type SyncOpts struct {
 	Wait                 bool
 	WaitRetries          int
 	WaitForJobs          bool
+	SyncReleaseLabels    bool
 	ReuseValues          bool
 	ResetValues          bool
 	PostRenderer         string
@@ -2262,16 +2266,40 @@ func (st *HelmState) GetReleasesWithOverrides() ([]ReleaseSpec, error) {
 	return rs, nil
 }
 
+func (st *HelmState) GetReleasesWithLabels() []ReleaseSpec {
+	var rs []ReleaseSpec
+	for _, r := range st.Releases {
+		spec := r
+		labels := map[string]string{}
+		// apply common labels
+		for k, v := range st.CommonLabels {
+			labels[k] = v
+		}
+		for k, v := range spec.Labels {
+			labels[k] = v
+		}
+		// Let the release name, namespace, and chart be used as a tag
+		labels["name"] = r.Name
+		labels["namespace"] = r.Namespace
+		// Strip off just the last portion for the name stable/newrelic would give newrelic
+		chartSplit := strings.Split(r.Chart, "/")
+		labels["chart"] = chartSplit[len(chartSplit)-1]
+		spec.Labels = labels
+		rs = append(rs, spec)
+	}
+	return rs
+}
+
 func (st *HelmState) SelectReleases(includeTransitiveNeeds bool) ([]Release, error) {
 	values := st.Values()
-	rs, err := markExcludedReleases(st.Releases, st.Selectors, st.CommonLabels, values, includeTransitiveNeeds)
+	rs, err := markExcludedReleases(st.Releases, st.Selectors, values, includeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]any, includeTransitiveNeeds bool) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]any, includeTransitiveNeeds bool) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -2282,29 +2310,8 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		filters = append(filters, f)
 	}
 	for _, r := range releases {
-		orginReleaseLabel := maps.Clone(r.Labels)
-		if r.Labels == nil {
-			r.Labels = map[string]string{}
-		} else {
-			// Make a copy of the labels to avoid mutating the original
-			r.Labels = maps.Clone(r.Labels)
-		}
-		// Let the release name, namespace, and chart be used as a tag
-		r.Labels["name"] = r.Name
-		r.Labels["namespace"] = r.Namespace
-		// Strip off just the last portion for the name stable/newrelic would give newrelic
-		chartSplit := strings.Split(r.Chart, "/")
-		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
-		// Merge CommonLabels into release labels
-		for k, v := range commonLabels {
-			r.Labels[k] = v
-		}
-
 		var filterMatch bool
 		for _, f := range filters {
-			if r.Labels == nil {
-				r.Labels = map[string]string{}
-			}
 			if f.Match(r) {
 				filterMatch = true
 				break
@@ -2316,7 +2323,6 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 			return nil, fmt.Errorf("failed to parse condition in release %s: %w", r.Name, err)
 		}
 		// reset the labels to the original
-		r.Labels = orginReleaseLabel
 		res := Release{
 			ReleaseSpec: r,
 			Filtered:    (len(filters) > 0 && !filterMatch) || (!conditionMatch),
@@ -2776,15 +2782,20 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--disable-openapi-validation")
 	}
 
+	postRenderer := ""
+	syncReleaseLabels := false
+	if opt != nil {
+		postRenderer = opt.PostRenderer
+		syncReleaseLabels = opt.SyncReleaseLabels
+	}
+
 	flags = st.appendConnectionFlags(flags, release)
 	flags = st.appendChartDownloadFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
-	postRenderer := ""
-	if opt != nil {
-		postRenderer = opt.PostRenderer
-	}
+	flags = st.appendLabelsFlags(flags, helm, release, syncReleaseLabels)
+
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	var postRendererArgs []string
