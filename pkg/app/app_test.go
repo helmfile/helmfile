@@ -2192,6 +2192,7 @@ func (c configImpl) KubeVersion() string {
 type applyConfig struct {
 	args    string
 	cascade string
+	dryRun  string
 	values  []string
 
 	// TODO: Remove this function once Helmfile v0.x
@@ -2394,6 +2395,10 @@ func (a applyConfig) PostRendererArgs() []string {
 
 func (a applyConfig) KubeVersion() string {
 	return a.kubeVersion
+}
+
+func (a applyConfig) DryRun() string {
+	return a.dryRun
 }
 
 type depsConfig struct {
