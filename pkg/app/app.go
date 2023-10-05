@@ -662,11 +662,10 @@ func (a *App) list(run *Run) ([]*HelmRelease, error) {
 			return nil, err
 		}
 
-		installed := r.Installed == nil || *r.Installed
 		releases = append(releases, &HelmRelease{
 			Name:      r.Name,
 			Namespace: r.Namespace,
-			Installed: installed,
+			Installed: r.Desired(),
 			Enabled:   enabled,
 			Labels:    labels,
 			Chart:     r.Chart,
@@ -1685,7 +1684,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 
 	var toStatus []state.ReleaseSpec
 	for _, r := range selectedReleases {
-		if r.Installed != nil && !*r.Installed {
+		if !r.Desired() {
 			continue
 		}
 		toStatus = append(toStatus, r)

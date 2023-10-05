@@ -1021,7 +1021,7 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	var result []ReleaseSpec
 
 	for _, r := range releases {
-		if r.Installed != nil && !*r.Installed {
+		if !r.Desired() {
 			continue
 		}
 		result = append(result, r)
