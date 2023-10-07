@@ -3467,7 +3467,10 @@ func (st *HelmState) Reverse() {
 }
 
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
-	qualifiedChartName, chartName, chartVersion := st.getOCIQualifiedChartName(release)
+	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release, helm)
+	if err != nil {
+		return nil, err
+	}
 
 	if qualifiedChartName == "" {
 		return nil, nil
@@ -3533,7 +3536,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	return &chartPath, nil
 }
 
-func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec) (qualifiedChartName, chartName, chartVersion string) {
+func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (qualifiedChartName, chartName, chartVersion string, err error) {
 	chartVersion = "latest"
 	if release.Version != "" {
 		chartVersion = release.Version
@@ -3553,6 +3556,9 @@ func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec) (qualifiedCh
 			return
 		}
 		qualifiedChartName = fmt.Sprintf("%s/%s:%s", repo.URL, chartName, chartVersion)
+	}
+	if chartVersion == "latest" && helm.IsVersionAtLeast("3.8.0") {
+		return "", "", "", fmt.Errorf("the version for OCI charts should be semver compliant, the latest tag is not supported anymore for helm >= 3.8.0")
 	}
 	return
 }
