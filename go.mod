@@ -12,7 +12,7 @@ require (
 	github.com/go-test/deep v1.1.0
 	github.com/goccy/go-yaml v1.11.2
 	github.com/golang/mock v1.6.0
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.3
 	github.com/helmfile/chartify v0.16.0
