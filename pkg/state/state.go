@@ -3170,11 +3170,12 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info("\nFAILED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
-			prettytable.Column{Header: "VERSION", AlignRight: true},
+			prettytable.Column{Header: "VERSION", MinWidth: 6},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Failed {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
