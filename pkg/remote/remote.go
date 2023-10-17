@@ -3,12 +3,19 @@ package remote
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	neturl "net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
 	"go.uber.org/multierr"
@@ -18,7 +25,10 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
-var disableInsecureFeatures bool
+var (
+	protocols               = []string{"s3", "http", "https"}
+	disableInsecureFeatures bool
+)
 
 func init() {
 	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
@@ -45,6 +55,10 @@ type Remote struct {
 
 	// Getter is the underlying implementation of getter used for fetching remote files
 	Getter Getter
+
+	S3Getter Getter
+
+	HttpGetter Getter
 
 	// Filesystem abstraction
 	// Inject any implementation of your choice, like an im-memory impl for testing, os.ReadFile for the real-world use.
@@ -93,6 +107,12 @@ func Parse(goGetterSrc string) (*Source, error) {
 	if len(items) == 2 {
 		getter = items[0]
 		goGetterSrc = items[1]
+	} else {
+		items = strings.Split(goGetterSrc, "://")
+
+		if len(items) == 2 {
+			return ParseNormal(goGetterSrc)
+		}
 	}
 
 	u, err := url.Parse(goGetterSrc)
@@ -106,7 +126,11 @@ func Parse(goGetterSrc string) (*Source, error) {
 
 	pathComponents := strings.Split(u.Path, "@")
 	if len(pathComponents) != 2 {
-		return nil, fmt.Errorf("invalid src format: it must be `[<getter>::]<scheme>://<host>/<path/to/dir>@<path/to/file>?key1=val1&key2=val2: got %s", goGetterSrc)
+		dir := filepath.Dir(u.Path)
+		if len(dir) > 0 {
+			dir = dir[1:]
+		}
+		pathComponents = []string{dir, filepath.Base(u.Path)}
 	}
 
 	return &Source{
@@ -120,13 +144,53 @@ func Parse(goGetterSrc string) (*Source, error) {
 	}, nil
 }
 
-func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error) {
-	u, err := Parse(goGetterSrc)
+func ParseNormal(path string) (*Source, error) {
+	_, err := ParseNormalProtocol(path)
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := url.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Dir(u.Path)
+	if len(dir) > 0 {
+		dir = dir[1:]
+	}
+
+	return &Source{
+		Getter:   "normal",
+		User:     u.User.String(),
+		Scheme:   u.Scheme,
+		Host:     u.Host,
+		Dir:      dir,
+		File:     filepath.Base(u.Path),
+		RawQuery: u.RawQuery,
+	}, nil
+}
+
+func ParseNormalProtocol(path string) (string, error) {
+	parts := strings.Split(path, "://")
+
+	if len(parts) == 0 {
+		return "", fmt.Errorf("failed to parse URL %s", path)
+	}
+	protocol := strings.ToLower(parts[0])
+
+	if slices.Contains(protocols, protocol) {
+		return protocol, nil
+	}
+	return "", fmt.Errorf("failed to parse URL %s", path)
+}
+
+func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
+	u, err := Parse(path)
 	if err != nil {
 		return "", err
 	}
 
-	srcDir := fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Dir)
+	srcDir := fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, u.Dir)
 	file := u.File
 
 	r.Logger.Debugf("remote> getter: %s", u.Getter)
@@ -167,6 +231,11 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 
 	// e.g. os.CacheDir()/helmfile/https_github_com_cloudposse_helmfiles_git.ref=0.xx.0
 	cacheDirPath := filepath.Join(r.Home, getterDst)
+	if u.Getter == "normal" {
+		srcDir = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+		cacheKey = replacer.Replace(srcDir)
+		cacheDirPath = filepath.Join(r.Home, cacheKey, u.Dir)
+	}
 
 	r.Logger.Debugf("remote> home: %s", r.Home)
 	r.Logger.Debugf("remote> getter dest: %s", getterDst)
@@ -177,7 +246,13 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 			return "", fmt.Errorf("%s is not directory. please remove it so that variant could use it for dependency caching", getterDst)
 		}
 
-		if r.fs.DirectoryExistsAt(cacheDirPath) {
+		if u.Getter == "normal" {
+			cachedFilePath := filepath.Join(cacheDirPath, file)
+			ok, err := r.fs.FileExists(cachedFilePath)
+			if err == nil && ok {
+				cached = true
+			}
+		} else if r.fs.DirectoryExistsAt(cacheDirPath) {
 			cached = true
 		}
 	}
@@ -194,21 +269,33 @@ func (r *Remote) Fetch(goGetterSrc string, cacheDirOpt ...string) (string, error
 			getterSrc = strings.Join([]string{getterSrc, query}, "?")
 		}
 
-		if u.Getter != "" {
-			getterSrc = u.Getter + "::" + getterSrc
-		}
-
 		r.Logger.Debugf("remote> downloading %s to %s", getterSrc, getterDst)
 
-		if err := r.Getter.Get(r.Home, getterSrc, cacheDirPath); err != nil {
-			rmerr := os.RemoveAll(cacheDirPath)
-			if rmerr != nil {
-				return "", multierr.Append(err, rmerr)
+		switch {
+		case u.Getter == "normal" && u.Scheme == "s3":
+			err := r.S3Getter.Get(r.Home, path, cacheDirPath)
+			if err != nil {
+				return "", multierr.Append(err, err)
 			}
-			return "", err
+		case u.Getter == "normal" && (u.Scheme == "https" || u.Scheme == "http"):
+			err := r.HttpGetter.Get(r.Home, path, cacheDirPath)
+			if err != nil {
+				return "", multierr.Append(err, err)
+			}
+		default:
+			if u.Getter != "" {
+				getterSrc = u.Getter + "::" + getterSrc
+			}
+
+			if err := r.Getter.Get(r.Home, getterSrc, cacheDirPath); err != nil {
+				rmerr := os.RemoveAll(cacheDirPath)
+				if rmerr != nil {
+					return "", multierr.Append(err, rmerr)
+				}
+				return "", err
+			}
 		}
 	}
-
 	return filepath.Join(cacheDirPath, file), nil
 }
 
@@ -217,6 +304,14 @@ type Getter interface {
 }
 
 type GoGetter struct {
+	Logger *zap.SugaredLogger
+}
+
+type S3Getter struct {
+	Logger *zap.SugaredLogger
+}
+
+type HttpGetter struct {
 	Logger *zap.SugaredLogger
 }
 
@@ -241,15 +336,212 @@ func (g *GoGetter) Get(wd, src, dst string) error {
 	return nil
 }
 
+func (g *S3Getter) Get(wd, src, dst string) error {
+	u, err := url.Parse(src)
+	if err != nil {
+		return err
+	}
+	file := path.Base(u.Path)
+	targetFilePath := filepath.Join(dst, file)
+
+	region, err := g.S3FileExists(src)
+	if err != nil {
+		return err
+	}
+
+	bucket, key, err := ParseS3Url(src)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(dst, os.FileMode(0700))
+	if err != nil {
+		return err
+	}
+
+	// Create a new AWS session using the default AWS configuration
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+		Config: aws.Config{
+			Region: aws.String(region),
+		},
+	}))
+
+	// Create an S3 client using the session
+	s3Client := s3.New(sess)
+
+	getObjectInput := &s3.GetObjectInput{
+		Bucket: &bucket,
+		Key:    &key,
+	}
+	resp, err := s3Client.GetObject(getObjectInput)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			g.Logger.Errorf("Error closing connection to remote data source \n%v", err)
+		}
+	}(resp.Body)
+
+	if err != nil {
+		return err
+	}
+
+	localFile, err := os.Create(targetFilePath)
+	if err != nil {
+		return err
+	}
+	defer func(localFile *os.File) {
+		err := localFile.Close()
+		if err != nil {
+			g.Logger.Errorf("Error writing file \n%v", err)
+		}
+	}(localFile)
+
+	_, err = localFile.ReadFrom(resp.Body)
+
+	return err
+}
+
+func (g *HttpGetter) Get(wd, src, dst string) error {
+	u, err := url.Parse(src)
+	if err != nil {
+		return err
+	}
+	file := path.Base(u.Path)
+	targetFilePath := filepath.Join(dst, file)
+
+	err = HttpFileExists(src)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(dst, os.FileMode(0700))
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Get(src)
+
+	if err != nil {
+		fmt.Printf("Error %v", err)
+		return err
+	}
+
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			g.Logger.Errorf("Error closing connection to remote data source\n%v", err)
+		}
+	}()
+
+	localFile, err := os.Create(targetFilePath)
+	if err != nil {
+		return err
+	}
+	defer func(localFile *os.File) {
+		err := localFile.Close()
+		if err != nil {
+			g.Logger.Errorf("Error writing file \n%v", err)
+		}
+	}(localFile)
+
+	_, err = localFile.ReadFrom(resp.Body)
+
+	return err
+}
+
+func (g *S3Getter) S3FileExists(path string) (string, error) {
+	g.Logger.Debugf("Parsing S3 URL %s", path)
+	bucket, key, err := ParseS3Url(path)
+	if err != nil {
+		return "", err
+	}
+
+	// Region
+	g.Logger.Debugf("Creating session for determining S3 region %s", path)
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	g.Logger.Debugf("Getting bucket %s location %s", bucket, path)
+	s3Client := s3.New(sess)
+	bucketRegion := "us-east-1"
+	getBucketLocationInput := &s3.GetBucketLocationInput{
+		Bucket: aws.String(bucket),
+	}
+	resp, err := s3Client.GetBucketLocation(getBucketLocationInput)
+	if err != nil {
+		return "", fmt.Errorf("Error: Failed to retrieve bucket location: %v\n", err)
+	}
+	if resp == nil || resp.LocationConstraint == nil {
+		g.Logger.Debugf("Bucket has no location Assuming us-east-1")
+	} else {
+		bucketRegion = *resp.LocationConstraint
+	}
+	g.Logger.Debugf("Got bucket location %s", bucketRegion)
+
+	// File existence
+	g.Logger.Debugf("Creating new session with region to see if file exists")
+	regionSession, err := session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+		Config: aws.Config{
+			Region: aws.String(bucketRegion),
+		},
+	})
+	if err != nil {
+		g.Logger.Error(err)
+	}
+	g.Logger.Debugf("Creating new s3 client to check if object exists")
+	s3Client = s3.New(regionSession)
+	headObjectInput := &s3.HeadObjectInput{
+		Bucket: &bucket,
+		Key:    &key,
+	}
+
+	g.Logger.Debugf("Fethcing head %s", path)
+	_, err = s3Client.HeadObject(headObjectInput)
+	return bucketRegion, err
+}
+
+func HttpFileExists(path string) error {
+	head, err := http.Head(path)
+	statusOK := head.StatusCode >= 200 && head.StatusCode < 300
+	if !statusOK {
+		return fmt.Errorf("%s is not exists: head request get http code %d", path, head.StatusCode)
+	}
+	defer func() {
+		_ = head.Body.Close()
+	}()
+	return err
+}
+
+func ParseS3Url(s3URL string) (string, string, error) {
+	parsedURL, err := url.Parse(s3URL)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to parse S3 URL: %w", err)
+	}
+
+	if parsedURL.Scheme != "s3" {
+		return "", "", fmt.Errorf("invalid URL scheme (expected 's3')")
+	}
+
+	bucket := parsedURL.Host
+	key := strings.TrimPrefix(parsedURL.Path, "/")
+
+	return bucket, key, nil
+}
+
 func NewRemote(logger *zap.SugaredLogger, homeDir string, fs *filesystem.FileSystem) *Remote {
 	if disableInsecureFeatures {
 		panic("Remote sources are disabled due to 'DISABLE_INSECURE_FEATURES'")
 	}
 	remote := &Remote{
-		Logger: logger,
-		Home:   homeDir,
-		Getter: &GoGetter{Logger: logger},
-		fs:     fs,
+		Logger:     logger,
+		Home:       homeDir,
+		Getter:     &GoGetter{Logger: logger},
+		S3Getter:   &S3Getter{Logger: logger},
+		HttpGetter: &HttpGetter{Logger: logger},
+		fs:         fs,
 	}
 
 	if remote.Home == "" {
