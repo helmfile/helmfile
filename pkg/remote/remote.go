@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -24,7 +25,10 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
-var disableInsecureFeatures bool
+var (
+	protocols               = []string{"s3", "http", "https"}
+	disableInsecureFeatures bool
+)
 
 func init() {
 	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
@@ -171,11 +175,8 @@ func ParseNormalProtocol(path string) (string, error) {
 	}
 	protocol := strings.ToLower(parts[0])
 
-	protocols := []string{"s3", "http", "https"}
-	for _, option := range protocols {
-		if option == protocol {
-			return protocol, nil
-		}
+	if slices.Contains(protocols, protocol) {
+		return protocol, nil
 	}
 	return "", fmt.Errorf("failed to parse URL %s", path)
 }
@@ -267,17 +268,18 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 
 		r.Logger.Debugf("remote> downloading %s to %s", getterSrc, getterDst)
 
-		if u.Getter == "normal" && u.Scheme == "s3" {
+		switch {
+		case u.Getter == "normal" && u.Scheme == "s3":
 			err := r.S3Getter.Get(r.Home, path, cacheDirPath)
 			if err != nil {
 				return "", multierr.Append(err, err)
 			}
-		} else if u.Getter == "normal" && (u.Scheme == "https" || u.Scheme == "http") {
+		case u.Getter == "normal" && (u.Scheme == "https" || u.Scheme == "http"):
 			err := r.HttpGetter.Get(r.Home, path, cacheDirPath)
 			if err != nil {
 				return "", multierr.Append(err, err)
 			}
-		} else {
+		default:
 			if u.Getter != "" {
 				getterSrc = u.Getter + "::" + getterSrc
 			}
@@ -396,11 +398,8 @@ func (g *S3Getter) Get(wd, src, dst string) error {
 	}(localFile)
 
 	_, err = localFile.ReadFrom(resp.Body)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 func (g *HttpGetter) Get(wd, src, dst string) error {
@@ -447,11 +446,8 @@ func (g *HttpGetter) Get(wd, src, dst string) error {
 	}(localFile)
 
 	_, err = localFile.ReadFrom(resp.Body)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 func (g *S3Getter) S3FileExists(path string) (string, error) {
