@@ -151,6 +151,9 @@ func ParseNormal(path string) (*Source, error) {
 	}
 
 	u, err := url.Parse(path)
+	if err != nil {
+		return nil, err
+	}
 	dir := filepath.Dir(u.Path)
 	if len(dir) > 0 {
 		dir = dir[1:]
@@ -164,7 +167,7 @@ func ParseNormal(path string) (*Source, error) {
 		Dir:      dir,
 		File:     filepath.Base(u.Path),
 		RawQuery: u.RawQuery,
-	}, err
+	}, nil
 }
 
 func ParseNormalProtocol(path string) (string, error) {
@@ -363,9 +366,6 @@ func (g *S3Getter) Get(wd, src, dst string) error {
 			Region: aws.String(region),
 		},
 	}))
-	if err != nil {
-		return err
-	}
 
 	// Create an S3 client using the session
 	s3Client := s3.New(sess)
@@ -462,9 +462,6 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	if err != nil {
-		return "", fmt.Errorf("failed to authentication with aws %w", err)
-	}
 
 	g.Logger.Debugf("Getting bucket %s location %s", bucket, path)
 	s3Client := s3.New(sess)
