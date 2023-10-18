@@ -790,6 +790,9 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
+					if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
+						args = append(args, "--wait")
+					}
 					if release.Namespace != "" {
 						args = append(args, "--namespace", release.Namespace)
 					}
@@ -2057,7 +2060,9 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
-
+		if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
+			flags = append(flags, "--wait")
+		}
 		context := st.createHelmContext(&release, workerIndex)
 
 		start := time.Now()

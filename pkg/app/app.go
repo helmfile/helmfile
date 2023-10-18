@@ -477,6 +477,7 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 				SkipRepos:   c.SkipDeps(),
 				SkipDeps:    c.SkipDeps(),
 				Concurrency: c.Concurrency(),
+				Wait:        c.Wait(),
 			}, func() {
 				ok, errs = a.delete(run, c.Purge(), c)
 			})
@@ -498,6 +499,7 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 				SkipRepos:   c.SkipDeps(),
 				SkipDeps:    c.SkipDeps(),
 				Concurrency: c.Concurrency(),
+				Wait:        c.Wait(),
 			}, func() {
 				ok, errs = a.delete(run, true, c)
 			})

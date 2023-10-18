@@ -8,6 +8,8 @@ type DestroyOptions struct {
 	SkipCharts bool
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
+	// Wait is the wait flag
+	Wait bool
 }
 
 // NewDestroyOptions creates a new Apply
@@ -42,4 +44,9 @@ func (c *DestroyImpl) SkipCharts() bool {
 // Cascade returns cascade flag
 func (c *DestroyImpl) Cascade() string {
 	return c.DestroyOptions.Cascade
+}
+
+// Wait returns the wait
+func (c *DestroyImpl) Wait() bool {
+	return c.DestroyOptions.Wait
 }

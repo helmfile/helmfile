@@ -156,6 +156,7 @@ type DeleteConfigProvider interface {
 	Purge() bool
 	SkipDeps() bool
 	SkipCharts() bool
+	Wait() bool
 
 	interactive
 	loggingConfig
@@ -168,6 +169,7 @@ type DestroyConfigProvider interface {
 
 	SkipDeps() bool
 	SkipCharts() bool
+	Wait() bool
 
 	interactive
 	loggingConfig
