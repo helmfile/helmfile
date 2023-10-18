@@ -45,7 +45,7 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 		flags = append(flags, "--wait-for-jobs")
 	case ops != nil && ops.WaitForJobs:
 		flags = append(flags, "--wait-for-jobs")
-	case release.Wait == nil && st.HelmDefaults.WaitForJobs:
+	case release.WaitForJobs == nil && st.HelmDefaults.WaitForJobs:
 		flags = append(flags, "--wait-for-jobs")
 	}
 	return flags
