@@ -19,7 +19,7 @@ func TestAppendWaitForJobsFlags(t *testing.T) {
 	}{
 		{
 			name:     "release wait for jobs",
-			release:  &ReleaseSpec{WaitForJobs: &[]bool{true, true}[0]},
+			release:  &ReleaseSpec{WaitForJobs: &[]bool{true}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{},
 			expected: []string{"--wait-for-jobs"},
@@ -40,7 +40,7 @@ func TestAppendWaitForJobsFlags(t *testing.T) {
 		},
 		{
 			name:     "release wait for jobs false",
-			release:  &ReleaseSpec{WaitForJobs: &[]bool{false, false}[0]},
+			release:  &ReleaseSpec{WaitForJobs: &[]bool{false}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{WaitForJobs: true},
 			expected: []string{},
@@ -81,7 +81,7 @@ func TestAppendWaitFlags(t *testing.T) {
 	}{
 		{
 			name:     "release wait",
-			release:  &ReleaseSpec{Wait: &[]bool{true, true}[0]},
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{},
 			expected: []string{"--wait"},
@@ -102,7 +102,7 @@ func TestAppendWaitFlags(t *testing.T) {
 		},
 		{
 			name:     "release wait false",
-			release:  &ReleaseSpec{Wait: &[]bool{false, false}[0]},
+			release:  &ReleaseSpec{Wait: &[]bool{false}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{Wait: true},
 			expected: []string{},
