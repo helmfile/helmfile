@@ -637,14 +637,6 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--skip-crds")
 				}
 
-				if opts.Wait {
-					flags = append(flags, "--wait")
-				}
-
-				if opts.WaitForJobs {
-					flags = append(flags, "--wait-for-jobs")
-				}
-
 				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues)
 
 				if len(errs) > 0 {
@@ -2517,13 +2509,8 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--enable-dns")
 	}
 
-	if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
-		flags = append(flags, "--wait")
-	}
-
-	if release.WaitForJobs != nil && *release.WaitForJobs || release.WaitForJobs == nil && st.HelmDefaults.WaitForJobs {
-		flags = append(flags, "--wait-for-jobs")
-	}
+	flags = st.appendWaitFlags(flags, release, opt)
+	flags = st.appendWaitForJobsFlags(flags, release, opt)
 
 	flags = append(flags, st.timeoutFlags(release)...)
 
