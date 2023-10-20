@@ -41,6 +41,7 @@ type destroyConfig struct {
 	logger                 *zap.SugaredLogger
 	includeTransitiveNeeds bool
 	skipCharts             bool
+	wait                   bool
 }
 
 func (d destroyConfig) Args() string {
@@ -73,6 +74,10 @@ func (d destroyConfig) SkipDeps() bool {
 
 func (d destroyConfig) IncludeTransitiveNeeds() bool {
 	return d.includeTransitiveNeeds
+}
+
+func (d destroyConfig) Wait() bool {
+	return d.wait
 }
 
 func TestDestroy(t *testing.T) {

@@ -25,6 +25,7 @@ func TestDestroy_2(t *testing.T) {
 		upgraded    []exectest.Release
 		deleted     []exectest.Release
 		log         string
+		wait        bool
 	}
 
 	check := func(t *testing.T, tc testcase) {
