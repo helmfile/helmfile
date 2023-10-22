@@ -295,8 +295,9 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 
 			if stat, _ := os.Stat(outputFile); stat != nil {
 				want, err := os.ReadFile(outputFile)
+				wantStr := strings.ReplaceAll(string(want), "__workingdir__", wd)
 				require.NoError(t, err)
-				require.Equal(t, string(want), gotStr)
+				require.Equal(t, wantStr, gotStr)
 			} else {
 				// To update the test golden image(output.yaml), just remove it and rerun this test.
 				// We automatically capture the output to `output.yaml` in the test case directory
