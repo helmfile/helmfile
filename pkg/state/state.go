@@ -818,7 +818,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
-				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, relErr, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
@@ -944,7 +944,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 
-				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, relErr, "sync"); err != nil {
 					if relErr == nil {
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -1480,7 +1480,12 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			}
 		}
 
-		if _, err := st.TriggerCleanupEvent(release, "template"); err != nil {
+		var firstErr error = nil
+		if len(errs) > 0 {
+			firstErr = errs[0]
+		}
+
+		if _, err := st.TriggerCleanupEvent(release, firstErr, "template"); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1581,7 +1586,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 			return []error{fmt.Errorf("writing values file %s: %w", outputValuesFile, err)}
 		}
 
-		if _, err := st.TriggerCleanupEvent(release, "write-values"); err != nil {
+		if _, err := st.TriggerCleanupEvent(release, nil, "write-values"); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1656,7 +1661,12 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 			}
 		}
 
-		if _, err := st.TriggerCleanupEvent(&release, "lint"); err != nil {
+		var firstErr error = nil
+		if len(errs) > 0 {
+			firstErr = errs[0]
+		}
+
+		if _, err := st.TriggerCleanupEvent(&release, firstErr, "lint"); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1995,7 +2005,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				}
 
 				if triggerCleanupEvents {
-					if _, err := st.TriggerCleanupEvent(prep.release, "diff"); err != nil {
+					if _, err := st.TriggerCleanupEvent(prep.release, nil, "diff"); err != nil {
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
@@ -2321,8 +2331,8 @@ func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string)
 	return st.triggerReleaseEvent("prepare", nil, r, helmfileCommand)
 }
 
-func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("cleanup", nil, r, helmfileCommand)
+func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, evtErr error, helmfileCommand string) (bool, error) {
+	return st.triggerReleaseEvent("cleanup", evtErr, r, helmfileCommand)
 }
 
 func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
