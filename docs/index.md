@@ -971,6 +971,15 @@ releases:
   - ...
 ```
 
+Since Helmfile v0.158.0, support more protocols, such as: s3, https, http
+```
+values:
+  - s3::https://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+  - s3://helm-s3-values-example/subdir/values.yaml
+  - https://john:doe@helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+  - http://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+```
+
 For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).
 
 This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
