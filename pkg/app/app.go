@@ -1552,7 +1552,13 @@ Do you really want to apply?
 
 	for id := range releasesWithNoChange {
 		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "apply"); err != nil {
+
+		var firstErr error = nil
+		if len(errs) > 0 {
+			firstErr = errs[0]
+		}
+
+		if _, err := st.TriggerCleanupEvent(&r, firstErr, "apply"); err != nil {
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1601,7 +1607,7 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	for id := range releasesWithNoChange {
 		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "delete"); err != nil {
+		if _, err := st.TriggerCleanupEvent(&r, nil, "delete"); err != nil {
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1847,7 +1853,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	for id := range releasesWithNoChange {
 		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "sync"); err != nil {
+		if _, err := st.TriggerCleanupEvent(&r, nil, "sync"); err != nil {
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
