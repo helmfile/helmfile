@@ -37,7 +37,9 @@ func forbidEnvironmentsWithReleases(filePath string, content []byte) (bool, erro
 		if k == "environments" || k == "releases" || k == "---" {
 			if _, ok := resultKeys[k]; !ok {
 				result = append(result, k)
-				resultKeys[k] = nil
+				if k != "---" {
+					resultKeys[k] = nil
+				}
 			}
 		}
 	}
