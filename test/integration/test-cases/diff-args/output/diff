@@ -1,0 +1,125 @@
+processing file "helmfile.yaml" in directory "test/integration/test-cases/diff-args/input"
+changing working directory to "/home/runner/work/helmfile/helmfile/test/integration/test-cases/diff-args/input"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
+first-pass uses: &{default  map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: helmDefaults:
+ 1:   diffArgs:
+ 2:    - "--three-way-merge"
+ 3: releases:
+ 4:   - name: httpbin-installed 
+ 5:     chart: ../../../charts/httpbin
+ 6:     namespace: httpbin-installed 
+ 7:     installed: false 
+ 8:   - name: httpbin-uninstalled 
+ 9:     chart: ../../../charts/httpbin
+10:     namespace: httpbin-uninstalled
+11:     installed: true 
+
+first-pass produced: &{default  map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: helmDefaults:
+ 1:   diffArgs:
+ 2:    - "--three-way-merge"
+ 3: releases:
+ 4:   - name: httpbin-installed 
+ 5:     chart: ../../../charts/httpbin
+ 6:     namespace: httpbin-installed 
+ 7:     installed: false 
+ 8:   - name: httpbin-uninstalled 
+ 9:     chart: ../../../charts/httpbin
+10:     namespace: httpbin-uninstalled
+11:     installed: true 
+
+merged environment: &{default  map[] map[]}
+helm:RoQsd> v3.13.1+g3547a4b
+helm:RoQsd> 
+Building dependency release=httpbin-uninstalled, chart=../../../charts/httpbin
+exec: helm dependency build ../../../charts/httpbin
+2 release(s) found in helmfile.yaml
+
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     helmfile-tests/httpbin-uninstalled
+
+processing releases in group 1/1: helmfile-tests/httpbin-uninstalled
+exec: helm diff upgrade --allow-unreleased httpbin-uninstalled ../../../charts/httpbin --three-way-merge --namespace helmfile-tests --reset-values
+helm:eZsSI> ********************
+helm:eZsSI> 
+helm:eZsSI> Release was not present in Helm.  Diff will show entire contents as new.
+helm:eZsSI> 
+helm:eZsSI> ********************
+helm:eZsSI> 
+helm:eZsSI> helmfile-tests, httpbin-uninstalled-httpbin, Deployment (apps) has been added:
+helm:eZsSI> -
+helm:eZsSI> + apiVersion: apps/v1
+helm:eZsSI> + kind: Deployment
+helm:eZsSI> + metadata:
+helm:eZsSI> +   labels:
+helm:eZsSI> +     app: httpbin
+helm:eZsSI> +     chart: httpbin-0.1.0
+helm:eZsSI> +     heritage: Helm
+helm:eZsSI> +     release: httpbin-uninstalled
+helm:eZsSI> +   name: httpbin-uninstalled-httpbin
+helm:eZsSI> +   namespace: helmfile-tests
+helm:eZsSI> + spec:
+helm:eZsSI> +   replicas: 1
+helm:eZsSI> +   selector:
+helm:eZsSI> +     matchLabels:
+helm:eZsSI> +       app: httpbin
+helm:eZsSI> +   strategy: {}
+helm:eZsSI> +   template:
+helm:eZsSI> +     metadata:
+helm:eZsSI> +       labels:
+helm:eZsSI> +         app: httpbin
+helm:eZsSI> +         release: httpbin-uninstalled
+helm:eZsSI> 
+helm:eZsSI> +     spec:
+helm:eZsSI> +       containers:
+helm:eZsSI> +       - image: docker.io/citizenstig/httpbin:latest
+helm:eZsSI> +         imagePullPolicy: IfNotPresent
+helm:eZsSI> +         livenessProbe:
+helm:eZsSI> +           httpGet:
+helm:eZsSI> +             path: /
+helm:eZsSI> +             port: 8000
+helm:eZsSI> +         name: httpbin
+helm:eZsSI> +         ports:
+helm:eZsSI> +         - containerPort: 8000
+helm:eZsSI> +         readinessProbe:
+helm:eZsSI> +           httpGet:
+helm:eZsSI> +             path: /
+helm:eZsSI> +             port: 8000
+helm:eZsSI> +         resources: {}
+helm:eZsSI> + status: {}
+helm:eZsSI> helmfile-tests, httpbin-uninstalled-httpbin, Service (v1) has been added:
+helm:eZsSI> -
+helm:eZsSI> + apiVersion: v1
+helm:eZsSI> + kind: Service
+helm:eZsSI> + metadata:
+helm:eZsSI> +   labels:
+helm:eZsSI> +     app: httpbin
+helm:eZsSI> +     chart: httpbin-0.1.0
+helm:eZsSI> +     heritage: Helm
+helm:eZsSI> +     release: httpbin-uninstalled
+helm:eZsSI> +   name: httpbin-uninstalled-httpbin
+helm:eZsSI> +   namespace: helmfile-tests
+helm:eZsSI> + spec:
+helm:eZsSI> +   ports:
+helm:eZsSI> +   - name: httpbin
+helm:eZsSI> +     port: 8000
+helm:eZsSI> +     protocol: TCP
+helm:eZsSI> +     targetPort: 8000
+helm:eZsSI> +   selector:
+helm:eZsSI> +     app: httpbin
+helm:eZsSI> +     release: httpbin-uninstalled
+helm:eZsSI> +   type: LoadBalancer
+helm:eZsSI> 
+Listing releases matching ^httpbin-installed$
+exec: helm list --filter ^httpbin-installed$ --namespace helmfile-tests --uninstalling --deployed --failed --pending
+helm:vjmzY> NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION
+helm:vjmzY> 
+changing working directory back to "/home/runner/work/helmfile/helmfile"
