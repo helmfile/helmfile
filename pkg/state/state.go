@@ -2447,9 +2447,9 @@ func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec)
 	return flags
 }
 
-func (st *HelmState) appendExtraDiffFlags(flags []string, opt DiffOpts) []string {
+func (st *HelmState) appendExtraDiffFlags(flags []string, opt *DiffOpts) []string {
 	switch {
-	case opt.DiffArgs != "":
+	case opt != nil && opt.DiffArgs != "":
 		flags = append(flags, argparser.CollectArgs(opt.DiffArgs)...)
 	case st.HelmDefaults.DiffArgs != nil:
 		flags = append(flags, argparser.CollectArgs(strings.Join(st.HelmDefaults.DiffArgs, " "))...)
@@ -2657,7 +2657,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if err != nil {
 		return nil, files, err
 	}
-	flags = st.appendExtraDiffFlags(flags, *opt)
+	flags = st.appendExtraDiffFlags(flags, opt)
 
 	return append(flags, common...), files, nil
 }
