@@ -1,5 +1,0 @@
-chartifyTempDir: environment_overwrite_values
-helmfileArgs:
-- template
-- --state-values-set
-- ns=test3

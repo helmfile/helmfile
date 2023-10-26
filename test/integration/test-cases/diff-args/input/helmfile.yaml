@@ -1,0 +1,12 @@
+helmDefaults:
+  diffArgs:
+   - "--three-way-merge"
+releases:
+  - name: httpbin-installed 
+    chart: ../../../charts/httpbin
+    namespace: httpbin-installed 
+    installed: false 
+  - name: httpbin-uninstalled 
+    chart: ../../../charts/httpbin
+    namespace: httpbin-uninstalled
+    installed: true 

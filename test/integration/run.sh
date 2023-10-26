@@ -77,6 +77,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
 . ${dir}/test-cases/chartify-with-non-chart-dir.sh
+. ${dir}/test-cases/diff-args.sh
 . ${dir}/test-cases/helmfile-double-fetch.sh
 . ${dir}/test-cases/skip-diff-output.sh
 . ${dir}/test-cases/v1-subhelmfile-multi-bases-with-array-values.sh
