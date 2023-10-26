@@ -3,8 +3,6 @@ package argparser
 import (
 	"fmt"
 	"strings"
-
-	"github.com/helmfile/helmfile/pkg/state"
 )
 
 type keyVal struct {
@@ -15,9 +13,6 @@ type keyVal struct {
 type argMap struct {
 	m     map[string][]*keyVal
 	flags []string
-}
-type GetArgsOptions struct {
-	WithDiffArgs bool
 }
 
 // isNewFlag checks if the given arg is a new flag
@@ -86,23 +81,10 @@ func analyzeArgs(am *argMap, args string) {
 	}
 }
 
-func GetArgs(args string, state *state.HelmState, opts *GetArgsOptions) []string {
+func CollectArgs(args string) []string {
 	argsMap := newArgMap()
-
-	if len(args) > 0 {
-		analyzeArgs(argsMap, args)
-	}
-
-	if len(state.HelmDefaults.Args) > 0 {
-		analyzeArgs(argsMap, strings.Join(state.HelmDefaults.Args, " "))
-	}
-
-	if len(state.HelmDefaults.DiffArgs) > 0 && opts != nil && opts.WithDiffArgs {
-		analyzeArgs(argsMap, strings.Join(state.HelmDefaults.DiffArgs, " "))
-	}
-
+	analyzeArgs(argsMap, args)
 	var argArr []string
-
 	for _, flag := range argsMap.flags {
 		val := argsMap.m[flag]
 
@@ -118,8 +100,5 @@ func GetArgs(args string, state *state.HelmState, opts *GetArgsOptions) []string
 			}
 		}
 	}
-
-	state.HelmDefaults.Args = argArr
-
-	return state.HelmDefaults.Args
+	return argArr
 }

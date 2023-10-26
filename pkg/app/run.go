@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/state"
 )
@@ -105,13 +104,13 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
+	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	return r.state.UpdateDeps(r.helm, c.IncludeTransitiveNeeds())
 }
 
 func (r *Run) Repos(c ReposConfigProvider) error {
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
+	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	return r.ctx.SyncReposOnce(r.state, r.helm)
 }
