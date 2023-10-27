@@ -5,11 +5,11 @@ diff_args_tmp=$(mktemp -d)
 diff_args_reverse=${diff_args_tmp}/diff.args.build.yaml
 
 case_title="diff args"
-diff_out_file=${chart_need_case_output_dir}/diff
-apply_out_file=${chart_need_case_output_dir}/apply
+diff_out_file=${diff_args_output_dir}/diff
+apply_out_file=${diff_args_output_dir}/apply
 if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
-    apply_out_file=${chart_need_case_output_dir}/apply-live
-    diff_out_file=${chart_need_case_output_dir}/diff-live
+    apply_out_file=${diff_args_output_dir}/apply-live
+    diff_out_file=${diff_args_output_dir}/diff-live
 fi
 
 test_start "$case_title"
