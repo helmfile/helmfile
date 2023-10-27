@@ -1,60 +1,9 @@
-Live output is enabled
-processing file "helmfile.yaml" in directory "test/integration/test-cases/diff-args/input"
-changing working directory to "/home/runner/work/helmfile/helmfile/test/integration/test-cases/diff-args/input"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: helmDefaults:
- 1:   diffArgs:
- 2:    - "--three-way-merge"
- 3: releases:
- 4:   - name: httpbin-uninstalled 
- 5:     chart: ../../../charts/httpbin
- 6:     namespace: httpbin-installed 
- 7:     installed: false 
- 8:   - name: httpbin-installed 
- 9:     chart: ../../../charts/httpbin
-10:     namespace: httpbin-uninstalled
-11:     installed: true 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: helmDefaults:
- 1:   diffArgs:
- 2:    - "--three-way-merge"
- 3: releases:
- 4:   - name: httpbin-uninstalled 
- 5:     chart: ../../../charts/httpbin
- 6:     namespace: httpbin-installed 
- 7:     installed: false 
- 8:   - name: httpbin-installed 
- 9:     chart: ../../../charts/httpbin
-10:     namespace: httpbin-uninstalled
-11:     installed: true 
-
-merged environment: &{default  map[] map[]}
-helm:LKHdb> v3.13.1+g3547a4b
-helm:LKHdb> 
-Building dependency release=httpbin-installed, chart=../../../charts/httpbin
-exec: helm dependency build ../../../charts/httpbin
-2 release(s) found in helmfile.yaml
-
-processing 1 groups of releases in this order:
-GROUP RELEASES
-1     httpbin-uninstalled/httpbin-installed
-
-processing releases in group 1/1: httpbin-uninstalled/httpbin-installed
-exec: helm diff upgrade --allow-unreleased httpbin-installed ../../../charts/httpbin --three-way-merge --namespace httpbin-uninstalled --reset-values
 ********************
 
 	Release was not present in Helm.  Diff will show entire contents as new.
 
 ********************
-httpbin-uninstalled, httpbin-installed-httpbin, Deployment (apps) has been added:
+helmfile-tests, installed-httpbin, Deployment (apps) has been added:
 - 
 + apiVersion: apps/v1
 + kind: Deployment
@@ -63,9 +12,9 @@ httpbin-uninstalled, httpbin-installed-httpbin, Deployment (apps) has been added
 +     app: httpbin
 +     chart: httpbin-0.1.0
 +     heritage: Helm
-+     release: httpbin-installed
-+   name: httpbin-installed-httpbin
-+   namespace: httpbin-uninstalled
++     release: installed
++   name: installed-httpbin
++   namespace: helmfile-tests
 + spec:
 +   replicas: 1
 +   selector:
@@ -76,7 +25,7 @@ httpbin-uninstalled, httpbin-installed-httpbin, Deployment (apps) has been added
 +     metadata:
 +       labels:
 +         app: httpbin
-+         release: httpbin-installed
++         release: installed
 +     spec:
 +       containers:
 +       - image: docker.io/citizenstig/httpbin:latest
@@ -94,7 +43,7 @@ httpbin-uninstalled, httpbin-installed-httpbin, Deployment (apps) has been added
 +             port: 8000
 +         resources: {}
 + status: {}
-httpbin-uninstalled, httpbin-installed-httpbin, Service (v1) has been added:
+helmfile-tests, installed-httpbin, Service (v1) has been added:
 - 
 + apiVersion: v1
 + kind: Service
@@ -103,9 +52,9 @@ httpbin-uninstalled, httpbin-installed-httpbin, Service (v1) has been added:
 +     app: httpbin
 +     chart: httpbin-0.1.0
 +     heritage: Helm
-+     release: httpbin-installed
-+   name: httpbin-installed-httpbin
-+   namespace: httpbin-uninstalled
++     release: installed
++   name: installed-httpbin
++   namespace: helmfile-tests
 + spec:
 +   ports:
 +   - name: httpbin
@@ -114,11 +63,6 @@ httpbin-uninstalled, httpbin-installed-httpbin, Service (v1) has been added:
 +     targetPort: 8000
 +   selector:
 +     app: httpbin
-+     release: httpbin-installed
++     release: installed
 +   type: LoadBalancer
-Comparing release=httpbin-installed, chart=../../../charts/httpbin
-Listing releases matching ^httpbin-uninstalled$
-exec: helm list --filter ^httpbin-uninstalled$ --namespace httpbin-installed --uninstalling --deployed --failed --pending
-helm:qscBr> NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION
-helm:qscBr> 
-changing working directory back to "/home/runner/work/helmfile/helmfile"
+Comparing release=installed, chart=../../../charts/httpbin

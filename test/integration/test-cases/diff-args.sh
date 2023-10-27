@@ -16,13 +16,11 @@ test_start "$case_title"
 info "Comparing ${case_title} for output ${diff_args_reverse} with ${diff_out_file}"
 for i in $(seq 10); do
     info "Comparing diff-args diff debug log #$i"
-    ${helmfile} -f ${diff_args_input_dir}/helmfile.yaml diff --debug > ${diff_args_reverse} || fail "\"helmfile diff\" shouldn't fail"
-    cat ${diff_args_reverse}
-    echo "done"
+    ${helmfile} -f ${diff_args_input_dir}/helmfile.yaml diff > ${diff_args_reverse} || fail "\"helmfile diff\" shouldn't fail"
     diff -u ${diff_out_file} ${diff_args_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done
-${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply --debug > ${diff_args_reverse} || fail "\"helmfile apply\" shouldn't fail"
+${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply > ${diff_args_reverse} || fail "\"helmfile apply\" shouldn't fail"
 cat ${diff_args_reverse}
 diff -u ${apply_out_file} ${diff_args_reverse} || fail "\"helmfile apply\" should be consistent"
 test_pass "$case_title"
