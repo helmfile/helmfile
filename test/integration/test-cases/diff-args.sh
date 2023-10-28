@@ -23,4 +23,6 @@ done
 info "Comparing ${case_title} apply for output ${diff_args_reverse} with ${apply_out_file}"
 ${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply | grep -vE "^(LAST DEPLOYED|installed)"  > ${diff_args_reverse} || fail "\"helmfile apply\" shouldn't fail"
 diff -u ${apply_out_file} ${diff_args_reverse} || fail "\"helmfile apply\" should be consistent"
+echo "clean up diff args resources"
+${helmfile} -f ${diff_args_input_dir}/helmfile.yaml destroy || fail "\"helmfile destroy\" shouldn't fail"
 test_pass "$case_title"
