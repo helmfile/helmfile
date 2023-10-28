@@ -21,6 +21,8 @@ for i in $(seq 10); do
     echo code=$?
 done
 ${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply > ${diff_args_reverse} || fail "\"helmfile apply\" shouldn't fail"
+echo "start"
 cat ${diff_args_reverse}
+echo "done"
 diff -u ${apply_out_file} ${diff_args_reverse} || fail "\"helmfile apply\" should be consistent"
 test_pass "$case_title"
