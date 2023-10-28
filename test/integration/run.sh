@@ -76,13 +76,13 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
+. ${dir}/test-cases/happypath.sh
 . ${dir}/test-cases/chartify-with-non-chart-dir.sh
 . ${dir}/test-cases/diff-args.sh
 . ${dir}/test-cases/helmfile-double-fetch.sh
 . ${dir}/test-cases/skip-diff-output.sh
 . ${dir}/test-cases/v1-subhelmfile-multi-bases-with-array-values.sh
 . ${dir}/test-cases/kustomized-fetch.sh
-. ${dir}/test-cases/happypath.sh
 . ${dir}/test-cases/regression.sh
 . ${dir}/test-cases/secretssops.sh
 . ${dir}/test-cases/yaml-overwrite.sh
