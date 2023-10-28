@@ -70,9 +70,7 @@ Error: plugin "diff" exited with error
 Comparing release=installed, chart=../../../charts/httpbin
 Release "installed" does not exist. Installing it now.
 NAME: installed
-LAST DEPLOYED: Sat Oct 28 00:23:43 2023
 NAMESPACE: helmfile-tests
 STATUS: deployed
 REVISION: 1
 TEST SUITE: None
-installed	helmfile-tests	1       	2023-10-28 00:23:43.725775385 +0000 UTC	deployed	httpbin-0.1.0	           

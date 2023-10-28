@@ -20,9 +20,6 @@ for i in $(seq 10); do
     diff -u ${diff_out_file} ${diff_args_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done
-${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply > ${diff_args_reverse} || fail "\"helmfile apply\" shouldn't fail"
-echo "start"
-cat ${diff_args_reverse}
-echo "done"
+${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply | grep -vE "^(LAST DEPLOYED|installed)"  > ${diff_args_reverse} || fail "\"helmfile apply\" shouldn't fail"
 diff -u ${apply_out_file} ${diff_args_reverse} || fail "\"helmfile apply\" should be consistent"
 test_pass "$case_title"
