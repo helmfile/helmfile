@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: foo-1
-  namespace: default
+  namespace: helmfile-tests
 data:
   foo: FOO
 
@@ -14,7 +14,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: baz-2
-  namespace: default
+  namespace: helmfile-tests
 data:
   baz: BAZ
 

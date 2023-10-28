@@ -3,14 +3,14 @@
 	Release was not present in Helm.  Diff will show entire contents as new.
 
 ********************
-default, baz-2, ConfigMap (v1) has been added:
+helmfile-tests, baz-2, ConfigMap (v1) has been added:
 - 
 + # Source: raw/templates/resources.yaml
 + apiVersion: v1
 + kind: ConfigMap
 + metadata:
 +   name: baz-2
-+   namespace: default
++   namespace: helmfile-tests
 + data:
 +   baz: BAZ
 Comparing release=foo, chart=../../../charts/raw
