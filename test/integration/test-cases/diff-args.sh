@@ -13,13 +13,14 @@ if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
 fi
 
 test_start "$case_title"
-info "Comparing ${case_title} for output ${diff_args_reverse} with ${diff_out_file}"
+info "Comparing ${case_title} diff for output ${diff_args_reverse} with ${diff_out_file}"
 for i in $(seq 10); do
-    info "Comparing diff-args diff debug log #$i"
+    info "Comparing diff-args diff log #$i"
     ${helmfile} -f ${diff_args_input_dir}/helmfile.yaml diff > ${diff_args_reverse} || fail "\"helmfile diff\" shouldn't fail"
     diff -u ${diff_out_file} ${diff_args_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done
+info "Comparing ${case_title} apply for output ${diff_args_reverse} with ${apply_out_file}"
 ${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply | grep -vE "^(LAST DEPLOYED|installed)"  > ${diff_args_reverse} || fail "\"helmfile apply\" shouldn't fail"
 diff -u ${apply_out_file} ${diff_args_reverse} || fail "\"helmfile apply\" should be consistent"
 test_pass "$case_title"
