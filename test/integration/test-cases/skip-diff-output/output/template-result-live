@@ -18,7 +18,7 @@ Templating release=baz, chart=../../../charts/raw
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: baz-3
+  name: baz-2
   namespace: helmfile-tests
 data:
   baz: BAZ
