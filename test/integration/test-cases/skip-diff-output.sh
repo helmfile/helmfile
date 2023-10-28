@@ -17,7 +17,7 @@ test_start "$case_title"
 info "Comparing ${case_title} diff for output ${skip_diff_output_reverse} with ${diff_out_file}"
 for i in $(seq 10); do
     info "Comparing skip-diff-output diff log #$i"
-    ${helmfile} -f ${skip_diff_output_input_dir}/helmfile.yaml diff > ${skip_diff_output_reverse} || fail "\"helmfile diff\" shouldn't fail"
+    ${helmfile} -f ${skip_diff_output_input_dir}/helmfile.yaml.gotmpl diff > ${skip_diff_output_reverse} || fail "\"helmfile diff\" shouldn't fail"
     diff -u ${diff_out_file} ${skip_diff_output_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done
@@ -25,7 +25,7 @@ done
 info "Comparing ${case_title} template for output ${skip_diff_output_reverse} with ${template_out_file}"
 for i in $(seq 10); do
     info "Comparing skip-diff-output template log #$i"
-    ${helmfile} -f ${skip_diff_output_input_dir}/helmfile.yaml template > ${skip_diff_output_reverse} || fail "\"helmfile template\" shouldn't fail"
+    ${helmfile} -f ${skip_diff_output_input_dir}/helmfile.yaml.gotmpl template > ${skip_diff_output_reverse} || fail "\"helmfile template\" shouldn't fail"
     diff -u ${template_out_file} ${skip_diff_output_reverse} || fail "\"helmfile template\" should be consistent"
     echo code=$?
 done
