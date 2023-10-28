@@ -1,4 +1,3 @@
-Comparing release=installed, chart=../../../charts/httpbin
 ********************
 
 	Release was not present in Helm.  Diff will show entire contents as new.
