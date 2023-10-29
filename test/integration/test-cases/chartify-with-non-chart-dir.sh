@@ -10,7 +10,7 @@ diff_out_file=${chartify_with_non_chart_dirt_output_dir}/diff-result
 
 
 if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
-    diff_out_file=${skip_diff_output_output_dir}/diff-result-live
+    diff_out_file=${chartify_with_non_chart_dirt_output_dir}/diff-result-live
 fi
 
 test_start "$case_title"
