@@ -11,7 +11,7 @@ helmfile-tests, configmap, ConfigMap (v1) has been added:
 + kind: ConfigMap
 + metadata:
 +   name: configmap
-    namespace: helmfile-tests
++   namespace: helmfile-tests
 + data:
 +   foo: "bar"
 +   bar: "baz"
