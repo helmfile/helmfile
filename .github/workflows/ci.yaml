@@ -17,9 +17,10 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
+          cache: false
       - uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.54.2
+          version: v1.55.1 
 
   tests:
     runs-on: ubuntu-latest
