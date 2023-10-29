@@ -125,6 +125,9 @@ func (filesystem *FileSystem) fileExistsAtDefault(path string) bool {
 func (filesystem *FileSystem) fileExistsDefault(path string) (bool, error) {
 	path, err := filesystem.resolveSymlinks(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 		return false, err
 	}
 	_, err = filesystem.Stat(path)
