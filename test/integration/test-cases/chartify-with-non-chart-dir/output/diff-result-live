@@ -1,0 +1,17 @@
+********************
+
+	Release was not present in Helm.  Diff will show entire contents as new.
+
+********************
+helmfile-tests, configmap, ConfigMap (v1) has been added:
+- 
++ # Source: manifests/templates/configmap.yaml
++ # Source: manifests/templates/configmap.yaml
++ apiVersion: v1
++ kind: ConfigMap
++ metadata:
++   name: configmap
++   namespace: helmfile-tests
++ data:
++   foo: "bar"
++   bar: "baz"
