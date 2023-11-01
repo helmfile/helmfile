@@ -2224,12 +2224,7 @@ func GetArgs(args string, state *state.HelmState) []string {
 	if len(state.HelmDefaults.Args) > 0 {
 		stateArgs = argparser.CollectArgs(strings.Join(state.HelmDefaults.Args, " "))
 	}
-	arrArr := []string{}
-
-	arrArr = append(arrArr, baseArgs...)
-	arrArr = append(arrArr, stateArgs...)
-
-	state.HelmDefaults.Args = arrArr
+	state.HelmDefaults.Args = append(baseArgs, stateArgs...)
 
 	return state.HelmDefaults.Args
 }
