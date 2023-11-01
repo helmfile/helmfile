@@ -1,0 +1,77 @@
+********************
+
+	Release was not present in Helm.  Diff will show entire contents as new.
+
+********************
+helmfile-tests, installed-httpbin, Deployment (apps) has been added:
+- 
++ apiVersion: apps/v1
++ kind: Deployment
++ metadata:
++   labels:
++     app: httpbin
++     chart: httpbin-0.1.0
++     heritage: Helm
++     release: installed
++   name: installed-httpbin
++   namespace: helmfile-tests
++ spec:
++   replicas: 1
++   selector:
++     matchLabels:
++       app: httpbin
++   strategy: {}
++   template:
++     metadata:
++       labels:
++         app: httpbin
++         release: installed
++     spec:
++       containers:
++       - image: docker.io/citizenstig/httpbin:latest
++         imagePullPolicy: IfNotPresent
++         livenessProbe:
++           httpGet:
++             path: /
++             port: 8000
++         name: httpbin
++         ports:
++         - containerPort: 8000
++         readinessProbe:
++           httpGet:
++             path: /
++             port: 8000
++         resources: {}
++ status: {}
+helmfile-tests, installed-httpbin, Service (v1) has been added:
+- 
++ apiVersion: v1
++ kind: Service
++ metadata:
++   labels:
++     app: httpbin
++     chart: httpbin-0.1.0
++     heritage: Helm
++     release: installed
++   name: installed-httpbin
++   namespace: helmfile-tests
++ spec:
++   ports:
++   - name: httpbin
++     port: 8000
++     protocol: TCP
++     targetPort: 8000
++   selector:
++     app: httpbin
++     release: installed
++   type: LoadBalancer
+Error: identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)
+Error: plugin "diff" exited with error
+Comparing release=installed, chart=../../../charts/httpbin
+Release "installed" does not exist. Installing it now.
+NAME: installed
+NAMESPACE: helmfile-tests
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+

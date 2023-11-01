@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/cli"
 
+	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
@@ -2451,6 +2452,16 @@ func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec)
 	return flags
 }
 
+func (st *HelmState) appendExtraDiffFlags(flags []string, opt *DiffOpts) []string {
+	switch {
+	case opt != nil && opt.DiffArgs != "":
+		flags = append(flags, argparser.CollectArgs(opt.DiffArgs)...)
+	case st.HelmDefaults.DiffArgs != nil:
+		flags = append(flags, argparser.CollectArgs(strings.Join(st.HelmDefaults.DiffArgs, " "))...)
+	}
+	return flags
+}
+
 // appendKeyringFlags append all the helm command-line flags related to keyring
 func (st *HelmState) appendKeyringFlags(flags []string, release *ReleaseSpec) []string {
 	switch {
@@ -2651,6 +2662,8 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if err != nil {
 		return nil, files, err
 	}
+	flags = st.appendExtraDiffFlags(flags, opt)
+
 	return append(flags, common...), files, nil
 }
 
