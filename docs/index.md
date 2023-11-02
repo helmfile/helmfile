@@ -155,8 +155,8 @@ repositories:
 # Advanced configuration: You can use a ca bundle to use an https repo
 # with a self-signed certificate
 - name: insecure
-   url: https://charts.my-insecure-domain.com
-   caFile: optional_ca_crt
+  url: https://charts.my-insecure-domain.com
+  caFile: optional_ca_crt
 # Advanced configuration: You can skip the verification of TLS for an https repo
 - name: skipTLS
   url: https://ss.my-insecure-domain.com
