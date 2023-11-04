@@ -1593,6 +1593,8 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 
 		var errs []error
 
+		helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
+
 		opts := &state.DiffOpts{
 			Context:           c.Context(),
 			Output:            c.DiffOutput(),
