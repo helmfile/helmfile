@@ -223,10 +223,6 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 	unresolved := &UnresolvedDependencies{deps: map[string][]unresolvedChartDependency{}}
 
 	for _, r := range st.Releases {
-		if !r.Desired() {
-			continue
-		}
-
 		repo, chart, ok := resolveRemoteChart(r.Chart)
 		if !ok {
 			continue
