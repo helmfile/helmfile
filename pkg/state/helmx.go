@@ -39,6 +39,31 @@ func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec,
 	return flags
 }
 
+// append post-renderer-args flags to helm flags
+func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseSpec, postRendererArgs []string) []string {
+	switch {
+	case release.PostRendererArgs != nil && len(release.PostRendererArgs) != 0:
+		for _, arg := range release.PostRendererArgs {
+			if arg != "" {
+				flags = append(flags, "--post-renderer-args", arg)
+			}
+		}
+	case postRendererArgs != nil && len(postRendererArgs) != 0:
+		for _, arg := range postRendererArgs {
+			if arg != "" {
+				flags = append(flags, "--post-renderer-args", arg)
+			}
+		}
+	case st.HelmDefaults.PostRendererArgs != nil && len(st.HelmDefaults.PostRendererArgs) != 0:
+		for _, arg := range st.HelmDefaults.PostRendererArgs {
+			if arg != "" {
+				flags = append(flags, "--post-renderer-args", arg)
+			}
+		}
+	}
+	return flags
+}
+
 func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
 	switch {
 	case release.WaitForJobs != nil && *release.WaitForJobs:

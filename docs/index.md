@@ -211,6 +211,12 @@ helmDefaults:
   reuseValues: false
   # propagate `--post-renderer` to helmv3 template and helm install
   postRenderer: "path/to/postRenderer"
+  # propagate `--post-renderer-args` to helmv3 template and helm install. This allows using Powershell
+  # scripts on Windows as a post renderer
+  postRendererArgs:
+  - PowerShell
+  - "-Command"
+  - "theScript.ps1"
   #	cascade `--cascade` to helmv3 delete, available values: background, foreground, or orphan, default: background
   cascade: "background"
   # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
@@ -314,6 +320,12 @@ releases:
     skipDeps: false
     # propagate `--post-renderer` to helmv3 template and helm install
     postRenderer: "path/to/postRenderer"
+    # propagate `--post-renderer-args` to helmv3 template and helm install. This allows using Powershell
+    # scripts on Windows as a post renderer
+    postRendererArgs:
+    - PowerShell
+    - "-Command"
+    - "theScript.ps1"
     # cascade `--cascade` to helmv3 delete, available values: background, foreground, or orphan, default: background
     cascade: "background"
     # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
