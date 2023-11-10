@@ -48,7 +48,7 @@ func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseS
 				flags = append(flags, "--post-renderer-args", arg)
 			}
 		}
-	case postRendererArgs != nil && len(postRendererArgs) != 0:
+	case len(postRendererArgs) != 0:
 		for _, arg := range postRendererArgs {
 			if arg != "" {
 				flags = append(flags, "--post-renderer-args", arg)
