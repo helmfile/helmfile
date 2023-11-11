@@ -3,6 +3,7 @@ package helmexec
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -48,6 +49,9 @@ func TestShellRunner_Execute(t *testing.T) {
 	}
 }
 
+//go:embed testdata/live-output-data.txt
+var liveOutputData string
+
 func TestLiveOutput(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -55,6 +59,12 @@ func TestLiveOutput(t *testing.T) {
 		wantW   string
 		wantErr bool
 	}{
+		{
+			name:    "live_output_data",
+			cmd:     exec.Command("cat", "testdata/live-output-data.txt"),
+			wantW:   liveOutputData,
+			wantErr: false,
+		},
 		{
 			name:    "echo_template",
 			cmd:     exec.Command("echo", "template"),
