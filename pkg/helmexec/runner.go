@@ -127,13 +127,26 @@ func Output(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, l
 
 func LiveOutput(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, stdout io.Writer) ([]byte, error) {
 	reader, writer := io.Pipe()
-	scannerStopped := make(chan struct{})
+	ch := make(chan error)
+	doneCh := make(chan struct{})
 
 	go func() {
-		defer close(scannerStopped)
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			fmt.Fprintln(stdout, scanner.Text())
+		defer close(doneCh)
+		reader := bufio.NewReader(reader)
+
+		for {
+			// prefer readstring over scanner to handle potential large output
+			// https://stackoverflow.com/a/29444042
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				ch <- err
+			}
+
+			line = strings.TrimSuffix(line, "\n")
+			fmt.Fprintln(stdout, line)
 		}
 	}()
 
@@ -142,7 +155,6 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError boo
 	err := c.Start()
 
 	if err == nil {
-		ch := make(chan error)
 		go func() {
 			ch <- c.Wait()
 		}()
@@ -154,7 +166,7 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError boo
 			err = <-ch
 		}
 		_ = writer.Close()
-		<-scannerStopped
+		<-doneCh
 	}
 
 	if err != nil {
