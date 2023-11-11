@@ -125,53 +125,48 @@ func Output(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, l
 	return stdout.Bytes(), err
 }
 
-// pipeToStdOut loops against a pipe, read dumped content and writes it to stdOUT
-// as it runs within a goroutine, it takes a channel error to report
-func pipeToStdOut(r *io.PipeReader, stdout io.Writer, ch chan error) {
-	reader := bufio.NewReader(r)
-	for {
-		// prefer readstring over scanner to handle potential large output
-		// https://stackoverflow.com/a/29444042
-		line, err := reader.ReadString('\n')
-		if len(line) == 0 && err != nil {
-			if err == io.EOF {
-				break
-			}
-			ch <- err
-		}
-
-		line = strings.TrimSuffix(line, "\n")
-		fmt.Fprintln(stdout, line)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			ch <- err
-		}
-	}
-}
-
 func LiveOutput(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, stdout io.Writer) ([]byte, error) {
 	reader, writer := io.Pipe()
 	ch := make(chan error)
+	doneCh := make(chan struct{})
 
-	go pipeToStdOut(reader, stdout, ch)
+	go func() {
+		defer close(doneCh)
+		reader := bufio.NewReader(reader)
+
+		for {
+			// prefer readstring over scanner to handle potential large output
+			// https://stackoverflow.com/a/29444042
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				ch <- err
+			}
+
+			line = strings.TrimSuffix(line, "\n")
+			fmt.Fprintln(stdout, line)
+		}
+	}()
 
 	c.Stdout = writer
 	c.Stderr = writer
+	err := c.Start()
 
-	// TODO: should we factorize section below with similar one in Output function ?
-	var err error
-	go func() {
-		ch <- c.Run()
+	if err == nil {
+		go func() {
+			ch <- c.Wait()
+		}()
+
+		select {
+		case err = <-ch:
+		case <-ctx.Done():
+			_ = c.Process.Signal(os.Interrupt)
+			err = <-ch
+		}
 		_ = writer.Close()
-	}()
-
-	select {
-	case err = <-ch:
-	case <-ctx.Done():
-		_ = c.Process.Signal(os.Interrupt)
-		err = <-ch
+		<-doneCh
 	}
 
 	if err != nil {
