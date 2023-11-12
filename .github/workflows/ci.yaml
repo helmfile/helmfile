@@ -71,20 +71,20 @@ jobs:
             plugin-diff-version: 3.8.1
             extra-helmfile-flags: ''
             v1mode: ''
-          - helm-version: v3.13.1
+          - helm-version: v3.13.2
             kustomize-version: v4.4.1
             plugin-secrets-version: 3.15.0
             plugin-diff-version: 3.7.0
             extra-helmfile-flags: ''
             v1mode: ''
-          - helm-version: v3.13.1
+          - helm-version: v3.13.2
             kustomize-version: v4.5.7
             plugin-secrets-version: 4.0.0
             plugin-diff-version: 3.8.1
             extra-helmfile-flags: ''
             v1mode: ''
           # Helmfile v1
-          - helm-version: v3.13.1
+          - helm-version: v3.13.2
             kustomize-version: v4.5.7
             plugin-secrets-version: 4.0.0
             plugin-diff-version: 3.8.1
@@ -92,7 +92,7 @@ jobs:
             v1mode: 'true'
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
-          - helm-version: v3.13.1
+          - helm-version: v3.13.2
             kustomize-version: v4.5.7
             plugin-secrets-version: 4.0.0
             plugin-diff-version: 3.8.1
