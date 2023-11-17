@@ -216,6 +216,15 @@ type Inherit struct {
 
 type Inherits []Inherit
 
+type ReleaseHistory struct {
+	AppVersion  string `yaml:"app_version,omitempty"`
+	Chart       string `yaml:"chart,omitempty"`
+	Description string `yaml:"description,omitempty"`
+	Revision    string `yaml:"revision,omitempty"`
+	Status      string `yaml:"status,omitempty"`
+	Updated     string `yaml:"updated,omitempty"`
+}
+
 // ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
@@ -365,6 +374,8 @@ type ReleaseSpec struct {
 
 	// SuppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff.
 	SuppressDiff *bool `yaml:"suppressDiff,omitempty"`
+
+	Revision string `yaml:"revision,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -663,6 +674,92 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 	return res, errs
 }
 
+type rollbackResult struct {
+	errors []*ReleaseError
+}
+
+type rollbackPrepareResult struct {
+	release *ReleaseSpec
+	flags   []string
+	errors  []*ReleaseError
+}
+
+func (st *HelmState) prepareRollbackReleases(concurrency int, opt ...RollbackOpt) ([]rollbackPrepareResult, []error) {
+	opts := &RollbackOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	releases := []*ReleaseSpec{}
+	for i := range st.Releases {
+		releases = append(releases, &st.Releases[i])
+	}
+
+	numReleases := len(releases)
+	jobs := make(chan *ReleaseSpec, numReleases)
+	results := make(chan rollbackPrepareResult, numReleases)
+
+	res := []rollbackPrepareResult{}
+	errs := []error{}
+
+	mut := sync.Mutex{}
+
+	st.scatterGather(
+		concurrency,
+		numReleases,
+		func() {
+			for i := 0; i < numReleases; i++ {
+				jobs <- releases[i]
+			}
+			close(jobs)
+		},
+		func(workerIndex int) {
+			for release := range jobs {
+				st.ApplyOverrides(release)
+
+				// If `installed: false`, the only potential operation on this release would be uninstalling.
+				// We skip generating values files in that case, because for an uninstall with `helm delete`, we don't need to those.
+				// The values files are for `helm upgrade -f values.yaml` calls that happens when the release has `installed: true`.
+				// This logic addresses:
+				// - https://github.com/roboll/helmfile/issues/519
+				// - https://github.com/roboll/helmfile/issues/616
+				if !release.Desired() {
+					results <- rollbackPrepareResult{release: release, flags: []string{}, errors: []*ReleaseError{}}
+					continue
+				}
+
+				// TODO We need a long-term fix for this :)
+				// See https://github.com/roboll/helmfile/issues/737
+				mut.Lock()
+				flags := st.flagsForRollback(release)
+				mut.Unlock()
+
+				if opts.Wait {
+					flags = append(flags, "--wait")
+				}
+
+				if opts.WaitForJobs {
+					flags = append(flags, "--wait-for-jobs")
+				}
+
+				results <- rollbackPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}}
+			}
+		},
+		func() {
+			for i := 0; i < numReleases; {
+				r := <-results
+				for _, e := range r.errors {
+					errs = append(errs, e)
+				}
+				res = append(res, r)
+				i++
+			}
+		},
+	)
+
+	return res, errs
+}
+
 func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
 	out, err := st.listReleases(context, helm, &release)
 	if err != nil {
@@ -724,6 +821,17 @@ type SyncOpts struct {
 type SyncOpt interface{ Apply(*SyncOpts) }
 
 func (o *SyncOpts) Apply(opts *SyncOpts) {
+	*opts = *o
+}
+
+type RollbackOpts struct {
+	Wait        bool
+	WaitForJobs bool
+}
+
+type RollbackOpt interface{ Apply(*RollbackOpts) }
+
+func (o *RollbackOpts) Apply(opts *RollbackOpts) {
 	*opts = *o
 }
 
@@ -929,7 +1037,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					m.Lock()
 					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
 					m.Unlock()
-					installedVersion, err := st.getDeployedVersion(context, helm, release)
+					installedVersion, err := st.GetDeployedVersion(context, helm, release)
 					if err != nil { // err is not really impacting so just log it
 						st.logger.Debugf("getting deployed release version failed: %v", err)
 					} else {
@@ -979,6 +1087,129 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	return nil
 }
 
+// RollbackReleases wrapper for executing helm rollback on the releases
+func (st *HelmState) RollbackReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, additionalValues []string, workerLimit int, opt ...RollbackOpt) []error {
+	opts := &RollbackOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	preps, prepErrs := st.prepareRollbackReleases(workerLimit, opts)
+
+	if len(prepErrs) > 0 {
+		return prepErrs
+	}
+
+	errs := []error{}
+	jobQueue := make(chan *rollbackPrepareResult, len(preps))
+	results := make(chan rollbackResult, len(preps))
+	if workerLimit == 0 {
+		workerLimit = len(preps)
+	}
+
+	m := new(sync.Mutex)
+
+	st.scatterGather(
+		workerLimit,
+		len(preps),
+		func() {
+			for i := 0; i < len(preps); i++ {
+				jobQueue <- &preps[i]
+			}
+			close(jobQueue)
+		},
+		func(workerIndex int) {
+			for prep := range jobQueue {
+				release := prep.release
+				flags := prep.flags
+				chart := normalizeChart(st.basePath, release.ChartPathOrName())
+				var relErr *ReleaseError
+				context := st.createHelmContext(release, workerIndex)
+
+				start := time.Now()
+				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+					relErr = newReleaseFailedError(release, err)
+				} else if !release.Desired() {
+					installed, err := st.isReleaseInstalled(context, helm, *release)
+					if err != nil {
+						relErr = newReleaseFailedError(release, err)
+					} else if installed {
+						var args []string
+						deletionFlags := st.appendConnectionFlags(args, release)
+						m.Lock()
+						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							relErr = newReleaseFailedError(release, err)
+						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							relErr = newReleaseFailedError(release, err)
+						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							relErr = newReleaseFailedError(release, err)
+						} else {
+							affectedReleases.Deleted = append(affectedReleases.Deleted, release)
+						}
+						m.Unlock()
+					}
+				} else if err := helm.RollbackRelease(context, release.Name, chart, release.Revision, flags...); err != nil {
+					m.Lock()
+					affectedReleases.Failed = append(affectedReleases.Failed, release)
+					m.Unlock()
+					relErr = newReleaseFailedError(release, err)
+				} else {
+					m.Lock()
+					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
+					m.Unlock()
+					installedVersion, err := st.GetDeployedVersion(context, helm, release)
+					if err != nil { // err is not really impacting so just log it
+						st.logger.Debugf("getting deployed release version failed: %v", err)
+					} else {
+						release.installedVersion = installedVersion
+					}
+				}
+
+				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
+					if relErr == nil {
+						relErr = newReleaseFailedError(release, err)
+					} else {
+						st.logger.Warnf("warn: %v\n", err)
+					}
+				}
+
+				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+					if relErr == nil {
+						relErr = newReleaseFailedError(release, err)
+					} else {
+						st.logger.Warnf("warn: %v\n", err)
+					}
+				}
+				release.duration = time.Since(start)
+
+				if relErr == nil {
+					results <- rollbackResult{}
+				} else {
+					results <- rollbackResult{errors: []*ReleaseError{relErr}}
+				}
+			}
+		},
+		func() {
+			for i := 0; i < len(preps); {
+				res := <-results
+				if len(res.errors) > 0 {
+					for _, e := range res.errors {
+						errs = append(errs, e)
+					}
+				}
+				i++
+			}
+		},
+	)
+	if len(errs) > 0 {
+		return errs
+	}
+	return nil
+}
+
 func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	flags := st.kubeConnectionFlags(release)
 	if release.Namespace != "" {
@@ -989,7 +1220,7 @@ func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.In
 	return helm.List(context, "^"+release.Name+"$", flags...)
 }
 
-func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
+func (st *HelmState) GetDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	//retrieve the version
 	if out, err := st.listReleases(context, helm, release); err == nil {
 		chartName := filepath.Base(release.Chart)
@@ -1008,6 +1239,36 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 	} else {
 		return "failed to get version", err
 	}
+}
+
+func (st *HelmState) GetHighestRevisionWithVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
+	if out, err := st.ReleaseHistory(context, helm, release); err == nil {
+		decode := yaml.NewDecoder(out, false)
+		var releaseHistory []ReleaseHistory
+		if err := decode(&releaseHistory); err != nil {
+			return "", err
+		}
+
+		pattern := regexp.MustCompile(filepath.Base(release.Chart) + "-(.*)")
+		for i := len(releaseHistory) - 1; i >= 0; i-- {
+			chartName := filepath.Base(releaseHistory[i].Chart)
+			versions := pattern.FindStringSubmatch(chartName)
+			if len(versions) > 0 && versions[1] == release.Version {
+				return releaseHistory[i].Revision, nil
+			}
+		}
+	} else {
+		return "", err
+	}
+	return "", nil
+}
+
+func (st *HelmState) ReleaseHistory(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) ([]byte, error) {
+	flags := st.kubeConnectionFlags(release)
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
+	}
+	return helm.ReleaseHistory(context, release.Name, flags...)
 }
 
 func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
@@ -1914,6 +2175,7 @@ type DiffOpts struct {
 	ReuseValues       bool
 	ResetValues       bool
 	PostRenderer      string
+	AllowRollback     bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2572,6 +2834,42 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		return nil, clean, err
 	}
 	return append(flags, common...), clean, nil
+}
+
+func (st *HelmState) flagsForRollback(release *ReleaseSpec) []string {
+	var flags []string
+
+	if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
+		flags = append(flags, "--wait")
+	}
+
+	if release.WaitForJobs != nil && *release.WaitForJobs || release.WaitForJobs == nil && st.HelmDefaults.WaitForJobs {
+		flags = append(flags, "--wait-for-jobs")
+	}
+
+	flags = append(flags, st.timeoutFlags(release)...)
+
+	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
+		flags = append(flags, "--force")
+	}
+
+	if release.RecreatePods != nil && *release.RecreatePods || release.RecreatePods == nil && st.HelmDefaults.RecreatePods {
+		flags = append(flags, "--recreate-pods")
+	}
+
+	if release.CleanupOnFail != nil && *release.CleanupOnFail || release.CleanupOnFail == nil && st.HelmDefaults.CleanupOnFail {
+		flags = append(flags, "--cleanup-on-fail")
+	}
+
+	flags = st.appendConnectionFlags(flags, release)
+
+	flags = st.appendHelmXFlags(flags, release)
+
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
+	}
+
+	return flags
 }
 
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error) {

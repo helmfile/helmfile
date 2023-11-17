@@ -2223,6 +2223,7 @@ type applyConfig struct {
 	reuseValues            bool
 	postRenderer           string
 	kubeVersion            string
+	allowRollback          bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2383,6 +2384,10 @@ func (a applyConfig) PostRenderer() string {
 	return a.postRenderer
 }
 
+func (a applyConfig) AllowRollback() bool {
+	return a.allowRollback
+}
+
 func (a applyConfig) KubeVersion() string {
 	return a.kubeVersion
 }
@@ -2488,11 +2493,17 @@ func (helm *mockHelmExec) RegistryLogin(name, username, password, caFile, certFi
 func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
 	return nil
 }
+func (helm *mockHelmExec) RollbackRelease(context helmexec.HelmContext, name, chart string, revision string, flags ...string) error {
+	return nil
+}
 func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
 	return nil
+}
+func (helm *mockHelmExec) ReleaseHistory(context helmexec.HelmContext, release string, flags ...string) ([]byte, error) {
+	return nil, nil
 }
 func (helm *mockHelmExec) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
 	return nil
@@ -2698,10 +2709,13 @@ func TestApply(t *testing.T) {
 		files             map[string]string
 		selectors         []string
 		lists             map[exectest.ListKey]string
+		histories         map[string]string
 		diffs             map[exectest.DiffKey]error
 		upgraded          []exectest.Release
+		rolledback        []exectest.Release
 		deleted           []exectest.Release
 		log               string
+		allowRollback     bool
 	}{
 		//
 		// complex test cases for smoke testing
@@ -3121,6 +3135,136 @@ releases:
 				{Name: "foo", Flags: []string{"--kube-context", "default", "--namespace", "ns1"}},
 				{Name: "bar", Flags: []string{"--kube-context", "default", "--namespace", "ns2"}},
 			},
+		},
+		//
+		// rollback
+		//
+		{
+			name:          "rollback",
+			loc:           location(),
+			allowRollback: true,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: rollbackToPreviousRevision
+  chart: stable/mychart1
+  version: 3.0.0
+- name: rollbackToSecondPreviousRevision
+  chart: stable/mychart2
+  version: 3.0.0
+- name: dontRollbackAsNoVersion
+  chart: stable/mychart3
+- name: dontRollbackAsNoReleaseWithVersion
+  chart: stable/mychart4
+  version: 2.9.0
+- name: dontRollbackAsHigherVersion
+  chart: stable/mychart5
+  version: 3.2.0
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "rollbackToPreviousRevision", Chart: "stable/mychart1", Flags: "--version 3.0.0 --kube-context default --detailed-exitcode --reset-values"}:         helmexec.ExitError{Code: 2},
+				{Name: "rollbackToSecondPreviousRevision", Chart: "stable/mychart2", Flags: "--version 3.0.0 --kube-context default --detailed-exitcode --reset-values"}:   helmexec.ExitError{Code: 2},
+				{Name: "dontRollbackAsNoVersion", Chart: "stable/mychart3", Flags: "--kube-context default --detailed-exitcode --reset-values"}:                            helmexec.ExitError{Code: 2},
+				{Name: "dontRollbackAsNoReleaseWithVersion", Chart: "stable/mychart4", Flags: "--version 2.9.0 --kube-context default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "dontRollbackAsHigherVersion", Chart: "stable/mychart5", Flags: "--version 3.2.0 --kube-context default --detailed-exitcode --reset-values"}:        helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^rollbackToPreviousRevision$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				rollbackToPreviousRevision 	2       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart1-3.1.0	1	      	default`,
+				{Filter: "^rollbackToSecondPreviousRevision$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				rollbackToSecondPreviousRevision 	3       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.2.0	1	      	default`,
+				{Filter: "^dontRollbackAsNoVersion$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				rollbackToSecondPreviousRevision 	2       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	1	      	default`,
+				{Filter: "^dontRollbackAsNoReleaseWithVersion$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				dontRollbackAsNoReleaseWithVersion 	2       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart4-3.1.0	1	      	default`,
+				{Filter: "^dontRollbackAsHigherVersion$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+				dontRollbackAsHigherVersion 	2       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart5-3.1.0	1	      	default`,
+			},
+			histories: map[string]string{
+				"rollbackToPreviousRevision": `
+- app_version: 1.0.0
+  chart: mychart1-3.0.0
+  description: Upgrade complete
+  revision: 1
+  status: superseded
+  updated: "2023-11-16T12:01:48.31936272Z"
+- app_version: 1.0.0
+  chart: mychart1-3.1.0
+  description: Upgrade complete
+  revision: 2
+  status: deployed
+  updated: "2023-11-16T12:02:48.31936272Z"`,
+				"rollbackToSecondPreviousRevision": `
+- app_version: 1.0.0
+  chart: mychart2-3.0.0
+  description: Upgrade complete
+  revision: 1
+  status: superseded
+  updated: "2023-11-16T12:01:48.31936272Z"
+- app_version: 1.0.0
+  chart: mychart2-3.1.0
+  description: Upgrade complete
+  revision: 2
+  status: superseded
+  updated: "2023-11-16T12:02:48.31936272Z"
+- app_version: 1.0.0
+  chart: mychart2-3.2.0
+  description: Upgrade complete
+  revision: 3
+  status: deployed
+  updated: "2023-11-16T12:03:48.31936272Z"`,
+				"dontRollbackAsNoVersion": `
+- app_version: 1.0.0
+  chart: mychart3-3.0.0
+  description: Upgrade complete
+  revision: 1
+  status: superseded
+  updated: "2023-11-16T12:01:48.31936272Z"
+- app_version: 1.0.0
+  chart: mychart3-3.1.0
+  description: Upgrade complete
+  revision: 2
+  status: deployed
+  updated: "2023-11-16T12:02:48.31936272Z"`,
+				"dontRollbackAsNoReleaseWithVersion": `
+- app_version: 1.0.0
+  chart: mychart4-3.0.0
+  description: Upgrade complete
+  revision: 1
+  status: superseded
+  updated: "2023-11-16T12:01:48.31936272Z"
+- app_version: 1.0.0
+  chart: mychart4-3.1.0
+  description: Upgrade complete
+  revision: 2
+  status: deployed
+  updated: "2023-11-16T12:02:48.31936272Z"`,
+				"dontRollbackAsHigherVersion": `
+- app_version: 1.0.0
+  chart: mychart5-3.0.0
+  description: Upgrade complete
+  revision: 1
+  status: superseded
+  updated: "2023-11-16T12:01:48.31936272Z"
+- app_version: 1.0.0
+  chart: mychart5-3.1.0
+  description: Upgrade complete
+  revision: 2
+  status: deployed
+  updated: "2023-11-16T12:02:48.31936272Z"`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "dontRollbackAsNoVersion", Flags: []string{"--kube-context", "default"}},
+				{Name: "dontRollbackAsNoReleaseWithVersion", Flags: []string{"--version", "2.9.0", "--kube-context", "default"}},
+				{Name: "dontRollbackAsHigherVersion", Flags: []string{"--version", "3.2.0", "--kube-context", "default"}},
+			},
+			rolledback: []exectest.Release{
+				{Name: "rollbackToPreviousRevision", Revision: "1", Flags: []string{"--kube-context", "default"}},
+				{Name: "rollbackToSecondPreviousRevision", Revision: "1", Flags: []string{"--kube-context", "default"}},
+			},
+			deleted:     []exectest.Release{},
+			concurrency: 1,
 		},
 		//
 		// deletes: deleting all releases in the correct order
@@ -3811,12 +3955,14 @@ changing working directory back to "/path/to"
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			wantUpgrades := tc.upgraded
+			wantRollbacks := tc.rolledback
 			wantDeletes := tc.deleted
 
 			var helm = &exectest.Helm{
 				FailOnUnexpectedList: true,
 				FailOnUnexpectedDiff: true,
 				Lists:                tc.lists,
+				HistoricReleases:     tc.histories,
 				Diffs:                tc.diffs,
 				DiffMutex:            &sync.Mutex{},
 				ChartsMutex:          &sync.Mutex{},
@@ -3858,6 +4004,7 @@ changing working directory back to "/path/to"
 					logger:            logger,
 					skipDiffOnInstall: tc.skipDiffOnInstall,
 					skipNeeds:         tc.fields.skipNeeds,
+					allowRollback:     tc.allowRollback,
 				})
 				switch {
 				case tc.error == "" && applyErr != nil:
@@ -3882,6 +4029,12 @@ changing working directory back to "/path/to"
 						}
 					}
 				}
+
+				if len(wantRollbacks) > len(helm.RolledBack) {
+					t.Fatalf("insufficient number of rollbacks: got %d, want %d", len(helm.RolledBack), len(wantRollbacks))
+				}
+
+				checkRollbacks(t, wantRollbacks, helm)
 
 				if len(wantDeletes) > len(helm.Deleted) {
 					t.Fatalf("insufficient number of deletes: got %d, want %d", len(helm.Deleted), len(wantDeletes))
@@ -3910,6 +4063,22 @@ changing working directory back to "/path/to"
 				assertLogEqualsToSnapshot(t, bs.String())
 			}
 		})
+	}
+}
+
+func checkRollbacks(t *testing.T, wantRollbacks []exectest.Release, helm *exectest.Helm) {
+	for relIdx := range wantRollbacks {
+		if wantRollbacks[relIdx].Name != helm.RolledBack[relIdx].Name {
+			t.Errorf("rolledBack[%d].name: got %q, want %q", relIdx, helm.RolledBack[relIdx].Name, wantRollbacks[relIdx].Name)
+		}
+		if wantRollbacks[relIdx].Revision != helm.RolledBack[relIdx].Revision {
+			t.Errorf("rolledBack[%d].revision: got %q, want %q", relIdx, helm.RolledBack[relIdx].Revision, wantRollbacks[relIdx].Revision)
+		}
+		for flagIdx := range wantRollbacks[relIdx].Flags {
+			if wantRollbacks[relIdx].Flags[flagIdx] != helm.RolledBack[relIdx].Flags[flagIdx] {
+				t.Errorf("rolledBack[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.RolledBack[relIdx].Flags[flagIdx], wantRollbacks[relIdx].Flags[flagIdx])
+			}
+		}
 	}
 }
 

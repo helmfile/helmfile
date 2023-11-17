@@ -962,7 +962,7 @@ func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds
 	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState) (bool, []error) {
 		helm := a.getHelm(st)
 
-		run, err := NewRun(st, helm, ctx)
+		run, err := NewRun(a.Logger, st, helm, ctx)
 		if err != nil {
 			return false, []error{err}
 		}
@@ -1370,9 +1370,10 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		ResetValues:       c.ResetValues(),
 		DiffArgs:          c.DiffArgs(),
 		PostRenderer:      c.PostRenderer(),
+		AllowRollback:     c.AllowRollback(),
 	}
 
-	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
+	infoMsg, releasesToBeUpdated, releasesToBeDeleted, releasesToBeRolledBack, errs := r.diff(false, detailedExitCode, c, diffOpts)
 	if len(errs) > 0 {
 		return false, false, errs
 	}
@@ -1387,13 +1388,19 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		toUpdate = append(toUpdate, r)
 	}
 
+	var toRollback []state.ReleaseSpec
+	for _, r := range releasesToBeRolledBack {
+		toRollback = append(toRollback, r)
+	}
+
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
 	for _, r := range toApplyWithNeeds {
 		release := r
 		id := state.ReleaseToID(&release)
 		_, uninstalled := releasesToBeDeleted[id]
 		_, updated := releasesToBeUpdated[id]
-		if !uninstalled && !updated {
+		_, rolledBack := releasesToBeRolledBack[id]
+		if !uninstalled && !updated && !rolledBack {
 			releasesWithNoChange[id] = release
 		}
 	}
@@ -1488,6 +1495,32 @@ Do you really want to apply?
 				applyErrs = append(applyErrs, updateErrs...)
 			}
 		}
+
+		// We rollback releases by traversing the DAG
+		if len(releasesToBeRolledBack) > 0 {
+			_, rollbackErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toRollback, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+				var rs []state.ReleaseSpec
+
+				for _, r := range subst.Releases {
+					release := r
+					if r2, ok := releasesToBeRolledBack[state.ReleaseToID(&release)]; ok {
+						rs = append(rs, r2)
+					}
+				}
+
+				subst.Releases = rs
+
+				rollbackOpts := &state.RollbackOpts{
+					Wait:        c.Wait(),
+					WaitForJobs: c.WaitForJobs(),
+				}
+				return subst.RollbackReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), rollbackOpts)
+			}))
+
+			if len(rollbackErrs) > 0 {
+				applyErrs = append(applyErrs, rollbackErrs...)
+			}
+		}
 	}
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
@@ -1498,7 +1531,7 @@ Do you really want to apply?
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
-	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
+	if releasesToBeDeleted == nil && releasesToBeUpdated == nil && releasesToBeRolledBack == nil {
 		return true, false, nil
 	}
 
@@ -1607,12 +1640,13 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		}
 
 		filtered := &Run{
-			state: st,
-			helm:  helm,
-			ctx:   r.ctx,
-			Ask:   r.Ask,
+			logger: a.Logger,
+			state:  st,
+			helm:   helm,
+			ctx:    r.ctx,
+			Ask:    r.Ask,
 		}
-		infoMsg, updated, deleted, errs = filtered.diff(true, c.DetailedExitcode(), c, opts)
+		infoMsg, updated, deleted, _, errs = filtered.diff(true, c.DetailedExitcode(), c, opts)
 
 		return errs
 	})

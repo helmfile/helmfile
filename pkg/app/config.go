@@ -82,6 +82,8 @@ type ApplyConfigProvider interface {
 
 	DiffArgs() string
 
+	AllowRollback() bool
+
 	DAGConfig
 
 	concurrencyConfig

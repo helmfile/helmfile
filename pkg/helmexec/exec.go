@@ -275,6 +275,18 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 	return err
 }
 
+func (helm *execer) RollbackRelease(context HelmContext, name, chart string, revision string, flags ...string) error {
+	helm.logger.Infof("Rolling back release=%v, chart=%v", name, redactedURL(chart))
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
+
+	flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
+
+	out, err := helm.exec(append(append(preArgs, "rollback", name, revision), flags...), env, nil)
+	helm.write(nil, out)
+	return err
+}
+
 func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Getting status %v", name)
 	preArgs := make([]string, 0)
@@ -282,6 +294,16 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env, nil)
 	helm.write(nil, out)
 	return err
+}
+
+func (helm *execer) ReleaseHistory(context HelmContext, name string, flags ...string) ([]byte, error) {
+	helm.logger.Infof("Getting history %v", name)
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
+	flags = append(flags, "--output", "yaml")
+	out, err := helm.exec(append(append(preArgs, "history", name), flags...), env, nil)
+	helm.write(nil, out)
+	return out, err
 }
 
 func (helm *execer) List(context HelmContext, filter string, flags ...string) (string, error) {

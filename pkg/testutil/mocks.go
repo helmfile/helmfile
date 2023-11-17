@@ -93,6 +93,10 @@ func (helm *noCallHelmExec) SyncRelease(context helmexec.HelmContext, name, char
 	helm.doPanic()
 	return nil
 }
+func (helm *noCallHelmExec) RollbackRelease(context helmexec.HelmContext, name, chart string, revision string, flags ...string) error {
+	helm.doPanic()
+	return nil
+}
 func (helm *noCallHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	helm.doPanic()
 	return nil
@@ -100,6 +104,10 @@ func (helm *noCallHelmExec) DiffRelease(context helmexec.HelmContext, name, char
 func (helm *noCallHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
 	helm.doPanic()
 	return nil
+}
+func (helm *noCallHelmExec) ReleaseHistory(context helmexec.HelmContext, release string, flags ...string) ([]byte, error) {
+	helm.doPanic()
+	return nil, nil
 }
 func (helm *noCallHelmExec) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
 	helm.doPanic()

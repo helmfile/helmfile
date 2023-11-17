@@ -67,6 +67,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reset-values"`)
 	f.StringVar(&applyOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 	f.StringVar(&applyOptions.Cascade, "cascade", "", "pass cascade to helm exec, default: background")
+	f.BoolVar(&applyOptions.AllowRollback, "allow-rollback", false, `if set, helm rollback will be executed to the highest revision with version matching the version of a chart in the helmfile if that version is lower than the chart version of the latest release of that chart"`)
 
 	return cmd
 }
