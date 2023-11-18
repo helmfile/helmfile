@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/cli"
 
+	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
@@ -638,14 +639,6 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 
 				if opts.SkipCRDs {
 					flags = append(flags, "--skip-crds")
-				}
-
-				if opts.Wait {
-					flags = append(flags, "--wait")
-				}
-
-				if opts.WaitForJobs {
-					flags = append(flags, "--wait-for-jobs")
 				}
 
 				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues)
@@ -2457,6 +2450,16 @@ func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec)
 	return flags
 }
 
+func (st *HelmState) appendExtraDiffFlags(flags []string, opt *DiffOpts) []string {
+	switch {
+	case opt != nil && opt.DiffArgs != "":
+		flags = append(flags, argparser.CollectArgs(opt.DiffArgs)...)
+	case st.HelmDefaults.DiffArgs != nil:
+		flags = append(flags, argparser.CollectArgs(strings.Join(st.HelmDefaults.DiffArgs, " "))...)
+	}
+	return flags
+}
+
 // appendKeyringFlags append all the helm command-line flags related to keyring
 func (st *HelmState) appendKeyringFlags(flags []string, release *ReleaseSpec) []string {
 	switch {
@@ -2538,13 +2541,8 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--enable-dns")
 	}
 
-	if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
-		flags = append(flags, "--wait")
-	}
-
-	if release.WaitForJobs != nil && *release.WaitForJobs || release.WaitForJobs == nil && st.HelmDefaults.WaitForJobs {
-		flags = append(flags, "--wait-for-jobs")
-	}
+	flags = st.appendWaitFlags(flags, release, opt)
+	flags = st.appendWaitForJobsFlags(flags, release, opt)
 
 	flags = append(flags, st.timeoutFlags(release)...)
 
@@ -2680,6 +2678,8 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if err != nil {
 		return nil, files, err
 	}
+	flags = st.appendExtraDiffFlags(flags, opt)
+
 	return append(flags, common...), files, nil
 }
 
@@ -3191,11 +3191,12 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info("\nFAILED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
-			prettytable.Column{Header: "VERSION", AlignRight: true},
+			prettytable.Column{Header: "VERSION", MinWidth: 6},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Failed {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion)
+			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}

@@ -11,16 +11,6 @@ releases:
         namespace: {{`{{ .Release.Namespace }}`}}
       data:
         foo: FOO
-    dep:
-      templates:
-      - |
-        apiVersion: v1
-        kind: ConfigMap
-        metadata:
-          name: {{`{{ .Release.Name }}`}}-2
-          namespace: {{`{{ .Release.Namespace }}`}}
-        data:
-          bar: BAR
   suppressDiff: true
 - name: baz
   chart: ../../../charts/raw
@@ -30,7 +20,7 @@ releases:
       apiVersion: v1
       kind: ConfigMap
       metadata:
-        name: {{`{{ .Release.Name }}`}}-3
+        name: {{`{{ .Release.Name }}`}}-2
         namespace: {{`{{ .Release.Namespace }}`}}
       data:
         baz: BAZ

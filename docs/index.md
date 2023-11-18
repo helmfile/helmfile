@@ -155,8 +155,8 @@ repositories:
 # Advanced configuration: You can use a ca bundle to use an https repo
 # with a self-signed certificate
 - name: insecure
-   url: https://charts.my-insecure-domain.com
-   caFile: optional_ca_crt
+  url: https://charts.my-insecure-domain.com
+  caFile: optional_ca_crt
 # Advanced configuration: You can skip the verification of TLS for an https repo
 - name: skipTLS
   url: https://ss.my-insecure-domain.com
@@ -972,6 +972,15 @@ environments:
 
 releases:
   - ...
+```
+
+Since Helmfile v0.158.0, support more protocols, such as: s3, https, http
+```
+values:
+  - s3::https://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+  - s3://helm-s3-values-example/subdir/values.yaml
+  - https://john:doe@helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+  - http://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
 ```
 
 For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).

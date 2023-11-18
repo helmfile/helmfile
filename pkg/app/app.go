@@ -1325,7 +1325,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
+	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
 	if err != nil {
@@ -1371,20 +1371,14 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipDiffOnInstall: c.SkipDiffOnInstall(),
 		ReuseValues:       c.ReuseValues(),
 		ResetValues:       c.ResetValues(),
+		DiffArgs:          c.DiffArgs(),
 		PostRenderer:      c.PostRenderer(),
 	}
-
-	// join --args and --diff-args together to one string.
-	args := strings.Join([]string{c.Args(), c.DiffArgs()}, " ")
-	argsOpts := &argparser.GetArgsOptions{WithDiffArgs: true}
-	helm.SetExtraArgs(argparser.GetArgs(args, r.state, argsOpts)...)
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
 	if len(errs) > 0 {
 		return false, false, errs
 	}
-
-	helm.SetExtraArgs()
 
 	var toDelete []state.ReleaseSpec
 	for _, r := range releasesToBeDeleted {
@@ -1573,7 +1567,7 @@ Do you really want to delete?
 `, strings.Join(names, "\n"))
 	interactive := c.Interactive()
 	if !interactive || interactive && r.askForConfirmation(msg) {
-		r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
+		r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 		if len(releasesToDelete) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toDelete, Reverse: true, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
@@ -1598,11 +1592,9 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 	ok, errs := a.withNeeds(r, c, true, func(st *state.HelmState) []error {
 		helm := r.helm
 
-		args := strings.Join([]string{c.Args(), c.DiffArgs()}, " ")
-		argsOpts := &argparser.GetArgsOptions{WithDiffArgs: true}
-		helm.SetExtraArgs(argparser.GetArgs(args, r.state, argsOpts)...)
-
 		var errs []error
+
+		helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 		opts := &state.DiffOpts{
 			Context:           c.Context(),
@@ -1610,6 +1602,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			Color:             c.Color(),
 			NoColor:           c.NoColor(),
 			Set:               c.Set(),
+			DiffArgs:          c.DiffArgs(),
 			SkipDiffOnInstall: c.SkipDiffOnInstall(),
 			ReuseValues:       c.ReuseValues(),
 			ResetValues:       c.ResetValues(),
@@ -1624,7 +1617,6 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		}
 		infoMsg, updated, deleted, errs = filtered.diff(true, c.DetailedExitcode(), c, opts)
 
-		helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, argsOpts)...)
 		return errs
 	})
 
@@ -1637,7 +1629,7 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
 	ok, errs := a.withNeeds(r, c, false, func(st *state.HelmState) []error {
 		helm := r.helm
 
-		args := argparser.GetArgs(c.Args(), st, nil)
+		args := GetArgs(c.Args(), st)
 
 		// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
 		helm.SetExtraArgs()
@@ -1698,7 +1690,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = allReleases
 
-	args := argparser.GetArgs(c.Args(), st, nil)
+	args := GetArgs(c.Args(), st)
 
 	// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
 	helm.SetExtraArgs()
@@ -1831,7 +1823,7 @@ Do you really want to sync?
 
 	var errs []error
 
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
+	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
@@ -1898,7 +1890,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 	return a.withNeeds(r, c, false, func(st *state.HelmState) []error {
 		helm := r.helm
 
-		args := argparser.GetArgs(c.Args(), st, nil)
+		args := GetArgs(c.Args(), st)
 
 		// Reset the extra args if already set, not to break `helm fetch` by adding the args intended for `lint`
 		helm.SetExtraArgs()
@@ -2021,7 +2013,7 @@ func (a *App) test(r *Run, c TestConfigProvider) []error {
 	// with conditions and selectors
 	st.Releases = toTest
 
-	r.helm.SetExtraArgs(argparser.GetArgs(c.Args(), r.state, nil)...)
+	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	return st.TestReleases(r.helm, cleanup, timeout, concurrency, state.Logs(c.Logs()))
 }
@@ -2225,4 +2217,19 @@ func (a *App) CleanCacheDir(c CacheConfigProvider) error {
 	}
 
 	return nil
+}
+
+func GetArgs(args string, state *state.HelmState) []string {
+	baseArgs := []string{}
+	stateArgs := []string{}
+	if len(args) > 0 {
+		baseArgs = argparser.CollectArgs(args)
+	}
+
+	if len(state.HelmDefaults.Args) > 0 {
+		stateArgs = argparser.CollectArgs(strings.Join(state.HelmDefaults.Args, " "))
+	}
+	state.HelmDefaults.Args = append(baseArgs, stateArgs...)
+
+	return state.HelmDefaults.Args
 }

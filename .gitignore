@@ -11,3 +11,4 @@ vendor/
 *.lock
 test/integration/.gnupg/
 .vscode/launch.json
+cover.out

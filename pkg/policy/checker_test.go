@@ -42,6 +42,14 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 			isStrict:    false,
 		},
 		{
+			name:        "no error when has --- between releases and environments, and --- on top of helmfile.yaml.gotmpl",
+			filePath:    "helmfile.yaml.gotmpl",
+			content:     []byte("---\nenvironments:\n---\nreleases:\n"),
+			v1mode:      false,
+			expectedErr: false,
+			isStrict:    false,
+		},
+		{
 			name:        "error when both releases and environments",
 			filePath:    "helmfile.yaml.gotmpl",
 			content:     []byte("environments:\nreleases:\n"),
@@ -50,8 +58,8 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 			isStrict:    false,
 		},
 		{
-			name:        "no error when both releases and environments for plain yaml on v1",
-			filePath:    "helmfile.yaml.gotmpl",
+			name:        "error when both releases and environments for plain yaml on v1",
+			filePath:    "helmfile.yaml",
 			content:     []byte("environments:\nreleases:\n"),
 			v1mode:      true,
 			expectedErr: true,

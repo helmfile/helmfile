@@ -9,6 +9,130 @@ import (
 	"github.com/helmfile/helmfile/pkg/testutil"
 )
 
+func TestAppendWaitForJobsFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		syncOpts *SyncOpts
+		helmSpec HelmSpec
+		expected []string
+	}{
+		{
+			name:     "release wait for jobs",
+			release:  &ReleaseSpec{WaitForJobs: &[]bool{true}[0]},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait-for-jobs"},
+		},
+		{
+			name:     "cli flags wait for jobs",
+			release:  &ReleaseSpec{},
+			syncOpts: &SyncOpts{WaitForJobs: true},
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait-for-jobs"},
+		},
+		{
+			name:     "helm defaults wait for jobs",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{WaitForJobs: true},
+			expected: []string{"--wait-for-jobs"},
+		},
+		{
+			name:     "release wait for jobs false",
+			release:  &ReleaseSpec{WaitForJobs: &[]bool{false}[0]},
+			syncOpts: nil,
+			helmSpec: HelmSpec{WaitForJobs: true},
+			expected: []string{},
+		},
+		{
+			name:     "cli flags wait for jobs false",
+			release:  &ReleaseSpec{},
+			syncOpts: &SyncOpts{},
+			helmSpec: HelmSpec{WaitForJobs: true},
+			expected: []string{"--wait-for-jobs"},
+		},
+		{
+			name:     "helm defaults wait for jobs false",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{WaitForJobs: false},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.helmSpec
+			got := st.appendWaitForJobsFlags([]string{}, tt.release, tt.syncOpts)
+			require.Equalf(t, tt.expected, got, "appendWaitForJobsFlags() = %v, want %v", got, tt.expected)
+		})
+	}
+}
+
+func TestAppendWaitFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		syncOpts *SyncOpts
+		helmSpec HelmSpec
+		expected []string
+	}{
+		{
+			name:     "release wait",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "cli flags wait",
+			release:  &ReleaseSpec{},
+			syncOpts: &SyncOpts{Wait: true},
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "helm defaults wait",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Wait: true},
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "release wait false",
+			release:  &ReleaseSpec{Wait: &[]bool{false}[0]},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Wait: true},
+			expected: []string{},
+		},
+		{
+			name:     "cli flags wait false",
+			release:  &ReleaseSpec{},
+			syncOpts: &SyncOpts{},
+			helmSpec: HelmSpec{Wait: true},
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "helm defaults wait false",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Wait: false},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.helmSpec
+			got := st.appendWaitFlags([]string{}, tt.release, tt.syncOpts)
+			require.Equalf(t, tt.expected, got, "appendWaitFlags() = %v, want %v", got, tt.expected)
+		})
+	}
+}
+
 func TestAppendCascadeFlags(t *testing.T) {
 	type args struct {
 		flags    []string
