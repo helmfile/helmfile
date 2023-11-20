@@ -19,7 +19,7 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 	}{
 		{
 			name:        "no error when only releases",
-			filePath:    "helmfile.yaml.gotmpl",
+			filePath:    "helmfile.yaml",
 			content:     []byte("releases:\n"),
 			v1mode:      false,
 			expectedErr: false,
@@ -27,7 +27,7 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 		},
 		{
 			name:        "no error when only environments",
-			filePath:    "helmfile.yaml.gotmpl",
+			filePath:    "helmfile.yaml",
 			content:     []byte("environments:\n"),
 			v1mode:      false,
 			expectedErr: false,
@@ -35,7 +35,7 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 		},
 		{
 			name:        "no error when has --- between releases and environments",
-			filePath:    "helmfile.yaml.gotmpl",
+			filePath:    "helmfile.yaml",
 			content:     []byte("environments:\n---\nreleases:\n"),
 			v1mode:      false,
 			expectedErr: false,
@@ -43,7 +43,7 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 		},
 		{
 			name:        "no error when has --- between releases and environments, and --- on top of helmfile.yaml.gotmpl",
-			filePath:    "helmfile.yaml.gotmpl",
+			filePath:    "helmfile.yaml",
 			content:     []byte("---\nenvironments:\n---\nreleases:\n"),
 			v1mode:      false,
 			expectedErr: false,
@@ -51,7 +51,7 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 		},
 		{
 			name:        "error when both releases and environments",
-			filePath:    "helmfile.yaml.gotmpl",
+			filePath:    "helmfile.yaml",
 			content:     []byte("environments:\nreleases:\n"),
 			v1mode:      false,
 			expectedErr: true,
@@ -211,6 +211,12 @@ func TestTopKeys(t *testing.T) {
 		{
 			name:            "get top keys with ---",
 			helmfileContent: []byte("bases:\n---\nreleases:\n"),
+			hasSeparator:    true,
+			want:            []string{"bases", "---", "releases"},
+		},
+		{
+			name:            "get top keys with empty array",
+			helmfileContent: []byte("bases: []\n---\nreleases: []\n"),
 			hasSeparator:    true,
 			want:            []string{"bases", "---", "releases"},
 		},
