@@ -2,7 +2,6 @@
 
 # cat $1
 # echo "---"
-
 cat <<EOS
 apiVersion: v1
 kind: ConfigMap
