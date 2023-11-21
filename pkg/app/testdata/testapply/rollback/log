@@ -1,0 +1,88 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
+first-pass uses: &{default  map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: rollbackToPreviousRevision
+ 3:   chart: stable/mychart1
+ 4:   version: 3.0.0
+ 5: - name: rollbackToSecondPreviousRevision
+ 6:   chart: stable/mychart2
+ 7:   version: 3.0.0
+ 8: - name: dontRollbackAsNoVersion
+ 9:   chart: stable/mychart3
+10: - name: dontRollbackAsNoReleaseWithVersion
+11:   chart: stable/mychart4
+12:   version: 2.9.0
+13: - name: dontRollbackAsHigherVersion
+14:   chart: stable/mychart5
+15:   version: 3.2.0
+16: 
+
+first-pass produced: &{default  map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: releases:
+ 2: - name: rollbackToPreviousRevision
+ 3:   chart: stable/mychart1
+ 4:   version: 3.0.0
+ 5: - name: rollbackToSecondPreviousRevision
+ 6:   chart: stable/mychart2
+ 7:   version: 3.0.0
+ 8: - name: dontRollbackAsNoVersion
+ 9:   chart: stable/mychart3
+10: - name: dontRollbackAsNoReleaseWithVersion
+11:   chart: stable/mychart4
+12:   version: 2.9.0
+13: - name: dontRollbackAsHigherVersion
+14:   chart: stable/mychart5
+15:   version: 3.2.0
+16: 
+
+merged environment: &{default  map[] map[]}
+5 release(s) found in helmfile.yaml
+
+chart version is less then deployed chart version for chart: stable/mychart1
+rollback of chart stable/mychart1 to release 3.0.0 will be executed
+chart version is less then deployed chart version for chart: stable/mychart2
+rollback of chart stable/mychart2 to release 3.0.0 will be executed
+chart version is less then deployed chart version for chart: stable/mychart4
+no release revision found for chart stable/mychart4 with version 2.9.0, rollback not possible, update will be executed
+Affected releases are:
+  dontRollbackAsHigherVersion (stable/mychart5) UPDATED
+  dontRollbackAsNoReleaseWithVersion (stable/mychart4) UPDATED
+  dontRollbackAsNoVersion (stable/mychart3) UPDATED
+  rollbackToPreviousRevision (stable/mychart1) ROLLED BACK
+  rollbackToSecondPreviousRevision (stable/mychart2) ROLLED BACK
+
+invoking preapply hooks for 1 groups of releases in this order:
+GROUP RELEASES
+1     default//rollbackToPreviousRevision, default//rollbackToSecondPreviousRevision, default//dontRollbackAsNoVersion, default//dontRollbackAsNoReleaseWithVersion, default//dontRollbackAsHigherVersion
+
+invoking preapply hooks for releases in group 1/1: default//rollbackToPreviousRevision, default//rollbackToSecondPreviousRevision, default//dontRollbackAsNoVersion, default//dontRollbackAsNoReleaseWithVersion, default//dontRollbackAsHigherVersion
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     default//dontRollbackAsNoVersion, default//dontRollbackAsNoReleaseWithVersion, default//dontRollbackAsHigherVersion
+
+processing releases in group 1/1: default//dontRollbackAsNoVersion, default//dontRollbackAsNoReleaseWithVersion, default//dontRollbackAsHigherVersion
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     default//rollbackToPreviousRevision, default//rollbackToSecondPreviousRevision
+
+processing releases in group 1/1: default//rollbackToPreviousRevision, default//rollbackToSecondPreviousRevision
+
+UPDATED RELEASES:
+NAME                                 CHART             VERSION   DURATION
+dontRollbackAsNoVersion              stable/mychart3   3.1.0           0s
+dontRollbackAsNoReleaseWithVersion   stable/mychart4   3.1.0           0s
+dontRollbackAsHigherVersion          stable/mychart5   3.1.0           0s
+rollbackToPreviousRevision           stable/mychart1   3.1.0           0s
+rollbackToSecondPreviousRevision     stable/mychart2   3.2.0           0s
+
+changing working directory back to "/path/to"

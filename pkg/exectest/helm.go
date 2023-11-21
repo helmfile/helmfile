@@ -31,6 +31,7 @@ type Helm struct {
 	Charts               []string
 	Repo                 []string
 	Releases             []Release
+	RolledBack           []Release
 	Deleted              []Release
 	Linted               []Release
 	Templated            []Release
@@ -40,6 +41,7 @@ type Helm struct {
 	FailOnUnexpectedDiff bool
 	FailOnUnexpectedList bool
 	Version              *semver.Version
+	HistoricReleases     map[string]string
 
 	UpdateDepsCallbacks map[string]func(string) error
 
@@ -51,8 +53,9 @@ type Helm struct {
 }
 
 type Release struct {
-	Name  string
-	Flags []string
+	Name     string
+	Revision string
+	Flags    []string
 }
 
 type Affected struct {
@@ -117,6 +120,19 @@ func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, 
 
 	return nil
 }
+func (helm *Helm) RollbackRelease(context helmexec.HelmContext, name, chart string, revision string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.sync(helm.ReleasesMutex, func() {
+		helm.RolledBack = append(helm.RolledBack, Release{Name: name, Revision: revision, Flags: flags})
+	})
+	helm.sync(helm.ChartsMutex, func() {
+		helm.Charts = append(helm.Charts, chart)
+	})
+
+	return nil
+}
 func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	if helm.DiffMutex != nil {
 		helm.DiffMutex.Lock()
@@ -143,6 +159,9 @@ func (helm *Helm) ReleaseStatus(context helmexec.HelmContext, release string, fl
 	}
 	helm.Releases = append(helm.Releases, Release{Name: release, Flags: flags})
 	return nil
+}
+func (helm *Helm) ReleaseHistory(context helmexec.HelmContext, release string, flags ...string) ([]byte, error) {
+	return []byte(helm.HistoricReleases[release]), nil
 }
 func (helm *Helm) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
 	if strings.Contains(name, "error") {

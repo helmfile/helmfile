@@ -22,6 +22,7 @@ type Interface interface {
 	BuildDeps(name, chart string, flags ...string) error
 	UpdateDeps(chart string) error
 	SyncRelease(context HelmContext, name, chart string, flags ...string) error
+	RollbackRelease(context HelmContext, name, chart string, revision string, flags ...string) error
 	DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error
 	TemplateRelease(name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
@@ -29,6 +30,7 @@ type Interface interface {
 	ChartExport(chart string, path string) error
 	Lint(name, chart string, flags ...string) error
 	ReleaseStatus(context HelmContext, name string, flags ...string) error
+	ReleaseHistory(context HelmContext, name string, flags ...string) ([]byte, error)
 	DeleteRelease(context HelmContext, name string, flags ...string) error
 	TestRelease(context HelmContext, name string, flags ...string) error
 	List(context HelmContext, filter string, flags ...string) (string, error)
