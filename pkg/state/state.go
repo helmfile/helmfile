@@ -2575,7 +2575,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
-	var postRendererArgs []string = nil
+	var postRendererArgs []string
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
@@ -2596,7 +2596,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendHelmXFlags(flags, release)
 
 	postRenderer := ""
-	var postRendererArgs []string = nil
+	var postRendererArgs []string
 	kubeVersion := ""
 	if opt != nil {
 		postRenderer = opt.PostRenderer
@@ -2670,7 +2670,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
-	var postRendererArgs []string = nil
+	var postRendererArgs []string
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
