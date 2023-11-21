@@ -28,6 +28,8 @@ type SyncOptions struct {
 	ResetValues bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
+	// Propagate '--post-renderer-args' to helmv3 template and helm install
+	PostRendererArgs []string
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
 }
@@ -119,6 +121,11 @@ func (t *SyncImpl) ResetValues() bool {
 // PostRenderer returns the PostRenderer.
 func (t *SyncImpl) PostRenderer() string {
 	return t.SyncOptions.PostRenderer
+}
+
+// PostRendererArgs returns the PostRendererArgs.
+func (t *SyncImpl) PostRendererArgs() []string {
+	return t.SyncOptions.PostRendererArgs
 }
 
 // Cascade returns cascade flag

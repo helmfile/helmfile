@@ -42,6 +42,8 @@ type DiffOptions struct {
 	ResetValues bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
+	// Propagate '--post-renderer-args' to helmv3 template and helm install
+	PostRendererArgs []string
 	// DiffArgs is the list of arguments to pass to helm-diff.
 	DiffArgs string
 }
@@ -184,4 +186,9 @@ func (t *DiffImpl) ResetValues() bool {
 // PostRenderer returns the PostRenderer.
 func (t *DiffImpl) PostRenderer() string {
 	return t.DiffOptions.PostRenderer
+}
+
+// PostRendererArgs returns the PostRendererArgs.
+func (t *DiffImpl) PostRendererArgs() []string {
+	return t.DiffOptions.PostRendererArgs
 }

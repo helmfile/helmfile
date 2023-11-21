@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-
-cat $1
+configmap_name=$1
+cat
 echo "---"
 
 cat <<EOS
 apiVersion: v1
 kind: ConfigMap
 data:
-  one: ONE
+  name: ${configmap_name} 
 metadata:
-  name: cm1
+  name: ${configmap_name} 
 EOS
