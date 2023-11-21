@@ -44,7 +44,7 @@ helmfile-tests, cm1, ConfigMap (v1) has been added:
 + apiVersion: v1
 + kind: ConfigMap
 + data:
-+   name: cm1
++   name: cm1 
 + metadata:
 +   name: cm1
 Comparing release=foo, chart=../../../charts/raw

@@ -14,7 +14,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 data:
-  name: cm2
+  name: cm2 
 metadata:
   name: cm2
 
@@ -32,7 +32,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 data:
-  name: cm1
+  name: cm1 
 metadata:
   name: cm1
 

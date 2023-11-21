@@ -11,7 +11,7 @@ helmfile-tests, cm2, ConfigMap (v1) has been added:
 + apiVersion: v1
 + kind: ConfigMap
 + data:
-+   name: cm2
++   name: cm2 
 + metadata:
 +   name: cm2
 helmfile-tests, foo-1, ConfigMap (v1) has been added:
