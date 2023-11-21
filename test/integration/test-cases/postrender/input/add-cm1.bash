@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-echo $1
-# cat $1
+cat
 echo "---"
 cat <<EOS
 apiVersion: v1
