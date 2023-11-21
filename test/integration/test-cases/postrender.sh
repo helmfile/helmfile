@@ -27,9 +27,7 @@ test_start "postrender diff"
 info "Comparing postrender diff output ${postrender_diff_reverse} with ${postrender_case_output_dir}/result.yaml"
 for i in $(seq 10); do
     info "Comparing build/postrender-diff #$i"
-    # ${helmfile} -f ${postrender_case_input_dir}/${config_file} diff --concurrency 1 --post-renderer ./add-cm.bash --post-renderer-args cm1 &> ${postrender_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
-    ${helmfile} -f ${postrender_case_input_dir}/${config_file} diff --concurrency 1 --post-renderer ./add-cm.bash --post-renderer-args cm1
-    cat ${postrender_diff_reverse} 
+    ${helmfile} -f ${postrender_case_input_dir}/${config_file} diff --concurrency 1 --post-renderer ./add-cm.bash --post-renderer-args cm1 &> ${postrender_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
     diff -u  ${postrender_diff_out_file} ${postrender_diff_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done

@@ -22,7 +22,8 @@ releases:
         data:
           bar: BAR
   postRenderer: ./add-cm.bash
-  postRendererArgs: cm2
+  postRendererArgs: 
+    - cm2
 - name: baz
   chart: ../../../charts/raw
   values:
