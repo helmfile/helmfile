@@ -48,6 +48,7 @@ type ReposConfigProvider interface {
 type ApplyConfigProvider interface {
 	Args() string
 	PostRenderer() string
+	PostRendererArgs() []string
 	Cascade() string
 
 	Values() []string
@@ -93,6 +94,7 @@ type ApplyConfigProvider interface {
 type SyncConfigProvider interface {
 	Args() string
 	PostRenderer() string
+	PostRendererArgs() []string
 	Cascade() string
 
 	Values() []string
@@ -118,6 +120,7 @@ type SyncConfigProvider interface {
 type DiffConfigProvider interface {
 	Args() string
 	PostRenderer() string
+	PostRendererArgs() []string
 
 	Values() []string
 	Set() []string
@@ -211,6 +214,7 @@ type FetchConfigProvider interface {
 type TemplateConfigProvider interface {
 	Args() string
 	PostRenderer() string
+	PostRendererArgs() []string
 
 	Values() []string
 	Set() []string

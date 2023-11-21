@@ -34,6 +34,8 @@ type TemplateOptions struct {
 	SkipCleanup bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
+	// Propagate '--post-renderer-args' to helmv3 template and helm install
+	PostRendererArgs []string
 	// KubeVersion is the kube-version flag
 	KubeVersion string
 }
@@ -124,6 +126,11 @@ func (t *TemplateImpl) Values() []string {
 // PostRenderer returns the PostRenderer.
 func (t *TemplateImpl) PostRenderer() string {
 	return t.TemplateOptions.PostRenderer
+}
+
+// PostRendererArgs returns the PostRendererArgs.
+func (t *TemplateImpl) PostRendererArgs() []string {
+	return t.TemplateOptions.PostRendererArgs
 }
 
 // KubeVersion returns the the KubeVersion.
