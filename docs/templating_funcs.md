@@ -93,14 +93,14 @@ The `setValueAtPath` function allows you to set a value at a path. When has fail
 ```
 
 #### `get`
-The `get` function allows you to get a value at a path. when defaultValue not set. It will return nil. When has failed, the template rendering will fail with an error message.
+The `get` function allows you to get a value at a path. you can set a default value when the path is not found. When has failed, the template rendering will fail with an error message.
 
 ```yaml
 {{ $Getvalue :=  $value | get "path.key" "defaultValue" }}
 ```
 
 #### `getOrNil`
-The `getOrNil` function allows you to get a value at a path. when defaultValue not set. It will return nil. When has failed, the template rendering will fail with an error message.
+The `getOrNil` function allows you to get a value at a path. it will return nil when the value of path is not found. When has failed, the template rendering will fail with an error message.
 
 ```yaml
 {{ $GetOrNlvalue :=  $value | getOrNil "path.key" }}
