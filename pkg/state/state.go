@@ -370,6 +370,11 @@ type ReleaseSpec struct {
 
 	// SuppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff.
 	SuppressDiff *bool `yaml:"suppressDiff,omitempty"`
+
+	// Wait, if set to true, will wait until all resources are deleted before mark delete command as successful
+	DeleteWait *bool `yaml:"deleteWait,omitempty"`
+	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
+	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -797,8 +802,16 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
-					if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
+					if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil {
 						args = append(args, "--wait")
+					}
+					if release.DeleteTimeout != nil {
+						timeout := *release.DeleteTimeout
+						if timeout != 0 {
+							duration := strconv.Itoa(timeout)
+							duration += "s"
+							args = append(args, "--timeout", duration)
+						}
 					}
 					if release.Namespace != "" {
 						args = append(args, "--namespace", release.Namespace)
@@ -2069,8 +2082,16 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
-		if release.Wait != nil && *release.Wait || release.Wait == nil && st.HelmDefaults.Wait {
+		if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil {
 			flags = append(flags, "--wait")
+		}
+		if release.DeleteTimeout != nil {
+			timeout := *release.DeleteTimeout
+			if timeout != 0 {
+				duration := strconv.Itoa(timeout)
+				duration += "s"
+				flags = append(flags, "--timeout", duration)
+			}
 		}
 		context := st.createHelmContext(&release, workerIndex)
 

@@ -11,8 +11,10 @@ type DeleteOptions struct {
 	SkipCharts bool
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
-	// Wait is the wait flag
-	Wait bool
+	// Wait '--wait' if set, will wait until all the resources are deleted before returning. It will wait for as long as --timeout
+	DeleteWait bool
+	// Timeout '--timeout', to wait for helm delete operation (default 5m0s)
+	DeleteTimeout int
 }
 
 // NewDeleteOptions creates a new Apply
@@ -54,7 +56,12 @@ func (c *DeleteImpl) Cascade() string {
 	return c.DeleteOptions.Cascade
 }
 
-// Wait returns the wait
-func (c *DeleteImpl) Wait() bool {
-	return c.DeleteOptions.Wait
+// DeleteWait returns the wait flag
+func (c *DeleteImpl) DeleteWait() bool {
+	return c.DeleteOptions.DeleteWait
+}
+
+// DeleteTimeout returns the timeout flag
+func (c *DeleteImpl) DeleteTimeout() int {
+	return c.DeleteOptions.DeleteTimeout
 }

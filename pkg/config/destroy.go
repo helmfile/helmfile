@@ -10,6 +10,10 @@ type DestroyOptions struct {
 	Cascade string
 	// Wait is the wait flag
 	Wait bool
+	// Wait '--wait' if set, will wait until all the resources are destroyed before returning. It will wait for as long as --timeout
+	DeleteWait bool
+	// Timeout '--timeout', to wait for helm operation (default 5m0s)
+	DeleteTimeout int
 }
 
 // NewDestroyOptions creates a new Apply
@@ -46,7 +50,12 @@ func (c *DestroyImpl) Cascade() string {
 	return c.DestroyOptions.Cascade
 }
 
-// Wait returns the wait
-func (c *DestroyImpl) Wait() bool {
-	return c.DestroyOptions.Wait
+// DeleteWait returns the wait flag
+func (c *DestroyImpl) DeleteWait() bool {
+	return c.DestroyOptions.DeleteWait
+}
+
+// DeleteTimeout returns the timeout flag
+func (c *DestroyImpl) DeleteTimeout() int {
+	return c.DestroyOptions.DeleteTimeout
 }
