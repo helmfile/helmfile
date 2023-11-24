@@ -1063,6 +1063,9 @@ type ChartPrepareOptions struct {
 	Concurrency            int
 	KubeVersion            string
 	Set                    []string
+	// Delete wait
+	DeleteWait    bool
+	DeleteTimeout int
 }
 
 type chartPrepareResult struct {

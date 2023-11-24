@@ -173,8 +173,8 @@ type DestroyConfigProvider interface {
 
 	SkipDeps() bool
 	SkipCharts() bool
-	DestroyWait() bool
-	DestroyTimeout() int
+	DeleteWait() bool
+	DeleteTimeout() int
 
 	interactive
 	loggingConfig
