@@ -474,9 +474,9 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
 			err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
-				SkipRepos:   c.SkipDeps(),
-				SkipDeps:    c.SkipDeps(),
-				Concurrency: c.Concurrency(),
+				SkipRepos:     c.SkipDeps(),
+				SkipDeps:      c.SkipDeps(),
+				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
 				DeleteTimeout: c.DeleteTimeout(),
 			}, func() {
@@ -497,9 +497,9 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
 			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
-				SkipRepos:   c.SkipDeps(),
-				SkipDeps:    c.SkipDeps(),
-				Concurrency: c.Concurrency(),
+				SkipRepos:     c.SkipDeps(),
+				SkipDeps:      c.SkipDeps(),
+				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
 				DeleteTimeout: c.DeleteTimeout(),
 			}, func() {

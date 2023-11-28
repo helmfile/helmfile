@@ -41,7 +41,8 @@ type destroyConfig struct {
 	logger                 *zap.SugaredLogger
 	includeTransitiveNeeds bool
 	skipCharts             bool
-	wait                   bool
+	deleteWait             bool
+	deleteTimeout          int
 }
 
 func (d destroyConfig) Args() string {
@@ -76,22 +77,28 @@ func (d destroyConfig) IncludeTransitiveNeeds() bool {
 	return d.includeTransitiveNeeds
 }
 
-func (d destroyConfig) Wait() bool {
-	return d.wait
+func (d destroyConfig) DeleteWait() bool {
+	return d.deleteWait
+}
+
+func (d destroyConfig) DeleteTimeout() int {
+	return d.deleteTimeout
 }
 
 func TestDestroy(t *testing.T) {
 	type testcase struct {
-		ns          string
-		concurrency int
-		error       string
-		files       map[string]string
-		selectors   []string
-		lists       map[exectest.ListKey]string
-		diffs       map[exectest.DiffKey]error
-		upgraded    []exectest.Release
-		deleted     []exectest.Release
-		log         string
+		ns            string
+		concurrency   int
+		error         string
+		files         map[string]string
+		selectors     []string
+		lists         map[exectest.ListKey]string
+		diffs         map[exectest.DiffKey]error
+		upgraded      []exectest.Release
+		deleted       []exectest.Release
+		log           string
+		deleteWait    bool
+		deleteTimeout int
 	}
 
 	check := func(t *testing.T, tc testcase) {
@@ -305,7 +312,10 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
-			upgraded:    []exectest.Release{},
+			// Enable wait and set timeout for destroy
+			deleteWait:    true,
+			deleteTimeout: 300,
+			upgraded:      []exectest.Release{},
 			deleted: []exectest.Release{
 				{Name: "frontend-v3", Flags: []string{}},
 				{Name: "frontend-v2", Flags: []string{}},
@@ -753,7 +763,10 @@ changing working directory back to "/path/to"
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
-			upgraded:    []exectest.Release{},
+			// Enable wait and set timeout for destroy
+			deleteWait:    true,
+			deleteTimeout: 300,
+			upgraded:      []exectest.Release{},
 			deleted: []exectest.Release{
 				{Name: "frontend-v1", Flags: []string{}},
 			},
