@@ -25,7 +25,6 @@ func TestDestroy_2(t *testing.T) {
 		upgraded      []exectest.Release
 		deleted       []exectest.Release
 		log           string
-		wait          bool
 		deleteWait    bool
 		deleteTimeout int
 	}
@@ -461,7 +460,7 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 `,
 			},
 			// Enable wait and set timeout for destroy
-			deleteWait: true,
+			deleteWait:    true,
 			deleteTimeout: 300,
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,

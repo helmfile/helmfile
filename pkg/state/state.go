@@ -192,6 +192,10 @@ type HelmSpec struct {
 	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
 	// InsecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
 	InsecureSkipTLSVerify bool `yaml:"insecureSkipTLSVerify,omitempty"`
+	// Wait, if set to true, will wait until all resources are deleted before mark delete command as successful
+	DeleteWait *bool `yaml:"deleteWait,omitempty"`
+	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
+	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
