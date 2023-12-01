@@ -50,12 +50,13 @@ RUN set -x && \
 # using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
 # for now but in a future version of alpine (in the testing version at the time of writing)
 # we should be able to install using apk add.
-ENV KUBECTL_VERSION="v1.25.2"
+ENV KUBECTL_VERSION="v1.25.16"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
     case ${TARGETPLATFORM} in \
-         "linux/amd64")  KUBECTL_SHA256="8639f2b9c33d38910d706171ce3d25be9b19fc139d0e3d4627f38ce84f9040eb"  ;; \
-         "linux/arm64")  KUBECTL_SHA256="b26aa656194545699471278ad899a90b1ea9408d35f6c65e3a46831b9c063fd5"  ;; \
+        # checksums are available at https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl.sha256
+        "linux/amd64")  KUBECTL_SHA256="5a9bc1d3ebfc7f6f812042d5f97b82730f2bdda47634b67bddf36ed23819ab17"  ;; \
+        "linux/arm64")  KUBECTL_SHA256="d6c23c80828092f028476743638a091f2f5e8141273d5228bf06c6671ef46924"  ;; \
     esac && \
     echo "${KUBECTL_SHA256}  kubectl" | sha256sum -c && \
     chmod +x kubectl && \
