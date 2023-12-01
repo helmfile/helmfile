@@ -83,7 +83,7 @@ RUN set -x && \
     mv "${SOPS_FILENAME}" /usr/local/bin/sops && \
     sops --version | grep -E "^sops ${SOPS_VERSION#v}"
 
-ENV AGE_VERSION="v1.0.0"
+ENV AGE_VERSION="v1.1.1"
 ARG AGE_FILENAME="age-${AGE_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/${AGE_FILENAME}" && \
