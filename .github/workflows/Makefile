@@ -2,7 +2,7 @@ HELM_VERSION ?= v3.7.2
 KUSTOMIZE_VERSION ?= v4.5.7
 K8S_VERSION ?= v1.13.12
 MINIKUBE_VERSION ?= v0.30.0
-SOPS_VERSION ?= v3.6.1
+SOPS_VERSION ?= v3.8.1
 
 # ---
 CHANGE_MINIKUBE_NONE_USER ?= true
@@ -62,7 +62,7 @@ vault:
 .PHONY: vault
 
 sops:
-	curl -sSLo $(tmp)/sops "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux"
+	curl -sSLo $(tmp)/sops "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
 	chmod +x $(tmp)/sops
 	sudo mv ${tmp}/sops /usr/local/bin/
 .PHONY: sops
