@@ -4,6 +4,9 @@ mkdocs:
   configuration: mkdocs.yml
   fail_on_warning: false
 
+build:
+  os: ubuntu-22.04
+
 python:
    install:
    - requirements: docs/requirements.txt
