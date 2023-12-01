@@ -774,6 +774,22 @@ func ReleaseToID(r *ReleaseSpec) string {
 	return id
 }
 
+func (st *HelmState) DeleteWait(args []string, release *ReleaseSpec) []string {
+	if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil && st.HelmDefaults.DeleteWait {
+		args = append(args, "--wait")
+		timeout := st.HelmDefaults.DeleteTimeout
+		if release.DeleteTimeout != nil {
+			timeout = *release.DeleteTimeout
+		}
+		if timeout != 0 {
+			duration := strconv.Itoa(timeout)
+			duration += "s"
+			args = append(args, "--timeout", duration)
+		}
+	}
+	return args
+}
+
 // DeleteReleasesForSync deletes releases that are marked for deletion
 func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, helm helmexec.Interface, workerLimit int, cascade string) []error {
 	errs := []error{}
@@ -806,21 +822,10 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
-					if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil && st.HelmDefaults.DeleteWait {
-						args = append(args, "--wait")
-						timeout := st.HelmDefaults.DeleteTimeout
-						if release.DeleteTimeout != nil {
-							timeout = *release.DeleteTimeout
-						}
-						if timeout != 0 {
-							duration := strconv.Itoa(timeout)
-							duration += "s"
-							args = append(args, "--timeout", duration)
-						}
-					}
 					if release.Namespace != "" {
 						args = append(args, "--namespace", release.Namespace)
 					}
+					args = st.DeleteWait(args, release)
 					args = st.appendConnectionFlags(args, release)
 					deletionFlags := st.appendCascadeFlags(args, helm, release, cascade)
 
@@ -2087,20 +2092,9 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		flags := make([]string, 0)
 		flags = st.appendConnectionFlags(flags, &release)
 		flags = st.appendCascadeFlags(flags, helm, &release, cascade)
+		flags = st.DeleteWait(flags, &release)
 		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
-		}
-		if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil && st.HelmDefaults.DeleteWait {
-			flags = append(flags, "--wait")
-			timeout := st.HelmDefaults.DeleteTimeout
-			if release.DeleteTimeout != nil {
-				timeout = *release.DeleteTimeout
-			}
-			if timeout != 0 {
-				duration := strconv.Itoa(timeout)
-				duration += "s"
-				flags = append(flags, "--timeout", duration)
-			}
 		}
 		context := st.createHelmContext(&release, workerIndex)
 
