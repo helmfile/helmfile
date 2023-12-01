@@ -193,9 +193,9 @@ type HelmSpec struct {
 	// InsecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
 	InsecureSkipTLSVerify bool `yaml:"insecureSkipTLSVerify,omitempty"`
 	// Wait, if set to true, will wait until all resources are deleted before mark delete command as successful
-	DeleteWait *bool `yaml:"deleteWait,omitempty"`
+	DeleteWait bool `yaml:"deleteWait"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
-	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
+	DeleteTimeout int `yaml:"deleteTimeout"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -375,7 +375,7 @@ type ReleaseSpec struct {
 	// SuppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff.
 	SuppressDiff *bool `yaml:"suppressDiff,omitempty"`
 
-	// Wait, if set to true, will wait until all resources are deleted before mark delete command as successful
+	// --wait flag for destroy/delete, if set to true, will wait until all resources are deleted before mark delete command as successful
 	DeleteWait *bool `yaml:"deleteWait,omitempty"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
@@ -806,11 +806,12 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
-					if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil {
+					if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil && st.HelmDefaults.DeleteWait {
 						args = append(args, "--wait")
-					}
-					if release.DeleteTimeout != nil {
-						timeout := *release.DeleteTimeout
+						timeout := st.HelmDefaults.DeleteTimeout
+						if release.DeleteTimeout != nil {
+							timeout = *release.DeleteTimeout
+						}
 						if timeout != 0 {
 							duration := strconv.Itoa(timeout)
 							duration += "s"
@@ -2089,11 +2090,12 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
-		if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil {
+		if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil && st.HelmDefaults.DeleteWait {
 			flags = append(flags, "--wait")
-		}
-		if release.DeleteTimeout != nil {
-			timeout := *release.DeleteTimeout
+			timeout := st.HelmDefaults.DeleteTimeout
+			if release.DeleteTimeout != nil {
+				timeout = *release.DeleteTimeout
+			}
 			if timeout != 0 {
 				duration := strconv.Itoa(timeout)
 				duration += "s"
