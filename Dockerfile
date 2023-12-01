@@ -93,9 +93,9 @@ RUN set -x && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
 RUN helm plugin install https://github.com/databus23/helm-diff --version v3.8.1 && \
-    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.1.1 && \
-    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.14.0 && \
-    helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.12.0 && \
+    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.5.1 && \
+    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.15.1 && \
+    helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.15.1 && \
     rm -rf ${HELM_CACHE_HOME}/plugins
 
 # Allow users other than root to use helm plugins located in root home
