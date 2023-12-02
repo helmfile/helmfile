@@ -141,6 +141,9 @@ func TestTrigger(t *testing.T) {
 	readFile := func(filename string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected call to readFile: %s", filename)
 	}
+	glob := func(pattern string) ([]string, error) {
+		return nil, nil
+	}
 	for _, c := range cases {
 		hooks := []Hook{}
 		if c.hook != nil {
@@ -152,10 +155,11 @@ func TestTrigger(t *testing.T) {
 			Hooks:         hooks,
 			StateFilePath: "path/to/helmfile.yaml",
 			BasePath:      "path/to",
+			RootDir:       "path",
 			Namespace:     "myns",
 			Env:           environment.Environment{Name: "prod"},
 			Logger:        zeLogger,
-			Fs:            &ffs.FileSystem{ReadFile: readFile},
+			Fs:            &ffs.FileSystem{ReadFile: readFile, Glob: glob},
 		}
 
 		bus.Runner = &runner{}
