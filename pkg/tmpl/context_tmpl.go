@@ -37,23 +37,28 @@ func (c *Context) CreateFuncMap() template.FuncMap {
 	return funcMap
 }
 
+type tplInfo struct {
+	name    string
+	content string
+}
+
 // helperTPLs returns the contents of all files with names starting with "_" and ending with ".tpl"
 // in the root directory of the Context. It reads each file and appends its content to the contents slice.
 // If any error occurs during the file reading or globbing process, it returns an error.
-func (c *Context) helperTPLs() ([]string, error) {
-	contents := []string{}
+func (c *Context) helperTPLs() ([]tplInfo, error) {
+	tplInfos := []tplInfo{}
 	files, err := c.fs.Glob(filepath.Join(c.rootDir, "_*.tpl"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to glob helper templates: %v", err)
 	}
 	for _, file := range files {
 		content, err := c.fs.ReadFile(file)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read helper template %s: %v", file, err)
 		}
-		contents = append(contents, string(content))
+		tplInfos = append(tplInfos, tplInfo{name: file, content: string(content)})
 	}
-	return contents, nil
+	return tplInfos, nil
 }
 
 // newTemplate creates a new template based on the context.
@@ -76,9 +81,9 @@ func (c *Context) newTemplate() (*template.Template, error) {
 		return nil, err
 	}
 	for _, tpl := range tpls {
-		tmpl, err = tmpl.Parse(tpl)
+		tmpl, err = tmpl.Parse(tpl.content)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse helper template %s: %v", tpl.name, err)
 		}
 	}
 

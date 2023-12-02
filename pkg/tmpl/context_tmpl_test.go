@@ -369,7 +369,16 @@ func TestContext_helperTPLs(t *testing.T) {
 		rootDir: "/helmfiletmpl",
 	}
 
-	want := []string{"Template 1 content", "Template 2 content"}
+	want := []tplInfo{
+		{
+			name:    "/helmfiletmpl/_template1.tpl",
+			content: "Template 1 content",
+		},
+		{
+			name:    "/helmfiletmpl/_template2.tpl",
+			content: "Template 2 content",
+		},
+	}
 	got, err := c.helperTPLs()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

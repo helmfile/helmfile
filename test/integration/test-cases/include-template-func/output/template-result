@@ -5,7 +5,7 @@ Templating release=include, chart=../../../charts/raw
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: include 
+  name: include
 data:
-  name: include 
+  name: include
 
