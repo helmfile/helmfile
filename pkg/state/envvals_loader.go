@@ -22,15 +22,17 @@ type EnvironmentValuesLoader struct {
 
 	logger *zap.SugaredLogger
 
-	remote *remote.Remote
+	remote  *remote.Remote
+	rootDir string
 }
 
-func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, logger *zap.SugaredLogger, remote *remote.Remote) *EnvironmentValuesLoader {
+func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, logger *zap.SugaredLogger, remote *remote.Remote, rootDir string) *EnvironmentValuesLoader {
 	return &EnvironmentValuesLoader{
 		storage: storage,
 		fs:      fs,
 		logger:  logger,
 		remote:  remote,
+		rootDir: rootDir,
 	}
 }
 
@@ -59,7 +61,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				}
 
 				tmplData := NewEnvironmentTemplateData(env, "", map[string]any{})
-				r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
+				r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), ld.rootDir, tmplData)
 				bytes, err := r.RenderToBytes(f)
 				if err != nil {
 					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)

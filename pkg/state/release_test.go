@@ -11,7 +11,7 @@ import (
 )
 
 func TestExecuteTemplateExpressions(t *testing.T) {
-	render := tmpl.NewFileRenderer(filesystem.DefaultFileSystem(), "", map[string]any{
+	render := tmpl.NewFileRenderer(filesystem.DefaultFileSystem(), "", "", map[string]any{
 		"Values": map[string]any{
 			"foo": map[string]any{
 				"releaseName": "foo",

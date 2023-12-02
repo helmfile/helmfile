@@ -42,6 +42,7 @@ type desiredStateLoader struct {
 	valsRuntime vals.Evaluator
 
 	lockFilePath string
+	rootDir      string
 }
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
@@ -54,7 +55,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, fmt.Errorf("bug: opts.CalleePath was nil: f=%s, opts=%v", f, opts)
 		}
 		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.fs)
-		envld := state.NewEnvironmentValuesLoader(storage, ld.fs, ld.logger, ld.remote)
+		envld := state.NewEnvironmentValuesLoader(storage, ld.fs, ld.logger, ld.remote, ld.rootDir)
 		handler := state.MissingFileHandlerError
 		vals, err := envld.LoadEnvironmentValues(&handler, args, environment.New(ld.env), ld.env)
 		if err != nil {
@@ -154,7 +155,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.overrideKustomizeBinary, a.remote, a.enableLiveOutput, a.lockFilePath)
+	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.overrideKustomizeBinary, a.remote, a.enableLiveOutput, a.lockFilePath, a.rootDir)
 	c.LoadFile = a.loadFile
 	return c
 }

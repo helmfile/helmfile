@@ -32,6 +32,7 @@ type Bus struct {
 	Hooks  []Hook
 
 	BasePath      string
+	RootDir       string
 	StateFilePath string
 	Namespace     string
 	Chart         string
@@ -105,7 +106,7 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]any) (bool,
 		for k, v := range context {
 			data[k] = v
 		}
-		render := tmpl.NewTextRenderer(bus.Fs, bus.BasePath, data)
+		render := tmpl.NewTextRenderer(bus.Fs, bus.BasePath, bus.RootDir, data)
 
 		bus.Logger.Debugf("hook[%s]: triggered by event \"%s\"\n", name, evt)
 

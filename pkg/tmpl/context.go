@@ -7,7 +7,9 @@ import (
 type Context struct {
 	preRender bool
 	basePath  string
-	fs        *filesystem.FileSystem
+	// directory of the value of --file/-f option
+	rootDir string
+	fs      *filesystem.FileSystem
 }
 
 // SetBasePath sets the base path for the template

@@ -61,9 +61,11 @@ type StateCreator struct {
 	remote *remote.Remote
 
 	lockFile string
+
+	rootDir string
 }
 
-func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, overrideKustomizeBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, overrideKustomizeBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string, rootDir string) *StateCreator {
 	return &StateCreator{
 		logger: logger,
 
@@ -79,6 +81,7 @@ func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntim
 		remote: remote,
 
 		lockFile: lockFile,
+		rootDir:  rootDir,
 	}
 }
 
@@ -89,6 +92,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 	state.fs = c.fs
 	state.FilePath = file
 	state.basePath = baseDir
+	state.RootDir = c.rootDir
 
 	state.LockFile = c.lockFile
 
@@ -388,7 +392,7 @@ func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []any
 	var envVals map[string]any
 
 	valuesEntries := append([]any{}, entries...)
-	ld := NewEnvironmentValuesLoader(st.storage(), st.fs, st.logger, remote)
+	ld := NewEnvironmentValuesLoader(st.storage(), st.fs, st.logger, remote, st.RootDir)
 	var err error
 	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries, ctxEnv, envName)
 	if err != nil {

@@ -30,6 +30,7 @@ type FileSystem struct {
 	Glob              func(string) ([]string, error)
 	FileExistsAt      func(string) bool
 	DirectoryExistsAt func(string) bool
+	Dir               func(string) string
 	Stat              func(string) (os.FileInfo, error)
 	Getwd             func() (string, error)
 	Chdir             func(string) error
@@ -41,11 +42,11 @@ func DefaultFileSystem() *FileSystem {
 	dfs := FileSystem{
 		ReadDir:      os.ReadDir,
 		DeleteFile:   os.Remove,
-		Stat:         os.Stat,
 		Glob:         filepath.Glob,
 		Getwd:        os.Getwd,
 		Chdir:        os.Chdir,
 		EvalSymlinks: filepath.EvalSymlinks,
+		Dir:          filepath.Dir,
 	}
 
 	dfs.Stat = dfs.stat
@@ -95,6 +96,9 @@ func FromFileSystem(params FileSystem) *FileSystem {
 	}
 	if params.EvalSymlinks != nil {
 		dfs.EvalSymlinks = params.EvalSymlinks
+	}
+	if params.Dir != nil {
+		dfs.Dir = params.Dir
 	}
 	return dfs
 }

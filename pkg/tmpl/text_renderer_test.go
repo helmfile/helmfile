@@ -13,7 +13,7 @@ func TestNewTextRenderer(t *testing.T) {
 	tData := map[string]any{
 		"foo": "bar",
 	}
-	tr := NewTextRenderer(filesystem.DefaultFileSystem(), ".", tData)
+	tr := NewTextRenderer(filesystem.DefaultFileSystem(), ".", "", tData)
 	require.Equal(t, tData, tr.Data)
 	require.Equal(t, ".", tr.Context.basePath)
 }
@@ -23,7 +23,7 @@ func TestTextRender(t *testing.T) {
 	tData := map[string]any{
 		"foot": "bart",
 	}
-	tr := NewTextRenderer(filesystem.DefaultFileSystem(), ".", tData)
+	tr := NewTextRenderer(filesystem.DefaultFileSystem(), ".", "", tData)
 
 	tests := []struct {
 		text    string

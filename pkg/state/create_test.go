@@ -84,7 +84,7 @@ func (testEnv stateTestEnv) MustLoadStateWithEnableLiveOutput(t *testing.T, file
 	}
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
-	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, enableLiveOutput, "").
+	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, enableLiveOutput, "", "").
 		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -154,7 +154,7 @@ releaseNamespace: mynamespace
 	env := environment.Environment{
 		Name: "production",
 	}
-	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
+	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "", "").
 		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, &env, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -241,7 +241,7 @@ overrideNamespace: myns
 	testFs.Cwd = "/example/path/to"
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
-	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
+	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "", "").
 		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -525,7 +525,7 @@ releaseContext:
 	testFs.Cwd = "/example/path/to"
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
-	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
+	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "", "").
 		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -114,6 +114,7 @@ func (hs *HelmState) UnmarshalYAML(unmarshal func(any) error) error {
 type HelmState struct {
 	basePath string
 	FilePath string
+	RootDir  string
 
 	ReleaseSetSpec `yaml:",inline"`
 
@@ -2314,6 +2315,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		Hooks:         st.Hooks,
 		StateFilePath: st.FilePath,
 		BasePath:      st.basePath,
+		RootDir:       st.RootDir,
 		Namespace:     st.OverrideNamespace,
 		Chart:         st.OverrideChart,
 		Env:           st.Env,
@@ -2351,6 +2353,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
 		BasePath:      st.basePath,
+		RootDir:       st.RootDir,
 		Namespace:     st.OverrideNamespace,
 		Chart:         st.OverrideChart,
 		Env:           st.Env,
@@ -2758,7 +2761,7 @@ func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplat
 }
 
 func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
-	r := tmpl.NewFileRenderer(st.fs, dir, nil)
+	r := tmpl.NewFileRenderer(st.fs, dir, st.RootDir, nil)
 
 	return r.Context.CreateFuncMap()
 }
@@ -2766,7 +2769,7 @@ func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
 func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
 	templateData := st.newReleaseTemplateData(release)
 
-	r := tmpl.NewFileRenderer(st.fs, filepath.Dir(path), templateData)
+	r := tmpl.NewFileRenderer(st.fs, filepath.Dir(path), st.RootDir, templateData)
 	rawBytes, err := r.RenderToBytes(path)
 	if err != nil {
 		return nil, err
