@@ -16,12 +16,16 @@ func TestRenderTemplate_Values(t *testing.T) {
   bar: FOO_BAR
 `
 	expectedFilename := "values.yaml"
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(valuesYamlContent), nil
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename != expectedFilename {
+				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+			}
+			return []byte(valuesYamlContent), nil
+		}}}
 	buf, err := ctx.RenderTemplateToBuffer(`{{ readFile "values.yaml" | fromYaml | setValueAtPath "foo.bar" "FOO_BAR" | toYaml }}`)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
