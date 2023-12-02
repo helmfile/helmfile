@@ -21,7 +21,9 @@ releases:
           namespace: {{`{{ .Release.Namespace }}`}}
         data:
           bar: BAR
-  postRenderer: ./add-cm2.bash
+  postRenderer: ./add-cm.bash
+  postRendererArgs: 
+    - cm2
 - name: baz
   chart: ../../../charts/raw
   values:

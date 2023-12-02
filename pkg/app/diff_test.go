@@ -164,6 +164,10 @@ func (a diffConfig) PostRenderer() string {
 	return ""
 }
 
+func (a diffConfig) PostRendererArgs() []string {
+	return nil
+}
+
 func TestDiff(t *testing.T) {
 	type flags struct {
 		skipNeeds    bool

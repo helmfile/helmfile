@@ -2181,6 +2181,10 @@ func (c configImpl) PostRenderer() string {
 	return ""
 }
 
+func (c configImpl) PostRendererArgs() []string {
+	return nil
+}
+
 func (c configImpl) KubeVersion() string {
 	return c.kubeVersion
 }
@@ -2222,6 +2226,7 @@ type applyConfig struct {
 	waitForJobs            bool
 	reuseValues            bool
 	postRenderer           string
+	postRendererArgs       []string
 	kubeVersion            string
 
 	// template-only options
@@ -2381,6 +2386,10 @@ func (a applyConfig) ResetValues() bool {
 
 func (a applyConfig) PostRenderer() string {
 	return a.postRenderer
+}
+
+func (a applyConfig) PostRendererArgs() []string {
+	return a.postRendererArgs
 }
 
 func (a applyConfig) KubeVersion() string {
