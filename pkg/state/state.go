@@ -114,7 +114,7 @@ func (hs *HelmState) UnmarshalYAML(unmarshal func(any) error) error {
 type HelmState struct {
 	basePath string
 	FilePath string
-	RootDir  string
+	RootDir  string `yaml:"-"`
 
 	ReleaseSetSpec `yaml:",inline"`
 

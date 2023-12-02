@@ -307,7 +307,12 @@ func TestSetValueAtPath_TwoComponents(t *testing.T) {
 }
 
 func TestTpl(t *testing.T) {
-	ctx := &Context{basePath: "."}
+	ctx := &Context{
+		basePath: ".",
+		fs: &filesystem.FileSystem{Glob: func(s string) ([]string, error) {
+			return nil, nil
+		}},
+	}
 	tests := []struct {
 		name     string
 		input    string
