@@ -1,0 +1,12 @@
+releases:
+- name: include 
+  chart: ../../../charts/raw
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: {{ include "include" dict }}
+      data:
+        name: {{ include "include" dict }} 

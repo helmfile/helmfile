@@ -1,0 +1,12 @@
+Live output is enabled
+Building dependency release=include, chart=../../../charts/raw
+Templating release=include, chart=../../../charts/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: include 
+data:
+  name: include 
+

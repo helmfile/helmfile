@@ -346,3 +346,35 @@ func TestRenderTemplate_Required(t *testing.T) {
 		}
 	}
 }
+func TestContext_helperTPLs(t *testing.T) {
+	c := &Context{
+		fs: &ffs.FileSystem{
+			Glob: func(s string) ([]string, error) {
+				return []string{
+					"/helmfiletmpl/_template1.tpl",
+					"/helmfiletmpl/_template2.tpl",
+				}, nil
+			},
+			ReadFile: func(filename string) ([]byte, error) {
+				switch filename {
+				case "/helmfiletmpl/_template1.tpl":
+					return []byte("Template 1 content"), nil
+				case "/helmfiletmpl/_template2.tpl":
+					return []byte("Template 2 content"), nil
+				default:
+					return nil, fmt.Errorf("unexpected filename: %s", filename)
+				}
+			},
+		},
+		rootDir: "/helmfiletmpl",
+	}
+
+	want := []string{"Template 1 content", "Template 2 content"}
+	got, err := c.helperTPLs()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("unexpected result: got=%v, want=%v", got, want)
+	}
+}
