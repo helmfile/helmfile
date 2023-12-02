@@ -78,12 +78,16 @@ func TestRenderTemplate_AccessingMissingKeyWithGetOrNil(t *testing.T) {
 `
 	expectedFilename := "values.yaml"
 	data := map[string]any{}
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(valuesYamlContent), nil
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename != expectedFilename {
+				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+			}
+			return []byte(valuesYamlContent), nil
+		}}}
 	buf, err := ctx.RenderTemplateToBuffer(valuesYamlContent, data)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -103,12 +107,16 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 `
 	expectedFilename := "values.yaml"
 	data := map[string]any{}
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(valuesYamlContent), nil
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename != expectedFilename {
+				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+			}
+			return []byte(valuesYamlContent), nil
+		}}}
 	buf, err := ctx.RenderTemplateToBuffer(valuesYamlContent, data)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -120,9 +128,13 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 }
 
 func renderTemplateToString(s string, data ...any) (string, error) {
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		return nil, fmt.Errorf("unexpected call to readFile: filename=%s", filename)
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			return nil, fmt.Errorf("unexpected call to readFile: filename=%s", filename)
+		}}}
 	tplString, err := ctx.RenderTemplateToBuffer(s, data...)
 	if err != nil {
 		return "", err
