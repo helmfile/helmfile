@@ -22,7 +22,7 @@ info "Comparing include_template_func template output ${include_template_func_te
 for i in $(seq 10); do
     info "Comparing build/include_template_func-template #$i"
     ${helmfile} -f ${include_template_func_case_input_dir}/${config_file} template --concurrency 1 &> ${include_template_func_template_reverse} || fail "\"helmfile template\" shouldn't fail"
-    template -u  ${include_template_func_template_out_file} ${include_template_func_template_reverse} || fail "\"helmfile template\" should be consistent"
+    diff -u  ${include_template_func_template_out_file} ${include_template_func_template_reverse} || fail "\"helmfile template\" should be consistent"
     echo code=$?
 done
 test_pass "include_template_func template"
