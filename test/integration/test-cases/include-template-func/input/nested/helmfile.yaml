@@ -10,6 +10,3 @@ releases:
         name: {{ include "echo" (dict "Echo" "include") }}
       data:
         name: {{ include "echo" (dict "Echo" "include") }} 
-
-helmfiles:
-- nested/helmfile.yaml
