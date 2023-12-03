@@ -20,6 +20,9 @@ func TestRenderTemplate_Values(t *testing.T) {
 		Glob: func(s string) ([]string, error) {
 			return nil, nil
 		},
+		Getwd: func() (string, error) {
+			return ".", nil
+		},
 		ReadFile: func(filename string) ([]byte, error) {
 			if filename != expectedFilename {
 				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)

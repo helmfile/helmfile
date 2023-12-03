@@ -231,7 +231,8 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 			state := &HelmState{
 				basePath: ".",
 				fs: &filesystem.FileSystem{
-					Glob: func(s string) ([]string, error) { return nil, nil },
+					Getwd: func() (string, error) { return ".", nil },
+					Glob:  func(s string) ([]string, error) { return nil, nil },
 				},
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{
