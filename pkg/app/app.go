@@ -45,7 +45,6 @@ type App struct {
 	Set         map[string]any
 
 	FileOrDir string
-	RootDir   string
 
 	fs *filesystem.FileSystem
 
@@ -103,27 +102,6 @@ func Init(app *App) *App {
 
 	if app.EnableLiveOutput {
 		app.Logger.Info("Live output is enabled")
-	}
-
-	if app.FileOrDir != "" {
-		absPath, err := app.fs.Abs(app.FileOrDir)
-		if err != nil {
-			panic(err)
-		}
-		fileStat, err := app.fs.Stat(absPath)
-		if err != nil {
-			panic(err)
-		}
-		if fileStat.IsDir() {
-			app.RootDir = absPath
-		} else {
-			app.RootDir = app.fs.Dir(absPath)
-		}
-	} else {
-		app.RootDir, err = app.fs.Getwd()
-		if err != nil {
-			panic(err)
-		}
 	}
 
 	return app
@@ -780,7 +758,6 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		chart:     a.Chart,
 		logger:    a.Logger,
 		remote:    a.remote,
-		rootDir:   a.RootDir,
 
 		overrideKubeContext:     a.OverrideKubeContext,
 		overrideHelmBinary:      a.OverrideHelmBinary,

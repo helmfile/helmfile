@@ -28,7 +28,7 @@ func (r *desiredStateLoader) renderPrestate(firstPassEnv, overrode *environment.
 		return firstPassEnv, nil
 	}
 	tmplData := state.NewEnvironmentTemplateData(*initEnv, r.namespace, map[string]any{})
-	firstPassRenderer := tmpl.NewFirstPassRenderer(baseDir, tmplData, r.rootDir)
+	firstPassRenderer := tmpl.NewFirstPassRenderer(baseDir, tmplData)
 
 	// parse as much as we can, tolerate errors, this is a preparse
 	yamlBuf, err := firstPassRenderer.RenderTemplateContentToBuffer(content)
@@ -150,7 +150,7 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	}
 
 	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals)
-	renderer := tmpl.NewFileRenderer(r.fs, baseDir, r.rootDir, tmplData)
+	renderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
 	yamlBuf, err := renderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
 		r.logger.Debugf("%srendering failed, input of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(string(content)))

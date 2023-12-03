@@ -349,6 +349,9 @@ func TestRenderTemplate_Required(t *testing.T) {
 func TestContext_helperTPLs(t *testing.T) {
 	c := &Context{
 		fs: &ffs.FileSystem{
+			Getwd: func() (string, error) {
+				return "/helmfiletmpl", nil
+			},
 			Glob: func(s string) ([]string, error) {
 				return []string{
 					"/helmfiletmpl/_template1.tpl",
@@ -366,7 +369,6 @@ func TestContext_helperTPLs(t *testing.T) {
 				}
 			},
 		},
-		rootDir: "/helmfiletmpl",
 	}
 
 	want := []tplInfo{
@@ -389,7 +391,7 @@ func TestContext_helperTPLs(t *testing.T) {
 }
 func TestContext_RenderTemplateToBuffer(t *testing.T) {
 	c := &Context{
-		rootDir: "/helmfile",
+		basePath: "/helmfile",
 		fs: &ffs.FileSystem{
 			Glob: func(s string) ([]string, error) {
 				return []string{

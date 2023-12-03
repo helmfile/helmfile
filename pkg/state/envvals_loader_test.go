@@ -22,7 +22,7 @@ func newLoader() *EnvironmentValuesLoader {
 		logger:   log,
 	}
 
-	return NewEnvironmentValuesLoader(storage, storage.fs, log, remote.NewRemote(log, "/tmp", storage.fs), ".")
+	return NewEnvironmentValuesLoader(storage, storage.fs, log, remote.NewRemote(log, "/tmp", storage.fs))
 }
 
 // See https://github.com/roboll/helmfile/pull/1169

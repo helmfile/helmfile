@@ -155,7 +155,6 @@ func TestTrigger(t *testing.T) {
 			Hooks:         hooks,
 			StateFilePath: "path/to/helmfile.yaml",
 			BasePath:      "path/to",
-			RootDir:       "path",
 			Namespace:     "myns",
 			Env:           environment.Environment{Name: "prod"},
 			Logger:        zeLogger,

@@ -14,26 +14,24 @@ type FileRenderer struct {
 	Data    any
 }
 
-func NewFileRenderer(fs *filesystem.FileSystem, basePath, rootDir string, data any) *FileRenderer {
+func NewFileRenderer(fs *filesystem.FileSystem, basePath string, data any) *FileRenderer {
 	return &FileRenderer{
 		fs: fs,
 		Context: &Context{
 			basePath: basePath,
 			fs:       fs,
-			rootDir:  rootDir,
 		},
 		Data: data,
 	}
 }
 
-func NewFirstPassRenderer(basePath string, data any, rootDir string) *FileRenderer {
+func NewFirstPassRenderer(basePath string, data any) *FileRenderer {
 	fs := filesystem.DefaultFileSystem()
 	return &FileRenderer{
 		fs: fs,
 		Context: &Context{
 			preRender: true,
 			basePath:  basePath,
-			rootDir:   rootDir,
 			fs:        fs,
 		},
 		Data: data,

@@ -14,12 +14,11 @@ type TextRenderer interface {
 	RenderTemplateText(text string) (string, error)
 }
 
-func NewTextRenderer(fs *filesystem.FileSystem, basePath, rootDir string, data any) *templateTextRenderer {
+func NewTextRenderer(fs *filesystem.FileSystem, basePath string, data any) *templateTextRenderer {
 	return &templateTextRenderer{
 		ReadText: fs.ReadFile,
 		Context: &Context{
 			basePath: basePath,
-			rootDir:  rootDir,
 			fs:       fs,
 		},
 		Data: data,
