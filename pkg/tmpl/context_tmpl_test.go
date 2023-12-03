@@ -88,6 +88,9 @@ func TestRenderTemplate_AccessingMissingKeyWithGetOrNil(t *testing.T) {
 		Glob: func(s string) ([]string, error) {
 			return nil, nil
 		},
+		Getwd: func() (string, error) {
+			return ".", nil
+		},
 		ReadFile: func(filename string) ([]byte, error) {
 			if filename != expectedFilename {
 				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
@@ -117,6 +120,9 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 		Glob: func(s string) ([]string, error) {
 			return nil, nil
 		},
+		Getwd: func() (string, error) {
+			return ".", nil
+		},
 		ReadFile: func(filename string) ([]byte, error) {
 			if filename != expectedFilename {
 				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
@@ -137,6 +143,9 @@ func renderTemplateToString(s string, data ...any) (string, error) {
 	ctx := &Context{fs: &ffs.FileSystem{
 		Glob: func(s string) ([]string, error) {
 			return nil, nil
+		},
+		Getwd: func() (string, error) {
+			return ".", nil
 		},
 		ReadFile: func(filename string) ([]byte, error) {
 			return nil, fmt.Errorf("unexpected call to readFile: filename=%s", filename)
@@ -403,6 +412,9 @@ func TestContext_RenderTemplateToBuffer(t *testing.T) {
 				return []string{
 					"/helmfile/_template1.tpl",
 				}, nil
+			},
+			Getwd: func() (string, error) {
+				return "/helmfile", nil
 			},
 			ReadFile: func(filename string) ([]byte, error) {
 				if filename == "/helmfile/_template1.tpl" {
