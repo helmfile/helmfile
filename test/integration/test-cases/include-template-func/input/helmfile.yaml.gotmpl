@@ -1,5 +1,5 @@
 releases:
-- name: {{ include "echo" (dict "Echo" "include") }}
+- name: '{{ include "echo" (dict "Echo" "include") }}'
   chart: ../../../charts/raw
   values:
   - templates:

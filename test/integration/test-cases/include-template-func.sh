@@ -1,13 +1,7 @@
 include_template_func_case_input_dir="${cases_dir}/include-template-func/input"
 include_template_func_case_output_dir="${cases_dir}/include-template-func/output"
 
-config_file="helmfile.yaml"
-if [[ ${HELMFILE_V1MODE} = true ]]; then
-  pushd "${include_template_func_case_input_dir}"
-  mv "${config_file}" "${config_file}.gotmpl"
-  config_file="${config_file}.gotmpl"
-  popd
-fi
+config_file="helmfile.yaml.gotmpl"
 
 include_template_func_template_out_file=${include_template_func_case_output_dir}/template-result
 if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
