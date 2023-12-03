@@ -137,7 +137,7 @@ The `expandSecretRefs` function takes an object as the argument and expands ever
 #### `include`
 The 'include' function allows including and rendering nested templates. The function returns the created template or an error if any occurred. It will load functions from `_*.tpl` files in the directory where the helmfile.yaml is located.
 
-For nested helmfile.yaml files, it will load `_*.tpl` files ni the directory where each nested helmfile.yaml is located.
+For nested helmfile.yaml files, it will load `_*.tpl` files in the directory where each nested helmfile.yaml is located.
 ```yaml
 {{ include "my-template" . }}
 ```
