@@ -144,6 +144,9 @@ func TestTrigger(t *testing.T) {
 	glob := func(pattern string) ([]string, error) {
 		return nil, nil
 	}
+	getWD := func() (string, error) {
+		return "path", nil
+	}
 	for _, c := range cases {
 		hooks := []Hook{}
 		if c.hook != nil {
@@ -158,7 +161,7 @@ func TestTrigger(t *testing.T) {
 			Namespace:     "myns",
 			Env:           environment.Environment{Name: "prod"},
 			Logger:        zeLogger,
-			Fs:            &ffs.FileSystem{ReadFile: readFile, Glob: glob},
+			Fs:            &ffs.FileSystem{ReadFile: readFile, Glob: glob, Getwd: getWD},
 		}
 
 		bus.Runner = &runner{}
