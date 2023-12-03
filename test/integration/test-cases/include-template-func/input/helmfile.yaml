@@ -1,5 +1,5 @@
 releases:
-- name: include 
+- name: {{ include "echo" (dict "Echo" "include") }}
   chart: ../../../charts/raw
   values:
   - templates:
@@ -7,6 +7,6 @@ releases:
       apiVersion: v1
       kind: ConfigMap
       metadata:
-        name: {{ include "include" dict }}
+        name: {{ include "echo" (dict "Echo" "include") }}
       data:
-        name: {{ include "include" dict }} 
+        name: {{ include "echo" (dict "Echo" "include") }} 

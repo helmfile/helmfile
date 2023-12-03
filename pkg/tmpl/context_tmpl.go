@@ -13,23 +13,34 @@ import (
 
 const recursionMaxNums = 1000
 
+// CreateFuncMap creates a template.FuncMap for the Context struct.
+// It combines the functions from sprig.TxtFuncMap() with the functions
+// defined in the Context's createFuncMap() method.
+// It also adds aliases for certain functions based on the aliases map.
+// The resulting FuncMap is returned.
 func (c *Context) CreateFuncMap() template.FuncMap {
+	// function aliases
 	aliased := template.FuncMap{}
 
+	// map of function aliases
 	aliases := map[string]string{
 		"get": "sprigGet",
 	}
 
+	// get the default sprig functions
 	funcMap := sprig.TxtFuncMap()
 
+	// add aliases to the aliased FuncMap
 	for orig, alias := range aliases {
 		aliased[alias] = funcMap[orig]
 	}
 
+	// add functions from the Context's createFuncMap() method to the funcMap
 	for name, f := range c.createFuncMap() {
 		funcMap[name] = f
 	}
 
+	// add aliased functions to the funcMap
 	for name, f := range aliased {
 		funcMap[name] = f
 	}
@@ -108,6 +119,11 @@ func (c *Context) newTemplate() (*template.Template, error) {
 	return tmpl, nil
 }
 
+// RenderTemplateToBuffer renders the provided template string with the given data and returns the result as a *bytes.Buffer.
+// The template string is parsed and executed using the Context's newTemplate method.
+// If an error occurs during parsing or execution, it is returned along with the partially rendered template.
+// The data parameter is optional and can be used to provide additional data for template rendering.
+// If no data is provided, the template is rendered with an empty data context.
 func (c *Context) RenderTemplateToBuffer(s string, data ...any) (*bytes.Buffer, error) {
 	t, err := c.newTemplate()
 	if err != nil {

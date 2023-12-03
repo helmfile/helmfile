@@ -387,3 +387,36 @@ func TestContext_helperTPLs(t *testing.T) {
 		t.Errorf("unexpected result: got=%v, want=%v", got, want)
 	}
 }
+func TestContext_RenderTemplateToBuffer(t *testing.T) {
+	c := &Context{
+		rootDir: "/helmfile",
+		fs: &ffs.FileSystem{
+			Glob: func(s string) ([]string, error) {
+				return []string{
+					"/helmfile/_template1.tpl",
+				}, nil
+			},
+			ReadFile: func(filename string) ([]byte, error) {
+				if filename == "/helmfile/_template1.tpl" {
+					return []byte("{{- define \"name\" -}}\n{{ .Name }}\n{{- end }}"), nil
+				}
+				return nil, fmt.Errorf("unexpected filename: %s", filename)
+			},
+		},
+	}
+	s := "Hello, {{ include \"name\" . }}!"
+	data := map[string]interface{}{
+		"Name": "Alice",
+	}
+	expected := "Hello, Alice!"
+
+	buf, err := c.RenderTemplateToBuffer(s, data)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	actual := buf.String()
+	if actual != expected {
+		t.Errorf("unexpected result: expected=%s, actual=%s", expected, actual)
+	}
+}

@@ -1,3 +1,3 @@
-{{- define "include" -}}
-include
+{{- define "echo" -}}
+.Echo
 {{- end }}
