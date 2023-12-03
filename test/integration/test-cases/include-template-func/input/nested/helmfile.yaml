@@ -1,6 +1,6 @@
 releases:
 - name: {{ include "echo" (dict "Echo" "include") }}
-  chart: ../../../charts/raw
+  chart: ../../../../charts/raw
   values:
   - templates:
     - |
