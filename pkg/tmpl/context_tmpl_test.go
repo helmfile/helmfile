@@ -53,6 +53,9 @@ func TestRenderTemplate_WithData(t *testing.T) {
 		},
 	}
 	ctx := &Context{fs: &ffs.FileSystem{
+		Getwd: func() (string, error) {
+			return ".", nil
+		},
 		Glob: func(s string) ([]string, error) {
 			return nil, nil
 		},
