@@ -50,32 +50,34 @@ RUN set -x && \
 # using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
 # for now but in a future version of alpine (in the testing version at the time of writing)
 # we should be able to install using apk add.
-ENV KUBECTL_VERSION="v1.25.2"
+ENV KUBECTL_VERSION="v1.25.16"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
     case ${TARGETPLATFORM} in \
-         "linux/amd64")  KUBECTL_SHA256="8639f2b9c33d38910d706171ce3d25be9b19fc139d0e3d4627f38ce84f9040eb"  ;; \
-         "linux/arm64")  KUBECTL_SHA256="b26aa656194545699471278ad899a90b1ea9408d35f6c65e3a46831b9c063fd5"  ;; \
+        # checksums are available at https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl.sha256
+        "linux/amd64")  KUBECTL_SHA256="5a9bc1d3ebfc7f6f812042d5f97b82730f2bdda47634b67bddf36ed23819ab17"  ;; \
+        "linux/arm64")  KUBECTL_SHA256="d6c23c80828092f028476743638a091f2f5e8141273d5228bf06c6671ef46924"  ;; \
     esac && \
     echo "${KUBECTL_SHA256}  kubectl" | sha256sum -c && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl && \
     [ "$(kubectl version -o json | jq -r '.clientVersion.gitVersion')" = "${KUBECTL_VERSION}" ]
 
-ENV KUSTOMIZE_VERSION="v4.5.7"
+ENV KUSTOMIZE_VERSION="v5.2.1"
 ARG KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}" && \
     case ${TARGETPLATFORM} in \
-         "linux/amd64")  KUSTOMIZE_SHA256="701e3c4bfa14e4c520d481fdf7131f902531bfc002cb5062dcf31263a09c70c9"  ;; \
-         "linux/arm64")  KUSTOMIZE_SHA256="65665b39297cc73c13918f05bbe8450d17556f0acd16242a339271e14861df67"  ;; \
+        # checksim are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
+        "linux/amd64")  KUSTOMIZE_SHA256="88346543206b889f9287c0b92c70708040ecd5aad54dd33019c4d6579cd24de8"  ;; \
+        "linux/arm64")  KUSTOMIZE_SHA256="5566f7badece5a72d42075d8dffa6296a228966dd6ac2390de7afbb9675c3aaa"  ;; \
     esac && \
     echo "${KUSTOMIZE_SHA256}  ${KUSTOMIZE_FILENAME}" | sha256sum -c && \
     tar xvf "${KUSTOMIZE_FILENAME}" -C /usr/local/bin && \
     rm "${KUSTOMIZE_FILENAME}" && \
-    kustomize version --short | grep "kustomize/${KUSTOMIZE_VERSION}"
+    [ "$(kustomize version)" = "${KUSTOMIZE_VERSION}" ]
 
-ENV SOPS_VERSION="v3.7.3"
+ENV SOPS_VERSION="v3.8.1"
 ARG SOPS_FILENAME="sops-${SOPS_VERSION}.${TARGETOS}.${TARGETARCH}"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/${SOPS_FILENAME}" && \
@@ -83,7 +85,7 @@ RUN set -x && \
     mv "${SOPS_FILENAME}" /usr/local/bin/sops && \
     sops --version | grep -E "^sops ${SOPS_VERSION#v}"
 
-ENV AGE_VERSION="v1.0.0"
+ENV AGE_VERSION="v1.1.1"
 ARG AGE_FILENAME="age-${AGE_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/${AGE_FILENAME}" && \
@@ -93,9 +95,9 @@ RUN set -x && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
 RUN helm plugin install https://github.com/databus23/helm-diff --version v3.8.1 && \
-    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.1.1 && \
-    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.14.0 && \
-    helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.12.0 && \
+    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.5.1 && \
+    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.15.1 && \
+    helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.15.1 && \
     rm -rf ${HELM_CACHE_HOME}/plugins
 
 # Allow users other than root to use helm plugins located in root home
