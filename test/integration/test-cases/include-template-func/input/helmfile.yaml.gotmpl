@@ -2,14 +2,7 @@ releases:
 - name: '{{ include "echo" (dict "Echo" "include") }}'
   chart: ../../../charts/raw
   values:
-  - templates:
-    - |
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: {{ include "echo" (dict "Echo" "include") }}
-      data:
-        name: {{ include "echo" (dict "Echo" "include") }} 
+  - values/configmap.gotmpl
 
-helmfiles:
-- nested/helmfile.yaml.gotmpl
+# helmfiles:
+# - nested/helmfile.yaml.gotmpl

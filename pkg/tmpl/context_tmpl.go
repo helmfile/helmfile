@@ -58,11 +58,7 @@ type tplInfo struct {
 // If any error occurs during the file reading or globbing process, it returns an error.
 func (c *Context) helperTPLs() ([]tplInfo, error) {
 	tplInfos := []tplInfo{}
-	wd, err := c.fs.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get working directory: %v", err)
-	}
-	files, err := c.fs.Glob(filepath.Join(wd, "_*.tpl"))
+	files, err := c.fs.Glob(filepath.Join(c.basePath, "_*.tpl"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to glob helper templates: %v", err)
 	}
