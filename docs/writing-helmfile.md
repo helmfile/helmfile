@@ -104,6 +104,8 @@ releases:
   version: 0.3.2
   inherit:
   - template: default
+    exclude:
+      - secrets
 - name: kubernetes-dashboard
   version: 0.10.0
   inherit:
@@ -153,7 +155,7 @@ Thus we added a new way for inheritance, which uses the `inherit` field we intro
 
 See [issue helmfile/helmfile#435](https://github.com/helmfile/helmfile/issues/435#issuecomment-1362177510) for more context.
 
-You might also find [issue roboll/helmfile#428](https://github.com/roboll/helmfile/issues/428) useful for more context on how we originally designed the relase template and what it's supposed to solve.
+You might also find [issue roboll/helmfile#428](https://github.com/roboll/helmfile/issues/428) useful for more context on how we originally designed the release template and what it's supposed to solve.
 
 ## Layering Release Values
 
