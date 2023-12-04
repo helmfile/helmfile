@@ -25,9 +25,6 @@ func TestRenderToBytes_Gotmpl(t *testing.T) {
 	dataFile := "data.txt"
 	valuesTmplFile := "values.yaml.gotmpl"
 	r := NewFileRenderer(&filesystem.FileSystem{
-		Getwd: func() (string, error) {
-			return "", nil
-		},
 		Glob: func(pattern string) ([]string, error) {
 			return nil, nil
 		},

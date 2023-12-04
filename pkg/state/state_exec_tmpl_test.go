@@ -130,8 +130,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				fs: &filesystem.FileSystem{
-					Getwd: func() (string, error) { return ".", nil },
-					Glob:  func(s string) ([]string, error) { return nil, nil }},
+					Glob: func(s string) ([]string, error) { return nil, nil }},
 				basePath: ".",
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{
@@ -231,8 +230,7 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 			state := &HelmState{
 				basePath: ".",
 				fs: &filesystem.FileSystem{
-					Getwd: func() (string, error) { return ".", nil },
-					Glob:  func(s string) ([]string, error) { return nil, nil },
+					Glob: func(s string) ([]string, error) { return nil, nil },
 				},
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{

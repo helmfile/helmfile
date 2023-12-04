@@ -9,9 +9,6 @@ import (
 func TestMergeOverwrite(t *testing.T) {
 	ctx := &Context{
 		fs: &filesystem.FileSystem{
-			Getwd: func() (string, error) {
-				return "", nil
-			},
 			Glob: func(pattern string) ([]string, error) {
 				return nil, nil
 			},

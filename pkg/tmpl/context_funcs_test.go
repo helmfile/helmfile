@@ -310,9 +310,6 @@ func TestTpl(t *testing.T) {
 	ctx := &Context{
 		basePath: ".",
 		fs: &filesystem.FileSystem{
-			Getwd: func() (string, error) {
-				return ".", nil
-			},
 			Glob: func(s string) ([]string, error) {
 				return nil, nil
 			}},
