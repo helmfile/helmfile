@@ -1,0 +1,22 @@
+Building dependency release=nested-include, chart=../../../../charts/raw
+Templating release=nested-include, chart=../../../../charts/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nested-include
+data:
+  name: nested-include
+
+Building dependency release=include, chart=../../../charts/raw
+Templating release=include, chart=../../../charts/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: include
+data:
+  name: include
+

@@ -24,15 +24,19 @@ func TestRenderToBytes_Gotmpl(t *testing.T) {
 `
 	dataFile := "data.txt"
 	valuesTmplFile := "values.yaml.gotmpl"
-	r := NewFileRenderer(&filesystem.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		switch filename {
-		case valuesTmplFile:
-			return []byte(valuesYamlTmplContent), nil
-		case dataFile:
-			return []byte(dataFileContent), nil
-		}
-		return nil, fmt.Errorf("unexpected filename: expected=%v or %v, actual=%s", dataFile, valuesTmplFile, filename)
-	}}, "", emptyEnvTmplData)
+	r := NewFileRenderer(&filesystem.FileSystem{
+		Glob: func(pattern string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			switch filename {
+			case valuesTmplFile:
+				return []byte(valuesYamlTmplContent), nil
+			case dataFile:
+				return []byte(dataFileContent), nil
+			}
+			return nil, fmt.Errorf("unexpected filename: expected=%v or %v, actual=%s", dataFile, valuesTmplFile, filename)
+		}}, "", emptyEnvTmplData)
 	buf, err := r.RenderToBytes(valuesTmplFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -51,12 +55,16 @@ func TestRenderToBytes_Yaml(t *testing.T) {
   bar: '{{ readFile "data.txt" }}'
 `
 	valuesFile := "values.yaml"
-	r := NewFileRenderer(&filesystem.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		if filename == valuesFile {
-			return []byte(valuesYamlContent), nil
-		}
-		return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", valuesFile, filename)
-	}}, "", emptyEnvTmplData)
+	r := NewFileRenderer(&filesystem.FileSystem{
+		Glob: func(pattern string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename == valuesFile {
+				return []byte(valuesYamlContent), nil
+			}
+			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", valuesFile, filename)
+		}}, "", emptyEnvTmplData)
 	buf, err := r.RenderToBytes(valuesFile)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
