@@ -16,12 +16,16 @@ func TestRenderTemplate_Values(t *testing.T) {
   bar: FOO_BAR
 `
 	expectedFilename := "values.yaml"
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(valuesYamlContent), nil
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename != expectedFilename {
+				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+			}
+			return []byte(valuesYamlContent), nil
+		}}}
 	buf, err := ctx.RenderTemplateToBuffer(`{{ readFile "values.yaml" | fromYaml | setValueAtPath "foo.bar" "FOO_BAR" | toYaml }}`)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -45,12 +49,16 @@ func TestRenderTemplate_WithData(t *testing.T) {
 			"bar": "FOO_BAR",
 		},
 	}
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(valuesYamlContent), nil
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename != expectedFilename {
+				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+			}
+			return []byte(valuesYamlContent), nil
+		}}}
 	buf, err := ctx.RenderTemplateToBuffer(valuesYamlContent, data)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -70,12 +78,16 @@ func TestRenderTemplate_AccessingMissingKeyWithGetOrNil(t *testing.T) {
 `
 	expectedFilename := "values.yaml"
 	data := map[string]any{}
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(valuesYamlContent), nil
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename != expectedFilename {
+				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+			}
+			return []byte(valuesYamlContent), nil
+		}}}
 	buf, err := ctx.RenderTemplateToBuffer(valuesYamlContent, data)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -95,12 +107,16 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 `
 	expectedFilename := "values.yaml"
 	data := map[string]any{}
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		if filename != expectedFilename {
-			return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
-		}
-		return []byte(valuesYamlContent), nil
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			if filename != expectedFilename {
+				return nil, fmt.Errorf("unexpected filename: expected=%v, actual=%s", expectedFilename, filename)
+			}
+			return []byte(valuesYamlContent), nil
+		}}}
 	buf, err := ctx.RenderTemplateToBuffer(valuesYamlContent, data)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -112,9 +128,13 @@ func TestRenderTemplate_Defaulting(t *testing.T) {
 }
 
 func renderTemplateToString(s string, data ...any) (string, error) {
-	ctx := &Context{fs: &ffs.FileSystem{ReadFile: func(filename string) ([]byte, error) {
-		return nil, fmt.Errorf("unexpected call to readFile: filename=%s", filename)
-	}}}
+	ctx := &Context{fs: &ffs.FileSystem{
+		Glob: func(s string) ([]string, error) {
+			return nil, nil
+		},
+		ReadFile: func(filename string) ([]byte, error) {
+			return nil, fmt.Errorf("unexpected call to readFile: filename=%s", filename)
+		}}}
 	tplString, err := ctx.RenderTemplateToBuffer(s, data...)
 	if err != nil {
 		return "", err
@@ -324,5 +344,78 @@ func TestRenderTemplate_Required(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("renderTemplateToString() for %s = %v, want %v", tt.name, got, tt.want)
 		}
+	}
+}
+func TestContext_helperTPLs(t *testing.T) {
+	c := &Context{
+		fs: &ffs.FileSystem{
+			Glob: func(s string) ([]string, error) {
+				return []string{
+					"/helmfiletmpl/_template1.tpl",
+					"/helmfiletmpl/_template2.tpl",
+				}, nil
+			},
+			ReadFile: func(filename string) ([]byte, error) {
+				switch filename {
+				case "/helmfiletmpl/_template1.tpl":
+					return []byte("Template 1 content"), nil
+				case "/helmfiletmpl/_template2.tpl":
+					return []byte("Template 2 content"), nil
+				default:
+					return nil, fmt.Errorf("unexpected filename: %s", filename)
+				}
+			},
+		},
+	}
+
+	want := []tplInfo{
+		{
+			name:    "/helmfiletmpl/_template1.tpl",
+			content: "Template 1 content",
+		},
+		{
+			name:    "/helmfiletmpl/_template2.tpl",
+			content: "Template 2 content",
+		},
+	}
+	got, err := c.helperTPLs()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("unexpected result: got=%v, want=%v", got, want)
+	}
+}
+func TestContext_RenderTemplateToBuffer(t *testing.T) {
+	c := &Context{
+		basePath: "/helmfile",
+		fs: &ffs.FileSystem{
+			Glob: func(s string) ([]string, error) {
+				return []string{
+					"/helmfile/_template1.tpl",
+				}, nil
+			},
+			ReadFile: func(filename string) ([]byte, error) {
+				if filename == "/helmfile/_template1.tpl" {
+					return []byte("{{- define \"name\" -}}\n{{ .Name }}\n{{- end }}"), nil
+				}
+				return nil, fmt.Errorf("unexpected filename: %s", filename)
+			},
+		},
+	}
+	s := "Hello, {{ include \"name\" . }}!"
+	data := map[string]interface{}{
+		"Name": "Alice",
+	}
+	expected := "Hello, Alice!"
+
+	buf, err := c.RenderTemplateToBuffer(s, data)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	actual := buf.String()
+	if actual != expected {
+		t.Errorf("unexpected result: expected=%s, actual=%s", expected, actual)
 	}
 }

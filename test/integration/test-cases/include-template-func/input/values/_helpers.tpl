@@ -1,0 +1,3 @@
+{{- define "echo" -}}
+{{ .Echo }}
+{{- end }}

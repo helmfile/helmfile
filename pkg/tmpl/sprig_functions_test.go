@@ -2,10 +2,18 @@ package tmpl
 
 import (
 	"testing"
+
+	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 func TestMergeOverwrite(t *testing.T) {
-	ctx := &Context{}
+	ctx := &Context{
+		fs: &filesystem.FileSystem{
+			Glob: func(pattern string) ([]string, error) {
+				return nil, nil
+			},
+		},
+	}
 	buf, err := ctx.RenderTemplateToBuffer(`
 		{{- $v1 := dict "bool" true  "int" 2 "str" "v1" "str2" "v1" -}}
 		{{- $v2 := dict "bool" false "int" 0 "str" "v2" "str2" "" -}}
