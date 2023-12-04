@@ -224,7 +224,7 @@ helmDefaults:
   # --wait flag for destroy/delete, if set to true, will wait until all resources are deleted before mark delete command as successful
   deleteWait: false
   # Timeout is the time in seconds to wait for helmfile destroy/delete (default 300)
-  deleteWait: 300
+  deleteTimeout: 300
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:

@@ -38,6 +38,7 @@ func NewDeleteCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&deleteOptions.Purge, "purge", false, "purge releases i.e. free release names and histories")
 	f.BoolVar(&deleteOptions.SkipCharts, "skip-charts", false, "don't prepare charts when deleting releases")
 	f.BoolVar(&deleteOptions.DeleteWait, "deleteWait", false, `override helmDefaults.wait setting "helm uninstall --wait"`)
+	f.IntVar(&deleteOptions.DeleteTimeout, "deleteTimeout", 300, `time in seconds to wait for helm uninstall, default: 300`)
 
 	return cmd
 }

@@ -36,6 +36,7 @@ func NewDestroyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&destroyOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&destroyOptions.SkipCharts, "skip-charts", false, "don't prepare charts when destroying releases")
 	f.BoolVar(&destroyOptions.DeleteWait, "deleteWait", false, `override helmDefaults.wait setting "helm uninstall --wait"`)
+	f.IntVar(&destroyOptions.DeleteTimeout, "deleteTimeout", 300, `time in seconds to wait for helm uninstall, default: 300`)
 
 	return cmd
 }

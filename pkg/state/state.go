@@ -774,7 +774,7 @@ func ReleaseToID(r *ReleaseSpec) string {
 	return id
 }
 
-func (st *HelmState) DeleteWait(args []string, release *ReleaseSpec) []string {
+func (st *HelmState) appendDeleteWaitFlags(args []string, release *ReleaseSpec) []string {
 	if release.DeleteWait != nil && *release.DeleteWait || release.DeleteWait == nil && st.HelmDefaults.DeleteWait {
 		args = append(args, "--wait")
 		timeout := st.HelmDefaults.DeleteTimeout
@@ -825,7 +825,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					if release.Namespace != "" {
 						args = append(args, "--namespace", release.Namespace)
 					}
-					args = st.DeleteWait(args, release)
+					args = st.appendDeleteWaitFlags(args, release)
 					args = st.appendConnectionFlags(args, release)
 					deletionFlags := st.appendCascadeFlags(args, helm, release, cascade)
 
@@ -2092,7 +2092,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		flags := make([]string, 0)
 		flags = st.appendConnectionFlags(flags, &release)
 		flags = st.appendCascadeFlags(flags, helm, &release, cascade)
-		flags = st.DeleteWait(flags, &release)
+		flags = st.appendDeleteWaitFlags(flags, &release)
 		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
 		}
