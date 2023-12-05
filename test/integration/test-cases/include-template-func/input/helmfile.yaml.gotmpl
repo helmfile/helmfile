@@ -1,0 +1,8 @@
+releases:
+- name: '{{ include "echo" (dict "Echo" "include") }}'
+  chart: ../../../charts/raw
+  values:
+  - values/configmap.gotmpl
+
+helmfiles:
+- nested/helmfile.yaml.gotmpl

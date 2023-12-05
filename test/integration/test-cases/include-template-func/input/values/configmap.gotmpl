@@ -1,0 +1,8 @@
+templates:
+- |
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: {{ include "echo" (dict "Echo" "include") }}
+  data:
+    name: {{ include "echo" (dict "Echo" "include") }} 
