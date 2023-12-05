@@ -199,8 +199,10 @@ func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePat
 				src.SetValuesTemplate = nil
 			case "set":
 				src.SetValues = nil
+			case "secrets":
+				src.Secrets = nil
 			default:
-				return nil, fmt.Errorf("%q is not allowed under `inherit`. Allowed values are \"set\", \"setTemplate\", \"values\", \"valuesTemplate\", and \"labels\"", k)
+				return nil, fmt.Errorf("%q is not allowed under `inherit`. Allowed values are \"set\", \"setTemplate\", \"values\", \"valuesTemplate\", \"secrets\", and \"labels\"", k)
 			}
 
 			st.logger.Debugf("excluded field %q when inheriting template %q to release %q", k, templateName, r.Name)
