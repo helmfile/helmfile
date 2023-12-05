@@ -8,6 +8,10 @@ type DestroyOptions struct {
 	SkipCharts bool
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
+	// Wait '--wait' if set, will wait until all the resources are destroyed before returning. It will wait for as long as --timeout
+	DeleteWait bool
+	// Timeout '--timeout', to wait for helm operation (default 5m0s)
+	DeleteTimeout int
 }
 
 // NewDestroyOptions creates a new Apply
@@ -42,4 +46,14 @@ func (c *DestroyImpl) SkipCharts() bool {
 // Cascade returns cascade flag
 func (c *DestroyImpl) Cascade() string {
 	return c.DestroyOptions.Cascade
+}
+
+// DeleteWait returns the wait flag
+func (c *DestroyImpl) DeleteWait() bool {
+	return c.DestroyOptions.DeleteWait
+}
+
+// DeleteTimeout returns the timeout flag
+func (c *DestroyImpl) DeleteTimeout() int {
+	return c.DestroyOptions.DeleteTimeout
 }
