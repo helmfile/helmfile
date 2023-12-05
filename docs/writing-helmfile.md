@@ -104,7 +104,7 @@ releases:
   version: 0.3.2
   inherit:
   - template: default
-    exclude:
+    except:
       - secrets
 - name: kubernetes-dashboard
   version: 0.10.0
