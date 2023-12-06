@@ -116,7 +116,7 @@ Iterate on the `helmfile.yaml` by referencing:
 
 * [Configuration](#configuration)
 * [CLI reference](#cli-reference).
-* [Helmfile Best Practices Guide](https://github.com/roboll/helmfile/blob/master/docs/writing-helmfile.md)
+* [Helmfile Best Practices Guide](writing-helmfile.md)
 
 ## Configuration
 
