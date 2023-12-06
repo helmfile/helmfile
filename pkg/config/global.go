@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/term"
 
+	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/state"
 )
 
@@ -23,6 +24,8 @@ type GlobalOptions struct {
 	Environment string
 	// StateValuesSet is a list of state values to set on the command line.
 	StateValuesSet []string
+	// StateValuesSetString is a list of state values to set on the command line.
+	StateValuesSetString []string
 	// StateValuesFiles is a list of state values files to use.
 	StateValuesFile []string
 	// SkipDeps is true if the running "helm repo update" and "helm dependency build" should be skipped
@@ -87,7 +90,7 @@ func NewGlobalImpl(opts *GlobalOptions) *GlobalImpl {
 
 // Setset sets the set
 func (g *GlobalImpl) SetSet(set map[string]any) {
-	g.set = set
+	g.set = maputil.MergeMaps(g.set, set)
 }
 
 // HelmBinary returns the path to the Helm binary.
@@ -133,6 +136,11 @@ func (g *GlobalImpl) StateValuesSet() map[string]any {
 // StateValuesSet returns the set
 func (g *GlobalImpl) RawStateValuesSet() []string {
 	return g.GlobalOptions.StateValuesSet
+}
+
+// RawStateValuesSetString returns the set
+func (g *GlobalImpl) RawStateValuesSetString() []string {
+	return g.GlobalOptions.StateValuesSetString
 }
 
 // StateValuesFiles returns the state values files
