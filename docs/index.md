@@ -463,22 +463,26 @@ Helmfile uses [Go templates](https://godoc.org/text/template) for templating you
 
 We also added the following functions:
 
-* `requiredEnv`
-* `exec`
-* `envExec`
-* `readFile`
-* `readDir`
-* `readDirEntries`
-* `toYaml`
-* `fromYaml`
-* `setValueAtPath`
-* `get` (Sprig's original `get` is available as `sprigGet`)
-* `tpl`
-* `required`
-* `fetchSecretValue`
-* `expandSecretRefs`
+* [`env`](templating_funcs.md#env)
+* [`requiredEnv`](templating_funcs.md#requiredenv)
+* [`exec`](templating_funcs.md#exec)
+* [`envExec`](templating_funcs.md#envexec)
+* [`readFile`](templating_funcs.md#readfile)
+* [`readDir`](templating_funcs.md#readdir)
+* [`readDirEntries`](templating_funcs.md#readdirentries)
+* [`toYaml`](templating_funcs.md#toyaml)
+* [`fromYaml`](templating_funcs.md#fromyaml)
+* [`setValueAtPath`](templating_funcs.md#setvalueatpath)
+* [`get`](templating_funcs.md#get) (Sprig's original `get` is available as `sprigGet`)
+* [`getOrNil`](templating_funcs.md#getornil)
+* [`tpl`](templating_funcs.md#tpl)
+* [`required`](templating_funcs.md#required)
+* [`fetchSecretValue`](templating_funcs.md#fetchsecretvalue)
+* [`expandSecretRefs`](templating_funcs.md#expandsecretrefs)
+* [`include`](templating_funcs.md#include)
 
-More details on each function can be found at ["Template Functions" page in our documentation](templating_funcs.md).
+More details on each function can be found at the ["Template Functions" page in our documentation](templating_funcs.md).
+
 
 ## Using environment variables
 
