@@ -2,6 +2,7 @@ package maputil
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -65,7 +66,7 @@ func recursivelyStringifyMapKey(v any) (any, error) {
 
 type arg interface {
 	getMap(map[string]any) map[string]any
-	set(map[string]any, string)
+	set(map[string]any, any)
 }
 
 type keyArg struct {
@@ -85,7 +86,7 @@ func (a keyArg) getMap(m map[string]any) map[string]any {
 	}
 }
 
-func (a keyArg) set(m map[string]any, value string) {
+func (a keyArg) set(m map[string]any, value any) {
 	m[a.key] = value
 }
 
@@ -125,7 +126,7 @@ func (a indexedKeyArg) getMap(m map[string]any) map[string]any {
 	}
 }
 
-func (a indexedKeyArg) set(m map[string]any, value string) {
+func (a indexedKeyArg) set(m map[string]any, value any) {
 	t := a.getArray(m)
 	t[a.index] = value
 	m[a.key] = t
@@ -178,7 +179,7 @@ func ParseKey(key string) []string {
 	return r
 }
 
-func Set(m map[string]any, key []string, value string) {
+func Set(m map[string]any, key []string, value string, stringBool bool) {
 	if len(key) == 0 {
 		panic(fmt.Errorf("bug: unexpected length of key: %d", len(key)))
 	}
@@ -187,5 +188,59 @@ func Set(m map[string]any, key []string, value string) {
 		m, key = getCursor(key[0]).getMap(m), key[1:]
 	}
 
-	getCursor(key[0]).set(m, value)
+	getCursor(key[0]).set(m, typedVal(value, stringBool))
+}
+
+func typedVal(val string, st bool) any {
+	// if st is true, directly return it without casting it
+	if st {
+		return val
+	}
+
+	if strings.EqualFold(val, "true") {
+		return true
+	}
+
+	if strings.EqualFold(val, "false") {
+		return false
+	}
+
+	if strings.EqualFold(val, "null") {
+		return nil
+	}
+
+	// handling of only zero, if val has zero prefix, it will be considered as string
+	if strings.EqualFold(val, "0") {
+		return int64(0)
+	}
+
+	// If this value does not start with zero, try parsing it to an int
+	if len(val) != 0 && val[0] != '0' {
+		if iv, err := strconv.ParseInt(val, 10, 64); err == nil {
+			return iv
+		}
+	}
+
+	return val
+}
+
+func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(a))
+	// fill the out map with the first map
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		if v, ok := v.(map[string]interface{}); ok {
+			if bv, ok := out[k]; ok {
+				if bv, ok := bv.(map[string]interface{}); ok {
+					// if b and out map has a map value, merge it too
+					out[k] = MergeMaps(bv, v)
+					continue
+				}
+			}
+		}
+		out[k] = v
+	}
+	return out
 }
