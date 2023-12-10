@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
@@ -275,12 +275,12 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 		case u.Getter == "normal" && u.Scheme == "s3":
 			err := r.S3Getter.Get(r.Home, path, cacheDirPath)
 			if err != nil {
-				return "", multierr.Append(err, err)
+				return "", err
 			}
 		case u.Getter == "normal" && (u.Scheme == "https" || u.Scheme == "http"):
 			err := r.HttpGetter.Get(r.Home, path, cacheDirPath)
 			if err != nil {
-				return "", multierr.Append(err, err)
+				return "", err
 			}
 		default:
 			if u.Getter != "" {
@@ -290,7 +290,7 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 			if err := r.Getter.Get(r.Home, getterSrc, cacheDirPath); err != nil {
 				rmerr := os.RemoveAll(cacheDirPath)
 				if rmerr != nil {
-					return "", multierr.Append(err, rmerr)
+					return "", errors.Join(err, rmerr)
 				}
 				return "", err
 			}
