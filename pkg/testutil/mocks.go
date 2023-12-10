@@ -1,7 +1,7 @@
 package testutil
 
 import (
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 	"helm.sh/helm/v3/pkg/chart"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -35,7 +35,7 @@ func (helm *V3HelmExec) IsHelm3() bool {
 func (helm *VersionHelmExec) IsVersionAtLeast(ver string) bool {
 	currentSemVer := semver.MustParse(helm.version)
 	verSemVer := semver.MustParse(ver)
-	return currentSemVer.GTE(verSemVer)
+	return currentSemVer.Compare(verSemVer) >= 0
 }
 
 func (helm *noCallHelmExec) doPanic() {
