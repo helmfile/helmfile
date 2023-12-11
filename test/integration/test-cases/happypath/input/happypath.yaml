@@ -54,3 +54,20 @@ releases:
     values:
       - mysecret: {{ .Environment.Values.mysecret }}
       - values.yaml
+
+  - name: release-disabled
+    chart: ../../../charts/helmx
+    namespace: release-disabled
+    condition: release-disabled.enabled
+    values:
+      - values-not-found.yaml
+    jsonPatches:
+      - target:
+          version: v1
+          kind: ConfigMap
+          name: release-name
+        patch:
+          - op: add
+            path: /metadata/annotations
+            value:
+              foo: bar

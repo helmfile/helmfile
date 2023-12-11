@@ -1125,17 +1125,13 @@ type PrepareChartKey struct {
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	var selected []ReleaseSpec
 
-	if len(st.Selectors) > 0 {
-		var err error
+	var err error
 
-		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
-		// releases that are (1) selected by the selectors and (2) to be installed.
-		selected, err = st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
-		if err != nil {
-			return nil, []error{err}
-		}
-	} else {
-		selected = st.Releases
+	// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
+	// releases that are (1) selected by the selectors and (2) to be installed.
+	selected, err = st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
+	if err != nil {
+		return nil, []error{err}
 	}
 
 	if !opts.SkipResolve {
