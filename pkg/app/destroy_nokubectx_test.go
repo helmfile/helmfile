@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/helmfile/vals"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/testhelper"
 )
 
 func TestDestroy_2(t *testing.T) {
@@ -126,10 +126,7 @@ func TestDestroy_2(t *testing.T) {
 		if tc.log != "" {
 			actual := bs.String()
 
-			diff, exists := testhelper.Diff(tc.log, actual, 3)
-			if exists {
-				t.Errorf("unexpected log:\nDIFF\n%s\nEOD", diff)
-			}
+			assert.Equal(t, tc.log, actual)
 		}
 	}
 

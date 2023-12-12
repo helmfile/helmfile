@@ -3911,10 +3911,7 @@ changing working directory back to "/path/to"
 			if tc.log != "" {
 				actual := bs.String()
 
-				diff, exists := testhelper.Diff(tc.log, actual, 3)
-				if exists {
-					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
-				}
+				assert.Equal(t, tc.log, actual)
 			} else {
 				assertLogEqualsToSnapshot(t, bs.String())
 			}
@@ -4031,10 +4028,7 @@ changing working directory back to "/path/to"
 			if tc.log != "" {
 				actual := bs.String()
 
-				diff, exists := testhelper.Diff(tc.log, actual, 3)
-				if exists {
-					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
-				}
+				assert.Equal(t, tc.log, actual)
 			}
 		})
 	}

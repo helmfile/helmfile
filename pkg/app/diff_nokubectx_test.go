@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/helmfile/vals"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -1049,10 +1050,7 @@ changing working directory back to "/path/to"
 			if tc.log != "" {
 				actual := bs.String()
 
-				diff, exists := testhelper.Diff(tc.log, actual, 3)
-				if exists {
-					t.Errorf("unexpected log for data defined %s:\nDIFF\n%s\nEOD", tc.loc, diff)
-				}
+				assert.Equal(t, tc.log, actual)
 			} else {
 				testhelper.RequireLog(t, "app_diff_test_2", bs)
 			}

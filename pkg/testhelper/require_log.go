@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func RequireLog(t *testing.T, dir string, bs *bytes.Buffer) {
@@ -56,13 +58,12 @@ func RequireLog(t *testing.T, dir string, bs *bytes.Buffer) {
 	wantLog := string(wantLogData)
 	gotLog := bs.String()
 
-	diff, exists := Diff(wantLog, gotLog, 3)
-	if exists {
-		t.Errorf("unexpected %s: want (-), got (+): %s", testBaseName, diff)
-		t.Errorf(
-			"If you think this is due to the snapshot file being outdated, rerun this test with `HELMFILE_UPDATE_SNAPSHOT=1 go test -v -run %s %s` to update the snapshot",
-			t.Name(),
-			callerPkg,
-		)
-	}
+	assert.Equalf(
+		t,
+		wantLog,
+		gotLog,
+		"If you think this is due to the snapshot file being outdated, rerun this test with `HELMFILE_UPDATE_SNAPSHOT=1 go test -v -run %s %s` to update the snapshot",
+		t.Name(),
+		callerPkg,
+	)
 }
