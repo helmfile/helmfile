@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/helmfile/vals"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -16,7 +17,6 @@ import (
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/runtime"
-	"github.com/helmfile/helmfile/pkg/testhelper"
 )
 
 func TestTemplate(t *testing.T) {
@@ -168,10 +168,7 @@ releases:
 			}
 		}
 
-		diff, exists := testhelper.Diff(wantLog, gotLog, 3)
-		if exists {
-			t.Errorf("unexpected log:\nDIFF\n%s\nEOD", diff)
-		}
+		assert.Equal(t, wantLog, gotLog)
 	}
 
 	t.Run("fail on unselected need by default", func(t *testing.T) {
