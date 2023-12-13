@@ -2245,7 +2245,6 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 }
 
 func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
-	var conditionMatch bool
 	if len(r.Condition) == 0 {
 		return true, nil
 	}
@@ -2255,16 +2254,23 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 	}
 	if v, ok := values[conditionSplit[0]]; ok {
 		if v == nil {
-			panic(fmt.Sprintf("environment values field '%s' is nil", conditionSplit[0]))
+			return false, fmt.Errorf("environment values field '%s' is nil", conditionSplit[0])
 		}
-		if v.(map[string]any)["enabled"] == true {
-			conditionMatch = true
+		vm, ok := v.(map[string]any)
+		if !ok {
+			return false, fmt.Errorf("environment values field '%s' is not a map", conditionSplit[0])
 		}
-	} else {
-		panic(fmt.Sprintf("environment values does not contain field '%s'", conditionSplit[0]))
+		vv, ok := vm["enabled"]
+		if !ok {
+			return false, fmt.Errorf("environment values field '%s' does not contain field 'enabled'", conditionSplit[0])
+		}
+		vb, ok := vv.(bool)
+		if !ok {
+			return false, fmt.Errorf("environment values field '%s.enabled' is not a boolean", conditionSplit[0])
+		}
+		return vb, nil
 	}
-
-	return conditionMatch, nil
+	return false, fmt.Errorf("environment values does not contain field '%s'", conditionSplit[0])
 }
 
 func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
