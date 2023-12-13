@@ -2244,6 +2244,15 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 	return filteredReleases, nil
 }
 
+// ConditionEnabled checks if a release condition is enabled based on the provided values.
+// It takes a ReleaseSpec and a map of values as input.
+// If the condition is not specified, it returns true.
+// If the condition is specified but not in the form 'foo.enabled', it returns an error.
+// If the condition is specified and the corresponding value is found in the values map,
+// it checks if the 'enabled' field is set to true. If so, it returns true.
+// Otherwise, it returns false.
+// If the condition is specified but the corresponding value is not found in the values map,
+// it returns an error.
 func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 	if len(r.Condition) == 0 {
 		return true, nil
@@ -2262,13 +2271,12 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 		}
 		vv, ok := vm["enabled"]
 		if !ok {
-			return false, fmt.Errorf("environment values field '%s' does not contain field 'enabled'", conditionSplit[0])
+			return false, nil
 		}
-		vb, ok := vv.(bool)
-		if !ok {
-			return false, fmt.Errorf("environment values field '%s.enabled' is not a boolean", conditionSplit[0])
+		if vv == true {
+			return true, nil
 		}
-		return vb, nil
+		return false, nil
 	}
 	return false, fmt.Errorf("environment values does not contain field '%s'", conditionSplit[0])
 }

@@ -2469,8 +2469,7 @@ func TestConditionEnabled(t *testing.T) {
 					"something else": false,
 				},
 			},
-			want:    false,
-			wantErr: true,
+			want: false,
 		},
 		{
 			name:      "foo nil",
