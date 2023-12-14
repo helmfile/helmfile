@@ -3455,3 +3455,189 @@ func TestAppendChartDownloadTLSFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		expected []string
+	}{
+		{
+			name:     "CaFile enabled",
+			release:  ReleaseSetSpec: ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:   "oci-repo",
+						URL:    "registry/chart-path",
+						OCI:    true,
+						CaFile: "foo",
+					},
+				},
+			},,
+			expected: []string{
+				"--ca-file foo",
+			},
+		},
+		{
+			name:     "CertFile endabled and KeyFile disabled",
+			release:  ReleaseSetSpec: ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:   "oci-repo",
+						URL:    "registry/chart-path",
+						OCI:    true,
+						CertFile: "foo"
+					},
+				},
+			},,
+			expected: []string{
+				"",
+			},
+		},
+		{
+			name:     "CertFile disabled and KeyFile enabled",
+			release:  ReleaseSetSpec: ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:   "oci-repo",
+						URL:    "registry/chart-path",
+						OCI:    true,
+						KeyFile: "bar",
+					},
+				},
+			},,
+			expected: []string{
+				"",
+			},
+		},
+		{
+			name:     "CertFile and KeyFile enabled",
+			release:  ReleaseSetSpec: ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:   "oci-repo",
+						URL:    "registry/chart-path",
+						OCI:    true,
+						CertFile: "foo"
+						KeyFile: "bar",
+					},
+				},
+			},,
+			expected: []string{
+				"--cert-file foo --key-file bar",
+			},
+		},
+		{
+			name:     "SkipTLSVerify enabled",
+			release:  ReleaseSetSpec: ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:          "oci-repo",
+						URL:           "registry/chart-path",
+						OCI:           true,
+						SkipTLSVerify: true,
+					},
+				},
+			},,
+			expected: []string{
+				"--insecure-skip-tls-verify",
+			},
+		},
+		{
+			name:     "Verify enabled",
+			release:  ReleaseSetSpec: ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:   "oci-repo",
+						URL:    "registry/chart-path",
+						OCI:    true,
+						Verify: true,
+					},
+				},
+			},,
+			expected: []string{
+				"--verify",
+			},
+		},
+		{
+			name:     "Keyring enabled",
+			release:  ReleaseSetSpec: ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:    "oci-repo",   
+						URL:     "registry/chart-path",
+						OCI:     true,
+						Keyring: true
+					},
+				},
+			},
+			expected: []string{
+				"--keyring",
+			},
+		},
+		{
+			name:     "PlainHttp enabled",
+			release:  ReleaseSetSpec: ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:    "oci-repo",   
+						URL:     "registry/chart-path",
+						OCI:     true,
+						PlainHttp: true
+					},
+				},
+			},
+			expected: []string{
+				"--plain-http",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			flags := st.appendGetOCIChartFlags(tt.release)
+			require.Equal(t, tt.expected, flags)
+		})
+	}
+}
+
+func TestAppendChartDownloadPlainHttpFlags(t *testing.T) {
+	tests := []struct {
+		name                         string
+		defaultPlainHttp bool
+		releasePlainHttp bool
+		expected                     []string
+	}{
+		{
+			name:                         "defaultPlainHttp true and releasePlainHttp is false",
+			defaultPlainHttp: true,
+			releasePlainHttp: false,
+			expected:                     []string{"--plain-http"},
+		},
+		{
+			name:                         "defaultPlainHttp is false and releasePlainHttp is true",
+			defaultPlainHttp: false,
+			releasePlainHttp: true,
+			expected:                     []string{"--plain-http"},
+		},
+		{
+			name:                         "defaultPlainHttp is false and releasePlainHttp is false",
+			defaultPlainHttp: false,
+			releasePlainHttp: false,
+			expected:                     []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			release := &ReleaseSpec{}
+			st.HelmDefaults.PlainHttp = tt.defaultPlainHttp
+			release.PlainHttp = tt.releasePlainHttp
+
+			result := st.appendChartDownloadPlainHttpFlags([]string{}, release)
+
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
