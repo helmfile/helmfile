@@ -3184,7 +3184,7 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 					},
 				},
 			},
-			helmVersion: "3.13.2",
+			helmVersion: "3.13.3",
 			expected: []struct {
 				qualifiedChartName string
 				chartName          string
@@ -3205,7 +3205,7 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 					},
 				},
 			},
-			helmVersion: "3.13.2",
+			helmVersion: "3.13.3",
 			wantErr:     true,
 		},
 		{
@@ -3240,7 +3240,7 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 					},
 				},
 			},
-			helmVersion: "3.13.2",
+			helmVersion: "3.13.3",
 			expected: []struct {
 				qualifiedChartName string
 				chartName          string
