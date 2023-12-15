@@ -37,7 +37,7 @@ jobs:
         run: make check test
       - name: Archive built binaries
         run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: built-binaries-${{ github.run_id }}
           path: built-binaries.tar
