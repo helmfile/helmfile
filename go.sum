@@ -652,8 +652,8 @@ github.com/hashicorp/vault/api v1.10.0 h1:/US7sIjWN6Imp4o/Rj1Ce2Nr5bki/AXi9vAW3p
 github.com/hashicorp/vault/api v1.10.0/go.mod h1:jo5Y/ET+hNyz+JnKDt8XLAdKs+AM0G5W0Vp1IrFI8N8=
 github.com/helmfile/chartify v0.17.0 h1:v+LJfH461xqpet/aCwsBpNjJ+HG8miIjN2kmhIqBkxs=
 github.com/helmfile/chartify v0.17.0/go.mod h1:7pmJlGn79CDMBD1+NbDJtE3L7q0hZf5GyBCJrV78vLA=
-github.com/helmfile/vals v0.30.0 h1:W0dk610VqxexTuATWOYXGBeM2fa+v6WUkJaGZxhw8PQ=
-github.com/helmfile/vals v0.30.0/go.mod h1:DulK3WzV/6PgGzY7obn9BkeJ6lbRyn0VjSQyggBqZCA=
+github.com/helmfile/vals v0.31.0 h1:x6YyQU8Vw2urfrnXDvHp5Lwm7jozf0QjQwx2yeruutU=
+github.com/helmfile/vals v0.31.0/go.mod h1:pYu2Sd9vQlwiBLn3ktuIsLeUNgQx+9bnFvNYQN99MmI=
 github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec h1:qv2VnGeEQHchGaZ/u7lxST/RaJw+cv273q79D81Xbog=
 github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec/go.mod h1:Q48J4R4DvxnHolD5P8pOtXigYlRuPLGl6moFx3ulM68=
 github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f h1:7LYC+Yfkj3CTRcShK0KOL/w6iTiKyqqBA9a41Wnggw8=
