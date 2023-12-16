@@ -37,7 +37,7 @@ jobs:
         run: make check test
       - name: Archive built binaries
         run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: built-binaries-${{ github.run_id }}
           path: built-binaries.tar
@@ -104,7 +104,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: built-binaries-${{ github.run_id }}
       - name: Extract tar to get built binaries
@@ -136,7 +136,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: built-binaries-${{ github.run_id }}
       - name: Extract tar to get built binaries
