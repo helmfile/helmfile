@@ -33,7 +33,7 @@ type SyncOptions struct {
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
 	// DryRun is for helm dry-run flag
-	DryRyn string
+	DryRun string
 }
 
 // NewSyncOptions creates a new Apply
@@ -137,5 +137,5 @@ func (t *SyncImpl) Cascade() string {
 
 // DryRun returns dry-run flag
 func (t *SyncImpl) DryRun() string {
-	return t.SyncOptions.DryRyn
+	return t.SyncOptions.DryRun
 }

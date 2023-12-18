@@ -63,7 +63,7 @@ type ApplyOptions struct {
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
 	// DryRun is for helm dry-run flag
-	DryRyn string
+	DryRun string
 }
 
 // NewApply creates a new Apply
@@ -238,5 +238,5 @@ func (a *ApplyImpl) Cascade() string {
 
 // DryRun returns dry-run flag
 func (a *ApplyImpl) DryRun() string {
-	return a.ApplyOptions.DryRyn
+	return a.ApplyOptions.DryRun
 }
