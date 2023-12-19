@@ -1089,9 +1089,13 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		}
 	}
 
-	// pre-overrides HelmState
+	// pre-handles HelmState
 	fHelmStatsWithOverrides := func(st *state.HelmState) (bool, []error) {
+		// override release settings
 		st.Releases = st.GetReleasesWithOverrides()
+
+		// override release labels
+		st.Releases = st.GetReleasesWithLabels()
 		return f(st)
 	}
 

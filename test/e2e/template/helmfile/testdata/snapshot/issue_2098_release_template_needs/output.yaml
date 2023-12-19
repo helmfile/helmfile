@@ -15,6 +15,9 @@ releases:
   name: default-shared-resources
   namespace: default
   labels:
+    chart: util
+    name: default-shared-resources
+    namespace: default
     service: shared-resources
 - chart: aservo/util
   version: 0.0.1
@@ -23,6 +26,9 @@ releases:
   name: default-release-resources
   namespace: default
   labels:
+    chart: util
+    name: default-release-resources
+    namespace: default
     service: release-resources
 templates:
   defaults:

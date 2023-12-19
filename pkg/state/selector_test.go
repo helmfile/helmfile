@@ -111,6 +111,7 @@ func TestSelectReleasesWithOverrides(t *testing.T) {
 		state.Selectors = tc.selector
 
 		state.Releases = state.GetReleasesWithOverrides()
+		state.Releases = state.GetReleasesWithLabels()
 
 		rs, err := state.GetSelectedReleases(false)
 		if err != nil {
@@ -139,13 +140,13 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 
 	testcases := []testcase{
 		{
-			subject:                "include transitives",
+			subject:                "include transitives is false",
 			selector:               []string{"name=serviceA"},
 			want:                   []string{"serviceA"},
 			includeTransitiveNeeds: false,
 		},
 		{
-			subject:                "include transitives",
+			subject:                "include transitives is true",
 			selector:               []string{"name=serviceA"},
 			want:                   []string{"serviceA", "serviceB", "serviceC"},
 			includeTransitiveNeeds: true,
@@ -181,6 +182,7 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 	for _, tc := range testcases {
 		state.Selectors = tc.selector
 		state.Releases = state.GetReleasesWithOverrides()
+		state.Releases = state.GetReleasesWithLabels()
 
 		rs, err := state.GetSelectedReleases(tc.includeTransitiveNeeds)
 		if err != nil {
