@@ -197,3 +197,42 @@ func TestAppendCascadeFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestAppendDryRunFlags(t *testing.T) {
+	type args struct {
+		flags    []string
+		dry-run  string
+		helm     helmexec.Interface
+		expected []string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "do dry-run on client",
+			args: args{
+				flags:    []string{},
+				dry-run:  "client",
+				helm:     testutil.NewVersionHelmExec("3.12.1"),
+				expected: []string{"--dry-run", "client"},
+			},
+		},
+		{
+			name: "do dry-run on server",
+			args: args{
+				flags:    []string{},
+				dry-run:  "server",
+				helm:     testutil.NewVersionHelmExec("3.12.1"),
+				expected: []string{"--dry-run", "server"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			got := st.appendDryRunFlags(tt.args.flags, tt.args.helm, tt.args.release, tt.args.dry-run)
+			require.Equalf(t, tt.args.expected, got, "appendDryRunFlags() = %v, want %v", got, tt.args.expected)
+		})
+	}
+}
