@@ -70,7 +70,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&applyOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
 	f.StringVar(&applyOptions.Cascade, "cascade", "", "pass cascade to helm exec, default: background")
 	f.StringArrayVar(&applyOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from the diff output")
-	f.StringVar(&applyOptions.DryRyn, "dry-run", "", "pass dry-run to helm exec")
+	f.StringVar(&applyOptions.DryRun, "dry-run", "", "pass dry-run to helm exec")
 
 	return cmd
 }
