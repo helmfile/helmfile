@@ -35,7 +35,7 @@ type SyncOptions struct {
 	// SyncArgs is the list of arguments to pass to the helm upgrade command.
 	SyncArgs string
 	// DryRun is for helm dry-run flag
-	DryRyn string
+	DryRun string
 }
 
 // NewSyncOptions creates a new Apply
@@ -144,5 +144,5 @@ func (t *SyncImpl) SyncArgs() string {
 
 // DryRun returns dry-run flag
 func (t *SyncImpl) DryRun() string {
-	return t.SyncOptions.DryRyn
+	return t.SyncOptions.DryRun
 }
