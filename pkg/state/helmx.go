@@ -76,6 +76,11 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 	return flags
 }
 
+// appendWaitFlags appends the appropriate wait flags to the given flags slice based on the provided release and sync options.
+// If release.Wait is true, "--wait" flag is added.
+// If ops.Wait is true, "--wait" flag is added.
+// If release.Wait is nil and st.HelmDefaults.Wait is true, "--wait" flag is added.
+// Returns the updated flags slice.
 func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
 	switch {
 	case release.Wait != nil && *release.Wait:
@@ -87,6 +92,10 @@ func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *
 	}
 	return flags
 }
+
+// appendDryRunFlags appends the necessary flags for a dry run to the given flags slice.
+// If the opt parameter is not nil and opt.DryRun is not empty, the "--dry-run" flag and the value of opt.DryRun are appended to the flags slice.
+// The updated flags slice is returned.
 func (st *HelmState) appendDryRunFlags(flags []string, opt *SyncOpts) []string {
 	if opt != nil && opt.DryRun != "" {
 		flags = append(flags, "--dry-run", opt.DryRun)

@@ -200,9 +200,7 @@ func TestAppendCascadeFlags(t *testing.T) {
 
 func TestAppendDryRunFlags(t *testing.T) {
 	type args struct {
-		flags    []string
-		dry-run  string
-		helm     helmexec.Interface
+		dryRun   string
 		expected []string
 	}
 	tests := []struct {
@@ -212,18 +210,14 @@ func TestAppendDryRunFlags(t *testing.T) {
 		{
 			name: "do dry-run on client",
 			args: args{
-				flags:    []string{},
-				dry-run:  "client",
-				helm:     testutil.NewVersionHelmExec("3.12.1"),
+				dryRun:   "client",
 				expected: []string{"--dry-run", "client"},
 			},
 		},
 		{
 			name: "do dry-run on server",
 			args: args{
-				flags:    []string{},
-				dry-run:  "server",
-				helm:     testutil.NewVersionHelmExec("3.12.1"),
+				dryRun:   "server",
 				expected: []string{"--dry-run", "server"},
 			},
 		},
@@ -231,7 +225,9 @@ func TestAppendDryRunFlags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{}
-			got := st.appendDryRunFlags(tt.args.flags, tt.args.helm, tt.args.release, tt.args.dry-run)
+			got := st.appendDryRunFlags([]string{}, &SyncOpts{
+				DryRun: tt.args.dryRun,
+			})
 			require.Equalf(t, tt.args.expected, got, "appendDryRunFlags() = %v, want %v", got, tt.args.expected)
 		})
 	}
