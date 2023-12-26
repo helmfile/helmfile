@@ -1,0 +1,7 @@
+version: 0.0.0-dev
+dependencies:
+  - name: raw
+    repository: http://localhost:18083/
+    version: 0.0.1
+digest: sha256:5401817b653c4eeb186cbfbb8d77dda6b72f84a548fc9cd128cbd478d5b2e705
+generated: "2022-10-12T20:17:15.98786845+03:00"
