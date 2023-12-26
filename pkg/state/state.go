@@ -193,7 +193,7 @@ type HelmSpec struct {
 	// InsecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
 	InsecureSkipTLSVerify bool `yaml:"insecureSkipTLSVerify,omitempty"`
 	// PlainHttp is true if the remote charte should be fetched using HTTP and not HTTPS
-	PlainHttp             bool `yaml:"plainHttp,omitempty"`
+	PlainHttp bool `yaml:"plainHttp,omitempty"`
 	// Wait, if set to true, will wait until all resources are deleted before mark delete command as successful
 	DeleteWait bool `yaml:"deleteWait"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
@@ -324,7 +324,7 @@ type ReleaseSpec struct {
 	InsecureSkipTLSVerify bool `yaml:"insecureSkipTLSVerify,omitempty"`
 
 	// PlainHttp is true if the remote charte should be fetched using HTTP and not HTTPS
-	PlainHttp             bool `yaml:"plainHttp,omitempty"`
+	PlainHttp bool `yaml:"plainHttp,omitempty"`
 
 	// These values are used in templating
 	VerifyTemplate    *string `yaml:"verifyTemplate,omitempty"`
@@ -2159,7 +2159,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 
 		flags = st.appendConnectionFlags(flags, &release)
 		flags = st.appendChartDownloadTLSFlags(flags, &release)
-		flags = st.appendChartDownloadPlainHttpFlags(flags, release)
+		flags = st.appendChartDownloadPlainHttpFlags(flags, &release)
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -3545,7 +3545,7 @@ func (st *HelmState) Reverse() {
 	}
 }
 
-func (st *HelmState) appendGetOCIChartFlags(release *ReleaseSpec) {
+func (st *HelmState) appendGetOCIChartFlags(release *ReleaseSpec) []string {
 	flags := []string{}
 	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
 	if repo != nil {
@@ -3597,7 +3597,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	if st.fs.DirectoryExistsAt(chartPath) {
 		st.logger.Debugf("chart already exists at %s", chartPath)
 	} else {
-		flags := st.appendGetOCIChartFlags(releaese)
+		flags := st.appendGetOCIChartFlags(release)
 
 		err := helm.ChartPull(qualifiedChartName, chartPath, flags...)
 		if err != nil {

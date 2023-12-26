@@ -3459,142 +3459,206 @@ func TestAppendChartDownloadTLSFlags(t *testing.T) {
 func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 	tests := []struct {
 		name     string
+		repos    []RepositorySpec
 		release  *ReleaseSpec
 		expected []string
 	}{
 		{
-			name:     "CaFile enabled",
-			release:  ReleaseSetSpec: ReleaseSetSpec{
-				Repositories: []RepositorySpec{
-					{
-						Name:   "oci-repo",
-						URL:    "registry/chart-path",
-						OCI:    true,
-						CaFile: "foo",
-					},
+			name: "CaFile enabled",
+			repos: []RepositorySpec{
+				{
+					Name:   "oci-repo",
+					URL:    "registry/chart-path",
+					OCI:    true,
+					CaFile: "foo",
 				},
-			},,
+			},
+			release: &ReleaseSpec{
+				Chart: "oci://oci-repo/chart-path/chart-name",
+			},
 			expected: []string{
 				"--ca-file foo",
 			},
 		},
 		{
-			name:     "CertFile endabled and KeyFile disabled",
-			release:  ReleaseSetSpec: ReleaseSetSpec{
-				Repositories: []RepositorySpec{
-					{
-						Name:   "oci-repo",
-						URL:    "registry/chart-path",
-						OCI:    true,
-						CertFile: "foo"
-					},
+			name: "CertFile endabled and KeyFile disabled",
+			repos: []RepositorySpec{
+				{
+					Name:     "oci-repo",
+					URL:      "registry/chart-path",
+					OCI:      true,
+					CertFile: "foo",
 				},
-			},,
+			},
+			release: &ReleaseSpec{
+				Chart: "oci-repo/chart",
+			},
 			expected: []string{
 				"",
 			},
 		},
 		{
-			name:     "CertFile disabled and KeyFile enabled",
-			release:  ReleaseSetSpec: ReleaseSetSpec{
-				Repositories: []RepositorySpec{
-					{
-						Name:   "oci-repo",
-						URL:    "registry/chart-path",
-						OCI:    true,
-						KeyFile: "bar",
-					},
+			name: "CertFile disabled and KeyFile enabled",
+			repos: []RepositorySpec{
+				{
+					Name:    "oci-repo",
+					URL:     "registry/chart-path",
+					OCI:     true,
+					KeyFile: "bar",
 				},
-			},,
+			},
+			release: &ReleaseSpec{
+				Chart: "oci-repo/chart",
+			},
 			expected: []string{
 				"",
 			},
 		},
 		{
-			name:     "CertFile and KeyFile enabled",
-			release:  ReleaseSetSpec: ReleaseSetSpec{
-				Repositories: []RepositorySpec{
-					{
-						Name:   "oci-repo",
-						URL:    "registry/chart-path",
-						OCI:    true,
-						CertFile: "foo"
-						KeyFile: "bar",
-					},
+			name: "CertFile and KeyFile enabled",
+			repos: []RepositorySpec{
+				{
+					Name:     "oci-repo",
+					URL:      "registry/chart-path",
+					OCI:      true,
+					CertFile: "foo",
+					KeyFile:  "bar",
 				},
-			},,
+			},
+			release: &ReleaseSpec{
+				Chart: "oci-repo/chart",
+			},
 			expected: []string{
 				"--cert-file foo --key-file bar",
 			},
 		},
 		{
-			name:     "SkipTLSVerify enabled",
-			release:  ReleaseSetSpec: ReleaseSetSpec{
-				Repositories: []RepositorySpec{
-					{
-						Name:          "oci-repo",
-						URL:           "registry/chart-path",
-						OCI:           true,
-						SkipTLSVerify: true,
-					},
+			name: "SkipTLSVerify enabled",
+			repos: []RepositorySpec{
+				{
+					Name:          "oci-repo",
+					URL:           "registry/chart-path",
+					OCI:           true,
+					SkipTLSVerify: true,
 				},
-			},,
+			},
+			release: &ReleaseSpec{
+				Chart: "oci-repo/chart",
+			},
 			expected: []string{
 				"--insecure-skip-tls-verify",
 			},
 		},
 		{
-			name:     "Verify enabled",
-			release:  ReleaseSetSpec: ReleaseSetSpec{
-				Repositories: []RepositorySpec{
-					{
-						Name:   "oci-repo",
-						URL:    "registry/chart-path",
-						OCI:    true,
-						Verify: true,
-					},
+			name: "Verify enabled",
+			repos: []RepositorySpec{
+				{
+					Name:   "oci-repo",
+					URL:    "registry/chart-path",
+					OCI:    true,
+					Verify: true,
 				},
-			},,
+			},
+			release: &ReleaseSpec{
+				Chart: "oci-repo/chart",
+			},
 			expected: []string{
 				"--verify",
 			},
 		},
 		{
-			name:     "Keyring enabled",
-			release:  ReleaseSetSpec: ReleaseSetSpec{
-				Repositories: []RepositorySpec{
-					{
-						Name:    "oci-repo",   
-						URL:     "registry/chart-path",
-						OCI:     true,
-						Keyring: true
-					},
+			name: "Keyring disabled",
+			repos: []RepositorySpec{
+				{
+					Name:    "oci-repo",
+					URL:     "registry/chart-path",
+					OCI:     true,
+					Keyring: "",
 				},
 			},
+			release: &ReleaseSpec{
+				Chart: "oci-repo/chart",
+			},
 			expected: []string{
-				"--keyring",
+				"",
 			},
 		},
 		{
-			name:     "PlainHttp enabled",
-			release:  ReleaseSetSpec: ReleaseSetSpec{
-				Repositories: []RepositorySpec{
-					{
-						Name:    "oci-repo",   
-						URL:     "registry/chart-path",
-						OCI:     true,
-						PlainHttp: true
-					},
+			name: "Keyring enabled",
+			repos: []RepositorySpec{
+				{
+					Name:    "oci-repo",
+					URL:     "registry/chart-path",
+					OCI:     true,
+					Keyring: "foo",
 				},
+			},
+			release: &ReleaseSpec{
+				Chart: "oci-repo/chart",
+			},
+			expected: []string{
+				"--keyring", "foo",
+			},
+		},
+		{
+			name: "PlainHttp enabled",
+			repos: []RepositorySpec{
+				{
+					Name:      "oci-repo",
+					URL:       "registry/chart-path",
+					OCI:       true,
+					PlainHttp: true,
+				},
+			},
+			release: &ReleaseSpec{
+				Chart: "oci-repo/chart",
 			},
 			expected: []string{
 				"--plain-http",
 			},
 		},
+		{
+			name: "No Repo",
+			repos: []RepositorySpec{
+				{
+					Name:    "oci-repo",
+					URL:     "registry/chart-path",
+					OCI:     true,
+					Keyring: "foo",
+				},
+			},
+			release: &ReleaseSpec{
+				Chart: "chart",
+			},
+			expected: []string{
+				"",
+			},
+		},
+		{
+			name: "Repo there but doesn't match",
+			repos: []RepositorySpec{
+				{
+					Name:    "oci-repo",
+					URL:     "registry/chart-path",
+					OCI:     true,
+					Keyring: "foo",
+				},
+			},
+			release: &ReleaseSpec{
+				Chart: "foo-repo/chart",
+			},
+			expected: []string{
+				"",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := &HelmState{}
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: tt.repos,
+				},
+			}
 			flags := st.appendGetOCIChartFlags(tt.release)
 			require.Equal(t, tt.expected, flags)
 		})
@@ -3603,28 +3667,28 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 
 func TestAppendChartDownloadPlainHttpFlags(t *testing.T) {
 	tests := []struct {
-		name                         string
+		name             string
 		defaultPlainHttp bool
 		releasePlainHttp bool
-		expected                     []string
+		expected         []string
 	}{
 		{
-			name:                         "defaultPlainHttp true and releasePlainHttp is false",
+			name:             "defaultPlainHttp true and releasePlainHttp is false",
 			defaultPlainHttp: true,
 			releasePlainHttp: false,
-			expected:                     []string{"--plain-http"},
+			expected:         []string{"--plain-http"},
 		},
 		{
-			name:                         "defaultPlainHttp is false and releasePlainHttp is true",
+			name:             "defaultPlainHttp is false and releasePlainHttp is true",
 			defaultPlainHttp: false,
 			releasePlainHttp: true,
-			expected:                     []string{"--plain-http"},
+			expected:         []string{"--plain-http"},
 		},
 		{
-			name:                         "defaultPlainHttp is false and releasePlainHttp is false",
+			name:             "defaultPlainHttp is false and releasePlainHttp is false",
 			defaultPlainHttp: false,
 			releasePlainHttp: false,
-			expected:                     []string{},
+			expected:         []string{},
 		},
 	}
 
