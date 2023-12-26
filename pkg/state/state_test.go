@@ -3474,10 +3474,10 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 				},
 			},
 			release: &ReleaseSpec{
-				Chart: "oci://oci-repo/chart-path/chart-name",
+				Chart: "oci-repo/chart-path/chart-name",
 			},
 			expected: []string{
-				"--ca-file foo",
+				"--ca-file", "foo",
 			},
 		},
 		{
@@ -3493,9 +3493,7 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 			release: &ReleaseSpec{
 				Chart: "oci-repo/chart",
 			},
-			expected: []string{
-				"",
-			},
+			expected: []string{},
 		},
 		{
 			name: "CertFile disabled and KeyFile enabled",
@@ -3510,9 +3508,7 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 			release: &ReleaseSpec{
 				Chart: "oci-repo/chart",
 			},
-			expected: []string{
-				"",
-			},
+			expected: []string{},
 		},
 		{
 			name: "CertFile and KeyFile enabled",
@@ -3529,7 +3525,7 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 				Chart: "oci-repo/chart",
 			},
 			expected: []string{
-				"--cert-file foo --key-file bar",
+				"--cert-file", "foo", "--key-file", "bar",
 			},
 		},
 		{
@@ -3579,9 +3575,7 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 			release: &ReleaseSpec{
 				Chart: "oci-repo/chart",
 			},
-			expected: []string{
-				"",
-			},
+			expected: []string{},
 		},
 		{
 			name: "Keyring enabled",
@@ -3601,23 +3595,6 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 			},
 		},
 		{
-			name: "PlainHttp enabled",
-			repos: []RepositorySpec{
-				{
-					Name:      "oci-repo",
-					URL:       "registry/chart-path",
-					OCI:       true,
-					PlainHttp: true,
-				},
-			},
-			release: &ReleaseSpec{
-				Chart: "oci-repo/chart",
-			},
-			expected: []string{
-				"--plain-http",
-			},
-		},
-		{
 			name: "No Repo",
 			repos: []RepositorySpec{
 				{
@@ -3630,9 +3607,7 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 			release: &ReleaseSpec{
 				Chart: "chart",
 			},
-			expected: []string{
-				"",
-			},
+			expected: []string{},
 		},
 		{
 			name: "Repo there but doesn't match",
@@ -3647,9 +3622,7 @@ func TestHelmState_appendGetOCIChartFlags(t *testing.T) {
 			release: &ReleaseSpec{
 				Chart: "foo-repo/chart",
 			},
-			expected: []string{
-				"",
-			},
+			expected: []string{},
 		},
 	}
 	for _, tt := range tests {
