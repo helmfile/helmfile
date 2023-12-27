@@ -3598,7 +3598,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		st.logger.Debugf("chart already exists at %s", chartPath)
 	} else {
 		flags := st.appendGetOCIChartFlags(release)
-		flags := st.appendChartDownloadPlainHttpFlags(flags, release)
+		flags = st.appendChartDownloadPlainHttpFlags(flags, release)
 
 		err := helm.ChartPull(qualifiedChartName, chartPath, flags...)
 		if err != nil {
