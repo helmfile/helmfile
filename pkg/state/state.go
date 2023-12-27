@@ -1138,6 +1138,14 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		selected = st.Releases
 	}
 
+	if !opts.SkipResolve {
+		updated, err := st.ResolveDeps()
+		if err != nil {
+			return nil, []error{err}
+		}
+		*st = *updated
+	}
+
 	releases := releasesNeedCharts(selected)
 
 	var prepareChartInfoMutex sync.Mutex
@@ -1148,14 +1156,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	jobQueue := make(chan *ReleaseSpec, len(releases))
 	results := make(chan *chartPrepareResult, len(releases))
-
-	if !opts.SkipResolve {
-		updated, err := st.ResolveDeps()
-		if err != nil {
-			return nil, []error{err}
-		}
-		*st = *updated
-	}
 
 	var builds []*chartPrepareResult
 

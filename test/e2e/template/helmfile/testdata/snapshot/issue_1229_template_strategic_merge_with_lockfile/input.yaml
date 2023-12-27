@@ -1,0 +1,28 @@
+repositories:
+- name: myrepo
+  url: http://localhost:18083/
+
+---
+lockFilePath: test-lock-file
+
+releases:
+- name: raw
+  chart: myrepo/raw
+  strategicMergePatches:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: foo
+    data:
+      foo: baz
+  values:
+  - templates:
+    - |
+      chartVersion: {{`{{ .Chart.Version }}`}}
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: foo
+      data:
+        foo: bar
+
