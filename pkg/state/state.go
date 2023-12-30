@@ -1123,16 +1123,13 @@ type PrepareChartKey struct {
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
-	var selected []ReleaseSpec
-
-	var err error
-
 	// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
 	// releases that are (1) selected by the selectors and (2) to be installed.
-	selected, err = st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
+	selected, err := st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
 	if err != nil {
 		return nil, []error{err}
 	}
+	st.Releases = selected
 
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
@@ -2416,20 +2413,13 @@ func (st *HelmState) ResolveDeps() (*HelmState, error) {
 
 // UpdateDeps wrapper for updating dependencies on the releases
 func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds bool) []error {
-	var selected []ReleaseSpec
-
-	if len(st.Selectors) > 0 {
-		var err error
-
-		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
-		// releases that are (1) selected by the selectors and (2) to be installed.
-		selected, err = st.GetSelectedReleases(includeTransitiveNeeds)
-		if err != nil {
-			return []error{err}
-		}
-	} else {
-		selected = st.Releases
+	// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
+	// releases that are (1) selected by the selectors and (2) to be installed.
+	selected, err := st.GetSelectedReleases(includeTransitiveNeeds)
+	if err != nil {
+		return []error{err}
 	}
+	st.Releases = selected
 
 	releases := releasesNeedCharts(selected)
 
