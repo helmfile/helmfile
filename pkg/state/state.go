@@ -1070,6 +1070,8 @@ type ChartPrepareOptions struct {
 	OutputDir              string
 	OutputDirTemplate      string
 	IncludeTransitiveNeeds bool
+	IncludeNeeds           bool
+	SkipNeeds              bool
 	Concurrency            int
 	KubeVersion            string
 	Set                    []string
@@ -1130,7 +1132,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
 		// releases that are (1) selected by the selectors and (2) to be installed.
-		selected, err = st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
+		selected, err = st.GetSelectedReleases(NeedsOptions{
+			IncludeTransitiveNeeds: opts.IncludeTransitiveNeeds,
+			IncludeNeeds:           opts.IncludeNeeds,
+			SkipNeeds:              opts.SkipNeeds,
+		})
 		if err != nil {
 			return nil, []error{err}
 		}
@@ -2184,16 +2190,16 @@ func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
 	return rs
 }
 
-func (st *HelmState) SelectReleases(includeTransitiveNeeds bool) ([]Release, error) {
+func (st *HelmState) SelectReleases(needsOptions NeedsOptions) ([]Release, error) {
 	values := st.Values()
-	rs, err := markExcludedReleases(st.Releases, st.Selectors, st.CommonLabels, values, includeTransitiveNeeds)
+	rs, err := markExcludedReleases(st.Releases, st.Selectors, st.CommonLabels, values, needsOptions)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]any, includeTransitiveNeeds bool) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]any, needsOptions NeedsOptions) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -2238,8 +2244,16 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		}
 		filteredReleases = append(filteredReleases, res)
 	}
-	if includeTransitiveNeeds {
-		unmarkNeedsAndTransitives(filteredReleases, releases)
+	if needsOptions.SkipNeeds {
+		for i, r := range filteredReleases {
+			if r.Needs != nil {
+				filteredReleases[i].ReleaseSpec.Needs = nil
+			}
+		}
+		return filteredReleases, nil
+	}
+	if needsOptions.IncludeTransitiveNeeds || needsOptions.IncludeNeeds {
+		unmarkNeeds(filteredReleases, releases, needsOptions.IncludeTransitiveNeeds)
 	}
 	return filteredReleases, nil
 }
@@ -2281,46 +2295,51 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 	return false, fmt.Errorf("environment values does not contain field '%s'", conditionSplit[0])
 }
 
-func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
-	needsWithTranstives := collectAllNeedsWithTransitives(filteredReleases, allReleases)
-	unmarkReleases(needsWithTranstives, filteredReleases)
+func unmarkNeeds(filteredReleases []Release, allReleases []ReleaseSpec, includeTransitiveNeeds bool) {
+	needsWithTranstives := collectAllNeeds(filteredReleases, allReleases, includeTransitiveNeeds)
+	unmarkReleases(needsWithTranstives, filteredReleases, includeTransitiveNeeds)
 }
 
-func collectAllNeedsWithTransitives(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
-	needsWithTranstives := map[string]struct{}{}
+func collectAllNeeds(filteredReleases []Release, allReleases []ReleaseSpec, includeTransitiveNeeds bool) map[string]struct{} {
+	needs := map[string]struct{}{}
 	for _, r := range filteredReleases {
 		if !r.Filtered {
-			collectNeedsWithTransitives(r.ReleaseSpec, allReleases, needsWithTranstives)
+			collectNeeds(r.ReleaseSpec, allReleases, needs, includeTransitiveNeeds)
 		}
 	}
-	return needsWithTranstives
+	return needs
 }
 
-func unmarkReleases(toUnmark map[string]struct{}, releases []Release) {
+func unmarkReleases(toUnmark map[string]struct{}, releases []Release, includeTransitiveNeeds bool) {
 	for i, r := range releases {
 		if _, ok := toUnmark[ReleaseToID(&r.ReleaseSpec)]; ok {
+			if releases[i].Filtered && !includeTransitiveNeeds {
+				releases[i].Needs = nil
+			}
 			releases[i].Filtered = false
 		}
 	}
 }
 
-func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec, needsWithTranstives map[string]struct{}) {
+func collectNeeds(release ReleaseSpec, allReleases []ReleaseSpec, needs map[string]struct{}, includeTransitiveNeeds bool) {
 	for _, id := range release.Needs {
-		if _, exists := needsWithTranstives[id]; !exists {
-			needsWithTranstives[id] = struct{}{}
-			releaseParts := strings.Split(id, "/")
-			releaseName := releaseParts[len(releaseParts)-1]
-			for _, r := range allReleases {
-				if r.Name == releaseName {
-					collectNeedsWithTransitives(r, allReleases, needsWithTranstives)
+		if _, exists := needs[id]; !exists {
+			needs[id] = struct{}{}
+			if includeTransitiveNeeds {
+				releaseParts := strings.Split(id, "/")
+				releaseName := releaseParts[len(releaseParts)-1]
+				for _, r := range allReleases {
+					if r.Name == releaseName {
+						collectNeeds(r, allReleases, needs, includeTransitiveNeeds)
+					}
 				}
 			}
 		}
 	}
 }
 
-func (st *HelmState) GetSelectedReleases(includeTransitiveNeeds bool) ([]ReleaseSpec, error) {
-	filteredReleases, err := st.SelectReleases(includeTransitiveNeeds)
+func (st *HelmState) GetSelectedReleases(needsOptions NeedsOptions) ([]ReleaseSpec, error) {
+	filteredReleases, err := st.SelectReleases(needsOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -2335,8 +2354,8 @@ func (st *HelmState) GetSelectedReleases(includeTransitiveNeeds bool) ([]Release
 }
 
 // FilterReleases allows for the execution of helm commands against a subset of the releases in the helmfile.
-func (st *HelmState) FilterReleases(includeTransitiveNeeds bool) error {
-	releases, err := st.GetSelectedReleases(includeTransitiveNeeds)
+func (st *HelmState) FilterReleases(needsOptions NeedsOptions) error {
+	releases, err := st.GetSelectedReleases(needsOptions)
 	if err != nil {
 		return err
 	}
@@ -2416,7 +2435,7 @@ func (st *HelmState) ResolveDeps() (*HelmState, error) {
 }
 
 // UpdateDeps wrapper for updating dependencies on the releases
-func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds bool) []error {
+func (st *HelmState) UpdateDeps(helm helmexec.Interface, needsOptions NeedsOptions) []error {
 	var selected []ReleaseSpec
 
 	if len(st.Selectors) > 0 {
@@ -2424,7 +2443,7 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 
 		// This and releasesNeedCharts ensures that we run operations like helm-dep-build and prepare-hook calls only on
 		// releases that are (1) selected by the selectors and (2) to be installed.
-		selected, err = st.GetSelectedReleases(includeTransitiveNeeds)
+		selected, err = st.GetSelectedReleases(needsOptions)
 		if err != nil {
 			return []error{err}
 		}

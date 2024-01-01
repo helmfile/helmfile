@@ -2144,7 +2144,11 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	})
 	fs.Cwd = basePath
 	state = injectFs(state, fs)
-	errs := state.UpdateDeps(helm, false)
+	errs := state.UpdateDeps(helm, NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	})
 
 	want := []string{"/example", "./example", generatedDir}
 	if !reflect.DeepEqual(helm.Charts, want) {
@@ -2573,7 +2577,11 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 				RenderedValues: map[string]any{},
 			}
 			state.Selectors = []string{tt.labels}
-			errs := state.FilterReleases(false)
+			errs := state.FilterReleases(NeedsOptions{
+				SkipNeeds:              true,
+				IncludeNeeds:           false,
+				IncludeTransitiveNeeds: false,
+			})
 			if (errs != nil) != tt.wantErr {
 				t.Errorf("ReleaseStatuses() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 				return

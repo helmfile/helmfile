@@ -102,7 +102,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 44: 
 
 merged environment: &{default  map[] map[]}
-2 release(s) matching name=test2 found in helmfile.yaml
+2 release(s) matching app=test found in helmfile.yaml
 
-err: release "default//test2" depends on "default/kube-system/disabled" which does not match the selectors. Please add a selector like "--selector name=disabled", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+err: release(s) "default/default/external-secrets" depend(s) on an undefined release "default/kube-system/kubernetes-external-secrets". Perhaps you made a typo in "needs" or forgot defining a release named "kubernetes-external-secrets" with appropriate "namespace" and "kubeContext"?
 changing working directory back to "/path/to"

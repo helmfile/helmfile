@@ -58,7 +58,7 @@ func (l *LintImpl) SkipCleanup() bool {
 
 // IncludeNeeds returns the include needs
 func (l *LintImpl) IncludeNeeds() bool {
-	return l.LintOptions.IncludeNeeds || l.IncludeTransitiveNeeds()
+	return l.LintOptions.IncludeNeeds
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs
@@ -68,7 +68,7 @@ func (l *LintImpl) IncludeTransitiveNeeds() bool {
 
 // SkipNeeds returns the skip needs
 func (l *LintImpl) SkipNeeds() bool {
-	if !l.IncludeNeeds() {
+	if !l.IncludeNeeds() && !l.IncludeTransitiveNeeds() {
 		return l.LintOptions.SkipNeeds
 	}
 

@@ -170,10 +170,20 @@ releases:
 		assert.Equal(t, wantLog, gotLog)
 	}
 
-	t.Run("fail on unselected need by default", func(t *testing.T) {
+	t.Run("skip-needs=true on selected by default", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds: true,
+			},
+			selectors: []string{"app=test"},
+			linted:    []exectest.Release{{Name: "external-secrets", Flags: []string{"--namespace", "default"}}, {Name: "my-release", Flags: []string{"--namespace", "default"}}},
+		})
+	})
+
+	t.Run("fail on unselected need by default when skip-need=false", func(t *testing.T) {
 		check(t, testcase{
 			selectors: []string{"app=test"},
-			error:     `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error:     `in ./helmfile.yaml: release(s) "default/default/external-secrets" depend(s) on an undefined release "default/kube-system/kubernetes-external-secrets". Perhaps you made a typo in "needs" or forgot defining a release named "kubernetes-external-secrets" with appropriate "namespace" and "kubeContext"?`,
 		})
 	})
 
@@ -199,8 +209,6 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			linted: []exectest.Release{
-				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
 				{Name: "my-release", Flags: []string{"--namespace", "default"}},

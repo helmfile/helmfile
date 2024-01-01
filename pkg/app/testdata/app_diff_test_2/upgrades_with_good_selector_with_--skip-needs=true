@@ -62,13 +62,11 @@ second-pass rendering result of "helmfile.yaml.part.0":
 merged environment: &{default  map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
-1     default/external-secrets
-2     default/my-release
+1     default/external-secrets, default/my-release
 
-processing releases in group 1/2: default/external-secrets
-processing releases in group 2/2: default/my-release
+processing releases in group 1/1: default/external-secrets, default/my-release
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED

@@ -102,7 +102,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 44: 
 
 merged environment: &{default  map[] map[]}
-1 release(s) matching name=test3 found in helmfile.yaml
+3 release(s) matching name=test3 found in helmfile.yaml
 
 processing 3 groups of releases in this order:
 GROUP RELEASES

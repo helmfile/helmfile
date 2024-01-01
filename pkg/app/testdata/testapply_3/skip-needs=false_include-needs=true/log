@@ -60,7 +60,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default  map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
+3 release(s) matching app=test found in helmfile.yaml
 
 Affected releases are:
   external-secrets (incubator/raw) UPDATED

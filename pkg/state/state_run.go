@@ -89,6 +89,12 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 	return nil
 }
 
+type NeedsOptions struct {
+	IncludeNeeds           bool
+	IncludeTransitiveNeeds bool
+	SkipNeeds              bool
+}
+
 type PlanOptions struct {
 	Purpose                string
 	Reverse                bool
@@ -98,8 +104,12 @@ type PlanOptions struct {
 	SelectedReleases       []ReleaseSpec
 }
 
-func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
-	marked, err := st.SelectReleases(opts.IncludeTransitiveNeeds)
+func (st *HelmState) PlanReleases(opts PlanOptions) ([][]ReleaseSpec, error) {
+	marked, err := st.GetSelectedReleases(NeedsOptions{
+		IncludeNeeds:           opts.IncludeNeeds,
+		IncludeTransitiveNeeds: opts.IncludeTransitiveNeeds,
+		SkipNeeds:              opts.SkipNeeds,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +122,7 @@ func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
 	return groups, nil
 }
 
-func SortedReleaseGroups(releases []Release, opts PlanOptions) ([][]Release, error) {
+func SortedReleaseGroups(releases []ReleaseSpec, opts PlanOptions) ([][]ReleaseSpec, error) {
 	reverse := opts.Reverse
 
 	groups, err := GroupReleasesByDependency(releases, opts)
@@ -129,13 +139,13 @@ func SortedReleaseGroups(releases []Release, opts PlanOptions) ([][]Release, err
 	return groups, nil
 }
 
-func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Release, error) {
-	idToReleases := map[string][]Release{}
+func GroupReleasesByDependency(releases []ReleaseSpec, opts PlanOptions) ([][]ReleaseSpec, error) {
+	idToReleases := map[string][]ReleaseSpec{}
 	idToIndex := map[string]int{}
 
 	d := dag.New()
 	for i, r := range releases {
-		id := ReleaseToID(&r.ReleaseSpec)
+		id := ReleaseToID(&r)
 
 		idToReleases[id] = append(idToReleases[id], r)
 		idToIndex[id] = i
@@ -226,13 +236,13 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		return nil, err
 	}
 
-	var result [][]Release
+	var result [][]ReleaseSpec
 
 	for groupIndex := 0; groupIndex < len(plan); groupIndex++ {
 		dagNodesInGroup := plan[groupIndex]
 
 		var idsInGroup []string
-		var releasesInGroup []Release
+		var releasesInGroup []ReleaseSpec
 
 		for _, node := range dagNodesInGroup {
 			idsInGroup = append(idsInGroup, node.Id)

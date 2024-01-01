@@ -250,13 +250,11 @@ Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/default/external-secrets, default/default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-processing releases in group 2/2: default/default/my-release
+processing releases in group 1/1: default/default/external-secrets, default/default/my-release
 
 UPDATED RELEASES:
 NAME               CHART           VERSION   DURATION
@@ -403,13 +401,11 @@ Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/default/external-secrets, default/default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-processing releases in group 2/2: default/default/my-release
+processing releases in group 1/1: default/default/external-secrets, default/default/my-release
 hook[my-release]: stateFilePath=helmfile.yaml, basePath=.
 
 hook[my-release]: triggered by event "postsync"
@@ -539,7 +535,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 23: 
 
 merged environment: &{default  map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
+3 release(s) matching app=test found in helmfile.yaml
 
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
@@ -807,7 +803,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 24: 
 
 merged environment: &{default  map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
+3 release(s) matching app=test found in helmfile.yaml
 
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
@@ -819,13 +815,15 @@ GROUP RELEASES
 1     default/kube-system/kubernetes-external-secrets
 
 processing releases in group 1/1: default/kube-system/kubernetes-external-secrets
-processing 2 groups of releases in this order:
+processing 3 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/kube-system/kubernetes-external-secrets
+2     default/default/external-secrets
+3     default/default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-processing releases in group 2/2: default/default/my-release
+processing releases in group 1/3: default/kube-system/kubernetes-external-secrets
+processing releases in group 2/3: default/default/external-secrets
+processing releases in group 3/3: default/default/my-release
 
 UPDATED RELEASES:
 NAME               CHART           VERSION   DURATION
@@ -880,7 +878,6 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]string{
-				// delete frontend-v1 and backend-v1
 				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "default")}: ``,
 				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
 external-secrets 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
@@ -955,19 +952,21 @@ second-pass rendering result of "helmfile.yaml.part.0":
 24: 
 
 merged environment: &{default  map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
+3 release(s) matching app=test found in helmfile.yaml
 
 Affected releases are:
   external-secrets (incubator/raw) UPDATED
   my-release (incubator/raw) UPDATED
 
-processing 2 groups of releases in this order:
+processing 3 groups of releases in this order:
 GROUP RELEASES
-1     default/default/external-secrets
-2     default/default/my-release
+1     default/kube-system/kubernetes-external-secrets
+2     default/default/external-secrets
+3     default/default/my-release
 
-processing releases in group 1/2: default/default/external-secrets
-processing releases in group 2/2: default/default/my-release
+processing releases in group 1/3: default/kube-system/kubernetes-external-secrets
+processing releases in group 2/3: default/default/external-secrets
+processing releases in group 3/3: default/default/my-release
 
 UPDATED RELEASES:
 NAME               CHART           VERSION   DURATION

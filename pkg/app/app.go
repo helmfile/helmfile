@@ -133,7 +133,11 @@ func (a *App) Deps(c DepsConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipRepos(),
+		IncludeNeeds:           c.IncludeTransitiveNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, SetFilter(true))
 }
 
 func (a *App) Repos(c ReposConfigProvider) error {
@@ -145,7 +149,11 @@ func (a *App) Repos(c ReposConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              !c.IncludeTransitiveNeeds(),
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, SetFilter(true))
 }
 
 // TODO: Remove this function once Helmfile v0.x
@@ -164,7 +172,11 @@ func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              !c.IncludeTransitiveNeeds(),
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, SetFilter(true))
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {
@@ -189,7 +201,8 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			IncludeCRDs:            &includeCRDs,
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
@@ -220,7 +233,11 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		}
 
 		return matched, criticalErrs
-	}, c.IncludeTransitiveNeeds())
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 
 	if err != nil {
 		return err
@@ -255,8 +272,9 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Set:                    c.Set(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -266,7 +284,11 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 }
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
@@ -285,7 +307,11 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              !c.IncludeTransitiveNeeds(),
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, SetFilter(true))
 }
 
 type MultiError struct {
@@ -327,7 +353,8 @@ func (a *App) Lint(c LintConfigProvider) error {
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 		}, func() {
 			ok, lintErrs, errs = a.lint(run, c)
 		})
@@ -341,7 +368,11 @@ func (a *App) Lint(c LintConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 
 	if err != nil {
 		return err
@@ -371,7 +402,11 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
@@ -384,7 +419,9 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			Wait:                   c.Wait(),
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			SkipNeeds:              c.SkipNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 		}, func() {
@@ -396,7 +433,11 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 }
 
 func (a *App) Apply(c ApplyConfigProvider) error {
@@ -420,7 +461,9 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			SkipCleanup:            c.RetainValuesFiles() || c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
+			SkipNeeds:              c.SkipNeeds(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -436,7 +479,11 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), opts...)
+	}, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	}, opts...)
 
 	if err != nil {
 		return err
@@ -466,7 +513,11 @@ func (a *App) Status(c StatusesConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 }
 
 // TODO: Remove this function once Helmfile v0.x
@@ -490,7 +541,11 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 			ok, errs = a.delete(run, c.Purge(), c)
 		}
 		return
-	}, false, SetReverse(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetReverse(true))
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
@@ -512,7 +567,11 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 			ok, errs = a.delete(run, true, c)
 		}
 		return
-	}, false, SetReverse(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetReverse(true))
 }
 
 func (a *App) Test(c TestConfigProvider) error {
@@ -536,7 +595,11 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
@@ -589,7 +652,11 @@ func (a *App) PrintState(c StateConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 }
 
 func (a *App) ListReleases(c ListConfigProvider) error {
@@ -622,7 +689,11 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		releases = append(releases, stateReleases...)
 
 		return
-	}, false, SetFilter(true))
+	}, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	}, SetFilter(true))
 
 	if err != nil {
 		return err
@@ -961,7 +1032,7 @@ var (
 	}
 )
 
-func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds bool, o ...LoadOption) error {
+func (a *App) ForEachState(do func(*Run) (bool, []error), needsOptions state.NeedsOptions, o ...LoadOption) error {
 	ctx := NewContext()
 	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState) (bool, []error) {
 		helm := a.getHelm(st)
@@ -971,12 +1042,12 @@ func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds
 			return false, []error{err}
 		}
 		return do(run)
-	}, includeTransitiveNeeds, o...)
+	}, needsOptions, o...)
 
 	return err
 }
 
-func printBatches(batches [][]state.Release) string {
+func printBatches(batches [][]state.ReleaseSpec) string {
 	buf := &bytes.Buffer{}
 
 	w := new(tabwriter.Writer)
@@ -988,7 +1059,7 @@ func printBatches(batches [][]state.Release) string {
 	for i, batch := range batches {
 		ids := []string{}
 		for _, r := range batch {
-			ids = append(ids, state.ReleaseToID(&r.ReleaseSpec))
+			ids = append(ids, state.ReleaseToID(&r))
 		}
 		fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
 	}
@@ -1008,7 +1079,7 @@ func withDAG(templated *state.HelmState, helm helmexec.Interface, logger *zap.Su
 	return withBatches(opts.Purpose, templated, batches, helm, logger, converge)
 }
 
-func withBatches(purpose string, templated *state.HelmState, batches [][]state.Release, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
+func withBatches(purpose string, templated *state.HelmState, batches [][]state.ReleaseSpec, helm helmexec.Interface, logger *zap.SugaredLogger, converge func(*state.HelmState, helmexec.Interface) (bool, []error)) (bool, []error) {
 	numBatches := len(batches)
 
 	if purpose == "" {
@@ -1021,10 +1092,7 @@ func withBatches(purpose string, templated *state.HelmState, batches [][]state.R
 
 	for i, batch := range batches {
 		var targets []state.ReleaseSpec
-
-		for _, marked := range batch {
-			targets = append(targets, marked.ReleaseSpec)
-		}
+		targets = append(targets, batch...)
 
 		var releaseIds []string
 		for _, r := range targets {
@@ -1053,7 +1121,7 @@ type Opts struct {
 	DAGEnabled bool
 }
 
-func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge func(*state.HelmState) (bool, []error), includeTransitiveNeeds bool, opt ...LoadOption) error {
+func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge func(*state.HelmState) (bool, []error), needsOptions state.NeedsOptions, opt ...LoadOption) error {
 	opts := LoadOpts{
 		Selectors: a.Selectors,
 	}
@@ -1085,7 +1153,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 				_, err := converge(st)
 				return err
 			},
-				includeTransitiveNeeds)
+				needsOptions)
 		}
 	}
 
@@ -1098,9 +1166,9 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 	return a.visitStates(fileOrDir, opts, fHelmStatsWithOverrides)
 }
 
-func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
+func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, needsOptions state.NeedsOptions) (bool, []error) {
 	if len(st.Selectors) > 0 {
-		err := st.FilterReleases(includeTransitiveNeeds)
+		err := st.FilterReleases(needsOptions)
 		if err != nil {
 			return false, []error{err}
 		}
@@ -1146,11 +1214,11 @@ func checkDuplicates(releases []state.ReleaseSpec) error {
 	return nil
 }
 
-func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
-	return func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
+func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface, needsOptions state.NeedsOptions) (bool, []error) {
+	return func(st *state.HelmState, helm helmexec.Interface, needsOptions state.NeedsOptions) (bool, []error) {
 		return processFilteredReleases(st, func(st *state.HelmState) []error {
 			return converge(st, helm)
-		}, includeTransitiveNeeds)
+		}, needsOptions)
 	}
 }
 
@@ -1249,8 +1317,8 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 	return files, nil
 }
 
-func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
-	selected, err := r.state.GetSelectedReleases(includeTransitiveNeeds)
+func (a *App) getSelectedReleases(r *Run, needsOptions state.NeedsOptions) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
+	selected, err := r.state.GetSelectedReleases(needsOptions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1328,7 +1396,11 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 
 	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 	if err != nil {
 		return false, false, []error{err}
 	}
@@ -1350,9 +1422,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	var toApplyWithNeeds []state.ReleaseSpec
 
 	for _, rs := range plan {
-		for _, r := range rs {
-			toApplyWithNeeds = append(toApplyWithNeeds, r.ReleaseSpec)
-		}
+		toApplyWithNeeds = append(toApplyWithNeeds, rs...)
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
@@ -1427,7 +1497,7 @@ Do you really want to apply?
 	st.Releases = selectedAndNeededReleases
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
-		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			for _, r := range subst.Releases {
 				release := r
 				if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
@@ -1442,7 +1512,7 @@ Do you really want to apply?
 
 		// We deleted releases by traversing the DAG in reverse order
 		if len(releasesToBeDeleted) > 0 {
-			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1464,7 +1534,7 @@ Do you really want to apply?
 
 		// We upgrade releases by traversing the DAG
 		if len(releasesToBeUpdated) > 0 {
-			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1517,7 +1587,11 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	affectedReleases := state.AffectedReleases{}
 
-	toSync, _, err := a.getSelectedReleases(r, false)
+	toSync, _, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1669,7 +1743,11 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 
 	allReleases := st.Releases
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, false)
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              true,
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1704,12 +1782,12 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	}
 
 	if len(toStatus) > 0 {
-		_, templateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toStatus, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		_, statusErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toStatus, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			return subst.ReleaseStatuses(helm, c.Concurrency())
 		}))
 
-		if len(templateErrs) > 0 {
-			errs = append(errs, templateErrs...)
+		if len(statusErrs) > 0 {
+			errs = append(errs, statusErrs...)
 		}
 	}
 	return true, errs
@@ -1719,7 +1797,11 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1741,9 +1823,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	var toSyncWithNeeds []state.ReleaseSpec
 
 	for _, rs := range batches {
-		for _, r := range rs {
-			toSyncWithNeeds = append(toSyncWithNeeds, r.ReleaseSpec)
-		}
+		toSyncWithNeeds = append(toSyncWithNeeds, rs...)
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
@@ -1836,7 +1916,7 @@ Do you really want to sync?
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		if len(releasesToDelete) > 0 {
-			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1857,7 +1937,7 @@ Do you really want to sync?
 		}
 
 		if len(releasesToUpdate) > 0 {
-			_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+			_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
@@ -1921,7 +2001,11 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state.HelmState) []error) (bool, []error) {
 	st := r.state
 
-	selectedReleases, deduplicated, err := a.getSelectedReleases(r, false)
+	selectedReleases, deduplicated, err := a.getSelectedReleases(r, state.NeedsOptions{
+		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           c.IncludeNeeds(),
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -1948,9 +2032,7 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 	var selectedReleasesWithNeeds []state.ReleaseSpec
 
 	for _, rs := range batches {
-		for _, r := range rs {
-			selectedReleasesWithNeeds = append(selectedReleasesWithNeeds, r.ReleaseSpec)
-		}
+		selectedReleasesWithNeeds = append(selectedReleasesWithNeeds, rs...)
 	}
 
 	var toRender []state.ReleaseSpec
@@ -1973,7 +2055,7 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 		// That's why we don't pass in `IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()` here.
 		// Otherwise, in case include-needs=true, it will include the needs of needs, which results in unexpectedly introducing transitive needs,
 		// even if include-transitive-needs=true is unspecified.
-		if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: c.SkipNeeds(), IncludeNeeds: includeNeeds}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: c.SkipNeeds(), IncludeNeeds: includeNeeds, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			rels = append(rels, subst.Releases...)
 			return nil
 		})); len(errs) > 0 {
@@ -2006,7 +2088,7 @@ func (a *App) test(r *Run, c TestConfigProvider) []error {
 
 	st := r.state
 
-	toTest, _, err := a.getSelectedReleases(r, false)
+	toTest, _, err := a.getSelectedReleases(r, state.NeedsOptions{})
 	if err != nil {
 		return []error{err}
 	}
@@ -2028,7 +2110,7 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	toRender, _, err := a.getSelectedReleases(r, false)
+	toRender, _, err := a.getSelectedReleases(r, state.NeedsOptions{})
 	if err != nil {
 		return false, []error{err}
 	}

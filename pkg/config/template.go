@@ -71,7 +71,7 @@ func (t *TemplateImpl) IncludeCRDs() bool {
 
 // IncludeNeeds returns the include needs
 func (t *TemplateImpl) IncludeNeeds() bool {
-	return t.TemplateOptions.IncludeNeeds || t.IncludeTransitiveNeeds()
+	return t.TemplateOptions.IncludeNeeds
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs
@@ -101,7 +101,7 @@ func (t *TemplateImpl) SkipCleanup() bool {
 
 // SkipNeeds returns the skip needs
 func (t *TemplateImpl) SkipNeeds() bool {
-	if !t.IncludeNeeds() {
+	if !t.IncludeNeeds() && !t.IncludeTransitiveNeeds() {
 		return t.TemplateOptions.SkipNeeds
 	}
 

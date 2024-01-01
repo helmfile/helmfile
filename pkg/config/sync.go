@@ -60,7 +60,7 @@ func (t *SyncImpl) Concurrency() int {
 
 // IncludeNeeds returns the include needs
 func (t *SyncImpl) IncludeNeeds() bool {
-	return t.SyncOptions.IncludeNeeds || t.IncludeTransitiveNeeds()
+	return t.SyncOptions.IncludeNeeds
 }
 
 // IncludeTransitiveNeeds returns the include transitive needs
@@ -75,7 +75,7 @@ func (t *SyncImpl) Set() []string {
 
 // SkipNeeds returns the skip needs
 func (t *SyncImpl) SkipNeeds() bool {
-	if !t.IncludeNeeds() {
+	if !t.IncludeNeeds() && !t.IncludeTransitiveNeeds() {
 		return t.SyncOptions.SkipNeeds
 	}
 

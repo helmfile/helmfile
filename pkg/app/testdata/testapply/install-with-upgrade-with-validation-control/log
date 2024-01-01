@@ -47,26 +47,22 @@ Affected releases are:
   baz (stable/mychart3) UPDATED
   foo (stable/mychart1) UPDATED
 
-invoking preapply hooks for 2 groups of releases in this order:
+invoking preapply hooks for 1 groups of releases in this order:
 GROUP RELEASES
-1     default//foo
-2     default//baz, default//bar
+1     default//baz, default//foo, default//bar
 
-invoking preapply hooks for releases in group 1/2: default//foo
-invoking preapply hooks for releases in group 2/2: default//baz, default//bar
-processing 2 groups of releases in this order:
+invoking preapply hooks for releases in group 1/1: default//baz, default//foo, default//bar
+processing 1 groups of releases in this order:
 GROUP RELEASES
-1     default//baz, default//bar
-2     default//foo
+1     default//baz, default//foo, default//bar
 
-processing releases in group 1/2: default//baz, default//bar
-processing releases in group 2/2: default//foo
+processing releases in group 1/1: default//baz, default//foo, default//bar
 getting deployed release version failed: Failed to get the version for: mychart1
 
 UPDATED RELEASES:
 NAME   CHART             VERSION   DURATION
 baz    stable/mychart3   3.1.0           0s
-bar    stable/mychart2   3.1.0           0s
 foo    stable/mychart1                   0s
+bar    stable/mychart2   3.1.0           0s
 
 changing working directory back to "/path/to"
