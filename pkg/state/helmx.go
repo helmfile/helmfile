@@ -110,8 +110,13 @@ func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *
 // If the opt parameter is not nil and opt.DryRun is not empty, the "--dry-run" flag and the value of opt.DryRun are appended to the flags slice.
 // The updated flags slice is returned.
 func (st *HelmState) appendDryRunFlags(flags []string, opt *SyncOpts) []string {
-	if opt != nil && opt.DryRun != "" {
-		flags = append(flags, "--dry-run", opt.DryRun)
+	if helm.IsVersionAtLeast("3.13.0") {
+		switch {
+		case opt != nil && opt.DryRun != "":
+			flags = append(flags, "--dry-run", opt.DryRun)
+		case opt != nil && opt.DryRun != "":
+			flags = append(flags, "--dry-run", "client")
+		}
 	}
 	return flags
 }
