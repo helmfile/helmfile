@@ -210,16 +210,45 @@ func TestAppendDryRunFlags(t *testing.T) {
 		{
 			name: "do dry-run on client",
 			args: args{
+<<<<<<< Updated upstream
 				dryRun:   "client",
+=======
+				flags:    []string{},
+				dry-run:  "client",
+				helm:     testutil.NewVersionHelmExec("3.13.0"),
+				expected: []string{"--dry-run", "client"},
+			},
+		},
+		{
+			name: "empty dry-run means client",
+			args: args{
+				flags:    []string{},
+				dry-run:  "",
+				helm:     testutil.NewVersionHelmExec("3.13.0"),
+>>>>>>> Stashed changes
 				expected: []string{"--dry-run", "client"},
 			},
 		},
 		{
 			name: "do dry-run on server",
 			args: args{
+<<<<<<< Updated upstream
 				dryRun:   "server",
+=======
+				flags:    []string{},
+				dry-run:  "server",
+				helm:     testutil.NewVersionHelmExec("3.13.0"),
+>>>>>>> Stashed changes
 				expected: []string{"--dry-run", "server"},
 			},
+			{
+				name: "no version below 3.13.0",
+				args: args{
+					flags:    []string{},
+					dry-run:  "server",
+					helm:     testutil.NewVersionHelmExec("3.12.1"),
+					expected: []string{},
+				},
 		},
 	}
 	for _, tt := range tests {
