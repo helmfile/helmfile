@@ -1,3 +1,5 @@
 mysecret: MYSECRET
 raw2:
   enabled: false
+release-disabled:
+  enabled: false
