@@ -6,6 +6,7 @@ const (
 	SkipInsecureTemplateFunctions = "HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS"
 	Experimental                  = "HELMFILE_EXPERIMENTAL" // environment variable for experimental features, expecting "true" lower case
 	Environment                   = "HELMFILE_ENVIRONMENT"
+	FilePath                      = "HELMFILE_FILE_PATH"
 	TempDir                       = "HELMFILE_TEMPDIR"
 	UpgradeNoticeDisabled         = "HELMFILE_UPGRADE_NOTICE_DISABLED"
 	V1Mode                        = "HELMFILE_V1MODE"

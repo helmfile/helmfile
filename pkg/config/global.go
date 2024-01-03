@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/term"
 
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/state"
 )
@@ -120,7 +121,12 @@ func (g *GlobalImpl) Chart() string {
 
 // FileOrDir returns the path to the Helmfile.
 func (g *GlobalImpl) FileOrDir() string {
-	return g.GlobalOptions.File
+	file := g.GlobalOptions.File
+	if file == "" {
+		file = os.Getenv(envvar.FilePath)
+	}
+
+	return file
 }
 
 // Selectors returns the selectors to use.
