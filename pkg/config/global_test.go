@@ -43,4 +43,5 @@ func TestFileOrDir(t *testing.T) {
 		received := NewGlobalImpl(&test.opts).FileOrDir()
 		require.Equalf(t, test.expected, received, "FileOrDir expected %t, received %t", test.expected, received)
 	}
+	os.Unsetenv(envvar.FilePath)
 }
