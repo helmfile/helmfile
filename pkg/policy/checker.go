@@ -116,7 +116,7 @@ func TopConfigKeysVerifier(filePath string, helmfileContent []byte) (bool, error
 		preKey := orderKeys[i-1]
 		currentKey := orderKeys[i]
 		if topkeysPriority[preKey] > topkeysPriority[currentKey] {
-			return runtime.V1Mode, fmt.Errorf("top-level config key %s must be defined before %s in %s", preKey, currentKey, filePath)
+			return runtime.V1Mode, fmt.Errorf("top-level config key %s must be defined before %s in %s", currentKey, preKey, filePath)
 		}
 	}
 	return false, nil
