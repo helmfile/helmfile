@@ -24,7 +24,7 @@ require (
 	github.com/variantdev/dag v1.1.0
 	go.szostok.io/version v1.2.0
 	go.uber.org/zap v1.26.0
-	golang.org/x/sync v0.5.0
+	golang.org/x/sync v0.6.0
 	golang.org/x/term v0.16.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.13.3
