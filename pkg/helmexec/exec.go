@@ -210,7 +210,6 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 		return nil
 	}
 
-	buffer := bytes.Buffer{}
 	args := []string{
 		"registry",
 		"login",
@@ -232,7 +231,8 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 		args = append(args, "--insecure")
 	}
 
-	args = append(args, "--username", username, "--password-stdin", password)
+	args = append(args, "--username", username, "--password-stdin")
+	buffer := bytes.Buffer{}
 	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
 
 	helm.logger.Info("Logging in to registry")

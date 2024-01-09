@@ -283,6 +283,43 @@ exec: helm --kube-context dev repo update
 	}
 }
 
+func Test_RegistryLogin(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary:  "helm",
+		version:     semver.MustParse("v3.12.0"),
+		logger:      logger,
+		kubeContext: "dev",
+		runner:      &mockRunner{},
+	}
+	err := helm.RegistryLogin("repo.example.com", "example_user", "example_password", "example_ca", "example_cert", "example_key", true)
+	expected := `Logging in to registry
+exec: helm --kube-context dev registry login repo.example.com --cert-file example_cert --key-file example_key --ca-file example_ca --insecure --username example_user --password-stdin
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.RegistryLogin()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	// Test helm version prior to v3.12.0, without support for TLS
+	buffer.Reset()
+	helm.version = semver.MustParse("v3.11.0")
+
+	err = helm.RegistryLogin("repo.example.com", "example_user", "example_password", "example_ca", "example_cert", "example_key", true)
+	expected = `Logging in to registry
+exec: helm --kube-context dev registry login repo.example.com --insecure --username example_user --password-stdin
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.RegistryLogin()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
 func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
