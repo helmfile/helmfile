@@ -37,4 +37,5 @@ information to this file.
 | [Norddeutscher Rundfunk](https://www.ndr.de) | production | Using Helmfile since 2020 to deploy workloads to several similar clusters (dev, qa, prod, test, etc.) for sites tagesschau.de and sportschau.de. Thank you so much for your awesome work! | Hamburg, Germany | August 2022 |
 | [Dealhub](https://dealhub.io/) | production | Helmfile was an essential part of our k8s migration. Keep up the good work! | Holon, Israel | January 2023 |
 | [BlueLabs](https://bluelabs.eu/) | production | Helmfile is the cornerstone of our lightweight, auditable and centralized GKE deployments. | Europe | February 2021 |
+| [Zhihu](https://www.zhihu.com/) | production | helmfile is an important tool for the deployment of our basic components, which can achieve standardization and auditability. |China, Beijing | December 2023 |
 <!-- TABLE_END -->
