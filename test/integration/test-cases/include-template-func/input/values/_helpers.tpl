@@ -1,3 +1,3 @@
 {{- define "echo" -}}
-{{ .Echo }}
+{{ .Echo | trim }}
 {{- end }}

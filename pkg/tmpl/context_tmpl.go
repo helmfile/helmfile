@@ -87,17 +87,6 @@ func (c *Context) newTemplate() (*template.Template, error) {
 		tmpl = tmpl.Option("missingkey=error")
 	}
 
-	tpls, err := c.helperTPLs()
-	if err != nil {
-		return nil, err
-	}
-	for _, tpl := range tpls {
-		tmpl, err = tmpl.Parse(tpl.content)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse helper template %s: %v", tpl.name, err)
-		}
-	}
-
 	includedNames := make(map[string]int)
 
 	// Add the 'include' function here so we can close over t.
@@ -116,6 +105,18 @@ func (c *Context) newTemplate() (*template.Template, error) {
 		return buf.String(), err
 	}
 	tmpl.Funcs(funcMap)
+
+	tpls, err := c.helperTPLs()
+	if err != nil {
+		return nil, err
+	}
+	for _, tpl := range tpls {
+		tmpl, err = tmpl.Parse(tpl.content)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse helper template %s: %v", tpl.name, err)
+		}
+	}
+
 	return tmpl, nil
 }
 

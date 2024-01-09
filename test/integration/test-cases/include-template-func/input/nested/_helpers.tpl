@@ -1,3 +1,3 @@
 {{- define "echo" -}}
-nested-{{ .Echo }}
+nested-{{ .Echo | trim }}
 {{- end }}
