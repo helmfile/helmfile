@@ -3192,6 +3192,15 @@ func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 	return output, nil
 }
 
+func hideChartCredentials(chartCredentials string) string {
+	httpIndex := strings.Index(chartCredentials, "http")
+	atIndex := strings.LastIndex(chartCredentials, "@")
+	if httpIndex >= 0 && atIndex > httpIndex {
+		chartCredentials = chartCredentials[:httpIndex+4] + "" + chartCredentials[atIndex:]
+	}
+	return chartCredentials
+}
+
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
 func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 	if ar.Upgraded != nil && len(ar.Upgraded) > 0 {
@@ -3203,7 +3212,8 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Upgraded {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.duration.Round(time.Second))
+			modifiedChart := hideChartCredentials(release.Chart)
+			err := tbl.AddRow(release.Name, modifiedChart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
