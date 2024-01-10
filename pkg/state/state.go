@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -3192,6 +3193,16 @@ func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 	return output, nil
 }
 
+func hideChartCredentials(chartCredentials string) (string, error) {
+	u, err := url.Parse(chartCredentials)
+	if err != nil {
+		return "", err
+	}
+	u.User = nil
+	modifiedURL := u.String()
+	return modifiedURL, nil
+}
+
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
 func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 	if ar.Upgraded != nil && len(ar.Upgraded) > 0 {
@@ -3203,7 +3214,12 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Upgraded {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.duration.Round(time.Second))
+			modifiedChart, modErr := hideChartCredentials(release.Chart)
+			if modErr != nil {
+				logger.Warn("Could not modify chart credentials, %v", modErr)
+				continue
+			}
+			err := tbl.AddRow(release.Name, modifiedChart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
