@@ -806,18 +806,23 @@ exec: helm --kube-context dev chart pull chart
 exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
 `,
 		},
+		{
+			name:        "more then v3.7.0 with rc",
+			helmBin:     "helm",
+			helmVersion: "v3.14.0-rc.1+g69dcc92",
+			chartName:   "repo/helm-charts:0.14.0",
+			chartPath:   "path1",
+			chartFlags:  []string{"--untardir", "/tmp/dir"},
+			listResult: `Pulling repo/helm-charts:0.14.0
+exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
+`,
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			buffer.Reset()
-			helm := &execer{
-				helmBinary:  tt.helmBin,
-				version:     semver.MustParse(tt.helmVersion),
-				logger:      logger,
-				kubeContext: "dev",
-				runner:      &mockRunner{},
-			}
+			helm := New(tt.helmBin, HelmExecOptions{}, logger, "dev", &mockRunner{output: []byte(tt.helmVersion)})
 			err := helm.ChartPull(tt.chartName, tt.chartPath, tt.chartFlags...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)

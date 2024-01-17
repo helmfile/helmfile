@@ -121,6 +121,12 @@ func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, 
 	if err != nil {
 		panic(err)
 	}
+
+	if version.Prerelease() != "" {
+		logger.Warnf("Helm version %s is a pre-release version. This may cause problems when deploying Helm charts.\n", version)
+		*version, _ = version.SetPrerelease("")
+	}
+
 	return &execer{
 		helmBinary:       helmBinary,
 		options:          options,
