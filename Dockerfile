@@ -39,7 +39,7 @@ RUN set -x && \
     echo Verifying ${HELM_FILENAME}... && \
     case ${TARGETPLATFORM} in \
         "linux/amd64")  HELM_SHA256="f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651"  ;; \
-        "linux/arm64")  HELM_SHA256="cf38dfdead7266ae56662743bda0c78655814f0adeca382d1b07a812bb1a599a"  ;; \
+        "linux/arm64")  HELM_SHA256="b29e61674731b15f6ad3d1a3118a99d3cc2ab25a911aad1b8ac8c72d5a9d2952"  ;; \
     esac && \
     echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
     echo Extracting ${HELM_FILENAME}... && \
