@@ -63,7 +63,10 @@ func (d *UnresolvedDependencies) Add(chart, url, versionConstraint string) error
 		Repository:        url,
 		VersionConstraint: versionConstraint,
 	}
-	return d.add(dep)
+	if !d.contains(dep) {
+		return d.add(dep)
+	}
+	return nil
 }
 
 func (d *UnresolvedDependencies) add(dep unresolvedChartDependency) error {
@@ -75,6 +78,22 @@ func (d *UnresolvedDependencies) add(dep unresolvedChartDependency) error {
 	}
 	d.deps[dep.ChartName] = deps
 	return nil
+}
+
+// contains checks if the UnresolvedDependencies contains the specified unresolvedChartDependency.
+// It returns true if the dependency is found, otherwise it returns false.
+// fix 'more than one dependency with name or alias "raw"' error since helm v3.14.0
+func (d *UnresolvedDependencies) contains(dep unresolvedChartDependency) bool {
+	deps := d.deps[dep.ChartName]
+	if deps == nil {
+		return false
+	}
+	for _, existDep := range deps {
+		if existDep.ChartName == dep.ChartName {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *UnresolvedDependencies) ToChartRequirements() *ChartRequirements {
