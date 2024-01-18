@@ -54,13 +54,13 @@ jobs:
           # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
-          - helm-version: v3.12.3
+          - helm-version: v3.13.3
             kustomize-version: v4.5.7
             plugin-secrets-version: 3.15.0
             plugin-diff-version: 3.8.1
             extra-helmfile-flags: ''
             v1mode: ''
-          - helm-version: v3.12.3
+          - helm-version: v3.13.3
             kustomize-version: v5.2.1
             # We assume that the helm-secrets plugin is supposed to
             # work with the two most recent helm minor versions.
@@ -71,20 +71,20 @@ jobs:
             plugin-diff-version: 3.9.2
             extra-helmfile-flags: ''
             v1mode: ''
-          - helm-version: v3.13.3
+          - helm-version: v3.14.0
             kustomize-version: v4.5.7
             plugin-secrets-version: 3.15.0
             plugin-diff-version: 3.8.1
             extra-helmfile-flags: ''
             v1mode: ''
-          - helm-version: v3.13.3
+          - helm-version: v3.14.0
             kustomize-version: v5.2.1
             plugin-secrets-version: 4.5.1
             plugin-diff-version: 3.9.2
             extra-helmfile-flags: ''
             v1mode: ''
           # Helmfile v1
-          - helm-version: v3.13.3
+          - helm-version: v3.14.0
             kustomize-version: v5.2.1
             plugin-secrets-version: 4.5.1
             plugin-diff-version: 3.9.2
@@ -92,7 +92,7 @@ jobs:
             v1mode: 'true'
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
-          - helm-version: v3.13.3
+          - helm-version: v3.14.0
             kustomize-version: v5.2.1
             plugin-secrets-version: 4.5.1
             plugin-diff-version: 3.9.2
