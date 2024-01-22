@@ -161,6 +161,10 @@ repositories:
 - name: skipTLS
   url: https://ss.my-insecure-domain.com
   skipTLSVerify: true
+# Advanced configuration: If you Repo only supports Plain HTTP
+- name: plainHTTP
+  url: http://just.http.domain.com
+  plainHttp: true
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
@@ -221,6 +225,8 @@ helmDefaults:
   cascade: "background"
   # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
   insecureSkipTLSVerify: false
+  # plainHttp is true if fetching the remote shart should be done using HTTP
+  plainHttp: true
   # --wait flag for destroy/delete, if set to true, will wait until all resources are deleted before mark delete command as successful
   deleteWait: false
   # Timeout is the time in seconds to wait for helmfile destroy/delete (default 300)
@@ -334,6 +340,8 @@ releases:
     cascade: "background"
     # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
     insecureSkipTLSVerify: false
+    # plainHttp is true if fetching the remote shart should be done using HTTP
+    plainHttp: true
     # suppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
     suppressDiff: false
 
