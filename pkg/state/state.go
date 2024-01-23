@@ -3198,7 +3198,9 @@ func hideChartCredentials(chartCredentials string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	u.User = nil
+    if u.User != nil {
+        u.User = url.UserPassword("***","***")
+    }
 	modifiedURL := u.String()
 	return modifiedURL, nil
 }
