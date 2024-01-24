@@ -121,6 +121,12 @@ func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, 
 	if err != nil {
 		panic(err)
 	}
+
+	if version.Prerelease() != "" {
+		logger.Warnf("Helm version %s is a pre-release version. This may cause problems when deploying Helm charts.\n", version)
+		*version, _ = version.SetPrerelease("")
+	}
+
 	return &execer{
 		helmBinary:       helmBinary,
 		options:          options,
@@ -210,7 +216,6 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 		return nil
 	}
 
-	buffer := bytes.Buffer{}
 	args := []string{
 		"registry",
 		"login",
@@ -232,7 +237,8 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 		args = append(args, "--insecure")
 	}
 
-	args = append(args, "--username", username, "--password-stdin", password)
+	args = append(args, "--username", username, "--password-stdin")
+	buffer := bytes.Buffer{}
 	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
 
 	helm.logger.Info("Logging in to registry")

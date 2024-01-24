@@ -283,6 +283,43 @@ exec: helm --kube-context dev repo update
 	}
 }
 
+func Test_RegistryLogin(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary:  "helm",
+		version:     semver.MustParse("v3.12.0"),
+		logger:      logger,
+		kubeContext: "dev",
+		runner:      &mockRunner{},
+	}
+	err := helm.RegistryLogin("repo.example.com", "example_user", "example_password", "example_ca", "example_cert", "example_key", true)
+	expected := `Logging in to registry
+exec: helm --kube-context dev registry login repo.example.com --cert-file example_cert --key-file example_key --ca-file example_ca --insecure --username example_user --password-stdin
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.RegistryLogin()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	// Test helm version prior to v3.12.0, without support for TLS
+	buffer.Reset()
+	helm.version = semver.MustParse("v3.11.0")
+
+	err = helm.RegistryLogin("repo.example.com", "example_user", "example_password", "example_ca", "example_cert", "example_key", true)
+	expected = `Logging in to registry
+exec: helm --kube-context dev registry login repo.example.com --insecure --username example_user --password-stdin
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.RegistryLogin()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
 func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
@@ -769,18 +806,23 @@ exec: helm --kube-context dev chart pull chart
 exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
 `,
 		},
+		{
+			name:        "more then v3.7.0 with rc",
+			helmBin:     "helm",
+			helmVersion: "v3.14.0-rc.1+g69dcc92",
+			chartName:   "repo/helm-charts:0.14.0",
+			chartPath:   "path1",
+			chartFlags:  []string{"--untardir", "/tmp/dir"},
+			listResult: `Pulling repo/helm-charts:0.14.0
+exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
+`,
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			buffer.Reset()
-			helm := &execer{
-				helmBinary:  tt.helmBin,
-				version:     semver.MustParse(tt.helmVersion),
-				logger:      logger,
-				kubeContext: "dev",
-				runner:      &mockRunner{},
-			}
+			helm := New(tt.helmBin, HelmExecOptions{}, logger, "dev", &mockRunner{output: []byte(tt.helmVersion)})
 			err := helm.ChartPull(tt.chartName, tt.chartPath, tt.chartFlags...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)

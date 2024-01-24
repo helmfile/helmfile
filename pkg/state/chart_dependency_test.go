@@ -64,3 +64,71 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 		})
 	}
 }
+
+func TestContains(t *testing.T) {
+	tests := []struct {
+		name     string
+		dep      unresolvedChartDependency
+		deps     map[string][]unresolvedChartDependency
+		expected bool
+	}{
+		{
+			name: "existing dependency with right item",
+			dep: unresolvedChartDependency{
+				ChartName:         "abc",
+				Repository:        "oci://localhost:5000/aaa",
+				VersionConstraint: "0.1.0",
+			},
+			deps: map[string][]unresolvedChartDependency{
+				"abc": {
+					{
+						ChartName:         "abc",
+						Repository:        "oci://localhost:5000/aaa",
+						VersionConstraint: "0.1.0",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "existing dependency with empty item",
+			dep: unresolvedChartDependency{
+				ChartName:         "ghi",
+				Repository:        "oci://localhost:5000/aaa",
+				VersionConstraint: "0.1.0",
+			},
+			deps: map[string][]unresolvedChartDependency{
+				"ghi": {},
+			},
+			expected: false,
+		},
+		{
+			name: "non-existing dependency",
+			dep: unresolvedChartDependency{
+				ChartName:         "def",
+				Repository:        "oci://localhost:5000/bbb",
+				VersionConstraint: "0.2.0",
+			},
+			deps: map[string][]unresolvedChartDependency{
+				"abc": {
+					{
+						ChartName:         "abc",
+						Repository:        "oci://localhost:5000/aaa",
+						VersionConstraint: "0.1.0",
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &UnresolvedDependencies{
+				deps: tt.deps,
+			}
+			actual := d.contains(tt.dep)
+			require.Equal(t, tt.expected, actual)
+		})
+	}
+}
