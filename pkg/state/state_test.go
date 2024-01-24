@@ -3455,3 +3455,25 @@ func TestAppendChartDownloadTLSFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestHideChartURL(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"http://username:password@example.com/", "http://---:---@example.com/"},
+		{"http://example.com@", "http://---:---@"},
+		{"https://username:password@example.com/", "https://---:---@example.com/"},
+		{"https://username:@password@example.com/", "https://---:---@example.com/"},
+		{"https://username::password@example.com/", "https://---:---@example.com/"},
+		{"https://username:httpd@example.com/", "https://---:---@example.com/"},
+		{"https://username:httpsd@example.com/", "https://---:---@example.com/"},
+		{"https://example.com/", "https://example.com/"},
+	}
+	for _, test := range tests {
+		result, _ := hideChartCredentials(test.input)
+		if result != test.expected {
+			t.Errorf("For input '%s', expected '%s', but got '%s'", test.input, test.expected, result)
+		}
+	}
+}
