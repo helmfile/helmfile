@@ -3461,13 +3461,14 @@ func TestHideChartURL(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"http://username:password@example.com/", "http://example.com/"},
-		{"http://example.com@", "http:"},
-		{"https://username:password@example.com/", "https://example.com/"},
-		{"https://username:@password@example.com/", "https://example.com/"},
-		{"https://username::password@example.com/", "https://example.com/"},
-		{"https://username:httpd@example.com/", "https://example.com/"},
-		{"https://username:httpsd@example.com/", "https://example.com/"},
+		{"http://username:password@example.com/", "http://---:---@example.com/"},
+		{"http://example.com@", "http://---:---@"},
+		{"https://username:password@example.com/", "https://---:---@example.com/"},
+		{"https://username:@password@example.com/", "https://---:---@example.com/"},
+		{"https://username::password@example.com/", "https://---:---@example.com/"},
+		{"https://username:httpd@example.com/", "https://---:---@example.com/"},
+		{"https://username:httpsd@example.com/", "https://---:---@example.com/"},
+		{"https://example.com/", "https://example.com/"},
 	}
 	for _, test := range tests {
 		result, _ := hideChartCredentials(test.input)
