@@ -99,6 +99,9 @@ Please also see [test/advanced/helmfile.yaml](https://github.com/helmfile/helmfi
 
 With Helmfile's integration with Kustomize, not only deploying Kustomization as a Helm chart, you can kustomize charts before installation.
 
+.. Hint:: The following fields can also specify files, in the same manner as
+   the `values` field.
+
 Currently, Helmfile allows you to set the following fields for kustomizing the chart:
 
 - [`releases[].strategicMergePatches`](#strategicmergepatches)
