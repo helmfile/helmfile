@@ -90,6 +90,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/chart-needs.sh
 . ${dir}/test-cases/postrender.sh
 . ${dir}/test-cases/chartify.sh
+. ${dir}/test-cases/deps-mr-1011.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 
