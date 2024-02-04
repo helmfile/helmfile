@@ -83,7 +83,7 @@ RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/${SOPS_FILENAME}" && \
     chmod +x "${SOPS_FILENAME}" && \
     mv "${SOPS_FILENAME}" /usr/local/bin/sops && \
-    sops --version | grep -E "^sops ${SOPS_VERSION#v}"
+    sops --version --disable-version-check | grep -E "^sops ${SOPS_VERSION#v}"
 
 ENV AGE_VERSION="v1.1.1"
 ARG AGE_FILENAME="age-${AGE_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
