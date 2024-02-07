@@ -41,24 +41,37 @@ func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec,
 
 // append post-renderer-args flags to helm flags
 func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseSpec, postRendererArgs []string) []string {
+	postRendererArgsFlags := []string{}
 	switch {
 	case len(release.PostRendererArgs) != 0:
-		for _, arg := range release.PostRendererArgs {
-			if arg != "" {
-				flags = append(flags, "--post-renderer-args", arg)
-			}
-		}
+		postRendererArgsFlags = release.PostRendererArgs
 	case len(postRendererArgs) != 0:
-		for _, arg := range postRendererArgs {
-			if arg != "" {
-				flags = append(flags, "--post-renderer-args", arg)
-			}
-		}
+		postRendererArgsFlags = postRendererArgs
 	case len(st.HelmDefaults.PostRendererArgs) != 0:
-		for _, arg := range st.HelmDefaults.PostRendererArgs {
-			if arg != "" {
-				flags = append(flags, "--post-renderer-args", arg)
-			}
+		postRendererArgsFlags = st.HelmDefaults.PostRendererArgs
+	}
+	for _, arg := range postRendererArgsFlags {
+		if arg != "" {
+			flags = append(flags, "--post-renderer-args", arg)
+		}
+	}
+	return flags
+}
+
+// append suppress-output-line-regex flags to helm diff flags
+func (st *HelmState) appendSuppressOutputLineRegexFlags(flags []string, release *ReleaseSpec, suppressOutputLineRegex []string) []string {
+	suppressOutputLineRegexFlags := []string{}
+	switch {
+	case len(release.SuppressOutputLineRegex) != 0:
+		suppressOutputLineRegexFlags = release.SuppressOutputLineRegex
+	case len(suppressOutputLineRegex) != 0:
+		suppressOutputLineRegexFlags = suppressOutputLineRegex
+	case len(st.HelmDefaults.SuppressOutputLineRegex) != 0:
+		suppressOutputLineRegexFlags = st.HelmDefaults.SuppressOutputLineRegex
+	}
+	for _, arg := range suppressOutputLineRegexFlags {
+		if arg != "" {
+			flags = append(flags, "--suppress-output-line-regex", arg)
 		}
 	}
 	return flags

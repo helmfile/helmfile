@@ -197,3 +197,55 @@ func TestAppendCascadeFlags(t *testing.T) {
 		})
 	}
 }
+func TestAppendSuppressOutputLineRegexFlags(t *testing.T) {
+	tests := []struct {
+		name                    string
+		flags                   []string
+		release                 *ReleaseSpec
+		suppressOutputLineRegex []string
+		helmDefaults            HelmSpec
+		expected                []string
+	}{
+		{
+			name:                    "release suppress output line regex",
+			flags:                   []string{},
+			release:                 &ReleaseSpec{SuppressOutputLineRegex: []string{"regex1", "regex2"}},
+			suppressOutputLineRegex: nil,
+			helmDefaults:            HelmSpec{},
+			expected:                []string{"--suppress-output-line-regex", "regex1", "--suppress-output-line-regex", "regex2"},
+		},
+		{
+			name:                    "suppress output line regex",
+			flags:                   []string{},
+			release:                 nil,
+			suppressOutputLineRegex: []string{"regex1", "regex2"},
+			helmDefaults:            HelmSpec{},
+			expected:                []string{"--suppress-output-line-regex", "regex1", "--suppress-output-line-regex", "regex2"},
+		},
+		{
+			name:                    "helm defaults suppress output line regex",
+			flags:                   []string{},
+			release:                 nil,
+			suppressOutputLineRegex: nil,
+			helmDefaults:            HelmSpec{SuppressOutputLineRegex: []string{"regex1", "regex2"}},
+			expected:                []string{"--suppress-output-line-regex", "regex1", "--suppress-output-line-regex", "regex2"},
+		},
+		{
+			name:                    "empty suppress output line regex",
+			flags:                   []string{},
+			release:                 nil,
+			suppressOutputLineRegex: nil,
+			helmDefaults:            HelmSpec{},
+			expected:                []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.helmDefaults
+			got := st.appendSuppressOutputLineRegexFlags(tt.flags, tt.release, tt.suppressOutputLineRegex)
+			require.Equalf(t, tt.expected, got, "appendSuppressOutputLineRegexFlags() = %v, want %v", got, tt.expected)
+		})
+	}
+}

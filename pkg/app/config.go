@@ -50,6 +50,7 @@ type ApplyConfigProvider interface {
 	PostRenderer() string
 	PostRendererArgs() []string
 	Cascade() string
+	SuppressOutputLineRegex() []string
 
 	Values() []string
 	Set() []string
@@ -121,6 +122,7 @@ type DiffConfigProvider interface {
 	Args() string
 	PostRenderer() string
 	PostRendererArgs() []string
+	SuppressOutputLineRegex() []string
 
 	Values() []string
 	Set() []string
