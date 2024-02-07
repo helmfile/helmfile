@@ -215,9 +215,9 @@ func TestAppendSuppressOutputLineRegexFlags(t *testing.T) {
 			expected:                []string{"--suppress-output-line-regex", "regex1", "--suppress-output-line-regex", "regex2"},
 		},
 		{
-			name:                    "suppress output line regex",
+			name:                    "cmd suppress output line regex",
 			flags:                   []string{},
-			release:                 nil,
+			release:                 &ReleaseSpec{},
 			suppressOutputLineRegex: []string{"regex1", "regex2"},
 			helmDefaults:            HelmSpec{},
 			expected:                []string{"--suppress-output-line-regex", "regex1", "--suppress-output-line-regex", "regex2"},
@@ -225,7 +225,7 @@ func TestAppendSuppressOutputLineRegexFlags(t *testing.T) {
 		{
 			name:                    "helm defaults suppress output line regex",
 			flags:                   []string{},
-			release:                 nil,
+			release:                 &ReleaseSpec{},
 			suppressOutputLineRegex: nil,
 			helmDefaults:            HelmSpec{SuppressOutputLineRegex: []string{"regex1", "regex2"}},
 			expected:                []string{"--suppress-output-line-regex", "regex1", "--suppress-output-line-regex", "regex2"},
@@ -233,7 +233,7 @@ func TestAppendSuppressOutputLineRegexFlags(t *testing.T) {
 		{
 			name:                    "empty suppress output line regex",
 			flags:                   []string{},
-			release:                 nil,
+			release:                 &ReleaseSpec{},
 			suppressOutputLineRegex: nil,
 			helmDefaults:            HelmSpec{},
 			expected:                []string{},
