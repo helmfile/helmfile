@@ -2731,7 +2731,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if opt != nil {
 		suppressOutputLineRegex = opt.SuppressOutputLineRegex
 	}
-	if len(suppressOutputLineRegex) > 0 || len(st.HelmDefaults.SuppressOutputLineRegex) > 0 || len(release.SuppressOutputLineRegex) >= 0 {
+	if len(suppressOutputLineRegex) > 0 || len(st.HelmDefaults.SuppressOutputLineRegex) > 0 || len(release.SuppressOutputLineRegex) > 0 {
 		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
 		if err != nil {
 			return nil, nil, err
