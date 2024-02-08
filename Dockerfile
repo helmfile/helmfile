@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.21-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.22-alpine as builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -12,7 +12,7 @@ RUN make static-${TARGETOS}-${TARGETARCH}
 
 # -----------------------------------------------------------------------------
 
-FROM alpine:3.16
+FROM alpine:3.19
 
 LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
 
