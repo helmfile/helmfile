@@ -3,7 +3,7 @@ helmfile-tests, ingress-nginx, ClusterRole (rbac.authorization.k8s.io) has chang
 helmfile-tests, ingress-nginx, ClusterRoleBinding (rbac.authorization.k8s.io) has changed:
   # Source: ingress-nginx/templates/clusterrolebinding.yaml
   apiVersion: rbac.authorization.k8s.io/v1
-  kind: ClusterRoleBinding 
+  kind: ClusterRoleBinding
   metadata:
     labels:
       app.kubernetes.io/name: ingress-nginx
