@@ -32,7 +32,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  9: 
 
 merged environment: &{default  map[] map[]}
-WARNING: release bar needs foo, but foo is not installed
+WARNING: release bar needs foo, but foo is not installed due to installed: false. Either mark foo as installed or remove foo from bar's needs
 2 release(s) found in helmfile.yaml
 
 err: release "bar" depends on "foo" which does not match the selectors. Please add a selector like "--selector name=foo", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies

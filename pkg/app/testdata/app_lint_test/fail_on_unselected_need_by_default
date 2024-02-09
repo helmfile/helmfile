@@ -102,7 +102,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 44: 
 
 merged environment: &{default  map[] map[]}
-WARNING: release test2 needs disabled, but disabled is not installed
+WARNING: release test2 needs disabled, but disabled is not installed due to installed: false. Either mark disabled as installed or remove disabled from test2's needs
 2 release(s) matching app=test found in helmfile.yaml
 
 err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies

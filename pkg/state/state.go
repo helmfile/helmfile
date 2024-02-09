@@ -477,7 +477,7 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 
 		name = components[len(components)-1]
 		if !releaseInstalledInfo[name] {
-			st.logger.Warnf("WARNING: %s", fmt.Sprintf("release %s needs %s, but %s is not installed due to `installed: false`. Either mark %s as installed or remove %s from %s's `needs`", spec.Name, name, name, name, name, spec.Name))
+			st.logger.Warnf("WARNING: %s", fmt.Sprintf("release %s needs %s, but %s is not installed due to installed: false. Either mark %s as installed or remove %s from %s's needs", spec.Name, name, name, name, name, spec.Name))
 		}
 
 		if len(components) > 1 {

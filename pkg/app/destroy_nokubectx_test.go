@@ -377,7 +377,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 54: 
 
 merged environment: &{default  map[] map[]}
-WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 10 release(s) found in helmfile.yaml
 
 processing 5 groups of releases in this order:
@@ -391,7 +391,7 @@ GROUP RELEASES
 processing releases in group 1/5: frontend-v3, frontend-v2, frontend-v1
 release "frontend-v3" processed
 release "frontend-v2" processed
-WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 release "frontend-v1" processed
 processing releases in group 2/5: backend-v2, backend-v1
 release "backend-v2" processed
@@ -591,7 +591,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 54: 
 
 merged environment: &{default  map[] map[]}
-WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 1 release(s) matching name=logging found in helmfile.yaml
 
 processing 1 groups of releases in this order:
@@ -660,7 +660,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  9: 
 
 merged environment: &{default  map[] map[]}
-WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 2 release(s) found in helmfile.yaml
 
 processing 2 groups of releases in this order:
@@ -669,7 +669,7 @@ GROUP RELEASES
 2     backend-v1
 
 processing releases in group 1/2: frontend-v1
-WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 release "frontend-v1" processed
 processing releases in group 2/2: backend-v1
 release "backend-v1" processed
@@ -734,7 +734,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  9: 
 
 merged environment: &{default  map[] map[]}
-WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 2 release(s) found in helmfile.yaml
 
 processing 2 groups of releases in this order:
@@ -743,7 +743,7 @@ GROUP RELEASES
 2     backend-v1
 
 processing releases in group 1/2: frontend-v1
-WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 release "frontend-v1" processed
 processing releases in group 2/2: backend-v1
 release "backend-v1" processed
