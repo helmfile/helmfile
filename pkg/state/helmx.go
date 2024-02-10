@@ -113,11 +113,8 @@ func (st *HelmState) appendDryRunFlags(flags []string, helm helmexec.Interface, 
 	if !helm.IsVersionAtLeast("3.13.0") {
 		return flags
 	}
-	switch {
-	case opt != nil && opt.DryRun != "":
-		flags = append(flags, "--dry-run", opt.DryRun)
-	case opt != nil && opt.DryRun == "":
-		flags = append(flags, "--dry-run", "client")
+	if opt != nil && opt.DryRun != "" {
+		flags = append(flags, fmt.Sprintf("--dry-run=%s", opt.DryRun))
 	}
 	return flags
 }
