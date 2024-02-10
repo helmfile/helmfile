@@ -281,6 +281,8 @@ func TestAppendDryRunFlags(t *testing.T) {
 	type args struct {
 		dryRun   string
 		expected []string
+		helm     helmexec.Interface
+		flags    []string
 	}
 	tests := []struct {
 		name string
@@ -289,11 +291,8 @@ func TestAppendDryRunFlags(t *testing.T) {
 		{
 			name: "do dry-run on client",
 			args: args{
-<<<<<<< Updated upstream
-				dryRun:   "client",
-=======
 				flags:    []string{},
-				dry-run:  "client",
+				dryRun:   "client",
 				helm:     testutil.NewVersionHelmExec("3.13.0"),
 				expected: []string{"--dry-run", "client"},
 			},
@@ -302,38 +301,34 @@ func TestAppendDryRunFlags(t *testing.T) {
 			name: "empty dry-run means client",
 			args: args{
 				flags:    []string{},
-				dry-run:  "",
+				dryRun:   "",
 				helm:     testutil.NewVersionHelmExec("3.13.0"),
->>>>>>> Stashed changes
 				expected: []string{"--dry-run", "client"},
 			},
 		},
 		{
 			name: "do dry-run on server",
 			args: args{
-<<<<<<< Updated upstream
-				dryRun:   "server",
-=======
 				flags:    []string{},
-				dry-run:  "server",
+				dryRun:   "server",
 				helm:     testutil.NewVersionHelmExec("3.13.0"),
->>>>>>> Stashed changes
 				expected: []string{"--dry-run", "server"},
 			},
-			{
-				name: "no version below 3.13.0",
-				args: args{
-					flags:    []string{},
-					dry-run:  "server",
-					helm:     testutil.NewVersionHelmExec("3.12.1"),
-					expected: []string{},
-				},
+		},
+		{
+			name: "no version below 3.13.0",
+			args: args{
+				flags:    []string{},
+				dryRun:   "server",
+				helm:     testutil.NewVersionHelmExec("3.12.1"),
+				expected: []string{},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{}
-			got := st.appendDryRunFlags([]string{}, &SyncOpts{
+			got := st.appendDryRunFlags([]string{}, tt.args.helm, &SyncOpts{
 				DryRun: tt.args.dryRun,
 			})
 			require.Equalf(t, tt.args.expected, got, "appendDryRunFlags() = %v, want %v", got, tt.args.expected)

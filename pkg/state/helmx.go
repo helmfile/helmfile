@@ -109,14 +109,15 @@ func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *
 // appendDryRunFlags appends the necessary flags for a dry run to the given flags slice.
 // If the opt parameter is not nil and opt.DryRun is not empty, the "--dry-run" flag and the value of opt.DryRun are appended to the flags slice.
 // The updated flags slice is returned.
-func (st *HelmState) appendDryRunFlags(flags []string, opt *SyncOpts) []string {
-	if helm.IsVersionAtLeast("3.13.0") {
-		switch {
-		case opt != nil && opt.DryRun != "":
-			flags = append(flags, "--dry-run", opt.DryRun)
-		case opt != nil && opt.DryRun != "":
-			flags = append(flags, "--dry-run", "client")
-		}
+func (st *HelmState) appendDryRunFlags(flags []string, helm helmexec.Interface, opt *SyncOpts) []string {
+	if !helm.IsVersionAtLeast("3.13.0") {
+		return flags
+	}
+	switch {
+	case opt != nil && opt.DryRun != "":
+		flags = append(flags, "--dry-run", opt.DryRun)
+	case opt != nil && opt.DryRun == "":
+		flags = append(flags, "--dry-run", "client")
 	}
 	return flags
 }
@@ -127,6 +128,7 @@ func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface,
 	if !helm.IsVersionAtLeast("3.12.1") {
 		return flags
 	}
+
 	switch {
 	// postRenderer arg comes from cmd flag.
 	case release.Cascade != nil && *release.Cascade != "":

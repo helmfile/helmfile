@@ -2673,7 +2673,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
-	flags = st.appendDryRunFlags(flags, opt)
+	flags = st.appendDryRunFlags(flags, helm, opt)
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
