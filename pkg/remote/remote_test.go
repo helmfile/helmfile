@@ -94,7 +94,7 @@ func TestRemote_SShGitHub(t *testing.T) {
 		CacheDir(): "",
 	}
 	cachefs := map[string]string{
-		filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0/origin/releases/kiam.yaml"): "foo: bar",
+		filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0/origin/releases/kiam.yaml"): "foo: bar",
 	}
 
 	testcases := []struct {
@@ -143,7 +143,7 @@ func TestRemote_SShGitHub(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0/origin/releases/kiam.yaml")
+			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0/origin/releases/kiam.yaml")
 			if file != expectedFile {
 				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
 			}
@@ -163,7 +163,7 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 		CacheDir(): "",
 	}
 	cachefs := map[string]string{
-		filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0_sshkey=redacted/origin/releases/kiam.yaml"): "foo: bar",
+		filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=redacted/origin/releases/kiam.yaml"): "foo: bar",
 	}
 
 	testcases := []struct {
@@ -212,7 +212,7 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_cloudposse_helmfiles_git.ref=0.40.0_sshkey=redacted/origin/releases/kiam.yaml")
+			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=redacted/origin/releases/kiam.yaml")
 			if file != expectedFile {
 				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
 			}
@@ -281,7 +281,7 @@ func TestRemote_S3(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			expectedFile := filepath.Join(CacheDir(), "s3_helm-s3-values-example/subdir/values.yaml")
+			expectedFile := filepath.Join(CacheDir(), "s3_helm-s3-values-example/subdir/origin/values.yaml")
 			if file != expectedFile {
 				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
 			}
@@ -321,7 +321,6 @@ func TestParse(t *testing.T) {
 			dir:    "/stakater/Forecastle.git",
 			file:   "deployments/kubernetes/chart/forecastle",
 			query:  "ref=v1.0.54",
-			user:   "user:password",
 		},
 		{
 			name:   "remote path with full args",

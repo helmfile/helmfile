@@ -262,9 +262,9 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 	if !cached {
 		var getterSrc string
 		if u.User != "" {
-			getterSrc = fmt.Sprintf("%s://%s@%s%s", u.Scheme, u.User, u.Host, u.Dir)
+			getterSrc = fmt.Sprintf("%s://%s@%s/%s", u.Scheme, u.User, u.Host, u.Dir)
 		} else {
-			getterSrc = fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Dir)
+			getterSrc = fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, u.Dir)
 		}
 
 		if len(query) > 0 {
