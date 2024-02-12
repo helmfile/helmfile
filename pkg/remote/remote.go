@@ -127,15 +127,20 @@ func Parse(goGetterSrc string) (*Source, error) {
 	var sourceDir, sourceFile string
 	pathComponents := strings.Split(u.Path, "@")
 
-	switch len(pathComponents) {
-	case 1:
-		sourceDir = pathComponents[0]
-	case 2:
-		sourceDir = pathComponents[0]
-		sourceFile = pathComponents[1]
-	default:
-		return nil, InvalidURLError{err: fmt.Sprintf("parse url: invalid path %s", u.Path)}
+	if len(pathComponents) != 2 {
+		if strings.HasSuffix(u.Path, ".git") {
+			pathComponents = []string{u.Path, ""}
+		} else {
+			dir := filepath.Dir(u.Path)
+			if len(dir) > 0 {
+				dir = dir[1:]
+			}
+			pathComponents = []string{dir, filepath.Base(u.Path)}
+		}
 	}
+
+	sourceDir = pathComponents[0]
+	sourceFile = pathComponents[1]
 
 	return &Source{
 		Getter:   getter,
