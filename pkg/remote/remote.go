@@ -129,7 +129,8 @@ func Parse(goGetterSrc string) (*Source, error) {
 
 	if len(pathComponents) != 2 {
 		if strings.HasSuffix(u.Path, ".git") {
-			pathComponents = []string{u.Path, ""}
+			dir := u.Path[1:]
+			pathComponents = []string{dir, ""}
 		} else {
 			dir := filepath.Dir(u.Path)
 			if len(dir) > 0 {
