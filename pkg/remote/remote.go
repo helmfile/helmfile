@@ -124,7 +124,6 @@ func Parse(goGetterSrc string) (*Source, error) {
 		return nil, InvalidURLError{err: fmt.Sprintf("parse url: missing scheme - probably this is a local file path? %s", goGetterSrc)}
 	}
 
-	var sourceDir, sourceFile string
 	pathComponents := strings.Split(u.Path, "@")
 
 	if len(pathComponents) != 2 {
@@ -138,18 +137,18 @@ func Parse(goGetterSrc string) (*Source, error) {
 			}
 			pathComponents = []string{dir, filepath.Base(u.Path)}
 		}
+	} else {
+		dir := pathComponents[0][1:]
+		pathComponents = []string{dir, pathComponents[1]}
 	}
-
-	sourceDir = pathComponents[0]
-	sourceFile = pathComponents[1]
 
 	return &Source{
 		Getter:   getter,
 		User:     u.User.String(),
 		Scheme:   u.Scheme,
 		Host:     u.Host,
-		Dir:      sourceDir,
-		File:     sourceFile,
+		Dir:      pathComponents[0],
+		File:     pathComponents[1],
 		RawQuery: u.RawQuery,
 	}, nil
 }
