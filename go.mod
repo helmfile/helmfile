@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.3
-	github.com/helmfile/chartify v0.17.0
+	github.com/helmfile/chartify v0.18.1
 	github.com/helmfile/vals v0.34.1
 	github.com/imdario/mergo v0.3.16
 	github.com/spf13/cobra v1.8.0
@@ -84,7 +84,7 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/otiai10/copy v1.1.1 // indirect
+	github.com/otiai10/copy v1.14.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
