@@ -1772,16 +1772,17 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		o.Apply(opt)
 	}
 
-	mu := &sync.Mutex{}
+	mu := &sync.RWMutex{}
 	installedReleases := map[string]bool{}
 
 	isInstalled := func(r *ReleaseSpec) bool {
-		mu.Lock()
-		defer mu.Unlock()
-
 		id := ReleaseToID(r)
 
-		if v, ok := installedReleases[id]; ok {
+		mu.RLock()
+		v, ok := installedReleases[id]
+		mu.RUnlock()
+
+		if ok {
 			return v
 		}
 
@@ -1789,7 +1790,9 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		if err != nil {
 			st.logger.Warnf("confirming if the release is already installed or not: %v", err)
 		} else {
+			mu.Lock()
 			installedReleases[id] = v
+			mu.Unlock()
 		}
 
 		return v
