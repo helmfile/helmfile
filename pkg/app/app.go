@@ -120,19 +120,7 @@ func (a *App) Init(c InitConfigProvider) error {
 
 func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		prepErr := run.withPreparedCharts("deps", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipRepos(),
-			SkipDeps:    true,
-			SkipResolve: true,
-			Concurrency: c.Concurrency(),
-		}, func() {
-			errs = run.Deps(c)
-		})
-
-		if prepErr != nil {
-			errs = append(errs, prepErr)
-		}
-
+		errs = run.Deps(c)
 		return
 	}, c.IncludeTransitiveNeeds(), SetFilter(true))
 }

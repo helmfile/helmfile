@@ -1,0 +1,13 @@
+repositories:
+  - name: rook-release
+    url: https://charts.rook.io/release
+  - name: incubator
+    url: https://charts.helm.sh/incubator
+
+releases:
+  - name: rook-ceph
+    chart: rook-release/rook-ceph
+    version: 1.12.x
+    dependencies:
+      - chart: incubator/raw
+        version: x
