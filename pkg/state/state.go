@@ -696,13 +696,16 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 }
 
 func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
-	out, err := st.listReleases(context, helm, &release)
-	if err != nil {
-		return false, err
-	} else if out != "" {
-		return true, nil
+	flags := []string{}
+	flags = st.kubeConnectionFlags(&release)
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
 	}
-	return false, nil
+
+	_, err := helm.ReleaseStatus(context, release.Name, flags...)
+
+	// `helm status release-name` returns error when release is not known.
+	return err != nil, nil
 }
 
 func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
