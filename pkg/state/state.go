@@ -3568,7 +3568,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		pathElems = append(pathElems, release.KubeContext)
 	}
 
-	pathElems = append(pathElems, release.Name, chartName, chartVersion)
+	pathElems = append(pathElems, release.Name, chartName, safeVersionPath(chartVersion))
 
 	chartPath := filepath.Join(pathElems...)
 
