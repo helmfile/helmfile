@@ -702,10 +702,12 @@ func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helme
 		flags = append(flags, "--namespace", release.Namespace)
 	}
 
-	_, err := helm.ReleaseStatus(context, release.Name, flags...)
+	err := helm.ReleaseStatus(context, release.Name, flags...)
+	if err != nil && strings.Contains(err.Error(), "Error: release: not found") {
+		return false, nil
+	}
 
-	// `helm status release-name` returns error when release is not known.
-	return err != nil, nil
+	return false, err
 }
 
 func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
