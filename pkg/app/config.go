@@ -50,6 +50,7 @@ type ApplyConfigProvider interface {
 	PostRenderer() string
 	PostRendererArgs() []string
 	Cascade() string
+	DryRun() string
 
 	Values() []string
 	Set() []string
@@ -96,6 +97,7 @@ type SyncConfigProvider interface {
 	PostRenderer() string
 	PostRendererArgs() []string
 	Cascade() string
+	DryRun() string
 
 	Values() []string
 	Set() []string
