@@ -225,7 +225,7 @@ helmDefaults:
   deleteWait: false
   # Timeout is the time in seconds to wait for helmfile destroy/delete (default 300)
   deleteTimeout: 300
-  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []) 
+  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
   suppressOutputLineRegex:
     - "version"
 
@@ -339,7 +339,7 @@ releases:
     insecureSkipTLSVerify: false
     # suppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
     suppressDiff: false
-    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []) 
+    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
     suppressOutputLineRegex:
       - "version"
 
