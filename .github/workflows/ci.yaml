@@ -20,7 +20,7 @@ jobs:
           cache: false
       - uses: golangci/golangci-lint-action@v4
         with:
-          version: v1.55.1 
+          version: v1.56.0 
 
   tests:
     runs-on: ubuntu-latest

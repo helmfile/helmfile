@@ -46,6 +46,8 @@ type DiffOptions struct {
 	PostRendererArgs []string
 	// DiffArgs is the list of arguments to pass to helm-diff.
 	DiffArgs string
+	// SuppressOutputLineRegex is a list of regexes to suppress output lines
+	SuppressOutputLineRegex []string
 }
 
 // NewDiffOptions creates a new Apply
@@ -191,4 +193,9 @@ func (t *DiffImpl) PostRenderer() string {
 // PostRendererArgs returns the PostRendererArgs.
 func (t *DiffImpl) PostRendererArgs() []string {
 	return t.DiffOptions.PostRendererArgs
+}
+
+// SuppressOutputLineRegex returns the SuppressOutputLineRegex.
+func (t *DiffImpl) SuppressOutputLineRegex() []string {
+	return t.DiffOptions.SuppressOutputLineRegex
 }

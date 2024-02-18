@@ -12,6 +12,7 @@ if [[ ! -d "${dir}" ]]; then dir="${PWD}"; fi
 
 . "${dir}/lib/output.sh"
 . "${dir}/lib/ensure.sh"
+. "${dir}/lib/version.sh"
 
 
 # GLOBALS -----------------------------------------------------------------------------------------------------------
@@ -76,6 +77,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
+. ${dir}/test-cases/suppress-output-line-regex.sh
 . ${dir}/test-cases/include-template-func.sh
 . ${dir}/test-cases/happypath.sh
 . ${dir}/test-cases/chartify-with-non-chart-dir.sh

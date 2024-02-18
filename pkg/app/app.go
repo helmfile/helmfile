@@ -1352,18 +1352,19 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	detailedExitCode := true
 
 	diffOpts := &state.DiffOpts{
-		Color:             c.Color(),
-		NoColor:           c.NoColor(),
-		Context:           c.Context(),
-		Output:            c.DiffOutput(),
-		Set:               c.Set(),
-		SkipCleanup:       c.RetainValuesFiles() || c.SkipCleanup(),
-		SkipDiffOnInstall: c.SkipDiffOnInstall(),
-		ReuseValues:       c.ReuseValues(),
-		ResetValues:       c.ResetValues(),
-		DiffArgs:          c.DiffArgs(),
-		PostRenderer:      c.PostRenderer(),
-		PostRendererArgs:  c.PostRendererArgs(),
+		Color:                   c.Color(),
+		NoColor:                 c.NoColor(),
+		Context:                 c.Context(),
+		Output:                  c.DiffOutput(),
+		Set:                     c.Set(),
+		SkipCleanup:             c.RetainValuesFiles() || c.SkipCleanup(),
+		SkipDiffOnInstall:       c.SkipDiffOnInstall(),
+		ReuseValues:             c.ReuseValues(),
+		ResetValues:             c.ResetValues(),
+		DiffArgs:                c.DiffArgs(),
+		PostRenderer:            c.PostRenderer(),
+		PostRendererArgs:        c.PostRendererArgs(),
+		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1589,17 +1590,18 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 		opts := &state.DiffOpts{
-			Context:           c.Context(),
-			Output:            c.DiffOutput(),
-			Color:             c.Color(),
-			NoColor:           c.NoColor(),
-			Set:               c.Set(),
-			DiffArgs:          c.DiffArgs(),
-			SkipDiffOnInstall: c.SkipDiffOnInstall(),
-			ReuseValues:       c.ReuseValues(),
-			ResetValues:       c.ResetValues(),
-			PostRenderer:      c.PostRenderer(),
-			PostRendererArgs:  c.PostRendererArgs(),
+			Context:                 c.Context(),
+			Output:                  c.DiffOutput(),
+			Color:                   c.Color(),
+			NoColor:                 c.NoColor(),
+			Set:                     c.Set(),
+			DiffArgs:                c.DiffArgs(),
+			SkipDiffOnInstall:       c.SkipDiffOnInstall(),
+			ReuseValues:             c.ReuseValues(),
+			ResetValues:             c.ResetValues(),
+			PostRenderer:            c.PostRenderer(),
+			PostRendererArgs:        c.PostRendererArgs(),
+			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
 		}
 
 		filtered := &Run{

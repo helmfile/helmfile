@@ -188,6 +188,8 @@ type HelmSpec struct {
 	PostRendererArgs []string `yaml:"postRendererArgs,omitempty"`
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade *string `yaml:"cascade,omitempty"`
+	// SuppressOutputLineRegex is a list of regexes to suppress output lines
+	SuppressOutputLineRegex []string `yaml:"suppressOutputLineRegex,omitempty"`
 
 	DisableValidation        *bool `yaml:"disableValidation,omitempty"`
 	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
@@ -369,6 +371,9 @@ type ReleaseSpec struct {
 
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade *string `yaml:"cascade,omitempty"`
+
+	// SuppressOutputLineRegex is a list of regexes to suppress output lines
+	SuppressOutputLineRegex []string `yaml:"suppressOutputLineRegex,omitempty"`
 
 	// Inherit is used to inherit a release template from a release or another release template
 	Inherit Inherits `yaml:"inherit,omitempty"`
@@ -1710,6 +1715,7 @@ type diffPrepareResult struct {
 	suppressDiff            bool
 }
 
+// commonDiffFlags returns common flags for helm diff, not in release-specific context
 func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
 	var flags []string
 
@@ -1762,6 +1768,7 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool
 			flags = append(flags, "--set", s)
 		}
 	}
+	flags = st.appendExtraDiffFlags(flags, opt)
 
 	return flags
 }
@@ -1850,6 +1857,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
 				mut.Lock()
+				// release level diff flags in here
 				flags, files, err := st.flagsForDiff(helm, release, disableValidation, workerIndex, opt)
 				mut.Unlock()
 				if err != nil {
@@ -1935,15 +1943,16 @@ type DiffOpts struct {
 	Color bool
 	// NoColor forces disabling the color output on helm-diff.
 	// If this is true, Color has no effect.
-	NoColor           bool
-	Set               []string
-	SkipCleanup       bool
-	SkipDiffOnInstall bool
-	DiffArgs          string
-	ReuseValues       bool
-	ResetValues       bool
-	PostRenderer      string
-	PostRendererArgs  []string
+	NoColor                 bool
+	Set                     []string
+	SkipCleanup             bool
+	SkipDiffOnInstall       bool
+	DiffArgs                string
+	ReuseValues             bool
+	ResetValues             bool
+	PostRenderer            string
+	PostRendererArgs        []string
+	SuppressOutputLineRegex []string
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2494,6 +2503,10 @@ func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec)
 	return flags
 }
 
+// appendExtraDiffFlags appends extra diff flags to the given flags slice based on the provided options.
+// If opt is not nil and opt.DiffArgs is not empty, it collects the arguments from opt.DiffArgs and appends them to flags.
+// If st.HelmDefaults.DiffArgs is not nil, it joins the arguments with a space and appends them to flags.
+// The updated flags slice is returned.
 func (st *HelmState) appendExtraDiffFlags(flags []string, opt *DiffOpts) []string {
 	switch {
 	case opt != nil && opt.DiffArgs != "":
@@ -2697,9 +2710,8 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		if diffVersion.LessThan(dv) {
 			return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s, please use at least v3.8.1", diffVersion)
 		}
+		flags = st.appendChartDownloadTLSFlags(flags, release)
 	}
-
-	flags = st.appendChartDownloadTLSFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
@@ -2709,17 +2721,33 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
-	var postRendererArgs []string
+	postRendererArgs := []string{}
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 
+	suppressOutputLineRegex := []string{}
+	if opt != nil {
+		suppressOutputLineRegex = opt.SuppressOutputLineRegex
+	}
+	if len(suppressOutputLineRegex) > 0 || len(st.HelmDefaults.SuppressOutputLineRegex) > 0 || len(release.SuppressOutputLineRegex) > 0 {
+		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+		if err != nil {
+			return nil, nil, err
+		}
+		dv, _ := semver.NewVersion("v3.9.0")
+
+		if diffVersion.LessThan(dv) {
+			return nil, nil, fmt.Errorf("suppressOutputLineRegex is not supported by helm-diff plugin version %s, please use at least v3.9.0", diffVersion)
+		}
+		flags = st.appendSuppressOutputLineRegexFlags(flags, release, suppressOutputLineRegex)
+	}
+
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, files, err
 	}
-	flags = st.appendExtraDiffFlags(flags, opt)
 
 	return append(flags, common...), files, nil
 }
