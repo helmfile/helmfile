@@ -2500,10 +2500,50 @@ func TestConditionEnabled(t *testing.T) {
 			wantErr:   true,
 		},
 		{
-			name:      "too long condition",
+			name:      "nested values",
 			condition: "rnd42.really.enabled",
+			values: map[string]any{
+				"rnd42": map[string]any{
+					"really": map[string]any{
+						"enabled": true,
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:      "nested values enabled missing",
+			condition: "rnd42.really.ok",
 			want:      false,
 			wantErr:   true,
+		},
+		{
+			name:      "nested values unknown key",
+			condition: "rnd42.unknown.enabled",
+			values: map[string]any{
+				"rnd42": map[string]any{
+					"really": map[string]any{
+						"enabled": true,
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name:      "nested values invalid type",
+			condition: "rnd42.invalid.enabled",
+			values: map[string]any{
+				"rnd42": map[string]any{
+					"invalid": "hello",
+					"really": map[string]any{
+						"enabled": true,
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
 		},
 		{
 			name:      "empty",

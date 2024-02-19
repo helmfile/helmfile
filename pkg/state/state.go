@@ -2274,28 +2274,32 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 	if len(r.Condition) == 0 {
 		return true, nil
 	}
-	conditionSplit := strings.Split(r.Condition, ".")
-	if len(conditionSplit) != 2 || conditionSplit[1] != "enabled" {
+	iValues := values
+	keys := strings.Split(r.Condition, ".")
+	if keys[len(keys)-1] != "enabled" {
 		return false, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
 	}
-	if v, ok := values[conditionSplit[0]]; ok {
-		if v == nil {
-			return false, fmt.Errorf("environment values field '%s' is nil", conditionSplit[0])
-		}
-		vm, ok := v.(map[string]any)
+
+	currentKey := ""
+	for _, key := range keys[:len(keys)-1] {
+		currentKey = fmt.Sprintf("%s.%s", currentKey, key)
+		value, ok := iValues[key]
 		if !ok {
-			return false, fmt.Errorf("environment values field '%s' is not a map", conditionSplit[0])
+			return false, fmt.Errorf("environment values field '%s' not found", currentKey)
 		}
-		vv, ok := vm["enabled"]
+
+		iValues, ok = value.(map[string]interface{})
 		if !ok {
-			return false, nil
+			return false, fmt.Errorf("environment values field '%s' is not a map", currentKey)
 		}
-		if vv == true {
-			return true, nil
-		}
+	}
+
+	enabled, ok := iValues["enabled"].(bool)
+	if !ok {
 		return false, nil
 	}
-	return false, fmt.Errorf("environment values does not contain field '%s'", conditionSplit[0])
+
+	return enabled, nil
 }
 
 func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
