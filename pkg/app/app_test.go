@@ -2197,37 +2197,38 @@ type applyConfig struct {
 	// TODO: Remove this function once Helmfile v0.x
 	retainValuesFiles bool
 
-	set                    []string
-	validate               bool
-	skipCleanup            bool
-	skipCRDs               bool
-	skipDeps               bool
-	skipNeeds              bool
-	includeNeeds           bool
-	includeTransitiveNeeds bool
-	includeTests           bool
-	suppress               []string
-	suppressSecrets        bool
-	showSecrets            bool
-	noHooks                bool
-	suppressDiff           bool
-	noColor                bool
-	color                  bool
-	context                int
-	diffOutput             string
-	concurrency            int
-	detailedExitcode       bool
-	stripTrailingCR        bool
-	interactive            bool
-	skipDiffOnInstall      bool
-	diffArgs               string
-	logger                 *zap.SugaredLogger
-	wait                   bool
-	waitForJobs            bool
-	reuseValues            bool
-	postRenderer           string
-	postRendererArgs       []string
-	kubeVersion            string
+	set                     []string
+	validate                bool
+	skipCleanup             bool
+	skipCRDs                bool
+	skipDeps                bool
+	skipNeeds               bool
+	includeNeeds            bool
+	includeTransitiveNeeds  bool
+	includeTests            bool
+	suppress                []string
+	suppressSecrets         bool
+	showSecrets             bool
+	noHooks                 bool
+	suppressDiff            bool
+	noColor                 bool
+	color                   bool
+	context                 int
+	diffOutput              string
+	concurrency             int
+	detailedExitcode        bool
+	stripTrailingCR         bool
+	interactive             bool
+	skipDiffOnInstall       bool
+	diffArgs                string
+	logger                  *zap.SugaredLogger
+	wait                    bool
+	waitForJobs             bool
+	reuseValues             bool
+	postRenderer            string
+	postRendererArgs        []string
+	kubeVersion             string
+	suppressOutputLineRegex []string
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2390,6 +2391,10 @@ func (a applyConfig) PostRenderer() string {
 
 func (a applyConfig) PostRendererArgs() []string {
 	return a.postRendererArgs
+}
+
+func (a applyConfig) SuppressOutputLineRegex() []string {
+	return a.suppressOutputLineRegex
 }
 
 func (a applyConfig) KubeVersion() string {

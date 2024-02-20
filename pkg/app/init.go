@@ -18,7 +18,7 @@ import (
 
 const (
 	HelmRequiredVersion           = "v3.13.3"
-	HelmRecommendedVersion        = "v3.14.0"
+	HelmRecommendedVersion        = "v3.14.1"
 	HelmDiffRecommendedVersion    = "v3.9.4"
 	HelmSecretsRecommendedVersion = "v4.1.1"
 	HelmGitRecommendedVersion     = "v0.12.0"
@@ -171,7 +171,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 				return err
 			}
 
-			err = h.WhetherContinue(fmt.Sprintf("The helm plugin %s is not installed, do you need to install it", p.name))
+			err = h.WhetherContinue(fmt.Sprintf("The helm plugin %q is not installed, do you want to install it?", p.name))
 			if err != nil {
 				return err
 			}
@@ -184,7 +184,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 		}
 		requiredVersion, _ := semver.NewVersion(p.version)
 		if pluginVersion.LessThan(requiredVersion) {
-			err = h.WhetherContinue(fmt.Sprintf("The helm plugin %s version is too low, do you need to update it", p.name))
+			err = h.WhetherContinue(fmt.Sprintf("The helm plugin %q version is too low, do you want to update it?", p.name))
 			if err != nil {
 				return err
 			}

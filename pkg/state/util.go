@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -70,4 +71,11 @@ func getBuildDepsFlags(cpr *chartPrepareResult) []string {
 	}
 
 	return flags
+}
+
+// safePath returns a clean path
+func safeVersionPath(version string) string {
+	c := regexp.MustCompile(`=|>|<|!|\||~|\^| |,|\*`)
+	sp := c.ReplaceAll([]byte(version), []byte("_"))
+	return string(sp)
 }

@@ -62,6 +62,8 @@ type ApplyOptions struct {
 	PostRendererArgs []string
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
+	// SuppressOutputLineRegex is a list of regexes to suppress output lines
+	SuppressOutputLineRegex []string
 }
 
 // NewApply creates a new Apply
@@ -232,4 +234,9 @@ func (a *ApplyImpl) PostRendererArgs() []string {
 // Cascade returns cascade flag
 func (a *ApplyImpl) Cascade() string {
 	return a.ApplyOptions.Cascade
+}
+
+// SuppressOutputLineRegex returns the SuppressOutputLineRegex.
+func (a *ApplyImpl) SuppressOutputLineRegex() []string {
+	return a.ApplyOptions.SuppressOutputLineRegex
 }

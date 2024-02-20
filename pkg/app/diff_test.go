@@ -16,33 +16,34 @@ import (
 )
 
 type diffConfig struct {
-	args                   string
-	diffArgs               string
-	values                 []string
-	retainValuesFiles      bool
-	set                    []string
-	validate               bool
-	skipCRDs               bool
-	skipDeps               bool
-	includeTests           bool
-	skipNeeds              bool
-	includeNeeds           bool
-	includeTransitiveNeeds bool
-	suppress               []string
-	suppressSecrets        bool
-	showSecrets            bool
-	noHooks                bool
-	suppressDiff           bool
-	noColor                bool
-	context                int
-	diffOutput             string
-	concurrency            int
-	detailedExitcode       bool
-	stripTrailingCR        bool
-	interactive            bool
-	skipDiffOnInstall      bool
-	reuseValues            bool
-	logger                 *zap.SugaredLogger
+	args                    string
+	diffArgs                string
+	values                  []string
+	retainValuesFiles       bool
+	set                     []string
+	validate                bool
+	skipCRDs                bool
+	skipDeps                bool
+	includeTests            bool
+	skipNeeds               bool
+	includeNeeds            bool
+	includeTransitiveNeeds  bool
+	suppress                []string
+	suppressSecrets         bool
+	showSecrets             bool
+	noHooks                 bool
+	suppressDiff            bool
+	suppressOutputLineRegex []string
+	noColor                 bool
+	context                 int
+	diffOutput              string
+	concurrency             int
+	detailedExitcode        bool
+	stripTrailingCR         bool
+	interactive             bool
+	skipDiffOnInstall       bool
+	reuseValues             bool
+	logger                  *zap.SugaredLogger
 }
 
 func (a diffConfig) Args() string {
@@ -167,6 +168,10 @@ func (a diffConfig) PostRenderer() string {
 
 func (a diffConfig) PostRendererArgs() []string {
 	return nil
+}
+
+func (a diffConfig) SuppressOutputLineRegex() []string {
+	return a.suppressOutputLineRegex
 }
 
 func TestDiff(t *testing.T) {
