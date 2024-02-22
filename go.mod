@@ -25,7 +25,7 @@ require (
 	golang.org/x/sync v0.6.0
 	golang.org/x/term v0.17.0
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v3 v3.14.1
+	helm.sh/helm/v3 v3.14.2
 	k8s.io/apimachinery v0.29.2
 )
 
