@@ -21,7 +21,7 @@ require (
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/variantdev/dag v1.1.0
 	go.szostok.io/version v1.2.0
-	go.uber.org/zap v1.26.0
+	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/term v0.17.0
 	gopkg.in/yaml.v2 v2.4.0
