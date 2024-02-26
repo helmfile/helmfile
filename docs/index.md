@@ -1686,6 +1686,16 @@ export MY_OCI_REGISTRY_USERNAME=spongebob
 export MY_OCI_REGISTRY_PASSWORD=squarepants
 ```
 
+To use an OCI registry via HTTP, helm requires an extra flag: `--plain-http`.
+
+```yaml
+repositories:
+  - name: myOCIRegistry
+    url: myregistry.azurecr.io
+    oci: true
+    plainHTTP: true
+```
+
 ## Attribution
 
 We use:
