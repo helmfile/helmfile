@@ -2294,12 +2294,14 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 		}
 	}
 
-	enabled, ok := iValues["enabled"].(bool)
+	enabled, ok := iValues["enabled"]
+	e, ok := enabled.(bool)
+
 	if !ok {
 		return false, nil
 	}
 
-	return enabled, nil
+	return e, nil
 }
 
 func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
