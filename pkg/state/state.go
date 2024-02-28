@@ -152,6 +152,7 @@ type HelmSpec struct {
 	KubeContext string   `yaml:"kubeContext,omitempty"`
 	Args        []string `yaml:"args,omitempty"`
 	DiffArgs    []string `yaml:"diffArgs,omitempty"`
+	SyncArgs    []string `yaml:"syncArgs,omitempty"`
 	Verify      bool     `yaml:"verify"`
 	Keyring     string   `yaml:"keyring,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates
@@ -2518,6 +2519,20 @@ func (st *HelmState) appendExtraDiffFlags(flags []string, opt *DiffOpts) []strin
 	return flags
 }
 
+// appendExtraSyncFlags appends extra diff flags to the given flags slice based on the provided options.
+// If opt is not nil and opt.SyncArgs is not empty, it collects the arguments from opt.SyncArgs and appends them to flags.
+// If st.HelmDefaults.SyncArgs is not nil, it joins the arguments with a space and appends them to flags.
+// The updated flags slice is returned.
+func (st *HelmState) appendExtraSyncFlags(flags []string, opt *SyncOpts) []string {
+	switch {
+	case opt != nil && opt.SyncArgs != "":
+		flags = append(flags, argparser.CollectArgs(opt.SyncArgs)...)
+	case st.HelmDefaults.SyncArgs != nil:
+		flags = append(flags, argparser.CollectArgs(strings.Join(st.HelmDefaults.SyncArgs, " "))...)
+	}
+	return flags
+}
+
 // appendKeyringFlags append all the helm command-line flags related to keyring
 func (st *HelmState) appendKeyringFlags(flags []string, release *ReleaseSpec) []string {
 	switch {
@@ -2570,10 +2585,6 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
-
-	if opt != nil && opt.SyncArgs != "" {
-		flags = append(flags, argparser.CollectArgs(opt.SyncArgs)...)
-	}
 
 	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
 		flags = append(flags, "--verify")
@@ -2637,6 +2648,8 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+
+	flags = st.appendExtraSyncFlags(flags, opt)
 
 	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {

@@ -184,6 +184,8 @@ helmDefaults:
     - "--set k=v"
   diffArgs:
     - "--suppress-secrets"
+  syncArgs:
+    - "--labels=app.kubernetes.io/managed-by=helmfile"
   # verify the chart before upgrading (only works with packaged charts not directories) (default false)
   verify: true
   keyring: path/to/keyring.gpg
