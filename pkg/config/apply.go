@@ -64,6 +64,8 @@ type ApplyOptions struct {
 	Cascade string
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string
+	// SyncArgs is the list of arguments to pass to helm upgrade.
+	SyncArgs string
 }
 
 // NewApply creates a new Apply
@@ -239,4 +241,9 @@ func (a *ApplyImpl) Cascade() string {
 // SuppressOutputLineRegex returns the SuppressOutputLineRegex.
 func (a *ApplyImpl) SuppressOutputLineRegex() []string {
 	return a.ApplyOptions.SuppressOutputLineRegex
+}
+
+// SyncArgs returns the SyncArgs.
+func (a *ApplyImpl) SyncArgs() string {
+	return a.ApplyOptions.SyncArgs
 }

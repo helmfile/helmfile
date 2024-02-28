@@ -740,6 +740,7 @@ type SyncOpts struct {
 	ResetValues      bool
 	PostRenderer     string
 	PostRendererArgs []string
+	SyncArgs         string
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -2569,6 +2570,10 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
+
+	if opt != nil && opt.SyncArgs != "" {
+		flags = append(flags, argparser.CollectArgs(opt.SyncArgs)...)
+	}
 
 	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
 		flags = append(flags, "--verify")

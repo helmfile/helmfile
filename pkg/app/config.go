@@ -83,6 +83,7 @@ type ApplyConfigProvider interface {
 	SkipDiffOnInstall() bool
 
 	DiffArgs() string
+	SyncArgs() string
 
 	DAGConfig
 
@@ -104,6 +105,7 @@ type SyncConfigProvider interface {
 	SkipDeps() bool
 	Wait() bool
 	WaitForJobs() bool
+	SyncArgs() string
 
 	Validate() bool
 
