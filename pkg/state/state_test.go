@@ -3477,3 +3477,99 @@ func TestHideChartURL(t *testing.T) {
 		}
 	}
 }
+
+func Test_appendExtraDiffFlags(t *testing.T) {
+	tests := []struct {
+		name          string
+		inputFlags    []string
+		inputOpts     *DiffOpts
+		inputDefaults []string
+
+		expected []string
+	}{
+		{
+			name:       "Skipping default flags, because diffOpts is provided",
+			inputFlags: []string{"aaaaa"},
+			inputOpts: &DiffOpts{
+				DiffArgs: "-bbbb --cccc",
+			},
+			inputDefaults: []string{"-dddd", "--eeee"},
+			expected:      []string{"aaaaa", "-bbbb", "--cccc"},
+		},
+		{
+			name:          "Use default flags, because diffOpts is not provided",
+			inputFlags:    []string{"aaaaa"},
+			inputDefaults: []string{"-dddd", "--eeee"},
+			expected:      []string{"aaaaa", "-dddd", "--eeee"},
+		},
+		{
+			name:          "Don't add non-flag arguments",
+			inputFlags:    []string{"aaaaa"},
+			inputDefaults: []string{"-d=ddd", "non-flag", "--eeee"},
+			expected:      []string{"aaaaa", "-d=ddd", "--eeee"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := (&HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: HelmSpec{
+						DiffArgs: test.inputDefaults,
+					},
+				},
+			}).appendExtraDiffFlags(test.inputFlags, test.inputOpts)
+			if !reflect.DeepEqual(result, test.expected) {
+				t.Errorf("For input %v %v, expected %v, but got %v", test.inputFlags, test.inputOpts, test.expected, result)
+			}
+		})
+	}
+}
+
+func Test_appendExtraSyncFlags(t *testing.T) {
+	tests := []struct {
+		name          string
+		inputFlags    []string
+		inputOpts     *SyncOpts
+		inputDefaults []string
+
+		expected []string
+	}{
+		{
+			name:       "Skipping default flags, because diffOpts is provided",
+			inputFlags: []string{"aaaaa"},
+			inputOpts: &SyncOpts{
+				SyncArgs: "-bbbb --cccc",
+			},
+			inputDefaults: []string{"-dddd", "--eeee"},
+			expected:      []string{"aaaaa", "-bbbb", "--cccc"},
+		},
+		{
+			name:          "Use default flags, because diffOpts is not provided",
+			inputFlags:    []string{"aaaaa"},
+			inputDefaults: []string{"-dddd", "--eeee"},
+			expected:      []string{"aaaaa", "-dddd", "--eeee"},
+		},
+		{
+			name:          "Don't add non-flag arguments",
+			inputFlags:    []string{"aaaaa"},
+			inputDefaults: []string{"-d=ddd", "non-flag", "--eeee"},
+			expected:      []string{"aaaaa", "-d=ddd", "--eeee"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := (&HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: HelmSpec{
+						SyncArgs: test.inputDefaults,
+					},
+				},
+			}).appendExtraSyncFlags(test.inputFlags, test.inputOpts)
+			if !reflect.DeepEqual(result, test.expected) {
+				t.Errorf("For input %v %v, expected %v, but got %v", test.inputFlags, test.inputOpts, test.expected, result)
+			}
+		})
+	}
+}
