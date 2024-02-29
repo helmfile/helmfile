@@ -34,7 +34,7 @@ test_pass "secretssops.1"
 test_start "secretssops.2 - should succeed with secrets plugin"
 
 info "Ensure helm-secrets is installed"
-${helm} plugin install https://github.com/jkroepke/helm-secrets --version v${HELM_SECRETS_VERSION}
+${helm} plugin install https://github.com/jkroepke/helm-secrets.git --version v${HELM_SECRETS_VERSION}
 
 info "Ensure helmfile succeed when helm-secrets is installed"
 ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct build || fail "\"helmfile build\" shouldn't fail"

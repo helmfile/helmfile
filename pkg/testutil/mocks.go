@@ -106,9 +106,9 @@ func (helm *noCallHelmExec) DeleteRelease(context helmexec.HelmContext, name str
 	return nil
 }
 
-func (helm *noCallHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
+func (helm *noCallHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (helmexec.HelmReleaseOutput, error) {
 	helm.doPanic()
-	return "", nil
+	return helmexec.HelmReleaseOutput{}, nil
 }
 
 func (helm *noCallHelmExec) DecryptSecret(context helmexec.HelmContext, name string, flags ...string) (string, error) {
