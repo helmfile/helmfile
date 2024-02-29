@@ -2220,6 +2220,7 @@ type applyConfig struct {
 	stripTrailingCR         bool
 	interactive             bool
 	skipDiffOnInstall       bool
+	syncArgs                string
 	diffArgs                string
 	logger                  *zap.SugaredLogger
 	wait                    bool
@@ -2354,6 +2355,10 @@ func (a applyConfig) RetainValuesFiles() bool {
 
 func (a applyConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
+}
+
+func (a applyConfig) SyncArgs() string {
+	return a.syncArgs
 }
 
 func (a applyConfig) DiffArgs() string {

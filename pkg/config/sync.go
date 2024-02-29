@@ -32,6 +32,8 @@ type SyncOptions struct {
 	PostRendererArgs []string
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
+	// SyncArgs is the list of arguments to pass to the helm upgrade command.
+	SyncArgs string
 }
 
 // NewSyncOptions creates a new Apply
@@ -131,4 +133,9 @@ func (t *SyncImpl) PostRendererArgs() []string {
 // Cascade returns cascade flag
 func (t *SyncImpl) Cascade() string {
 	return t.SyncOptions.Cascade
+}
+
+// SyncArgs returns the sync args
+func (t *SyncImpl) SyncArgs() string {
+	return t.SyncOptions.SyncArgs
 }
