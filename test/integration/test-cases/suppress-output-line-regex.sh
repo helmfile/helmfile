@@ -22,7 +22,9 @@ else
     
     for i in $(seq 10); do
         info "Comparing suppress-output-line-regex diff log #$i"
-        ${helmfile} -f ${suppress_output_line_regex_input_dir}/helmfile.yaml.gotmpl diff > ${suppress_output_line_regex_reverse} || fail "\"helmfile diff\" shouldn't fail"
+        # Includes date/time in output, making consistent diff impossible
+        line_exclude_regex='ingress-nginx\s+helmfile-tests\s+1.*deployed\s+ingress-nginx-4.8.3\s+1.9.4'
+        ${helmfile} -f ${suppress_output_line_regex_input_dir}/helmfile.yaml.gotmpl diff | grep -Ev "$line_exclude_regex" > ${suppress_output_line_regex_reverse} || fail "\"helmfile diff\" shouldn't fail"
         diff -u ${diff_out_file} ${suppress_output_line_regex_reverse} || fail "\"helmfile diff\" should be consistent"
         echo code=$?
     done

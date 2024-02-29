@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	helmV3ListFlags                   = "--kube-context default --uninstalling --deployed --failed --pending"
-	helmV3ListFlagsWithoutKubeContext = "--uninstalling --deployed --failed --pending"
+	helmV3ListFlags                   = "--kube-context default --uninstalling --deployed --failed --pending -o yaml"
+	helmV3ListFlagsWithoutKubeContext = "--uninstalling --deployed --failed --pending -o yaml"
 )
 
 func listFlags(namespace, kubeContext string) string {
@@ -27,7 +27,7 @@ func listFlags(namespace, kubeContext string) string {
 	if namespace != "" {
 		flags = append(flags, "--namespace", namespace)
 	}
-	flags = append(flags, "--uninstalling --deployed --failed --pending")
+	flags = append(flags, "--uninstalling --deployed --failed --pending -o yaml")
 
 	return strings.Join(flags, " ")
 }
@@ -92,7 +92,7 @@ func TestDestroy(t *testing.T) {
 		error         string
 		files         map[string]string
 		selectors     []string
-		lists         map[exectest.ListKey]string
+		lists         map[exectest.ListKey]helmexec.HelmReleaseOutput
 		diffs         map[exectest.DiffKey]error
 		upgraded      []exectest.Release
 		deleted       []exectest.Release
@@ -277,35 +277,17 @@ releases:
 		check(t, testcase{
 			files: files,
 			diffs: map[exectest.DiffKey]error{},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^frontend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^backend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^logging$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-logging	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
-`,
-				{Filter: "^front-proxy$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
-`,
-				{Filter: "^servicemesh$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
-`,
-				{Filter: "^database$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
-`,
-				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}:    {},
+				{Filter: "^frontend-v2$", Flags: listFlags("", "default")}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}:     {},
+				{Filter: "^backend-v2$", Flags: listFlags("", "default")}:     {Chart: "backend-3.1.0", Status: "deployed"},
+				{Filter: "^logging$", Flags: listFlags("", "default")}:        {Chart: "fluent-bit-3.1.0", Status: "deployed"},
+				{Filter: "^front-proxy$", Flags: listFlags("", "default")}:    {Chart: "envoy-3.1.0", Status: "deployed"},
+				{Filter: "^servicemesh$", Flags: listFlags("", "default")}:    {Chart: "istio-3.1.0", Status: "deployed"},
+				{Filter: "^database$", Flags: listFlags("", "default")}:       {Chart: "mysql-3.1.0", Status: "deployed"},
+				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: {Chart: "anotherbackend-3.1.0", Status: "deployed"},
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
@@ -316,9 +298,7 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 			deleted: []exectest.Release{
 				{Name: "frontend-v3", Flags: []string{}},
 				{Name: "frontend-v2", Flags: []string{}},
-				{Name: "frontend-v1", Flags: []string{}},
 				{Name: "backend-v2", Flags: []string{}},
-				{Name: "backend-v1", Flags: []string{}},
 				{Name: "anotherbackend", Flags: []string{}},
 				{Name: "servicemesh", Flags: []string{}},
 				{Name: "database", Flags: []string{}},
@@ -454,20 +434,17 @@ WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed d
 
 processing 5 groups of releases in this order:
 GROUP RELEASES
-1     default//frontend-v3, default//frontend-v2, default//frontend-v1
-2     default//backend-v2, default//backend-v1
+1     default//frontend-v3, default//frontend-v2
+2     default//backend-v2
 3     default//anotherbackend
 4     default//servicemesh, default//database
 5     default//front-proxy, default//logging
 
-processing releases in group 1/5: default//frontend-v3, default//frontend-v2, default//frontend-v1
+processing releases in group 1/5: default//frontend-v3, default//frontend-v2
 release "frontend-v3" processed
 release "frontend-v2" processed
-WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
-release "frontend-v1" processed
-processing releases in group 2/5: default//backend-v2, default//backend-v1
+processing releases in group 2/5: default//backend-v2
 release "backend-v2" processed
-release "backend-v1" processed
 processing releases in group 3/5: default//anotherbackend
 release "anotherbackend" processed
 processing releases in group 4/5: default//servicemesh, default//database
@@ -481,9 +458,7 @@ DELETED RELEASES:
 NAME             DURATION
 frontend-v3            0s
 frontend-v2            0s
-frontend-v1            0s
 backend-v2             0s
-backend-v1             0s
 anotherbackend         0s
 servicemesh            0s
 database               0s
@@ -500,35 +475,17 @@ changing working directory back to "/path/to"
 			files:     files,
 			selectors: []string{"name=logging"},
 			diffs:     map[exectest.DiffKey]error{},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^frontend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^backend-v2$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^logging$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-logging	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
-`,
-				{Filter: "^front-proxy$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
-`,
-				{Filter: "^servicemesh$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
-`,
-				{Filter: "^database$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
-`,
-				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}:    {},
+				{Filter: "^frontend-v2$", Flags: listFlags("", "default")}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}:     {},
+				{Filter: "^backend-v2$", Flags: listFlags("", "default")}:     {Chart: "backend-3.1.0", Status: "deployed"},
+				{Filter: "^logging$", Flags: listFlags("", "default")}:        {Chart: "fluent-bit-3.1.0", Status: "deployed"},
+				{Filter: "^front-proxy$", Flags: listFlags("", "default")}:    {Chart: "envoy-3.1.0", Status: "deployed"},
+				{Filter: "^servicemesh$", Flags: listFlags("", "default")}:    {Chart: "istio-3.1.0", Status: "deployed"},
+				{Filter: "^database$", Flags: listFlags("", "default")}:       {Chart: "mysql-3.1.0", Status: "deployed"},
+				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: {Chart: "anotherbackend-3.1.0", Status: "deployed"},
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
@@ -683,11 +640,9 @@ changing working directory back to "/path/to"
 		check(t, testcase{
 			files: filesForTwoReleases,
 			diffs: map[exectest.DiffKey]error{},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}:  {},
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
@@ -732,21 +687,17 @@ merged environment: &{default  map[] map[]}
 WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 2 release(s) found in helmfile.yaml
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
 1     default//frontend-v1
-2     default//backend-v1
 
-processing releases in group 1/2: default//frontend-v1
+processing releases in group 1/1: default//frontend-v1
 WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 release "frontend-v1" processed
-processing releases in group 2/2: default//backend-v1
-release "backend-v1" processed
 
 DELETED RELEASES:
 NAME          DURATION
 frontend-v1         0s
-backend-v1          0s
 
 changing working directory back to "/path/to"
 `,
@@ -757,11 +708,9 @@ changing working directory back to "/path/to"
 		check(t, testcase{
 			files: filesForTwoReleases,
 			diffs: map[exectest.DiffKey]error{},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^backend-v1$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}: {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}:  {},
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
@@ -809,21 +758,17 @@ merged environment: &{default  map[] map[]}
 WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 2 release(s) found in helmfile.yaml
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
 1     default//frontend-v1
-2     default//backend-v1
 
-processing releases in group 1/2: default//frontend-v1
+processing releases in group 1/1: default//frontend-v1
 WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 release "frontend-v1" processed
-processing releases in group 2/2: default//backend-v1
-release "backend-v1" processed
 
 DELETED RELEASES:
 NAME          DURATION
 frontend-v1         0s
-backend-v1          0s
 
 changing working directory back to "/path/to"
 `,
