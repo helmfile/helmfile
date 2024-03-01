@@ -125,6 +125,7 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.BoolVar(&globalOptions.StripArgsValuesOnExitError, "strip-args-values-on-exit-error", true, `Strip the potential secret values of the helm command args contained in a helmfile error message`)
 	fs.BoolVar(&globalOptions.DisableForceUpdate, "disable-force-update", false, `do not force helm repos to update when executing "helm repo add"`)
 	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, "Silence output. Equivalent to log-level warn")
+	fs.StringVar(&globalOptions.Kubeconfig, "kubeconfig", "", "Use a particular kubeconfig file")
 	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", "Set kubectl context. Uses current context by default")
 	fs.BoolVar(&globalOptions.Debug, "debug", false, "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect")
 	fs.BoolVar(&globalOptions.Color, "color", false, "Output with color")

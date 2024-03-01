@@ -37,6 +37,7 @@ type App struct {
 	DisableForceUpdate         bool
 
 	Logger      *zap.SugaredLogger
+	Kubeconfig  string
 	Env         string
 	Namespace   string
 	Chart       string
@@ -81,6 +82,7 @@ func New(conf ConfigProvider) *App {
 		StripArgsValuesOnExitError: conf.StripArgsValuesOnExitError(),
 		DisableForceUpdate:         conf.DisableForceUpdate(),
 		Logger:                     conf.Logger(),
+		Kubeconfig:                 conf.Kubeconfig(),
 		Env:                        conf.Env(),
 		Namespace:                  conf.Namespace(),
 		Chart:                      conf.Chart(),
@@ -789,12 +791,13 @@ func (a *App) getHelm(st *state.HelmState) helmexec.Interface {
 	}
 
 	bin := st.DefaultHelmBinary
+	kubeconfig := a.Kubeconfig
 	kubectx := st.HelmDefaults.KubeContext
 
 	key := createHelmKey(bin, kubectx)
 
 	if _, ok := a.helms[key]; !ok {
-		a.helms[key] = helmexec.New(bin, helmexec.HelmExecOptions{EnableLiveOutput: a.EnableLiveOutput, DisableForceUpdate: a.DisableForceUpdate}, a.Logger, kubectx, &helmexec.ShellRunner{
+		a.helms[key] = helmexec.New(bin, helmexec.HelmExecOptions{EnableLiveOutput: a.EnableLiveOutput, DisableForceUpdate: a.DisableForceUpdate}, a.Logger, kubeconfig, kubectx, &helmexec.ShellRunner{
 			Logger:                     a.Logger,
 			Ctx:                        a.ctx,
 			StripArgsValuesOnExitError: a.StripArgsValuesOnExitError,

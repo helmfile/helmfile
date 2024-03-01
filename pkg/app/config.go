@@ -18,6 +18,7 @@ type ConfigProvider interface {
 	Selectors() []string
 	StateValuesSet() map[string]any
 	StateValuesFiles() []string
+	Kubeconfig() string
 	Env() string
 
 	loggingConfig

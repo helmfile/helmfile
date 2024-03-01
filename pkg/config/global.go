@@ -37,6 +37,8 @@ type GlobalOptions struct {
 	DisableForceUpdate bool
 	// Quiet is true if the output should be quiet.
 	Quiet bool
+	// Kubeconfig is the path to the kubeconfig file to use.
+	Kubeconfig string
 	// KubeContext is the name of the kubectl context to use.
 	KubeContext string
 	// Debug is true if the output should be verbose.
@@ -102,6 +104,11 @@ func (g *GlobalImpl) HelmBinary() string {
 // KustomizeBinary returns the path to the Kustomize binary.
 func (g *GlobalImpl) KustomizeBinary() string {
 	return g.GlobalOptions.KustomizeBinary
+}
+
+// Kubeconfig returns the path to the kubeconfig file to use.
+func (g *GlobalImpl) Kubeconfig() string {
+	return g.GlobalOptions.Kubeconfig
 }
 
 // KubeContext returns the name of the kubectl context to use.
