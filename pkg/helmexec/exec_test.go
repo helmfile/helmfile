@@ -34,8 +34,8 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 	return mock.output, mock.err
 }
 
-func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
-	execer := New("helm", HelmExecOptions{}, logger, kubeContext, &mockRunner{})
+func MockExecer(logger *zap.SugaredLogger, kubeconfig, kubeContext string) *execer {
+	execer := New("helm", HelmExecOptions{}, logger, kubeconfig, kubeContext, &mockRunner{})
 	return execer
 }
 
@@ -43,7 +43,7 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) *execer {
 
 func TestNewHelmExec(t *testing.T) {
 	buffer := bytes.NewBufferString("something")
-	helm := MockExecer(NewLogger(buffer, "debug"), "dev")
+	helm := MockExecer(NewLogger(buffer, "debug"), "config", "dev")
 	if helm.kubeContext != "dev" {
 		t.Error("helmexec.New() - kubeContext")
 	}
@@ -56,7 +56,7 @@ func TestNewHelmExec(t *testing.T) {
 }
 
 func Test_SetExtraArgs(t *testing.T) {
-	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "config", "dev")
 	helm.SetExtraArgs()
 	if len(helm.extra) != 0 {
 		t.Error("helmexec.SetExtraArgs() - passing no arguments should not change extra field")
@@ -72,7 +72,7 @@ func Test_SetExtraArgs(t *testing.T) {
 }
 
 func Test_SetHelmBinary(t *testing.T) {
-	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "config", "dev")
 	if helm.helmBinary != "helm" {
 		t.Error("helmexec.command - default command is not helm")
 	}
@@ -83,7 +83,7 @@ func Test_SetHelmBinary(t *testing.T) {
 }
 
 func Test_SetEnableLiveOutput(t *testing.T) {
-	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "config", "dev")
 	if helm.options.EnableLiveOutput {
 		t.Error("helmexec.options.EnableLiveOutput should not be enabled by default")
 	}
@@ -94,7 +94,7 @@ func Test_SetEnableLiveOutput(t *testing.T) {
 }
 
 func Test_SetDisableForceUpdate(t *testing.T) {
-	helm := MockExecer(NewLogger(os.Stdout, "info"), "dev")
+	helm := MockExecer(NewLogger(os.Stdout, "info"), "config", "dev")
 	if helm.options.DisableForceUpdate {
 		t.Error("helmexec.options.ForceUpdate should not be enabled by default")
 	}
@@ -111,12 +111,13 @@ func Test_AddRepo_Helm_3_3_2(t *testing.T) {
 		helmBinary:  "helm",
 		version:     semver.MustParse("3.3.2"),
 		logger:      logger,
+		kubeconfig:  "config",
 		kubeContext: "dev",
 		runner:      &mockRunner{},
 	}
 	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
 	expected := `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -135,12 +136,13 @@ func Test_AddRepo_Helm_3_3_2_NoForceUpdate(t *testing.T) {
 		options:     HelmExecOptions{DisableForceUpdate: true},
 		version:     semver.MustParse("3.3.2"),
 		logger:      logger,
+		kubeconfig:  "config",
 		kubeContext: "dev",
 		runner:      &mockRunner{},
 	}
 	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
 	expected := `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -154,10 +156,10 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-f
 func Test_AddRepo(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
 	expected := `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -170,7 +172,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --cert-f
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "ca.crt", "", "", "", "", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --ca-file ca.crt
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --ca-file ca.crt
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -183,7 +185,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --ca-fil
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -221,7 +223,7 @@ exec: az acr helm repo add --name acrRepo:
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -245,7 +247,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --userna
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", true, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password --pass-credentials
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password --pass-credentials
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -257,7 +259,7 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --userna
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", false, true)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --insecure-skip-tls-verify
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --insecure-skip-tls-verify
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -270,10 +272,10 @@ exec: helm --kube-context dev repo add myRepo https://repo.example.com/ --insecu
 func Test_UpdateRepo(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.UpdateRepo()
 	expected := `Updating repo
-exec: helm --kube-context dev repo update
+exec: helm --kubeconfig config --kube-context dev repo update
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -290,12 +292,13 @@ func Test_RegistryLogin(t *testing.T) {
 		helmBinary:  "helm",
 		version:     semver.MustParse("v3.12.0"),
 		logger:      logger,
+		kubeconfig:  "config",
 		kubeContext: "dev",
 		runner:      &mockRunner{},
 	}
 	err := helm.RegistryLogin("repo.example.com", "example_user", "example_password", "example_ca", "example_cert", "example_key", true)
 	expected := `Logging in to registry
-exec: helm --kube-context dev registry login repo.example.com --cert-file example_cert --key-file example_key --ca-file example_ca --insecure --username example_user --password-stdin
+exec: helm --kubeconfig config --kube-context dev registry login repo.example.com --cert-file example_cert --key-file example_key --ca-file example_ca --insecure --username example_user --password-stdin
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -310,7 +313,7 @@ exec: helm --kube-context dev registry login repo.example.com --cert-file exampl
 
 	err = helm.RegistryLogin("repo.example.com", "example_user", "example_password", "example_ca", "example_cert", "example_key", true)
 	expected = `Logging in to registry
-exec: helm --kube-context dev registry login repo.example.com --insecure --username example_user --password-stdin
+exec: helm --kubeconfig config --kube-context dev registry login repo.example.com --insecure --username example_user --password-stdin
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -323,10 +326,10 @@ exec: helm --kube-context dev registry login repo.example.com --insecure --usern
 func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.SyncRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs")
 	expected := `Upgrading release=release, chart=chart
-exec: helm --kube-context dev upgrade --install release chart --timeout 10 --wait --wait-for-jobs --history-max 0
+exec: helm --kubeconfig config --kube-context dev upgrade --install release chart --timeout 10 --wait --wait-for-jobs --history-max 0
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -338,7 +341,7 @@ exec: helm --kube-context dev upgrade --install release chart --timeout 10 --wai
 	buffer.Reset()
 	err = helm.SyncRelease(HelmContext{}, "release", "chart")
 	expected = `Upgrading release=release, chart=chart
-exec: helm --kube-context dev upgrade --install release chart --history-max 0
+exec: helm --kubeconfig config --kube-context dev upgrade --install release chart --history-max 0
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -350,7 +353,7 @@ exec: helm --kube-context dev upgrade --install release chart --history-max 0
 	buffer.Reset()
 	err = helm.SyncRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz")
 	expected = `Upgrading release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
-exec: helm --kube-context dev upgrade --install release https://example_user:example_password@repo.example.com/chart.tgz --history-max 0
+exec: helm --kubeconfig config --kube-context dev upgrade --install release https://example_user:example_password@repo.example.com/chart.tgz --history-max 0
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -363,10 +366,10 @@ exec: helm --kube-context dev upgrade --install release https://example_user:exa
 func Test_UpdateDeps(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.UpdateDeps("./chart/foo")
 	expected := `Updating dependency ./chart/foo
-exec: helm --kube-context dev dependency update ./chart/foo
+exec: helm --kubeconfig config --kube-context dev dependency update ./chart/foo
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -379,7 +382,7 @@ exec: helm --kube-context dev dependency update ./chart/foo
 	helm.SetExtraArgs("--verify")
 	err = helm.UpdateDeps("./chart/foo")
 	expected = `Updating dependency ./chart/foo
-exec: helm --kube-context dev dependency update ./chart/foo --verify
+exec: helm --kubeconfig config --kube-context dev dependency update ./chart/foo --verify
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -393,10 +396,10 @@ func Test_BuildDeps(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a")}
-	helm := New("helm", HelmExecOptions{}, logger, "dev", &helm3Runner)
+	helm := New("helm", HelmExecOptions{}, logger, "config", "dev", &helm3Runner)
 	err := helm.BuildDeps("foo", "./chart/foo", []string{"--skip-refresh"}...)
 	expected := `Building dependency release=foo, chart=./chart/foo
-exec: helm --kube-context dev dependency build ./chart/foo --skip-refresh
+exec: helm --kubeconfig config --kube-context dev dependency build ./chart/foo --skip-refresh
 v3.2.4+ge29ce2a
 `
 	if err != nil {
@@ -409,7 +412,7 @@ v3.2.4+ge29ce2a
 	buffer.Reset()
 	err = helm.BuildDeps("foo", "./chart/foo")
 	expected = `Building dependency release=foo, chart=./chart/foo
-exec: helm --kube-context dev dependency build ./chart/foo
+exec: helm --kubeconfig config --kube-context dev dependency build ./chart/foo
 v3.2.4+ge29ce2a
 `
 	if err != nil {
@@ -423,7 +426,7 @@ v3.2.4+ge29ce2a
 	helm.SetExtraArgs("--verify")
 	err = helm.BuildDeps("foo", "./chart/foo", []string{"--skip-refresh"}...)
 	expected = `Building dependency release=foo, chart=./chart/foo
-exec: helm --kube-context dev dependency build ./chart/foo --skip-refresh --verify
+exec: helm --kubeconfig config --kube-context dev dependency build ./chart/foo --skip-refresh --verify
 v3.2.4+ge29ce2a
 `
 	if err != nil {
@@ -435,10 +438,10 @@ v3.2.4+ge29ce2a
 
 	buffer.Reset()
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94")}
-	helm = New("helm", HelmExecOptions{}, logger, "dev", &helm2Runner)
+	helm = New("helm", HelmExecOptions{}, logger, "config", "dev", &helm2Runner)
 	err = helm.BuildDeps("foo", "./chart/foo")
 	expected = `Building dependency release=foo, chart=./chart/foo
-exec: helm --kube-context dev dependency build ./chart/foo
+exec: helm --kubeconfig config --kube-context dev dependency build ./chart/foo
 Client: v2.16.1+ge13bc94
 `
 	if err != nil {
@@ -461,7 +464,7 @@ func Test_DecryptSecret(t *testing.T) {
 	}()
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 
 	tmpFilePath := "path/to/temp/file"
 	helm.writeTempFile = func(content []byte) (string, error) {
@@ -481,7 +484,7 @@ func Test_DecryptSecret(t *testing.T) {
 
 	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName
 Decrypting secret %s/secretName
-exec: helm --kube-context dev secrets decrypt %s/secretName
+exec: helm --kubeconfig config --kube-context dev secrets decrypt %s/secretName
 Decrypted %s/secretName into %s
 Preparing to decrypt secret %s/secretName
 Found secret in cache %s/secretName
@@ -510,7 +513,7 @@ func Test_DecryptSecretWithGotmpl(t *testing.T) {
 	}()
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 
 	tmpFilePath := "path/to/temp/file"
 	helm.writeTempFile = func(content []byte) (string, error) {
@@ -529,7 +532,7 @@ func Test_DecryptSecretWithGotmpl(t *testing.T) {
 
 	expected := fmt.Sprintf(`Preparing to decrypt secret %v/secretName.yaml.gotmpl
 Decrypting secret %s/secretName.yaml.gotmpl
-exec: helm --kube-context dev secrets decrypt %s/secretName.yaml.gotmpl
+exec: helm --kubeconfig config --kube-context dev secrets decrypt %s/secretName.yaml.gotmpl
 Decrypted %s/secretName.yaml.gotmpl into %s
 `, cwd, cwd, cwd, cwd, tmpFilePath)
 	if err != nil {
@@ -543,10 +546,10 @@ Decrypted %s/secretName.yaml.gotmpl into %s
 func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.DiffRelease(HelmContext{}, "release", "chart", false, "--timeout 10", "--wait", "--wait-for-jobs")
 	expected := `Comparing release=release, chart=chart
-exec: helm --kube-context dev diff upgrade --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
+exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -558,7 +561,7 @@ exec: helm --kube-context dev diff upgrade --allow-unreleased release chart --ti
 	buffer.Reset()
 	err = helm.DiffRelease(HelmContext{}, "release", "chart", false)
 	expected = `Comparing release=release, chart=chart
-exec: helm --kube-context dev diff upgrade --allow-unreleased release chart
+exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -570,7 +573,7 @@ exec: helm --kube-context dev diff upgrade --allow-unreleased release chart
 	buffer.Reset()
 	err = helm.DiffRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz", false)
 	expected = `Comparing release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
-exec: helm --kube-context dev diff upgrade --allow-unreleased release https://example_user:example_password@repo.example.com/chart.tgz
+exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release https://example_user:example_password@repo.example.com/chart.tgz
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -583,10 +586,10 @@ exec: helm --kube-context dev diff upgrade --allow-unreleased release https://ex
 func Test_DeleteRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.DeleteRelease(HelmContext{}, "release")
 	expected := `Deleting release
-exec: helm --kube-context dev delete release
+exec: helm --kubeconfig config --kube-context dev delete release
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -598,10 +601,10 @@ exec: helm --kube-context dev delete release
 func Test_DeleteRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.DeleteRelease(HelmContext{}, "release", "--purge")
 	expected := `Deleting release
-exec: helm --kube-context dev delete release --purge
+exec: helm --kubeconfig config --kube-context dev delete release --purge
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -614,10 +617,10 @@ exec: helm --kube-context dev delete release --purge
 func Test_TestRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.TestRelease(HelmContext{}, "release")
 	expected := `Testing release
-exec: helm --kube-context dev test release
+exec: helm --kubeconfig config --kube-context dev test release
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -629,10 +632,10 @@ exec: helm --kube-context dev test release
 func Test_TestRelease_Flags(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.TestRelease(HelmContext{}, "release", "--cleanup", "--timeout", "60")
 	expected := `Testing release
-exec: helm --kube-context dev test release --cleanup --timeout 60
+exec: helm --kubeconfig config --kube-context dev test release --cleanup --timeout 60
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -645,10 +648,10 @@ exec: helm --kube-context dev test release --cleanup --timeout 60
 func Test_ReleaseStatus(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.ReleaseStatus(HelmContext{}, "myRelease")
 	expected := `Getting status myRelease
-exec: helm --kube-context dev status myRelease
+exec: helm --kubeconfig config --kube-context dev status myRelease
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -661,7 +664,7 @@ exec: helm --kube-context dev status myRelease
 func Test_exec(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "")
+	helm := MockExecer(logger, "", "")
 	env := map[string]string{}
 	_, err := helm.exec([]string{"version"}, env, nil)
 	expected := `exec: helm version
@@ -673,16 +676,16 @@ func Test_exec(t *testing.T) {
 		t.Errorf("helmexec.exec()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
-	helm = MockExecer(logger, "dev")
+	helm = MockExecer(logger, "config", "dev")
 	ret, _ := helm.exec([]string{"diff"}, env, nil)
 	if len(ret) != 0 {
 		t.Error("helmexec.exec() - expected empty return value")
 	}
 
 	buffer.Reset()
-	helm = MockExecer(logger, "dev")
+	helm = MockExecer(logger, "config", "dev")
 	_, err = helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs"}, env, nil)
-	expected = `exec: helm --kube-context dev diff release chart --timeout 10 --wait --wait-for-jobs
+	expected = `exec: helm --kubeconfig config --kube-context dev diff release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -693,7 +696,7 @@ func Test_exec(t *testing.T) {
 
 	buffer.Reset()
 	_, err = helm.exec([]string{"version"}, env, nil)
-	expected = `exec: helm --kube-context dev version
+	expected = `exec: helm --kubeconfig config --kube-context dev version
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -705,7 +708,7 @@ func Test_exec(t *testing.T) {
 	buffer.Reset()
 	helm.SetExtraArgs("foo")
 	_, err = helm.exec([]string{"version"}, env, nil)
-	expected = `exec: helm --kube-context dev version foo
+	expected = `exec: helm --kubeconfig config --kube-context dev version foo
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -715,7 +718,7 @@ func Test_exec(t *testing.T) {
 	}
 
 	buffer.Reset()
-	helm = MockExecer(logger, "")
+	helm = MockExecer(logger, "", "")
 	helm.SetHelmBinary("overwritten")
 	_, err = helm.exec([]string{"version"}, env, nil)
 	expected = `exec: overwritten version
@@ -731,10 +734,10 @@ func Test_exec(t *testing.T) {
 func Test_Lint(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.Lint("release", "path/to/chart", "--values", "file.yml")
 	expected := `Linting release=release, chart=path/to/chart
-exec: helm --kube-context dev lint path/to/chart --values file.yml
+exec: helm --kubeconfig config --kube-context dev lint path/to/chart --values file.yml
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -747,10 +750,10 @@ exec: helm --kube-context dev lint path/to/chart --values file.yml
 func Test_Fetch(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.Fetch("chart", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
 	expected := `Fetching chart
-exec: helm --kube-context dev fetch chart --version 1.2.3 --untar --untardir /tmp/dir
+exec: helm --kubeconfig config --kube-context dev fetch chart --version 1.2.3 --untar --untardir /tmp/dir
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -762,7 +765,7 @@ exec: helm --kube-context dev fetch chart --version 1.2.3 --untar --untardir /tm
 	buffer.Reset()
 	err = helm.Fetch("https://example_user:example_password@repo.example.com/chart.tgz", "--version", "1.2.3", "--untar", "--untardir", "/tmp/dir")
 	expected = `Fetching https://example_user:xxxxx@repo.example.com/chart.tgz
-exec: helm --kube-context dev fetch https://example_user:example_password@repo.example.com/chart.tgz --version 1.2.3 --untar --untardir /tmp/dir
+exec: helm --kubeconfig config --kube-context dev fetch https://example_user:example_password@repo.example.com/chart.tgz --version 1.2.3 --untar --untardir /tmp/dir
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -792,7 +795,7 @@ func Test_ChartPull(t *testing.T) {
 			chartPath:   "path1",
 			chartFlags:  []string{"--untar", "--untardir", "/tmp/dir"},
 			listResult: `Pulling chart
-exec: helm --kube-context dev chart pull chart
+exec: helm --kubeconfig config --kube-context dev chart pull chart
 `,
 		},
 		{
@@ -803,7 +806,7 @@ exec: helm --kube-context dev chart pull chart
 			chartPath:   "path1",
 			chartFlags:  []string{"--untardir", "/tmp/dir"},
 			listResult: `Pulling repo/helm-charts:0.14.0
-exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
+exec: helm --kubeconfig config --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
 `,
 		},
 		{
@@ -814,7 +817,7 @@ exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --des
 			chartPath:   "path1",
 			chartFlags:  []string{"--untardir", "/tmp/dir"},
 			listResult: `Pulling repo/helm-charts:0.14.0
-exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
+exec: helm --kubeconfig config --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
 `,
 		},
 	}
@@ -822,7 +825,7 @@ exec: helm --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --des
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			buffer.Reset()
-			helm := New(tt.helmBin, HelmExecOptions{}, logger, "dev", &mockRunner{output: []byte(tt.helmVersion)})
+			helm := New(tt.helmBin, HelmExecOptions{}, logger, "config", "dev", &mockRunner{output: []byte(tt.helmVersion)})
 			err := helm.ChartPull(tt.chartName, tt.chartPath, tt.chartFlags...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -854,7 +857,7 @@ func Test_ChartExport(t *testing.T) {
 			chartName:   "chart",
 			chartPath:   "path1",
 			listResult: `Exporting chart
-exec: helm --kube-context dev chart export chart --destination path1
+exec: helm --kubeconfig config --kube-context dev chart export chart --destination path1
 `,
 			expectedError: "",
 		},
@@ -867,6 +870,7 @@ exec: helm --kube-context dev chart export chart --destination path1
 				helmBinary:  tt.helmBin,
 				version:     semver.MustParse(tt.helmVersion),
 				logger:      logger,
+				kubeconfig:  "config",
 				kubeContext: "dev",
 				runner:      &mockRunner{},
 			}
@@ -895,7 +899,7 @@ func Test_LogLevels(t *testing.T) {
 	for logLevel, expected := range logLevelTests {
 		buffer.Reset()
 		logger := NewLogger(&buffer, logLevel)
-		helm := MockExecer(logger, "")
+		helm := MockExecer(logger, "", "")
 		err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", false, false)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -917,10 +921,10 @@ func Test_mergeEnv(t *testing.T) {
 func Test_Template(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
-	helm := MockExecer(logger, "dev")
+	helm := MockExecer(logger, "config", "dev")
 	err := helm.TemplateRelease("release", "path/to/chart", "--values", "file.yml")
 	expected := `Templating release=release, chart=path/to/chart
-exec: helm --kube-context dev template release path/to/chart --values file.yml
+exec: helm --kubeconfig config --kube-context dev template release path/to/chart --values file.yml
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -932,7 +936,7 @@ exec: helm --kube-context dev template release path/to/chart --values file.yml
 	buffer.Reset()
 	err = helm.TemplateRelease("release", "https://example_user:example_password@repo.example.com/chart.tgz", "--values", "file.yml")
 	expected = `Templating release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
-exec: helm --kube-context dev template release https://example_user:example_password@repo.example.com/chart.tgz --values file.yml
+exec: helm --kubeconfig config --kube-context dev template release https://example_user:example_password@repo.example.com/chart.tgz --values file.yml
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -944,13 +948,13 @@ exec: helm --kube-context dev template release https://example_user:example_pass
 
 func Test_IsHelm3(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm2Runner)
 	if helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Detected Helm 3 with Helm 2 version")
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
-	helm = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm3Runner)
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
@@ -981,14 +985,14 @@ func Test_GetPluginVersion(t *testing.T) {
 
 func Test_GetVersion(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm2Runner)
 	ver := helm.GetVersion()
 	if ver.Major != 2 || ver.Minor != 16 || ver.Patch != 1 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm2 version; it was: %+v", ver)
 	}
 
 	helm3Runner := mockRunner{output: []byte("v3.2.4+ge29ce2a\n")}
-	helm = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm3Runner)
+	helm = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm3Runner)
 	ver = helm.GetVersion()
 	if ver.Major != 3 || ver.Minor != 2 || ver.Patch != 4 {
 		t.Errorf("helmexec.GetVersion - did not detect correct Helm3 version; it was: %+v", ver)
@@ -997,7 +1001,7 @@ func Test_GetVersion(t *testing.T) {
 
 func Test_IsVersionAtLeast(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
-	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "dev", &helm2Runner)
+	helm := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm2Runner)
 	if !helm.IsVersionAtLeast("2.1.0") {
 		t.Error("helmexec.IsVersionAtLeast - 2.16.1 not atleast 2.1")
 	}

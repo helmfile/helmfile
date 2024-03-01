@@ -39,6 +39,7 @@ type execer struct {
 	version              *semver.Version
 	runner               Runner
 	logger               *zap.SugaredLogger
+	kubeconfig           string
 	kubeContext          string
 	extra                []string
 	decryptedSecretMutex sync.Mutex
@@ -115,7 +116,7 @@ func redactedURL(chart string) string {
 }
 
 // New for running helm commands
-func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, kubeContext string, runner Runner) *execer {
+func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, kubeconfig string, kubeContext string, runner Runner) *execer {
 	// TODO: proper error handling
 	version, err := GetHelmVersion(helmBinary, runner)
 	if err != nil {
@@ -132,6 +133,7 @@ func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, 
 		options:          options,
 		version:          version,
 		logger:           logger,
+		kubeconfig:       kubeconfig,
 		kubeContext:      kubeContext,
 		runner:           runner,
 		decryptedSecrets: make(map[string]*decryptedSecret),
@@ -559,6 +561,9 @@ func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiv
 	if helm.kubeContext != "" {
 		cmdargs = append([]string{"--kube-context", helm.kubeContext}, cmdargs...)
 	}
+	if helm.kubeconfig != "" {
+		cmdargs = append([]string{"--kubeconfig", helm.kubeconfig}, cmdargs...)
+	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
 	enableLiveOutput := helm.options.EnableLiveOutput
@@ -576,6 +581,9 @@ func (helm *execer) execStdIn(args []string, env map[string]string, stdin io.Rea
 	}
 	if helm.kubeContext != "" {
 		cmdargs = append([]string{"--kube-context", helm.kubeContext}, cmdargs...)
+	}
+	if helm.kubeconfig != "" {
+		cmdargs = append([]string{"--kubeconfig", helm.kubeconfig}, cmdargs...)
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
