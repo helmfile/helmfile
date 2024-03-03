@@ -3426,13 +3426,13 @@ func TestAppendChartDownloadTLSFlags(t *testing.T) {
 			name:                         "defaultInsecureSkipTLSVerify is true and releaseInsecureSkipTLSVerify is false",
 			defaultInsecureSkipTLSVerify: true,
 			releaseInsecureSkipTLSVerify: false,
-			expected:                     []string{"--insecure-skip-tls-verify"},
+			expected:                     []string{"--helm-insecure-skip-tls-verify"},
 		},
 		{
 			name:                         "defaultInsecureSkipTLSVerify is false and releaseInsecureSkipTLSVerify is true",
 			defaultInsecureSkipTLSVerify: false,
 			releaseInsecureSkipTLSVerify: true,
-			expected:                     []string{"--insecure-skip-tls-verify"},
+			expected:                     []string{"--helm-insecure-skip-tls-verify"},
 		},
 		{
 			name:                         "defaultInsecureSkipTLSVerify is false and releaseInsecureSkipTLSVerify is false",

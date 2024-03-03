@@ -2560,9 +2560,9 @@ func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 func (st *HelmState) appendChartDownloadTLSFlags(flags []string, release *ReleaseSpec) []string {
 	switch {
 	case release.InsecureSkipTLSVerify:
-		flags = append(flags, "--insecure-skip-tls-verify")
+		flags = append(flags, "--helm-insecure-skip-tls-verify")
 	case st.HelmDefaults.InsecureSkipTLSVerify:
-		flags = append(flags, "--insecure-skip-tls-verify")
+		flags = append(flags, "--helm-insecure-skip-tls-verify")
 	}
 	return flags
 }
@@ -2723,7 +2723,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		if err != nil {
 			return nil, nil, err
 		}
-		dv, _ := semver.NewVersion("v3.8.1")
+		dv, _ := semver.NewVersion("v3.9.6")
 
 		if diffVersion.LessThan(dv) {
 			return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s, please use at least v3.8.1", diffVersion)
