@@ -2294,6 +2294,7 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 		}
 	}
 
+	var ok bool
 	enabled, ok := iValues["enabled"]
 	e, ok := enabled.(bool)
 
