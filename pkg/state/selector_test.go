@@ -110,7 +110,12 @@ func TestSelectReleasesWithOverrides(t *testing.T) {
 	for _, tc := range testcases {
 		state.Selectors = tc.selector
 
-		state.Releases = state.GetReleasesWithOverrides()
+		releases, err := state.GetReleasesWithOverrides()
+		state.Releases = releases
+
+		if err != nil {
+			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
+		}
 
 		rs, err := state.GetSelectedReleases(false)
 		if err != nil {
@@ -180,7 +185,12 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 
 	for _, tc := range testcases {
 		state.Selectors = tc.selector
-		state.Releases = state.GetReleasesWithOverrides()
+		releases, err := state.GetReleasesWithOverrides()
+		if err != nil {
+			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
+		}
+
+		state.Releases = releases
 
 		rs, err := state.GetSelectedReleases(tc.includeTransitiveNeeds)
 		if err != nil {

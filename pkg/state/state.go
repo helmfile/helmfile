@@ -67,6 +67,7 @@ type ReleaseSetSpec struct {
 	Repositories        []RepositorySpec  `yaml:"repositories,omitempty"`
 	CommonLabels        map[string]string `yaml:"commonLabels,omitempty"`
 	Releases            []ReleaseSpec     `yaml:"releases,omitempty"`
+	OrginReleases       []ReleaseSpec     `yaml:"-"`
 	Selectors           []string          `yaml:"-"`
 
 	// Capabilities.APIVersions
@@ -290,7 +291,7 @@ type ReleaseSpec struct {
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
 	MissingFileHandler *string `yaml:"missingFileHandler,omitempty"`
-	// Needs is the [TILLER_NS/][NS/]NAME representations of releases that this release depends on.
+	// Needs is the [KUBECONTEXT/][NS/]NAME representations of releases that this release depends on.
 	Needs []string `yaml:"needs,omitempty"`
 
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
@@ -458,15 +459,12 @@ var DefaultFetchOutputDirTemplate = filepath.Join(
 	"{{ or .Release.Version \"latest\" }}",
 )
 
-func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
-	if st.OverrideKubeContext != "" {
-		spec.KubeContext = st.OverrideKubeContext
-	}
-	if st.OverrideNamespace != "" {
-		spec.Namespace = st.OverrideNamespace
-	}
-
+func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 	var needs []string
+	releaseInstalledInfo := make(map[string]bool)
+	for _, r := range st.OrginReleases {
+		releaseInstalledInfo[r.Name] = r.Desired()
+	}
 
 	// Since the representation differs between needs and id,
 	// correct it by prepending Namespace and KubeContext.
@@ -478,6 +476,9 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 		components := strings.Split(n, "/")
 
 		name = components[len(components)-1]
+		if !releaseInstalledInfo[name] {
+			st.logger.Warnf("WARNING: %s", fmt.Sprintf("release %s needs %s, but %s is not installed due to installed: false. Either mark %s as installed or remove %s from %s's needs", spec.Name, name, name, name, name, spec.Name))
+		}
 
 		if len(components) > 1 {
 			ns = components[len(components)-2]
@@ -512,8 +513,18 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 
 		needs = append(needs, strings.Join(componentsAfterOverride, "/"))
 	}
+	return needs
+}
 
-	spec.Needs = needs
+func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
+	if st.OverrideKubeContext != "" {
+		spec.KubeContext = st.OverrideKubeContext
+	}
+	if st.OverrideNamespace != "" {
+		spec.Namespace = st.OverrideNamespace
+	}
+
+	spec.Needs = st.reformat(spec)
 }
 
 type RepoUpdater interface {
@@ -610,6 +621,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 		},
 		func(workerIndex int) {
 			for release := range jobs {
+				errs := []*ReleaseError{}
 				st.ApplyOverrides(release)
 
 				// If `installed: false`, the only potential operation on this release would be uninstalling.
@@ -633,7 +645,6 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					continue
 				}
 
-				errs := []*ReleaseError{}
 				for _, value := range additionalValues {
 					valfile, err := filepath.Abs(value)
 					if err != nil {
@@ -1054,10 +1065,9 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	var result []ReleaseSpec
 
 	for _, r := range releases {
-		if !r.Desired() {
-			continue
+		if r.Desired() {
+			result = append(result, r)
 		}
-		result = append(result, r)
 	}
 
 	return result
@@ -2178,14 +2188,14 @@ func (st *HelmState) Clean() []error {
 	return nil
 }
 
-func (st *HelmState) GetReleasesWithOverrides() []ReleaseSpec {
+func (st *HelmState) GetReleasesWithOverrides() ([]ReleaseSpec, error) {
 	var rs []ReleaseSpec
 	for _, r := range st.Releases {
 		spec := r
 		st.ApplyOverrides(&spec)
 		rs = append(rs, spec)
 	}
-	return rs
+	return rs, nil
 }
 
 func (st *HelmState) SelectReleases(includeTransitiveNeeds bool) ([]Release, error) {

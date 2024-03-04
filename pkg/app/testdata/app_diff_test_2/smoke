@@ -122,6 +122,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 54: 
 
 merged environment: &{default  map[] map[]}
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 10 release(s) found in helmfile.yaml
 
 processing 5 groups of releases in this order:

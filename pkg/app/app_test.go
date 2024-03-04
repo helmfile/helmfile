@@ -3745,6 +3745,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
  9: 
 
 merged environment: &{default  map[] map[]}
+WARNING: release foo needs bar, but bar is not installed due to installed: false. Either mark bar as installed or remove bar from foo's needs
 2 release(s) found in helmfile.yaml
 
 err: release(s) "default//foo" depend(s) on an undefined release "default/ns1/bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
