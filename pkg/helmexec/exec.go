@@ -279,7 +279,7 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags .
 	flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
 
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
@@ -288,7 +288,7 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env, nil)
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
@@ -309,7 +309,7 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	lines := strings.Split(string(out), "\n")
 	lines = lines[1:]
 	out = []byte(strings.Join(lines, "\n"))
-	helm.write(nil, out)
+	helm.info(out)
 	return string(out), err
 }
 
@@ -451,7 +451,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 }
 
 func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
-	if context.Writer != nil {
+	if context.Writer != nil && !suppressDiff {
 		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, redactedURL(chart))
 	} else {
 		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedURL(chart))
@@ -491,6 +491,7 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 func (helm *execer) Lint(name, chart string, flags ...string) error {
 	helm.logger.Infof("Linting release=%v, chart=%v", name, chart)
 	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{}, nil)
+	// Always write to stdout to write the linting result to eg. a file
 	helm.write(nil, out)
 	return err
 }
@@ -541,7 +542,7 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env, nil)
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
@@ -551,7 +552,7 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	env := make(map[string]string)
 	args := []string{"test", name}
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, nil)
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
