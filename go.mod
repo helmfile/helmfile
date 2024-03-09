@@ -178,7 +178,7 @@ require (
 	github.com/getsops/gopgagent v0.0.0-20170926210634-4d7ea76ff71a // indirect
 	github.com/getsops/sops/v3 v3.8.1 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.21.5 // indirect
