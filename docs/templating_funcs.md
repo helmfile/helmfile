@@ -22,14 +22,14 @@ If the environment variable is unset or empty, the template rendering will fail 
 The `exec` function allows you to run a command, returning the stdout of the command. When the command fails, the template rendering will fail with an error message.
 
 ```yaml
-{{ $cmdOutpot := exec "./mycmd" (list "arg1" "arg2" "--flag1") }}
+{{ $cmdOutput := exec "./mycmd" (list "arg1" "arg2" "--flag1") }}
 ```
 
 #### `envExec`
 The `envExec` function allows you to run a command with environment variables declared on-the-fly in addition to existing environment variables, returning the stdout of the command. When the command fails, the template rendering will fail with an error message.
 
 ```yaml
-{{ $cmdOutpot := envExec (dict "envKey" "envValue") "./mycmd" (list "arg1" "arg2" "--flag1") }}
+{{ $cmdOutput := envExec (dict "envKey" "envValue") "./mycmd" (list "arg1" "arg2" "--flag1") }}
 ```
 
 #### `isFile`
