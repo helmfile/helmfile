@@ -26,7 +26,7 @@ require (
 	golang.org/x/term v0.18.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.14.3
-	k8s.io/apimachinery v0.29.2
+	k8s.io/apimachinery v0.29.3
 )
 
 replace gopkg.in/yaml.v3 => github.com/colega/go-yaml-yaml v0.0.0-20220720070545-aaba007ebc22
@@ -53,7 +53,7 @@ require (
 	github.com/fujiwara/tfstate-lookup v1.1.6 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.1 // indirect
