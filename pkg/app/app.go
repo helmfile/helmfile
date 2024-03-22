@@ -531,7 +531,17 @@ func (a *App) Test(c TestConfigProvider) error {
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
-	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
+	return a.ForEachState(func(run *Run) (res bool, errs []error) {
+		if c.DAG() {
+			err := a.dag(run)
+
+			if err != nil {
+				errs = append(errs, err)
+			}
+
+			return res, errs
+		}
+
 		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
@@ -579,8 +589,21 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			errs = append(errs, err)
 		}
 
-		return
+		return res, errs
 	}, false, SetFilter(true))
+}
+
+func (a *App) dag(r *Run) error {
+	st := r.state
+
+	batches, err := st.PlanReleases(state.PlanOptions{SelectedReleases: st.Releases, Reverse: false, SkipNeeds: false, IncludeNeeds: true, IncludeTransitiveNeeds: true})
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(printBatches(batches))
+
+	return nil
 }
 
 func (a *App) ListReleases(c ListConfigProvider) error {

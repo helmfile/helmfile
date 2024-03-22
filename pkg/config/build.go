@@ -4,6 +4,7 @@ package config
 type BuildOptions struct {
 	// EmbedValues is true if the values should be embedded
 	EmbedValues bool
+	DAG         bool
 }
 
 // NewBuildOptions creates a new Apply
@@ -28,4 +29,9 @@ func NewBuildImpl(g *GlobalImpl, b *BuildOptions) *BuildImpl {
 // EmbedValues returns the embed values.
 func (b *BuildImpl) EmbedValues() bool {
 	return b.BuildOptions.EmbedValues
+}
+
+// DAG returns the DAG.
+func (b *BuildImpl) DAG() bool {
+	return b.BuildOptions.DAG
 }
