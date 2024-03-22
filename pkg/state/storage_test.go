@@ -42,7 +42,7 @@ func TestStorage_resolveFile(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name: "non existing file in repo produce skip",
+			name: "non existing file in repo produce non skip",
 			args: args{
 				path:               "git::https://github.com/helmfile/helmfile.git@examples/values/non-existing-file.yaml?ref=v0.145.2",
 				title:              "values",
@@ -107,7 +107,7 @@ func TestStorage_resolveFile(t *testing.T) {
 				title:              "values",
 				missingFileHandler: &infoHandler,
 			},
-			wantFiles:   []string{fmt.Sprintf("%s/%s", cacheDir, "values/https_github_com_helmfile_helmfile_git.ref=v0.145.2/examples/values/replica-values.yaml")},
+			wantFiles:   []string{fmt.Sprintf("%s/%s", cacheDir, "values/https_github_com_helmfile_helmfile_git.ref=v0.145.2/origin/examples/values/replica-values.yaml")},
 			wantSkipped: false,
 			wantErr:     false,
 		},
