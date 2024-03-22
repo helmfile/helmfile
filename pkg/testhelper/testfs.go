@@ -5,9 +5,31 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 )
+
+type TestFileInfo struct {
+	name    string
+	mode    os.FileMode
+	size    int64
+	modTime time.Time
+}
+
+func (f TestFileInfo) Name() string { return f.name }
+func (f TestFileInfo) Size() int64  { return f.size }
+func (f TestFileInfo) Mode() os.FileMode {
+	return f.mode
+}
+func (f TestFileInfo) ModTime() time.Time { return f.modTime }
+func (f TestFileInfo) IsDir() bool {
+	return f.Mode() == os.ModeDir
+}
+
+func (f TestFileInfo) Sys() interface{} {
+	return nil
+}
 
 type TestFs struct {
 	Cwd   string
@@ -51,6 +73,7 @@ func (f *TestFs) ToFileSystem() *ffs.FileSystem {
 		Chdir:             f.Chdir,
 		Abs:               f.Abs,
 		DeleteFile:        f.DeleteFile,
+		Stat:              f.Stat,
 	}
 	trfs := ffs.FromFileSystem(curfs)
 	return trfs
@@ -78,6 +101,23 @@ func (f *TestFs) DirectoryExistsAt(path string) bool {
 		_, ok = f.dirs[filepath.ToSlash(filepath.Join(f.Cwd, path))]
 	}
 	return ok
+}
+
+func (f *TestFs) Stat(path string) (os.FileInfo, error) {
+	if _, ok := f.dirs[path]; ok {
+		return TestFileInfo{
+			name: path,
+			mode: os.ModeDir,
+		}, nil
+	}
+
+	if _, ok := f.files[path]; ok {
+		return TestFileInfo{
+			name: path,
+			mode: os.ModePerm,
+		}, nil
+	}
+	return nil, fmt.Errorf("%s does not exist", path)
 }
 
 func (f *TestFs) ReadFile(filename string) ([]byte, error) {

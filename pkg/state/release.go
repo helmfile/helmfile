@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -219,4 +220,21 @@ func (r ReleaseSpec) Clone() (*ReleaseSpec, error) {
 
 func (r ReleaseSpec) Desired() bool {
 	return r.Installed == nil || *r.Installed
+}
+
+// CacheDir returns the cache directory for the release.
+func (r ReleaseSpec) CacheDir() string {
+	var pathElems []string
+
+	if r.Namespace != "" {
+		pathElems = append(pathElems, r.Namespace)
+	}
+
+	if r.KubeContext != "" {
+		pathElems = append(pathElems, r.KubeContext)
+	}
+
+	pathElems = append(pathElems, r.Name)
+
+	return filepath.Join(pathElems...)
 }
