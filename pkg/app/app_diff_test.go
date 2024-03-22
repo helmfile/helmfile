@@ -301,7 +301,7 @@ func TestDiffWithInstalled(t *testing.T) {
 		ns        string
 		error     string
 		selectors []string
-		lists     map[exectest.ListKey]string
+		lists     map[exectest.ListKey]helmexec.HelmReleaseOutput
 		diffed    []exectest.Release
 	}
 
@@ -386,10 +386,8 @@ releases:
   namespace: default
 `,
 			selectors: []string{"name=a"},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^a$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^a$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffed: []exectest.Release{
 				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
@@ -410,8 +408,8 @@ releases:
   namespace: default
 `,
 			selectors: []string{"name=a"},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^a$", Flags: listFlags("default", "default")}: ``,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^a$", Flags: listFlags("default", "default")}: {},
 			},
 		})
 	})

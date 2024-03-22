@@ -45,9 +45,9 @@ function retry() {
     local -r max=${1}
     local -r command=${2}
     n=0
-    retry_result=0
     until [ ${n} -ge ${max} ]; do
         info "Executing: ${command} (attempt $((n+1)))"
+        retry_result=0
         ${command} && break  # substitute your command here
         retry_result=$?
         n=$[$n+1]

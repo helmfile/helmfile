@@ -41,7 +41,7 @@ done
 
 for i in $(seq 10); do
     info "Comparing diff/chart-needs #$i"
-    ${helmfile} -f ${chart_need_case_input_dir}/${config_file} diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=/tmp/.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
+    ${helmfile} -f ${chart_need_case_input_dir}/${config_file} diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=/.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
     diff -u ${diff_out_file} ${chart_needs_diff_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done
