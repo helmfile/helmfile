@@ -218,6 +218,7 @@ type RepositorySpec struct {
 	Keyring         string `yaml:"keyring,omitempty"`
 	PassCredentials bool   `yaml:"passCredentials,omitempty"`
 	SkipTLSVerify   bool   `yaml:"skipTLSVerify,omitempty"`
+	PlainHTTP       bool   `yaml:"plainHTTP,omitempty"`
 }
 
 type Inherit struct {
@@ -3659,6 +3660,9 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 			}
 			if repo.Keyring != "" {
 				flags = append(flags, "--keyring", repo.Keyring)
+			}
+			if repo.PlainHTTP {
+				flags = append(flags, "--plain-http")
 			}
 		}
 
