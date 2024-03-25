@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/imdario/mergo"
 	"go.uber.org/zap"
@@ -35,7 +36,15 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 }
 
 func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
-	result := map[string]any{}
+
+	var (
+		result    = map[string]any{}
+		hclLoader = HCLLoader{
+			fs:     ld.fs,
+			logger: ld.logger,
+		}
+		err error
+	)
 
 	for _, entry := range valuesEntries {
 		maps := []any{}
@@ -49,7 +58,6 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			if skipped {
 				continue
 			}
-
 			for _, f := range files {
 				var env environment.Environment
 				if ctxEnv == nil {
@@ -57,38 +65,62 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				} else {
 					env = *ctxEnv
 				}
+				if strings.HasSuffix(f, ".hcl") {
+					hclLoader.AddFile(f)
+				} else {
 
-				tmplData := NewEnvironmentTemplateData(env, "", map[string]any{})
-				r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
-				bytes, err := r.RenderToBytes(f)
-				if err != nil {
-					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)
+					tmplData := NewEnvironmentTemplateData(env, "", map[string]any{})
+					r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
+					bytes, err := r.RenderToBytes(f)
+					if err != nil {
+						return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)
+					}
+					m := map[string]any{}
+					if err := yaml.Unmarshal(bytes, &m); err != nil {
+						return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
+					}
+					maps = append(maps, m)
+					ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
 				}
-				m := map[string]any{}
-				if err := yaml.Unmarshal(bytes, &m); err != nil {
-					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
-				}
-				maps = append(maps, m)
-				ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
 			}
 		case map[any]any, map[string]any:
 			maps = append(maps, strOrMap)
 		default:
 			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", strOrMap, strOrMap)
 		}
-		for _, m := range maps {
-			// All the nested map key should be string. Otherwise we get strange errors due to that
-			// mergo or reflect is unable to merge map[any]any with map[string]any or vice versa.
-			// See https://github.com/roboll/helmfile/issues/677
-			vals, err := maputil.CastKeysToStrings(m)
-			if err != nil {
-				return nil, err
-			}
-			if err := mergo.Merge(&result, &vals, mergo.WithOverride); err != nil {
-				return nil, fmt.Errorf("failed to merge %v: %v", m, err)
-			}
+
+		result, err = mapMerge(result, maps)
+		if err != nil {
+			return nil, err
 		}
 	}
-
+	maps := []any{}
+	if hclLoader.Lenght() > 0 {
+		m, err := hclLoader.HCLRender()
+		if err != nil {
+			return nil, err
+		}
+		maps = append(maps, m)
+	}
+	result, err = mapMerge(result, maps)
+	if err != nil {
+		return nil, err
+	}
 	return result, nil
+}
+
+func mapMerge(dest map[string]any, maps []any) (map[string]any, error) {
+	for _, m := range maps {
+		// All the nested map key should be string. Otherwise we get strange errors due to that
+		// mergo or reflect is unable to merge map[any]any with map[string]any or vice versa.
+		// See https://github.com/roboll/helmfile/issues/677
+		vals, err := maputil.CastKeysToStrings(m)
+		if err != nil {
+			return nil, err
+		}
+		if err := mergo.Merge(&dest, &vals, mergo.WithOverride); err != nil {
+			return nil, fmt.Errorf("failed to merge %v: %v", m, err)
+		}
+	}
+	return dest, nil
 }
