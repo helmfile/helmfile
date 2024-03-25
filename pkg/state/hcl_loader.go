@@ -8,12 +8,13 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/imdario/mergo"
 	"github.com/variantdev/dag/pkg/dag"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/json"
 	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 const (
@@ -36,12 +37,12 @@ func (hl *HCLLoader) AddFiles(files []string) {
 	hl.hclFilesPath = append(hl.hclFilesPath, files...)
 }
 
-func (hl *HCLLoader) Lenght() int {
+func (hl *HCLLoader) Length() int {
 	return len(hl.hclFilesPath)
 }
 
 func (hl *HCLLoader) HCLRender() (map[string]any, error) {
-	if hl.Lenght() == 0 {
+	if hl.Length() == 0 {
 		return nil, fmt.Errorf("Nothing to render")
 	}
 
@@ -56,7 +57,6 @@ func (hl *HCLLoader) HCLRender() (map[string]any, error) {
 	for _, hv := range helmfileVariables {
 		var traversals []string
 		for _, tr := range hv.Expr.Variables() {
-
 			attr, diags := hl.parseSingleAttrRef(tr)
 			if diags != nil {
 				return nil, fmt.Errorf("%s", diags.Errs()[0])
@@ -143,7 +143,7 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileVariable, file string) (m
 			{
 				Severity: hcl.DiagError,
 				Summary:  fmt.Sprintf("%s", err),
-				Detail:   fmt.Sprintf("could not read file"),
+				Detail:   "could not read file",
 				Subject:  &hcl.Range{},
 			},
 		}
@@ -178,7 +178,7 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileVariable, file string) (m
 			return nil, diags
 		}
 		// make sure vars are unique across blocks
-		for k, _ := range helmfileBlockVars {
+		for k := range helmfileBlockVars {
 			if hvars[k] != nil {
 				var diags hcl.Diagnostics
 				diags = append(diags, &hcl.Diagnostic{
@@ -197,7 +197,7 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileVariable, file string) (m
 			diags = append(diags, &hcl.Diagnostic{
 				Severity: hcl.DiagError,
 				Summary:  "Merge failed",
-				Detail:   fmt.Sprintf("%s", err.Error()),
+				Detail:   err.Error(),
 				Subject:  nil,
 			})
 			return nil, diags
@@ -264,13 +264,11 @@ func (hl *HCLLoader) parseSingleAttrRef(traversal hcl.Traversal) (string, hcl.Di
 }
 
 func (hl *HCLLoader) convertToGo(src map[string]cty.Value) (map[string]any, error) {
-
 	// Ugly workaround on value conversion
 	// CTY conversion to go natives requires much processing and complexity
 	// All of this, in our context, can go away because of the CTY capability to dump a cty.Value as Json
 	// The Json document outputs 2 keys : "type" and "value" which describe the mapping between the two
 	// We only care about the value
-
 	b, err := json.Marshal(src[helmfileVarsAccessorPrefix], cty.DynamicPseudoType)
 	if err != nil {
 		return nil, fmt.Errorf("Could not marshal cty value : %s", err.Error())
