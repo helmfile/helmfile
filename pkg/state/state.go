@@ -2465,12 +2465,14 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 	var errs []error
 
 	for _, release := range releases {
-		if st.fs.DirectoryExistsAt(release.ChartPathOrName()) {
+		if !st.fs.DirectoryExistsAt(release.ChartPathOrName()) {
+			st.logger.Debugf("skipped updating dependencies for remote chart %s", release.Chart)
+		} else if !st.fs.FileExistsAt(filepath.Join(release.ChartPathOrName(), "Chart.yaml")) {
+			st.logger.Debugf("skipped updating dependencies for %s as it does not have a Chart.yaml", release.Chart)
+		} else {
 			if err := helm.UpdateDeps(release.ChartPathOrName()); err != nil {
 				errs = append(errs, err)
 			}
-		} else {
-			st.logger.Debugf("skipped updating dependencies for remote chart %s", release.Chart)
 		}
 	}
 
