@@ -1,6 +1,6 @@
 module github.com/helmfile/helmfile
 
-go 1.22
+go 1.22.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -12,6 +12,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.3
+	github.com/hashicorp/hcl/v2 v2.19.1
 	github.com/helmfile/chartify v0.18.1
 	github.com/helmfile/vals v0.37.0
 	github.com/imdario/mergo v0.3.16
@@ -20,6 +21,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/variantdev/dag v1.1.0
+	github.com/zclconf/go-cty v1.14.3
 	go.szostok.io/version v1.2.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.7.0
@@ -130,9 +132,11 @@ require (
 	github.com/DopplerHQ/cli v0.5.11-0.20230908185655-7aef4713e1a4 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c // indirect
+	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/antchfx/jsonquery v1.3.3 // indirect
 	github.com/antchfx/xpath v1.2.3 // indirect
+	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
