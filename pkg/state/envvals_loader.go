@@ -36,7 +36,6 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 }
 
 func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
-
 	var (
 		result    = map[string]any{}
 		hclLoader = HCLLoader{
@@ -68,7 +67,6 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				if strings.HasSuffix(f, ".hcl") {
 					hclLoader.AddFile(f)
 				} else {
-
 					tmplData := NewEnvironmentTemplateData(env, "", map[string]any{})
 					r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
 					bytes, err := r.RenderToBytes(f)
@@ -95,7 +93,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 		}
 	}
 	maps := []any{}
-	if hclLoader.Lenght() > 0 {
+	if hclLoader.Length() > 0 {
 		m, err := hclLoader.HCLRender()
 		if err != nil {
 			return nil, err
