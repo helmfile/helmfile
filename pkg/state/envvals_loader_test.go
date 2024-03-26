@@ -221,6 +221,7 @@ func TestEnvValsLoad_MultiHCL(t *testing.T) {
 		"block":            "block",
 		"crossfile":        "crossfile var",
 		"crossfile_var":    "crossfile var",
+		"localRef":         "localInValues7",
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {

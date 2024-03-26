@@ -1,6 +1,8 @@
-helmfile_vars {
+locals {
+  localInValues7File = "localInValues7"
+}
 
-
+values {
   a = "a"
   b = "b"
   c = "${hv.a}${hv.b}"
@@ -12,7 +14,6 @@ helmfile_vars {
   list = [
     hv.b
   ]
-
 
   nestedmap = {
     submap = {
@@ -32,8 +33,10 @@ helmfile_vars {
   multi_block = hv.block
 
   crossfile = hv.crossfile_var
+
+  localRef = local.localInValues7File
 }
 
-helmfile_vars {
+values {
   block = "block"
 }
