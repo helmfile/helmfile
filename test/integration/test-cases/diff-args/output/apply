@@ -67,11 +67,3 @@ helmfile-tests, installed-httpbin, Service (v1) has been added:
 +     release: installed
 +   type: LoadBalancer
 
-Release "installed" does not exist. Installing it now.
-NAME: installed
-NAMESPACE: helmfile-tests
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
-
-
