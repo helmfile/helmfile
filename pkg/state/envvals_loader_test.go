@@ -29,8 +29,8 @@ func newLoader() *EnvironmentValuesLoader {
 func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.5.yaml"}, nil, "")
-	if err != nil {
+	actual := make(map[string]any)
+	if err := l.LoadEnvironmentValues(nil, []any{"testdata/values.5.yaml"}, nil, "", actual, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,8 +87,8 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.6.yaml.gotmpl"}, tt.env, tt.envName)
-			if err != nil {
+			actual := make(map[string]any)
+			if err := l.LoadEnvironmentValues(nil, []any{"testdata/values.6.yaml.gotmpl"}, tt.env, tt.envName, actual, false); err != nil {
 				t.Fatal(err)
 			}
 
@@ -103,8 +103,8 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "")
-	if err != nil {
+	actual := make(map[string]any)
+	if err := l.LoadEnvironmentValues(nil, []any{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "", actual, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,8 +121,8 @@ func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil, "")
-	if err != nil {
+	actual := make(map[string]any)
+	if err := l.LoadEnvironmentValues(nil, []any{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil, "", actual, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -143,8 +143,8 @@ func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil, "")
-	if err != nil {
+	actual := make(map[string]any)
+	if err := l.LoadEnvironmentValues(nil, []any{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil, "", actual, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,8 +166,8 @@ func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil, "")
-	if err != nil {
+	actual := make(map[string]any)
+	if err := l.LoadEnvironmentValues(nil, []any{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil, "", actual, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -181,6 +181,58 @@ func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 				"version":   "1.0.0",
 			},
 		},
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf(diff)
+	}
+}
+
+func TestEnvValsLoad_LayeredValues(t *testing.T) {
+	l := newLoader()
+
+	actual := make(map[string]any)
+	if err := l.LoadEnvironmentValues(nil, []any{"testdata/layered.1.yaml", "testdata/layered.2.yaml.gotmpl"}, nil, "", actual, true); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"greeting":       string("hello"),
+		"somevalue":      string("foo"),
+		"someothervalue": string("new foo"),
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf(diff)
+	}
+}
+
+func TestEnvValsLoad_LayeredAndUnlayeredValues(t *testing.T) {
+	l := newLoader()
+
+	unlayeredValues := []any{
+		"testdata/layered.1.yaml",
+	}
+
+	layeredValues := []any{
+		"testdata/layered.2.yaml.gotmpl",
+		"testdata/layered.3.yaml.gotmpl",
+	}
+
+	actual := make(map[string]any)
+
+	if err := l.LoadEnvironmentValues(nil, unlayeredValues, nil, "", actual, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := l.LoadEnvironmentValues(nil, layeredValues, nil, "", actual, true); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"greeting":       string("hello new foo"),
+		"somevalue":      string("foo"),
+		"someothervalue": string("new foo"),
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
