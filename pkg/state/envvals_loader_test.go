@@ -187,3 +187,44 @@ func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 		t.Errorf(diff)
 	}
 }
+
+func TestEnvValsLoad_MultiHCL(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.7.hcl", "testdata/values.8.hcl"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"a": "a",
+		"b": "b",
+		"c": "ab",
+		"map": map[string]any{
+			"a": "a",
+		},
+		"list": []any{
+			"b",
+		},
+		"nestedmap": map[string]any{
+			"submap": map[string]any{
+				"subsubmap": map[string]any{
+					"hello": "ab",
+				},
+			},
+		},
+		"ternary":          true,
+		"fromMap":          "aab",
+		"expressionInText": "yes",
+		"insideFor":        "b",
+		"multi_block":      "block",
+		"block":            "block",
+		"crossfile":        "crossfile var",
+		"crossfile_var":    "crossfile var",
+		"localRef":         "localInValues7",
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf(diff)
+	}
+}
