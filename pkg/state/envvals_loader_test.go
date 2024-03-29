@@ -25,6 +25,22 @@ func newLoader() *EnvironmentValuesLoader {
 	return NewEnvironmentValuesLoader(storage, storage.fs, log, remote.NewRemote(log, "/tmp", storage.fs))
 }
 
+func newHCLLoader() *HCLLoader {
+	log := helmexec.NewLogger(io.Discard, "debug")
+
+	storage := &Storage{
+		FilePath: "./helmfile.yaml",
+		basePath: ".",
+		fs:       ffs.DefaultFileSystem(),
+		logger:   log,
+	}
+
+	return &HCLLoader{
+		fs:     storage.fs,
+		logger: log,
+	}
+}
+
 // See https://github.com/roboll/helmfile/pull/1169
 func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	l := newLoader()
@@ -181,6 +197,131 @@ func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 				"version":   "1.0.0",
 			},
 		},
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf(diff)
+	}
+}
+
+func TestHCL_localsTraversalsParser(t *testing.T) {
+
+	l := newHCLLoader()
+	files := []string{"testdata/values.9.hcl"}
+	l.AddFiles(files)
+
+	_, filesLocals, diags := l.readHCLs()
+	if diags != nil {
+		t.Errorf("Test file parsing error : %s", diags.Errs()[0].Error())
+	}
+
+	actual := make(map[string]map[string]int)
+	for file, locals := range filesLocals {
+		actual[file] = make(map[string]int)
+		for k, v := range locals {
+			actual[file][k] = len(v.Expr.Variables())
+		}
+	}
+
+	expected := map[string]map[string]int{
+		"testdata/values.9.hcl": {
+			"myLocal":    0,
+			"myLocalRef": 1,
+		},
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf(diff)
+	}
+}
+
+func TestHCL_localsTraversalsAttrParser(t *testing.T) {
+
+	l := newHCLLoader()
+	files := []string{"testdata/values.9.hcl"}
+	l.AddFiles(files)
+
+	_, filesLocals, diags := l.readHCLs()
+	if diags != nil {
+		t.Errorf("Test file parsing error : %s", diags.Errs()[0].Error())
+	}
+
+	actual := make(map[string]map[string]string)
+	for file, locals := range filesLocals {
+		actual[file] = make(map[string]string)
+		for k, v := range locals {
+			str := ""
+			for _, v := range v.Expr.Variables() {
+				tr, _ := l.parseSingleAttrRef(v, localsBlockIdentifier)
+				str += tr
+			}
+			actual[file][k] = str
+		}
+	}
+
+	expected := map[string]map[string]string{
+		"testdata/values.9.hcl": {
+			"myLocal":    "",
+			"myLocalRef": "myLocal",
+		},
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf(diff)
+	}
+}
+func TestHCL_valuesTraversalsParser(t *testing.T) {
+
+	l := newHCLLoader()
+	files := []string{"testdata/values.9.hcl"}
+	l.AddFiles(files)
+
+	fileValues, _, diags := l.readHCLs()
+	if diags != nil {
+		t.Errorf("Test file parsing error : %s", diags.Errs()[0].Error())
+	}
+
+	actual := make(map[string]int)
+	for k, v := range fileValues {
+		actual[k] = len(v.Expr.Variables())
+	}
+
+	expected := map[string]int{
+		"val1": 0,
+		"val2": 1,
+		"val3": 2,
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf(diff)
+	}
+}
+
+func TestHCL_valuesTraversalsAttrParser(t *testing.T) {
+
+	l := newHCLLoader()
+	files := []string{"testdata/values.9.hcl"}
+	l.AddFiles(files)
+
+	fileValues, _, diags := l.readHCLs()
+	if diags != nil {
+		t.Errorf("Test file parsing error : %s", diags.Errs()[0].Error())
+	}
+
+	actual := make(map[string]string)
+	for k, v := range fileValues {
+		str := ""
+		for _, v := range v.Expr.Variables() {
+			tr, _ := l.parseSingleAttrRef(v, valuesBlockIdentifier)
+			str += tr
+		}
+		actual[k] = str
+	}
+
+	expected := map[string]string{
+		"val1": "",
+		"val2": "val1",
+		"val3": "val1",
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {

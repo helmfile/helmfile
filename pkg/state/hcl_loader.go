@@ -116,18 +116,20 @@ func (hl *HCLLoader) createDAGGraph(HelmfileHCLValues map[string]*HelmfileHCLVal
 	plan, err := dagGraph.Plan(dag.SortOptions{
 		WithDependencies: true,
 	})
-	if err != nil {
-		if ude, ok := err.(*dag.UndefinedDependencyError); ok {
-			var quotedVariableNames []string
-			for _, d := range ude.Dependents {
-				quotedVariableNames = append(quotedVariableNames, fmt.Sprintf("%q", d))
-			}
-			return nil, fmt.Errorf("variables %s depend(s) on undefined vars %q", strings.Join(quotedVariableNames, ", "), ude.UndefinedNode)
-		} else {
-			return nil, fmt.Errorf("error while building the DAG variable graph : %s", err.Error())
-		}
+	if err == nil {
+		return &plan, nil
 	}
-	return &plan, nil
+
+	if ude, ok := err.(*dag.UndefinedDependencyError); ok {
+		var quotedVariableNames []string
+		for _, d := range ude.Dependents {
+			quotedVariableNames = append(quotedVariableNames, fmt.Sprintf("%q", d))
+		}
+		return nil, fmt.Errorf("variables %s depend(s) on undefined vars %q", strings.Join(quotedVariableNames, ", "), ude.UndefinedNode)
+	} else {
+		return nil, fmt.Errorf("error while building the DAG variable graph : %s", err.Error())
+	}
+
 }
 
 func (hl *HCLLoader) decodeGraph(dagTopology *dag.Topology, blocktype string, vars map[string]*HelmfileHCLValue, additionalLocalContext map[string]map[string]cty.Value) (map[string]cty.Value, error) {
@@ -300,8 +302,14 @@ func (hl *HCLLoader) decodeHelmfileHCLValuesBlock(block *hcl.Block) (map[string]
 }
 
 func (hl *HCLLoader) parseSingleAttrRef(traversal hcl.Traversal, blockType string) (string, hcl.Diagnostics) {
-	var diags hcl.Diagnostics
-
+	if len(traversal) == 0 {
+		return "", hcl.Diagnostics{
+			&hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "An empty traversal can't be parsed",
+			},
+		}
+	}
 	root := traversal.RootName()
 	// In `values` blocks, Locals are always precomputed, so they don't need to be in the graph
 	if root == localsAccessorPrefix && blockType != localsBlockIdentifier {
@@ -310,27 +318,28 @@ func (hl *HCLLoader) parseSingleAttrRef(traversal hcl.Traversal, blockType strin
 	rootRange := traversal[0].SourceRange()
 
 	if len(traversal) < 2 {
-		diags = diags.Append(&hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid reference",
-			Detail:   fmt.Sprintf("The %q object cannot be accessed directly. Instead, access it from one of its root.", root),
-			Subject:  &rootRange,
-		})
-		return "", diags
-	}
-
-	if len(traversal) > 1 {
-		if attrTrav, ok := traversal[1].(hcl.TraverseAttr); ok {
-			return attrTrav.Name, diags
+		return "", hcl.Diagnostics{
+			&hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Invalid reference",
+				Detail:   fmt.Sprintf("The %q object cannot be accessed directly. Instead, access it from one of its root.", root),
+				Subject:  &rootRange,
+			},
 		}
 	}
-	diags = diags.Append(&hcl.Diagnostic{
-		Severity: hcl.DiagError,
-		Summary:  "Invalid reference",
-		Detail:   fmt.Sprintf("The %q object does not support this operation.", root),
-		Subject:  traversal[1].SourceRange().Ptr(),
-	})
-	return "", diags
+
+	if attrTrav, ok := traversal[1].(hcl.TraverseAttr); ok {
+		return attrTrav.Name, nil
+	}
+
+	return "", hcl.Diagnostics{
+		&hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid reference",
+			Detail:   fmt.Sprintf("The %q object does not support this operation.", root),
+			Subject:  traversal[1].SourceRange().Ptr(),
+		},
+	}
 }
 
 func (hl *HCLLoader) convertToGo(src map[string]cty.Value) (map[string]any, error) {
