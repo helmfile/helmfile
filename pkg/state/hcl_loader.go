@@ -129,7 +129,6 @@ func (hl *HCLLoader) createDAGGraph(HelmfileHCLValues map[string]*HelmfileHCLVal
 	} else {
 		return nil, fmt.Errorf("error while building the DAG variable graph : %s", err.Error())
 	}
-
 }
 
 func (hl *HCLLoader) decodeGraph(dagTopology *dag.Topology, blocktype string, vars map[string]*HelmfileHCLValue, additionalLocalContext map[string]map[string]cty.Value) (map[string]cty.Value, error) {

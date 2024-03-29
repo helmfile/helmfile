@@ -205,7 +205,6 @@ func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 }
 
 func TestHCL_localsTraversalsParser(t *testing.T) {
-
 	l := newHCLLoader()
 	files := []string{"testdata/values.9.hcl"}
 	l.AddFiles(files)
@@ -236,7 +235,6 @@ func TestHCL_localsTraversalsParser(t *testing.T) {
 }
 
 func TestHCL_localsTraversalsAttrParser(t *testing.T) {
-
 	l := newHCLLoader()
 	files := []string{"testdata/values.9.hcl"}
 	l.AddFiles(files)
@@ -271,7 +269,6 @@ func TestHCL_localsTraversalsAttrParser(t *testing.T) {
 	}
 }
 func TestHCL_valuesTraversalsParser(t *testing.T) {
-
 	l := newHCLLoader()
 	files := []string{"testdata/values.9.hcl"}
 	l.AddFiles(files)
@@ -298,7 +295,6 @@ func TestHCL_valuesTraversalsParser(t *testing.T) {
 }
 
 func TestHCL_valuesTraversalsAttrParser(t *testing.T) {
-
 	l := newHCLLoader()
 	files := []string{"testdata/values.9.hcl"}
 	l.AddFiles(files)
