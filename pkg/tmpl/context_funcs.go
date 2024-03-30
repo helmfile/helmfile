@@ -19,6 +19,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/maputil"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
@@ -35,13 +36,24 @@ func (e DisableInsecureFeaturesError) Error() string {
 }
 
 var (
-	disableInsecureFeatures       bool
+	disableInsecureFeatures bool
+
+	// TODO: Remove this function once Helmfile v0.x
 	skipInsecureTemplateFunctions bool
 )
 
 func init() {
 	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
+
+	// TODO: Remove this function once Helmfile v0.x
 	skipInsecureTemplateFunctions, _ = strconv.ParseBool(os.Getenv(envvar.SkipInsecureTemplateFunctions))
+	skipInsecureTemplateFunctions = func() bool {
+		if runtime.V1Mode {
+			return false
+		}
+		b, _ := strconv.ParseBool(os.Getenv(envvar.SkipInsecureTemplateFunctions))
+		return b
+	}()
 }
 
 func (c *Context) createFuncMap() template.FuncMap {
@@ -84,6 +96,9 @@ func (c *Context) createFuncMap() template.FuncMap {
 	if disableInsecureFeatures {
 		// disable insecure functions
 		funcMap["exec"] = func(string, []any, ...string) (string, error) {
+			return "", DisableInsecureFeaturesErr
+		}
+		funcMap["envExec"] = func(map[string]any, string, []any, ...string) (string, error) {
 			return "", DisableInsecureFeaturesErr
 		}
 		funcMap["readFile"] = func(string) (string, error) {

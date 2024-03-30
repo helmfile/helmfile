@@ -46,7 +46,12 @@ func TestCreateFuncMap_DisabledInsecureFeatures(t *testing.T) {
 	disableInsecureFeatures = currentVal
 }
 
+// TODO: Remove this function once Helmfile v0.x
 func TestCreateFuncMap_SkipInsecureTemplateFunctions(t *testing.T) {
+	if runtime.V1Mode {
+		t.Logf("SkipInsecureTemplateFunctions is not supported in V1 mode")
+		return
+	}
 	currentVal := skipInsecureTemplateFunctions
 
 	{
