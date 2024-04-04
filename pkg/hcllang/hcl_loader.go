@@ -1,4 +1,4 @@
-package state
+package hcllang
 
 import (
 	nativejson "encoding/json"
@@ -19,9 +19,9 @@ import (
 
 const (
 	badIdentifierDetail   = "A name must start with a letter or underscore and may contain only letters, digits, underscores, and dashes."
-	valuesBlockIdentifier = "values"
+	ValuesBlockIdentifier = "values"
+	LocalsBlockIdentifier = "locals"
 	valuesAccessorPrefix  = "hv"
-	localsBlockIdentifier = "locals"
 	localsAccessorPrefix  = "local"
 )
 
@@ -40,6 +40,12 @@ type HCLLoader struct {
 	logger       *zap.SugaredLogger
 }
 
+func NewHCLLoader(fs *filesystem.FileSystem, logger *zap.SugaredLogger) *HCLLoader {
+	return &HCLLoader{
+		fs:     fs,
+		logger: logger,
+	}
+}
 func (hl *HCLLoader) AddFile(file string) {
 	hl.hclFilesPath = append(hl.hclFilesPath, file)
 }
@@ -66,11 +72,11 @@ func (hl *HCLLoader) HCLRender() (map[string]any, error) {
 	// in order for them to be usable in values blocks
 	localsCty := map[string]map[string]cty.Value{}
 	for k, local := range locals {
-		dagPlan, err := hl.createDAGGraph(local, localsBlockIdentifier)
+		dagPlan, err := hl.createDAGGraph(local, LocalsBlockIdentifier)
 		if err != nil {
 			return nil, err
 		}
-		localFileCty, err := hl.decodeGraph(dagPlan, localsBlockIdentifier, locals[k], nil)
+		localFileCty, err := hl.decodeGraph(dagPlan, LocalsBlockIdentifier, locals[k], nil)
 		if err != nil {
 			return nil, err
 		}
@@ -79,11 +85,11 @@ func (hl *HCLLoader) HCLRender() (map[string]any, error) {
 	}
 
 	// Decode Values
-	dagHelmfileValuePlan, err := hl.createDAGGraph(HelmfileHCLValues, valuesBlockIdentifier)
+	dagHelmfileValuePlan, err := hl.createDAGGraph(HelmfileHCLValues, ValuesBlockIdentifier)
 	if err != nil {
 		return nil, err
 	}
-	helmfileVarCty, err := hl.decodeGraph(dagHelmfileValuePlan, valuesBlockIdentifier, HelmfileHCLValues, localsCty)
+	helmfileVarCty, err := hl.decodeGraph(dagHelmfileValuePlan, ValuesBlockIdentifier, HelmfileHCLValues, localsCty)
 	if err != nil {
 		return nil, err
 	}
@@ -133,32 +139,37 @@ func (hl *HCLLoader) createDAGGraph(HelmfileHCLValues map[string]*HelmfileHCLVal
 
 func (hl *HCLLoader) decodeGraph(dagTopology *dag.Topology, blocktype string, vars map[string]*HelmfileHCLValue, additionalLocalContext map[string]map[string]cty.Value) (map[string]cty.Value, error) {
 	values := map[string]cty.Value{}
-	HelmfileHCLValuesValues := map[string]cty.Value{}
+	helmfileHCLValuesValues := map[string]cty.Value{}
 	var diags hcl.Diagnostics
+	hclFunctions, err := HCLFunctions(nil)
+	if err != nil {
+		return nil, err
+	}
 	for groupIndex := 0; groupIndex < len(*dagTopology); groupIndex++ {
 		dagNodesInGroup := (*dagTopology)[groupIndex]
 
 		for _, node := range dagNodesInGroup {
 			v := vars[node.String()]
-			if blocktype != localsBlockIdentifier && additionalLocalContext[v.Range.Filename] != nil {
+			if blocktype != LocalsBlockIdentifier && additionalLocalContext[v.Range.Filename] != nil {
 				values[localsAccessorPrefix] = additionalLocalContext[v.Range.Filename][localsAccessorPrefix]
 			}
 			ctx := &hcl.EvalContext{
 				Variables: values,
+				Functions: hclFunctions,
 			}
 			// Decode Value
-			HelmfileHCLValuesValues[node.String()], diags = v.Expr.Value(ctx)
+			helmfileHCLValuesValues[node.String()], diags = v.Expr.Value(ctx)
 			if len(diags) > 0 {
 				return nil, fmt.Errorf("error when trying to evaluate variable %s : %s", v.Name, diags.Errs()[0])
 			}
 			switch blocktype {
-			case valuesBlockIdentifier:
+			case ValuesBlockIdentifier:
 				// Update the eval context for the next value evaluation iteration
-				values[valuesAccessorPrefix] = cty.ObjectVal(HelmfileHCLValuesValues)
+				values[valuesAccessorPrefix] = cty.ObjectVal(helmfileHCLValuesValues)
 				// Set back local to nil to avoid an unexpected behavior when the next iteration is in another file
 				values[localsAccessorPrefix] = cty.NilVal
-			case localsBlockIdentifier:
-				values[localsAccessorPrefix] = cty.ObjectVal(HelmfileHCLValuesValues)
+			case LocalsBlockIdentifier:
+				values[localsAccessorPrefix] = cty.ObjectVal(helmfileHCLValuesValues)
 			}
 		}
 	}
@@ -204,10 +215,10 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 	HelmfileHCLValuesSchema := &hcl.BodySchema{
 		Blocks: []hcl.BlockHeaderSchema{
 			{
-				Type: valuesBlockIdentifier,
+				Type: ValuesBlockIdentifier,
 			},
 			{
-				Type: localsBlockIdentifier,
+				Type: LocalsBlockIdentifier,
 			},
 		},
 	}
@@ -220,7 +231,7 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 	var helmfileLocalsVars map[string]*HelmfileHCLValue
 	// Decode blocks to return HelmfileHCLValue object => (each var with expr + Name )
 
-	if len(content.Blocks.OfType(localsBlockIdentifier)) > 1 {
+	if len(content.Blocks.OfType(LocalsBlockIdentifier)) > 1 {
 		return nil, nil, hcl.Diagnostics{
 			&hcl.Diagnostic{
 				Severity: hcl.DiagError,
@@ -230,14 +241,14 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 	}
 	for _, block := range content.Blocks {
 		var helmfileBlockVars map[string]*HelmfileHCLValue
-		if block.Type == valuesBlockIdentifier {
+		if block.Type == ValuesBlockIdentifier {
 			helmfileBlockVars, diags = hl.decodeHelmfileHCLValuesBlock(block)
 			if diags != nil {
 				return nil, nil, diags
 			}
 		}
 
-		if block.Type == localsBlockIdentifier {
+		if block.Type == LocalsBlockIdentifier {
 			helmfileLocalsVars, diags = hl.decodeHelmfileHCLValuesBlock(block)
 			if diags != nil {
 				return nil, nil, diags
@@ -311,7 +322,7 @@ func (hl *HCLLoader) parseSingleAttrRef(traversal hcl.Traversal, blockType strin
 	}
 	root := traversal.RootName()
 	// In `values` blocks, Locals are always precomputed, so they don't need to be in the graph
-	if root == localsAccessorPrefix && blockType != localsBlockIdentifier {
+	if root == localsAccessorPrefix && blockType != LocalsBlockIdentifier {
 		return "", nil
 	}
 	rootRange := traversal[0].SourceRange()

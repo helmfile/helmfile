@@ -10,6 +10,7 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/hcllang"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -38,11 +39,8 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
 	var (
 		result    = map[string]any{}
-		hclLoader = HCLLoader{
-			fs:     ld.fs,
-			logger: ld.logger,
-		}
-		err error
+		hclLoader = hcllang.NewHCLLoader(ld.fs, ld.logger)
+		err       error
 	)
 
 	for _, entry := range valuesEntries {
