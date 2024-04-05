@@ -144,9 +144,9 @@ repositories:
   url: roboll.io/charts
   certFile: optional_client_cert
   keyFile: optional_client_key
-  # username is retrieve from the environment with the format <registryNameUpperCase>_USERNAME for CI usage, here ROBOLL_USERNAME
+  # username is retrieved from the environment with the format <registryNameUpperCase>_USERNAME for CI usage, here ROBOLL_USERNAME
   username: optional_username
-  # username is retrieve from the environment with the format <registryNameUpperCase>_PASSWORD for CI usage, here ROBOLL_PASSWORD
+  # username is retrieved from the environment with the format <registryNameUpperCase>_PASSWORD for CI usage, here ROBOLL_PASSWORD
   password: optional_password
   oci: true
   passCredentials: true
@@ -872,6 +872,7 @@ proxy:
 When you want to customize the contents of `helmfile.yaml` or `values.yaml` files per environment, use this feature.
 
 You can define as many environments as you want under `environments` in `helmfile.yaml`.
+`environments` section should be separated from `releases` with `---`.
 
 The environment name defaults to `default`, that is, `helmfile sync` implies the `default` environment.
 The selected environment name can be referenced from `helmfile.yaml` and `values.yaml.gotmpl` by `{{ .Environment.Name }}`.
@@ -897,7 +898,7 @@ releases:
 
 ## Environment Values
 
-Environment Values allows you to inject a set of values specific to the selected environment, into values.yaml templates.
+Environment Values allows you to inject a set of values specific to the selected environment, into `values.yaml` templates.
 Use it to inject common values from the environment to multiple values files, to make your configuration DRY.
 
 Suppose you have three files `helmfile.yaml`, `production.yaml` and `values.yaml.gotmpl`:
