@@ -14,9 +14,6 @@ ${sops} -e ${hcl_secrets_case_input_dir}/secrets.hcl > ${hcl_secrets_case_input_
 ${sops} -e ${hcl_secrets_case_input_dir}/secrets.yaml > ${hcl_secrets_case_input_dir}/tmp/secrets.yaml || fail "${sops} failed at ${hcl_secrets_case_input_dir}/secrets.yaml"
 
 
-info "Ensure helm-secrets is installed"
-${helm} plugin install https://github.com/jkroepke/helm-secrets --version v${HELM_SECRETS_VERSION}
-
 info "values precedence order : yamlFile < hcl = hclSecrets  < secretYamlFile"
 test_start "hcl-yaml-mix - should output secrets with proper overrides"
 
