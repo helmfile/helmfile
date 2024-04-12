@@ -387,6 +387,9 @@ type ReleaseSpec struct {
 	DeleteWait *bool `yaml:"deleteWait,omitempty"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
+
+	// https://github.com/helmfile/helmfile/discussions/1445, add integration with helm-unittest
+	UnitTests []string `yaml:"unitTests,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -1727,6 +1730,19 @@ type diffPrepareResult struct {
 	suppressDiff            bool
 }
 
+type unittestResult struct {
+	release *ReleaseSpec
+	err     *ReleaseError
+	buf     *bytes.Buffer
+}
+
+type unittestPrepareResult struct {
+	release *ReleaseSpec
+	flags   []string
+	errors  []*ReleaseError
+	files   []string
+}
+
 // commonDiffFlags returns common flags for helm diff, not in release-specific context
 func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
 	var flags []string
@@ -1783,6 +1799,123 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool
 	flags = st.appendExtraDiffFlags(flags, opt)
 
 	return flags
+}
+
+func (st *HelmState) commonUnittestFlags(opt *UnittestOpts) []string {
+	var flags []string
+
+	if opt.Color {
+		flags = append(flags, "--color")
+	}
+
+	if opt.DebugPlugin {
+		flags = append(flags, "--debug-plugin")
+	}
+
+	if opt.FailFast {
+		flags = append(flags, "--fail-fast")
+	}
+
+	return flags
+}
+
+func (st *HelmState) prepareUnittestReleases(helm helmexec.Interface, additionalValues []string, concurrency int, opts ...UnittestOpt) ([]unittestPrepareResult, []error) {
+	opt := &UnittestOpts{}
+	for _, o := range opts {
+		o.Apply(opt)
+	}
+
+	releases := []*ReleaseSpec{}
+	for i := range st.Releases {
+		if !st.Releases[i].Desired() {
+			continue
+		}
+		if st.Releases[i].Installed != nil && !*(st.Releases[i].Installed) {
+			continue
+		}
+		releases = append(releases, &st.Releases[i])
+	}
+
+	numReleases := len(releases)
+	jobs := make(chan *ReleaseSpec, numReleases)
+	results := make(chan unittestPrepareResult, numReleases)
+	resultsMap := map[string]unittestPrepareResult{}
+	commonUnittestFlags := st.commonUnittestFlags(opt)
+
+	rs := []unittestPrepareResult{}
+	errs := []error{}
+
+	mut := sync.Mutex{}
+
+	st.scatterGather(
+		concurrency,
+		numReleases,
+		func() {
+			for i := 0; i < numReleases; i++ {
+				jobs <- releases[i]
+			}
+			close(jobs)
+		},
+		func(workerIndex int) {
+			for release := range jobs {
+				errs := []error{}
+
+				st.ApplyOverrides(release)
+
+				mut.Lock()
+
+				flags, files, err := st.flagsForUnittest(helm, release, workerIndex)
+				mut.Unlock()
+				if err != nil {
+					errs = append(errs, err)
+				}
+
+				for _, value := range additionalValues {
+					valfile, err := filepath.Abs(value)
+					if err != nil {
+						errs = append(errs, err)
+					}
+
+					if _, err := os.Stat(valfile); os.IsNotExist(err) {
+						errs = append(errs, err)
+					}
+					flags = append(flags, "--values", valfile)
+				}
+
+				flags = append(flags, commonUnittestFlags...)
+
+				if len(errs) > 0 {
+					rsErrs := make([]*ReleaseError, len(errs))
+					for i, e := range errs {
+						rsErrs[i] = newReleaseFailedError(release, e)
+					}
+					results <- unittestPrepareResult{errors: rsErrs, flags: files}
+				} else {
+					results <- unittestPrepareResult{release: release, flags: flags, files: files, errors: []*ReleaseError{}}
+				}
+			}
+		},
+		func() {
+			for i := 0; i < numReleases; i++ {
+				res := <-results
+				if res.errors != nil && len(res.errors) > 0 {
+					for _, e := range res.errors {
+						errs = append(errs, e)
+					}
+				} else if res.release != nil {
+					resultsMap[ReleaseToID(res.release)] = res
+				}
+			}
+		},
+	)
+
+	for _, r := range releases {
+		if p, ok := resultsMap[ReleaseToID(r)]; ok {
+			rs = append(rs, p)
+		}
+	}
+
+	return rs, errs
 }
 
 func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opts ...DiffOpt) ([]diffPrepareResult, []error) {
@@ -1945,6 +2078,102 @@ func (st *HelmState) createHelmContextWithWriter(spec *ReleaseSpec, w io.Writer)
 	ctx.Writer = w
 
 	return ctx
+}
+
+type UnittestOpts struct {
+	Color        bool
+	DebugPlugin  bool
+	FailFast     bool
+	UnittestArgs []string
+}
+
+func (o *UnittestOpts) Apply(opts *UnittestOpts) {
+	*opts = *o
+}
+
+type UnittestOpt interface{ Apply(*UnittestOpts) }
+
+func (st *HelmState) UninttestReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, triggerCleanupEvents bool, opt ...UnittestOpt) []error {
+	opts := &UnittestOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	preps, prepErrs := st.prepareUnittestReleases(helm, additionalValues, workerLimit, opts)
+
+	defer func() {
+		for _, p := range preps {
+			st.removeFiles(p.files)
+		}
+	}()
+
+	if len(prepErrs) > 0 {
+		return prepErrs
+	}
+
+	jobQueue := make(chan *unittestPrepareResult, len(preps))
+	results := make(chan unittestResult, len(preps))
+
+	outputs := map[string]*bytes.Buffer{}
+	errs := []error{}
+
+	st.scatterGather(
+		workerLimit,
+		len(preps),
+		func() {
+			for i := 0; i < len(preps); i++ {
+				jobQueue <- &preps[i]
+			}
+			close(jobQueue)
+		},
+		func(workerIndex int) {
+			for prep := range jobQueue {
+				flags := prep.flags
+				release := prep.release
+				buf := &bytes.Buffer{}
+
+				if err := helm.UnittestRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.ChartPathOrName()), flags...); err != nil {
+					switch e := err.(type) {
+					case helmexec.ExitError:
+						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
+						results <- unittestResult{release, &ReleaseError{release, err, e.ExitStatus()}, buf}
+					default:
+						results <- unittestResult{release, &ReleaseError{release, err, 0}, buf}
+					}
+				} else {
+					// diff succeeded, found no changes
+					results <- unittestResult{release, nil, buf}
+				}
+
+				if triggerCleanupEvents {
+					if _, err := st.TriggerCleanupEvent(prep.release, "diff"); err != nil {
+						st.logger.Warnf("warn: %v\n", err)
+					}
+				}
+			}
+		},
+		func() {
+			for i := 0; i < len(preps); i++ {
+				res := <-results
+				if res.err != nil {
+					errs = append(errs, res.err)
+				}
+
+				outputs[ReleaseToID(res.release)] = res.buf
+			}
+		},
+	)
+
+	for _, p := range preps {
+		id := ReleaseToID(p.release)
+		if stdout, ok := outputs[id]; ok {
+			fmt.Print(stdout.String())
+		} else {
+			panic(fmt.Sprintf("missing output for release %s", id))
+		}
+	}
+
+	return errs
 }
 
 type DiffOpts struct {
@@ -2708,6 +2937,10 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	return append(flags, common...), files, nil
 }
 
+func (st *HelmState) flagsForUnittest(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+	return st.valuesFlags(helm, release, workerIndex)
+}
+
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
 	settings := cli.New()
 	flags := st.chartVersionFlags(release)
@@ -3155,6 +3388,60 @@ func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *Relea
 	files := append(valuesFiles, secretValuesFiles...)
 
 	return files, nil
+}
+
+func (st *HelmState) valuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+	flags := []string{}
+	var files []string
+
+	generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
+	if err != nil {
+		return nil, files, err
+	}
+
+	files = generatedFiles
+
+	for _, f := range generatedFiles {
+		flags = append(flags, "--values", f)
+	}
+
+	if len(release.SetValues) > 0 {
+		setFlags, err := st.setFlags(release.SetValues)
+		if err != nil {
+			return nil, files, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
+		}
+
+		flags = append(flags, setFlags...)
+	}
+
+	/***********
+	 * START 'env' section for backwards compatibility
+	 ***********/
+	// The 'env' section is not really necessary any longer, as 'set' would now provide the same functionality
+	if len(release.EnvValues) > 0 {
+		val := []string{}
+		envValErrs := []string{}
+		for _, set := range release.EnvValues {
+			value, isSet := os.LookupEnv(set.Value)
+			if isSet {
+				val = append(val, fmt.Sprintf("%s=%s", escape(set.Name), escape(value)))
+			} else {
+				errMsg := fmt.Sprintf("\t%s", set.Value)
+				envValErrs = append(envValErrs, errMsg)
+			}
+		}
+		if len(envValErrs) != 0 {
+			joinedEnvVals := strings.Join(envValErrs, "\n")
+			errMsg := fmt.Sprintf("Environment Variables not found. Please make sure they are set and try again:\n%s", joinedEnvVals)
+			return nil, files, errors.New(errMsg)
+		}
+		flags = append(flags, "--set", strings.Join(val, ","))
+	}
+	/**************
+	 * END 'env' section for backwards compatibility
+	 **************/
+
+	return flags, files, nil
 }
 
 func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {

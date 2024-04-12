@@ -434,6 +434,23 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	return err
 }
 
+func (helm *execer) UnittestRelease(context HelmContext, name, chart string, flags ...string) error {
+	if context.Writer != nil {
+		fmt.Fprintf(context.Writer, "Unittestting release=%v, chart=%v\n", name, redactedURL(chart))
+	} else {
+		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedURL(chart))
+	}
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
+	var overrideEnableLiveOutput *bool = nil
+
+	out, err := helm.exec(append(append(preArgs, "unittest", chart), flags...), env, overrideEnableLiveOutput)
+	// Do our best to write STDOUT only when diff existed
+	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
+	helm.write(context.Writer, out)
+	return err
+}
+
 func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	if context.Writer != nil {
 		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, redactedURL(chart))

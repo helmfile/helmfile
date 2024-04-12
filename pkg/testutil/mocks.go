@@ -97,6 +97,11 @@ func (helm *noCallHelmExec) DiffRelease(context helmexec.HelmContext, name, char
 	helm.doPanic()
 	return nil
 }
+
+func (helm *noCallHelmExec) UnittestRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+	helm.doPanic()
+	return nil
+}
 func (helm *noCallHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
 	helm.doPanic()
 	return nil

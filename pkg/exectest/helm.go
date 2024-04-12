@@ -117,6 +117,10 @@ func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, 
 
 	return nil
 }
+func (helm *Helm) UnittestRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+	return nil
+}
+
 func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	if helm.DiffMutex != nil {
 		helm.DiffMutex.Lock()

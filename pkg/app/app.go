@@ -1584,6 +1584,29 @@ Do you really want to delete?
 	return true, errs
 }
 
+func (a *App) unittest(r *Run, c UnittestConfigProvider) (bool, []error) {
+	ok, errs := a.withNeeds(r, c, true, func(st *state.HelmState) []error {
+		helm := r.helm
+
+		opts := &state.UnittestOpts{
+			Color:        c.Color(),
+			DebugPlugin:  c.DebugPlugin(),
+			FailFast:     c.FailFast(),
+			UnittestArgs: c.UnittestArgs(),
+		}
+
+		filtered := &Run{
+			state: st,
+			helm:  helm,
+			ctx:   r.ctx,
+			Ask:   r.Ask,
+		}
+		return filtered.unittest(true, c, opts)
+	})
+
+	return ok, errs
+}
+
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	var (
 		infoMsg          *string

@@ -2510,6 +2510,10 @@ func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart 
 func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
 	return nil
 }
+
+func (helm *mockHelmExec) UnittestRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+	return nil
+}
 func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
 	return nil
 }

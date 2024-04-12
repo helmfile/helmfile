@@ -213,3 +213,29 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 
 	return &infoMsg, releasesToBeUpdated, releasesToBeDeleted, nil
 }
+
+func (r *Run) unittest(triggerCleanupEvent bool, c UnittestConfigProvider, unittestOpts *state.UnittestOpts) []error {
+	st := r.state
+	helm := r.helm
+
+	planningErrs := st.UninttestReleases(helm, c.Values(), c.Concurrency(), triggerCleanupEvent, unittestOpts)
+
+	fatalErrs := []error{}
+
+	for _, e := range planningErrs {
+		switch err := e.(type) {
+		case *state.ReleaseError:
+			if err.Code != 2 {
+				fatalErrs = append(fatalErrs, e)
+			}
+		default:
+			fatalErrs = append(fatalErrs, e)
+		}
+	}
+
+	if len(fatalErrs) > 0 {
+		return fatalErrs
+	}
+
+	return nil
+}

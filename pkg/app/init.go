@@ -23,6 +23,7 @@ const (
 	HelmSecretsRecommendedVersion = "v4.6.0"
 	HelmGitRecommendedVersion     = "v0.15.1"
 	HelmS3RecommendedVersion      = "v0.16.0"
+	HelmUninttestVersion          = "v0.4.4"
 	HelmInstallCommand            = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
 )
 
@@ -52,6 +53,11 @@ var (
 			name:    "helm-git",
 			version: HelmGitRecommendedVersion,
 			repo:    "https://github.com/aslafy-z/helm-git.git",
+		},
+		{
+			name:    "helm-unittest",
+			version: HelmUninttestVersion,
+			repo:    "https://github.com/helm-unittest/helm-unittest.git",
 		},
 	}
 )
