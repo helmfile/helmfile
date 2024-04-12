@@ -97,7 +97,7 @@ RUN set -x && \
 RUN helm plugin install https://github.com/databus23/helm-diff --version v3.9.5 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.0 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.16.0 && \
-    helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.15.1 && \
+    helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.16.0 && \
     rm -rf ${HELM_CACHE_HOME}/plugins
 
 # Allow users other than root to use helm plugins located in root home
