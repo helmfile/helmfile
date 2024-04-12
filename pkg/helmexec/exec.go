@@ -354,6 +354,22 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 			return "", err
 		}
 
+		// When the source encrypted file is not a yaml file AND helm secrets < 4
+		// secrets plugin returns a yaml file with all the content in a yaml `data` key
+		// which isn't parsable from an hcl perspective
+		if strings.HasSuffix(name, ".hcl") && pluginVersion.Major() < 4 {
+			type helmSecretDataV3 struct {
+				Data string `yaml:"data"`
+			}
+			var data helmSecretDataV3
+			err := yaml.Unmarshal(secretBytes, &data)
+			if err != nil {
+				return "", fmt.Errorf("Could not unmarshall helm secret plugin V3 decrypted file to a yaml string\n"+
+					"You may consider upgrading your helm secrets plugin to >4.0.\n %s", err.Error())
+			}
+			secretBytes = []byte(data.Data)
+		}
+
 		secret.bytes = secretBytes
 	} else {
 		// Cache hit
