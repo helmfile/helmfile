@@ -21,7 +21,7 @@ hcl_secrets_tmp=$(mktemp -d)
 result=${hcl_secrets_tmp}/result.yaml
 
 info "Building output"
-${helmfile} -f ${hcl_secrets_case_input_dir}/_helmfile.yaml template --skip-deps > ${result} || fail "\"helmfile template\" shouldn't fail"
+${helmfile} -f ${hcl_secrets_case_input_dir}/_helmfile.yaml.gotmpl template --skip-deps > ${result} || fail "\"helmfile template\" shouldn't fail"
     diff -u ${hcl_secrets_case_output_dir}/output.yaml ${result} || fail "helmdiff should be consistent"
     echo code=$?
 

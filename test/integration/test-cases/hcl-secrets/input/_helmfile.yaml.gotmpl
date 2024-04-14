@@ -23,6 +23,6 @@ releases:
         metadata:
           name: configmap
         data:
-          secretOveriddenByPrecedence: {{ .Environment.Values.secretOveriddenByPrecedence }}
-          secretRef: {{ .Environment.Values.secretref }}
-          yamlOverride: {{ .Environment.Values.yamlOverride }}
+          secretOveriddenByPrecedence: {{ .Values.secretOveriddenByPrecedence }}
+          secretRef: {{ .Values.secretref }}
+          yamlOverride: {{ .Values.yamlOverride }}
