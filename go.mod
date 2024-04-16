@@ -11,7 +11,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/gosuri/uitable v0.0.4
-	github.com/hashicorp/go-getter v1.7.3
+	github.com/hashicorp/go-getter v1.7.4
 	github.com/hashicorp/hcl/v2 v2.19.1
 	github.com/helmfile/chartify v0.18.1
 	github.com/helmfile/vals v0.37.0
@@ -48,7 +48,7 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/a8m/envsubst v1.4.2 // indirect
-	github.com/aws/aws-sdk-go v1.51.20
+	github.com/aws/aws-sdk-go v1.51.21
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
