@@ -292,7 +292,17 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 	return err
 }
 
-func (helm *execer) List(context HelmContext, filter string, flags ...string) (string, error) {
+type HelmReleaseOutput struct {
+	Name        string
+	Namespace   string
+	Revision    string
+	Updated     string
+	Status      string
+	Chart       string
+	App_version string
+}
+
+func (helm *execer) List(context HelmContext, filter string, flags ...string) (release HelmReleaseOutput, err error) {
 	helm.logger.Infof("Listing releases matching %v", filter)
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
@@ -300,17 +310,30 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 
 	enableLiveOutput := false
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, &enableLiveOutput)
-	// In v2 we have been expecting `helm list FILTER` prints nothing.
-	// In v3 helm still prints the header like `NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION`,
-	// which confuses helmfile's existing logic that treats any non-empty output from `helm list` is considered as the indication
-	// of the release to exist.
-	//
-	// This fixes it by removing the header from the v3 output, so that the output is formatted the same as that of v2.
-	lines := strings.Split(string(out), "\n")
-	lines = lines[1:]
-	out = []byte(strings.Join(lines, "\n"))
-	helm.write(nil, out)
-	return string(out), err
+
+	var listOutput []HelmReleaseOutput
+	yamlErr := yaml.Unmarshal(out, &listOutput)
+	if yamlErr != nil {
+		return
+	}
+
+	if len(listOutput) > 0 {
+		release = listOutput[0]
+		helm.write(
+			nil,
+			[]byte(fmt.Sprintf(
+				"%s\t%s\t%s\t\t%s\t%s\t\t%s\t%s",
+				release.Name,
+				release.Namespace,
+				release.Revision,
+				release.Updated,
+				release.Status,
+				release.Chart,
+				release.App_version,
+			)),
+		)
+	}
+	return release, err
 }
 
 func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...string) (string, error) {
