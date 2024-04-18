@@ -403,6 +403,9 @@ environments:
     # `{{ .Values.foo.bar }}` is evaluated to `1`.
     values:
     - environments/default/values.yaml
+    # Everything from the values.hcl in the `values` block is available via `{{ .Values.KEY }}`.
+    # More details in its dedicated section
+    - environments/default/values.hcl
     # Each entry in values can be either a file path or inline values.
     # The below is an example of inline values, which is merged to the `.Values`
     - myChartVer: 1.0.0-dev
@@ -896,7 +899,11 @@ releases:
   # snip
 ```
 
-## Environment Values
+### Environment Values
+Helmfile supports 3 values languages : 
+- Straight yaml
+- Go templates to generate straight yaml
+- HCL
 
 Environment Values allows you to inject a set of values specific to the selected environment, into `values.yaml` templates.
 Use it to inject common values from the environment to multiple values files, to make your configuration DRY.
@@ -967,7 +974,45 @@ releases:
   ...
 ```
 
-### Note on Environment.Values vs Values
+#### HCL specifications
+
+Since Helmfile vx.xxx.x, HCL language is supported for environment values only.
+HCL values supports interpolations and sharing values across files
+
+* Only `.hcl` suffixed files will be interpreted as is
+* Helmfile supports 2 differents blocks: `values` and `locals`
+* `values` block is a shared block where all values are accessible everywhere in all loaded files
+* `locals` block can't reference external values apart from the ones in the block itself, and where its defined values are only accessible in its local file
+* Only values in `values` blocks are made available to the final root `.Values` (e.g : ` values { myvar = "var" }` is accessed through `{{ .Values.myvar }}`)
+* There can only be 1 `locals` block per file
+* Helmfile hcl `values` are referenced using the `hv` accessor.
+* Helmfile hcl `locals` are referenced using the `local` accessor.
+* Duplicated variables across .hcl `values` blocks are forbidden (An error will pop up specifying where are the duplicates)
+* All cty [standard library functions](`https://pkg.go.dev/github.com/zclconf/go-cty@v1.14.3/cty/function/stdlib`) are available and custom functions could be created in the future 
+
+Consider the following example :
+
+```terraform
+# values1.hcl
+locals {
+  hostname = "host1"
+}
+values {
+  domain = "DEV.EXAMPLE.COM"
+  hostnameV1 = "${local.hostname}.${lower(hv.domain)}" # "host1.dev.example.com"
+}
+```
+```terraform
+# values2.hcl
+locals {
+  hostname = "host2"
+}
+
+values {
+  hostnameV2 = "${local.hostname}.${hv.domain}" # "host2.DEV.EXAMPLE.COM"
+}
+```
+#### Note on Environment.Values vs Values
 
 The `{{ .Values.foo }}` syntax is the recommended way of using environment values.
 
@@ -976,46 +1021,7 @@ This is still working but is **deprecated** and the new `{{ .Values.foo }}` synt
 
 You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
 
-### Loading remote Environment values files
-
-Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
-
-```yaml
-environments:
-  cluster-azure-us-west:
-    values:
-      - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
-      - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
-      - git::https://gitlab.com/org/repository-name.git@/config/config.test.yaml?ref=main # Public Gilab Repo
-  cluster-gcp-europe-west:
-    values:
-      - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
-      - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
-      - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
-  staging:
-     values:
-      - git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
-      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
----
-
-releases:
-  - ...
-```
-
-Since Helmfile v0.158.0, support more protocols, such as: s3, https, http
-```
-values:
-  - s3::https://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
-  - s3://helm-s3-values-example/subdir/values.yaml
-  - https://john:doe@helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
-  - http://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
-```
-
-For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).
-
-This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
-
-## Environment Secrets
+### Environment Secrets
 
 Environment Secrets *(not to be confused with Kubernetes Secrets)* are encrypted versions of `Environment Values`.
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
@@ -1056,7 +1062,7 @@ Then the environment secret `foo.bar` can be referenced by the below template ex
 {{ .Values.foo.bar }}
 ```
 
-### Loading remote Environment secrets files
+#### Loading remote Environment secrets files
 
 Since Helmfile v0.149.0, you can use `go-getter`-style URLs to refer to remote secrets files, the same way as in values files:
 ```yaml
@@ -1071,6 +1077,91 @@ environments:
       - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/production.secret.yaml
 ```
 
+### Loading remote Environment values files
+
+Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
+
+```yaml
+environments:
+  cluster-azure-us-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
+      - git::https://gitlab.com/org/repository-name.git@/config/config.test.yaml?ref=main # Public Gilab Repo
+  cluster-gcp-europe-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
+      - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
+  staging:
+     values:
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
+      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
+---
+
+releases:
+  - ...
+```
+
+Since Helmfile v0.158.0, support more protocols, such as: s3, https, http
+```
+values:
+  - s3::https://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+  - s3://helm-s3-values-example/subdir/values.yaml
+  - https://john:doe@helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+  - http://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+```
+
+For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).
+
+This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
+
+### Environment values precedence
+With the introduction of HCL, a new value precedence was introduced over environment values.
+Here is the order of precedence from least to greatest (the last one overrides all others)
+1. `yaml` / `yaml.gotmpl`
+2. `hcl`
+3. `yaml` secrets
+
+Example:
+
+---
+
+```yaml
+# values1.yaml
+domain: "dev.example.com"
+```
+
+```terraform
+# values2.hcl
+values {
+  domain = "overdev.example.com"
+  willBeOverriden = "override_me"
+}
+```
+
+```yaml
+# secrets.yml (assuming this one has been encrypted)
+willBeOverriden: overrided
+```
+
+```
+# helmfile.yaml.gotmpl
+environments:
+  default:
+    values:
+    - value1.yaml
+    - value2.hcl
+    secrets:
+    - secrets.yml
+---
+releases:
+- name: random-release
+  [...]
+  values:
+    domain: "{{ .Values.domain }}" # == "overdev.example.com"
+    willBeOverriden: "{{ .Values.willBeOverriden }}" # == "overrided"
+```
 ## DAG-aware installation/deletion ordering with `needs`
 
 `needs` controls the order of the installation/deletion of the release:
