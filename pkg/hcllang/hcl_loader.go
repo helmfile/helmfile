@@ -3,6 +3,7 @@ package hcllang
 import (
 	nativejson "encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
@@ -110,7 +111,7 @@ func (hl *HCLLoader) createDAGGraph(HelmfileHCLValues map[string]*HelmfileHCLVal
 			if diags != nil {
 				return nil, fmt.Errorf("%s", diags.Errs()[0])
 			}
-			if attr != "" {
+			if attr != "" && !slices.Contains(traversals, attr) {
 				traversals = append(traversals, attr)
 			}
 		}
