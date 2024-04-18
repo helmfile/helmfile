@@ -1,6 +1,6 @@
 localDockerRegistry:
   enabled: true
   port: 5000
-chartifyTempDir: temp2
+chartifyTempDir: oci_chart_url_fetch
 helmfileArgs:
 - fetch

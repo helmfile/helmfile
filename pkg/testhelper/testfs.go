@@ -22,16 +22,21 @@ type TestFs struct {
 }
 
 func NewTestFs(files map[string]string) *TestFs {
-	dirs := map[string]bool{}
+	fsDirs := map[string]bool{}
 	for abs := range files {
-		for d := filepath.ToSlash(filepath.Dir(abs)); !dirs[d]; d = filepath.ToSlash(filepath.Dir(d)) {
-			dirs[d] = true
+		for d := filepath.ToSlash(filepath.Dir(abs)); !fsDirs[d]; d = filepath.ToSlash(filepath.Dir(d)) {
+			fsDirs[d] = true
 		}
+	}
+	fsFiles := map[string]string{}
+
+	for abs, content := range files {
+		fsFiles[filepath.ToSlash(abs)] = content
 	}
 	return &TestFs{
 		Cwd:   "/path/to",
-		dirs:  dirs,
-		files: files,
+		dirs:  fsDirs,
+		files: fsFiles,
 
 		successfulReads: []string{},
 
@@ -154,4 +159,21 @@ func (f *TestFs) Chdir(dir string) error {
 		return nil
 	}
 	return fmt.Errorf("unexpected chdir \"%s\"", dir)
+}
+
+func (f *TestFs) AddFiles(files map[string]string) {
+	dirs := map[string]bool{}
+	for abs := range files {
+		for d := filepath.ToSlash(filepath.Dir(abs)); !dirs[d]; d = filepath.ToSlash(filepath.Dir(d)) {
+			dirs[d] = true
+		}
+	}
+
+	for k, v := range files {
+		f.files[k] = v
+	}
+
+	for k, v := range dirs {
+		f.dirs[k] = v
+	}
 }
