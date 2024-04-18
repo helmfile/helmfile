@@ -125,65 +125,42 @@ merged environment: &{default  map[] map[]}
 WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 10 release(s) found in helmfile.yaml
 
-Affected releases are:
-  anotherbackend (charts/anotherbackend) UPDATED
-  backend-v1 (charts/backend) DELETED
-  backend-v2 (charts/backend) UPDATED
-  database (charts/mysql) UPDATED
-  front-proxy (stable/envoy) UPDATED
-  frontend-v1 (charts/frontend) DELETED
-  frontend-v3 (charts/frontend) UPDATED
-  logging (charts/fluent-bit) UPDATED
-  servicemesh (charts/istio) UPDATED
-
-invoking preapply hooks for 5 groups of releases in this order:
-GROUP RELEASES
-1     default//frontend-v1, default//frontend-v2, default//frontend-v3
-2     default//backend-v1, default//backend-v2
-3     default//anotherbackend
-4     default//database, default//servicemesh
-5     default//logging, default//front-proxy
-
-invoking preapply hooks for releases in group 1/5: default//frontend-v1, default//frontend-v2, default//frontend-v3
-invoking preapply hooks for releases in group 2/5: default//backend-v1, default//backend-v2
-invoking preapply hooks for releases in group 3/5: default//anotherbackend
-invoking preapply hooks for releases in group 4/5: default//database, default//servicemesh
-invoking preapply hooks for releases in group 5/5: default//logging, default//front-proxy
-processing 2 groups of releases in this order:
-GROUP RELEASES
-1     default//frontend-v1
-2     default//backend-v1
-
-processing releases in group 1/2: default//frontend-v1
-processing releases in group 2/2: default//backend-v1
 processing 5 groups of releases in this order:
 GROUP RELEASES
-1     default//logging, default//front-proxy
-2     default//database, default//servicemesh
-3     default//anotherbackend
-4     default//backend-v2
-5     default//frontend-v3
+1     frontend-v3, frontend-v2, frontend-v1
+2     backend-v2, backend-v1
+3     anotherbackend
+4     servicemesh, database
+5     front-proxy, logging
 
-processing releases in group 1/5: default//logging, default//front-proxy
-processing releases in group 2/5: default//database, default//servicemesh
-processing releases in group 3/5: default//anotherbackend
-processing releases in group 4/5: default//backend-v2
-processing releases in group 5/5: default//frontend-v3
-
-UPDATED RELEASES:
-NAME             NAMESPACE   CHART                   VERSION   DURATION
-logging                      charts/fluent-bit       3.1.0           0s
-front-proxy                  stable/envoy            3.1.0           0s
-database                     charts/mysql            3.1.0           0s
-servicemesh                  charts/istio            3.1.0           0s
-anotherbackend               charts/anotherbackend   3.1.0           0s
-backend-v2                   charts/backend          3.1.0           0s
-frontend-v3                  charts/frontend         3.1.0           0s
-
+processing releases in group 1/5: frontend-v3, frontend-v2, frontend-v1
+release "frontend-v3" processed
+release "frontend-v2" processed
+WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
+release "frontend-v1" processed
+processing releases in group 2/5: backend-v2, backend-v1
+release "backend-v2" processed
+release "backend-v1" processed
+processing releases in group 3/5: anotherbackend
+release "anotherbackend" processed
+processing releases in group 4/5: servicemesh, database
+release "servicemesh" processed
+release "database" processed
+processing releases in group 5/5: front-proxy, logging
+release "front-proxy" processed
+release "logging" processed
 
 DELETED RELEASES:
-NAME          NAMESPACE   DURATION
-frontend-v1                     0s
-backend-v1                      0s
+NAME             NAMESPACE   DURATION
+frontend-v3                        0s
+frontend-v2                        0s
+frontend-v1                        0s
+backend-v2                         0s
+backend-v1                         0s
+anotherbackend                     0s
+servicemesh                        0s
+database                           0s
+front-proxy                        0s
+logging                            0s
 
 changing working directory back to "/path/to"

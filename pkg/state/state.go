@@ -3282,6 +3282,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 	if ar.Upgraded != nil && len(ar.Upgraded) > 0 {
 		logger.Info("\nUPDATED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
 			prettytable.Column{Header: "VERSION", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
@@ -3293,7 +3294,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 				logger.Warn("Could not modify chart credentials, %v", modErr)
 				continue
 			}
-			err := tbl.AddRow(release.Name, modifiedChart, release.installedVersion, release.duration.Round(time.Second))
+			err := tbl.AddRow(release.Name, release.Namespace, modifiedChart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3303,11 +3304,12 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 	if ar.Deleted != nil && len(ar.Deleted) > 0 {
 		logger.Info("\nDELETED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Deleted {
-			err := tbl.AddRow(release.Name, release.duration.Round(time.Second))
+			err := tbl.AddRow(release.Name, release.Namespace, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3317,13 +3319,14 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 	if ar.Failed != nil && len(ar.Failed) > 0 {
 		logger.Info("\nFAILED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
 			prettytable.Column{Header: "VERSION", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Failed {
-			err := tbl.AddRow(release.Name, release.Chart, release.installedVersion, release.duration.Round(time.Second))
+			err := tbl.AddRow(release.Name, release.Namespace, release.Chart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}

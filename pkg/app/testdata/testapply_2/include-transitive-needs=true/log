@@ -79,9 +79,9 @@ processing releases in group 2/3: default//serviceB
 processing releases in group 3/3: default//serviceA
 
 UPDATED RELEASES:
-NAME       CHART      VERSION   DURATION
-serviceC   my/chart   3.1.0           0s
-serviceB   my/chart   3.1.0           0s
-serviceA   my/chart   3.1.0           0s
+NAME       NAMESPACE   CHART      VERSION   DURATION
+serviceC               my/chart   3.1.0           0s
+serviceB               my/chart   3.1.0           0s
+serviceA               my/chart   3.1.0           0s
 
 changing working directory back to "/path/to"

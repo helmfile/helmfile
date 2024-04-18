@@ -95,13 +95,13 @@ WARNING: release external-secrets needs kubernetes-external-secrets, but kuberne
 processing releases in group 2/2: default/my-release
 
 UPDATED RELEASES:
-NAME               CHART           VERSION   DURATION
-external-secrets   incubator/raw   3.1.0           0s
-my-release         incubator/raw   3.1.0           0s
+NAME               NAMESPACE   CHART           VERSION   DURATION
+external-secrets   default     incubator/raw   3.1.0           0s
+my-release         default     incubator/raw   3.1.0           0s
 
 
 DELETED RELEASES:
-NAME                          DURATION
-kubernetes-external-secrets         0s
+NAME                          NAMESPACE     DURATION
+kubernetes-external-secrets   kube-system         0s
 
 changing working directory back to "/path/to"

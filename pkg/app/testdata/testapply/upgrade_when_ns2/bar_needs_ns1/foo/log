@@ -58,8 +58,8 @@ processing releases in group 2/2: default/ns2/bar
 getting deployed release version failed: Failed to get the version for: mychart2
 
 UPDATED RELEASES:
-NAME   CHART             VERSION   DURATION
-foo    stable/mychart1                   0s
-bar    stable/mychart2                   0s
+NAME   NAMESPACE   CHART             VERSION   DURATION
+foo    ns1         stable/mychart1                   0s
+bar    ns2         stable/mychart2                   0s
 
 changing working directory back to "/path/to"
