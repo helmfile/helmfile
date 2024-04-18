@@ -414,11 +414,6 @@ func (r ReleaseSpec) ChartPathOrName() string {
 	return r.Chart
 }
 
-// NameOrDefault returns the name of the release or a default name if the release has no name
-func (r ReleaseSpec) NamespaceOrDefault() string {
-	return r.Namespace
-}
-
 type Release struct {
 	ReleaseSpec
 
@@ -3299,7 +3294,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 				logger.Warn("Could not modify chart credentials, %v", modErr)
 				continue
 			}
-			err := tbl.AddRow(release.Name, release.NamespaceOrDefault(), modifiedChart, release.installedVersion, release.duration.Round(time.Second))
+			err := tbl.AddRow(release.Name, release.Namespace, modifiedChart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3314,7 +3309,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Deleted {
-			err := tbl.AddRow(release.Name, release.NamespaceOrDefault(), release.duration.Round(time.Second))
+			err := tbl.AddRow(release.Name, release.Namespace, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3331,7 +3326,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Failed {
-			err := tbl.AddRow(release.Name, release.NamespaceOrDefault(), release.Chart, release.installedVersion, release.duration.Round(time.Second))
+			err := tbl.AddRow(release.Name, release.Namespace, release.Chart, release.installedVersion, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}

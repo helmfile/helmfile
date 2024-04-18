@@ -3613,34 +3613,3 @@ func Test_appendExtraSyncFlags(t *testing.T) {
 		})
 	}
 }
-func TestReleaseSpec_NamespaceOrDefault(t *testing.T) {
-	tests := []struct {
-		name     string
-		release  ReleaseSpec
-		expected string
-	}{
-		{
-			name: "Namespace is not empty",
-			release: ReleaseSpec{
-				Namespace: "test-namespace",
-			},
-			expected: "test-namespace",
-		},
-		{
-			name: "Namespace is empty",
-			release: ReleaseSpec{
-				Namespace: "",
-			},
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.release.NamespaceOrDefault()
-			if result != tt.expected {
-				t.Errorf("NamespaceOrDefault() = %s, expected %s", result, tt.expected)
-			}
-		})
-	}
-}
