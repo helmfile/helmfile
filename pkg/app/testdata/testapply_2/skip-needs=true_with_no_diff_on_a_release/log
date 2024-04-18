@@ -79,7 +79,7 @@ GROUP RELEASES
 processing releases in group 1/1: default/default/external-secrets
 
 UPDATED RELEASES:
-NAME               CHART           VERSION   DURATION
-external-secrets   incubator/raw   3.1.0           0s
+NAME               NAMESPACE   CHART           VERSION   DURATION
+external-secrets   default     incubator/raw   3.1.0           0s
 
 changing working directory back to "/path/to"

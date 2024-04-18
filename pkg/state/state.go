@@ -416,10 +416,7 @@ func (r ReleaseSpec) ChartPathOrName() string {
 
 // NameOrDefault returns the name of the release or a default name if the release has no name
 func (r ReleaseSpec) NamespaceOrDefault() string {
-	if r.Namespace != "" {
-		return r.Namespace
-	}
-	return "default"
+	return r.Namespace
 }
 
 type Release struct {

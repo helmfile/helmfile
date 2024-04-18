@@ -3631,7 +3631,7 @@ func TestReleaseSpec_NamespaceOrDefault(t *testing.T) {
 			release: ReleaseSpec{
 				Namespace: "",
 			},
-			expected: "default",
+			expected: "",
 		},
 	}
 
