@@ -976,7 +976,7 @@ releases:
 
 #### HCL specifications
 
-Since Helmfile vx.xxx.x, HCL language is supported for environment values only.
+Since Helmfile v0.164.0, HCL language is supported for environment values only.
 HCL values supports interpolations and sharing values across files
 
 * Only `.hcl` suffixed files will be interpreted as is
