@@ -60,12 +60,12 @@ processing releases in group 1/1: default//bar
 WARNING: release bar needs foo, but foo is not installed due to installed: false. Either mark foo as installed or remove foo from bar's needs
 
 UPDATED RELEASES:
-NAME   CHART             VERSION   DURATION
-bar    stable/mychart2   3.1.0           0s
+NAME   NAMESPACE   CHART             VERSION   DURATION
+bar                stable/mychart2   3.1.0           0s
 
 
 DELETED RELEASES:
-NAME   DURATION
-foo          0s
+NAME   NAMESPACE   DURATION
+foo                      0s
 
 changing working directory back to "/path/to"

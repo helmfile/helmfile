@@ -17,7 +17,7 @@ nav:
   - Home: index.md
   - Getting Started:
     - Paths Overview: paths.md
-    - Templating Funs: templating_funcs.md
+    - Templating Funcs: templating_funcs.md
     - HCL Funcs: hcl_funcs.md
     - Built-in Objects: builtin-objects.md
   - Advanced Features:
