@@ -34,9 +34,7 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 	}
 }
 
-func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
-	result := map[string]any{}
-
+func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string, envVals map[string]any, layering bool) error {
 	for _, entry := range valuesEntries {
 		maps := []any{}
 
@@ -44,7 +42,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 		case string:
 			files, skipped, err := ld.storage.resolveFile(missingFileHandler, "environment values", entry.(string))
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if skipped {
 				continue
@@ -58,15 +56,19 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 					env = *ctxEnv
 				}
 
-				tmplData := NewEnvironmentTemplateData(env, "", map[string]any{})
+				baseData := map[string]any{}
+				if layering {
+					baseData = envVals
+				}
+				tmplData := NewEnvironmentTemplateData(env, "", baseData)
 				r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
 				bytes, err := r.RenderToBytes(f)
 				if err != nil {
-					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)
+					return fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)
 				}
 				m := map[string]any{}
 				if err := yaml.Unmarshal(bytes, &m); err != nil {
-					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
+					return fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
 				}
 				maps = append(maps, m)
 				ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
@@ -74,7 +76,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 		case map[any]any, map[string]any:
 			maps = append(maps, strOrMap)
 		default:
-			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", strOrMap, strOrMap)
+			return fmt.Errorf("unexpected type of value: value=%v, type=%T", strOrMap, strOrMap)
 		}
 		for _, m := range maps {
 			// All the nested map key should be string. Otherwise we get strange errors due to that
@@ -82,13 +84,13 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			// See https://github.com/roboll/helmfile/issues/677
 			vals, err := maputil.CastKeysToStrings(m)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			if err := mergo.Merge(&result, &vals, mergo.WithOverride); err != nil {
-				return nil, fmt.Errorf("failed to merge %v: %v", m, err)
+			if err := mergo.Merge(&envVals, &vals, mergo.WithOverride); err != nil {
+				return fmt.Errorf("failed to merge %v: %v", m, err)
 			}
 		}
 	}
 
-	return result, nil
+	return nil
 }
