@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
+	"strings"
 
 	"github.com/helmfile/vals"
 	"github.com/imdario/mergo"
@@ -18,8 +20,9 @@ import (
 )
 
 const (
-	DefaultHelmBinary      = "helm"
-	DefaultKustomizeBinary = "kustomize"
+	DefaultHelmBinary       = "helm"
+	DefaultKustomizeBinary  = "kustomize"
+	DefaultHCLFileExtension = ".hcl"
 )
 
 type StateLoadError struct {
@@ -233,17 +236,19 @@ func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment
 
 // nolint: unparam
 func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv, overrode *environment.Environment) (*environment.Environment, error) {
-	envVals := map[string]any{}
+	secretVals := map[string]any{}
+	valuesVals := map[string]any{}
 	envSpec, ok := st.Environments[name]
+	decryptedFiles := []string{}
 	if ok {
 		var err error
-		envVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envSpec.Values, c.remote, ctxEnv, name)
-		if err != nil {
-			return nil, err
-		}
-
+		// To keep supporting the secrets entries having precedence over the values
+		// This require to be done in 2 steps for HCL encrypted file support :
+		// 1. Get the Secrets
+		// 2. Merge the secrets with the envValues after
+		// Also makes the fail +- faster as it's trying to decrypt before loading values
+		var envSecretFiles []string
 		if len(envSpec.Secrets) > 0 {
-			var envSecretFiles []string
 			for _, urlOrPath := range envSpec.Secrets {
 				resolved, skipped, err := st.storage().resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath, envSpec.MissingFileHandlerConfig.resolveFileOptions()...)
 				if err != nil {
@@ -252,18 +257,40 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 				if skipped {
 					continue
 				}
-
 				envSecretFiles = append(envSecretFiles, resolved...)
 			}
-			if err = c.scatterGatherEnvSecretFiles(st, envSecretFiles, envVals); err != nil {
+			keepSecretFilesExtensions := []string{DefaultHCLFileExtension}
+			decryptedFiles, err = c.scatterGatherEnvSecretFiles(st, envSecretFiles, secretVals, keepSecretFilesExtensions)
+			if err != nil {
 				return nil, err
 			}
+
+			defer func() {
+				for _, file := range decryptedFiles {
+					if err := c.fs.DeleteFile(file); err != nil {
+						c.logger.Warnf("failed removing decrypted file %s: %w", file, err)
+					}
+				}
+			}()
+		}
+		var valuesFiles []any
+		for _, f := range decryptedFiles {
+			valuesFiles = append(valuesFiles, f)
+		}
+		envValuesEntries := append(valuesFiles, envSpec.Values...)
+		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, ctxEnv, name)
+		if err != nil {
+			return nil, err
+		}
+
+		if err = mergo.Merge(&valuesVals, &secretVals, mergo.WithOverride); err != nil {
+			return nil, err
 		}
 	} else if ctxEnv == nil && overrode == nil && name != DefaultEnv && failOnMissingEnv {
 		return nil, &UndefinedEnvError{Env: name}
 	}
 
-	newEnv := &environment.Environment{Name: name, Values: envVals, KubeContext: envSpec.KubeContext}
+	newEnv := &environment.Environment{Name: name, Values: valuesVals, KubeContext: envSpec.KubeContext}
 
 	if ctxEnv != nil {
 		intCtxEnv := *ctxEnv
@@ -288,9 +315,14 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	return newEnv, nil
 }
 
-func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]any) error {
+// For all keepFileExtensions, the decrypted files will be retained
+// with the specified extensions
+// They will not be parsed nor added to the envVals.
+// Only their decrypted filePath will be returned
+// Up to the caller to remove them
+func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]any, keepFileExtensions []string) ([]string, error) {
 	var errs []error
-
+	var decryptedFilesKeeper []string
 	helm := c.getHelm(st)
 	inputs := envSecretFiles
 	inputsSize := len(inputs)
@@ -325,31 +357,39 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 					results <- secretResult{secret.id, nil, err, secret.path}
 					continue
 				}
-
+				for _, ext := range keepFileExtensions {
+					if strings.HasSuffix(secret.path, ext) {
+						decryptedFilesKeeper = append(decryptedFilesKeeper, decFile)
+					}
+				}
 				// nolint: staticcheck
 				defer func() {
-					if err := c.fs.DeleteFile(decFile); err != nil {
-						c.logger.Warnf("removing decrypted file %s: %w", decFile, err)
+					if !slices.Contains(decryptedFilesKeeper, decFile) {
+						if err := c.fs.DeleteFile(decFile); err != nil {
+							c.logger.Warnf("removing decrypted file %s: %w", decFile, err)
+						}
 					}
 				}()
-
-				bytes, err := c.fs.ReadFile(decFile)
-				if err != nil {
-					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
-					continue
-				}
-				m := map[string]any{}
-				if err := yaml.Unmarshal(bytes, &m); err != nil {
-					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
-					continue
-				}
-				// All the nested map key should be string. Otherwise we get strange errors due to that
-				// mergo or reflect is unable to merge map[any]any with map[string]any or vice versa.
-				// See https://github.com/roboll/helmfile/issues/677
-				vals, err := maputil.CastKeysToStrings(m)
-				if err != nil {
-					results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
-					continue
+				var vals map[string]any
+				if !slices.Contains(decryptedFilesKeeper, decFile) {
+					bytes, err := c.fs.ReadFile(decFile)
+					if err != nil {
+						results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
+						continue
+					}
+					m := map[string]any{}
+					if err := yaml.Unmarshal(bytes, &m); err != nil {
+						results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
+						continue
+					}
+					// All the nested map key should be string. Otherwise we get strange errors due to that
+					// mergo or reflect is unable to merge map[any]any with map[string]any or vice versa.
+					// See https://github.com/roboll/helmfile/issues/677
+					vals, err = maputil.CastKeysToStrings(m)
+					if err != nil {
+						results <- secretResult{secret.id, nil, fmt.Errorf("failed to load environment secrets file \"%s\": %v", secret.path, err), secret.path}
+						continue
+					}
 				}
 				results <- secretResult{secret.id, vals, nil, secret.path}
 			}
@@ -379,9 +419,9 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		for _, err := range errs {
 			st.logger.Error(err)
 		}
-		return fmt.Errorf("failed loading environment secrets with %d errors", len(errs))
+		return decryptedFilesKeeper, fmt.Errorf("failed loading environment secrets with %d errors", len(errs))
 	}
-	return nil
+	return decryptedFilesKeeper, nil
 }
 
 func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []any, remote *remote.Remote, ctxEnv *environment.Environment, envName string) (map[string]any, error) {

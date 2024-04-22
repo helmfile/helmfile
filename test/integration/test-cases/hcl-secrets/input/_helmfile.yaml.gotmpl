@@ -1,0 +1,28 @@
+environments:
+  default:
+    values:
+      - values.hcl
+      - values.yaml
+    secrets:
+      - tmp/secrets.hcl
+      - tmp/secrets.yaml
+---
+
+helmDefaults:
+  kubeContext: minikube
+
+releases:
+
+  - name: hcl-demo
+    chart: ../../../charts/raw
+    values:
+    - templates:
+      - |
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: configmap
+        data:
+          secretOveriddenByPrecedence: {{ .Values.secretOveriddenByPrecedence }}
+          secretRef: {{ .Values.secretref }}
+          yamlOverride: {{ .Values.yamlOverride }}
