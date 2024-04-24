@@ -2,11 +2,11 @@ package config
 
 // ShowDAGOptions is the options for the build command
 type ShowDAGOptions struct {
-	// EmbedValues is true if the values should be embedded
-	EmbedValues bool
+	// Concurrency is the concurrent flag
+	Concurrency int
 }
 
-// NewShowDAGOptions creates a new Apply
+// NewShowDAGOptions creates a new ShowDAGOptions
 func NewShowDAGOptions() *ShowDAGOptions {
 	return &ShowDAGOptions{}
 }
@@ -25,7 +25,7 @@ func NewShowDAGImpl(g *GlobalImpl, b *ShowDAGOptions) *ShowDAGImpl {
 	}
 }
 
-// EmbedValues returns the embed values.
-func (b *ShowDAGImpl) EmbedValues() bool {
-	return b.ShowDAGOptions.EmbedValues
+// Concurrency returns the concurrency
+func (b *ShowDAGImpl) Concurrency() int {
+	return b.ShowDAGOptions.Concurrency
 }

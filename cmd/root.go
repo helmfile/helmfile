@@ -97,7 +97,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		NewSyncCmd(globalImpl),
 		NewDiffCmd(globalImpl),
 		NewStatusCmd(globalImpl),
-		NewShowDAG(globalImpl),
+		NewShowDAGCmd(globalImpl),
 		extension.NewVersionCobraCmd(
 			versionOpts...,
 		),

@@ -530,13 +530,13 @@ func (a *App) Test(c TestConfigProvider) error {
 	}, false, SetFilter(true))
 }
 
-func (a *App) PrintDAGState(c StateConfigProvider) error {
+func (a *App) PrintDAGState(c DAGConfigProvider) error {
 	var err error
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err = run.withPreparedCharts("show-dag", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: 2,
+			SkipRepos:   c.SkipDeps(),
+			SkipDeps:    c.SkipDeps(),
+			Concurrency: c.Concurrency(),
 		}, func() {
 			err = a.dag(run)
 			if err != nil {

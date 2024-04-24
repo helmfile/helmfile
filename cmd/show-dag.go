@@ -7,7 +7,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/config"
 )
 
-func NewShowDAG(globalCfg *config.GlobalImpl) *cobra.Command {
+func NewShowDAGCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	showDAGOptions := config.NewShowDAGOptions()
 
 	cmd := &cobra.Command{
@@ -28,5 +28,7 @@ func NewShowDAG(globalCfg *config.GlobalImpl) *cobra.Command {
 			return toCLIError(showDAGImpl.GlobalImpl, a.PrintDAGState(showDAGImpl))
 		},
 	}
+	f := cmd.Flags()
+	f.IntVar(&showDAGOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	return cmd
 }
