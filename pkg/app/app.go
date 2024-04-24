@@ -545,7 +545,6 @@ func (a *App) PrintDAGState(c StateConfigProvider) error {
 		})
 		return ok, errs
 	}, false, SetFilter(true))
-
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
