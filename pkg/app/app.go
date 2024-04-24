@@ -530,17 +530,26 @@ func (a *App) Test(c TestConfigProvider) error {
 	}, false, SetFilter(true))
 }
 
-func (a *App) PrintState(c StateConfigProvider) error {
-	return a.ForEachState(func(run *Run) (res bool, errs []error) {
-		if c.DAG() {
-			err := a.dag(run)
-
+func (a *App) PrintDAGState(c StateConfigProvider) error {
+	var err error
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err = run.withPreparedCharts("show-dag", state.ChartPrepareOptions{
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: 2,
+		}, func() {
+			err = a.dag(run)
 			if err != nil {
 				errs = append(errs, err)
 			}
+		})
+		return ok, errs
+	}, false, SetFilter(true))
 
-			return res, errs
-		}
+}
+
+func (a *App) PrintState(c StateConfigProvider) error {
+	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
@@ -588,7 +597,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			errs = append(errs, err)
 		}
 
-		return res, errs
+		return
 	}, false, SetFilter(true))
 }
 

@@ -104,7 +104,7 @@ releases:
 
 			var dagErr error
 			out, err := testutil.CaptureStdout(func() {
-				dagErr = app.PrintState(cfg)
+				dagErr = app.PrintDAGState(cfg)
 			})
 			assert.NoError(t, err)
 
@@ -142,6 +142,6 @@ releases:
 
 func TestDAG(t *testing.T) {
 	t.Run("DAG", func(t *testing.T) {
-		testDAG(t, configImpl{dag: true})
+		testDAG(t, configImpl{})
 	})
 }
