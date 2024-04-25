@@ -534,9 +534,9 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 	var err error
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err = run.withPreparedCharts("show-dag", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: 2,
 		}, func() {
 			err = a.dag(run)
 			if err != nil {

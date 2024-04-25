@@ -32,5 +32,6 @@ func NewBuildCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.BoolVar(&buildOptions.EmbedValues, "embed-values", false, "Read all the values files for every release and embed into the output helmfile.yaml")
+
 	return cmd
 }
