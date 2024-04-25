@@ -266,10 +266,7 @@ type StateConfigProvider interface {
 	EmbedValues() bool
 }
 
-type DAGConfigProvider interface {
-	SkipDeps() bool
-	concurrencyConfig
-}
+type DAGConfigProvider any
 
 type concurrencyConfig interface {
 	Concurrency() int

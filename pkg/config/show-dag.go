@@ -2,8 +2,6 @@ package config
 
 // ShowDAGOptions is the options for the build command
 type ShowDAGOptions struct {
-	// Concurrency is the concurrent flag
-	Concurrency int
 }
 
 // NewShowDAGOptions creates a new ShowDAGOptions
@@ -23,9 +21,4 @@ func NewShowDAGImpl(g *GlobalImpl, b *ShowDAGOptions) *ShowDAGImpl {
 		GlobalImpl:     g,
 		ShowDAGOptions: b,
 	}
-}
-
-// Concurrency returns the concurrency
-func (b *ShowDAGImpl) Concurrency() int {
-	return b.ShowDAGOptions.Concurrency
 }
