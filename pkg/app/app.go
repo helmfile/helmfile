@@ -1027,7 +1027,7 @@ func printDAG(batches [][]state.Release) string {
 
 	w.Init(buf, 0, 1, 1, ' ', 0)
 
-	fmt.Fprintln(w, "GROUP\tRELEASES\tDEPENDENCIES")
+	fmt.Fprintln(w, "GROUP\tRELEASE\tDEPENDENCIES")
 
 	for i, batch := range batches {
 		for _, r := range batch {

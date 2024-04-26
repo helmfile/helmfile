@@ -126,7 +126,7 @@ releases:
 	t.Run("DAG lists dependencies in order", func(t *testing.T) {
 		check(t, testcase{
 			environment: "default",
-			expected: `GROUP RELEASES                                        DEPENDENCIES
+			expected: `GROUP RELEASE                                         DEPENDENCIES
 1     default/kube-system/logging                     
 1     default/kube-system/disabled                    
 2     default/kube-system/kubernetes-external-secrets default/kube-system/logging
