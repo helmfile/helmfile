@@ -530,6 +530,23 @@ func (a *App) Test(c TestConfigProvider) error {
 	}, false, SetFilter(true))
 }
 
+func (a *App) PrintDAGState(c DAGConfigProvider) error {
+	var err error
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err = run.withPreparedCharts("show-dag", state.ChartPrepareOptions{
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: 2,
+		}, func() {
+			err = a.dag(run)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		})
+		return ok, errs
+	}, false, SetFilter(true))
+}
+
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
@@ -581,6 +598,19 @@ func (a *App) PrintState(c StateConfigProvider) error {
 
 		return
 	}, false, SetFilter(true))
+}
+
+func (a *App) dag(r *Run) error {
+	st := r.state
+
+	batches, err := st.PlanReleases(state.PlanOptions{SelectedReleases: st.Releases, Reverse: false, SkipNeeds: false, IncludeNeeds: true, IncludeTransitiveNeeds: true})
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(printDAG(batches))
+
+	return nil
 }
 
 func (a *App) ListReleases(c ListConfigProvider) error {
@@ -983,6 +1013,28 @@ func printBatches(batches [][]state.Release) string {
 			ids = append(ids, state.ReleaseToID(&r.ReleaseSpec))
 		}
 		fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
+	}
+
+	_ = w.Flush()
+
+	return buf.String()
+}
+
+func printDAG(batches [][]state.Release) string {
+	buf := &bytes.Buffer{}
+
+	w := new(tabwriter.Writer)
+
+	w.Init(buf, 0, 1, 1, ' ', 0)
+
+	fmt.Fprintln(w, "GROUP\tRELEASE\tDEPENDENCIES")
+
+	for i, batch := range batches {
+		for _, r := range batch {
+			id := state.ReleaseToID(&r.ReleaseSpec)
+			needs := r.ReleaseSpec.Needs
+			fmt.Fprintf(w, "%d\t%s\t%s\n", i+1, id, strings.Join(needs, ", "))
+		}
 	}
 
 	_ = w.Flush()

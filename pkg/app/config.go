@@ -266,6 +266,8 @@ type StateConfigProvider interface {
 	EmbedValues() bool
 }
 
+type DAGConfigProvider any
+
 type concurrencyConfig interface {
 	Concurrency() int
 }
