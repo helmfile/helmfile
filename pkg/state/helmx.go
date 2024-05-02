@@ -119,6 +119,20 @@ func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface,
 	return flags
 }
 
+// append show-only flags to helm flags
+func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []string {
+	showOnlyFlags := []string{}
+	if len(showOnly) != 0 {
+		showOnlyFlags = showOnly
+	}
+	for _, arg := range showOnlyFlags {
+		if arg != "" {
+			flags = append(flags, "--show-only", arg)
+		}
+	}
+	return flags
+}
+
 type Chartify struct {
 	Opts  *chartify.ChartifyOpts
 	Clean func()

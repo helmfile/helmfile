@@ -249,3 +249,30 @@ func TestAppendSuppressOutputLineRegexFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestAppendShowOnlyFlags(t *testing.T) {
+	tests := []struct {
+		name         string
+		templateOpts []string
+		expected     []string
+	}{
+		{
+			name:         "cli template show only with 1 file",
+			templateOpts: []string{"templates/config.yaml"},
+			expected:     []string{"--show-only", "templates/config.yaml"},
+		},
+		{
+			name:         "cli template show only with 2 files",
+			templateOpts: []string{"templates/config.yaml", "templates/resources.yaml"},
+			expected:     []string{"--show-only", "templates/config.yaml", "--show-only", "templates/resources.yaml"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			got := st.appendShowOnlyFlags([]string{}, tt.templateOpts)
+			require.Equalf(t, tt.expected, got, "appendShowOnlyFlags() = %v, want %v", got, tt.expected)
+		})
+	}
+}
