@@ -17,8 +17,8 @@ var (
 	separatorRegex                               = regexp.MustCompile(`^--- *$`)
 	topkeysPriority                              = map[string]int{
 		"bases":        0,
-		"environments": 1,
-		"releases":     2,
+		"environments": 0,
+		"releases":     1,
 	}
 )
 
