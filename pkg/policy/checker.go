@@ -15,6 +15,11 @@ var (
 	EnvironmentsAndReleasesWithinSameYamlPartErr = errors.New("environments and releases cannot be defined within the same YAML part. Use --- to extract the environments into a dedicated part")
 	topConfigKeysRegex                           = regexp.MustCompile(`^[a-zA-Z]+:`)
 	separatorRegex                               = regexp.MustCompile(`^--- *$`)
+	topkeysPriority                              = map[string]int{
+		"bases":        0,
+		"environments": 1,
+		"releases":     2,
+	}
 )
 
 // checkerFunc is a function that checks the helmState.
@@ -51,6 +56,7 @@ func forbidEnvironmentsWithReleases(filePath string, content []byte) (bool, erro
 }
 
 var checkerFuncs = []checkerFunc{
+	TopConfigKeysVerifier,
 	forbidEnvironmentsWithReleases,
 }
 
@@ -62,6 +68,12 @@ func Checker(filePath string, content []byte) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// isTopOrderKey checks if the key is a top-level config key that must be defined in the correct order.
+func isTopOrderKey(key string) bool {
+	_, ok := topkeysPriority[key]
+	return ok
 }
 
 // TopKeys returns the top-level config keys.
@@ -79,4 +91,33 @@ func TopKeys(helmfileContent []byte, hasSeparator bool) []string {
 		}
 	}
 	return topKeys
+}
+
+// TopConfigKeysVerifier verifies the top-level config keys are defined in the correct order.
+func TopConfigKeysVerifier(filePath string, helmfileContent []byte) (bool, error) {
+	var orderKeys, topKeys []string
+	topKeys = TopKeys(helmfileContent, false)
+
+	for _, k := range topKeys {
+		if isTopOrderKey(k) {
+			orderKeys = append(orderKeys, k)
+		}
+	}
+
+	if len(topKeys) == 0 {
+		return true, fmt.Errorf("no top-level config keys are found in %s", filePath)
+	}
+
+	if len(orderKeys) == 0 {
+		return false, nil
+	}
+
+	for i := 1; i < len(orderKeys); i++ {
+		preKey := orderKeys[i-1]
+		currentKey := orderKeys[i]
+		if topkeysPriority[preKey] > topkeysPriority[currentKey] {
+			return runtime.V1Mode, fmt.Errorf("top-level config key %s must be defined before %s in %s", currentKey, preKey, filePath)
+		}
+	}
+	return false, nil
 }
