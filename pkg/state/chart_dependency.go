@@ -402,21 +402,16 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 
 	// Make sure go run main.go works and compatible with old lock files.
 	if version.Version() != "" && lockedReqs.Version != "" {
-		lockedVersion, err := semver.NewVersion(lockedReqs.Version)
-
+		// Check that the locked version, i.e. the helmfile binary version recorded in the lock file,
+		// conforms to semver.
+		// This is purely for validation purposes.
+		_, err := semver.NewVersion(lockedReqs.Version)
 		if err != nil {
 			return nil, false, err
 		}
 
-		currentVersion, err := semver.NewVersion(version.Version())
-
-		if err != nil {
-			return nil, false, err
-		}
-
-		if currentVersion.LessThan(lockedVersion) {
-			return nil, false, fmt.Errorf("the lockfile was created by Helmfile %s, which is newer than current %s; Please upgrade to Helmfile %s or greater", lockedVersion.Original(), currentVersion.Original(), lockedVersion.Original())
-		}
+		// Note: We no longer validate the version of the lockfile against the version of the helmfile binary.
+		// See https://github.com/helmfile/helmfile/issues/1473
 	}
 
 	resolved := &ResolvedDependencies{deps: map[string][]ResolvedChartDependency{}}
