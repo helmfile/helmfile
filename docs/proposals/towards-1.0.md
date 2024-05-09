@@ -11,6 +11,7 @@ Note that every breaking change should have an easy alternative way to achieve t
 3. [Remove the `--args` flag from the `helmfile` command](#remove-the---args-flag-from-the-helmfile-command)
 4. [Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`](#remove-helmfile_skip_insecure_template_functions-in-favor-of-helmfile_disable_insecure_features)
 5. [The long deprecated `charts.yaml` has been finally removed](#the-long-deprecated-chartsyaml-has-been-finally-removed)
+6. [List experimental features](#list-experimental-features)
 
 ### Forbid the use of `environments` and `releases` within a single helmfile.yaml.gotmpl part
 
@@ -81,6 +82,17 @@ Note that every breaking change should have an easy alternative way to achieve t
 ### The long deprecated `charts.yaml` has been finally removed
 
 Helmfile used to load `helmfile.yaml` or `charts.yaml` when you omitted the `-f` flag. `charts.yaml` has been deprecated for a long time but never been removed. We take v1 as a chance to finally remove it.
+
+### List experimental features
+
+We have some experimental features that are not stable yet. We should list them in a list and mark them as experimental.
+
+In Helmfile v1.x, all features should be backward-compatible within v1.x as we follow semver. We can't fix features in a backward incompatible way by default. To do so, we need a list of experimental features and say "anything in the experimentals can be modified backward-incompatible ways", and include features that are consireded experimental into the list beforehand.
+
+Why now?
+
+In Helmfile v0.x, all features considered experimental as we follow semver. However, we "ended up" preserving backward-compatibility within v0 and between v0 and v1 "by chance". This doesn't mean anything
+introduced in v0 is stable. For example, we might have some features implemented in a very later stage of v0 that are not stable yet. We should mark them as experimental, or we can't fix them in a backward-incompatible way in v1.x. That's why we need to list experimental features now.
 
 ## After 1.0
 
