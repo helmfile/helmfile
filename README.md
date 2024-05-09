@@ -46,14 +46,9 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ## Status
 
+May 2024 Update - We are inviting Helmfile v1 rc testers! Please see the v1 proposal [here](docs/proposals/towards-1.0.md) and the latest rc release in the [releases](/release) page. Please file feature requests in [Discussions](/discussions) and bugs in [Issues](/issues).
+
 March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see roboll/helmfile#1824 for more information.
-
-Even though Helmfile is used in production environments [across multiple organizations](USERS.md), it is still in its early stage of development, hence versioned 0.x.
-
-Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be backward-incompatible changes for every release.
-
-Note that we will try our best to document any backward incompatibility. And in reality, helmfile had no breaking change for a year or so.
-
 
 ## Installation
 

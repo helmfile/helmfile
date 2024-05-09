@@ -4,6 +4,22 @@ I'd like to make 3 breaking changes to Helmfile and mark it as 1.0, so that we c
 
 Note that every breaking change should have an easy alternative way to achieve the same goal achieved using the removed functionality.
 
+## Backward compatibility
+
+v1 is backward-compatible with v0.x, except for the following breaking changes.
+
+Each breaking change has an easy alternative way to achieve the same goal achieved using the removed functionality.
+
+We also provide the alternative way in the latest v0.x release before v1.0. That way you can start using the alternative way today and be ready for v1.0. Note that in v0.x, some of those alternative ways are enabled only when `HELMFILE_V1MODE=true` is set.
+
+> Context:
+>
+> Even though Helmfile had been used in production environments [across multiple organizations](USERS.md), it had been considered to be in its early stage of development, hence versioned 0.x.
+>
+> Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be backward-incompatible changes for every release. However, Helmfile has been very conservative about breaking changes, and we had no breaking change for a year or so before start thinking about v1.
+>
+> That said, you can expect Helmfile v1 to be backward-compatible as much as it was in v0.x.
+
 ## The changes in 1.0
 
 1. [Forbid the use of `environments` and `releases` within a single helmfile.yaml.gotmpl part](#forbid-the-use-of-environments-and-releases-within-a-single-helmfileyamlgotmpl-part)
