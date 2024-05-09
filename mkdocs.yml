@@ -25,6 +25,7 @@ nav:
     - Advanced Features: advanced-features.md
     - Secrets: remote-secrets.md
     - Shared Configuration Across Teams: shared-configuration-across-teams.md
+  - Experimental Features: experimental-features.md
   - About:
     - Users: users.md
     - License: license.md
