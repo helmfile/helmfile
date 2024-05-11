@@ -1964,6 +1964,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			PostRenderer:      c.PostRenderer(),
 			PostRendererArgs:  c.PostRendererArgs(),
 			KubeVersion:       c.KubeVersion(),
+			ShowOnly:          c.ShowOnly(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

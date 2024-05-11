@@ -1437,6 +1437,7 @@ type TemplateOpts struct {
 	PostRenderer      string
 	PostRendererArgs  []string
 	KubeVersion       string
+	ShowOnly          []string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -2691,15 +2692,18 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	postRenderer := ""
 	var postRendererArgs []string
 	kubeVersion := ""
+	var showOnly []string
 	if opt != nil {
 		postRenderer = opt.PostRenderer
 		postRendererArgs = opt.PostRendererArgs
 		kubeVersion = opt.KubeVersion
+		showOnly = opt.ShowOnly
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 	flags = st.appendChartDownloadTLSFlags(flags, release)
+	flags = st.appendShowOnlyFlags(flags, showOnly)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {

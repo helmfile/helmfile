@@ -233,6 +233,7 @@ type TemplateConfigProvider interface {
 	OutputDir() string
 	IncludeCRDs() bool
 	KubeVersion() string
+	ShowOnly() []string
 
 	DAGConfig
 

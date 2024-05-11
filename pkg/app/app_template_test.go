@@ -24,6 +24,7 @@ func TestTemplate(t *testing.T) {
 		skipNeeds              bool
 		includeNeeds           bool
 		includeTransitiveNeeds bool
+		showOnly               []string
 	}
 
 	type testcase struct {
@@ -131,6 +132,7 @@ releases:
 				skipNeeds:              tc.fields.skipNeeds,
 				includeNeeds:           tc.fields.includeNeeds,
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
+				showOnly:               tc.fields.showOnly,
 			})
 
 			var gotErr string
@@ -302,6 +304,18 @@ releases:
 			selectors: []string{"app=test_non_existent"},
 			templated: nil,
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
+		})
+	})
+
+	t.Run("show-only", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				showOnly: []string{"templates/resources.yaml"},
+			},
+			selectors: []string{"name=logging"},
+			templated: []exectest.Release{
+				{Name: "logging", Flags: []string{"--show-only", "templates/resources.yaml", "--namespace", "kube-system"}},
+			},
 		})
 	})
 }

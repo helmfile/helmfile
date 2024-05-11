@@ -2189,6 +2189,10 @@ func (c configImpl) KubeVersion() string {
 	return c.kubeVersion
 }
 
+func (c configImpl) ShowOnly() []string {
+	return nil
+}
+
 type applyConfig struct {
 	args    string
 	cascade string
@@ -2230,6 +2234,7 @@ type applyConfig struct {
 	postRendererArgs        []string
 	kubeVersion             string
 	suppressOutputLineRegex []string
+	showOnly                []string
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2404,6 +2409,10 @@ func (a applyConfig) SuppressOutputLineRegex() []string {
 
 func (a applyConfig) KubeVersion() string {
 	return a.kubeVersion
+}
+
+func (a applyConfig) ShowOnly() []string {
+	return a.showOnly
 }
 
 type depsConfig struct {

@@ -38,6 +38,8 @@ type TemplateOptions struct {
 	PostRendererArgs []string
 	// KubeVersion is the kube-version flag
 	KubeVersion string
+	// Propagate '--show-only` to helm template
+	ShowOnly []string
 }
 
 // NewTemplateOptions creates a new Apply
@@ -136,4 +138,9 @@ func (t *TemplateImpl) PostRendererArgs() []string {
 // KubeVersion returns the the KubeVersion.
 func (t *TemplateImpl) KubeVersion() string {
 	return t.TemplateOptions.KubeVersion
+}
+
+// ShowOnly returns the ShowOnly.
+func (t *TemplateImpl) ShowOnly() []string {
+	return t.TemplateOptions.ShowOnly
 }

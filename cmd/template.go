@@ -47,6 +47,7 @@ func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&templateOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&templateOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
 	f.StringVar(&templateOptions.KubeVersion, "kube-version", "", `pass --kube-version to "helm template". Overrides kubeVersion in helmfile.yaml`)
+	f.StringArrayVar(&templateOptions.ShowOnly, "show-only", nil, `pass --show-only to "helm template"`)
 
 	return cmd
 }
