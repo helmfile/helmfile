@@ -961,9 +961,9 @@ func Test_IsHelm3(t *testing.T) {
 }
 
 func Test_GetPluginVersion(t *testing.T) {
-	v3ExpectedVersion := "3.15.1"
+	v3ExpectedVersion := "3.15.0"
 	v4ExpectedVersion := "4.0.0"
-	v3PluginDirPath := "../../test/plugins/secrets/3.15.1"
+	v3PluginDirPath := "../../test/plugins/secrets/3.15.0"
 	v4PluginDirPath := "../../test/plugins/secrets/4.0.0"
 
 	v3SecretPluginVersion, err := GetPluginVersion("secrets", v3PluginDirPath)
