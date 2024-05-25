@@ -1536,6 +1536,7 @@ Do you really want to apply?
 					PostRenderer:     c.PostRenderer(),
 					PostRendererArgs: c.PostRendererArgs(),
 					SyncArgs:         c.SyncArgs(),
+					DryRun:           c.DryRun(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1929,6 +1930,7 @@ Do you really want to sync?
 					PostRenderer:     c.PostRenderer(),
 					PostRendererArgs: c.PostRendererArgs(),
 					SyncArgs:         c.SyncArgs(),
+					DryRun:           c.DryRun(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

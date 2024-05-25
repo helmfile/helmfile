@@ -753,6 +753,7 @@ type SyncOpts struct {
 	PostRenderer     string
 	PostRendererArgs []string
 	SyncArgs         string
+	DryRun           string
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -2672,6 +2673,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	flags = st.appendDryRunFlags(flags, opt)
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 

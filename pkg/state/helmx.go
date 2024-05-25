@@ -100,6 +100,12 @@ func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *
 	}
 	return flags
 }
+func (st *HelmState) appendDryRunFlags(flags []string, opt *SyncOpts) []string {
+	if opt != nil && opt.DryRun != "" {
+		flags = append(flags, "--dry-run", opt.DryRun)
+	}
+	return flags
+}
 
 // append post-renderer flags to helm flags
 func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, cascade string) []string {
