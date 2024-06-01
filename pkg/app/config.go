@@ -52,7 +52,7 @@ type ApplyConfigProvider interface {
 	PostRendererArgs() []string
 	Cascade() string
 	SuppressOutputLineRegex() []string
-	DryRun() string
+	DryRun(string) string
 
 	Values() []string
 	Set() []string
@@ -100,7 +100,7 @@ type SyncConfigProvider interface {
 	PostRenderer() string
 	PostRendererArgs() []string
 	Cascade() string
-	DryRun() string
+	DryRun(string) string
 
 	Values() []string
 	Set() []string
@@ -134,6 +134,7 @@ type DiffConfigProvider interface {
 	Validate() bool
 	SkipCRDs() bool
 	SkipDeps() bool
+	DryRun(string) string
 
 	IncludeTests() bool
 

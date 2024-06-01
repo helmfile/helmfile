@@ -1967,6 +1967,7 @@ type DiffOpts struct {
 	PostRenderer            string
 	PostRendererArgs        []string
 	SuppressOutputLineRegex []string
+	DryRun                  string
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2673,7 +2674,9 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
-	flags = st.appendDryRunFlags(flags, helm, opt)
+	if opt != nil && opt.DryRun != "" {
+		flags = st.appendDryRunFlags(flags, helm, opt.DryRun)
+	}
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
@@ -2794,6 +2797,9 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, files, err
+	}
+	if opt != nil && opt.DryRun != "" {
+		flags = st.appendDryRunFlags(flags, helm, opt.DryRun)
 	}
 
 	return append(flags, common...), files, nil

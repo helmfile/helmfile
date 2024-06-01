@@ -2194,10 +2194,11 @@ func (c configImpl) ShowOnly() []string {
 }
 
 type applyConfig struct {
-	args    string
-	cascade string
-	dryRun  string
-	values  []string
+	args       string
+	cascade    string
+	diffDryRun string
+	syncDryRun string
+	values     []string
 
 	// TODO: Remove this function once Helmfile v0.x
 	retainValuesFiles bool
@@ -2416,8 +2417,15 @@ func (a applyConfig) ShowOnly() []string {
 	return a.showOnly
 }
 
-func (a applyConfig) DryRun() string {
-	return a.dryRun
+func (a applyConfig) DryRun(stage string) string {
+	switch stage {
+	case "diff":
+		return a.diffDryRun
+	case "sync":
+		return a.syncDryRun
+	default:
+		return ""
+	}
 }
 
 type depsConfig struct {

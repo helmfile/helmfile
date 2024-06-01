@@ -143,6 +143,6 @@ func (t *SyncImpl) SyncArgs() string {
 }
 
 // DryRun returns dry-run flag
-func (t *SyncImpl) DryRun() string {
+func (t *SyncImpl) DryRun(string) string {
 	return t.SyncOptions.DryRun
 }

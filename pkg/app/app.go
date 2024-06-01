@@ -1424,6 +1424,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		PostRenderer:            c.PostRenderer(),
 		PostRendererArgs:        c.PostRendererArgs(),
 		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
+		DryRun:                  c.DryRun("diff"),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1536,7 +1537,7 @@ Do you really want to apply?
 					PostRenderer:     c.PostRenderer(),
 					PostRendererArgs: c.PostRendererArgs(),
 					SyncArgs:         c.SyncArgs(),
-					DryRun:           c.DryRun(),
+					DryRun:           c.DryRun("sync"),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1663,6 +1664,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			PostRenderer:            c.PostRenderer(),
 			PostRendererArgs:        c.PostRendererArgs(),
 			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
+			DryRun:                  c.DryRun("diff"),
 		}
 
 		filtered := &Run{
@@ -1930,7 +1932,7 @@ Do you really want to sync?
 					PostRenderer:     c.PostRenderer(),
 					PostRendererArgs: c.PostRendererArgs(),
 					SyncArgs:         c.SyncArgs(),
-					DryRun:           c.DryRun(),
+					DryRun:           c.DryRun("sync"),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

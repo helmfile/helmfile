@@ -328,9 +328,7 @@ func TestAppendDryRunFlags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{}
-			got := st.appendDryRunFlags([]string{}, tt.args.helm, &SyncOpts{
-				DryRun: tt.args.dryRun,
-			})
+			got := st.appendDryRunFlags([]string{}, tt.args.helm, tt.args.dryRun)
 			require.Equalf(t, tt.args.expected, got, "appendDryRunFlags() = %v, want %v", got, tt.args.expected)
 		})
 	}
