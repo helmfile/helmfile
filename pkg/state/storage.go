@@ -119,6 +119,7 @@ func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string, opt
 func (st *Storage) ExpandPaths(globPattern string) ([]string, error) {
 	result := []string{}
 	absPathPattern := st.normalizePath(globPattern)
+	st.logger.Warnf("stBase: %s, absPathPattern: %s", st.basePath, absPathPattern)
 	matches, err := st.fs.Glob(absPathPattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
