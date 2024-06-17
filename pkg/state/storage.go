@@ -147,8 +147,10 @@ func (st *Storage) normalizePath(path string) string {
 // See https://github.com/helm/helm/issues/9537
 func (st *Storage) JoinBase(relPath, GOOS string) string {
 	path := filepath.Join(st.basePath, relPath)
+	st.logger.Warnf("raw path: %s", path)
 	if GOOS == "windows" {
 		return strings.ReplaceAll(path, "\\", "\\\\")
 	}
+	st.logger.Warnf("result path: %s", path)
 	return path
 }
