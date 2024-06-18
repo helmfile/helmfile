@@ -31,7 +31,7 @@ require (
 	golang.org/x/term v0.21.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.15.2
-	k8s.io/apimachinery v0.30.1
+	k8s.io/apimachinery v0.30.2
 )
 
 replace gopkg.in/yaml.v3 => github.com/colega/go-yaml-yaml v0.0.0-20220720070545-aaba007ebc22
