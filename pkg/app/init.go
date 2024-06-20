@@ -19,7 +19,7 @@ import (
 const (
 	HelmRequiredVersion           = "v3.14.4"
 	HelmRecommendedVersion        = "v3.15.2"
-	HelmDiffRecommendedVersion    = "v3.9.7"
+	HelmDiffRecommendedVersion    = "v3.9.8"
 	HelmSecretsRecommendedVersion = "v4.6.0"
 	HelmGitRecommendedVersion     = "v0.15.1"
 	HelmS3RecommendedVersion      = "v0.16.0"
