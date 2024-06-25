@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -176,38 +177,100 @@ func TestJoinBase(t *testing.T) {
 	tests := []struct {
 		name string
 		base string
-		goos string
 		path string
 		want string
 	}{
 		{
 			name: "joinBase with non-root base",
 			base: "/root",
-			goos: "linux",
 			path: "local/timespan-application.yml",
 			want: "/local/timespan-application.yml",
 		},
 		{
 			name: "joinBase with root path",
 			base: "/",
-			goos: "linux",
 			path: "data/timespan-application.yml",
 			want: "/data/timespan-application.yml",
 		},
 		{
 			name: "windows joinBase",
 			base: "",
-			goos: "windows",
 			path: "data\\timespan-application.yml",
-			want: "data\\\\timespan-application.yml",
+			want: "data\\timespan-application.yml",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storageIns := NewStorage(tt.base, helmexec.NewLogger(io.Discard, "debug"), filesystem.DefaultFileSystem())
-			if got := storageIns.JoinBase(tt.path, tt.goos); got != tt.want {
+			if got := storageIns.JoinBase(tt.path); got != tt.want {
 				t.Errorf("JoinBase() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeSetFilePath(t *testing.T) {
+	st := &Storage{
+		basePath: "/base/path",
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		expected string
+		osGOOS   string
+	}{
+		{
+			name:     "Unix path on Unix",
+			path:     "relative/path",
+			expected: "/base/path/relative/path",
+			osGOOS:   "linux",
+		},
+		{
+			name:     "Windows path on Windows",
+			path:     "relative\\path",
+			expected: "/base/path/relative\\\\path",
+			osGOOS:   "windows",
+		},
+		{
+			name:     "Unix path on Windows",
+			path:     "relative/path",
+			expected: "/base/path/relative/path",
+			osGOOS:   "windows",
+		},
+		{
+			name:     "Absolute path on Unix",
+			path:     "/absolute/path",
+			expected: "/absolute/path",
+			osGOOS:   "linux",
+		},
+		{
+			name:     "Absolute path on Windows",
+			path:     "C:\\absolute\\path",
+			expected: "C:\\\\absolute\\\\path",
+			osGOOS:   "windows",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := st.normalizeSetFilePath(tt.path, tt.osGOOS)
+			if tt.osGOOS == "windows" {
+				if result != tt.expected {
+					t.Errorf("normalizeSetFilePath() = %v, want %v", result, tt.expected)
+				}
+			} else {
+				expectedPath := filepath.Join(st.basePath, tt.path)
+				if !filepath.IsAbs(tt.path) {
+					if result != expectedPath {
+						t.Errorf("normalizeSetFilePath() = %v, want %v", result, expectedPath)
+					}
+				} else {
+					if result != tt.path {
+						t.Errorf("normalizeSetFilePath() = %v, want %v", result, tt.path)
+					}
+				}
 			}
 		})
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -119,7 +118,6 @@ func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string, opt
 func (st *Storage) ExpandPaths(globPattern string) ([]string, error) {
 	result := []string{}
 	absPathPattern := st.normalizePath(globPattern)
-	st.logger.Warnf("stBase: %s, absPathPattern: %s", st.basePath, absPathPattern)
 	matches, err := st.fs.Glob(absPathPattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed processing %s: %v", globPattern, err)
@@ -137,7 +135,7 @@ func (st *Storage) normalizePath(path string) string {
 	if u != nil && (u.Scheme != "" || filepath.IsAbs(path)) {
 		return path
 	} else {
-		return st.JoinBase(path, runtime.GOOS)
+		return st.JoinBase(path)
 	}
 }
 
@@ -145,12 +143,15 @@ func (st *Storage) normalizePath(path string) string {
 // Helm's setFiles command does not support unescaped filepath separators (\) on Windows.
 // Instead, it requires double backslashes (\\) as filepath separators.
 // See https://github.com/helm/helm/issues/9537
-func (st *Storage) JoinBase(relPath, GOOS string) string {
+func (st *Storage) JoinBase(relPath string) string {
 	path := filepath.Join(st.basePath, relPath)
-	st.logger.Warnf("raw path: %s", path)
-	// if GOOS == "windows" {
-	// 	return strings.ReplaceAll(path, "\\", "\\\\")
-	// }
-	// st.logger.Warnf("result path: %s", path)
 	return path
+}
+
+func (st *Storage) normalizeSetFilePath(path, goos string) string {
+	normalizedPath := st.normalizePath(path)
+	if goos == "windows" {
+		return strings.ReplaceAll(normalizedPath, "\\", "\\\\")
+	}
+	return normalizedPath
 }
