@@ -1,3 +1,4 @@
+version: 2
 project_name: helmfile
 env:
   # We default to non-v1 mode (=helmfile v0.x behavior) when HELMFILE_V1MODE is not set
