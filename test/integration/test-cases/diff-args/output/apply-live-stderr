@@ -1,0 +1,10 @@
+Live output is enabled
+Building dependency release=installed, chart=../../../charts/httpbin
+Listing releases matching ^uninstalled$
+Upgrading release=installed, chart=../../../charts/httpbin
+Listing releases matching ^installed$
+
+
+UPDATED RELEASES:
+NAME        NAMESPACE        CHART                     VERSION   DURATION
+
