@@ -271,7 +271,7 @@ func (helm *execer) UpdateDeps(chart string) error {
 	return err
 }
 
-func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
+func (helm *execer) SyncRelease(context HelmContext, name, chart, namespace string, flags ...string) error {
 	helm.logger.Infof("Upgrading release=%v, chart=%v", name, redactedURL(chart))
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
@@ -450,7 +450,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	return err
 }
 
-func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
+func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {
 	if context.Writer != nil {
 		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, redactedURL(chart))
 	} else {
