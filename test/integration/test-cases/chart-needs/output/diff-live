@@ -958,4 +958,4 @@ helmfile-tests, disk.csi.azure.com, CSIDriver (storage.k8s.io) has been added:
 +   attachRequired: true
 +   podInfoOnMount: false
 +   fsGroupPolicy: File
-Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver
+Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver, namespace=helmfile-tests

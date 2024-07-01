@@ -47,5 +47,5 @@ helmfile-tests, cm1, ConfigMap (v1) has been added:
 +   name: cm1 
 + metadata:
 +   name: cm1
-Comparing release=foo, chart=../../../charts/raw
-Comparing release=baz, chart=../../../charts/raw
+Comparing release=foo, chart=../../../charts/raw, namespace=helmfile-tests
+Comparing release=baz, chart=../../../charts/raw, namespace=helmfile-tests

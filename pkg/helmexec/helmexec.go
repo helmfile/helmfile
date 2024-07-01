@@ -21,8 +21,8 @@ type Interface interface {
 	RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error
 	BuildDeps(name, chart string, flags ...string) error
 	UpdateDeps(chart string) error
-	SyncRelease(context HelmContext, name, chart string, flags ...string) error
-	DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error
+	SyncRelease(context HelmContext, name, chart, namespace string, flags ...string) error
+	DiffRelease(context HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error
 	TemplateRelease(name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
 	ChartPull(chart string, path string, flags ...string) error

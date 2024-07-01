@@ -2513,10 +2513,10 @@ func (helm *mockHelmExec) UpdateRepo() error {
 func (helm *mockHelmExec) RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
 	return nil
 }
-func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+func (helm *mockHelmExec) SyncRelease(context helmexec.HelmContext, name, chart, namespace string, flags ...string) error {
 	return nil
 }
-func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
+func (helm *mockHelmExec) DiffRelease(context helmexec.HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {

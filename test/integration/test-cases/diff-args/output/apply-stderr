@@ -1,6 +1,6 @@
 Building dependency release=installed, chart=../../../charts/httpbin
 Listing releases matching ^uninstalled$
-Upgrading release=installed, chart=../../../charts/httpbin
+Upgrading release=installed, chart=../../../charts/httpbin, namespace=helmfile-tests
 Release "installed" does not exist. Installing it now.
 NAME: installed
 NAMESPACE: helmfile-tests

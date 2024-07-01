@@ -1,4 +1,4 @@
-Comparing release=installed, chart=../../../charts/httpbin
+Comparing release=installed, chart=../../../charts/httpbin, namespace=helmfile-tests
 ********************
 
 	Release was not present in Helm.  Diff will show entire contents as new.
