@@ -13,5 +13,4 @@ helmfile-tests, baz-2, ConfigMap (v1) has been added:
 +   namespace: helmfile-tests
 + data:
 +   baz: BAZ
-Comparing release=foo, chart=../../../charts/raw
 Comparing release=baz, chart=../../../charts/raw

@@ -60,7 +60,13 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 			case globalConfig.Quiet:
 				logLevel = "warn"
 			}
-			logger = helmexec.NewLogger(os.Stderr, logLevel)
+
+			// If the log output is not set, default to stderr.
+			logOut := globalConfig.LogOutput
+			if logOut == nil {
+				logOut = os.Stderr
+			}
+			logger = helmexec.NewLogger(logOut, logLevel)
 			globalConfig.SetLogger(logger)
 			return nil
 		},
