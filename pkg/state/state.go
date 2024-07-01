@@ -754,6 +754,7 @@ type SyncOpts struct {
 	PostRenderer     string
 	PostRendererArgs []string
 	SyncArgs         string
+	DryRun           string
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -838,7 +839,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
 
-				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+				if _, err := st.triggerPresyncEvent(release, RunInfo{SubCommand: "sync"}); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
@@ -851,13 +852,13 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 
 					m.Lock()
 					start := time.Now()
-					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, RunInfo{SubCommand: "sync"}); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
-					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, RunInfo{SubCommand: "sync"}); err != nil {
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -867,11 +868,11 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					m.Unlock()
 				}
 
-				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, relErr, RunInfo{SubCommand: "sync"}); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
-				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, RunInfo{SubCommand: "sync"}); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
@@ -948,7 +949,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				context := st.createHelmContext(release, workerIndex)
 
 				start := time.Now()
-				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+				if _, err := st.triggerPresyncEvent(release, RunInfo{SubCommand: "sync"}); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else if !release.Desired() {
 					installed, err := st.isReleaseInstalled(context, helm, *release)
@@ -958,13 +959,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						var args []string
 						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
-						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, RunInfo{SubCommand: "sync"}); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
-						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, RunInfo{SubCommand: "sync"}); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else {
@@ -989,7 +990,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 
-				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, relErr, RunInfo{SubCommand: "sync"}); err != nil {
 					if relErr == nil {
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -997,7 +998,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 
-				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, RunInfo{SubCommand: "sync"}); err != nil {
 					if relErr == nil {
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -1074,6 +1075,12 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	return result
 }
 
+// RunInfo contains helmfile run info
+type RunInfo struct {
+	SubCommand string
+	DryRun     string
+}
+
 type ChartPrepareOptions struct {
 	ForceDownload bool
 	SkipRepos     bool
@@ -1141,7 +1148,7 @@ type PrepareChartKey struct {
 // Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileRuninfo RunInfo, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
 		if err != nil {
@@ -1186,7 +1193,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				//
 				// If it wasn't called here, Helmfile can end up an issue like
 				// https://github.com/roboll/helmfile/issues/1328
-				if _, err := st.triggerPrepareEvent(release, helmfileCommand); err != nil {
+				if _, err := st.triggerPrepareEvent(release, helmfileRuninfo); err != nil {
 					results <- &chartPrepareResult{err: err}
 					return
 				}
@@ -1234,7 +1241,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
 				skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
 
-				if chartification != nil && helmfileCommand != "pull" {
+				if chartification != nil && helmfileRuninfo.SubCommand != "pull" {
 					c := chartify.New(
 						chartify.HelmBin(st.DefaultHelmBinary),
 						chartify.KustomizeBin(st.DefaultKustomizeBinary),
@@ -1526,7 +1533,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			}
 		}
 
-		if _, err := st.TriggerCleanupEvent(release, "template"); err != nil {
+		if _, err := st.TriggerCleanupEvent(release, RunInfo{SubCommand: "template"}); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1627,7 +1634,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 			return []error{fmt.Errorf("writing values file %s: %w", outputValuesFile, err)}
 		}
 
-		if _, err := st.TriggerCleanupEvent(release, "write-values"); err != nil {
+		if _, err := st.TriggerCleanupEvent(release, RunInfo{SubCommand: "write-values"}); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1702,7 +1709,7 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 			}
 		}
 
-		if _, err := st.TriggerCleanupEvent(&release, "lint"); err != nil {
+		if _, err := st.TriggerCleanupEvent(&release, RunInfo{SubCommand: "lint"}); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1967,6 +1974,7 @@ type DiffOpts struct {
 	PostRenderer            string
 	PostRendererArgs        []string
 	SuppressOutputLineRegex []string
+	DryRun                  string
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2049,7 +2057,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				}
 
 				if triggerCleanupEvents {
-					if _, err := st.TriggerCleanupEvent(prep.release, "diff"); err != nil {
+					if _, err := st.TriggerCleanupEvent(prep.release, RunInfo{SubCommand: "diff"}); err != nil {
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
@@ -2115,7 +2123,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		context := st.createHelmContext(&release, workerIndex)
 
 		start := time.Now()
-		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, RunInfo{SubCommand: "delete"}); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 
 			return err
@@ -2126,7 +2134,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			return err
 		}
 
-		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete"); err != nil {
+		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, RunInfo{SubCommand: "delete"}); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
 		}
@@ -2374,15 +2382,15 @@ func (st *HelmState) FilterReleases(includeTransitiveNeeds bool) error {
 	return nil
 }
 
-func (st *HelmState) TriggerGlobalPrepareEvent(helmfileCommand string) (bool, error) {
-	return st.triggerGlobalReleaseEvent("prepare", nil, helmfileCommand)
+func (st *HelmState) TriggerGlobalPrepareEvent(runInfo RunInfo) (bool, error) {
+	return st.triggerGlobalReleaseEvent("prepare", nil, runInfo)
 }
 
-func (st *HelmState) TriggerGlobalCleanupEvent(helmfileCommand string) (bool, error) {
-	return st.triggerGlobalReleaseEvent("cleanup", nil, helmfileCommand)
+func (st *HelmState) TriggerGlobalCleanupEvent(runInfo RunInfo) (bool, error) {
+	return st.triggerGlobalReleaseEvent("cleanup", nil, runInfo)
 }
 
-func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfileCmd string) (bool, error) {
+func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, runInfo RunInfo) (bool, error) {
 	bus := &event.Bus{
 		Hooks:         st.Hooks,
 		StateFilePath: st.FilePath,
@@ -2394,32 +2402,32 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		Fs:            st.fs,
 	}
 	data := map[string]any{
-		"HelmfileCommand": helmfileCmd,
+		"HelmfileCommand": runInfo.SubCommand,
 	}
 	return bus.Trigger(evt, evtErr, data)
 }
 
-func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("prepare", nil, r, helmfileCommand)
+func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileRunInfo RunInfo) (bool, error) {
+	return st.triggerReleaseEvent("prepare", nil, r, helmfileRunInfo)
 }
 
-func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("cleanup", nil, r, helmfileCommand)
+func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, helmfileRunInfo RunInfo) (bool, error) {
+	return st.triggerReleaseEvent("cleanup", nil, r, helmfileRunInfo)
 }
 
-func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("presync", nil, r, helmfileCommand)
+func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileRunInfo RunInfo) (bool, error) {
+	return st.triggerReleaseEvent("presync", nil, r, helmfileRunInfo)
 }
 
-func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("postsync", evtErr, r, helmfileCommand)
+func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfileRunInfo RunInfo) (bool, error) {
+	return st.triggerReleaseEvent("postsync", evtErr, r, helmfileRunInfo)
 }
 
-func (st *HelmState) TriggerPreapplyEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("preapply", nil, r, helmfileCommand)
+func (st *HelmState) TriggerPreapplyEvent(r *ReleaseSpec, helmfileRunInfo RunInfo) (bool, error) {
+	return st.triggerReleaseEvent("preapply", nil, r, helmfileRunInfo)
 }
 
-func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string) (bool, error) {
+func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileRunInfo RunInfo) (bool, error) {
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
@@ -2434,7 +2442,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 	data := map[string]any{
 		"Values":          vals,
 		"Release":         r,
-		"HelmfileCommand": helmfileCmd,
+		"HelmfileCommand": helmfileRunInfo.SubCommand,
 	}
 
 	return bus.Trigger(evt, evtErr, data)
@@ -2673,6 +2681,9 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if opt != nil && opt.DryRun != "" {
+		flags = st.appendDryRunFlags(flags, helm, opt.DryRun)
+	}
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
@@ -2793,6 +2804,9 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
 		return nil, files, err
+	}
+	if opt != nil && opt.DryRun != "" {
+		flags = st.appendDryRunFlags(flags, helm, opt.DryRun)
 	}
 
 	return append(flags, common...), files, nil

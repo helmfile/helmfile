@@ -48,6 +48,8 @@ type DiffOptions struct {
 	DiffArgs string
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string
+	// DryRun is for helm-diff dry-run flag
+	DryRun string
 }
 
 // NewDiffOptions creates a new Apply
@@ -198,4 +200,9 @@ func (t *DiffImpl) PostRendererArgs() []string {
 // SuppressOutputLineRegex returns the SuppressOutputLineRegex.
 func (t *DiffImpl) SuppressOutputLineRegex() []string {
 	return t.DiffOptions.SuppressOutputLineRegex
+}
+
+// DryRun returns dry-run flag
+func (t *DiffImpl) DryRun(string) string {
+	return t.DiffOptions.DryRun
 }
