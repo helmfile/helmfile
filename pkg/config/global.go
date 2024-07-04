@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"go.uber.org/zap"
@@ -65,6 +66,8 @@ type GlobalOptions struct {
 	Interactive bool
 	// Args is the list of arguments to pass to the Helm binary.
 	Args string
+	// LogOutput is the writer to use for writing logs.
+	LogOutput io.Writer
 }
 
 // Logger returns the logger to use.
