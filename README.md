@@ -46,7 +46,7 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 ## Status
 
-May 2024 Update - We are inviting Helmfile v1 rc testers! Please see the v1 proposal [here](docs/proposals/towards-1.0.md) and the latest rc release in the [releases](/release) page. Please file feature requests in [Discussions](/discussions) and bugs in [Issues](/issues).
+May 2024 Update - We are inviting Helmfile v1 rc testers! Please see the v1 proposal [here](docs/proposals/towards-1.0.md) and the latest rc release in the [releases](https://github.com/helmfile/helmfile/releases) page. Please file feature requests in [Discussions](https://github.com/helmfile/helmfile/discussions) and bugs in [Issues](https://github.com/helmfile/helmfile/issues).
 
 March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see roboll/helmfile#1824 for more information.
 
