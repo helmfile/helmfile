@@ -19,4 +19,4 @@ pyyaml_env_tag==0.1
 six==1.16.0
 smmap==5.0.0
 watchdog==2.1.7
-zipp==3.7.0
+zipp==3.19.1
