@@ -1256,8 +1256,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					chartifyOpts.Validate = opts.Validate
 
-					chartifyOpts.KubeVersion = release.KubeVersion
-					chartifyOpts.ApiVersions = release.ApiVersions
+					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
+					chartifyOpts.ApiVersions = st.getApiVersions(release)
+
 					// https://github.com/helmfile/helmfile/pull/867
 					// https://github.com/helmfile/helmfile/issues/895
 					var flags []string
@@ -2822,24 +2823,32 @@ func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues boo
 	return flags
 }
 
-func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec, kubeVersion string) []string {
+func (st *HelmState) getApiVersions(r *ReleaseSpec) []string {
 	if len(r.ApiVersions) != 0 {
-		for _, a := range r.ApiVersions {
-			flags = append(flags, "--api-versions", a)
-		}
-	} else {
-		for _, a := range st.ApiVersions {
-			flags = append(flags, "--api-versions", a)
-		}
+		return r.ApiVersions
 	}
+	return st.ApiVersions
+}
 
+func (st *HelmState) getKubeVersion(r *ReleaseSpec, kubeVersion string) string {
 	switch {
 	case kubeVersion != "":
-		flags = append(flags, "--kube-version", kubeVersion)
+		return kubeVersion
 	case r.KubeVersion != "":
-		flags = append(flags, "--kube-version", r.KubeVersion)
+		return r.KubeVersion
 	case st.KubeVersion != "":
-		flags = append(flags, "--kube-version", st.KubeVersion)
+		return st.KubeVersion
+	}
+	return ""
+}
+
+func (st *HelmState) appendApiVersionsFlags(flags []string, r *ReleaseSpec, kubeVersion string) []string {
+	for _, a := range st.getApiVersions(r) {
+		flags = append(flags, "--api-versions", a)
+	}
+
+	if version := st.getKubeVersion(r, kubeVersion); version != "" {
+		flags = append(flags, "--kube-version", version)
 	}
 
 	return flags
