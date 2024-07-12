@@ -10,6 +10,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/helmfile/vals"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -3610,6 +3611,116 @@ func Test_appendExtraSyncFlags(t *testing.T) {
 			if !reflect.DeepEqual(result, test.expected) {
 				t.Errorf("For input %v %v, expected %v, but got %v", test.inputFlags, test.inputOpts, test.expected, result)
 			}
+		})
+	}
+}
+
+func TestHelmState_appendApiVersionsFlags(t *testing.T) {
+	tests := []struct {
+		name               string
+		kubeVersion        string
+		flags              []string
+		expectedFlags      []string
+		releaseKubeVersion string
+		releaseApiVersion  []string
+		stateKubeVersion   string
+		stateApiVersion    []string
+	}{
+		{
+			name:          "no kubeVersion is set",
+			expectedFlags: []string{},
+		},
+		{
+			name:          "flags are kept",
+			flags:         []string{"--flag1", "--flag2"},
+			expectedFlags: []string{"--flag1", "--flag2"},
+		},
+		{
+			name:          "kubeVersion is set",
+			kubeVersion:   "1.18.0",
+			expectedFlags: []string{"--kube-version", "1.18.0"},
+		},
+		{
+			name:               "kubeVersion is set from release",
+			releaseKubeVersion: "1.19.0",
+			expectedFlags:      []string{"--kube-version", "1.19.0"},
+		},
+		{
+			name:               "kubeVersion from release hasn't priority",
+			kubeVersion:        "1.18.0",
+			releaseKubeVersion: "1.19.0",
+			expectedFlags:      []string{"--kube-version", "1.18.0"},
+		},
+		{
+			name:             "kubeVersion is set from state",
+			stateKubeVersion: "1.18.0",
+			expectedFlags:    []string{"--kube-version", "1.18.0"},
+		},
+		{
+			name:               "kubeVersion from state hasn't priority",
+			stateKubeVersion:   "1.18.0",
+			releaseKubeVersion: "1.19.0",
+			expectedFlags:      []string{"--kube-version", "1.19.0"},
+		},
+		{
+			name:               "kubeVersion priority",
+			stateKubeVersion:   "1.18.0",
+			releaseKubeVersion: "1.19.0",
+			kubeVersion:        "1.20.0",
+			expectedFlags:      []string{"--kube-version", "1.20.0"},
+		},
+		{
+			name:            "api-version are set from state",
+			stateApiVersion: []string{"v1,v2"},
+			expectedFlags:   []string{"--api-versions", "v1,v2"},
+		},
+		{
+			name:              "api-version are set from release",
+			releaseApiVersion: []string{"v1,v2"},
+			expectedFlags:     []string{"--api-versions", "v1,v2"},
+		},
+		{
+			name:              "api-version priority",
+			stateApiVersion:   []string{"v1"},
+			releaseApiVersion: []string{"v2"},
+			expectedFlags:     []string{"--api-versions", "v2"},
+		},
+		{
+			name:            "api-version multiple values",
+			stateApiVersion: []string{"v1", "v2"},
+			expectedFlags:   []string{"--api-versions", "v1", "--api-versions", "v2"},
+		},
+		{
+			name:               "All kubeVersion and api-version are set",
+			kubeVersion:        "1.18.0",
+			stateKubeVersion:   "1.19.0",
+			releaseKubeVersion: "1.20.0",
+			stateApiVersion:    []string{"v1"},
+			releaseApiVersion:  []string{"v2"},
+			flags:              []string{"--previous-flag-1", "--previous-flag-2"},
+			expectedFlags:      []string{"--previous-flag-1", "--previous-flag-2", "--api-versions", "v2", "--kube-version", "1.18.0"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.expectedFlags == nil {
+				test.expectedFlags = []string{}
+			}
+			if test.flags == nil {
+				test.flags = []string{}
+			}
+			state := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					KubeVersion: test.stateKubeVersion,
+					ApiVersions: test.stateApiVersion,
+				},
+			}
+			r := &ReleaseSpec{
+				KubeVersion: test.releaseKubeVersion,
+				ApiVersions: test.releaseApiVersion,
+			}
+			result := state.appendApiVersionsFlags(test.flags, r, test.kubeVersion)
+			assert.Equal(t, test.expectedFlags, result)
 		})
 	}
 }
