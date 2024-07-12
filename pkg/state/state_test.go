@@ -3690,6 +3690,16 @@ func TestHelmState_appendApiVersionsFlags(t *testing.T) {
 			stateApiVersion: []string{"v1", "v2"},
 			expectedFlags:   []string{"--api-versions", "v1", "--api-versions", "v2"},
 		},
+		{
+			name:               "All kubeVersion and api-version are set",
+			kubeVersion:        "1.18.0",
+			stateKubeVersion:   "1.19.0",
+			releaseKubeVersion: "1.20.0",
+			stateApiVersion:    []string{"v1"},
+			releaseApiVersion:  []string{"v2"},
+			flags:              []string{"--previous-flag-1", "--previous-flag-2"},
+			expectedFlags:      []string{"--previous-flag-1", "--previous-flag-2", "--api-versions", "v2", "--kube-version", "1.18.0"},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
