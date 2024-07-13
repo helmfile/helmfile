@@ -23,6 +23,7 @@ type Interface interface {
 	UpdateDeps(chart string) error
 	SyncRelease(context HelmContext, name, chart string, flags ...string) error
 	DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error
+	UnittestRelease(context HelmContext, name, chart string, flags ...string) error
 	TemplateRelease(name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
 	ChartPull(chart string, path string, flags ...string) error

@@ -121,6 +121,15 @@ type SyncConfigProvider interface {
 	valuesControlMode
 }
 
+type UnittestConfigProvider interface {
+	Color() bool
+	DebugPlugin() bool
+	Values() []string
+	FailFast() bool
+	UnittestArgs() []string
+	concurrencyConfig
+	DAGConfig
+}
 type DiffConfigProvider interface {
 	Args() string
 	PostRenderer() string
