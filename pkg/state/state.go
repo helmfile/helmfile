@@ -972,7 +972,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						}
 						m.Unlock()
 					}
-				} else if err := helm.SyncRelease(context, release.Name, chart, flags...); err != nil {
+				} else if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
 					m.Lock()
 					affectedReleases.Failed = append(affectedReleases.Failed, release)
 					m.Unlock()
@@ -2036,7 +2036,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 
 				if prep.upgradeDueToSkippedDiff {
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
-				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.ChartPathOrName()), releaseSuppressDiff, flags...); err != nil {
+				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.ChartPathOrName()), release.Namespace, releaseSuppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood

@@ -104,7 +104,7 @@ func (helm *Helm) UpdateRepo() error {
 func (helm *Helm) RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
 	return nil
 }
-func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart, namespace string, flags ...string) error {
 	if strings.Contains(name, "error") {
 		return errors.New("error")
 	}
@@ -117,7 +117,7 @@ func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, 
 
 	return nil
 }
-func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
+func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {
 	if helm.DiffMutex != nil {
 		helm.DiffMutex.Lock()
 	}

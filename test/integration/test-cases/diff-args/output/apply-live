@@ -67,7 +67,7 @@ helmfile-tests, installed-httpbin, Service (v1) has been added:
 +   type: LoadBalancer
 Error: identified at least one change, exiting with non-zero exit code (detailed-exitcode parameter enabled)
 Error: plugin "diff" exited with error
-Comparing release=installed, chart=../../../charts/httpbin
+Comparing release=installed, chart=../../../charts/httpbin, namespace=helmfile-tests
 Release "installed" does not exist. Installing it now.
 NAME: installed
 NAMESPACE: helmfile-tests

@@ -65,4 +65,4 @@ helmfile-tests, installed-httpbin, Service (v1) has been added:
 +     app: httpbin
 +     release: installed
 +   type: LoadBalancer
-Comparing release=installed, chart=../../../charts/httpbin
+Comparing release=installed, chart=../../../charts/httpbin, namespace=helmfile-tests

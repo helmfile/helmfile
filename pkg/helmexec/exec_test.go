@@ -327,8 +327,8 @@ func Test_SyncRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "config", "dev")
-	err := helm.SyncRelease(HelmContext{}, "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs")
-	expected := `Upgrading release=release, chart=chart
+	err := helm.SyncRelease(HelmContext{}, "release", "chart", "default", "--timeout 10", "--wait", "--wait-for-jobs")
+	expected := `Upgrading release=release, chart=chart, namespace=default
 exec: helm --kubeconfig config --kube-context dev upgrade --install release chart --timeout 10 --wait --wait-for-jobs --history-max 0
 `
 	if err != nil {
@@ -339,8 +339,8 @@ exec: helm --kubeconfig config --kube-context dev upgrade --install release char
 	}
 
 	buffer.Reset()
-	err = helm.SyncRelease(HelmContext{}, "release", "chart")
-	expected = `Upgrading release=release, chart=chart
+	err = helm.SyncRelease(HelmContext{}, "release", "chart", "default")
+	expected = `Upgrading release=release, chart=chart, namespace=default
 exec: helm --kubeconfig config --kube-context dev upgrade --install release chart --history-max 0
 `
 	if err != nil {
@@ -351,8 +351,8 @@ exec: helm --kubeconfig config --kube-context dev upgrade --install release char
 	}
 
 	buffer.Reset()
-	err = helm.SyncRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz")
-	expected = `Upgrading release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
+	err = helm.SyncRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz", "default")
+	expected = `Upgrading release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz, namespace=default
 exec: helm --kubeconfig config --kube-context dev upgrade --install release https://example_user:example_password@repo.example.com/chart.tgz --history-max 0
 `
 	if err != nil {
@@ -547,8 +547,9 @@ func Test_DiffRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "config", "dev")
-	err := helm.DiffRelease(HelmContext{}, "release", "chart", false, "--timeout 10", "--wait", "--wait-for-jobs")
-	expected := `Comparing release=release, chart=chart
+	err := helm.DiffRelease(HelmContext{}, "release", "chart", "default", false, "--timeout 10", "--wait", "--wait-for-jobs")
+	expected := `Comparing release=release, chart=chart, namespace=default
+
 exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
@@ -559,8 +560,9 @@ exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unrelease
 	}
 
 	buffer.Reset()
-	err = helm.DiffRelease(HelmContext{}, "release", "chart", false)
-	expected = `Comparing release=release, chart=chart
+	err = helm.DiffRelease(HelmContext{}, "release", "chart", "default", false)
+	expected = `Comparing release=release, chart=chart, namespace=default
+
 exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart
 `
 	if err != nil {
@@ -571,8 +573,9 @@ exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unrelease
 	}
 
 	buffer.Reset()
-	err = helm.DiffRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz", false)
-	expected = `Comparing release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz
+	err = helm.DiffRelease(HelmContext{}, "release", "https://example_user:example_password@repo.example.com/chart.tgz", "default", false)
+	expected = `Comparing release=release, chart=https://example_user:xxxxx@repo.example.com/chart.tgz, namespace=default
+
 exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release https://example_user:example_password@repo.example.com/chart.tgz
 `
 	if err != nil {

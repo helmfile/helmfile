@@ -1,6 +1,6 @@
 Building dependency release=foo, chart=../../../charts/raw
 Building dependency release=baz, chart=../../../charts/raw
-Comparing release=foo, chart=../../../charts/raw
+Comparing release=foo, chart=../../../charts/raw, namespace=helmfile-tests
 ********************
 
 	Release was not present in Helm.  Diff will show entire contents as new.
@@ -25,7 +25,7 @@ helmfile-tests, foo-1, ConfigMap (v1) has been added:
 + data:
 +   foo: FOO
 
-Comparing release=baz, chart=../../../charts/raw
+Comparing release=baz, chart=../../../charts/raw, namespace=helmfile-tests
 ********************
 
 	Release was not present in Helm.  Diff will show entire contents as new.

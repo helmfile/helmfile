@@ -19,7 +19,7 @@ helmfile-tests, managed-csi, StorageClass (storage.k8s.io) has been added:
 + volumeBindingMode: Immediate
 + allowVolumeExpansion: true
 
-Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver
+Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver, namespace=helmfile-tests
 ********************
 
 	Release was not present in Helm.  Diff will show entire contents as new.
