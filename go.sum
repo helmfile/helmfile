@@ -972,8 +972,8 @@ github.com/yvasiyarov/newrelic_platform_go v0.0.0-20140908184405-b21fdbd4370f h1
 github.com/yvasiyarov/newrelic_platform_go v0.0.0-20140908184405-b21fdbd4370f/go.mod h1:GlGEuHIJweS1mbCqG+7vt2nvWLzLLnRHbXz5JKd/Qbg=
 github.com/zalando/go-keyring v0.2.3-0.20230503081219-17db2e5354bd h1:D+eeEnOlWcMXbwZ5X3oy68nHafBtGcj1jMKFHtVdybY=
 github.com/zalando/go-keyring v0.2.3-0.20230503081219-17db2e5354bd/go.mod h1:sI3evg9Wvpw3+n4SqplGSJUMwtDeROfD4nsFz4z9PG0=
-github.com/zclconf/go-cty v1.14.4 h1:uXXczd9QDGsgu0i/QFR/hzI5NYCHLf6NQw/atrbnhq8=
-github.com/zclconf/go-cty v1.14.4/go.mod h1:VvMs5i0vgZdhYawQNq5kePSpLAoz8u1xvZgrPIxfnZE=
+github.com/zclconf/go-cty v1.15.0 h1:tTCRWxsexYUmtt/wVxgDClUe+uQusuI443uL6e+5sXQ=
+github.com/zclconf/go-cty v1.15.0/go.mod h1:VvMs5i0vgZdhYawQNq5kePSpLAoz8u1xvZgrPIxfnZE=
 github.com/zclconf/go-cty-debug v0.0.0-20240509010212-0d6042c53940 h1:4r45xpDWB6ZMSMNJFMOjqrGHynW3DIBuR2H9j0ug+Mo=
 github.com/zclconf/go-cty-debug v0.0.0-20240509010212-0d6042c53940/go.mod h1:CmBdvvj3nqzfzJ6nTCIwDTPZ56aVGvDrmztiO5g3qrM=
 github.com/zclconf/go-cty-yaml v1.0.3 h1:og/eOQ7lvA/WWhHGFETVWNduJM7Rjsv2RRpx1sdFMLc=
