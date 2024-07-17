@@ -213,6 +213,7 @@ type RepositorySpec struct {
 	KeyFile         string `yaml:"keyFile,omitempty"`
 	Username        string `yaml:"username,omitempty"`
 	Password        string `yaml:"password,omitempty"`
+	RegistryConfig  string `yaml:"registryConfig,omitempty"`
 	Managed         string `yaml:"managed,omitempty"`
 	OCI             bool   `yaml:"oci,omitempty"`
 	Verify          bool   `yaml:"verify,omitempty"`
@@ -3678,6 +3679,9 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 			}
 			if repo.Keyring != "" {
 				flags = append(flags, "--keyring", repo.Keyring)
+			}
+			if repo.RegistryConfig != "" {
+				flags = append(flags, "--registry-config", repo.RegistryConfig)
 			}
 		}
 
