@@ -2753,7 +2753,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		if err != nil {
 			return nil, nil, err
 		}
-		dv, _ := semver.NewVersion("v3.9.0")
+		dv, _ := semver.NewVersion("v3.8.1")
 
 		if diffVersion.LessThan(dv) {
 			return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s, please use at least v3.8.1", diffVersion)
