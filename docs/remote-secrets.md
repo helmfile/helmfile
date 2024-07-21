@@ -55,4 +55,3 @@ service:
   password: pass
 
 ```
-
