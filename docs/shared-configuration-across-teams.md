@@ -1,6 +1,6 @@
 # Shared Configuration Across Teams
 
-Assume you have a two or more teams, each works for a different internal or external service, like:
+Assume you have two or more teams, each work for a different internal or external service, like:
 
 - Product 1
 - Product 2
@@ -30,7 +30,7 @@ releases:
   # snip
 ```
 
-This works, but what if you wanted to a separate cluster per service to achieve smaller blast radius?
+This works, but what if you wanted to a separate cluster per service to achieve a smaller blast radius?
 
 Let's start by creating a `helmfile.yaml` for each service.
 

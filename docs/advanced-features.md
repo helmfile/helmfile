@@ -17,13 +17,13 @@ Helmfile integrates [vals]() to import configuration parameters from following b
 See [Vals "Supported Backends"](https://github.com/helmfile/vals#supported-backends) for the full list of available backends.
 
 This feature was implemented in https://github.com/roboll/helmfile/pull/906.
-If you're curious how it's designed and how it works, please consult the pull request.
+If you're curious about how it's designed and how it works, please review the pull request.
 
 ### Deploy Kustomizations with Helmfile
 
 You can deploy [kustomize](https://github.com/kubernetes-sigs/kustomize) "kustomization"s with Helmfile.
 
-Most of Kustomize operations that is usually done with `kustomize edit` can be done declaratively via Helm values.yaml files.
+Most Kustomize operations are usually done with `kustomize edit` and can be done declaratively via Helm `values.yaml` files.
 
 Under the hood, Helmfile transforms the kustomization into a local chart in a temporary directory so that it can be `helm upgrade --install`ed.
 
