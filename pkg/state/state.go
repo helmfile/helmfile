@@ -699,7 +699,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 }
 
 func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
-	if os.Getenv(envvar.UseHelmStatusCheckReleaseExistence) != "" {
+	if os.Getenv(envvar.UseHelmStatusToCheckReleaseExistence) != "" {
 		flags := st.kubeConnectionFlags(&release)
 		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
@@ -714,10 +714,8 @@ func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helme
 	out, err := st.listReleases(context, helm, &release)
 	if err != nil {
 		return false, err
-	} else if out != "" {
-		return true, nil
 	}
-	return false, nil
+	return out != "", nil
 }
 
 func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {

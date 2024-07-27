@@ -4,7 +4,7 @@ const (
 	DisableInsecureFeatures = "HELMFILE_DISABLE_INSECURE_FEATURES"
 
 	// use helm status to check if a release exists before installing it
-	UseHelmStatusCheckReleaseExistence = "HELMFILE_USE_HELM_STATUS_CHECK_RELEASE_EXISTENCE"
+	UseHelmStatusToCheckReleaseExistence = "HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE"
 
 	// TODO: Remove this function once Helmfile v0.x
 	SkipInsecureTemplateFunctions = "HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS"

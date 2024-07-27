@@ -3457,73 +3457,6 @@ releases:
 			upgraded: []exectest.Release{},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-merged environment: &{default  map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml
-
-err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
-changing working directory back to "/path/to"
-`,
 		},
 		{
 			// see https://github.com/roboll/helmfile/issues/919#issuecomment-549831747
@@ -3561,72 +3494,6 @@ releases:
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-merged environment: &{default  map[] map[]}
-0 release(s) matching app=test_non_existent found in helmfile.yaml
-
-changing working directory back to "/path/to"
-`,
 		},
 		//
 		// error cases
@@ -3656,45 +3523,6 @@ releases:
 			deleted:     []exectest.Release{},
 			concurrency: 1,
 			error:       `in ./helmfile.yaml: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart1
- 7:   needs:
- 8:   - ns1/bar
- 9: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart1
- 7:   needs:
- 8:   - ns1/bar
- 9: 
-
-merged environment: &{default  map[] map[]}
-1 release(s) matching name=foo found in helmfile.yaml
-
-err: release "default//foo" depends on "default/ns1/bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
-changing working directory back to "/path/to"
-`,
 		},
 		{
 			name: "non-existent release in needs",
@@ -3720,46 +3548,6 @@ releases:
 			deleted:     []exectest.Release{},
 			concurrency: 1,
 			error:       "in ./helmfile.yaml: release(s) \"default//foo\" depend(s) on an undefined release \"default/ns1/bar\". Perhaps you made a typo in \"needs\" or forgot defining a release named \"bar\" with appropriate \"namespace\" and \"kubeContext\"?",
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart1
- 7:   needs:
- 8:   - ns1/bar
- 9: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart1
- 7:   needs:
- 8:   - ns1/bar
- 9: 
-
-merged environment: &{default  map[] map[]}
-WARNING: release foo needs bar, but bar is not installed due to installed: false. Either mark bar as installed or remove bar from foo's needs
-2 release(s) found in helmfile.yaml
-
-err: release(s) "default//foo" depend(s) on an undefined release "default/ns1/bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
-changing working directory back to "/path/to"
-`,
 		},
 		{
 			name: "duplicate releases",
@@ -3789,51 +3577,6 @@ releases:
 			deleted:     []exectest.Release{},
 			concurrency: 1,
 			error:       "in ./helmfile.yaml: found 2 duplicate releases with ID \"default//foo\"",
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart2
- 7:   needs:
- 8:   - ns1/bar
- 9: - name: foo
-10:   chart: mychart1
-11:   needs:
-12:   - ns1/bar
-13: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   namespace: ns1
- 4:   chart: mychart3
- 5: - name: foo
- 6:   chart: mychart2
- 7:   needs:
- 8:   - ns1/bar
- 9: - name: foo
-10:   chart: mychart1
-11:   needs:
-12:   - ns1/bar
-13: 
-
-merged environment: &{default  map[] map[]}
-err: found 2 duplicate releases with ID "default//foo"
-changing working directory back to "/path/to"
-`,
 		},
 	}
 
