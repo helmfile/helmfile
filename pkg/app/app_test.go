@@ -2869,7 +2869,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-context default --detailed-exitcode --reset-values"}: nil,
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-context default --detailed-exitcode --reset-values"}:          nil,
+				{Name: "foo_notFound", Chart: "stable/mychart1", Flags: "--kube-context default --detailed-exitcode --reset-values"}: nil,
 			},
 			lists:    map[exectest.ListKey]string{},
 			upgraded: []exectest.Release{},
