@@ -534,6 +534,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_DISABLE_INSECURE_FEATURES` - disable insecure features, expecting `true` lower case
 * `HELMFILE_DISABLE_RUNNER_UNIQUE_ID` - disable unique logging ID, expecting any non-empty value
 * `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` - disable insecure template functions, expecting `true` lower case
+* `HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE` - expecting non-empty value to use `helm status` to check release existence, instead of `helm list` which is the default behaviour 
 * `HELMFILE_EXPERIMENTAL` - enable experimental features, expecting `true` lower case
 * `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](https://helmfile.readthedocs.io/en/latest/#environment), it has lower priority than CLI argument `--environment`
 * `HELMFILE_TEMPDIR` - specify directory to store temporary files
