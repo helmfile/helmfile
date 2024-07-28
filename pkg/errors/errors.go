@@ -88,8 +88,9 @@ func HandleExitCoder(err error) {
 			fmt.Fprintln(ErrWriter, errMsg)
 		}
 		OsExiter(exitErr.ExitCode())
-	} else {
-		fmt.Fprintln(ErrWriter, err)
-		OsExiter(3)
+		return
 	}
+
+	fmt.Fprintln(ErrWriter, err)
+	OsExiter(3)
 }
