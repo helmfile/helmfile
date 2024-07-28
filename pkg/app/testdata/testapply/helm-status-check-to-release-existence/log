@@ -9,7 +9,8 @@ first-pass rendering output of "helmfile.yaml.part.0":
  3:   chart: stable/mychart2
  4: - name: foo_notFound
  5:   chart: stable/mychart1
- 6: 
+ 6:   installed: false
+ 7: 
 
 first-pass produced: &{default  map[] map[]}
 first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
@@ -23,11 +24,13 @@ second-pass rendering result of "helmfile.yaml.part.0":
  3:   chart: stable/mychart2
  4: - name: foo_notFound
  5:   chart: stable/mychart1
- 6: 
+ 6:   installed: false
+ 7: 
 
 merged environment: &{default  map[] map[]}
 2 release(s) found in helmfile.yaml
 
+Checking release existence using `helm status` for release foo_notFound
 invoking preapply hooks for 1 groups of releases in this order:
 GROUP RELEASES
 1     default//bar, default//foo_notFound

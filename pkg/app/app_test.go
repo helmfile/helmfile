@@ -2733,6 +2733,31 @@ func TestApply(t *testing.T) {
 		log               string
 	}{
 		//
+		// helm-status-check-to-release-existence
+		//
+		{
+			name: "helm-status-check-to-release-existence",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  chart: stable/mychart2
+- name: foo_notFound
+  chart: stable/mychart1
+  installed: false
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-context default --detailed-exitcode --reset-values"}:          nil,
+				{Name: "foo_notFound", Chart: "stable/mychart1", Flags: "--kube-context default --detailed-exitcode --reset-values"}: nil,
+			},
+			lists:    map[exectest.ListKey]string{},
+			upgraded: []exectest.Release{},
+			deleted:  []exectest.Release{},
+			envs:     map[string]string{"HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE": "true"},
+		},
+		//
 		// complex test cases for smoke testing
 		//
 		{
@@ -2852,30 +2877,6 @@ backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      
 			deleted: []exectest.Release{
 				{Name: "frontend-v1", Flags: []string{}},
 			},
-		},
-		//
-		// helm-status-check-to-release-existence
-		//
-		{
-			name: "helm-status-check-to-release-existence",
-			loc:  location(),
-			files: map[string]string{
-				"/path/to/helmfile.yaml": `
-releases:
-- name: bar
-  chart: stable/mychart2
-- name: foo_notFound
-  chart: stable/mychart1
-`,
-			},
-			diffs: map[exectest.DiffKey]error{
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-context default --detailed-exitcode --reset-values"}:          nil,
-				{Name: "foo_notFound", Chart: "stable/mychart1", Flags: "--kube-context default --detailed-exitcode --reset-values"}: nil,
-			},
-			lists:    map[exectest.ListKey]string{},
-			upgraded: []exectest.Release{},
-			deleted:  []exectest.Release{},
-			envs:     map[string]string{"HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE": "true"},
 		},
 		//
 		// noop: no changes
