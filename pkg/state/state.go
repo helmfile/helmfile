@@ -700,6 +700,8 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 
 func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
 	if os.Getenv(envvar.UseHelmStatusToCheckReleaseExistence) != "" {
+		st.logger.Debugf("Checking release existence using `helm status` for %s", release.Name)
+
 		flags := st.kubeConnectionFlags(&release)
 		if release.Namespace != "" {
 			flags = append(flags, "--namespace", release.Namespace)
