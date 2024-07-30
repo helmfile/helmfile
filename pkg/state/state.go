@@ -1215,7 +1215,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				chartFetchedByGoGetter := chartPath != chartName
 
 				if !chartFetchedByGoGetter {
-					ociChartPath, err := st.getOCIChart(release, dir, helm)
+					ociChartPath, err := st.getOCIChart(release, dir, helm, opts.OutputDirTemplate)
 					if err != nil {
 						results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
 
@@ -3646,7 +3646,7 @@ func (st *HelmState) Reverse() {
 	}
 }
 
-func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface) (*string, error) {
+func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, outputDirTemplate string) (*string, error) {
 	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release, helm)
 	if err != nil {
 		return nil, err
@@ -3656,21 +3656,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return nil, nil
 	}
 
-	pathElems := []string{
-		tempDir,
-	}
-
-	if release.Namespace != "" {
-		pathElems = append(pathElems, release.Namespace)
-	}
-
-	if release.KubeContext != "" {
-		pathElems = append(pathElems, release.KubeContext)
-	}
-
-	pathElems = append(pathElems, release.Name, chartName, safeVersionPath(chartVersion))
-
-	chartPath := filepath.Join(pathElems...)
+	chartPath, _ := st.getOCIChartPath(tempDir, release, chartName, chartVersion, outputDirTemplate)
 
 	if st.fs.DirectoryExistsAt(chartPath) {
 		st.logger.Debugf("chart already exists at %s", chartPath)
@@ -3753,4 +3739,28 @@ func (st *HelmState) FullFilePath() (string, error) {
 		wd, err = st.fs.Getwd()
 	}
 	return filepath.Join(wd, st.basePath, st.FilePath), err
+}
+
+func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chartName, chartVersion, outputDirTemplate string) (string, error) {
+	if outputDirTemplate != "" {
+		chartPath, err := generateChartPath(chartName, tempDir, release, outputDirTemplate)
+		if err != nil {
+			return "", err
+		}
+		return chartPath, nil
+	}
+
+	pathElems := []string{tempDir}
+
+	if release.Namespace != "" {
+		pathElems = append(pathElems, release.Namespace)
+	}
+
+	if release.KubeContext != "" {
+		pathElems = append(pathElems, release.KubeContext)
+	}
+
+	pathElems = append(pathElems, release.Name, chartName, safeVersionPath(chartVersion))
+
+	return filepath.Join(pathElems...), nil
 }

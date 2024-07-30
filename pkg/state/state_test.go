@@ -3724,3 +3724,69 @@ func TestHelmState_appendApiVersionsFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestGetOCIChartPath(t *testing.T) {
+	tests := []struct {
+		name              string
+		tempDir           string
+		release           *ReleaseSpec
+		chartName         string
+		chartVersion      string
+		outputDirTemplate string
+		expectedPath      string
+		expectedErr       bool
+	}{
+		{
+			name:    "OCI chart with template",
+			tempDir: "charts",
+			release: &ReleaseSpec{
+				Name:  "karpenter",
+				Chart: "karpenter/karpenter",
+			},
+			chartName:         "karpenter",
+			chartVersion:      "0.37.0",
+			outputDirTemplate: "{{ .OutputDir }}/",
+			expectedPath:      "charts/",
+			expectedErr:       false,
+		},
+		{
+			name:    "OCI chart with template containing unknown values",
+			tempDir: "charts",
+			release: &ReleaseSpec{
+				Name:  "karpenter",
+				Chart: "karpenter/karpenter",
+			},
+			chartName:         "karpenter",
+			chartVersion:      "0.37.0",
+			outputDirTemplate: "{{ .SomethingThatDoesNotExist }}/",
+			expectedPath:      "",
+			expectedErr:       true,
+		},
+		{
+			name:    "OCI chart without template",
+			tempDir: "charts",
+			release: &ReleaseSpec{
+				Name:  "karpenter",
+				Chart: "karpenter/karpenter",
+			},
+			chartName:    "karpenter",
+			chartVersion: "0.37.0",
+			expectedPath: "charts/karpenter/karpenter/0.37.0",
+			expectedErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			path, err := st.getOCIChartPath(tt.tempDir, tt.release, tt.chartName, tt.chartVersion, tt.outputDirTemplate)
+
+			if tt.expectedErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expectedPath, path)
+			}
+		})
+	}
+}
