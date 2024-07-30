@@ -3743,11 +3743,7 @@ func (st *HelmState) FullFilePath() (string, error) {
 
 func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chartName, chartVersion, outputDirTemplate string) (string, error) {
 	if outputDirTemplate != "" {
-		chartPath, err := generateChartPath(chartName, tempDir, release, outputDirTemplate)
-		if err != nil {
-			return "", err
-		}
-		return chartPath, nil
+		return generateChartPath(chartName, tempDir, release, outputDirTemplate)
 	}
 
 	pathElems := []string{tempDir}
