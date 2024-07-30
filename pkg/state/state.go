@@ -29,6 +29,7 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -698,13 +699,25 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 }
 
 func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
+	if os.Getenv(envvar.UseHelmStatusToCheckReleaseExistence) != "" {
+		st.logger.Debugf("Checking release existence using `helm status` for release %s", release.Name)
+
+		flags := st.kubeConnectionFlags(&release)
+		if release.Namespace != "" {
+			flags = append(flags, "--namespace", release.Namespace)
+		}
+		err := helm.ReleaseStatus(context, release.Name, flags...)
+		if err != nil && strings.Contains(err.Error(), "Error: release: not found") {
+			return false, nil
+		}
+		return true, err
+	}
+
 	out, err := st.listReleases(context, helm, &release)
 	if err != nil {
 		return false, err
-	} else if out != "" {
-		return true, nil
 	}
-	return false, nil
+	return out != "", nil
 }
 
 func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
