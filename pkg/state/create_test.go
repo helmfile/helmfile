@@ -18,7 +18,6 @@ func createFromYaml(content []byte, file string, env string, logger *zap.Sugared
 	c := &StateCreator{
 		logger: logger,
 		fs:     filesystem.DefaultFileSystem(),
-		Strict: true,
 	}
 	return c.ParseAndLoad(content, filepath.Dir(file), file, env, false, true, nil, nil)
 }

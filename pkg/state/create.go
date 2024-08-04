@@ -49,8 +49,6 @@ type StateCreator struct {
 
 	valsRuntime vals.Evaluator
 
-	Strict bool
-
 	LoadFile func(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
 
 	getHelm func(*HelmState) helmexec.Interface
@@ -68,9 +66,7 @@ type StateCreator struct {
 
 func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, overrideKustomizeBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string) *StateCreator {
 	return &StateCreator{
-		logger: logger,
-
-		Strict:      true,
+		logger:      logger,
 		fs:          fs,
 		valsRuntime: valsRuntime,
 		getHelm:     getHelm,
@@ -95,7 +91,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	state.LockFile = c.lockFile
 
-	decode := yaml.NewDecoder(content, c.Strict)
+	decode := yaml.NewDecoder(content, true)
 
 	i := 0
 	for {
