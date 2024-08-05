@@ -239,3 +239,30 @@ func TestTopKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestTopKeys_MalformedLines(t *testing.T) {
+	tests := []struct {
+		name            string
+		helmfileContent []byte
+		hasSeparator    bool
+		want            []string
+	}{
+		{
+			name:            "malformed lines with special characters",
+			helmfileContent: []byte("bas@es:\nenvironm*ents:\nrele#ases:\n"),
+			want:            nil, // This test expects no valid top keys
+		},
+		{
+			name:            "malformed lines with incomplete key",
+			helmfileContent: []byte("bases\nenvironments:\nreleases:\n"),
+			want:            []string{"environments", "releases"}, // This test expects only valid top keys
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := TopKeys(tt.helmfileContent, tt.hasSeparator)
+			require.Equal(t, tt.want, got, "expected %v, got=%v", tt.want, got)
+		})
+	}
+}

@@ -82,12 +82,15 @@ func TopKeys(helmfileContent []byte, hasSeparator bool) []string {
 	clines := bytes.Split(helmfileContent, []byte("\n"))
 
 	for _, line := range clines {
-		if topConfigKeysRegex.Match(line) {
-			lineStr := strings.Split(string(line), ":")[0]
-			topKeys = append(topKeys, lineStr)
+		lineStr := strings.TrimSpace(string(line))
+		if lineStr == "" {
+			continue // Skip empty lines
 		}
-		if hasSeparator && separatorRegex.Match(line) {
-			topKeys = append(topKeys, strings.TrimSpace(string(line)))
+		if hasSeparator && separatorRegex.MatchString(lineStr) {
+			topKeys = append(topKeys, lineStr)
+		} else if topConfigKeysRegex.MatchString(lineStr) {
+			topKey := strings.SplitN(lineStr, ":", 2)[0]
+			topKeys = append(topKeys, topKey)
 		}
 	}
 	return topKeys
