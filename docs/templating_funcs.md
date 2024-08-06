@@ -39,6 +39,13 @@ The `isFile` function allows you to check if a file exists. On failure, the temp
 {{ if isFile "./myfile" }}
 ```
 
+#### `isDir`
+The `isDir` function allows you to check if a directory exists. On failure, the template rendering will fail with an error message.
+
+```yaml
+{{ if isDir "./mydirectory" }}
+```
+
 #### `readFile`
 The `readFile` function allows you to read a file and return its content as the function output. On failure, the template rendering will fail with an error message.
 
