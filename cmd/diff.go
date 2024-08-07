@@ -55,6 +55,8 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&diffOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&diffOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&diffOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from the diff output")
+	f.StringVar(&diffOptions.DryRun, "dry-run", "", "pass dry-run to helm-diff")
+	f.Lookup("dry-run").NoOptDefVal = "client"
 
 	return cmd
 }

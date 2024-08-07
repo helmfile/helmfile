@@ -66,6 +66,10 @@ type ApplyOptions struct {
 	SuppressOutputLineRegex []string
 	// SyncArgs is the list of arguments to pass to helm upgrade.
 	SyncArgs string
+	// DiffDryRun is for helm dry-run flag
+	DiffDryRun string
+	// SyncDryRun is for helm dry-run flag
+	SyncDryRun string
 }
 
 // NewApply creates a new Apply
@@ -246,4 +250,16 @@ func (a *ApplyImpl) SuppressOutputLineRegex() []string {
 // SyncArgs returns the SyncArgs.
 func (a *ApplyImpl) SyncArgs() string {
 	return a.ApplyOptions.SyncArgs
+}
+
+// DiffDryRun returns dry-run flag
+func (a *ApplyImpl) DryRun(stage string) string {
+	switch stage {
+	case "diff":
+		return a.ApplyOptions.DiffDryRun
+	case "sync":
+		return a.ApplyOptions.SyncDryRun
+	default:
+		return ""
+	}
 }

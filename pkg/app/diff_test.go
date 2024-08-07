@@ -44,6 +44,7 @@ type diffConfig struct {
 	skipDiffOnInstall       bool
 	reuseValues             bool
 	logger                  *zap.SugaredLogger
+	dryRun                  string
 }
 
 func (a diffConfig) Args() string {
@@ -174,6 +175,9 @@ func (a diffConfig) SuppressOutputLineRegex() []string {
 	return a.suppressOutputLineRegex
 }
 
+func (a diffConfig) DryRun(string) string {
+	return a.dryRun
+}
 func TestDiff(t *testing.T) {
 	type flags struct {
 		skipNeeds    bool

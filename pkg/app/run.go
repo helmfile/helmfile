@@ -39,7 +39,7 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
+func (r *Run) withPreparedCharts(helmfileRunInfo state.RunInfo, opts state.ChartPrepareOptions, f func()) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
 	}
@@ -67,13 +67,13 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		fmt.Printf("Charts will be downloaded to: %s\n", dir)
 	}
 
-	if _, err := r.state.TriggerGlobalPrepareEvent(helmfileCommand); err != nil {
+	if _, err := r.state.TriggerGlobalPrepareEvent(helmfileRunInfo); err != nil {
 		return err
 	}
 
 	concurrency := opts.Concurrency
 
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileRunInfo, opts)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%v", errs)
@@ -98,7 +98,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	f()
 
-	_, err := r.state.TriggerGlobalCleanupEvent(helmfileCommand)
+	_, err := r.state.TriggerGlobalCleanupEvent(helmfileRunInfo)
 
 	return err
 }
