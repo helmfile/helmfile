@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	neturl "net/url"
 	"os"
@@ -36,20 +37,20 @@ func init() {
 
 func CacheDir() string {
 	if h := os.Getenv("CACHE_HOME"); h != "" {
-		fmt.Printf("Using CACHE_HOME: %s\n", h)
+		log.Printf("Using CACHE_HOME: %s\n", h)
 		return h
 	}
 
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		fmt.Printf("Error getting user cache directory: %v\n", err)
-		fmt.Println("Falling back to relative path with hidden directory: .helmfile")
+		log.Printf("Error getting user cache directory: %v\n", err)
+		log.Println("Falling back to relative path with hidden directory: .helmfile")
 		// Fall back to relative path with hidden directory
 		return ".helmfile"
 	}
 
 	cacheDir := filepath.Join(dir, "helmfile")
-	fmt.Printf("Using user cache directory: %s\n", cacheDir)
+	log.Printf("Using user cache directory: %s\n", cacheDir)
 	return cacheDir
 }
 
