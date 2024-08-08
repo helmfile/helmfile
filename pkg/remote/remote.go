@@ -35,16 +35,22 @@ func init() {
 }
 
 func CacheDir() string {
-	if h := os.Getenv(envvar.CacheHome); h != "" {
+	if h := os.Getenv("CACHE_HOME"); h != "" {
+		fmt.Printf("Using CACHE_HOME: %s\n", h)
 		return h
 	}
 
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		// fall back to relative path with hidden directory
+		fmt.Printf("Error getting user cache directory: %v\n", err)
+		fmt.Println("Falling back to relative path with hidden directory: .helmfile")
+		// Fall back to relative path with hidden directory
 		return ".helmfile"
 	}
-	return filepath.Join(dir, "helmfile")
+
+	cacheDir := filepath.Join(dir, "helmfile")
+	fmt.Printf("Using user cache directory: %s\n", cacheDir)
+	return cacheDir
 }
 
 type Remote struct {
