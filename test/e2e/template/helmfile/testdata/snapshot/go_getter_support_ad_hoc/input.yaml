@@ -1,0 +1,18 @@
+helmDefaults:
+  wait: false
+  cleanupOnFail: true
+  createNamespace: true
+
+repositories:
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+
+releases:
+  - name: kube-prometheus-stack
+    namespace: monitoring
+    chart: prometheus-community/kube-prometheus-stack
+    version: 45.17.0
+    disableValidationOnInstall: true
+    dependencies:
+      - chart: "git::https://github.com/goharbor/harbor-helm.git@" 
+        version: 0.64.1
