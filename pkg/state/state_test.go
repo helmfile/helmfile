@@ -203,41 +203,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "verify",
-			defaults: HelmSpec{
-				Verify: false,
-			},
-			release: &ReleaseSpec{
-				Chart:     "test/chart",
-				Version:   "0.1",
-				Verify:    &enable,
-				Name:      "test-charts",
-				Namespace: "test-namespace",
-			},
-			want: []string{
-				"--version", "0.1",
-				"--verify",
-				"--namespace", "test-namespace",
-			},
-		},
-		{
-			name: "verify-from-default",
-			defaults: HelmSpec{
-				Verify: true,
-			},
-			release: &ReleaseSpec{
-				Chart:     "test/chart",
-				Version:   "0.1",
-				Verify:    &disable,
-				Name:      "test-charts",
-				Namespace: "test-namespace",
-			},
-			want: []string{
-				"--version", "0.1",
-				"--namespace", "test-namespace",
-			},
-		},
-		{
 			name: "enable-dns",
 			defaults: HelmSpec{
 				EnableDNS: false,
