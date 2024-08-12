@@ -14,7 +14,7 @@ RUN make static-${TARGETOS}-${TARGETARCH}
 
 FROM debian:stable-slim
 
-LABEL org.opencontainers.image.source https://github.com/helmfile/helmfile
+LABEL org.opencontainers.image.source=https://github.com/helmfile/helmfile
 
 RUN apt update -qq && \
     apt install --no-install-recommends -y \
