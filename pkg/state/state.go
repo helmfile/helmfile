@@ -2579,11 +2579,28 @@ func (st *HelmState) appendExtraSyncFlags(flags []string, opt *SyncOpts) []strin
 	return flags
 }
 
+// appendVerifyFlags append the --verify flags related to verify
+func (st *HelmState) appendVerifyFlags(flags []string, release *ReleaseSpec) []string {
+	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
+	switch {
+	case release.Verify != nil && *release.Verify:
+		flags = append(flags, "--verify")
+	case repo != nil && repo.Verify:
+		flags = append(flags, "--verify")
+	case st.HelmDefaults.Verify:
+		flags = append(flags, "--verify")
+	}
+	return flags
+}
+
 // appendKeyringFlags append all the helm command-line flags related to keyring
 func (st *HelmState) appendKeyringFlags(flags []string, release *ReleaseSpec) []string {
+	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
 	switch {
 	case release.Keyring != "":
 		flags = append(flags, "--keyring", release.Keyring)
+	case repo != nil && repo.Keyring != "":
+		flags = append(flags, "--keyring", repo.Keyring)
 	case st.HelmDefaults.Keyring != "":
 		flags = append(flags, "--keyring", st.HelmDefaults.Keyring)
 	}
@@ -2642,13 +2659,6 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	flags := st.chartVersionFlags(release)
-
-	if release.Verify != nil && *release.Verify || release.Verify == nil && st.HelmDefaults.Verify {
-		flags = append(flags, "--verify")
-	}
-
-	flags = st.appendKeyringFlags(flags, release)
-
 	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
 		flags = append(flags, "--enable-dns")
 	}
@@ -3716,6 +3726,11 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		st.logger.Debugf("chart already exists at %s", chartPath)
 	} else {
 		flags := st.chartOCIFlags(release)
+
+		// apprnd flags about keyring and verify
+		flags = st.appendVerifyFlags(flags, release)
+		flags = st.appendKeyringFlags(flags, release)
+
 		err := helm.ChartPull(qualifiedChartName, chartPath, flags...)
 		if err != nil {
 			return nil, err
