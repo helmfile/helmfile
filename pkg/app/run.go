@@ -73,7 +73,14 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	concurrency := opts.Concurrency
 
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	var releaseToChart map[state.PrepareChartKey]string
+	var errs []error
+
+	if strings.EqualFold(helmfileCommand, "write-values") || strings.EqualFold(helmfileCommand, "list") {
+		// Skip chart preparation for local commands - write-values / list
+	} else {
+		releaseToChart, errs = r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	}
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%v", errs)
