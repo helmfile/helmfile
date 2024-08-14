@@ -11,7 +11,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/gosuri/uitable v0.0.4
-	github.com/hashicorp/go-getter v1.7.5
+	github.com/hashicorp/go-getter v1.7.6
 	github.com/hashicorp/hcl/v2 v2.21.0
 	github.com/helmfile/chartify v0.20.1
 	github.com/helmfile/vals v0.37.3
