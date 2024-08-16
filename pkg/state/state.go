@@ -2583,8 +2583,13 @@ func (st *HelmState) appendExtraSyncFlags(flags []string, opt *SyncOpts) []strin
 func (st *HelmState) appendVerifyFlags(flags []string, release *ReleaseSpec) []string {
 	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
 	switch {
-	case release.Verify != nil && *release.Verify:
-		flags = append(flags, "--verify")
+	case release.Verify != nil:
+		// If the release has a verify flag, use it
+		v := *release.Verify
+		if v {
+			flags = append(flags, "--verify")
+		}
+		return flags
 	case repo != nil && repo.Verify:
 		flags = append(flags, "--verify")
 	case st.HelmDefaults.Verify:
@@ -2665,6 +2670,12 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendWaitFlags(flags, release, opt)
 	flags = st.appendWaitForJobsFlags(flags, release, opt)
+
+	// non-OCI chart should be verified here
+	if !st.IsOCIChart(release.Chart) {
+		flags = st.appendVerifyFlags(flags, release)
+		flags = st.appendKeyringFlags(flags, release)
+	}
 
 	flags = append(flags, st.timeoutFlags(release)...)
 
@@ -3750,6 +3761,16 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	chartPath = filepath.Dir(fullChartPath)
 
 	return &chartPath, nil
+}
+
+// IsOCIChart returns true if the chart is an OCI chart
+func (st *HelmState) IsOCIChart(chart string) bool {
+	if strings.HasPrefix(chart, "oci://") {
+		return true
+	}
+
+	repo, _ := st.GetRepositoryAndNameFromChartName(chart)
+	return repo != nil
 }
 
 func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (qualifiedChartName, chartName, chartVersion string, err error) {
