@@ -3815,7 +3815,8 @@ func TestHelmState_chartOCIFlags(t *testing.T) {
 				},
 			},
 			expected: []string{
-				"--ca-file foo",
+				"--ca-file",
+				"foo",
 			},
 		},
 		{
@@ -3835,9 +3836,7 @@ func TestHelmState_chartOCIFlags(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{
-				"",
-			},
+			expected: []string{},
 		},
 		{
 			name: "CertFile disabled and KeyFile enabled",
@@ -3856,9 +3855,7 @@ func TestHelmState_chartOCIFlags(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{
-				"",
-			},
+			expected: []string{},
 		},
 		{
 			name: "CertFile and KeyFile enabled",
@@ -3879,7 +3876,10 @@ func TestHelmState_chartOCIFlags(t *testing.T) {
 				},
 			},
 			expected: []string{
-				"--cert-file foo --key-file bar",
+				"--cert-file",
+				"foo",
+				"--key-file",
+				"bar",
 			},
 		},
 		{
@@ -3970,7 +3970,9 @@ func TestHelmState_chartOCIFlags(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := &HelmState{}
+			st := &HelmState{
+				ReleaseSetSpec: *tt.spec,
+			}
 			flags := st.chartOCIFlags(&tt.spec.Releases[0])
 			require.Equal(t, tt.expected, flags)
 		})

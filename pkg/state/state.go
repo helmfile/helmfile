@@ -2861,6 +2861,9 @@ func (st *HelmState) chartOCIFlags(r *ReleaseSpec) []string {
 		if repo.SkipTLSVerify {
 			flags = append(flags, "--insecure-skip-tls-verify")
 		}
+		if repo.PlainHttp {
+			flags = append(flags, "--plain-http")
+		}
 		if repo.Verify {
 			flags = append(flags, "--verify")
 		}
