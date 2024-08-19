@@ -161,7 +161,7 @@ repositories:
 - name: skipTLS
   url: https://ss.my-insecure-domain.com
   skipTLSVerify: true
-# Advanced configuration: If you Repo only supports Plain HTTP
+# Advanced configuration: Connect to a repo served over plain http (skipTLS must be set to false)
 - name: plainHTTP
   url: http://just.http.domain.com
   plainHttp: true
@@ -227,8 +227,8 @@ helmDefaults:
   cascade: "background"
   # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
   insecureSkipTLSVerify: false
-  # plainHttp is true if fetching the remote shart should be done using HTTP
-  plainHttp: true
+  # plainHttp is true if fetching the remote chart should be done using HTTP (insecureSkipTLSVerify must be set to false)
+  plainHttp: false
   # --wait flag for destroy/delete, if set to true, will wait until all resources are deleted before mark delete command as successful
   deleteWait: false
   # Timeout is the time in seconds to wait for helmfile destroy/delete (default 300)
@@ -345,8 +345,8 @@ releases:
     cascade: "background"
     # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
     insecureSkipTLSVerify: false
-    # plainHttp is true if fetching the remote shart should be done using HTTP
-    plainHttp: true
+    # plainHttp is true if fetching the remote chart should be done using HTTP (insecureSkipTLSVerify must be set to false)
+    plainHttp: false
     # suppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
     suppressDiff: false
     # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
