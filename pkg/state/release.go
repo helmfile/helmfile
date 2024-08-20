@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -19,34 +20,38 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 
 	{
 		ts := result.Name
-		result.Name, err = renderer.RenderTemplateContentToString([]byte(ts))
+		name, err := renderer.RenderTemplateContentToString([]byte(ts))
 		if err != nil {
 			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".name = \"%s\": %v", r.Name, ts, err)
 		}
+		result.Name = strings.TrimSpace(name)
 	}
 
 	{
 		ts := result.Chart
-		result.Chart, err = renderer.RenderTemplateContentToString([]byte(ts))
+		chart, err := renderer.RenderTemplateContentToString([]byte(ts))
 		if err != nil {
 			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".chart = \"%s\": %v", r.Name, ts, err)
 		}
+		result.Chart = strings.TrimSpace(chart)
 	}
 
 	{
 		ts := result.Namespace
-		result.Namespace, err = renderer.RenderTemplateContentToString([]byte(ts))
+		namespace, err := renderer.RenderTemplateContentToString([]byte(ts))
 		if err != nil {
 			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".namespace = \"%s\": %v", r.Name, ts, err)
 		}
+		result.Namespace = strings.TrimSpace(namespace)
 	}
 
 	{
 		ts := result.Version
-		result.Version, err = renderer.RenderTemplateContentToString([]byte(ts))
+		version, err := renderer.RenderTemplateContentToString([]byte(ts))
 		if err != nil {
 			return nil, fmt.Errorf("failed executing template expressions in release \"%s\".version = \"%s\": %v", r.Name, ts, err)
 		}
+		result.Version = strings.TrimSpace(version)
 	}
 
 	if result.WaitTemplate != nil {
