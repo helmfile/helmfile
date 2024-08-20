@@ -161,7 +161,7 @@ repositories:
 - name: skipTLS
   url: https://ss.my-insecure-domain.com
   skipTLSVerify: true
-# Advanced configuration: Connect to a repo served over plain http (skipTLS must be set to false)
+# Advanced configuration: Connect to a repo served over plain http
 - name: plainHTTP
   url: http://just.http.domain.com
   plainHttp: true
