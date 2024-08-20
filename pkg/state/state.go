@@ -2605,16 +2605,26 @@ func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 }
 
 func (st *HelmState) appendChartDownloadTLSFlags(flags []string, release *ReleaseSpec) []string {
+	repoSkipTLSVerify := false
 	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
-	if release.InsecureSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repo.SkipTLSVerify {
+	if repo != nil {
+		repoSkipTLSVerify = repo.SkipTLSVerify
+	}
+
+	if release.InsecureSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify {
 		flags = append(flags, "--insecure-skip-tls-verify")
 	}
 	return flags
 }
 
 func (st *HelmState) appendChartDownloadPlainHttpFlags(flags []string, release *ReleaseSpec) []string {
+	repoPlainHttp := false
 	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
-	if release.PlainHttp || st.HelmDefaults.PlainHttp || repo.PlainHttp {
+	if repo != nil {
+		repoPlainHttp = repo.PlainHttp
+	}
+
+	if release.PlainHttp || st.HelmDefaults.PlainHttp || repoPlainHttp {
 		flags = append(flags, "--plain-http")
 	}
 	return flags
