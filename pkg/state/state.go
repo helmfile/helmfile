@@ -2200,8 +2200,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 
 		flags = st.appendConnectionFlags(flags, &release)
-		flags = st.appendChartDownloadTLSFlags(flags, &release)
-		flags = st.appendChartDownloadPlainHttpFlags(flags, &release)
+		flags = st.appendChartDownloadFlags(flags, &release)
 
 		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
 	})
@@ -2604,29 +2603,21 @@ func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 	return flags
 }
 
-func (st *HelmState) appendChartDownloadTLSFlags(flags []string, release *ReleaseSpec) []string {
-	repoSkipTLSVerify := false
-	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
-	if repo != nil {
-		repoSkipTLSVerify = repo.SkipTLSVerify
-	}
-
-	if release.InsecureSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify {
-		flags = append(flags, "--insecure-skip-tls-verify")
-	}
-	return flags
-}
-
-func (st *HelmState) appendChartDownloadPlainHttpFlags(flags []string, release *ReleaseSpec) []string {
-	repoPlainHttp := false
+func (st *HelmState) appendChartDownloadFlags(flags []string, release *ReleaseSpec) []string {
+	var repoSkipTLSVerify, repoPlainHttp bool
 	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
 	if repo != nil {
 		repoPlainHttp = repo.PlainHttp
+		repoSkipTLSVerify = repo.SkipTLSVerify
 	}
 
 	if release.PlainHttp || st.HelmDefaults.PlainHttp || repoPlainHttp {
 		flags = append(flags, "--plain-http")
+	} else if release.InsecureSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify {
+		// --insecure-skip-tls-verify nullifies --plain-http in helm, omit it if PlainHttp is specified
+		flags = append(flags, "--insecure-skip-tls-verify")
 	}
+
 	return flags
 }
 
@@ -2696,8 +2687,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	}
 
 	flags = st.appendConnectionFlags(flags, release)
-	flags = st.appendChartDownloadTLSFlags(flags, release)
-	flags = st.appendChartDownloadPlainHttpFlags(flags, release)
+	flags = st.appendChartDownloadFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
@@ -2742,9 +2732,8 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
-	flags = st.appendChartDownloadTLSFlags(flags, release)
+	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
-	flags = st.appendChartDownloadPlainHttpFlags(flags, release)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2786,21 +2775,24 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	flags = st.appendConnectionFlags(flags, release)
 
-	if st.HelmDefaults.InsecureSkipTLSVerify || release.InsecureSkipTLSVerify {
-		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
-		if err != nil {
-			return nil, nil, err
-		}
-		dv, _ := semver.NewVersion("v3.8.1")
+	flags = st.appendChartDownloadFlags(flags, release)
 
-		if diffVersion.LessThan(dv) {
-			return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s, please use at least v3.8.1", diffVersion)
+	for _, flag := range flags {
+		if flag == "--insecure-skip-tls-verify" {
+			diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+			if err != nil {
+				return nil, nil, err
+			}
+			dv, _ := semver.NewVersion("v3.8.1")
+
+			if diffVersion.LessThan(dv) {
+				return nil, nil, fmt.Errorf("insecureSkipTLSVerify is not supported by helm-diff plugin version %s, please use at least v3.8.1", diffVersion)
+			}
+
+			break
 		}
-		flags = st.appendChartDownloadTLSFlags(flags, release)
 	}
 
-	flags = st.appendChartDownloadTLSFlags(flags, release)
-	flags = st.appendChartDownloadPlainHttpFlags(flags, release)
 	flags = st.appendHelmXFlags(flags, release)
 
 	postRenderer := ""
@@ -2858,17 +2850,19 @@ func (st *HelmState) chartOCIFlags(r *ReleaseSpec) []string {
 	flags := []string{}
 	repo, _ := st.GetRepositoryAndNameFromChartName(r.Chart)
 	if repo != nil {
-		if repo.CaFile != "" {
-			flags = append(flags, "--ca-file", repo.CaFile)
-		}
-		if repo.CertFile != "" && repo.KeyFile != "" {
-			flags = append(flags, "--cert-file", repo.CertFile, "--key-file", repo.KeyFile)
-		}
-		if repo.SkipTLSVerify {
-			flags = append(flags, "--insecure-skip-tls-verify")
-		}
 		if repo.PlainHttp {
 			flags = append(flags, "--plain-http")
+		} else {
+			// TLS options will nullify --plain-http in helm if passed, omit it them PlainHttp is specified
+			if repo.SkipTLSVerify {
+				flags = append(flags, "--insecure-skip-tls-verify")
+			}
+			if repo.CaFile != "" {
+				flags = append(flags, "--ca-file", repo.CaFile)
+			}
+			if repo.CertFile != "" && repo.KeyFile != "" {
+				flags = append(flags, "--cert-file", repo.CertFile, "--key-file", repo.KeyFile)
+			}
 		}
 		if repo.Verify {
 			flags = append(flags, "--verify")
