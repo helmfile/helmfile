@@ -40,4 +40,5 @@ information to this file.
 | [Zhihu](https://www.zhihu.com/) | production | helmfile is an important tool for the deployment of our basic components, which can achieve standardization and auditability. |China, Beijing | December 2023 |
 | [Tudock](https://tudock.de) | production | We have no public post about it, but we recently started using Helmfile to deploy developer applications and have been very happy with the results! | Hamburg, Germany | March 2024 |
 | [Incentive.me](https://incentive.me/) | production | We use helmfile as the main tool for deploying our Kubernetes workloads. | Rio de Janeiro, Brazil | November 2021 |
+| [RightCapital](https://www.rightcapital.com/) | production | We use helmfile as the main tool for deploying our Kubernetes workloads. | Shelton, CT, USA | May 2019 |
 <!-- TABLE_END -->
