@@ -68,14 +68,14 @@ RUN set -x && \
     mv kubectl /usr/local/bin/kubectl && \
     [ "$(kubectl version -o json | jq -r '.clientVersion.gitVersion')" = "${KUBECTL_VERSION}" ]
 
-ENV KUSTOMIZE_VERSION="v5.2.1"
+ENV KUSTOMIZE_VERSION="v5.4.3"
 ARG KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}" && \
     case ${TARGETPLATFORM} in \
-        # checksim are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
-        "linux/amd64")  KUSTOMIZE_SHA256="88346543206b889f9287c0b92c70708040ecd5aad54dd33019c4d6579cd24de8"  ;; \
-        "linux/arm64")  KUSTOMIZE_SHA256="5566f7badece5a72d42075d8dffa6296a228966dd6ac2390de7afbb9675c3aaa"  ;; \
+        # Checksums are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
+        "linux/amd64")  KUSTOMIZE_SHA256="3669470b454d865c8184d6bce78df05e977c9aea31c30df3c669317d43bcc7a7"  ;; \
+        "linux/arm64")  KUSTOMIZE_SHA256="1b515578b0af12c15d9856720066ce2fe66756d63785b2cbccaf2885beb2381c"  ;; \
     esac && \
     echo "${KUSTOMIZE_SHA256}  ${KUSTOMIZE_FILENAME}" | sha256sum -c && \
     tar xvf "${KUSTOMIZE_FILENAME}" -C /usr/local/bin && \

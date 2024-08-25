@@ -55,13 +55,13 @@ jobs:
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
           - helm-version: v3.14.4
-            kustomize-version: v4.5.7
+            kustomize-version: v5.2.1
             plugin-secrets-version: 3.15.0
             plugin-diff-version: 3.8.1
             extra-helmfile-flags: ''
             v1mode: ''
           - helm-version: v3.14.4
-            kustomize-version: v5.2.1
+            kustomize-version: v5.4.3
             # We assume that the helm-secrets plugin is supposed to
             # work with the two most recent helm minor versions.
             # Once it turned out to be not practically true,
@@ -72,20 +72,20 @@ jobs:
             extra-helmfile-flags: ''
             v1mode: ''
           - helm-version: v3.15.4
-            kustomize-version: v4.5.7
+            kustomize-version: v5.2.1
             plugin-secrets-version: 3.15.0
             plugin-diff-version: 3.8.1
             extra-helmfile-flags: ''
             v1mode: ''
           - helm-version: v3.15.4
-            kustomize-version: v5.2.1
+            kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.0
             plugin-diff-version: 3.9.8
             extra-helmfile-flags: ''
             v1mode: ''
           # Helmfile v1
           - helm-version: v3.15.4
-            kustomize-version: v5.2.1
+            kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.0
             plugin-diff-version: 3.9.8
             extra-helmfile-flags: ''
@@ -93,7 +93,7 @@ jobs:
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
           - helm-version: v3.15.4
-            kustomize-version: v5.2.1
+            kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.0
             plugin-diff-version: 3.9.8
             extra-helmfile-flags: '--enable-live-output'
