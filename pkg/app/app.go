@@ -142,7 +142,9 @@ func (a *App) Repos(c ReposConfigProvider) error {
 // TODO: Remove this function once Helmfile v0.x
 func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{
+		err := run.withPreparedCharts(state.RunInfo{
+			SubCommand: "charts",
+		}, state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
@@ -174,7 +176,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
+		prepErr := run.withPreparedCharts(state.RunInfo{SubCommand: "diff"}, state.ChartPrepareOptions{
 			SkipRepos:              c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
@@ -239,7 +241,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// Live output should never be enabled for the "template" subcommand to avoid breaking `helmfile template | kubectl apply -f -`
 		run.helm.SetEnableLiveOutput(false)
 
-		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
+		prepErr := run.withPreparedCharts(state.RunInfo{SubCommand: "template"}, state.ChartPrepareOptions{
 			SkipRepos:              c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
@@ -263,7 +265,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
+		prepErr := run.withPreparedCharts(state.RunInfo{SubCommand: "write-values"}, state.ChartPrepareOptions{
 			SkipRepos:   c.SkipDeps(),
 			SkipDeps:    c.SkipDeps(),
 			SkipCleanup: c.SkipCleanup(),
@@ -313,7 +315,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		var lintErrs []error
 
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
-		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
+		prepErr := run.withPreparedCharts(state.RunInfo{SubCommand: "lint"}, state.ChartPrepareOptions{
 			ForceDownload:          true,
 			SkipRepos:              c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
@@ -348,7 +350,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 
 func (a *App) Fetch(c FetchConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
+		prepErr := run.withPreparedCharts(state.RunInfo{SubCommand: "pull"}, state.ChartPrepareOptions{
 			ForceDownload:     true,
 			SkipRepos:         c.SkipDeps(),
 			SkipDeps:          c.SkipDeps(),
@@ -370,7 +372,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
+		prepErr := run.withPreparedCharts(state.RunInfo{SubCommand: "sync"}, state.ChartPrepareOptions{
 			SkipRepos:              c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			Wait:                   c.Wait(),
@@ -403,7 +405,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
+		prepErr := run.withPreparedCharts(state.RunInfo{SubCommand: "apply"}, state.ChartPrepareOptions{
 			SkipRepos:              c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			Wait:                   c.Wait(),
@@ -445,7 +447,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts("status", state.ChartPrepareOptions{
+		err := run.withPreparedCharts(state.RunInfo{SubCommand: "status"}, state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: c.Concurrency(),
@@ -465,7 +467,7 @@ func (a *App) Status(c StatusesConfigProvider) error {
 func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
-			err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
+			err := run.withPreparedCharts(state.RunInfo{SubCommand: "delete"}, state.ChartPrepareOptions{
 				SkipRepos:     c.SkipDeps(),
 				SkipDeps:      c.SkipDeps(),
 				Concurrency:   c.Concurrency(),
@@ -488,7 +490,7 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
-			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
+			err := run.withPreparedCharts(state.RunInfo{SubCommand: "destroy"}, state.ChartPrepareOptions{
 				SkipRepos:     c.SkipDeps(),
 				SkipDeps:      c.SkipDeps(),
 				Concurrency:   c.Concurrency(),
@@ -515,7 +517,7 @@ func (a *App) Test(c TestConfigProvider) error {
 				"or set helm.sh/hook-delete-policy\n")
 		}
 
-		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
+		err := run.withPreparedCharts(state.RunInfo{SubCommand: "test"}, state.ChartPrepareOptions{
 			SkipRepos:   c.SkipDeps(),
 			SkipDeps:    c.SkipDeps(),
 			Concurrency: c.Concurrency(),
@@ -534,7 +536,7 @@ func (a *App) Test(c TestConfigProvider) error {
 func (a *App) PrintDAGState(c DAGConfigProvider) error {
 	var err error
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err = run.withPreparedCharts("show-dag", state.ChartPrepareOptions{
+		err = run.withPreparedCharts(state.RunInfo{SubCommand: "show-dag"}, state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
@@ -550,7 +552,7 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
+		err := run.withPreparedCharts(state.RunInfo{SubCommand: "build"}, state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
@@ -622,7 +624,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var err error
 
 		if !c.SkipCharts() {
-			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
+			err = run.withPreparedCharts(state.RunInfo{SubCommand: "list"}, state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
@@ -1425,6 +1427,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		PostRenderer:            c.PostRenderer(),
 		PostRendererArgs:        c.PostRendererArgs(),
 		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
+		DryRun:                  c.DryRun("diff"),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1480,7 +1483,7 @@ Do you really want to apply?
 		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			for _, r := range subst.Releases {
 				release := r
-				if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
+				if _, err := st.TriggerPreapplyEvent(&release, state.RunInfo{SubCommand: "apply"}); err != nil {
 					return []error{err}
 				}
 			}
@@ -1537,6 +1540,7 @@ Do you really want to apply?
 					PostRenderer:     c.PostRenderer(),
 					PostRendererArgs: c.PostRendererArgs(),
 					SyncArgs:         c.SyncArgs(),
+					DryRun:           c.DryRun("sync"),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1551,7 +1555,7 @@ Do you really want to apply?
 
 	for id := range releasesWithNoChange {
 		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "apply"); err != nil {
+		if _, err := st.TriggerCleanupEvent(&r, state.RunInfo{SubCommand: "apply"}); err != nil {
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1600,7 +1604,7 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	for id := range releasesWithNoChange {
 		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "delete"); err != nil {
+		if _, err := st.TriggerCleanupEvent(&r, state.RunInfo{SubCommand: "delete"}); err != nil {
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1663,6 +1667,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			PostRenderer:            c.PostRenderer(),
 			PostRendererArgs:        c.PostRendererArgs(),
 			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
+			DryRun:                  c.DryRun("diff"),
 		}
 
 		filtered := &Run{
@@ -1846,7 +1851,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	for id := range releasesWithNoChange {
 		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "sync"); err != nil {
+		if _, err := st.TriggerCleanupEvent(&r, state.RunInfo{SubCommand: "sync"}); err != nil {
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
@@ -1930,6 +1935,7 @@ Do you really want to sync?
 					PostRenderer:     c.PostRenderer(),
 					PostRendererArgs: c.PostRendererArgs(),
 					SyncArgs:         c.SyncArgs(),
+					DryRun:           c.DryRun("sync"),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

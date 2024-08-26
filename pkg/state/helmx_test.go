@@ -276,3 +276,60 @@ func TestAppendShowOnlyFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestAppendDryRunFlags(t *testing.T) {
+	type args struct {
+		dryRun   string
+		expected []string
+		helm     helmexec.Interface
+		flags    []string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "do dry-run on client",
+			args: args{
+				flags:    []string{},
+				dryRun:   "client",
+				helm:     testutil.NewVersionHelmExec("3.13.0"),
+				expected: []string{"--dry-run=client"},
+			},
+		},
+		{
+			name: "empty dry-run means client",
+			args: args{
+				flags:    []string{},
+				dryRun:   "",
+				helm:     testutil.NewVersionHelmExec("3.13.0"),
+				expected: []string{},
+			},
+		},
+		{
+			name: "do dry-run on server",
+			args: args{
+				flags:    []string{},
+				dryRun:   "server",
+				helm:     testutil.NewVersionHelmExec("3.13.0"),
+				expected: []string{"--dry-run=server"},
+			},
+		},
+		{
+			name: "no version below 3.13.0",
+			args: args{
+				flags:    []string{},
+				dryRun:   "server",
+				helm:     testutil.NewVersionHelmExec("3.12.1"),
+				expected: []string{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			got := st.appendDryRunFlags([]string{}, tt.args.helm, tt.args.dryRun)
+			require.Equalf(t, tt.args.expected, got, "appendDryRunFlags() = %v, want %v", got, tt.args.expected)
+		})
+	}
+}

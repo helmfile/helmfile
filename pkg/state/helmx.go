@@ -89,6 +89,11 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 	return flags
 }
 
+// appendWaitFlags appends the appropriate wait flags to the given flags slice based on the provided release and sync options.
+// If release.Wait is true, "--wait" flag is added.
+// If ops.Wait is true, "--wait" flag is added.
+// If release.Wait is nil and st.HelmDefaults.Wait is true, "--wait" flag is added.
+// Returns the updated flags slice.
 func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
 	switch {
 	case release.Wait != nil && *release.Wait:
@@ -101,12 +106,26 @@ func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *
 	return flags
 }
 
+// appendDryRunFlags appends the necessary flags for a dry run to the given flags slice.
+// If the opt parameter is not nil and opt.DryRun is not empty, the "--dry-run" flag and the value of opt.DryRun are appended to the flags slice.
+// The updated flags slice is returned.
+func (st *HelmState) appendDryRunFlags(flags []string, helm helmexec.Interface, dryRun string) []string {
+	if !helm.IsVersionAtLeast("3.13.0") {
+		return flags
+	}
+	if dryRun != "" {
+		flags = append(flags, fmt.Sprintf("--dry-run=%s", dryRun))
+	}
+	return flags
+}
+
 // append post-renderer flags to helm flags
 func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, cascade string) []string {
 	// see https://github.com/helm/helm/releases/tag/v3.12.1
 	if !helm.IsVersionAtLeast("3.12.1") {
 		return flags
 	}
+
 	switch {
 	// postRenderer arg comes from cmd flag.
 	case release.Cascade != nil && *release.Cascade != "":

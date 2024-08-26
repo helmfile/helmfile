@@ -7,9 +7,6 @@ repositories:
   - name: incubator
     url: https://charts.helm.sh/incubator
 
-helmDefaults:
-  kubeContext: minikube
-
 releases:
 
   - name: httpbin
