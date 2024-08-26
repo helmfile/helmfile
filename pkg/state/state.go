@@ -2613,8 +2613,11 @@ func (st *HelmState) appendChartDownloadFlags(flags []string, release *ReleaseSp
 
 	if release.PlainHttp || st.HelmDefaults.PlainHttp || repoPlainHttp {
 		flags = append(flags, "--plain-http")
-	} else if release.InsecureSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify {
 		// --insecure-skip-tls-verify nullifies --plain-http in helm, omit it if PlainHttp is specified
+		return flags
+	}
+
+	if release.InsecureSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify {
 		flags = append(flags, "--insecure-skip-tls-verify")
 	}
 
