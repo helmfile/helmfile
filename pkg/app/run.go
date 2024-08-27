@@ -39,6 +39,20 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
+func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, []error, error) {
+	if strings.EqualFold(helmfileCommand, "write-values") || strings.EqualFold(helmfileCommand, "list") {
+		// Skip chart preparation for local commands - write-values / list
+		return nil, nil, nil
+	}
+
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	if len(errs) > 0 {
+		return nil, nil, fmt.Errorf("%v", errs)
+	}
+
+	return releaseToChart, nil, nil
+}
+
 func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
@@ -73,10 +87,16 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	concurrency := opts.Concurrency
 
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	var releaseToChart map[state.PrepareChartKey]string
+	var errs []error
 
-	if len(errs) > 0 {
-		return fmt.Errorf("%v", errs)
+	if strings.EqualFold(helmfileCommand, "write-values") || strings.EqualFold(helmfileCommand, "list") {
+		// Skip chart preparation for local commands - write-values / list
+	} else {
+		releaseToChart, errs = r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+		if len(errs) > 0 {
+			return fmt.Errorf("%v", errs)
+		}
 	}
 
 	for i := range r.state.Releases {
@@ -99,7 +119,6 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	f()
 
 	_, err := r.state.TriggerGlobalCleanupEvent(helmfileCommand)
-
 	return err
 }
 
