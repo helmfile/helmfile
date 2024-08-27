@@ -39,18 +39,17 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, []error, error) {
+func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
 	if strings.EqualFold(helmfileCommand, "write-values") || strings.EqualFold(helmfileCommand, "list") {
-		// Skip chart preparation for local commands - write-values / list
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
 	if len(errs) > 0 {
-		return nil, nil, fmt.Errorf("%v", errs)
+		return nil, fmt.Errorf("%v", errs)
 	}
 
-	return releaseToChart, nil, nil
+	return releaseToChart, nil
 }
 
 func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
