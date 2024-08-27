@@ -3456,41 +3456,126 @@ func TestCommonDiffFlags(t *testing.T) {
 	}
 }
 
-func TestAppendChartDownloadTLSFlags(t *testing.T) {
+func TestAppendChartDownloadFlags(t *testing.T) {
 	tests := []struct {
-		name                         string
-		defaultInsecureSkipTLSVerify bool
-		releaseInsecureSkipTLSVerify bool
-		expected                     []string
+		name     string
+		spec     *ReleaseSetSpec
+		expected []string
 	}{
 		{
-			name:                         "defaultInsecureSkipTLSVerify is true and releaseInsecureSkipTLSVerify is false",
-			defaultInsecureSkipTLSVerify: true,
-			releaseInsecureSkipTLSVerify: false,
-			expected:                     []string{"--insecure-skip-tls-verify"},
+			name: "SkipTLSVerify in repo",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:          "testrepo",
+						URL:           "registry/repo-path",
+						SkipTLSVerify: true,
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "testrepo/chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--insecure-skip-tls-verify",
+			},
 		},
 		{
-			name:                         "defaultInsecureSkipTLSVerify is false and releaseInsecureSkipTLSVerify is true",
-			defaultInsecureSkipTLSVerify: false,
-			releaseInsecureSkipTLSVerify: true,
-			expected:                     []string{"--insecure-skip-tls-verify"},
+			name: "PlainHttp in repo, SkipTLSVerify everywhere",
+			spec: &ReleaseSetSpec{
+				HelmDefaults: HelmSpec{
+					InsecureSkipTLSVerify: true,
+				},
+				Repositories: []RepositorySpec{
+					{
+						Name:          "testrepo",
+						URL:           "registry/repo-path",
+						SkipTLSVerify: true,
+						PlainHttp:     true,
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart:                 "testrepo/chartname",
+						InsecureSkipTLSVerify: true,
+					},
+				},
+			},
+			expected: []string{
+				"--plain-http",
+			},
 		},
 		{
-			name:                         "defaultInsecureSkipTLSVerify is false and releaseInsecureSkipTLSVerify is false",
-			defaultInsecureSkipTLSVerify: false,
-			releaseInsecureSkipTLSVerify: false,
-			expected:                     []string{},
+			name: "SkipTLSVerify in defaults",
+			spec: &ReleaseSetSpec{
+				HelmDefaults: HelmSpec{
+					InsecureSkipTLSVerify: true,
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--insecure-skip-tls-verify",
+			},
+		},
+		{
+			name: "SkipTLSVerify in release",
+			spec: &ReleaseSetSpec{
+				Releases: []ReleaseSpec{
+					{
+						Chart:                 "chartname",
+						InsecureSkipTLSVerify: true,
+					},
+				},
+			},
+			expected: []string{
+				"--insecure-skip-tls-verify",
+			},
+		},
+		{
+			name: "PlainHttp in defaults",
+			spec: &ReleaseSetSpec{
+				HelmDefaults: HelmSpec{
+					PlainHttp: true,
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--plain-http",
+			},
+		},
+		{
+			name: "PlainHttp in release",
+			spec: &ReleaseSetSpec{
+				Releases: []ReleaseSpec{
+					{
+						Chart:     "chartname",
+						PlainHttp: true,
+					},
+				},
+			},
+			expected: []string{
+				"--plain-http",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := &HelmState{}
-			release := &ReleaseSpec{}
-			st.HelmDefaults.InsecureSkipTLSVerify = tt.defaultInsecureSkipTLSVerify
-			release.InsecureSkipTLSVerify = tt.releaseInsecureSkipTLSVerify
+			st := &HelmState{
+				ReleaseSetSpec: *tt.spec,
+			}
 
-			result := st.appendChartDownloadTLSFlags([]string{}, release)
+			result := st.appendChartDownloadFlags([]string{}, &st.Releases[0])
 
 			require.Equal(t, tt.expected, result)
 		})
@@ -3787,6 +3872,219 @@ func TestGetOCIChartPath(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedPath, path)
 			}
+		})
+	}
+}
+
+func TestHelmState_chartOCIFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     *ReleaseSetSpec
+		expected []string
+	}{
+		{
+			name: "CaFile enabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:   "oci-repo",
+						URL:    "registry/repo-path",
+						OCI:    true,
+						CaFile: "cafile",
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--ca-file",
+				"cafile",
+			},
+		},
+		{
+			name: "CertFile enabled and KeyFile disabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:     "oci-repo",
+						URL:      "registry/repo-path",
+						OCI:      true,
+						CertFile: "certfile",
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{},
+		},
+		{
+			name: "CertFile disabled and KeyFile enabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:    "oci-repo",
+						URL:     "registry/repo-path",
+						OCI:     true,
+						KeyFile: "keyfile",
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{},
+		},
+		{
+			name: "CertFile and KeyFile enabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:     "oci-repo",
+						URL:      "registry/repo-path",
+						OCI:      true,
+						CertFile: "certfile",
+						KeyFile:  "keyfile",
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--cert-file",
+				"certfile",
+				"--key-file",
+				"keyfile",
+			},
+		},
+		{
+			name: "SkipTLSVerify enabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:          "oci-repo",
+						URL:           "registry/repo-path",
+						OCI:           true,
+						SkipTLSVerify: true,
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--insecure-skip-tls-verify",
+			},
+		},
+		{
+			name: "Verify enabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:   "oci-repo",
+						URL:    "registry/repo-path",
+						OCI:    true,
+						Verify: true,
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--verify",
+			},
+		},
+		{
+			name: "Keyring enabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:    "oci-repo",
+						URL:     "registry/repo-path",
+						OCI:     true,
+						Keyring: "keyring.pgp",
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--keyring",
+				"keyring.pgp",
+			},
+		},
+		{
+			name: "PlainHttp enabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:      "oci-repo",
+						URL:       "registry/repo-path",
+						OCI:       true,
+						PlainHttp: true,
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--plain-http",
+			},
+		},
+		{
+			name: "PlainHttp and TLS options enabled",
+			spec: &ReleaseSetSpec{
+				Repositories: []RepositorySpec{
+					{
+						Name:          "oci-repo",
+						URL:           "registry/repo-path",
+						OCI:           true,
+						PlainHttp:     true,
+						CaFile:        "cafile",
+						CertFile:      "certfile",
+						KeyFile:       "keyfile",
+						SkipTLSVerify: true,
+					},
+				},
+				Releases: []ReleaseSpec{
+					{
+						Chart: "oci-repo/chartname",
+					},
+				},
+			},
+			expected: []string{
+				"--plain-http",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				ReleaseSetSpec: *tt.spec,
+			}
+			flags := st.chartOCIFlags(&tt.spec.Releases[0])
+			require.Equal(t, tt.expected, flags)
 		})
 	}
 }
