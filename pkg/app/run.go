@@ -119,6 +119,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	f()
 
 	_, err := r.state.TriggerGlobalCleanupEvent(helmfileCommand)
+
 	return err
 }
 
