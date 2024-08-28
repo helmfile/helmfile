@@ -51,7 +51,6 @@ func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurre
 		return nil, nil
 	}
 
-	// Prepare charts
 	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("%v", errs)
