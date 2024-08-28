@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -39,6 +40,21 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
+func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
+	// Skip chart preparation for certain commands
+	skipCommands := []string{"write-values", "list"}
+	if slices.Contains(skipCommands, strings.ToLower(helmfileCommand)) {
+		return nil, nil
+	}
+
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("%v", errs)
+	}
+
+	return releaseToChart, nil
+}
+
 func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
@@ -71,12 +87,9 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		return err
 	}
 
-	concurrency := opts.Concurrency
-
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
-
-	if len(errs) > 0 {
-		return fmt.Errorf("%v", errs)
+	releaseToChart, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
+	if err != nil {
+		return err
 	}
 
 	for i := range r.state.Releases {
@@ -87,9 +100,6 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 			KubeContext: rel.KubeContext,
 		}
 		if chart := releaseToChart[key]; chart != rel.Chart {
-			// In this case we assume that the chart is downloaded and modified by Helmfile and chartify.
-			// So we take note of the local filesystem path to the modified version of the chart
-			// and use it later via the Release.ChartPathOrName() func.
 			rel.ChartPath = chart
 		}
 	}
@@ -98,8 +108,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	f()
 
-	_, err := r.state.TriggerGlobalCleanupEvent(helmfileCommand)
-
+	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand)
 	return err
 }
 
