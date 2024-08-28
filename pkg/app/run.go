@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -40,10 +41,17 @@ func (r *Run) askForConfirmation(msg string) bool {
 }
 
 func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
-	if strings.EqualFold(helmfileCommand, "write-values") || strings.EqualFold(helmfileCommand, "list") {
+	if concurrency <= 0 {
+		return nil, fmt.Errorf("invalid concurrency value: %d, must be greater than 0", concurrency)
+	}
+
+	// Skip chart preparation for certain commands
+	skipCommands := []string{"write-values", "list"}
+	if slices.Contains(skipCommands, strings.ToLower(helmfileCommand)) {
 		return nil, nil
 	}
 
+	// Prepare charts
 	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("%v", errs)
@@ -84,7 +92,6 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		return err
 	}
 
-	// Use prepareChartsIfNeeded function
 	releaseToChart, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
 	if err != nil {
 		return err
