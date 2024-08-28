@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"slices"
 	"sort"
@@ -42,7 +43,8 @@ func (r *Run) askForConfirmation(msg string) bool {
 
 func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
 	if concurrency <= 0 {
-		return nil, fmt.Errorf("invalid concurrency value: %d, must be greater than 0", concurrency)
+		log.Printf("Warning: invalid concurrency value: %d, defaulting to 1", concurrency)
+		concurrency = 1
 	}
 
 	// Skip chart preparation for certain commands
