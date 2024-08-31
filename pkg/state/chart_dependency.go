@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -28,6 +29,8 @@ type unresolvedChartDependency struct {
 	Repository string `yaml:"repository"`
 	// VersionConstraint is the version constraint of the dependent chart. "*" means the latest version.
 	VersionConstraint string `yaml:"version"`
+	// Alias to be used for the chart. Useful when you have to add the same chart multiple times
+	Alias string `yaml:"alias"`
 }
 
 type ResolvedChartDependency struct {
@@ -57,11 +60,12 @@ type ChartLockedRequirements struct {
 	Generated            string                    `yaml:"generated"`
 }
 
-func (d *UnresolvedDependencies) Add(chart, url, versionConstraint string) error {
+func (d *UnresolvedDependencies) Add(chart, url, versionConstraint, alias string) error {
 	dep := unresolvedChartDependency{
 		ChartName:         chart,
 		Repository:        url,
 		VersionConstraint: versionConstraint,
+		Alias:             alias,
 	}
 	if !d.contains(dep) {
 		return d.add(dep)
@@ -89,7 +93,7 @@ func (d *UnresolvedDependencies) contains(dep unresolvedChartDependency) bool {
 		return false
 	}
 	for _, existDep := range deps {
-		if existDep.ChartName == dep.ChartName {
+		if reflect.DeepEqual(existDep, dep) {
 			return true
 		}
 	}
@@ -232,6 +236,15 @@ func (st *HelmState) updateDependenciesInTempDir(shell helmexec.DependencyUpdate
 	return updateDependencies(st, shell, unresolved, filename, d)
 }
 
+// aliasNameFormat = regexp.MustCompile("^[a-zA-Z0-9_-]+$") from helm code
+func chartDependenciesAlias(chartName, version string) string {
+	if version == "" {
+		return chartName
+	}
+	v := strings.ReplaceAll(version, ".", "-")
+	return fmt.Sprintf("%s_%s", chartName, v)
+}
+
 func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies, error) {
 	repoToURL := map[string]RepositorySpec{}
 
@@ -260,7 +273,7 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 			url = fmt.Sprintf("oci://%s", url)
 		}
 
-		if err := unresolved.Add(chart, url, r.Version); err != nil {
+		if err := unresolved.Add(chart, url, r.Version, chartDependenciesAlias(chart, r.Version)); err != nil {
 			return "", nil, err
 		}
 	}
