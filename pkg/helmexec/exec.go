@@ -160,10 +160,12 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 	var args []string
 	var out []byte
 	var err error
+
 	if name == "" && repository != "" {
 		helm.logger.Infof("empty field name\n")
 		return fmt.Errorf("empty field name")
 	}
+
 	switch managed {
 	case "acr":
 		helm.logger.Infof("Adding repo %v (acr)", name)
@@ -186,22 +188,30 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		if cafile != "" {
 			args = append(args, "--ca-file", cafile)
 		}
+
 		if username != "" && password != "" {
-			args = append(args, "--username", username, "--password", password)
+			args = append(args, "--username", username, "--password-stdin")
+			buffer := bytes.Buffer{}
+			buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+			out, err = helm.execStdIn(args, map[string]string{}, &buffer)
+		} else {
+			out, err = helm.exec(args, map[string]string{}, nil)
 		}
+
 		if passCredentials {
 			args = append(args, "--pass-credentials")
 		}
 		if skipTLSVerify {
 			args = append(args, "--insecure-skip-tls-verify")
 		}
+
 		helm.logger.Infof("Adding repo %v %v", name, repository)
-		out, err = helm.exec(args, map[string]string{}, nil)
 	default:
 		helm.logger.Errorf("ERROR: unknown type '%v' for repository %v", managed, name)
 		out = nil
 		err = nil
 	}
+
 	helm.info(out)
 	return err
 }
