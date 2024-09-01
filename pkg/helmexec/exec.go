@@ -201,6 +201,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		if passCredentials {
 			args = append(args, "--pass-credentials")
 		}
+		// Ensure this is always appended to args
 		if skipTLSVerify {
 			args = append(args, "--insecure-skip-tls-verify")
 		}
