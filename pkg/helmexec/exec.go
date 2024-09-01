@@ -189,6 +189,13 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 			args = append(args, "--ca-file", cafile)
 		}
 
+		if passCredentials {
+			args = append(args, "--pass-credentials")
+		}
+		if skipTLSVerify {
+			args = append(args, "--insecure-skip-tls-verify")
+		}
+
 		if username != "" && password != "" {
 			args = append(args, "--username", username, "--password-stdin")
 			buffer := bytes.Buffer{}
@@ -196,14 +203,6 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 			out, err = helm.execStdIn(args, map[string]string{}, &buffer)
 		} else {
 			out, err = helm.exec(args, map[string]string{}, nil)
-		}
-
-		if passCredentials {
-			args = append(args, "--pass-credentials")
-		}
-		// Ensure this is always appended to args
-		if skipTLSVerify {
-			args = append(args, "--insecure-skip-tls-verify")
 		}
 
 		helm.logger.Infof("Adding repo %v %v", name, repository)
