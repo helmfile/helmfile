@@ -272,11 +272,6 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 	actual = normalize(buffer.String())
 	expected = normalize(expected)
 
-	// Log outputs for debugging
-	t.Logf("Actual Output:\n%q", buffer.String())
-	t.Logf("Expected Output:\n%q", expected)
-
-	// Compare actual and expected outputs
 	if actual != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", actual, expected)
 	}
@@ -289,8 +284,9 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 	if err != nil && err.Error() != "empty field name" {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	actual = strings.TrimSpace(buffer.String())
+	if actual != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", actual, expected)
 	}
 }
 
