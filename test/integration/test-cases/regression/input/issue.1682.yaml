@@ -1,17 +1,11 @@
 repositories:
-- name: bitnami
-  url: https://charts.bitnami.com/bitnami
+- name: elastic
+  url: https://helm.elastic.co/
 
 releases:
-  - name: elasticsearch
-    chart: bitnami/elasticsearch
-    version: 19.0.1
-    jsonPatches:
-    - target:
-        version: v1
-        kind: StatefulSet
-        name: elasticsearch-master
-      patch:
-      - op: add
-        path: /spec/template/spec/containers/0/volumeMounts/0/subPathExpr
-        value: elasticsearch/$(MY_POD_NAME)
+- name: elasticsearch7
+  chart: elastic/elasticsearch
+  version: 7.17.3
+- name: elasticsearch8
+  chart: elastic/elasticsearch
+  version: 8.5.1
