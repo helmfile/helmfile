@@ -3770,7 +3770,10 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 	}
 
 	repo, _ := st.GetRepositoryAndNameFromChartName(chart)
-	return repo != nil
+	if repo == nil {
+		return false
+	}
+	return repo.OCI
 }
 
 func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (qualifiedChartName, chartName, chartVersion string, err error) {
