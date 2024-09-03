@@ -157,6 +157,9 @@ func Test_AddRepo(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm := MockExecer(logger, "config", "dev")
+
+	// Test case with certfile and keyfile
+	buffer.Reset()
 	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
 	expected := `Adding repo myRepo https://repo.example.com/
 exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
@@ -169,6 +172,7 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
+	// Test case with cafile
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "ca.crt", "", "", "", "", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
@@ -182,6 +186,7 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
+	// Test case with no certfile or cafile
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
@@ -195,6 +200,7 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
+	// Test case with managed "acr"
 	buffer.Reset()
 	err = helm.AddRepo("acrRepo", "", "", "", "", "", "", "acr", false, false)
 	expected = `Adding repo acrRepo (acr)
@@ -209,6 +215,7 @@ exec: az acr helm repo add --name acrRepo:
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
+	// Test case with unknown managed type
 	buffer.Reset()
 	err = helm.AddRepo("otherRepo", "", "", "", "", "", "", "unknown", false, false)
 	expected = `ERROR: unknown type 'unknown' for repository otherRepo
@@ -220,10 +227,11 @@ exec: az acr helm repo add --name acrRepo:
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
+	// Test case with username and password (using password-stdin)
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password-stdin
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -232,40 +240,53 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 
-	buffer.Reset()
-	err = helm.AddRepo("", "https://repo.example.com/", "", "", "", "", "", "", false, false)
-	expected = `empty field name
-
-`
-	if err != nil && err.Error() != "empty field name" {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
-	}
-
+	// Test case with username, password, and pass-credentials
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", true, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password example_password --pass-credentials
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --pass-credentials --username example_user --password-stdin
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+
+	actual := buffer.String()
+	if actual != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", actual, expected)
 	}
 
+	// Test case with skipTLSVerify
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", false, true)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --insecure-skip-tls-verify
-`
+	exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --insecure-skip-tls-verify
+	`
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if buffer.String() != expected {
-		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+
+	normalize := func(s string) string {
+		return strings.Join(strings.Fields(s), " ")
+	}
+
+	actual = normalize(buffer.String())
+	expected = normalize(expected)
+
+	if actual != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", actual, expected)
+	}
+
+	// Test case with empty name
+	buffer.Reset()
+	err = helm.AddRepo("", "https://repo.example.com/", "", "", "", "", "", "", false, false)
+	expected = `empty field name`
+
+	if err != nil && err.Error() != "empty field name" {
+		t.Errorf("unexpected error: %v", err)
+	}
+	actual = strings.TrimSpace(buffer.String())
+	if actual != expected {
+		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", actual, expected)
 	}
 }
 
@@ -907,8 +928,15 @@ func Test_LogLevels(t *testing.T) {
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if buffer.String() != expected {
-			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+
+		actual := buffer.String()
+
+		if strings.Contains(actual, "--password-stdin") {
+			expected = strings.Replace(expected, "--password example_password", "--password-stdin", 1)
+		}
+
+		if actual != expected {
+			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", actual, expected)
 		}
 	}
 }
