@@ -4114,6 +4114,20 @@ func TestIsOCIChart(t *testing.T) {
 			"ocirepo/chart",
 			true,
 		},
+		{
+			&HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{
+						{
+							Name: "nonocirepo",
+							URL:  "nonocirepo.com",
+						},
+					},
+				},
+			},
+			"nonocirepo/chart",
+			false,
+		},
 	}
 
 	for _, c := range cases {
