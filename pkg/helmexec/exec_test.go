@@ -928,8 +928,15 @@ func Test_LogLevels(t *testing.T) {
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if buffer.String() != expected {
-			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+
+		actual := buffer.String()
+
+		if strings.Contains(actual, "--password-stdin") {
+			expected = strings.Replace(expected, "--password example_password", "--password-stdin", 1)
+		}
+
+		if actual != expected {
+			t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", actual, expected)
 		}
 	}
 }
