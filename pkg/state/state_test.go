@@ -4088,3 +4088,118 @@ func TestHelmState_chartOCIFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestIsOCIChart(t *testing.T) {
+	cases := []struct {
+		st       *HelmState
+		chart    string
+		expected bool
+	}{
+		{&HelmState{}, "oci://myrepo/mychart", true},
+		{&HelmState{}, "oci://myrepo/mychart:1.0.0", true},
+		{&HelmState{}, "myrepo/mychart", false},
+		{&HelmState{}, "myrepo/mychart:1.0.0", false},
+		{
+			&HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{
+						{
+							Name: "ocirepo",
+							URL:  "ocirepo.com",
+							OCI:  true,
+						},
+					},
+				},
+			},
+			"ocirepo/chart",
+			true,
+		},
+		{
+			&HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{
+						{
+							Name: "nonocirepo",
+							URL:  "nonocirepo.com",
+						},
+					},
+				},
+			},
+			"nonocirepo/chart",
+			false,
+		},
+	}
+
+	for _, c := range cases {
+		actual := c.st.IsOCIChart(c.chart)
+		if actual != c.expected {
+			t.Errorf("IsOCIChart(%s) = %t; expected %t", c.chart, actual, c.expected)
+		}
+	}
+}
+
+func TestAppendVerifyFlags(t *testing.T) {
+	st := &HelmState{}
+
+	tests := []struct {
+		name         string
+		repo         []RepositorySpec
+		helmDefaults HelmSpec
+		release      *ReleaseSpec
+		expected     []string
+	}{
+		{
+			name:         "Release with true verify flag",
+			release:      &ReleaseSpec{Verify: boolValue(true)},
+			repo:         nil,
+			helmDefaults: HelmSpec{},
+			expected:     []string{"--verify"},
+		},
+		{
+			name:         "Release with false verify flag",
+			release:      &ReleaseSpec{Verify: boolValue(false)},
+			repo:         nil,
+			helmDefaults: HelmSpec{},
+			expected:     []string(nil),
+		},
+		{
+			name:         "Repository with verify flag",
+			helmDefaults: HelmSpec{},
+			repo: []RepositorySpec{
+				{
+					Name:   "myrepo",
+					Verify: true,
+				},
+			},
+			release: &ReleaseSpec{
+				Chart: "myrepo/mychart",
+			},
+			expected: []string{"--verify"},
+		},
+		{
+			name: "Helm defaults with verify flag",
+			repo: nil,
+			helmDefaults: HelmSpec{
+				Verify: true,
+			},
+			release:  &ReleaseSpec{},
+			expected: []string{"--verify"},
+		},
+		{
+			name:         "No verify flag",
+			repo:         nil,
+			helmDefaults: HelmSpec{},
+			release:      &ReleaseSpec{},
+			expected:     []string(nil),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st.ReleaseSetSpec.Repositories = tt.repo
+			st.ReleaseSetSpec.HelmDefaults = tt.helmDefaults
+			flags := st.appendVerifyFlags(nil, tt.release)
+			assert.Equal(t, tt.expected, flags)
+		})
+	}
+}
