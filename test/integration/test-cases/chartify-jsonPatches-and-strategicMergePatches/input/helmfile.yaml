@@ -1,0 +1,56 @@
+#  https://github.com/helmfile/helmfile/issues/1680
+repositories:
+- name: incubator
+  url: https://charts.helm.sh/incubator
+---
+values:
+  - awsAccountId: "222222222222"
+---
+releases:
+- name: raw2
+  chart: incubator/raw
+  values:
+  - resources:
+    - apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        annotations:
+          irsa.amazonaws.com/audience: https://identity.my-company.com
+          irsa.amazonaws.com/role-arn: arn:aws:iam::111111111111:role/irsa-role
+          irsa.amazonaws.com/sts-regional-endpoints: "true"
+        name: my-irsa-role
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: my-deployment
+      spec:
+        template:
+          spec:
+            containers:
+              image: alpine:latest
+              name: my-app
+  jsonPatches:
+    - target:
+        version: v1
+        kind: ServiceAccount
+        name: my-irsa-role
+      patch:
+      - op: remove
+        path: /metadata/annotations/irsa.amazonaws.com~1role-arn
+      - op: remove
+        path: /metadata/annotations/irsa.amazonaws.com~1audience
+      - op: remove
+        path: /metadata/annotations/irsa.amazonaws.com~1sts-regional-endpoints
+      - op: add
+        path: /metadata/annotations/eks.amazonaws.com~1role-arn
+        value: "arn:aws:iam::{{ .Values.awsAccountId }}:role/eks-role"
+  strategicMergePatches:
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: my-deployment
+      spec:
+        template:
+          spec:
+            nodeSelector:
+              kubernetes.io/arch: "amd64"

@@ -1,0 +1,33 @@
+---
+# Source: raw/templates/patched_resources.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::222222222222:role/eks-role
+  labels:
+    app: raw
+    chart: raw-0.2.5
+    heritage: Helm
+    release: raw2
+  name: my-irsa-role
+---
+# Source: raw/templates/patched_resources.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: raw
+    chart: raw-0.2.5
+    heritage: Helm
+    release: raw2
+  name: my-deployment
+spec:
+  template:
+    spec:
+      containers:
+        image: alpine:latest
+        name: my-app
+      nodeSelector:
+        kubernetes.io/arch: amd64
+
