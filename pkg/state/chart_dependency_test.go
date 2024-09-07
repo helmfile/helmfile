@@ -22,15 +22,23 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 					Releases: []ReleaseSpec{
 						{
 							Name:    "foo",
-							Chart:   "charts/abc",
+							Chart:   "chartsa/abc",
 							Version: "0.1.0",
+						},
+						{
+							Name:  "empty",
+							Chart: "chartsb/empty",
 						},
 					},
 					Repositories: []RepositorySpec{
 						{
-							Name: "charts",
+							Name: "chartsa",
 							URL:  "localhost:5000/aaa",
 							OCI:  true,
+						},
+						{
+							Name: "chartsb",
+							URL:  "localhost:5000/bbb",
 						},
 					},
 				},
@@ -45,6 +53,13 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 							Repository:        "oci://localhost:5000/aaa",
 							VersionConstraint: "0.1.0",
 							Alias:             "foo_abc_0-1-0",
+						},
+					},
+					"empty": {
+						{
+							ChartName:  "empty",
+							Repository: "localhost:5000/bbb",
+							Alias:      "empty_empty",
 						},
 					},
 				},
@@ -92,6 +107,25 @@ func TestContains(t *testing.T) {
 				},
 			},
 			expected: true,
+		},
+		{
+			name: "existing dependency but empty item",
+			dep: unresolvedChartDependency{
+				ChartName:         "abc",
+				Repository:        "oci://localhost:5000/aaa",
+				VersionConstraint: "0.1.0",
+				Alias:             "abc_abc_0-1-0",
+			},
+			deps: map[string][]unresolvedChartDependency{
+				"abc": {
+					{
+						ChartName:  "abc",
+						Repository: "oci://localhost:5000/aaa",
+						Alias:      "abc_abc_0-1-0",
+					},
+				},
+			},
+			expected: false,
 		},
 		{
 			name: "different chart version",

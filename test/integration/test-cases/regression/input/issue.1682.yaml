@@ -9,3 +9,5 @@ releases:
 - name: elasticsearch8
   chart: elastic/elasticsearch
   version: 8.5.1
+- name: elasticsearch8
+  chart: elastic/elasticsearch
