@@ -1,5 +1,5 @@
-chartify_jsonPatches_and_strategicMergePatches_case_input_dir="${cases_dir}/chartify_jsonPatches_and_strategicMergePatches/input"
-chartify_jsonPatches_and_strategicMergePatches_case_output_dir="${cases_dir}/chartify_jsonPatches_and_strategicMergePatches/output"
+chartify_jsonPatches_and_strategicMergePatches_case_input_dir="${cases_dir}/chartify-jsonPatches-and-strategicMergePatches/input"
+chartify_jsonPatches_and_strategicMergePatches_case_output_dir="${cases_dir}/chartify-jsonPatches-and-strategicMergePatches/output"
 
 config_file="helmfile.yaml"
 if [[ ${HELMFILE_V1MODE} = true ]]; then
