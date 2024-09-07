@@ -35,7 +35,6 @@ func forbidEnvironmentsWithReleases(filePath string, content []byte) (bool, erro
 	result := []string{}
 	resultKeys := map[string]interface{}{}
 	for _, k := range topKeys {
-		if k == "environments" || k == "releases" || k == "---" {
 		if slices.Contains([]string{"environments", "releases", "---"}, k) {
 			if _, ok := resultKeys[k]; !ok {
 				result = append(result, k)
