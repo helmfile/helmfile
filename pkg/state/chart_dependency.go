@@ -237,12 +237,8 @@ func (st *HelmState) updateDependenciesInTempDir(shell helmexec.DependencyUpdate
 }
 
 // aliasNameFormat = regexp.MustCompile("^[a-zA-Z0-9_-]+$") from helm code
-func chartDependenciesAlias(releaseName, chartName, version string) string {
-	v := ""
-	if version != "" {
-		v = fmt.Sprintf("_%s", version)
-	}
-	return fmt.Sprintf("%s_%s%s", releaseName, chartName, strings.ReplaceAll(v, ".", "-"))
+func chartDependenciesAlias(releaseName, chartName string) string {
+	return fmt.Sprintf("%s-%s", releaseName, chartName)
 }
 
 func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies, error) {
@@ -273,7 +269,7 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 			url = fmt.Sprintf("oci://%s", url)
 		}
 
-		if err := unresolved.Add(chart, url, r.Version, chartDependenciesAlias(r.Name, chart, r.Version)); err != nil {
+		if err := unresolved.Add(chart, url, r.Version, chartDependenciesAlias(r.Name, chart)); err != nil {
 			return "", nil, err
 		}
 	}

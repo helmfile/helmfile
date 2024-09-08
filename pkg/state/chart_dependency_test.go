@@ -52,14 +52,14 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 							ChartName:         "abc",
 							Repository:        "oci://localhost:5000/aaa",
 							VersionConstraint: "0.1.0",
-							Alias:             "foo_abc_0-1-0",
+							Alias:             "foo-abc",
 						},
 					},
 					"empty": {
 						{
 							ChartName:  "empty",
 							Repository: "localhost:5000/bbb",
-							Alias:      "empty_empty",
+							Alias:      "empty-empty",
 						},
 					},
 				},
@@ -94,7 +94,7 @@ func TestContains(t *testing.T) {
 				ChartName:         "abc",
 				Repository:        "oci://localhost:5000/aaa",
 				VersionConstraint: "0.1.0",
-				Alias:             "abc_abc_0-1-0",
+				Alias:             "abc-abc",
 			},
 			deps: map[string][]unresolvedChartDependency{
 				"abc": {
@@ -102,7 +102,7 @@ func TestContains(t *testing.T) {
 						ChartName:         "abc",
 						Repository:        "oci://localhost:5000/aaa",
 						VersionConstraint: "0.1.0",
-						Alias:             "abc_abc_0-1-0",
+						Alias:             "abc-abc",
 					},
 				},
 			},
@@ -114,14 +114,14 @@ func TestContains(t *testing.T) {
 				ChartName:         "abc",
 				Repository:        "oci://localhost:5000/aaa",
 				VersionConstraint: "0.1.0",
-				Alias:             "abc_abc_0-1-0",
+				Alias:             "abc-abc",
 			},
 			deps: map[string][]unresolvedChartDependency{
 				"abc": {
 					{
 						ChartName:  "abc",
 						Repository: "oci://localhost:5000/aaa",
-						Alias:      "abc_abc_0-1-0",
+						Alias:      "abc-abc",
 					},
 				},
 			},
@@ -133,7 +133,7 @@ func TestContains(t *testing.T) {
 				ChartName:         "abc",
 				Repository:        "oci://localhost:5000/aaa",
 				VersionConstraint: "0.1.0",
-				Alias:             "abc_abc_0-1-0",
+				Alias:             "abc-abc",
 			},
 			deps: map[string][]unresolvedChartDependency{
 				"abc": {
@@ -141,7 +141,7 @@ func TestContains(t *testing.T) {
 						ChartName:         "abc",
 						Repository:        "oci://localhost:5000/aaa",
 						VersionConstraint: "0.1.1",
-						Alias:             "abc_abc_0-1-1",
+						Alias:             "abc-abc",
 					},
 				},
 			},
@@ -153,7 +153,7 @@ func TestContains(t *testing.T) {
 				ChartName:         "ghi",
 				Repository:        "oci://localhost:5000/aaa",
 				VersionConstraint: "0.1.0",
-				Alias:             "ghi_ghi_0-1-0",
+				Alias:             "ghi-ghi",
 			},
 			deps: map[string][]unresolvedChartDependency{
 				"ghi": {},
@@ -166,7 +166,7 @@ func TestContains(t *testing.T) {
 				ChartName:         "def",
 				Repository:        "oci://localhost:5000/bbb",
 				VersionConstraint: "0.2.0",
-				Alias:             "def_def_0-2-0",
+				Alias:             "def-def",
 			},
 			deps: map[string][]unresolvedChartDependency{
 				"abc": {
@@ -174,7 +174,7 @@ func TestContains(t *testing.T) {
 						ChartName:         "abc",
 						Repository:        "oci://localhost:5000/aaa",
 						VersionConstraint: "0.1.0",
-						Alias:             "abc_abc_0-1-0",
+						Alias:             "abc-abc",
 					},
 				},
 			},
@@ -197,17 +197,16 @@ func TestChartDependenciesAlias(t *testing.T) {
 	type testCase struct {
 		releaseName string
 		chartName   string
-		version     string
 		expected    string
 	}
 
 	testCases := []testCase{
-		{"release1", "chart1", "1.0.0", "release1_chart1_1-0-0"},
-		{"release2", "chart2", "", "release2_chart2"},
+		{"release1", "chart1", "release1-chart1"},
+		{"release2", "chart2", "release2-chart2"},
 	}
 
 	for _, tc := range testCases {
-		result := chartDependenciesAlias(tc.releaseName, tc.chartName, tc.version)
+		result := chartDependenciesAlias(tc.releaseName, tc.chartName)
 		if result != tc.expected {
 			t.Errorf("Expected %s, but got %s", tc.expected, result)
 		}
