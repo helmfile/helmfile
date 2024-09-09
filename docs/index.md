@@ -146,7 +146,7 @@ repositories:
   keyFile: optional_client_key
   # username is retrieved from the environment with the format <registryNameUpperCase>_USERNAME for CI usage, here ROBOLL_USERNAME
   username: optional_username
-  # username is retrieved from the environment with the format <registryNameUpperCase>_PASSWORD for CI usage, here ROBOLL_PASSWORD
+  # password is retrieved from the environment with the format <registryNameUpperCase>_PASSWORD for CI usage, here ROBOLL_PASSWORD
   password: optional_password
   oci: true
   passCredentials: true
