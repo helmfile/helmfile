@@ -21,9 +21,15 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: []ReleaseSpec{
 						{
-							Name:    "foo",
-							Chart:   "chartsa/abc",
-							Version: "0.1.0",
+							Name:      "foo",
+							Chart:     "chartsa/abc",
+							Version:   "0.1.0",
+							Namespace: "ns1",
+						},
+						{
+							Name:      "empty",
+							Chart:     "chartsb/empty",
+							Namespace: "ns2",
 						},
 						{
 							Name:  "empty",
@@ -52,14 +58,19 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 							ChartName:         "abc",
 							Repository:        "oci://localhost:5000/aaa",
 							VersionConstraint: "0.1.0",
-							Alias:             "foo-abc",
+							Alias:             "ns1-foo",
 						},
 					},
 					"empty": {
 						{
 							ChartName:  "empty",
 							Repository: "localhost:5000/bbb",
-							Alias:      "empty-empty",
+							Alias:      "ns2-empty",
+						},
+						{
+							ChartName:  "empty",
+							Repository: "localhost:5000/bbb",
+							Alias:      "-empty",
 						},
 					},
 				},
@@ -196,17 +207,18 @@ func TestContains(t *testing.T) {
 func TestChartDependenciesAlias(t *testing.T) {
 	type testCase struct {
 		releaseName string
-		chartName   string
+		namespace   string
 		expected    string
 	}
 
 	testCases := []testCase{
-		{"release1", "chart1", "release1-chart1"},
-		{"release2", "chart2", "release2-chart2"},
+		{"release1", "n1", "n1-release1"},
+		{"release2", "n2", "n2-release2"},
+		{"empty", "", "-empty"},
 	}
 
 	for _, tc := range testCases {
-		result := chartDependenciesAlias(tc.releaseName, tc.chartName)
+		result := chartDependenciesAlias(tc.namespace, tc.releaseName)
 		if result != tc.expected {
 			t.Errorf("Expected %s, but got %s", tc.expected, result)
 		}
