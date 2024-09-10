@@ -14,7 +14,7 @@ require (
 	github.com/hashicorp/go-getter v1.7.6
 	github.com/hashicorp/hcl/v2 v2.22.0
 	github.com/helmfile/chartify v0.20.2
-	github.com/helmfile/vals v0.37.3
+	github.com/helmfile/vals v0.37.5
 	github.com/imdario/mergo v0.3.16
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
