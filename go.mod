@@ -20,6 +20,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
+	github.com/tj/assert v0.0.3
 	github.com/variantdev/dag v1.1.0
 	github.com/zclconf/go-cty v1.15.0
 	github.com/zclconf/go-cty-yaml v1.0.3

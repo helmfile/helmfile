@@ -13,6 +13,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/tj/assert"
 	"go.uber.org/zap"
 )
 
@@ -104,52 +105,49 @@ func Test_SetDisableForceUpdate(t *testing.T) {
 	}
 }
 
-func Test_AddRepo_Helm_3_3_2(t *testing.T) {
-	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "debug")
-	helm := &execer{
-		helmBinary:  "helm",
-		version:     semver.MustParse("3.3.2"),
-		logger:      logger,
-		kubeconfig:  "config",
-		kubeContext: "dev",
-		runner:      &mockRunner{},
-	}
-	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
-	expected := `Adding repo myRepo https://repo.example.com/
+func Test_AddRepo_Helm_Version(t *testing.T) {
+	tests := []struct {
+		name          string
+		version       string
+		disableUpdate bool
+		expected      string
+	}{
+		{
+			name:          "Helm 3.3.2 with force update",
+			version:       "3.3.2",
+			disableUpdate: false,
+			expected: `Adding repo myRepo https://repo.example.com/
 exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
-`
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	if buffer.String() != expected {
-		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
-	}
-}
-
-func Test_AddRepo_Helm_3_3_2_NoForceUpdate(t *testing.T) {
-	var buffer bytes.Buffer
-	logger := NewLogger(&buffer, "debug")
-	helm := &execer{
-		helmBinary:  "helm",
-		options:     HelmExecOptions{DisableForceUpdate: true},
-		version:     semver.MustParse("3.3.2"),
-		logger:      logger,
-		kubeconfig:  "config",
-		kubeContext: "dev",
-		runner:      &mockRunner{},
-	}
-	err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
-	expected := `Adding repo myRepo https://repo.example.com/
+`,
+		},
+		{
+			name:          "Helm 3.3.2 without force update",
+			version:       "3.3.2",
+			disableUpdate: true,
+			expected: `Adding repo myRepo https://repo.example.com/
 exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
-`
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+`,
+		},
 	}
 
-	if buffer.String() != expected {
-		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buffer bytes.Buffer
+			logger := NewLogger(&buffer, "debug")
+			helm := &execer{
+				helmBinary:  "helm",
+				version:     semver.MustParse(tt.version),
+				logger:      logger,
+				kubeconfig:  "config",
+				kubeContext: "dev",
+				runner:      &mockRunner{},
+				options:     HelmExecOptions{DisableForceUpdate: tt.disableUpdate},
+			}
+			err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, buffer.String())
+		})
 	}
 }
 
