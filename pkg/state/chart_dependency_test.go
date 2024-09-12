@@ -10,7 +10,6 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 	tests := []struct {
 		name       string
 		helmState  *HelmState
-		wantErr    bool
 		expectfile string
 		expectDeps *UnresolvedDependencies
 	}{
@@ -49,7 +48,6 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 					},
 				},
 			},
-			wantErr:    false,
 			expectfile: "helmfile",
 			expectDeps: &UnresolvedDependencies{
 				deps: map[string][]unresolvedChartDependency{
@@ -108,7 +106,6 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 					},
 				},
 			},
-			wantErr:    false,
 			expectfile: "helmfile",
 			expectDeps: &UnresolvedDependencies{
 				deps: map[string][]unresolvedChartDependency{
@@ -139,12 +136,7 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f, ds, err := getUnresolvedDependenciess(tt.helmState)
-			if tt.wantErr {
-				require.Error(t, err, "getUnresolvedDependenciess() error = nil, wantErr")
-			} else {
-				require.NoErrorf(t, err, "getUnresolvedDependenciess() want no error, got %v", err)
-			}
+			f, ds := getUnresolvedDependenciess(tt.helmState)
 			require.Equalf(t, tt.expectfile, f, "getUnresolvedDependenciess() expect file %s, got %s", tt.expectfile, f)
 			require.Equalf(t, tt.expectDeps, ds, "getUnresolvedDependenciess() expect deps %v, got %v", tt.expectDeps, ds)
 		})
