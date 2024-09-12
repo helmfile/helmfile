@@ -100,6 +100,11 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 			KubeContext: rel.KubeContext,
 		}
 		if chart := releaseToChart[key]; chart != rel.Chart {
+			// The chart has been downloaded and modified by Helmfile (and chartify under the hood).
+			// We let the later step use the modified version of the chart, located under the `chart` variable,
+			// instead of the original chart path.
+			// This way, the later step can use the modified chart without knowing
+			// if it has been modified or not.
 			rel.ChartPath = chart
 		}
 	}
