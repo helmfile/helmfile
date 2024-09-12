@@ -34,4 +34,14 @@ if [[ ${HELMFILE_V1MODE} = true ]]; then
 fi
 (${helmfile} -f ${regression_case_input_dir}/${config_file} template 1>/dev/null) || fail "\"helmfile template\" shouldn't fail"
 
+info "https://github.com/helmfile/helmfile/issues/1682"
+config_file="issue.1682.yaml"
+if [[ ${HELMFILE_V1MODE} = true ]]; then
+  pushd "${regression_case_input_dir}"
+  mv "${config_file}" "${config_file}.gotmpl"
+  config_file="${config_file}.gotmpl"
+  popd
+fi
+(${helmfile} -f ${regression_case_input_dir}/${config_file} deps 1>/dev/null) || fail "\"helmfile deps\" shouldn't fail"
+
 test_pass "regression tests"

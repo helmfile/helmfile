@@ -1,0 +1,13 @@
+repositories:
+- name: elastic
+  url: https://helm.elastic.co/
+
+releases:
+- name: elasticsearch7
+  chart: elastic/elasticsearch
+  version: 7.17.3
+- name: elasticsearch8
+  chart: elastic/elasticsearch
+  version: 8.5.1
+- name: elasticsearchempty
+  chart: elastic/elasticsearch

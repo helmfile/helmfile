@@ -19,6 +19,10 @@ type ChartMeta struct {
 	Name string `yaml:"name"`
 }
 
+// unresolvedChartDependency represents a dependency that is to be resolved.
+//
+// Helmfile generates Helm Chart.yaml containing unresolved dependencies, and runs `helm dependency update` to produce Helm Chart.lock
+// which becomes helmfile.lock, which is then used to resolve the dependencies.
 type unresolvedChartDependency struct {
 	// ChartName identifies the dependant chart. In Helmfile, ChartName for `chart: stable/envoy` would be just `envoy`.
 	// It can't be collided with other charts referenced in the same helmfile spec.
@@ -28,6 +32,10 @@ type unresolvedChartDependency struct {
 	Repository string `yaml:"repository"`
 	// VersionConstraint is the version constraint of the dependent chart. "*" means the latest version.
 	VersionConstraint string `yaml:"version"`
+	// Alias differentiates multiple dependencies with the same ChartName.
+	// Despite its name, and its optional in Helm's Chart.yaml, we use this as a unique identifier for the dependency.
+	// So, every dependency have an alias, even if it's not explicitly set in the helmfile.
+	Alias string `yaml:"alias"`
 }
 
 type ResolvedChartDependency struct {
@@ -57,43 +65,13 @@ type ChartLockedRequirements struct {
 	Generated            string                    `yaml:"generated"`
 }
 
-func (d *UnresolvedDependencies) Add(chart, url, versionConstraint string) error {
-	dep := unresolvedChartDependency{
+func (d *UnresolvedDependencies) Add(chart, url, versionConstraint, alias string) {
+	d.deps[chart] = append(d.deps[chart], unresolvedChartDependency{
 		ChartName:         chart,
 		Repository:        url,
 		VersionConstraint: versionConstraint,
-	}
-	if !d.contains(dep) {
-		return d.add(dep)
-	}
-	return nil
-}
-
-func (d *UnresolvedDependencies) add(dep unresolvedChartDependency) error {
-	deps := d.deps[dep.ChartName]
-	if deps == nil {
-		deps = []unresolvedChartDependency{dep}
-	} else {
-		deps = append(deps, dep)
-	}
-	d.deps[dep.ChartName] = deps
-	return nil
-}
-
-// contains checks if the UnresolvedDependencies contains the specified unresolvedChartDependency.
-// It returns true if the dependency is found, otherwise it returns false.
-// fix 'more than one dependency with name or alias "raw"' error since helm v3.14.0
-func (d *UnresolvedDependencies) contains(dep unresolvedChartDependency) bool {
-	deps := d.deps[dep.ChartName]
-	if deps == nil {
-		return false
-	}
-	for _, existDep := range deps {
-		if existDep.ChartName == dep.ChartName {
-			return true
-		}
-	}
-	return false
+		Alias:             alias,
+	})
 }
 
 func (d *UnresolvedDependencies) ToChartRequirements() *ChartRequirements {
@@ -152,10 +130,7 @@ func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, err
 }
 
 func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {
-	filename, unresolved, err := getUnresolvedDependenciess(st)
-	if err != nil {
-		return nil, err
-	}
+	filename, unresolved := getUnresolvedDependenciess(st)
 
 	if len(unresolved.deps) == 0 {
 		return st, nil
@@ -211,10 +186,7 @@ func resolveDependencies(st *HelmState, depMan *chartDependencyManager, unresolv
 }
 
 func (st *HelmState) updateDependenciesInTempDir(shell helmexec.DependencyUpdater, tempDir func(string, string) (string, error)) (*HelmState, error) {
-	filename, unresolved, err := getUnresolvedDependenciess(st)
-	if err != nil {
-		return nil, err
-	}
+	filename, unresolved := getUnresolvedDependenciess(st)
 
 	if len(unresolved.deps) == 0 {
 		st.logger.Warnf("There are no repositories defined in your helmfile.yaml.\nThis means helmfile cannot update your dependencies or create a lock file.\nSee https://github.com/roboll/helmfile/issues/878 for more information.")
@@ -232,7 +204,12 @@ func (st *HelmState) updateDependenciesInTempDir(shell helmexec.DependencyUpdate
 	return updateDependencies(st, shell, unresolved, filename, d)
 }
 
-func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies, error) {
+// aliasNameFormat = regexp.MustCompile("^[a-zA-Z0-9_-]+$") from helm code
+func chartDependenciesAlias(namespace, releaseName string) string {
+	return fmt.Sprintf("%s-%s", namespace, releaseName)
+}
+
+func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies) {
 	repoToURL := map[string]RepositorySpec{}
 
 	for _, r := range st.Repositories {
@@ -260,9 +237,7 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 			url = fmt.Sprintf("oci://%s", url)
 		}
 
-		if err := unresolved.Add(chart, url, r.Version); err != nil {
-			return "", nil, err
-		}
+		unresolved.Add(chart, url, r.Version, chartDependenciesAlias(r.Namespace, r.Name))
 	}
 
 	filename := filepath.Base(st.FilePath)
@@ -270,7 +245,7 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies,
 	filename = strings.TrimSuffix(filename, ".yaml")
 	filename = strings.TrimSuffix(filename, ".yml")
 
-	return filename, unresolved, nil
+	return filename, unresolved
 }
 
 func updateDependencies(st *HelmState, shell helmexec.DependencyUpdater, unresolved *UnresolvedDependencies, filename, wd string) (*HelmState, error) {
