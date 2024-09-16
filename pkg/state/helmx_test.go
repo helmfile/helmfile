@@ -276,3 +276,60 @@ func TestAppendShowOnlyFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestAppendHideNotesFlags(t *testing.T) {
+	type args struct {
+		flags    []string
+		helm     helmexec.Interface
+		helmSpec HelmSpec
+		opt      *SyncOpts
+		expected []string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "no hide-notes when helm less than 3.16.0",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.15.0"),
+				opt: &SyncOpts{
+					HideNotes: true,
+				},
+				expected: []string{},
+			},
+		},
+		{
+			name: "hide-notes from cmd flag",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.16.0"),
+				opt: &SyncOpts{
+					HideNotes: true,
+				},
+				expected: []string{"--hide-notes"},
+			},
+		},
+		{
+			name: "hide-notes from helm defaults",
+			args: args{
+				flags: []string{},
+				opt: &SyncOpts{
+					HideNotes: false,
+				},
+				helmSpec: HelmSpec{HideNotes: true},
+				helm:     testutil.NewVersionHelmExec("3.16.0"),
+				expected: []string{"--hide-notes"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.args.helmSpec
+			got := st.appendHideNotesFlags(tt.args.flags, tt.args.helm, tt.args.opt)
+			require.Equalf(t, tt.args.expected, got, "appendHideNotesFlags() = %v, want %v", got, tt.args.expected)
+		})
+	}
+}

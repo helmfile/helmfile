@@ -205,6 +205,8 @@ type HelmSpec struct {
 	DeleteWait bool `yaml:"deleteWait"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout int `yaml:"deleteTimeout"`
+	// HideNotes, if set to true, will hide notes
+	HideNotes bool `yaml:"hideNotes"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -774,6 +776,7 @@ type SyncOpts struct {
 	PostRenderer     string
 	PostRendererArgs []string
 	SyncArgs         string
+	HideNotes        bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -2726,6 +2729,9 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+
+	// append hide-notes flag
+	flags = st.appendHideNotesFlags(flags, helm, opt)
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 

@@ -34,6 +34,8 @@ type SyncOptions struct {
 	Cascade string
 	// SyncArgs is the list of arguments to pass to the helm upgrade command.
 	SyncArgs string
+	// HideNotes is the hide notes flag
+	HideNotes bool
 }
 
 // NewSyncOptions creates a new Apply
@@ -138,4 +140,8 @@ func (t *SyncImpl) Cascade() string {
 // SyncArgs returns the sync args
 func (t *SyncImpl) SyncArgs() string {
 	return t.SyncOptions.SyncArgs
+}
+
+func (t *SyncImpl) HideNotes() bool {
+	return t.SyncOptions.HideNotes
 }

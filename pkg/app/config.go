@@ -51,6 +51,7 @@ type ApplyConfigProvider interface {
 	PostRenderer() string
 	PostRendererArgs() []string
 	Cascade() string
+	HideNotes() bool
 	SuppressOutputLineRegex() []string
 
 	Values() []string
@@ -98,6 +99,7 @@ type SyncConfigProvider interface {
 	Args() string
 	PostRenderer() string
 	PostRendererArgs() []string
+	HideNotes() bool
 	Cascade() string
 
 	Values() []string
