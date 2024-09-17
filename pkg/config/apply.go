@@ -66,6 +66,8 @@ type ApplyOptions struct {
 	SuppressOutputLineRegex []string
 	// SyncArgs is the list of arguments to pass to helm upgrade.
 	SyncArgs string
+	// HideNotes is the hide notes flag
+	HideNotes bool
 }
 
 // NewApply creates a new Apply
@@ -246,4 +248,8 @@ func (a *ApplyImpl) SuppressOutputLineRegex() []string {
 // SyncArgs returns the SyncArgs.
 func (a *ApplyImpl) SyncArgs() string {
 	return a.ApplyOptions.SyncArgs
+}
+
+func (a *ApplyImpl) HideNotes() bool {
+	return a.ApplyOptions.HideNotes
 }

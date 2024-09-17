@@ -774,6 +774,7 @@ type SyncOpts struct {
 	PostRenderer     string
 	PostRendererArgs []string
 	SyncArgs         string
+	HideNotes        bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -2726,6 +2727,9 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+
+	// append hide-notes flag
+	flags = st.appendHideNotesFlags(flags, helm, opt)
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
