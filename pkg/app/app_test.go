@@ -2235,6 +2235,7 @@ type applyConfig struct {
 	kubeVersion             string
 	suppressOutputLineRegex []string
 	showOnly                []string
+	hideNotes               bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2413,6 +2414,10 @@ func (a applyConfig) KubeVersion() string {
 
 func (a applyConfig) ShowOnly() []string {
 	return a.showOnly
+}
+
+func (a applyConfig) HideNotes() bool {
+	return a.hideNotes
 }
 
 type depsConfig struct {

@@ -119,6 +119,19 @@ func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface,
 	return flags
 }
 
+// append hide-notes flags to helm flags
+func (st *HelmState) appendHideNotesFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string {
+	// see https://github.com/helm/helm/releases/tag/v3.16.0
+	if !helm.IsVersionAtLeast("3.16.0") {
+		return flags
+	}
+	switch {
+	case ops.HideNotes:
+		flags = append(flags, "--hide-notes")
+	}
+	return flags
+}
+
 // append show-only flags to helm flags
 func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []string {
 	showOnlyFlags := []string{}
