@@ -205,8 +205,6 @@ type HelmSpec struct {
 	DeleteWait bool `yaml:"deleteWait"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout int `yaml:"deleteTimeout"`
-	// HideNotes, if set to true, will hide notes
-	HideNotes bool `yaml:"hideNotes"`
 }
 
 // RepositorySpec that defines values for a helm repo

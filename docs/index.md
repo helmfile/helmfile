@@ -236,8 +236,6 @@ helmDefaults:
   # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
   suppressOutputLineRegex:
     - "version"
-  # --hide-notes flag for helm, available in helmfile v0.169.0 with helm v3.16.0+, (default false)
-  hideNotes: false
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:

@@ -129,8 +129,6 @@ func (st *HelmState) appendHideNotesFlags(flags []string, helm helmexec.Interfac
 	// postRenderer arg comes from cmd flag.
 	case ops.HideNotes:
 		flags = append(flags, "--hide-notes")
-	case st.HelmDefaults.HideNotes:
-		flags = append(flags, "--hide-notes")
 	}
 	return flags
 }

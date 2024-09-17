@@ -311,18 +311,6 @@ func TestAppendHideNotesFlags(t *testing.T) {
 				expected: []string{"--hide-notes"},
 			},
 		},
-		{
-			name: "hide-notes from helm defaults",
-			args: args{
-				flags: []string{},
-				opt: &SyncOpts{
-					HideNotes: false,
-				},
-				helmSpec: HelmSpec{HideNotes: true},
-				helm:     testutil.NewVersionHelmExec("3.16.0"),
-				expected: []string{"--hide-notes"},
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
