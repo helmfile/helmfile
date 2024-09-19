@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
