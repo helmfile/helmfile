@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
