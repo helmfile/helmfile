@@ -6,10 +6,10 @@ import (
 	"slices"
 	"strings"
 
+	"dario.cat/mergo"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/imdario/mergo"
 	"github.com/variantdev/dag/pkg/dag"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/json"

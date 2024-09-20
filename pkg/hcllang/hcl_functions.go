@@ -1,8 +1,8 @@
 package hcllang
 
 import (
+	"dario.cat/mergo"
 	"github.com/hashicorp/hcl/v2/ext/tryfunc"
-	"github.com/imdario/mergo"
 	ctyyaml "github.com/zclconf/go-cty-yaml"
 	"github.com/zclconf/go-cty/cty/function"
 	"github.com/zclconf/go-cty/cty/function/stdlib"
