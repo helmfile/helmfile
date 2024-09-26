@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
+	"dario.cat/mergo"
 	"github.com/helmfile/vals"
-	"github.com/imdario/mergo"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"

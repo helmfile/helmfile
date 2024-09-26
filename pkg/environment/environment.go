@@ -1,7 +1,7 @@
 package environment
 
 import (
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/yaml"
