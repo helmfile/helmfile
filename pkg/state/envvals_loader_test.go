@@ -39,7 +39,7 @@ func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -93,7 +93,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(tt.expected, actual); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 		})
 	}
@@ -113,7 +113,7 @@ func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -158,7 +158,7 @@ func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -184,7 +184,7 @@ func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -225,6 +225,6 @@ func TestEnvValsLoad_MultiHCL(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
