@@ -68,6 +68,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reset-values"`)
 	f.StringVar(&applyOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&applyOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
+	f.StringArrayVar(&applyOptions.PostRendererArgs, "skip-schema-validation", nil, `pass --skip-schema-validation to "helm template" or "helm upgrade --install"`)
 	f.StringVar(&applyOptions.Cascade, "cascade", "", "pass cascade to helm exec, default: background")
 	f.StringArrayVar(&applyOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from the diff output")
 
