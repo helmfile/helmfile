@@ -391,9 +391,11 @@ func RequiredEnv(name string) (string, error) {
 
 func Required(warn string, val any) (any, error) {
 	if val == nil {
+		// nolint:govet,staticcheck
 		return nil, fmt.Errorf(warn)
 	} else if _, ok := val.(string); ok {
 		if val == "" {
+			// nolint:govet,staticcheck
 			return nil, fmt.Errorf(warn)
 		}
 	}

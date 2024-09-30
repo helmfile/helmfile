@@ -997,7 +997,7 @@ func Test_GetPluginVersion(t *testing.T) {
 
 	v3SecretPluginVersion, err := GetPluginVersion("secrets", v3PluginDirPath)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 	if v3SecretPluginVersion.String() != v3ExpectedVersion {
 		t.Errorf("secrets v3 plugin version is %v, expected %v", v3SecretPluginVersion.String(), v3ExpectedVersion)
@@ -1005,7 +1005,7 @@ func Test_GetPluginVersion(t *testing.T) {
 
 	v4SecretPluginVersion, err := GetPluginVersion("secrets", v4PluginDirPath)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 	if v4SecretPluginVersion.String() != v4ExpectedVersion {
 		t.Errorf("secrets v4 plugin version is %v, expected %v", v4SecretPluginVersion.String(), v4ExpectedVersion)

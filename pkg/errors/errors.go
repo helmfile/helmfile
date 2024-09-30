@@ -85,12 +85,12 @@ func HandleExitCoder(err error) {
 
 	if exitErr, ok := err.(ExitCoder); ok {
 		if errMsg := err.Error(); errMsg != "" {
-			fmt.Fprintln(ErrWriter, errMsg)
+			_, _ = fmt.Fprintln(ErrWriter, errMsg)
 		}
 		OsExiter(exitErr.ExitCode())
 		return
 	}
 
-	fmt.Fprintln(ErrWriter, err)
+	_, _ = fmt.Fprintln(ErrWriter, err)
 	OsExiter(3)
 }

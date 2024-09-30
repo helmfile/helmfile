@@ -1928,7 +1928,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		func() {
 			for i := 0; i < numReleases; i++ {
 				res := <-results
-				if res.errors != nil && len(res.errors) > 0 {
+				if len(res.errors) > 0 {
 					for _, e := range res.errors {
 						errs = append(errs, e)
 					}
@@ -3386,7 +3386,7 @@ func hideChartCredentials(chartCredentials string) (string, error) {
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
 func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
-	if ar.Upgraded != nil && len(ar.Upgraded) > 0 {
+	if len(ar.Upgraded) > 0 {
 		logger.Info("\nUPDATED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
@@ -3408,7 +3408,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		}
 		logger.Info(tbl.String())
 	}
-	if ar.Deleted != nil && len(ar.Deleted) > 0 {
+	if len(ar.Deleted) > 0 {
 		logger.Info("\nDELETED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
@@ -3423,7 +3423,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		}
 		logger.Info(tbl.String())
 	}
-	if ar.Failed != nil && len(ar.Failed) > 0 {
+	if len(ar.Failed) > 0 {
 		logger.Info("\nFAILED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},

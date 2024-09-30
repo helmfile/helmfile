@@ -1006,14 +1006,14 @@ func printBatches(batches [][]state.Release) string {
 
 	w.Init(buf, 0, 1, 1, ' ', 0)
 
-	fmt.Fprintln(w, "GROUP\tRELEASES")
+	_, _ = fmt.Fprintln(w, "GROUP\tRELEASES")
 
 	for i, batch := range batches {
 		ids := []string{}
 		for _, r := range batch {
 			ids = append(ids, state.ReleaseToID(&r.ReleaseSpec))
 		}
-		fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
+		_, _ = fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
 	}
 
 	_ = w.Flush()
@@ -1028,13 +1028,13 @@ func printDAG(batches [][]state.Release) string {
 
 	w.Init(buf, 0, 1, 1, ' ', 0)
 
-	fmt.Fprintln(w, "GROUP\tRELEASE\tDEPENDENCIES")
+	_, _ = fmt.Fprintln(w, "GROUP\tRELEASE\tDEPENDENCIES")
 
 	for i, batch := range batches {
 		for _, r := range batch {
 			id := state.ReleaseToID(&r.ReleaseSpec)
 			needs := r.ReleaseSpec.Needs
-			fmt.Fprintf(w, "%d\t%s\t%s\n", i+1, id, strings.Join(needs, ", "))
+			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", i+1, id, strings.Join(needs, ", "))
 		}
 	}
 
