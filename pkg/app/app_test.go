@@ -2185,6 +2185,10 @@ func (c configImpl) PostRendererArgs() []string {
 	return nil
 }
 
+func (c configImpl) SkipSchemaValidation() string {
+	return ""
+}
+
 func (c configImpl) KubeVersion() string {
 	return c.kubeVersion
 }
@@ -2232,6 +2236,7 @@ type applyConfig struct {
 	reuseValues             bool
 	postRenderer            string
 	postRendererArgs        []string
+	SkipSchemaValidation    string
 	kubeVersion             string
 	suppressOutputLineRegex []string
 	showOnly                []string
@@ -2503,6 +2508,13 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
 
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+}
+
+func (helm *mockHelmExec) SetSkipSchemaValidation(postRenderer string) {
+}
+
+func (helm *mockHelmExec) GetSkipSchemaValidation() string {
+	return ""
 }
 
 func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {
