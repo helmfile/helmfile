@@ -50,6 +50,7 @@ type ApplyConfigProvider interface {
 	Args() string
 	PostRenderer() string
 	PostRendererArgs() []string
+	SkipSchemaValidation() []string
 	Cascade() string
 	HideNotes() bool
 	SuppressOutputLineRegex() []string
@@ -224,6 +225,7 @@ type TemplateConfigProvider interface {
 	Args() string
 	PostRenderer() string
 	PostRendererArgs() []string
+	SkipSchemaValidation() []string
 
 	Values() []string
 	Set() []string
