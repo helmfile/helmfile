@@ -23,7 +23,7 @@ require (
 	github.com/tj/assert v0.0.3
 	github.com/variantdev/dag v1.1.0
 	github.com/zclconf/go-cty v1.15.0
-	github.com/zclconf/go-cty-yaml v1.0.3
+	github.com/zclconf/go-cty-yaml v1.1.0
 	go.szostok.io/version v1.2.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.8.0
