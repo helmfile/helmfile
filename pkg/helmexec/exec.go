@@ -41,6 +41,7 @@ type execer struct {
 	logger               *zap.SugaredLogger
 	kubeconfig           string
 	kubeContext          string
+	skipSchemaValidation string
 	extra                []string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
@@ -154,6 +155,10 @@ func (helm *execer) SetEnableLiveOutput(enableLiveOutput bool) {
 
 func (helm *execer) SetDisableForceUpdate(forceUpdate bool) {
 	helm.options.DisableForceUpdate = forceUpdate
+}
+
+func (helm *execer) SkipSchemaValidation(skipSchemaValidation string) {
+	helm.skipSchemaValidation = skipSchemaValidation
 }
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {
