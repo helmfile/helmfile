@@ -31,7 +31,7 @@ type SyncOptions struct {
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string
 	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
-	SkipSchemaValidation string
+	SkipSchemaValidation bool
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
 	// SyncArgs is the list of arguments to pass to the helm upgrade command.
@@ -135,7 +135,7 @@ func (t *SyncImpl) PostRendererArgs() []string {
 }
 
 // SkipSchemaValidation returns the PostRenderer.
-func (t *SyncImpl) SkipSchemaValidation() string {
+func (t *SyncImpl) SkipSchemaValidation() bool {
 	return t.SyncOptions.SkipSchemaValidation
 }
 

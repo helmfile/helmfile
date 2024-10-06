@@ -2085,14 +2085,15 @@ services:
 }
 
 type configImpl struct {
-	selectors   []string
-	set         []string
-	output      string
-	includeCRDs bool
-	skipCleanup bool
-	skipCRDs    bool
-	skipDeps    bool
-	skipTests   bool
+	selectors            []string
+	set                  []string
+	output               string
+	includeCRDs          bool
+	skipCleanup          bool
+	skipCRDs             bool
+	skipDeps             bool
+	skipTests            bool
+	skipSchemaValidation bool
 
 	skipNeeds              bool
 	includeNeeds           bool
@@ -2185,16 +2186,16 @@ func (c configImpl) PostRendererArgs() []string {
 	return nil
 }
 
-func (c configImpl) SkipSchemaValidation() string {
-	return ""
-}
-
 func (c configImpl) KubeVersion() string {
 	return c.kubeVersion
 }
 
 func (c configImpl) ShowOnly() []string {
 	return nil
+}
+
+func (c configImpl) SkipSchemaValidation() bool {
+	return c.skipSchemaValidation
 }
 
 type applyConfig struct {
@@ -2236,11 +2237,11 @@ type applyConfig struct {
 	reuseValues             bool
 	postRenderer            string
 	postRendererArgs        []string
-	SkipSchemaValidation    string
 	kubeVersion             string
 	suppressOutputLineRegex []string
 	showOnly                []string
 	hideNotes               bool
+	skipSchemaValidation    bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2423,6 +2424,10 @@ func (a applyConfig) ShowOnly() []string {
 
 func (a applyConfig) HideNotes() bool {
 	return a.hideNotes
+}
+
+func (a applyConfig) SkipSchemaValidation() bool {
+	return a.skipSchemaValidation
 }
 
 type depsConfig struct {

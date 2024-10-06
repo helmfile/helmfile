@@ -61,7 +61,7 @@ type ApplyOptions struct {
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string
 	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
-	SkipSchemaValidation string
+	SkipSchemaValidation bool
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
@@ -238,7 +238,7 @@ func (a *ApplyImpl) PostRendererArgs() []string {
 }
 
 // SkipSchemaValidation returns the PostRenderer.
-func (a *ApplyImpl) SkipSchemaValidation() string {
+func (a *ApplyImpl) SkipSchemaValidation() bool {
 	return a.ApplyOptions.SkipSchemaValidation
 }
 

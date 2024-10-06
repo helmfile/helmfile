@@ -37,7 +37,7 @@ type TemplateOptions struct {
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string
 	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
-	SkipSchemaValidation string
+	SkipSchemaValidation bool
 	// KubeVersion is the kube-version flag
 	KubeVersion string
 	// Propagate '--show-only` to helm template
@@ -138,7 +138,7 @@ func (t *TemplateImpl) PostRendererArgs() []string {
 }
 
 // SkipSchemaValidation returns the SkipSchemaValidation.
-func (t *TemplateImpl) SkipSchemaValidation() string {
+func (t *TemplateImpl) SkipSchemaValidation() bool {
 	return t.TemplateOptions.SkipSchemaValidation
 }
 

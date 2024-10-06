@@ -764,17 +764,18 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 }
 
 type SyncOpts struct {
-	Set              []string
-	SkipCleanup      bool
-	SkipCRDs         bool
-	Wait             bool
-	WaitForJobs      bool
-	ReuseValues      bool
-	ResetValues      bool
-	PostRenderer     string
-	PostRendererArgs []string
-	SyncArgs         string
-	HideNotes        bool
+	Set                  []string
+	SkipCleanup          bool
+	SkipCRDs             bool
+	Wait                 bool
+	WaitForJobs          bool
+	ReuseValues          bool
+	ResetValues          bool
+	PostRenderer         string
+	SkipSchemaValidation bool
+	PostRendererArgs     []string
+	SyncArgs             string
+	HideNotes            bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1989,6 +1990,7 @@ type DiffOpts struct {
 	PostRenderer            string
 	PostRendererArgs        []string
 	SuppressOutputLineRegex []string
+	SkipSchemaValidation    bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {

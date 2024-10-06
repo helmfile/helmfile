@@ -42,6 +42,7 @@ type diffConfig struct {
 	stripTrailingCR         bool
 	interactive             bool
 	skipDiffOnInstall       bool
+	skipSchemaValidation    bool
 	reuseValues             bool
 	logger                  *zap.SugaredLogger
 }
@@ -172,6 +173,10 @@ func (a diffConfig) PostRendererArgs() []string {
 
 func (a diffConfig) SuppressOutputLineRegex() []string {
 	return a.suppressOutputLineRegex
+}
+
+func (a diffConfig) SkipSchemaValidation() bool {
+	return a.skipSchemaValidation
 }
 
 func TestDiff(t *testing.T) {

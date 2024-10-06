@@ -1376,7 +1376,6 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	helm := r.helm
 
 	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
-	r.helm.SkipSchemaValidation(c.SkipSchemaValidation())
 
 	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
 	if err != nil {
