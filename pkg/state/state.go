@@ -158,6 +158,8 @@ type HelmSpec struct {
 	SyncArgs    []string `yaml:"syncArgs,omitempty"`
 	Verify      bool     `yaml:"verify"`
 	Keyring     string   `yaml:"keyring,omitempty"`
+	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	SkipSchemaValidation *bool `yaml:"skipSchemaValidation,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS bool `yaml:"enableDNS"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
@@ -379,6 +381,9 @@ type ReleaseSpec struct {
 
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string `yaml:"postRendererArgs,omitempty"`
+
+	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	SkipSchemaValidation *bool `yaml:"skipSchemaValidation,omitempty"`
 
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade *string `yaml:"cascade,omitempty"`
@@ -2724,6 +2729,18 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
+	var skipSchemaValidation []string
+	if opt != nil {
+		skipSchemaValidationArgs = opt.SkipSchemaValidationArgs
+	}
+	flags = st.appendSkipSchemaValidationArgsFlags(flags, release, skipSchemaValidationArgs)
+
+	skipSchemaValidation := ""
+	if opt != nil {
+		skipSchemaValidation = opt.SkipSchemaValidation
+	}
+	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
+
 	var postRendererArgs []string
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
@@ -2830,6 +2847,12 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		postRenderer = opt.PostRenderer
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
+
+	skipSchemaValidation := ""
+	if opt != nil {
+		skipSchemaValidation = opt.SkipSchemaValidation
+	}
+	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
 
 	postRendererArgs := []string{}
 	if opt != nil {
