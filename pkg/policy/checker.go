@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/helmfile/helmfile/pkg/runtime"
 )
@@ -83,13 +84,15 @@ func TopKeys(helmfileContent []byte, hasSeparator bool) []string {
 	clines := bytes.Split(helmfileContent, []byte("\n"))
 
 	for _, line := range clines {
-		lineStr := strings.TrimSpace(string(line))
+		lineStr := strings.TrimRightFunc(string(line), unicode.IsSpace)
 		if lineStr == "" {
 			continue // Skip empty lines
 		}
 		if hasSeparator && separatorRegex.MatchString(lineStr) {
 			topKeys = append(topKeys, lineStr)
-		} else if topConfigKeysRegex.MatchString(lineStr) {
+		}
+
+		if topConfigKeysRegex.MatchString(lineStr) {
 			topKey := strings.SplitN(lineStr, ":", 2)[0]
 			topKeys = append(topKeys, topKey)
 		}

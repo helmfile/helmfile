@@ -230,6 +230,11 @@ func TestTopKeys(t *testing.T) {
 			helmfileContent: []byte(""),
 			want:            nil,
 		},
+		{
+			name:            "sub level contains top level key",
+			helmfileContent: []byte("bases:\n  releases:\n    - name: test\n      namespace: test\n"),
+			want:            []string{"bases"},
+		},
 	}
 
 	for _, tt := range tests {
