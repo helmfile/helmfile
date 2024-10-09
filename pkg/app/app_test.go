@@ -2515,11 +2515,11 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
 }
 
-func (helm *mockHelmExec) SetSkipSchemaValidation(postRenderer string) {
+func (helm *mockHelmExec) SetSkipSchemaValidation(skipSchemaValidation bool) {
 }
 
-func (helm *mockHelmExec) GetSkipSchemaValidation() string {
-	return ""
+func (helm *mockHelmExec) GetSkipSchemaValidation() bool {
+	return false
 }
 
 func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {
