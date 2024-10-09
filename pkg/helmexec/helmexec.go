@@ -15,6 +15,8 @@ type Interface interface {
 	SetHelmBinary(bin string)
 	SetEnableLiveOutput(enableLiveOutput bool)
 	SetDisableForceUpdate(forceUpdate bool)
+	SetSkipSchemaValidation(skipSchemaValidation bool)
+	GetSkipSchemaValidation() bool
 
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error
 	UpdateRepo() error

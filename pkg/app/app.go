@@ -1527,17 +1527,18 @@ Do you really want to apply?
 				subst.Releases = rs
 
 				syncOpts := &state.SyncOpts{
-					Set:              c.Set(),
-					SkipCleanup:      c.RetainValuesFiles() || c.SkipCleanup(),
-					SkipCRDs:         c.SkipCRDs(),
-					Wait:             c.Wait(),
-					WaitForJobs:      c.WaitForJobs(),
-					ReuseValues:      c.ReuseValues(),
-					ResetValues:      c.ResetValues(),
-					PostRenderer:     c.PostRenderer(),
-					PostRendererArgs: c.PostRendererArgs(),
-					SyncArgs:         c.SyncArgs(),
-					HideNotes:        c.HideNotes(),
+					Set:                  c.Set(),
+					SkipCleanup:          c.RetainValuesFiles() || c.SkipCleanup(),
+					SkipCRDs:             c.SkipCRDs(),
+					Wait:                 c.Wait(),
+					WaitForJobs:          c.WaitForJobs(),
+					ReuseValues:          c.ReuseValues(),
+					ResetValues:          c.ResetValues(),
+					PostRenderer:         c.PostRenderer(),
+					PostRendererArgs:     c.PostRendererArgs(),
+					SkipSchemaValidation: c.SkipSchemaValidation(),
+					SyncArgs:             c.SyncArgs(),
+					HideNotes:            c.HideNotes(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1663,6 +1664,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			ResetValues:             c.ResetValues(),
 			PostRenderer:            c.PostRenderer(),
 			PostRendererArgs:        c.PostRendererArgs(),
+			SkipSchemaValidation:    c.SkipSchemaValidation(),
 			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
 		}
 

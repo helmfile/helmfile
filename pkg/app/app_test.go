@@ -2085,14 +2085,15 @@ services:
 }
 
 type configImpl struct {
-	selectors   []string
-	set         []string
-	output      string
-	includeCRDs bool
-	skipCleanup bool
-	skipCRDs    bool
-	skipDeps    bool
-	skipTests   bool
+	selectors            []string
+	set                  []string
+	output               string
+	includeCRDs          bool
+	skipCleanup          bool
+	skipCRDs             bool
+	skipDeps             bool
+	skipTests            bool
+	skipSchemaValidation bool
 
 	skipNeeds              bool
 	includeNeeds           bool
@@ -2193,6 +2194,10 @@ func (c configImpl) ShowOnly() []string {
 	return nil
 }
 
+func (c configImpl) SkipSchemaValidation() bool {
+	return c.skipSchemaValidation
+}
+
 type applyConfig struct {
 	args    string
 	cascade string
@@ -2236,6 +2241,7 @@ type applyConfig struct {
 	suppressOutputLineRegex []string
 	showOnly                []string
 	hideNotes               bool
+	skipSchemaValidation    bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2420,6 +2426,10 @@ func (a applyConfig) HideNotes() bool {
 	return a.hideNotes
 }
 
+func (a applyConfig) SkipSchemaValidation() bool {
+	return a.skipSchemaValidation
+}
+
 type depsConfig struct {
 	skipRepos              bool
 	includeTransitiveNeeds bool
@@ -2503,6 +2513,13 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
 
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+}
+
+func (helm *mockHelmExec) SetSkipSchemaValidation(skipSchemaValidation bool) {
+}
+
+func (helm *mockHelmExec) GetSkipSchemaValidation() bool {
+	return false
 }
 
 func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {

@@ -94,6 +94,14 @@ func Test_SetEnableLiveOutput(t *testing.T) {
 	}
 }
 
+func Test_SetSkipSchemaValidation(t *testing.T) {
+	//test
+}
+
+func Test_GetSkipSchemaValidation(t *testing.T) {
+	//test
+}
+
 func Test_SetDisableForceUpdate(t *testing.T) {
 	helm := MockExecer(NewLogger(os.Stdout, "info"), "config", "dev")
 	if helm.options.DisableForceUpdate {
