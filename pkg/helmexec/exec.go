@@ -41,7 +41,7 @@ type execer struct {
 	logger               *zap.SugaredLogger
 	kubeconfig           string
 	kubeContext          string
-	skipSchemaValidation string
+	skipSchemaValidation bool
 	extra                []string
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
@@ -157,7 +157,7 @@ func (helm *execer) SetDisableForceUpdate(forceUpdate bool) {
 	helm.options.DisableForceUpdate = forceUpdate
 }
 
-func (helm *execer) SkipSchemaValidation(skipSchemaValidation string) {
+func (helm *execer) SkipSchemaValidation(skipSchemaValidation bool) {
 	helm.skipSchemaValidation = skipSchemaValidation
 }
 
