@@ -58,16 +58,18 @@ func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseS
 	return flags
 }
 
-// append post-renderer flags to helm flags
+// append skip-schema-validation flags to helm flags
 func (st *HelmState) appendSkipSchemaValidationFlags(flags []string, release *ReleaseSpec, skipSchemaValidation bool) []string {
 	switch {
-	// skipSchemaValidation arg comes from cmd flag.
-	case release.SkipSchemaValidation != nil && *release.SkipSchemaValidation != "":
-		flags = append(flags, "--skip-schema-validation", *release.SkipSchemaValidation)
-	case skipSchemaValidation != "":
-		flags = append(flags, "--skip-schema-validation", skipSchemaValidation)
-	case st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation != "":
-		flags = append(flags, "--skip-schema-validation", *st.HelmDefaults.SkipSchemaValidation)
+	// Check if SkipSchemaValidation is true in the release spec.
+	case release.SkipSchemaValidation != nil && *release.SkipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	// Check if skipSchemaValidation argument is true.
+	case skipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	// Check if SkipSchemaValidation is true in HelmDefaults.
+	case st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
 	}
 	return flags
 }
