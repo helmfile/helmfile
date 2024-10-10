@@ -461,7 +461,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {
 	diffMsg := fmt.Sprintf("Comparing release=%v, chart=%v, namespace=%v\n", name, redactedURL(chart), namespace)
 	if context.Writer != nil && !suppressDiff {
-		fmt.Fprint(context.Writer, diffMsg)
+		_, _ = fmt.Fprint(context.Writer, diffMsg)
 	} else {
 		helm.logger.Info(diffMsg)
 	}
@@ -637,7 +637,7 @@ func (helm *execer) write(w io.Writer, out []byte) {
 		if w == nil {
 			w = os.Stdout
 		}
-		fmt.Fprintf(w, "%s\n", out)
+		_, _ = fmt.Fprintf(w, "%s\n", out)
 	}
 }
 

@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -12,15 +12,15 @@ RUN make static-${TARGETOS}-${TARGETARCH}
 
 # -----------------------------------------------------------------------------
 
-FROM ubuntu:24.04
+FROM ubuntu:24.10
 
 LABEL org.opencontainers.image.source=https://github.com/helmfile/helmfile
 
 RUN apt update -qq && \
     apt install --no-install-recommends -y \
-      ca-certificates \
-      gnupg \
-      git bash curl jq wget openssh-client && \
+    ca-certificates \
+    gnupg \
+    git bash curl jq wget openssh-client && \
     rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH TARGETOS TARGETPLATFORM
@@ -43,8 +43,8 @@ RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "${HELM_LOCATION}/${HELM_FILENAME}" && \
     echo Verifying ${HELM_FILENAME}... && \
     case ${TARGETPLATFORM} in \
-        "linux/amd64")  HELM_SHA256="e57e826410269d72be3113333dbfaac0d8dfdd1b0cc4e9cb08bdf97722731ca9"  ;; \
-        "linux/arm64")  HELM_SHA256="780b5b86f0db5546769b3e9f0204713bbdd2f6696dfdaac122fbe7f2f31541d2"  ;; \
+    "linux/amd64")  HELM_SHA256="e57e826410269d72be3113333dbfaac0d8dfdd1b0cc4e9cb08bdf97722731ca9"  ;; \
+    "linux/arm64")  HELM_SHA256="780b5b86f0db5546769b3e9f0204713bbdd2f6696dfdaac122fbe7f2f31541d2"  ;; \
     esac && \
     echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
     echo Extracting ${HELM_FILENAME}... && \
@@ -59,9 +59,9 @@ ENV KUBECTL_VERSION="v1.28.9"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
     case ${TARGETPLATFORM} in \
-        # checksums are available at https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl.sha256
-        "linux/amd64")  KUBECTL_SHA256="b4693d0b22f509250694b10c7727c42b427d570af04f2065fe23a55d6c0051f1"  ;; \
-        "linux/arm64")  KUBECTL_SHA256="e0341d3973213f8099e7fcbbf6d1d506967bc2b7a4faac3fb3b4340f226e9b2f"  ;; \
+    # checksums are available at https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl.sha256
+    "linux/amd64")  KUBECTL_SHA256="b4693d0b22f509250694b10c7727c42b427d570af04f2065fe23a55d6c0051f1"  ;; \
+    "linux/arm64")  KUBECTL_SHA256="e0341d3973213f8099e7fcbbf6d1d506967bc2b7a4faac3fb3b4340f226e9b2f"  ;; \
     esac && \
     echo "${KUBECTL_SHA256}  kubectl" | sha256sum -c && \
     chmod +x kubectl && \
@@ -73,9 +73,9 @@ ARG KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_${TARGETOS}_${TARGETARCH}
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}" && \
     case ${TARGETPLATFORM} in \
-        # Checksums are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
-        "linux/amd64")  KUSTOMIZE_SHA256="3669470b454d865c8184d6bce78df05e977c9aea31c30df3c669317d43bcc7a7"  ;; \
-        "linux/arm64")  KUSTOMIZE_SHA256="1b515578b0af12c15d9856720066ce2fe66756d63785b2cbccaf2885beb2381c"  ;; \
+    # Checksums are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
+    "linux/amd64")  KUSTOMIZE_SHA256="3669470b454d865c8184d6bce78df05e977c9aea31c30df3c669317d43bcc7a7"  ;; \
+    "linux/arm64")  KUSTOMIZE_SHA256="1b515578b0af12c15d9856720066ce2fe66756d63785b2cbccaf2885beb2381c"  ;; \
     esac && \
     echo "${KUSTOMIZE_SHA256}  ${KUSTOMIZE_FILENAME}" | sha256sum -c && \
     tar xvf "${KUSTOMIZE_FILENAME}" -C /usr/local/bin && \
