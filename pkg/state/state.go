@@ -2729,16 +2729,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
-	var skipSchemaValidation []string
-	if opt != nil {
-		skipSchemaValidationArgs = opt.SkipSchemaValidationArgs
-	}
-	flags = st.appendSkipSchemaValidationArgsFlags(flags, release, skipSchemaValidationArgs)
-
-	skipSchemaValidation := ""
+	skipSchemaValidation := false
 	if opt != nil {
 		skipSchemaValidation = opt.SkipSchemaValidation
 	}
+
 	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
 
 	var postRendererArgs []string
@@ -2848,7 +2843,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
-	skipSchemaValidation := ""
+	skipSchemaValidation := false
 	if opt != nil {
 		skipSchemaValidation = opt.SkipSchemaValidation
 	}
