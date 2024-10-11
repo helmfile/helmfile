@@ -38,6 +38,7 @@ type destroyConfig struct {
 	concurrency            int
 	interactive            bool
 	skipDeps               bool
+	skipRefresh            bool
 	logger                 *zap.SugaredLogger
 	includeTransitiveNeeds bool
 	skipCharts             bool
@@ -71,6 +72,10 @@ func (d destroyConfig) Concurrency() int {
 
 func (d destroyConfig) SkipDeps() bool {
 	return d.skipDeps
+}
+
+func (d destroyConfig) SkipRefresh() bool {
+	return d.skipRefresh
 }
 
 func (d destroyConfig) IncludeTransitiveNeeds() bool {

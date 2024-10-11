@@ -24,6 +24,7 @@ type diffConfig struct {
 	validate                bool
 	skipCRDs                bool
 	skipDeps                bool
+	skipRefresh             bool
 	includeTests            bool
 	skipNeeds               bool
 	includeNeeds            bool
@@ -72,6 +73,10 @@ func (a diffConfig) SkipCRDs() bool {
 
 func (a diffConfig) SkipDeps() bool {
 	return a.skipDeps
+}
+
+func (a diffConfig) SkipRefresh() bool {
+	return a.skipRefresh
 }
 
 func (a diffConfig) IncludeTests() bool {

@@ -184,6 +184,8 @@ type HelmSpec struct {
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
 	SkipDeps bool `yaml:"skipDeps"`
+	// SkipRefresh disables running `helm dependency up`
+	SkipRefresh bool `yaml:"skipRefresh"`
 	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues bool `yaml:"reuseValues"`
 	// Propagate '--post-renderer' to helmv3 template and helm install
@@ -373,6 +375,9 @@ type ReleaseSpec struct {
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
 	SkipDeps *bool `yaml:"skipDeps,omitempty"`
+
+	// SkipRefresh disables running `helm dependency up`
+	SkipRefresh *bool `yaml:"skipRefresh,omitempty"`
 
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
@@ -1099,6 +1104,7 @@ type ChartPrepareOptions struct {
 	ForceDownload bool
 	SkipRepos     bool
 	SkipDeps      bool
+	SkipRefresh   bool
 	SkipResolve   bool
 	SkipCleanup   bool
 	// Validate is a helm-3-only option. When it is set to true, it configures chartify to pass --validate to helm-template run by it.

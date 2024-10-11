@@ -10,6 +10,7 @@ type ConfigProvider interface {
 	StripArgsValuesOnExitError() bool
 	DisableForceUpdate() bool
 	SkipDeps() bool
+	SkipRefresh() bool
 
 	FileOrDir() string
 	KubeContext() string
@@ -58,6 +59,7 @@ type ApplyConfigProvider interface {
 	Set() []string
 	SkipCRDs() bool
 	SkipDeps() bool
+	SkipRefresh() bool
 	Wait() bool
 	WaitForJobs() bool
 
@@ -106,6 +108,7 @@ type SyncConfigProvider interface {
 	Set() []string
 	SkipCRDs() bool
 	SkipDeps() bool
+	SkipRefresh() bool
 	Wait() bool
 	WaitForJobs() bool
 	SyncArgs() string
@@ -134,6 +137,7 @@ type DiffConfigProvider interface {
 	Validate() bool
 	SkipCRDs() bool
 	SkipDeps() bool
+	SkipRefresh() bool
 
 	IncludeTests() bool
 
@@ -165,6 +169,7 @@ type DeleteConfigProvider interface {
 
 	Purge() bool
 	SkipDeps() bool
+	SkipRefresh() bool
 	SkipCharts() bool
 	DeleteWait() bool
 	DeleteTimeout() int
@@ -179,6 +184,7 @@ type DestroyConfigProvider interface {
 	Cascade() string
 
 	SkipDeps() bool
+	SkipRefresh() bool
 	SkipCharts() bool
 	DeleteWait() bool
 	DeleteTimeout() int
@@ -192,6 +198,7 @@ type TestConfigProvider interface {
 	Args() string
 
 	SkipDeps() bool
+	SkipRefresh() bool
 	Timeout() int
 	Cleanup() bool
 	Logs() bool
@@ -205,6 +212,7 @@ type LintConfigProvider interface {
 	Values() []string
 	Set() []string
 	SkipDeps() bool
+	SkipRefresh() bool
 	SkipCleanup() bool
 
 	DAGConfig
@@ -214,6 +222,7 @@ type LintConfigProvider interface {
 
 type FetchConfigProvider interface {
 	SkipDeps() bool
+	SkipRefresh() bool
 	OutputDir() string
 	OutputDirTemplate() string
 
@@ -230,6 +239,7 @@ type TemplateConfigProvider interface {
 	OutputDirTemplate() string
 	Validate() bool
 	SkipDeps() bool
+	SkipRefresh() bool
 	SkipCleanup() bool
 	SkipTests() bool
 	OutputDir() string
@@ -253,6 +263,7 @@ type WriteValuesConfigProvider interface {
 	Set() []string
 	OutputFileTemplate() string
 	SkipDeps() bool
+	SkipRefresh() bool
 	SkipCleanup() bool
 	IncludeTransitiveNeeds() bool
 
