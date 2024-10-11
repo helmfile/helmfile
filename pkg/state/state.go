@@ -2138,17 +2138,23 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 
 		start := time.Now()
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
+			release.duration = time.Since(start)
+
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 
 			return err
 		}
 
 		if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
+			release.duration = time.Since(start)
+
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
 		}
 
 		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete"); err != nil {
+			release.duration = time.Since(start)
+
 			affectedReleases.Failed = append(affectedReleases.Failed, &release)
 			return err
 		}
