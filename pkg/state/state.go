@@ -444,9 +444,10 @@ type SetValue struct {
 
 // AffectedReleases hold the list of released that where updated, deleted, or in error
 type AffectedReleases struct {
-	Upgraded []*ReleaseSpec
-	Deleted  []*ReleaseSpec
-	Failed   []*ReleaseSpec
+	Upgraded     []*ReleaseSpec
+	Deleted      []*ReleaseSpec
+	Failed       []*ReleaseSpec
+	DeleteFailed []*ReleaseSpec
 }
 
 // DefaultEnv is the default environment to use for helm commands
@@ -878,13 +879,13 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					m.Lock()
 					start := time.Now()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
-						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
-						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
-						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else {
 						affectedReleases.Deleted = append(affectedReleases.Deleted, release)
@@ -2146,7 +2147,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
 			release.duration = time.Since(start)
 
-			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
 
 			return err
 		}
@@ -2154,14 +2155,14 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
 			release.duration = time.Since(start)
 
-			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
 			return err
 		}
 
 		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete"); err != nil {
 			release.duration = time.Since(start)
 
-			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
 			return err
 		}
 		release.duration = time.Since(start)
@@ -3446,6 +3447,21 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		tbl.Separator = "   "
 		for _, release := range ar.Failed {
 			err := tbl.AddRow(release.Name, release.Namespace, release.Chart, release.installedVersion, release.duration.Round(time.Second))
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
+		}
+		logger.Info(tbl.String())
+	}
+	if len(ar.DeleteFailed) > 0 {
+		logger.Info("\nFAILED TO DELETE RELEASES:")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
+		)
+		tbl.Separator = "   "
+		for _, release := range ar.DeleteFailed {
+			err := tbl.AddRow(release.Name, release.Namespace, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
