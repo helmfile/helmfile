@@ -175,7 +175,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
 			Validate:               c.Validate(),
@@ -240,7 +240,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		run.helm.SetEnableLiveOutput(false)
 
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
 			SkipCleanup:            c.SkipCleanup(),
@@ -264,7 +264,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
+			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:    c.SkipDeps(),
 			SkipCleanup: c.SkipCleanup(),
 			Concurrency: c.Concurrency(),
@@ -315,7 +315,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
 		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload:          true,
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
@@ -350,7 +350,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
-			SkipRepos:         c.SkipDeps(),
+			SkipRepos:         c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:          c.SkipDeps(),
 			OutputDir:         c.OutputDir(),
 			OutputDirTemplate: c.OutputDirTemplate(),
@@ -371,7 +371,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			Wait:                   c.Wait(),
 			WaitForJobs:            c.WaitForJobs(),
@@ -404,7 +404,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:               c.SkipDeps(),
 			Wait:                   c.Wait(),
 			WaitForJobs:            c.WaitForJobs(),
@@ -466,7 +466,7 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
 			err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
-				SkipRepos:     c.SkipDeps(),
+				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
 				SkipDeps:      c.SkipDeps(),
 				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
@@ -489,7 +489,7 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
 			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
-				SkipRepos:     c.SkipDeps(),
+				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
 				SkipDeps:      c.SkipDeps(),
 				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
@@ -516,7 +516,7 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
+			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:    c.SkipDeps(),
 			Concurrency: c.Concurrency(),
 		}, func() {
