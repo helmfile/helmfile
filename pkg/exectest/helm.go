@@ -94,6 +94,8 @@ func (helm *Helm) SetEnableLiveOutput(enableLiveOutput bool) {
 }
 func (helm *Helm) SetDisableForceUpdate(forceUpdate bool) {
 }
+func (helm *Helm) SkipSchemaValidation(skipSchemaValidation bool) {
+}
 func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {
 	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, fmt.Sprintf("%v", passCredentials), fmt.Sprintf("%v", skipTLSVerify)}
 	return nil
