@@ -42,6 +42,7 @@ type execer struct {
 	kubeconfig           string
 	kubeContext          string
 	extra                []string
+	skipSchemaValidation bool
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
@@ -154,6 +155,10 @@ func (helm *execer) SetEnableLiveOutput(enableLiveOutput bool) {
 
 func (helm *execer) SetDisableForceUpdate(forceUpdate bool) {
 	helm.options.DisableForceUpdate = forceUpdate
+}
+
+func (helm *execer) SkipSchemaValidation(skipSchemaValidation bool) {
+	helm.skipSchemaValidation = skipSchemaValidation
 }
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {

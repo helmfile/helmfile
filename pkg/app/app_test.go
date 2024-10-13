@@ -2085,15 +2085,15 @@ services:
 }
 
 type configImpl struct {
-	selectors   []string
-	set         []string
-	output      string
-	includeCRDs bool
-	skipCleanup bool
-	skipCRDs    bool
-	skipDeps    bool
-	skipRefresh bool
-	skipTests   bool
+	selectors            []string
+	set                  []string
+	output               string
+	includeCRDs          bool
+	skipCleanup          bool
+	skipCRDs             bool
+	skipDeps             bool
+	skipTests            bool
+	skipSchemaValidation bool
 
 	skipNeeds              bool
 	includeNeeds           bool
@@ -2194,6 +2194,10 @@ func (c configImpl) KubeVersion() string {
 	return c.kubeVersion
 }
 
+func (c configImpl) SkipSchemaValidation() bool {
+	return c.skipSchemaValidation
+}
+
 func (c configImpl) ShowOnly() []string {
 	return nil
 }
@@ -2238,6 +2242,7 @@ type applyConfig struct {
 	reuseValues             bool
 	postRenderer            string
 	postRendererArgs        []string
+	skipSchemaValidation    bool
 	kubeVersion             string
 	suppressOutputLineRegex []string
 	showOnly                []string
@@ -2422,6 +2427,10 @@ func (a applyConfig) KubeVersion() string {
 	return a.kubeVersion
 }
 
+func (a applyConfig) SkipSchemaValidation() bool {
+	return a.skipSchemaValidation
+}
+
 func (a applyConfig) ShowOnly() []string {
 	return a.showOnly
 }
@@ -2504,6 +2513,13 @@ func (helm *mockHelmExec) UpdateDeps(chart string) error {
 
 func (helm *mockHelmExec) BuildDeps(name, chart string, flags ...string) error {
 	return nil
+}
+
+func (helm *mockHelmExec) SetSkipSchemaValidation(skipSchemaValidation bool) {
+}
+
+func (helm *mockHelmExec) GetSkipSchemaValidation() bool {
+	return false
 }
 
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
