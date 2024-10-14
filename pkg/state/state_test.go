@@ -2808,7 +2808,7 @@ func TestHelmState_Delete(t *testing.T) {
 			affectedReleases := AffectedReleases{}
 			errs := state.DeleteReleases(&affectedReleases, helm, 1, tt.purge, "")
 			if errs != nil {
-				if !tt.wantErr || len(affectedReleases.Failed) != 1 || affectedReleases.Failed[0].Name != release.Name {
+				if !tt.wantErr || len(affectedReleases.DeleteFailed) != 1 || affectedReleases.DeleteFailed[0].Name != release.Name {
 					t.Errorf("DeleteReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 					return
 				}
