@@ -2094,6 +2094,7 @@ type configImpl struct {
 	skipDeps             bool
 	skipTests            bool
 	skipSchemaValidation bool
+	skipRefresh          bool
 
 	skipNeeds              bool
 	includeNeeds           bool
