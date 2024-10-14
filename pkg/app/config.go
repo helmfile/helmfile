@@ -226,7 +226,6 @@ type FetchConfigProvider interface {
 	SkipDeps() bool
 	SkipRefresh() bool
 	OutputDir() string
-	SkipSchemaValidation() bool
 	OutputDirTemplate() string
 
 	concurrencyConfig
