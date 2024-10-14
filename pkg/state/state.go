@@ -2003,6 +2003,7 @@ type DiffOpts struct {
 	PostRenderer            string
 	PostRendererArgs        []string
 	SuppressOutputLineRegex []string
+	SkipSchemaValidation    bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
