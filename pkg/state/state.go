@@ -1370,6 +1370,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						chartPath = filepath.Dir(fullChartPath)
 					}
 				}
+
 				results <- &chartPrepareResult{
 					releaseName:            release.Name,
 					chartName:              chartName,
@@ -1377,7 +1378,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					releaseContext:         release.KubeContext,
 					chartPath:              chartPath,
 					buildDeps:              buildDeps,
-					skipRefresh:            !isLocal,
+					skipRefresh:            !isLocal || opts.SkipRefresh,
 					chartFetchedByGoGetter: chartFetchedByGoGetter,
 				}
 			}

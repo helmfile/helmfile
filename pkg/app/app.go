@@ -176,6 +176,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
 			Validate:               c.Validate(),
@@ -241,6 +242,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
 			SkipCleanup:            c.SkipCleanup(),
@@ -265,6 +267,7 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
 			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
 			SkipCleanup: c.SkipCleanup(),
 			Concurrency: c.Concurrency(),
@@ -316,6 +319,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
@@ -350,6 +354,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
+			SkipRefresh:       c.SkipRefresh(),
 			SkipRepos:         c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:          c.SkipDeps(),
 			OutputDir:         c.OutputDir(),
@@ -372,6 +377,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			Wait:                   c.Wait(),
 			WaitForJobs:            c.WaitForJobs(),
@@ -405,6 +411,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			Wait:                   c.Wait(),
 			WaitForJobs:            c.WaitForJobs(),
@@ -467,6 +474,7 @@ func (a *App) Delete(c DeleteConfigProvider) error {
 		if !c.SkipCharts() {
 			err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
 				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
+				SkipRefresh:   c.SkipRefresh(),
 				SkipDeps:      c.SkipDeps(),
 				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
@@ -490,6 +498,7 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 		if !c.SkipCharts() {
 			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
 				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
+				SkipRefresh:   c.SkipRefresh(),
 				SkipDeps:      c.SkipDeps(),
 				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
@@ -517,6 +526,7 @@ func (a *App) Test(c TestConfigProvider) error {
 
 		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
 			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
 			Concurrency: c.Concurrency(),
 		}, func() {
