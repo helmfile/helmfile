@@ -160,6 +160,8 @@ type HelmSpec struct {
 	Keyring     string   `yaml:"keyring,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS bool `yaml:"enableDNS"`
+	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	SkipSchemaValidation *bool `yaml:"skipSchemaValidation,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
@@ -381,6 +383,9 @@ type ReleaseSpec struct {
 
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
+
+	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	SkipSchemaValidation *bool `yaml:"skipSchemaValidation,omitempty"`
 
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string `yaml:"postRendererArgs,omitempty"`
@@ -770,17 +775,18 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 }
 
 type SyncOpts struct {
-	Set              []string
-	SkipCleanup      bool
-	SkipCRDs         bool
-	Wait             bool
-	WaitForJobs      bool
-	ReuseValues      bool
-	ResetValues      bool
-	PostRenderer     string
-	PostRendererArgs []string
-	SyncArgs         string
-	HideNotes        bool
+	Set                  []string
+	SkipCleanup          bool
+	SkipCRDs             bool
+	Wait                 bool
+	WaitForJobs          bool
+	ReuseValues          bool
+	ResetValues          bool
+	PostRenderer         string
+	SkipSchemaValidation bool
+	PostRendererArgs     []string
+	SyncArgs             string
+	HideNotes            bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1997,6 +2003,7 @@ type DiffOpts struct {
 	PostRenderer            string
 	PostRendererArgs        []string
 	SuppressOutputLineRegex []string
+	SkipSchemaValidation    bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2742,6 +2749,13 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 
+	skipSchemaValidation := false
+	if opt != nil {
+		skipSchemaValidation = opt.SkipSchemaValidation
+	}
+
+	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
+
 	// append hide-notes flag
 	flags = st.appendHideNotesFlags(flags, helm, opt)
 
@@ -2848,6 +2862,12 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		postRendererArgs = opt.PostRendererArgs
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+
+	skipSchemaValidation := false
+	if opt != nil {
+		skipSchemaValidation = opt.SkipSchemaValidation
+	}
+	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
 
 	suppressOutputLineRegex := []string{}
 	if opt != nil {
