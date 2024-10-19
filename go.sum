@@ -491,6 +491,7 @@ github.com/getsops/gopgagent v0.0.0-20240527072608-0c14999532fe h1:QKe/kmAYbndxw
 github.com/getsops/gopgagent v0.0.0-20240527072608-0c14999532fe/go.mod h1:awFzISqLJoZLm+i9QQ4SgMNHDqljH6jWV0B36V5MrUM=
 github.com/getsops/sops/v3 v3.9.1 h1:wXsqzEsUPVQPcxsvjpwpqqD3DVRe9UZKJ7LSf5rzuLA=
 github.com/getsops/sops/v3 v3.9.1/go.mod h1:k3XzAfcvMI1Rfyw2tky0/RakHrdbVcUrtCGTYsmkMY8=
+github.com/ghodss/yaml v1.0.0 h1:wQHKEahhL6wmXdzwWG11gIVCkOv05bNOh+Rxn0yngAk=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/go-errors/errors v1.4.2 h1:J6MZopCL4uSllY1OfXM374weqZFFItUbrImctkmUxIA=
 github.com/go-errors/errors v1.4.2/go.mod h1:sIVyrIiJhuEF+Pj9Ebtd6P/rEYROXFi3BopGUQ5a5Og=
