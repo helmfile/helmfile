@@ -597,6 +597,10 @@ func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiv
 		enableLiveOutput = *overrideEnableLiveOutput
 	}
 	outBytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env, enableLiveOutput)
+
+	// Reset extra args after each helm execution
+	helm.SetExtraArgs()
+
 	return outBytes, err
 }
 
@@ -614,6 +618,10 @@ func (helm *execer) execStdIn(args []string, env map[string]string, stdin io.Rea
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
 	outBytes, err := helm.runner.ExecuteStdIn(helm.helmBinary, cmdargs, env, stdin)
+
+	// Reset extra args after each helm execution
+	helm.SetExtraArgs()
+
 	return outBytes, err
 }
 
