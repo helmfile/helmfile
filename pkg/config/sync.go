@@ -134,7 +134,7 @@ func (t *SyncImpl) PostRendererArgs() []string {
 	return t.SyncOptions.PostRendererArgs
 }
 
-// SkipSchemaValidation returns the PostRenderer.
+// SkipSchemaValidation returns the SkipSchemaValidation.
 func (t *SyncImpl) SkipSchemaValidation() bool {
 	return t.SyncOptions.SkipSchemaValidation
 }

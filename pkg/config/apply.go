@@ -237,7 +237,7 @@ func (a *ApplyImpl) PostRendererArgs() []string {
 	return a.ApplyOptions.PostRendererArgs
 }
 
-// SkipSchemaValidation returns the PostRenderer.
+// SkipSchemaValidation returns the SkipSchemaValidation.
 func (a *ApplyImpl) SkipSchemaValidation() bool {
 	return a.ApplyOptions.SkipSchemaValidation
 }

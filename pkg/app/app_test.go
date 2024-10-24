@@ -2516,13 +2516,6 @@ func (helm *mockHelmExec) BuildDeps(name, chart string, flags ...string) error {
 	return nil
 }
 
-func (helm *mockHelmExec) SetSkipSchemaValidation(skipSchemaValidation bool) {
-}
-
-func (helm *mockHelmExec) GetSkipSchemaValidation() bool {
-	return false
-}
-
 func (helm *mockHelmExec) SetExtraArgs(args ...string) {
 }
 
