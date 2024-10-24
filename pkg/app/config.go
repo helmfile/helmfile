@@ -51,6 +51,7 @@ type ApplyConfigProvider interface {
 	Args() string
 	PostRenderer() string
 	PostRendererArgs() []string
+	SkipSchemaValidation() bool
 	Cascade() string
 	HideNotes() bool
 	SuppressOutputLineRegex() []string
@@ -130,6 +131,7 @@ type DiffConfigProvider interface {
 	Args() string
 	PostRenderer() string
 	PostRendererArgs() []string
+	SkipSchemaValidation() bool
 	SuppressOutputLineRegex() []string
 
 	Values() []string

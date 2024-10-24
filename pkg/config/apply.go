@@ -52,6 +52,8 @@ type ApplyOptions struct {
 	Wait bool
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
 	WaitForJobs bool
+	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	SkipSchemaValidation bool
 	// ReuseValues is true if the helm command should reuse the values
 	ReuseValues bool
 	// ResetValues is true if helm command should reset values to charts' default
@@ -233,6 +235,11 @@ func (a *ApplyImpl) PostRenderer() string {
 // PostRendererArgs returns the PostRendererArgs.
 func (a *ApplyImpl) PostRendererArgs() []string {
 	return a.ApplyOptions.PostRendererArgs
+}
+
+// SkipSchemaValidation returns the SkipSchemaValidation.
+func (a *ApplyImpl) SkipSchemaValidation() bool {
+	return a.ApplyOptions.SkipSchemaValidation
 }
 
 // Cascade returns cascade flag

@@ -58,6 +58,22 @@ func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseS
 	return flags
 }
 
+// append skip-schema-validation flags to helm flags
+func (st *HelmState) appendSkipSchemaValidationFlags(flags []string, release *ReleaseSpec, skipSchemaValidation bool) []string {
+	switch {
+	// Check if SkipSchemaValidation is true in the release spec.
+	case release.SkipSchemaValidation != nil && *release.SkipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	// Check if skipSchemaValidation argument is true.
+	case skipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	// Check if SkipSchemaValidation is true in HelmDefaults.
+	case st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	}
+	return flags
+}
+
 // append suppress-output-line-regex flags to helm diff flags
 func (st *HelmState) appendSuppressOutputLineRegexFlags(flags []string, release *ReleaseSpec, suppressOutputLineRegex []string) []string {
 	suppressOutputLineRegexFlags := []string{}
