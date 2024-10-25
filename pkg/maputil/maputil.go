@@ -231,6 +231,9 @@ func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
 		out[k] = v
 	}
 	for k, v := range b {
+		if v == nil {
+			continue
+		}
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {
