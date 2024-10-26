@@ -185,9 +185,9 @@ global                     	kube-system	true   	true     	        	incubator/raw
 		check(t, testcase{
 			environment: "development",
 			selectors:   []string{"app=test"},
-			expected: `NAME            	NAMESPACE	ENABLED	INSTALLED	LABELS                                                    	CHART        	VERSION
-external-secrets	default  	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default	incubator/raw	       
-my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,namespace:default      	incubator/raw	       
+			expected: `NAME            	NAMESPACE	ENABLED	INSTALLED	LABELS  	CHART        	VERSION
+external-secrets	default  	true   	true     	app:test	incubator/raw	       
+my-release      	default  	true   	true     	app:test	incubator/raw	       
 `,
 		}, cfg)
 	})
