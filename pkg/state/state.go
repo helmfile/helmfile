@@ -2267,6 +2267,9 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		orginReleaseLabel := maps.Clone(r.Labels)
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
+		} else {
+			// Make a copy of the labels to avoid mutating the original
+			r.Labels = maps.Clone(r.Labels)
 		}
 		// Let the release name, namespace, and chart be used as a tag
 		r.Labels["name"] = r.Name
