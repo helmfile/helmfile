@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -2263,7 +2264,7 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		filters = append(filters, f)
 	}
 	for _, r := range releases {
-		orginReleaseLabel := r.Labels
+		orginReleaseLabel := maps.Clone(r.Labels)
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
 		}
