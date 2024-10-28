@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"dario.cat/mergo"
@@ -36,12 +37,14 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 	}
 }
 
-func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
+func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string, features []string) (map[string]any, error) {
 	var (
 		result    = map[string]any{}
 		hclLoader = hcllang.NewHCLLoader(ld.fs, ld.logger)
 		err       error
 	)
+
+	layeredValues := slices.Contains(features, FeatureLayeredEnvironmentValues)
 
 	for _, entry := range valuesEntries {
 		maps := []any{}
@@ -65,7 +68,14 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				if strings.HasSuffix(f, ".hcl") {
 					hclLoader.AddFile(f)
 				} else {
-					tmplData := NewEnvironmentTemplateData(env, "", env.Values)
+					values := env.Values
+					if layeredValues {
+						values, err = mapMerge(values, []any{result})
+						if err != nil {
+							return nil, err
+						}
+					}
+					tmplData := NewEnvironmentTemplateData(env, "", values)
 					r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
 					bytes, err := r.RenderToBytes(f)
 					if err != nil {
