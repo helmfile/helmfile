@@ -2,13 +2,16 @@ package state
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"dario.cat/mergo"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/hcllang"
 	"github.com/helmfile/helmfile/pkg/maputil"
@@ -43,6 +46,11 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 		err       error
 	)
 
+	layeredValues := false
+	if parsedBool, err := strconv.ParseBool(os.Getenv(envvar.LayeredEnvValuesFlag)); err == nil {
+		layeredValues = parsedBool
+	}
+
 	for _, entry := range valuesEntries {
 		maps := []any{}
 
@@ -65,7 +73,11 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				if strings.HasSuffix(f, ".hcl") {
 					hclLoader.AddFile(f)
 				} else {
-					tmplData := NewEnvironmentTemplateData(env, "", map[string]any{})
+					values := make(map[string]any)
+					if layeredValues {
+						values = result
+					}
+					tmplData := NewEnvironmentTemplateData(env, "", values)
 					r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
 					bytes, err := r.RenderToBytes(f)
 					if err != nil {
