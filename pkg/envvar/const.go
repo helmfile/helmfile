@@ -16,4 +16,5 @@ const (
 	CacheHome                  = "HELMFILE_CACHE_HOME"
 	Interactive                = "HELMFILE_INTERACTIVE"
 	EnableGoccyGoYamlJSONStyle = "HELMFILE_ENABLE_GOCCY_GOYAML_JSON_STYLE"
+	LayeredEnvValuesFlag       = "HELMFILE_LAYERED_ENV_VALUES"
 )
