@@ -399,11 +399,11 @@ releases:
 		check(t, testcase{
 			goccyGoYaml: true,
 			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1: [4:3] unknown field "foobar"
-       2 | releases:
-       3 | - name: app1
-    >  4 |   foobar: FOOBAR
-             ^
-       5 |   chart: incubator/raw`,
+   2 | releases:
+   3 | - name: app1
+>  4 |   foobar: FOOBAR
+         ^
+   5 |   chart: incubator/raw`,
 		})
 	})
 
