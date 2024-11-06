@@ -69,6 +69,7 @@ function cleanup() {
 set -e
 trap cleanup EXIT
 info "Using namespace: ${test_ns}"
+info "Using Helm version:" $(${helm} version --short | grep -o 'v[0-9.]\+')
 ${helm} plugin ls | grep diff || ${helm} plugin install https://github.com/databus23/helm-diff --version v${HELM_DIFF_VERSION}
 info "Using Kustomize version: $(kustomize version --short | grep -o 'v[0-9.]\+')"
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
@@ -96,6 +97,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/deps-mr-1011.sh
 . ${dir}/test-cases/deps-kustomization-i-1402.sh
 . ${dir}/test-cases/hcl-secrets.sh
+. ${dir}/test-cases/issue-1749.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 
