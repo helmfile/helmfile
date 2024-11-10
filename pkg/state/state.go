@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -2268,22 +2269,24 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		filters = append(filters, f)
 	}
 	for _, r := range releases {
-		// Do not add any label without any filter, see #276
-		if len(filters) > 0 {
-			if r.Labels == nil {
-				r.Labels = map[string]string{}
-			}
-			// Let the release name, namespace, and chart be used as a tag
-			r.Labels["name"] = r.Name
-			r.Labels["namespace"] = r.Namespace
-			// Strip off just the last portion for the name stable/newrelic would give newrelic
-			chartSplit := strings.Split(r.Chart, "/")
-			r.Labels["chart"] = chartSplit[len(chartSplit)-1]
-			// Merge CommonLabels into release labels
-			for k, v := range commonLabels {
-				r.Labels[k] = v
-			}
+		orginReleaseLabel := maps.Clone(r.Labels)
+		if r.Labels == nil {
+			r.Labels = map[string]string{}
+		} else {
+			// Make a copy of the labels to avoid mutating the original
+			r.Labels = maps.Clone(r.Labels)
 		}
+		// Let the release name, namespace, and chart be used as a tag
+		r.Labels["name"] = r.Name
+		r.Labels["namespace"] = r.Namespace
+		// Strip off just the last portion for the name stable/newrelic would give newrelic
+		chartSplit := strings.Split(r.Chart, "/")
+		r.Labels["chart"] = chartSplit[len(chartSplit)-1]
+		// Merge CommonLabels into release labels
+		for k, v := range commonLabels {
+			r.Labels[k] = v
+		}
+
 		var filterMatch bool
 		for _, f := range filters {
 			if r.Labels == nil {
@@ -2299,6 +2302,8 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse condition in release %s: %w", r.Name, err)
 		}
+		// reset the labels to the original
+		r.Labels = orginReleaseLabel
 		res := Release{
 			ReleaseSpec: r,
 			Filtered:    (len(filters) > 0 && !filterMatch) || (!conditionMatch),
