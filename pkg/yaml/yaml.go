@@ -42,6 +42,8 @@ func NewDecoder(data []byte, strict bool) func(any) error {
 		if strict {
 			opts = append(opts, yaml.DisallowUnknownField())
 		}
+		// allow duplicate keys
+		opts = append(opts, yaml.AllowDuplicateMapKey())
 
 		decoder := yaml.NewDecoder(
 			bytes.NewReader(data),
