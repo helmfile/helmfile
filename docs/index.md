@@ -233,7 +233,7 @@ helmDefaults:
   deleteWait: false
   # Timeout is the time in seconds to wait for helmfile destroy/delete (default 300)
   deleteTimeout: 300
-  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
+  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
   suppressOutputLineRegex:
     - "version"
 
@@ -349,7 +349,7 @@ releases:
     plainHttp: false
     # suppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
     suppressDiff: false
-    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
+    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
     suppressOutputLineRegex:
       - "version"
 
@@ -551,6 +551,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_GOCCY_GOYAML` - use *goccy/go-yaml* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile v0.x and `true` by default for Helmfile v1.x.
 * `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
 * `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file  
+* `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
 
 ## CLI Reference
 
@@ -1656,6 +1657,9 @@ Please see #203 for more context.
 Use it when you're running `helmfile` manually on your local machine or a kind of secure administrative hosts.
 
 For your local use-case, aliasing it like `alias hi='helmfile --interactive'` would be convenient.
+
+Another way to use it is to set the environment variable `HELMFILE_INTERACTIVE=true` to enable the interactive mode by default.
+Anything other than `true` will disable the interactive mode. The precedence has the `--interactive` flag.
 
 ## Running Helmfile without an Internet connection
 
