@@ -246,7 +246,10 @@ func (g *GlobalImpl) ValidateConfig() error {
 
 // Interactive returns the Interactive
 func (g *GlobalImpl) Interactive() bool {
-	return g.GlobalOptions.Interactive
+	if g.GlobalOptions.Interactive {
+		return true
+	}
+	return os.Getenv(envvar.Interactive) == "true"
 }
 
 // Args returns the args to use for helm

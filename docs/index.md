@@ -233,7 +233,7 @@ helmDefaults:
   deleteWait: false
   # Timeout is the time in seconds to wait for helmfile destroy/delete (default 300)
   deleteTimeout: 300
-  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
+  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
   suppressOutputLineRegex:
     - "version"
 
@@ -349,7 +349,7 @@ releases:
     plainHttp: false
     # suppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
     suppressDiff: false
-    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
+    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
     suppressOutputLineRegex:
       - "version"
 
@@ -542,7 +542,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_DISABLE_INSECURE_FEATURES` - disable insecure features, expecting `true` lower case
 * `HELMFILE_DISABLE_RUNNER_UNIQUE_ID` - disable unique logging ID, expecting any non-empty value
 * `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` - disable insecure template functions, expecting `true` lower case
-* `HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE` - expecting non-empty value to use `helm status` to check release existence, instead of `helm list` which is the default behaviour 
+* `HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE` - expecting non-empty value to use `helm status` to check release existence, instead of `helm list` which is the default behaviour
 * `HELMFILE_EXPERIMENTAL` - enable experimental features, expecting `true` lower case
 * `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](https://helmfile.readthedocs.io/en/latest/#environment), it has lower priority than CLI argument `--environment`
 * `HELMFILE_TEMPDIR` - specify directory to store temporary files
@@ -550,7 +550,8 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_V1MODE` - Helmfile v0.x behaves like v1.x with `true`, Helmfile v1.x behaves like v0.x with `false` as value
 * `HELMFILE_GOCCY_GOYAML` - use *goccy/go-yaml* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile v0.x and `true` by default for Helmfile v1.x.
 * `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
-* `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file  
+* `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
+* `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
 
 ## CLI Reference
 
@@ -920,7 +921,7 @@ releases:
 ```
 
 ### Environment Values
-Helmfile supports 3 values languages : 
+Helmfile supports 3 values languages :
 - Straight yaml
 - Go templates to generate straight yaml
 - HCL
@@ -1008,7 +1009,7 @@ HCL values supports interpolations and sharing values across files
 * Helmfile hcl `values` are referenced using the `hv` accessor.
 * Helmfile hcl `locals` are referenced using the `local` accessor.
 * Duplicated variables across .hcl `values` blocks are forbidden (An error will pop up specifying where are the duplicates)
-* All cty [standard library functions](`https://pkg.go.dev/github.com/zclconf/go-cty@v1.14.3/cty/function/stdlib`) are available and custom functions could be created in the future 
+* All cty [standard library functions](`https://pkg.go.dev/github.com/zclconf/go-cty@v1.14.3/cty/function/stdlib`) are available and custom functions could be created in the future
 
 Consider the following example :
 
@@ -1656,6 +1657,9 @@ Please see #203 for more context.
 Use it when you're running `helmfile` manually on your local machine or a kind of secure administrative hosts.
 
 For your local use-case, aliasing it like `alias hi='helmfile --interactive'` would be convenient.
+
+Another way to use it is to set the environment variable `HELMFILE_INTERACTIVE=true` to enable the interactive mode by default.
+Anything other than `true` will disable the interactive mode. The precedence has the `--interactive` flag.
 
 ## Running Helmfile without an Internet connection
 

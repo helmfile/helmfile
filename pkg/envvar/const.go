@@ -18,4 +18,5 @@ const (
 	V1Mode                = "HELMFILE_V1MODE"
 	GoccyGoYaml           = "HELMFILE_GOCCY_GOYAML"
 	CacheHome             = "HELMFILE_CACHE_HOME"
+	Interactive           = "HELMFILE_INTERACTIVE"
 )
