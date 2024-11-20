@@ -70,6 +70,12 @@ func TestFs_resolveSymlinks(t *testing.T) {
 			expected:    "/a/b/c/existing_file.txt",
 			expectedErr: nil,
 		},
+		{
+			name:        "current directory existing file symlink",
+			symlinkPath: "existing_file.txt",
+			expected:    "existing_file.txt",
+			expectedErr: nil,
+		},
 	}
 
 	ffs := NewTestFileSystem()
