@@ -137,12 +137,13 @@ func (r *Run) Repos(c ReposConfigProvider) error {
 	return r.ctx.SyncReposOnce(r.state, r.helm)
 }
 
-func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts) (*string, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, []error) {
+func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts) (*string, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, []error) {
 	st := r.state
 	helm := r.helm
 
 	var changedReleases []state.ReleaseSpec
 	var deletingReleases []state.ReleaseSpec
+	var reinstallingReleases []state.ReleaseSpec
 	var planningErrs []error
 
 	// TODO Better way to detect diff on only filtered releases
@@ -151,6 +152,10 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 
 		var err error
 		deletingReleases, err = st.DetectReleasesToBeDeletedForSync(helm, st.Releases)
+		if err != nil {
+			planningErrs = append(planningErrs, err)
+		}
+		reinstallingReleases, err = st.DetectReleasesToBeReinstalledForSync(helm, st.Releases)
 		if err != nil {
 			planningErrs = append(planningErrs, err)
 		}
@@ -170,7 +175,7 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 	}
 
 	if len(fatalErrs) > 0 {
-		return nil, nil, nil, fatalErrs
+		return nil, nil, nil, nil, fatalErrs
 	}
 
 	releasesToBeDeleted := map[string]state.ReleaseSpec{}
@@ -180,6 +185,14 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 		releasesToBeDeleted[id] = release
 	}
 
+	releasesWithReinstalled := map[string]state.ReleaseSpec{}
+	for _, r := range reinstallingReleases {
+		release := r
+		id := state.ReleaseToID(&release)
+		releasesWithReinstalled[id] = release
+	}
+
+	releasesToBeReinstalled := map[string]state.ReleaseSpec{}
 	releasesToBeUpdated := map[string]state.ReleaseSpec{}
 	for _, r := range changedReleases {
 		release := r
@@ -187,24 +200,35 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 
 		// If `helm-diff` detected changes but it is not being `helm delete`ed, we should run `helm upgrade`
 		if _, ok := releasesToBeDeleted[id]; !ok {
-			releasesToBeUpdated[id] = release
+			// Is the release with "reinstall" update strategy
+			if _, ok := releasesWithReinstalled[id]; ok {
+				// Make sure we wait on the delete in the case of a reinstall
+				deleteWait := true
+				release.DeleteWait = &deleteWait
+				releasesToBeReinstalled[id] = release
+			} else {
+				releasesToBeUpdated[id] = release
+			}
 		}
 	}
 
 	// sync only when there are changes
-	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
+	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 && len(releasesToBeReinstalled) == 0 {
 		var msg *string
 		if c.DetailedExitcode() {
 			// TODO better way to get the logger
 			m := "No affected releases"
 			msg = &m
 		}
-		return msg, nil, nil, nil
+		return msg, nil, nil, nil, nil
 	}
 
 	names := []string{}
 	for _, r := range releasesToBeUpdated {
 		names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
+	}
+	for _, r := range releasesToBeReinstalled {
+		names = append(names, fmt.Sprintf("  %s (%s) REINSTALLED", r.Name, r.Chart))
 	}
 	for _, r := range releasesToBeDeleted {
 		releaseToBeDeleted := fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart)
@@ -220,5 +244,5 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 %s
 `, strings.Join(names, "\n"))
 
-	return &infoMsg, releasesToBeUpdated, releasesToBeDeleted, nil
+	return &infoMsg, releasesToBeUpdated, releasesToBeReinstalled, releasesToBeDeleted, nil
 }

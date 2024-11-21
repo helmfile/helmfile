@@ -329,6 +329,8 @@ releases:
     reuseValues: false
     # set `false` to uninstall this release on sync.  (default true)
     installed: true
+    # when set to "reinstall", an uninstall will be performed before the update
+    updateStrategy: ""
     # restores previous state in case of failed release (default false)
     atomic: true
     # when true, cleans up any new resources created during a failed release (default false)
