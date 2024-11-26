@@ -18,7 +18,7 @@ require (
 	github.com/helmfile/vals v0.37.8
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/tj/assert v0.0.3
 	github.com/variantdev/dag v1.1.0
