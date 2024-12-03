@@ -1481,6 +1481,7 @@ type TemplateOpts struct {
 	SkipCleanup       bool
 	OutputDirTemplate string
 	IncludeCRDs       bool
+	NoHooks           bool
 	SkipTests         bool
 	PostRenderer      string
 	PostRendererArgs  []string
@@ -1561,6 +1562,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		if opts.IncludeCRDs {
 			flags = append(flags, "--include-crds")
+		}
+
+		if opts.NoHooks {
+			flags = append(flags, "--no-hooks")
 		}
 
 		if opts.SkipTests {
