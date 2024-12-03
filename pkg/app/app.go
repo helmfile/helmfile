@@ -1976,6 +1976,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		opts := &state.TemplateOpts{
 			Set:               c.Set(),
 			IncludeCRDs:       c.IncludeCRDs(),
+			NoHooks:           c.NoHooks(),
 			OutputDirTemplate: c.OutputDirTemplate(),
 			SkipCleanup:       c.SkipCleanup(),
 			SkipTests:         c.SkipTests(),
