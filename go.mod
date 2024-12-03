@@ -8,7 +8,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/go-test/deep v1.1.1
-	github.com/goccy/go-yaml v1.15.3
+	github.com/goccy/go-yaml v1.15.6
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/gosuri/uitable v0.0.4
