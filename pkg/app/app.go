@@ -250,6 +250,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Set:                    c.Set(),
+			Values:                 c.Values(),
 			KubeVersion:            c.KubeVersion(),
 		}, func() {
 			ok, errs = a.template(run, c)
