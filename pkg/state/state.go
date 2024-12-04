@@ -1127,6 +1127,7 @@ type ChartPrepareOptions struct {
 	Concurrency            int
 	KubeVersion            string
 	Set                    []string
+	Values                 []string
 	// Delete wait
 	DeleteWait    bool
 	DeleteTimeout int
@@ -1293,6 +1294,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
 					chartifyOpts.ApiVersions = st.getApiVersions(release)
+
+					if opts.Values != nil {
+						chartifyOpts.ValuesFiles = append(opts.Values, chartifyOpts.ValuesFiles...)
+					}
 
 					// https://github.com/helmfile/helmfile/pull/867
 					// https://github.com/helmfile/helmfile/issues/895
