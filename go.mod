@@ -27,7 +27,7 @@ require (
 	go.szostok.io/version v1.2.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.10.0
-	golang.org/x/term v0.26.0
+	golang.org/x/term v0.27.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.16.3
 	k8s.io/apimachinery v0.31.3
@@ -99,7 +99,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/net v0.31.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
-	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
 	google.golang.org/api v0.209.0 // indirect
