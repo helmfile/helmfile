@@ -199,6 +199,8 @@ func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePat
 				src.SetValuesTemplate = nil
 			case "set":
 				src.SetValues = nil
+			case "setString":
+				src.SetStringValues = nil
 			case "secrets":
 				src.Secrets = nil
 			default:
