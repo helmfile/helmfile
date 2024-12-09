@@ -1347,7 +1347,7 @@ helmfiles:
   - name=prometheus
   - tier=frontend
 - path: apps/b-helmfile.yaml # no selector, so all releases are used
-selectors: []
+  selectors: []
 - path: apps/c-helmfile.yaml # parent selector to be used or cli selector for the initial helmfile
   selectorsInherited: true
 ```
