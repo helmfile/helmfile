@@ -4203,3 +4203,63 @@ func TestAppendVerifyFlags(t *testing.T) {
 		})
 	}
 }
+
+// TestHelmState_setStringFlags tests the setStringFlags method
+func TestHelmState_setStringFlags(t *testing.T) {
+	tests := []struct {
+		name            string
+		setStringValues []SetValue
+		want            []string
+		wantErr         bool
+	}{
+		{
+			name: "single value",
+			setStringValues: []SetValue{
+				{
+					Name:  "key",
+					Value: "value",
+				},
+			},
+			want:    []string{"--set-string", "key=value"},
+			wantErr: false,
+		},
+		{
+			name: "multiple values",
+			setStringValues: []SetValue{
+				{
+					Name:   "key",
+					Values: []string{"value1", "value2"},
+				},
+			},
+			want:    []string{"--set-string", "key={value1,value2}"},
+			wantErr: false,
+		},
+		{
+			name: "rendered value error",
+			setStringValues: []SetValue{
+				{
+					Name:  "key",
+					Value: "ref+echo://value",
+				},
+			},
+			want:    []string{"--set-string", "key=value"},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				valsRuntime: valsRuntime,
+			}
+			got, err := st.setStringFlags(tt.setStringValues)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("setStringFlags() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("setStringFlags() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
