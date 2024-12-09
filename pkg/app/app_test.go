@@ -4006,6 +4006,73 @@ myrelease4	testNamespace	true   	true     	id:myrelease1             	mychart1
 
 	assert.Equal(t, expected, out)
 }
+func testSetStringValuesTemplate(t *testing.T, goccyGoYaml bool) {
+	t.Helper()
+
+	v := runtime.GoccyGoYaml
+	runtime.GoccyGoYaml = goccyGoYaml
+	t.Cleanup(func() {
+		runtime.GoccyGoYaml = v
+	})
+
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: zipkin
+  chart: stable/zipkin
+  values:
+  - val2: "val2"
+  valuesTemplate:
+  - val1: '{{"{{ .Release.Name }}"}}'
+  setString:
+  - name: "name"
+    value: "val"
+`,
+	}
+	expectedValues := []any{
+		map[string]any{"val1": "zipkin"},
+		map[string]any{"val2": "val2"}}
+	expectedSetValues := []state.SetValue{
+		{Name: "name", Value: "val"}}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:  DefaultHelmBinary,
+		OverrideKubeContext: "default",
+		Logger:              newAppTestLogger(),
+		Env:                 "default",
+		FileOrDir:           "helmfile.yaml",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	var specs []state.ReleaseSpec
+	collectReleases := func(run *Run) (bool, []error) {
+		specs = append(specs, run.state.Releases...)
+		return false, nil
+	}
+
+	err := app.ForEachState(
+		collectReleases,
+		false,
+		SetFilter(true),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(specs) != 1 {
+		t.Fatalf("expected 1 release; got %d releases", len(specs))
+	}
+	actualValues := specs[0].Values
+	actualSetStringValues := specs[0].SetStringValues
+
+	if !reflect.DeepEqual(expectedValues, actualValues) {
+		t.Errorf("expected values: %v; got values: %v", expectedValues, actualValues)
+	}
+	if !reflect.DeepEqual(expectedSetValues, actualSetStringValues) {
+		t.Errorf("expected set-string: %v; got set: %v", expectedValues, actualValues)
+	}
+}
 
 func testSetValuesTemplate(t *testing.T, goccyGoYaml bool) {
 	t.Helper()
@@ -4086,6 +4153,16 @@ func TestSetValuesTemplate(t *testing.T) {
 
 	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
 		testSetValuesTemplate(t, false)
+	})
+}
+
+func TestSetStringValuesTemplate(t *testing.T) {
+	t.Run("with goccy/go-yaml", func(t *testing.T) {
+		testSetStringValuesTemplate(t, true)
+	})
+
+	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+		testSetStringValuesTemplate(t, false)
 	})
 }
 

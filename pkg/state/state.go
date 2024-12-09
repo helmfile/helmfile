@@ -309,13 +309,14 @@ type ReleaseSpec struct {
 	Hooks []event.Hook `yaml:"hooks,omitempty"`
 
 	// Name is the name of this release
-	Name      string            `yaml:"name,omitempty"`
-	Namespace string            `yaml:"namespace,omitempty"`
-	Labels    map[string]string `yaml:"labels,omitempty"`
-	Values    []any             `yaml:"values,omitempty"`
-	Secrets   []any             `yaml:"secrets,omitempty"`
-	SetValues []SetValue        `yaml:"set,omitempty"`
-	duration  time.Duration
+	Name            string            `yaml:"name,omitempty"`
+	Namespace       string            `yaml:"namespace,omitempty"`
+	Labels          map[string]string `yaml:"labels,omitempty"`
+	Values          []any             `yaml:"values,omitempty"`
+	Secrets         []any             `yaml:"secrets,omitempty"`
+	SetValues       []SetValue        `yaml:"set,omitempty"`
+	SetStringValues []SetValue        `yaml:"setString,omitempty"`
+	duration        time.Duration
 
 	ValuesTemplate    []any      `yaml:"valuesTemplate,omitempty"`
 	SetValuesTemplate []SetValue `yaml:"setTemplate,omitempty"`
@@ -3341,6 +3342,15 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 		flags = append(flags, setFlags...)
 	}
 
+	if len(release.SetStringValues) > 0 {
+		setStringFlags, err := st.setStringFlags(release.SetStringValues)
+		if err != nil {
+			return nil, files, fmt.Errorf("Failed to render set string value entry in %s for release %s: %v", st.FilePath, release.Name, err)
+		}
+
+		flags = append(flags, setStringFlags...)
+	}
+
 	/***********
 	 * START 'env' section for backwards compatibility
 	 ***********/
@@ -3394,6 +3404,34 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 			}
 			v := strings.Join(items, ",")
 			flags = append(flags, "--set", fmt.Sprintf("%s={%s}", escape(set.Name), v))
+		}
+	}
+
+	return flags, nil
+}
+
+// setStringFlags is to generate the set-string flags for helm
+func (st *HelmState) setStringFlags(setValues []SetValue) ([]string, error) {
+	var flags []string
+
+	for _, set := range setValues {
+		if set.Value != "" {
+			renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
+			if err != nil {
+				return nil, err
+			}
+			flags = append(flags, "--set-string", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
+		} else if len(set.Values) > 0 {
+			renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
+			if err != nil {
+				return nil, err
+			}
+			items := make([]string, len(renderedValues))
+			for i, raw := range renderedValues {
+				items[i] = escape(raw)
+			}
+			v := strings.Join(items, ",")
+			flags = append(flags, "--set-string", fmt.Sprintf("%s={%s}", escape(set.Name), v))
 		}
 	}
 
