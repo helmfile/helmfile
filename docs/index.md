@@ -282,6 +282,16 @@ releases:
           domain: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
           scheme: {{ env "SCHEME" | default "https" }}
     # Use `values` whenever possible!
+    # `setString` translates to helm's `--set-string key=val`
+    setString:
+    # set a single array value in an array, translates to --set-string bar[0]={1,2}
+    - name: bar[0]
+      values:
+      - 1
+      - 2
+    # set a templated value
+    - name: namespace
+      value: {{ .Namespace }}
     # `set` translates to helm's `--set key=val`, that is known to suffer from type issues like https://github.com/roboll/helmfile/issues/608
     set:
     # single value loaded from a local file, translates to --set-file foo.config=path/to/file
