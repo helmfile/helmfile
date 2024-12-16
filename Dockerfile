@@ -77,7 +77,7 @@ RUN set -x && \
     rm "${KUSTOMIZE_FILENAME}" && \
     [ "$(kustomize version)" = "${KUSTOMIZE_VERSION}" ]
 
-ENV SOPS_VERSION="v3.9.1"
+ENV SOPS_VERSION="v3.9.2"
 ARG SOPS_FILENAME="sops-${SOPS_VERSION}.${TARGETOS}.${TARGETARCH}"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/${SOPS_FILENAME}" && \
