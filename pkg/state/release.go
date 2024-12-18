@@ -90,6 +90,18 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 		result.Labels[key] = s.String()
 	}
 
+	{
+		postRendererArgs := []string{}
+		for _, ts := range result.PostRendererArgs {
+			postRendererArg, err := renderer.RenderTemplateContentToString([]byte(ts))
+			if err != nil {
+				return nil, fmt.Errorf("failed executing template expressions in release \"%s\".postRendererArgs = \"%s\": %v", r.Name, ts, err)
+			}
+			postRendererArgs = append(postRendererArgs, postRendererArg)
+		}
+		result.PostRendererArgs = postRendererArgs
+	}
+
 	if len(result.ValuesTemplate) > 0 {
 		for i, t := range result.ValuesTemplate {
 			switch ts := t.(type) {

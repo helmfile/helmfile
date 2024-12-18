@@ -123,6 +123,29 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				Values:    []any{map[string]any{"key": "app-val0"}},
 			},
 		},
+		{
+			name: "Has template expressions in post renderer args",
+			input: ReleaseSpec{
+				Chart: "test-chart",
+				PostRendererArgs: []string{
+					"--release",
+					"{{ .Release.Name }}",
+					"--chart",
+					"{{ .Release.Chart }}",
+				},
+				Name: "test-release",
+			},
+			want: ReleaseSpec{
+				Chart: "test-chart",
+				Name:  "test-release",
+				PostRendererArgs: []string{
+					"--release",
+					"test-chart-dev",
+					"--chart",
+					"test-chart",
+				},
+			},
+		},
 	}
 
 	for i := range tests {
