@@ -70,6 +70,8 @@ type ApplyOptions struct {
 	SyncArgs string
 	// HideNotes is the hide notes flag
 	HideNotes bool
+	// TemplateArgs is the list of arguments to pass to helm template
+	TemplateArgs string
 }
 
 // NewApply creates a new Apply
@@ -259,4 +261,9 @@ func (a *ApplyImpl) SyncArgs() string {
 
 func (a *ApplyImpl) HideNotes() bool {
 	return a.ApplyOptions.HideNotes
+}
+
+// TemplateArgs returns the TemplateArgs.
+func (a *ApplyImpl) TemplateArgs() string {
+	return a.ApplyOptions.TemplateArgs
 }

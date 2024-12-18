@@ -89,6 +89,7 @@ type ApplyConfigProvider interface {
 
 	DiffArgs() string
 	SyncArgs() string
+	TemplateArgs() string
 
 	DAGConfig
 
@@ -248,6 +249,7 @@ type TemplateConfigProvider interface {
 	IncludeCRDs() bool
 	KubeVersion() string
 	ShowOnly() []string
+	TemplateArgs() string
 
 	DAGConfig
 
