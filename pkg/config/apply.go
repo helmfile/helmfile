@@ -70,6 +70,8 @@ type ApplyOptions struct {
 	SyncArgs string
 	// HideNotes is the hide notes flag
 	HideNotes bool
+	// Ignore release not found
+	IgnoreReleaseNotFound bool
 }
 
 // NewApply creates a new Apply
@@ -257,6 +259,12 @@ func (a *ApplyImpl) SyncArgs() string {
 	return a.ApplyOptions.SyncArgs
 }
 
+// Hide Notes returns the HideNotes.
 func (a *ApplyImpl) HideNotes() bool {
 	return a.ApplyOptions.HideNotes
+}
+
+// IgnoreDeprecationWarnings returns the IgnoreDeprecationWarnings.
+func (a *ApplyImpl) IgnoreReleaseNotFound() bool {
+	return a.ApplyOptions.IgnoreReleaseNotFound
 }
