@@ -126,18 +126,18 @@ func TestHelmState_executeTemplates(t *testing.T) {
 		{
 			name: "Has template expressions in post renderer args",
 			input: ReleaseSpec{
-				Chart:     "test-chart",
+				Chart: "test-chart",
 				PostRendererArgs: []string{
 					"--release",
 					"{{ .Release.Name }}",
 					"--chart",
 					"{{ .Release.Chart }}",
 				},
-				Name:      "test-release",
+				Name: "test-release",
 			},
 			want: ReleaseSpec{
-				Chart:     "test-chart",
-				Name:      "test-release",
+				Chart: "test-chart",
+				Name:  "test-release",
 				PostRendererArgs: []string{
 					"--release",
 					"test-chart-dev",
