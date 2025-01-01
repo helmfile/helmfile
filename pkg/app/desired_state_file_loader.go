@@ -249,6 +249,14 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			finalState.RenderedValues = currentState.RenderedValues
 		}
 
+		if len(finalState.HelmDefaults.PostRendererArgs) > 0 {
+			for i := range finalState.Releases {
+				if len(finalState.Releases[i].PostRendererArgs) == 0 {
+					finalState.Releases[i].PostRendererArgs = finalState.HelmDefaults.PostRendererArgs
+				}
+			}
+			finalState.HelmDefaults.PostRendererArgs = nil
+		}
 		env = &finalState.Env
 
 		ld.logger.Debugf("merged environment: %v", env)
