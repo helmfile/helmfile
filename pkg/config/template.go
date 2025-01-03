@@ -30,7 +30,7 @@ type TemplateOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
-	// NoHooks is the no hooks flag
+	// No-Hooks is the no hooks flag
 	NoHooks bool
 	// SkipCleanup is the skip cleanup flag
 	SkipCleanup bool

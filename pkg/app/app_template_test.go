@@ -24,6 +24,7 @@ func TestTemplate(t *testing.T) {
 		skipNeeds              bool
 		includeNeeds           bool
 		includeTransitiveNeeds bool
+		noHooks                bool
 		showOnly               []string
 	}
 
@@ -133,6 +134,7 @@ releases:
 				includeNeeds:           tc.fields.includeNeeds,
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
 				showOnly:               tc.fields.showOnly,
+				noHooks:                tc.fields.noHooks,
 			})
 
 			var gotErr string
@@ -295,6 +297,20 @@ releases:
 			templated: []exectest.Release{
 				{Name: "test2"},
 				{Name: "test3"},
+			},
+		})
+	})
+
+	t.Run("no-hooks", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds: true,
+				noHooks:   true,
+			},
+			selectors: []string{"app=test"},
+			templated: []exectest.Release{
+				{Name: "external-secrets", Flags: []string{"--namespace", "default", "--no-hooks"}},
+				{Name: "my-release", Flags: []string{"--namespace", "default", "--no-hooks"}},
 			},
 		})
 	})
