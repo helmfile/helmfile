@@ -30,6 +30,8 @@ type TemplateOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
+	// NoHooks is the no hooks flag
+	NoHooks bool
 	// SkipCleanup is the skip cleanup flag
 	SkipCleanup bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
@@ -71,6 +73,11 @@ func (t *TemplateImpl) Concurrency() int {
 // IncludeCRDs returns the include crds
 func (t *TemplateImpl) IncludeCRDs() bool {
 	return t.TemplateOptions.IncludeCRDs
+}
+
+// NoHooks returns the no hooks
+func (t *TemplateImpl) NoHooks() bool {
+	return t.TemplateOptions.NoHooks
 }
 
 // IncludeNeeds returns the include needs
