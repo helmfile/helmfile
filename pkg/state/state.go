@@ -789,6 +789,7 @@ type SyncOpts struct {
 	PostRendererArgs     []string
 	SyncArgs             string
 	HideNotes            bool
+	TakeOwnership        bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -2774,6 +2775,9 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	// append hide-notes flag
 	flags = st.appendHideNotesFlags(flags, helm, opt)
+
+	// append take-ownership flag
+	flags = st.appendTakeOwnershipFlags(flags, helm, opt)
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 

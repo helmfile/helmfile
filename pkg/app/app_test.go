@@ -2248,6 +2248,7 @@ type applyConfig struct {
 	suppressOutputLineRegex []string
 	showOnly                []string
 	hideNotes               bool
+	takeOwnership           bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2438,6 +2439,10 @@ func (a applyConfig) ShowOnly() []string {
 
 func (a applyConfig) HideNotes() bool {
 	return a.hideNotes
+}
+
+func (a applyConfig) TakeOwnership() bool {
+	return a.takeOwnership
 }
 
 type depsConfig struct {

@@ -321,3 +321,48 @@ func TestAppendHideNotesFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestAppendTakeOwnershipFlags(t *testing.T) {
+	type args struct {
+		flags    []string
+		helm     helmexec.Interface
+		helmSpec HelmSpec
+		opt      *SyncOpts
+		expected []string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "no take-ownership when helm less than 3.17.0",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.16.0"),
+				opt: &SyncOpts{
+					HideNotes: true,
+				},
+				expected: []string{},
+			},
+		},
+		{
+			name: "hide-notes from cmd flag",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.17.0"),
+				opt: &SyncOpts{
+					HideNotes: true,
+				},
+				expected: []string{"--take-ownership"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.args.helmSpec
+			got := st.appendTakeOwnershipFlags(tt.args.flags, tt.args.helm, tt.args.opt)
+			require.Equalf(t, tt.args.expected, got, "appendTakeOwnershipFlags() = %v, want %v", got, tt.args.expected)
+		})
+	}
+}
