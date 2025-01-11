@@ -54,6 +54,7 @@ type ApplyConfigProvider interface {
 	SkipSchemaValidation() bool
 	Cascade() string
 	HideNotes() bool
+	TakeOwnership() bool
 	SuppressOutputLineRegex() []string
 
 	Values() []string
@@ -103,6 +104,7 @@ type SyncConfigProvider interface {
 	PostRenderer() string
 	PostRendererArgs() []string
 	HideNotes() bool
+	TakeOwnership() bool
 	Cascade() string
 
 	Values() []string

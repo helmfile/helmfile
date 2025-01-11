@@ -148,6 +148,19 @@ func (st *HelmState) appendHideNotesFlags(flags []string, helm helmexec.Interfac
 	return flags
 }
 
+// append take-ownership flags to helm flags
+func (st *HelmState) appendTakeOwnershipFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string {
+	// see https://github.com/helm/helm/releases/tag/v3.17.0
+	if !helm.IsVersionAtLeast("3.17.0") {
+		return flags
+	}
+	switch {
+	case ops.HideNotes:
+		flags = append(flags, "--take-ownership")
+	}
+	return flags
+}
+
 // append show-only flags to helm flags
 func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []string {
 	showOnlyFlags := []string{}

@@ -70,6 +70,9 @@ type ApplyOptions struct {
 	SyncArgs string
 	// HideNotes is the hide notes flag
 	HideNotes bool
+
+	// TakeOwnership is true if the ownership should be taken
+	TakeOwnership bool
 }
 
 // NewApply creates a new Apply
@@ -257,6 +260,12 @@ func (a *ApplyImpl) SyncArgs() string {
 	return a.ApplyOptions.SyncArgs
 }
 
+// HideNotes returns the HideNotes.
 func (a *ApplyImpl) HideNotes() bool {
 	return a.ApplyOptions.HideNotes
+}
+
+// TakeOwnership returns the TakeOwnership.
+func (a *ApplyImpl) TakeOwnership() bool {
+	return a.ApplyOptions.TakeOwnership
 }
