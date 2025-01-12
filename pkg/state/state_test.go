@@ -1871,6 +1871,19 @@ func TestHelmState_DiffFlags(t *testing.T) {
 			helm:          &exectest.Helm{},
 			wantDiffFlags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "1.21"},
 		},
+		{
+			name: "release with kubeversion and plain http which is ignored",
+			releases: []ReleaseSpec{
+				{
+					Name:        "releaseName",
+					Chart:       "foo",
+					KubeVersion: "1.21",
+					PlainHttp:   true,
+				},
+			},
+			helm:          &exectest.Helm{},
+			wantDiffFlags: []string{"--kube-version", "1.21"},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -3578,6 +3591,98 @@ func TestAppendChartDownloadFlags(t *testing.T) {
 			result := st.appendChartDownloadFlags([]string{}, &st.Releases[0])
 
 			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNeedsPlainHttp(t *testing.T) {
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		repo     *RepositorySpec
+		defaults HelmSpec
+		expected bool
+	}{
+		{
+			name: "PlainHttp in Release",
+			release: &ReleaseSpec{
+				PlainHttp: true,
+			},
+			expected: true,
+		},
+		{
+			name: "PlainHttp in Repository",
+			repo: &RepositorySpec{
+				PlainHttp: true,
+			},
+			expected: true,
+		},
+		{
+			name: "PlainHttp in HelmDefaults",
+			defaults: HelmSpec{
+				PlainHttp: true,
+			},
+			expected: true,
+		},
+		{
+			name:     "PlainHttp not set",
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: tt.defaults,
+				},
+			}
+			require.Equal(t, tt.expected, st.needsPlainHttp(tt.release, tt.repo))
+		})
+	}
+}
+
+func TestNeedsInsecureSkipTLSVerify(t *testing.T) {
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		repo     *RepositorySpec
+		defaults HelmSpec
+		expected bool
+	}{
+		{
+			name: "InsecureSkipTLSVerify in Release",
+			release: &ReleaseSpec{
+				InsecureSkipTLSVerify: true,
+			},
+			expected: true,
+		},
+		{
+			name: "SkipTLSVerify in Repository",
+			repo: &RepositorySpec{
+				SkipTLSVerify: true,
+			},
+			expected: true,
+		},
+		{
+			name: "InsecureSkipTLSVerify in HelmDefaults",
+			defaults: HelmSpec{
+				InsecureSkipTLSVerify: true,
+			},
+			expected: true,
+		},
+		{
+			name:     "InsecureSkipTLSVerify not set",
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: tt.defaults,
+				},
+			}
+			require.Equal(t, tt.expected, st.needsInsecureSkipTLSVerify(tt.release, tt.repo))
 		})
 	}
 }
