@@ -236,7 +236,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
+				{Name: "test2"},
 			},
 		})
 	})
@@ -249,8 +249,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
-				{Name: "test3", Flags: []string{}},
+				{Name: "test2"},
+				{Name: "test3"},
 			},
 		})
 	})
@@ -264,8 +264,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
-				{Name: "test3", Flags: []string{}},
+				{Name: "test2"},
+				{Name: "test3"},
 			},
 		})
 	})
@@ -279,7 +279,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
+				{Name: "test2"},
 			},
 		})
 	})
@@ -293,8 +293,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
-				{Name: "test3", Flags: []string{}},
+				{Name: "test2"},
+				{Name: "test3"},
 			},
 		})
 	})

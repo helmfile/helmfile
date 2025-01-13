@@ -3216,6 +3216,8 @@ func TestFullFilePath(t *testing.T) {
 }
 
 func TestGetOCIQualifiedChartName(t *testing.T) {
+	devel := true
+
 	tests := []struct {
 		state    HelmState
 		expected []struct {
@@ -3301,6 +3303,27 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 				chartVersion       string
 			}{
 				{"registry/chart-path/chart-name:0.1.2", "chart-name", "0.1.2"},
+			},
+		},
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://registry/chart-path/chart-name",
+							Devel: &devel,
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name", "chart-name", ""},
 			},
 		},
 	}
