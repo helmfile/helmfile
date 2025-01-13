@@ -1368,7 +1368,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
-						fetchFlags := st.chartVersionFlags(release)
+						var fetchFlags []string
+						fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 						if err := helm.Fetch(chartName, fetchFlags...); err != nil {
 							results <- &chartPrepareResult{err: err}
@@ -2722,7 +2723,8 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 }
 
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
-	flags := st.chartVersionFlags(release)
+	var flags []string
+	flags = st.appendChartVersionFlags(flags, release)
 	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
 		flags = append(flags, "--enable-dns")
 	}
@@ -2810,9 +2812,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error) {
 	var flags []string
-
-	flags = st.chartVersionFlags(release)
-
+	flags = st.appendChartVersionFlags(flags, release)
 	flags = st.appendHelmXFlags(flags, release)
 
 	postRenderer := ""
@@ -2840,7 +2840,8 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
 	settings := cli.New()
-	flags := st.chartVersionFlags(release)
+	var flags []string
+	flags = st.appendChartVersionFlags(flags, release)
 
 	disableOpenAPIValidation := false
 	if release.DisableOpenAPIValidation != nil {
@@ -2944,9 +2945,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	return append(flags, common...), files, nil
 }
 
-func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
-	flags := []string{}
-
+func (st *HelmState) appendChartVersionFlags(flags []string, release *ReleaseSpec) []string {
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
@@ -3880,6 +3879,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		flags = st.appendVerifyFlags(flags, release)
 		flags = st.appendKeyringFlags(flags, release)
 		flags = st.appendChartDownloadFlags(flags, release)
+		flags = st.appendChartVersionFlags(flags, release)
 
 		err := helm.ChartPull(qualifiedChartName, chartPath, flags...)
 		if err != nil {
@@ -3915,31 +3915,36 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 	return repo.OCI
 }
 
-func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (qualifiedChartName, chartName, chartVersion string, err error) {
-	chartVersion = "latest"
-	if release.Version != "" {
+func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (string, string, string, error) {
+	chartVersion := "latest"
+	if st.isDevelopment(release) && release.Version == "" {
+		// omit version, otherwise --devel flag is ignored by helm and helm-diff
+		chartVersion = ""
+	} else if release.Version != "" {
 		chartVersion = release.Version
 	}
 
+	if !st.IsOCIChart(release.Chart) {
+		return "", "", chartVersion, nil
+	}
+
+	var qualifiedChartName, chartName string
 	if strings.HasPrefix(release.Chart, "oci://") {
-		split := strings.Split(release.Chart, "/")
-		chartName = split[len(split)-1]
+		parts := strings.Split(release.Chart, "/")
+		chartName = parts[len(parts)-1]
 		qualifiedChartName = strings.Replace(fmt.Sprintf("%s:%s", release.Chart, chartVersion), "oci://", "", 1)
 	} else {
 		var repo *RepositorySpec
 		repo, chartName = st.GetRepositoryAndNameFromChartName(release.Chart)
-		if repo == nil {
-			return
-		}
-		if !repo.OCI {
-			return
-		}
 		qualifiedChartName = fmt.Sprintf("%s/%s:%s", repo.URL, chartName, chartVersion)
 	}
+	qualifiedChartName = strings.TrimSuffix(qualifiedChartName, ":")
+
 	if chartVersion == "latest" && helm.IsVersionAtLeast("3.8.0") {
 		return "", "", "", fmt.Errorf("the version for OCI charts should be semver compliant, the latest tag is not supported anymore for helm >= 3.8.0")
 	}
-	return
+
+	return qualifiedChartName, chartName, chartVersion, nil
 }
 
 func (st *HelmState) FullFilePath() (string, error) {
