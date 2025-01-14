@@ -54,7 +54,6 @@ ENV KUBECTL_VERSION="v1.30.8"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
     case ${TARGETPLATFORM} in \
-    # checksums are available at https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl.sha256
     "linux/amd64")  KUBECTL_SHA256="7f39bdcf768ce4b8c1428894c70c49c8b4d2eee52f3606eb02f5f7d10f66d692"  ;; \
     "linux/arm64")  KUBECTL_SHA256="e51d6a76fade0871a9143b64dc62a5ff44f369aa6cb4b04967d93798bf39d15b"  ;; \
     esac && \
