@@ -248,6 +248,7 @@ type TemplateConfigProvider interface {
 	SkipTests() bool
 	OutputDir() string
 	IncludeCRDs() bool
+	NoHooks() bool
 	KubeVersion() string
 	ShowOnly() []string
 
