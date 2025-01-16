@@ -826,20 +826,20 @@ exec: helm --kubeconfig config --kube-context dev chart pull chart
 			helmVersion: "v3.10.0",
 			chartName:   "repo/helm-charts:0.14.0",
 			chartPath:   "path1",
-			chartFlags:  []string{"--untardir", "/tmp/dir"},
+			chartFlags:  []string{"--untardir", "/tmp/dir", "--version", "0.14.0"},
 			listResult: `Pulling repo/helm-charts:0.14.0
-exec: helm --kubeconfig config --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
+exec: helm --kubeconfig config --kube-context dev pull oci://repo/helm-charts --destination path1 --untar --untardir /tmp/dir --version 0.14.0
 `,
 		},
 		{
 			name:        "more then v3.7.0 with rc",
 			helmBin:     "helm",
 			helmVersion: "v3.14.0-rc.1+g69dcc92",
-			chartName:   "repo/helm-charts:0.14.0",
+			chartName:   "repo/helm-charts",
 			chartPath:   "path1",
-			chartFlags:  []string{"--untardir", "/tmp/dir"},
-			listResult: `Pulling repo/helm-charts:0.14.0
-exec: helm --kubeconfig config --kube-context dev pull oci://repo/helm-charts --version 0.14.0 --destination path1 --untar --untardir /tmp/dir
+			chartFlags:  []string{"--untardir", "/tmp/dir", "--devel"},
+			listResult: `Pulling repo/helm-charts
+exec: helm --kubeconfig config --kube-context dev pull oci://repo/helm-charts --destination path1 --untar --untardir /tmp/dir --devel
 `,
 		},
 	}

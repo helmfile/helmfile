@@ -54,6 +54,7 @@ type ApplyConfigProvider interface {
 	SkipSchemaValidation() bool
 	Cascade() string
 	HideNotes() bool
+	TakeOwnership() bool
 	SuppressOutputLineRegex() []string
 
 	Values() []string
@@ -104,6 +105,7 @@ type SyncConfigProvider interface {
 	PostRenderer() string
 	PostRendererArgs() []string
 	HideNotes() bool
+	TakeOwnership() bool
 	Cascade() string
 
 	Values() []string
@@ -247,6 +249,7 @@ type TemplateConfigProvider interface {
 	SkipTests() bool
 	OutputDir() string
 	IncludeCRDs() bool
+	NoHooks() bool
 	KubeVersion() string
 	ShowOnly() []string
 	TemplateArgs() string

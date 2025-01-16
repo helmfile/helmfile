@@ -38,6 +38,8 @@ type SyncOptions struct {
 	SyncArgs string
 	// HideNotes is the hide notes flag
 	HideNotes bool
+	// TakeOwnership is the take ownership flag
+	TakeOwnership bool
 }
 
 // NewSyncOptions creates a new Apply
@@ -149,6 +151,12 @@ func (t *SyncImpl) SyncArgs() string {
 	return t.SyncOptions.SyncArgs
 }
 
+// HideNotes returns the hide notes
 func (t *SyncImpl) HideNotes() bool {
 	return t.SyncOptions.HideNotes
+}
+
+// TakeOwnership returns the take ownership
+func (t *SyncImpl) TakeOwnership() bool {
+	return t.SyncOptions.TakeOwnership
 }

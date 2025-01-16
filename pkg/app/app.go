@@ -1552,6 +1552,7 @@ Do you really want to apply?
 					SkipSchemaValidation: c.SkipSchemaValidation(),
 					SyncArgs:             c.SyncArgs(),
 					HideNotes:            c.HideNotes(),
+					TakeOwnership:        c.TakeOwnership(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1947,6 +1948,7 @@ Do you really want to sync?
 					PostRendererArgs: c.PostRendererArgs(),
 					SyncArgs:         c.SyncArgs(),
 					HideNotes:        c.HideNotes(),
+					TakeOwnership:    c.TakeOwnership(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))
@@ -1976,6 +1978,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		opts := &state.TemplateOpts{
 			Set:               c.Set(),
 			IncludeCRDs:       c.IncludeCRDs(),
+			NoHooks:           c.NoHooks(),
 			OutputDirTemplate: c.OutputDirTemplate(),
 			SkipCleanup:       c.SkipCleanup(),
 			SkipTests:         c.SkipTests(),
