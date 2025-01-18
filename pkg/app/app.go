@@ -20,7 +20,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/plugins"
 	"github.com/helmfile/helmfile/pkg/remote"
-	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 )
 
@@ -1254,16 +1253,6 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 
 		case a.fs.FileExistsAt(DefaultGotmplHelmfile):
 			defaultFile = DefaultGotmplHelmfile
-
-		// TODO: Remove this block when we remove v0 code
-		case !runtime.V1Mode && a.fs.FileExistsAt(DeprecatedHelmfile):
-			a.Logger.Warnf(
-				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
-				DeprecatedHelmfile,
-				DeprecatedHelmfile,
-				DefaultHelmfile,
-			)
-			defaultFile = DeprecatedHelmfile
 		}
 
 		switch {
