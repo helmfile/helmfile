@@ -1130,6 +1130,7 @@ type ChartPrepareOptions struct {
 	KubeVersion            string
 	Set                    []string
 	Values                 []string
+	TemplateArgs           string
 	// Delete wait
 	DeleteWait    bool
 	DeleteTimeout int
@@ -1293,6 +1294,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartifyOpts.IncludeCRDs = includeCRDs
 
 					chartifyOpts.Validate = opts.Validate
+
+					if (helmfileCommand == "template" || helmfileCommand == "apply") && opts.TemplateArgs != "" {
+						chartifyOpts.TemplateArgs = opts.TemplateArgs
+					}
 
 					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
 					chartifyOpts.ApiVersions = st.getApiVersions(release)
@@ -1490,6 +1495,7 @@ type TemplateOpts struct {
 	PostRendererArgs  []string
 	KubeVersion       string
 	ShowOnly          []string
+	TemplateArgs      string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }

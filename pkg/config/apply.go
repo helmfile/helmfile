@@ -70,7 +70,8 @@ type ApplyOptions struct {
 	SyncArgs string
 	// HideNotes is the hide notes flag
 	HideNotes bool
-
+	// TemplateArgs is the list of arguments to pass to helm template
+	TemplateArgs string
 	// TakeOwnership is true if the ownership should be taken
 	TakeOwnership bool
 }
@@ -263,6 +264,11 @@ func (a *ApplyImpl) SyncArgs() string {
 // HideNotes returns the HideNotes.
 func (a *ApplyImpl) HideNotes() bool {
 	return a.ApplyOptions.HideNotes
+}
+
+// TemplateArgs returns the TemplateArgs.
+func (a *ApplyImpl) TemplateArgs() string {
+	return a.ApplyOptions.TemplateArgs
 }
 
 // TakeOwnership returns the TakeOwnership.

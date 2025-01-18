@@ -90,6 +90,7 @@ type ApplyConfigProvider interface {
 
 	DiffArgs() string
 	SyncArgs() string
+	TemplateArgs() string
 
 	DAGConfig
 
@@ -251,6 +252,7 @@ type TemplateConfigProvider interface {
 	NoHooks() bool
 	KubeVersion() string
 	ShowOnly() []string
+	TemplateArgs() string
 
 	DAGConfig
 
