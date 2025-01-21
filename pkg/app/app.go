@@ -2015,7 +2015,13 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 		includeNeeds = true
 	}
 
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: includeNeeds, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(), SkipNeeds: c.SkipNeeds()})
+	batches, err := st.PlanReleases(state.PlanOptions{
+		Reverse:                false,
+		SelectedReleases:       selectedReleases,
+		IncludeNeeds:           includeNeeds,
+		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+		SkipNeeds:              c.SkipNeeds(),
+	})
 	if err != nil {
 		return false, []error{err}
 	}
@@ -2038,6 +2044,15 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 			releasesToUninstall[id] = release
 		} else {
 			toRender = append(toRender, release)
+		}
+	}
+
+	if c.EnforceNeedsAreInstalled() {
+		for _, r := range toRender {
+			visited := make(map[string]bool)
+			if depErr := st.HasTransitiveDependencyWithInstalledFalse(r, visited); depErr != nil {
+				return false, []error{fmt.Errorf("Release %s has a transitive dependency %s marked as install=false", depErr.Release.Name, depErr.Dependency.Name)}
+			}
 		}
 	}
 

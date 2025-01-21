@@ -2557,6 +2557,34 @@ func (st *HelmState) UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds 
 	return nil
 }
 
+// DependencyError holds information about a release and its dependency that is not installed.
+type DependencyError struct {
+	Release    ReleaseSpec
+	Dependency ReleaseSpec
+}
+
+// hasTransitiveDependencyWithInstallFalse checks if a release has a transitive dependency with Install set to false.
+func (st *HelmState) HasTransitiveDependencyWithInstalledFalse(release ReleaseSpec, visited map[string]bool) *DependencyError {
+	if visited[release.Name] {
+		return nil
+	}
+	visited[release.Name] = true
+
+	for _, dep := range release.Needs {
+		for _, r := range st.Releases {
+			if r.Name == dep {
+				if r.Installed != nil && !*r.Installed {
+					return &DependencyError{Release: release, Dependency: r}
+				}
+				if depErr := st.HasTransitiveDependencyWithInstalledFalse(r, visited); depErr != nil {
+					return depErr
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // find "Chart.yaml"
 func findChartDirectory(topLevelDir string) (string, error) {
 	var files []string

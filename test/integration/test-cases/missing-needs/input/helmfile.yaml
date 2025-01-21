@@ -1,0 +1,8 @@
+releases:
+  - name: empty1
+    installed: false
+    chart: ./empty
+  - name: empty2
+    chart: ./empty
+    needs:
+      - empty1
