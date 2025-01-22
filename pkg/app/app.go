@@ -240,6 +240,10 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// Live output should never be enabled for the "template" subcommand to avoid breaking `helmfile template | kubectl apply -f -`
 		run.helm.SetEnableLiveOutput(false)
 
+		// Reset helm extra args to not pollute BuildDeps() and AddRepo() on subsequent helmfiles
+		// https://github.com/helmfile/helmfile/issues/1749
+		run.helm.SetExtraArgs()
+
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
