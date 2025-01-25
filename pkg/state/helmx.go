@@ -155,7 +155,7 @@ func (st *HelmState) appendTakeOwnershipFlags(flags []string, helm helmexec.Inte
 		return flags
 	}
 	switch {
-	case ops.HideNotes:
+	case ops.TakeOwnership:
 		flags = append(flags, "--take-ownership")
 	}
 	return flags

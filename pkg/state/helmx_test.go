@@ -340,18 +340,18 @@ func TestAppendTakeOwnershipFlags(t *testing.T) {
 				flags: []string{},
 				helm:  testutil.NewVersionHelmExec("3.16.0"),
 				opt: &SyncOpts{
-					HideNotes: true,
+					TakeOwnership: true,
 				},
 				expected: []string{},
 			},
 		},
 		{
-			name: "hide-notes from cmd flag",
+			name: "take-ownership from cmd flag",
 			args: args{
 				flags: []string{},
 				helm:  testutil.NewVersionHelmExec("3.17.0"),
 				opt: &SyncOpts{
-					HideNotes: true,
+					TakeOwnership: true,
 				},
 				expected: []string{"--take-ownership"},
 			},

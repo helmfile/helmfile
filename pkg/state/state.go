@@ -1449,10 +1449,6 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
 
-	// Reset helm extra args to not pollute BuildDeps() on subsequent helmfiles
-	// https://github.com/helmfile/helmfile/issues/1749
-	helm.SetExtraArgs()
-
 	for _, r := range builds {
 		buildDepsFlags := getBuildDepsFlags(r)
 		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {
