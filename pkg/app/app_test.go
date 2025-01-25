@@ -2097,11 +2097,12 @@ type configImpl struct {
 	skipSchemaValidation bool
 	skipRefresh          bool
 
-	skipNeeds              bool
-	includeNeeds           bool
-	includeTransitiveNeeds bool
-	skipCharts             bool
-	kubeVersion            string
+	skipNeeds                bool
+	includeNeeds             bool
+	includeTransitiveNeeds   bool
+	enforceNeedsAreInstalled bool
+	skipCharts               bool
+	kubeVersion              string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2154,6 +2155,10 @@ func (c configImpl) IncludeNeeds() bool {
 
 func (c configImpl) IncludeTransitiveNeeds() bool {
 	return c.includeTransitiveNeeds
+}
+
+func (c configImpl) EnforceNeedsAreInstalled() bool {
+	return c.enforceNeedsAreInstalled
 }
 
 func (c configImpl) OutputDir() string {
@@ -2216,44 +2221,45 @@ type applyConfig struct {
 	// TODO: Remove this function once Helmfile v0.x
 	retainValuesFiles bool
 
-	set                     []string
-	validate                bool
-	skipCleanup             bool
-	skipCRDs                bool
-	skipDeps                bool
-	skipRefresh             bool
-	skipNeeds               bool
-	includeNeeds            bool
-	includeTransitiveNeeds  bool
-	includeTests            bool
-	suppress                []string
-	suppressSecrets         bool
-	showSecrets             bool
-	noHooks                 bool
-	suppressDiff            bool
-	noColor                 bool
-	color                   bool
-	context                 int
-	diffOutput              string
-	concurrency             int
-	detailedExitcode        bool
-	stripTrailingCR         bool
-	interactive             bool
-	skipDiffOnInstall       bool
-	syncArgs                string
-	diffArgs                string
-	logger                  *zap.SugaredLogger
-	wait                    bool
-	waitForJobs             bool
-	reuseValues             bool
-	postRenderer            string
-	postRendererArgs        []string
-	skipSchemaValidation    bool
-	kubeVersion             string
-	suppressOutputLineRegex []string
-	showOnly                []string
-	hideNotes               bool
-	takeOwnership           bool
+	set                      []string
+	validate                 bool
+	skipCleanup              bool
+	skipCRDs                 bool
+	skipDeps                 bool
+	skipRefresh              bool
+	skipNeeds                bool
+	includeNeeds             bool
+	includeTransitiveNeeds   bool
+	enforceNeedsAreInstalled bool
+	includeTests             bool
+	suppress                 []string
+	suppressSecrets          bool
+	showSecrets              bool
+	noHooks                  bool
+	suppressDiff             bool
+	noColor                  bool
+	color                    bool
+	context                  int
+	diffOutput               string
+	concurrency              int
+	detailedExitcode         bool
+	stripTrailingCR          bool
+	interactive              bool
+	skipDiffOnInstall        bool
+	syncArgs                 string
+	diffArgs                 string
+	logger                   *zap.SugaredLogger
+	wait                     bool
+	waitForJobs              bool
+	reuseValues              bool
+	postRenderer             string
+	postRendererArgs         []string
+	skipSchemaValidation     bool
+	kubeVersion              string
+	suppressOutputLineRegex  []string
+	showOnly                 []string
+	hideNotes                bool
+	takeOwnership            bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2314,6 +2320,10 @@ func (a applyConfig) IncludeNeeds() bool {
 
 func (a applyConfig) IncludeTransitiveNeeds() bool {
 	return a.includeTransitiveNeeds
+}
+
+func (a applyConfig) EnforceNeedsAreInstalled() bool {
+	return a.enforceNeedsAreInstalled
 }
 
 func (a applyConfig) IncludeTests() bool {

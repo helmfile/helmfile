@@ -16,36 +16,37 @@ import (
 )
 
 type diffConfig struct {
-	args                    string
-	diffArgs                string
-	values                  []string
-	retainValuesFiles       bool
-	set                     []string
-	validate                bool
-	skipCRDs                bool
-	skipDeps                bool
-	skipRefresh             bool
-	includeTests            bool
-	skipNeeds               bool
-	includeNeeds            bool
-	includeTransitiveNeeds  bool
-	suppress                []string
-	suppressSecrets         bool
-	showSecrets             bool
-	noHooks                 bool
-	suppressDiff            bool
-	suppressOutputLineRegex []string
-	noColor                 bool
-	context                 int
-	diffOutput              string
-	concurrency             int
-	detailedExitcode        bool
-	stripTrailingCR         bool
-	interactive             bool
-	skipDiffOnInstall       bool
-	skipSchemaValidation    bool
-	reuseValues             bool
-	logger                  *zap.SugaredLogger
+	args                     string
+	diffArgs                 string
+	values                   []string
+	retainValuesFiles        bool
+	set                      []string
+	validate                 bool
+	skipCRDs                 bool
+	skipDeps                 bool
+	skipRefresh              bool
+	includeTests             bool
+	skipNeeds                bool
+	includeNeeds             bool
+	includeTransitiveNeeds   bool
+	enforceNeedsAreInstalled bool
+	suppress                 []string
+	suppressSecrets          bool
+	showSecrets              bool
+	noHooks                  bool
+	suppressDiff             bool
+	suppressOutputLineRegex  []string
+	noColor                  bool
+	context                  int
+	diffOutput               string
+	concurrency              int
+	detailedExitcode         bool
+	stripTrailingCR          bool
+	interactive              bool
+	skipDiffOnInstall        bool
+	skipSchemaValidation     bool
+	reuseValues              bool
+	logger                   *zap.SugaredLogger
 }
 
 func (a diffConfig) Args() string {
@@ -94,6 +95,10 @@ func (a diffConfig) IncludeNeeds() bool {
 
 func (a diffConfig) IncludeTransitiveNeeds() bool {
 	return a.includeTransitiveNeeds
+}
+
+func (a diffConfig) EnforceNeedsAreInstalled() bool {
+	return a.enforceNeedsAreInstalled
 }
 
 func (a diffConfig) Suppress() []string {
