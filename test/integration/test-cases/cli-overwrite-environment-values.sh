@@ -11,7 +11,7 @@ if [[ ${HELMFILE_V1MODE} = true ]]; then
   info "Comparing ${case_title} for v1 output ${cli_overwrite_environment_values_reverse} with ${cli_overwrite_environment_values_output_dir}/overwritten.yaml"
   for i in $(seq 10); do
       info "Comparing build/cli-overwrite-environment-values #$i"
-      ${helmfile} -f ${cli_overwrite_environment_values_input_dir}/input_v1.yaml.gotmpl template --state-values-set ns=test3 > ${cli_overwrite_environment_values_reverse} || fail "\"helmfile template\" shouldn't fail"
+      ${helmfile} -f ${cli_overwrite_environment_values_input_dir}/input_v1.yaml.gotmpl template --state-values-set ns=test3 --state-values-set-string imageTag=1.23.3,zone="zone1,zone2" > ${cli_overwrite_environment_values_reverse} || fail "\"helmfile template\" shouldn't fail"
       diff -u ${cli_overwrite_environment_values_output_dir}/output_v1.yaml ${cli_overwrite_environment_values_reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
@@ -21,7 +21,7 @@ else
   info "Comparing ${case_title} output ${cli_overwrite_environment_values_reverse} with ${cli_overwrite_environment_values_output_dir}/overwritten.yaml"
   for i in $(seq 10); do
       info "Comparing build/cli-overwrite-environment-values #$i"
-      ${helmfile} -f ${cli_overwrite_environment_values_input_dir}/input_v1.yaml.gotmpl template --state-values-set ns=test3 > ${cli_overwrite_environment_values_reverse} || fail "\"helmfile template\" shouldn't fail"
+      ${helmfile} -f ${cli_overwrite_environment_values_input_dir}/input_v1.yaml.gotmpl template --state-values-set ns=test3 --state-values-set-string imageTag=1.23.3,zone="zone1,zone2" > ${cli_overwrite_environment_values_reverse} || fail "\"helmfile template\" shouldn't fail"
       diff -u ${cli_overwrite_environment_values_output_dir}/output_v1.yaml ${cli_overwrite_environment_values_reverse} || fail "\"helmfile template\" should be consistent"
       echo code=$?
   done
