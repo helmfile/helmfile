@@ -3426,7 +3426,7 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 				skipNeeds: true,
 			},
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -3481,7 +3481,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 			},
 			error: `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -3520,7 +3520,7 @@ releases:
 			name: "upgrades with bad selector",
 			loc:  location(),
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
