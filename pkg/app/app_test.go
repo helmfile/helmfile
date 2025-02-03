@@ -135,6 +135,7 @@ environments:
   default:
     values:
     - env.*.yaml
+---
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -184,6 +185,7 @@ environments:
   default:
     values:
     - env.*.yaml
+---
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -230,6 +232,7 @@ bases:
 - base.yaml
 environments:
   test:
+--
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -281,6 +284,7 @@ environments:
     missingFileHandler: %s
     values:
     - %s
+---
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -393,7 +397,7 @@ helmfiles:
 		"/path/to/helmfile.d/a1.yaml": `
 environments:
   prod:
-
+---
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -814,6 +818,7 @@ environments:
   default:
     values:
     - ns: INLINE_NS
+---
 releases:
 - name: foo
   chart: stable/zipkin
@@ -977,7 +982,7 @@ releases:
 
 func TestVisitDesiredStatesWithReleasesFiltered_EnvironmentValueOverrides(t *testing.T) {
 	files := map[string]string{
-		"/path/to/helmfile.yaml": `
+		"/path/to/helmfile.yaml.gotmpl": `
 environments:
   default:
     values:
