@@ -138,26 +138,31 @@ func TestTopConfigKeysVerifier(t *testing.T) {
 			name:            "error when not correct order 00",
 			helmfileContent: []byte("releases:\nbases:\n"),
 			wantErr:         true,
+			wantStrict:      true,
 		},
 		{
 			name:            "error when not correct order 01",
 			helmfileContent: []byte("releases:\nhelmDefaults:\nbases:\n"),
 			wantErr:         true,
+			wantStrict:      true,
 		},
 		{
 			name:            "error when not correct order 02",
 			helmfileContent: []byte("helmDefaults:\nreleases:\nbases:\n"),
 			wantErr:         true,
+			wantStrict:      true,
 		},
 		{
 			name:            "error when not correct order 03",
 			helmfileContent: []byte("releases:\nva:\nve:\nbases:\n"),
 			wantErr:         true,
+			wantStrict:      true,
 		},
 		{
 			name:            "error when not correct order 04",
 			helmfileContent: []byte("bases:\nreleases:\nenvironments:\n"),
 			wantErr:         true,
+			wantStrict:      true,
 		},
 		{
 			name:            "no error when only has bases",
