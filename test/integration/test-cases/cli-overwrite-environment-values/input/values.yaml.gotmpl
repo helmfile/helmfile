@@ -1,2 +1,5 @@
 image:
-  tag: {{ .Values.ns }}
+  tag: {{ .Values.imageTag }}
+
+podAnnotations:
+  zone: {{ .Values.zone }}
