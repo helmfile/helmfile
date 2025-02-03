@@ -1442,7 +1442,7 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 }
 
 func TestLoadDesiredStateFromYaml_Bases(t *testing.T) {
-	yamlFile := "/path/to/yaml/file"
+	yamlFile := "/path/to/yaml/file.gotmpl"
 	yamlContent := `bases:
 - ../base.yaml
 - ../base.gotmpl
@@ -1513,7 +1513,7 @@ helmDefaults:
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate(t *testing.T) {
-	yamlFile := "/path/to/yaml/file"
+	yamlFile := "/path/to/yaml/file.gotmpl"
 	yamlContent := `bases:
 - ../base.yaml
 ---
