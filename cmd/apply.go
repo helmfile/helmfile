@@ -43,6 +43,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.StripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	f.StringVar(&applyOptions.DiffArgs, "diff-args", "", `pass args to helm helm-diff`)
 	f.StringVar(&applyOptions.SyncArgs, "sync-args", "", `pass args to helm upgrade`)
+	f.StringVar(&applyOptions.TemplateArgs, "template-args", "", `pass args to helm template`)
 	f.StringVar(&globalCfg.GlobalOptions.Args, "args", "", "pass args to helm exec")
 	if !runtime.V1Mode {
 		// TODO: Remove this function once Helmfile v0.x
