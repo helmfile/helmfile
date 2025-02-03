@@ -51,6 +51,7 @@ spec:
         app.kubernetes.io/instance: test
         app.kubernetes.io/managed-by: Helm
       annotations:
+        zone: "zone1,zone2"
     spec:
       
       automountServiceAccountToken: false
@@ -75,7 +76,7 @@ spec:
       initContainers:
       containers:
         - name: nginx
-          image: docker.io/bitnami/nginx:test3
+          image: docker.io/bitnami/nginx:1.23.3
           imagePullPolicy: "IfNotPresent"
           env:
             - name: BITNAMI_DEBUG
