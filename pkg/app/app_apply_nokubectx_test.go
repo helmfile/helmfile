@@ -415,7 +415,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 			},
 			error: ``,
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -464,7 +464,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 	t.Run("bad --selector", func(t *testing.T) {
 		check(t, testcase{
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
