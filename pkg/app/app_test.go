@@ -4096,7 +4096,7 @@ func testSetValuesTemplate(t *testing.T, goccyGoYaml bool) {
 	})
 
 	files := map[string]string{
-		"/path/to/helmfile.yaml": `
+		"/path/to/helmfile.yaml.gotmpl": `
 releases:
 - name: zipkin
   chart: stable/zipkin
