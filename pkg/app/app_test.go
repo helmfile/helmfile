@@ -813,7 +813,7 @@ helmfiles:
   values:
   - env.values.yaml
 `,
-		"/path/to/helmfile.d/a1.yaml": `
+		"/path/to/helmfile.d/a1.yaml.gotmpl": `
 environments:
   default:
     values:
@@ -824,7 +824,7 @@ releases:
   chart: stable/zipkin
   namespace: {{ .Environment.Values.ns }}
 `,
-		"/path/to/helmfile.d/b.yaml": `
+		"/path/to/helmfile.d/b.yaml.gotmpl": `
 environments:
   default:
     values:
@@ -834,7 +834,7 @@ releases:
   chart: stable/grafana
   namespace: {{ .Environment.Values.ns }}
 `,
-		"/path/to/helmfile.d/c.yaml": `
+		"/path/to/helmfile.d/c.yaml.gotmpl": `
 environments:
   default:
     values:
@@ -1080,7 +1080,7 @@ func TestVisitDesiredStatesWithReleasesFiltered_StateValueOverrides(t *testing.T
 		testcase := testcases[i]
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			files := map[string]string{
-				"/path/to/helmfile.yaml": fmt.Sprintf(`
+				"/path/to/helmfile.yaml.gotmpl": fmt.Sprintf(`
 # The top-level "values" are "base" values has inherited to state values with the lowest priority.
 # The lowest priority results in environment-specific values to override values defined in the base.
 values:
