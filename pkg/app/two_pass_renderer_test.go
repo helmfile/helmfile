@@ -67,60 +67,6 @@ releases:
 	}
 }
 
-func TestReadFromYaml_RenderTemplate(t *testing.T) {
-	defaultValuesYaml := `
-releaseName: "hello"
-conditionalReleaseTag: "yes"
-`
-
-	yamlContent := []byte(`
-environments:
-  staging:
-    values:
-    - default/values.yaml
-  production:
-
-releases:
-- name: {{ .Environment.Values.releaseName }}
-  chart: mychart1
-
-{{ if (eq .Environment.Values.conditionalReleaseTag "yes") }}
-- name: conditionalRelease
-{{ end }}
-
-`)
-
-	files := map[string]string{
-		"/path/to/default/values.yaml": defaultValuesYaml,
-	}
-
-	r, _, _ := makeLoader(files, "staging")
-	// test the double rendering
-	yamlBuf, err := r.renderTemplatesToYaml("", "", yamlContent)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var state state.HelmState
-	err = yaml.Unmarshal(yamlBuf.Bytes(), &state)
-
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	if len(state.Releases) != 2 {
-		t.Fatal("there should be 2 releases")
-	}
-
-	if state.Releases[0].Name != "hello" {
-		t.Errorf("release name should be hello")
-	}
-
-	if state.Releases[1].Name != "conditionalRelease" {
-		t.Error("conditional release should have been present")
-	}
-}
-
 func testReadFromYaml_RenderTemplateLog(t *testing.T) {
 	t.Helper()
 

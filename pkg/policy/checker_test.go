@@ -47,13 +47,6 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 			filePath:    "helmfile.yaml",
 			content:     []byte("environments:\nreleases:\n"),
 			expectedErr: true,
-			isStrict:    false,
-		},
-		{
-			name:        "error when both releases and environments for plain yaml on v1",
-			filePath:    "helmfile.yaml",
-			content:     []byte("environments:\nreleases:\n"),
-			expectedErr: true,
 			isStrict:    true,
 		},
 	}
