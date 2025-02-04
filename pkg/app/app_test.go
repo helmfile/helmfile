@@ -232,7 +232,7 @@ bases:
 - base.yaml
 environments:
   test:
---
+---
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -803,7 +803,7 @@ func runFilterSubHelmFilesTests(testcases []struct {
 
 func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedNestedStateAdditionalEnvValues(t *testing.T) {
 	files := map[string]string{
-		"/path/to/helmfile.yaml": `
+		"/path/to/helmfile.yaml.gotmpl": `
 helmfiles:
 - path: helmfile.d/a*.yaml
   values:
@@ -1724,7 +1724,7 @@ foo: FOO
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithNonDefaultEnv(t *testing.T) {
-	yamlFile := "/path/to/yaml/file"
+	yamlFile := "/path/to/yaml/file.gotmpl"
 	yamlContent := `bases:
 - ../base.yaml
 ---
@@ -1815,7 +1815,7 @@ helmDefaults:
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithReverse(t *testing.T) {
-	yamlFile := "/path/to/yaml/file"
+	yamlFile := "/path/to/yaml/file.gotmpl"
 	yamlContent := `
 {{ readFile "templates.yaml" }}
 
@@ -1873,7 +1873,7 @@ releases:
 
 // See https://github.com/roboll/helmfile/issues/615
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_NoMergeArrayInEnvVal(t *testing.T) {
-	statePath := "/path/to/helmfile.yaml"
+	statePath := "/path/to/helmfile.yaml.gotmpl"
 	stateContent := `
 environments:
   default:
@@ -1938,7 +1938,7 @@ func TestLoadDesiredStateFromYaml_MultiPartTemplate_MergeMapsVariousKeys(t *test
 	}
 	for i := range testcases {
 		tc := testcases[i]
-		statePath := "/path/to/helmfile.yaml"
+		statePath := "/path/to/helmfile.yaml.gotmpl"
 		stateContent := `
 environments:
   default:
@@ -2055,7 +2055,7 @@ releases:
 	}
 	for i := range testcases {
 		tc := testcases[i]
-		statePath := "/path/to/helmfile.yaml"
+		statePath := "/path/to/helmfile.yaml.gotmpl"
 		stateContent := fmt.Sprintf(tc.state, tc.expr)
 		testFs := testhelper.NewTestFs(map[string]string{
 			statePath:         stateContent,
@@ -3858,8 +3858,9 @@ changing working directory back to "/path/to"
 
 			if tc.log != "" {
 				actual := bs.String()
-
 				assert.Equal(t, tc.log, actual)
+			} else {
+				assertLogEqualsToSnapshot(t, bs.String())
 			}
 		})
 	}
