@@ -1,0 +1,7 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+merged environment: &{default  map[] map[]}
+There are no repositories defined in your helmfile.yaml.
+This means helmfile cannot update your dependencies or create a lock file.
+See https://github.com/roboll/helmfile/issues/878 for more information.
+changing working directory back to "/path/to"
