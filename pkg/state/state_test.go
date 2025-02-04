@@ -58,13 +58,9 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type fields struct {
 		BaseChartPath string
 		Context       string
-
-		// TODO: Remove this function once Helmfile v0.x
-		DeprecatedReleases []ReleaseSpec
-
-		Namespace    string
-		Repositories []RepositorySpec
-		Releases     []ReleaseSpec
+		Namespace     string
+		Repositories  []RepositorySpec
+		Releases      []ReleaseSpec
 	}
 	type args struct {
 		spec ReleaseSpec
@@ -89,12 +85,8 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	fieldsWithNamespace := fields{
 		BaseChartPath: ".",
 		Context:       "test_context",
-
-		// TODO: Remove this function once Helmfile v0.x
-		DeprecatedReleases: nil,
-
-		Namespace:    specWithNamespaceFromFields.Namespace,
-		Repositories: nil,
+		Namespace:     specWithNamespaceFromFields.Namespace,
+		Repositories:  nil,
 		Releases: []ReleaseSpec{
 			specWithNamespace,
 		},
@@ -148,10 +140,6 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			state := &HelmState{
 				basePath: tt.fields.BaseChartPath,
 				ReleaseSetSpec: ReleaseSetSpec{
-					// TODO: Remove this function once Helmfile v0.x
-					DeprecatedContext:  tt.fields.Context,
-					DeprecatedReleases: tt.fields.DeprecatedReleases,
-
 					OverrideNamespace: tt.fields.Namespace,
 					Repositories:      tt.fields.Repositories,
 					Releases:          tt.fields.Releases,
@@ -740,9 +728,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			state := &HelmState{
 				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
-					// TODO: Remove this function once Helmfile v0.x
-					DeprecatedContext: "default",
-
 					Releases:     []ReleaseSpec{*tt.release},
 					HelmDefaults: tt.defaults,
 				},
@@ -904,9 +889,8 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			state := &HelmState{
 				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
-					DeprecatedContext: "default",
-					Releases:          []ReleaseSpec{*tt.release},
-					HelmDefaults:      tt.defaults,
+					Releases:     []ReleaseSpec{*tt.release},
+					HelmDefaults: tt.defaults,
 				},
 				valsRuntime: valsRuntime,
 			}

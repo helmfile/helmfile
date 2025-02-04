@@ -18,10 +18,6 @@ type ApplyOptions struct {
 	DetailedExitcode bool
 	// StripTrailingCR is true if trailing carriage returns should be stripped during diffing
 	StripTrailingCR bool
-	// TODO: Remove this function once Helmfile v0.x
-	// DEPRECATED: Use skip-cleanup instead
-	RetainValuesFiles bool
-
 	// SkipCleanup is true if the cleanup of temporary values files should be skipped
 	SkipCleanup bool
 	// SkipCRDs is true if the CRDs should be skipped
@@ -137,12 +133,6 @@ func (a *ApplyImpl) IncludeTests() bool {
 // IncludeTransitiveNeeds returns the include transitive needs.
 func (a *ApplyImpl) IncludeTransitiveNeeds() bool {
 	return a.ApplyOptions.IncludeTransitiveNeeds
-}
-
-// TODO: Remove this function once Helmfile v0.x
-// RetainValuesFiles returns the retain values files.
-func (a *ApplyImpl) RetainValuesFiles() bool {
-	return a.ApplyOptions.RetainValuesFiles
 }
 
 // ShowSecrets returns the show secrets.

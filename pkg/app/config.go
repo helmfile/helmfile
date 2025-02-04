@@ -25,15 +25,6 @@ type ConfigProvider interface {
 	loggingConfig
 }
 
-// TODO: Remove this function once Helmfile v0.x
-type DeprecatedChartsConfigProvider interface {
-	Values() []string
-
-	concurrencyConfig
-	loggingConfig
-	IncludeTransitiveNeeds() bool
-}
-
 type DepsConfigProvider interface {
 	Args() string
 	SkipRepos() bool
@@ -80,9 +71,6 @@ type ApplyConfigProvider interface {
 	NoColor() bool
 	Context() int
 	DiffOutput() string
-
-	// TODO: Remove this function once Helmfile v0.x
-	RetainValuesFiles() bool
 
 	Validate() bool
 	SkipCleanup() bool
@@ -164,23 +152,6 @@ type DiffConfigProvider interface {
 
 	concurrencyConfig
 	valuesControlMode
-}
-
-// TODO: Remove this function once Helmfile v0.x
-type DeleteConfigProvider interface {
-	Args() string
-	Cascade() string
-
-	Purge() bool
-	SkipDeps() bool
-	SkipRefresh() bool
-	SkipCharts() bool
-	DeleteWait() bool
-	DeleteTimeout() int
-
-	interactive
-	loggingConfig
-	concurrencyConfig
 }
 
 type DestroyConfigProvider interface {

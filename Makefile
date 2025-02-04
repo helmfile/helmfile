@@ -25,10 +25,6 @@ build:
 	go build -ldflags="$(GO_BUILD_VERSION_LDFLAGS)" ${TARGETS}
 .PHONY: build
 
-build-v1:
-	go build -ldflags="$(GO_BUILD_VERSION_LDFLAGS) -X github.com/helmfile/helmfile/pkg/runtime.v1Mode=true" ${TARGETS}
-.PHONY: build-v1
-
 generate:
 	go generate ${PKGS}
 .PHONY: generate
