@@ -856,7 +856,7 @@ ns: INLINE_NS
 		Namespace:           "",
 		Selectors:           []string{},
 		Env:                 "default",
-		FileOrDir:           "/path/to/helmfile.yaml",
+		FileOrDir:           "/path/to/helmfile.yaml.gotmpl",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -1026,7 +1026,7 @@ bar: "bar1"
 			Env:                 "default",
 			ValuesFiles:         []string{"overrides.yaml"},
 			Set:                 map[string]any{"bar": "bar2", "baz": "baz1"},
-			FileOrDir:           "helmfile.yaml",
+			FileOrDir:           "helmfile.yaml.gotmpl",
 		}, files)
 
 		expectNoCallsToHelm(app)
@@ -1147,7 +1147,7 @@ x:
 				Env:                 testcase.env,
 				ValuesFiles:         []string{"overrides.yaml"},
 				Set:                 map[string]any{"x": map[string]any{"hoge": "hoge_set", "fuga": "fuga_set"}},
-				FileOrDir:           "helmfile.yaml",
+				FileOrDir:           "helmfile.yaml.gotmpl",
 			}, files)
 
 			expectNoCallsToHelm(app)
