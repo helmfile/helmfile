@@ -4,13 +4,7 @@ sops="sops --hc-vault-transit $VAULT_ADDR/v1/sops/keys/key"
 
 secretssops_case_input_dir="${cases_dir}/secretssops/input"
 secretssops_case_output_dir="${cases_dir}/secretssops/output"
-config_file="secretssops.yaml"
-if [[ ${HELMFILE_V1MODE} = true ]]; then
-  pushd "${secretssops_case_input_dir}"
-  mv "${config_file}" "${config_file}.gotmpl"
-  config_file="${config_file}.gotmpl"
-  popd
-fi
+config_file="secretssops.yaml.gotmpl"
 
 mkdir -p ${secretssops_case_input_dir}/tmp
 
