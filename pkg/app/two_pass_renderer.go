@@ -33,7 +33,6 @@ func (r *desiredStateLoader) renderTemplatesToYamlWithEnv(baseDir, filename stri
 }
 
 func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *environment.Environment, baseDir, filename string, content []byte) (*bytes.Buffer, error) {
-	// try a first pass render. This will always succeed, but can produce a limited env
 	var phase string
 	r.logger.Debugf("%srendering starting for \"%s\": inherited=%v, overrode=%v", phase, filename, inherited, overrode)
 

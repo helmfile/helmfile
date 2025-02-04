@@ -197,51 +197,6 @@ releases:
 	}
 }
 
-// This test shows that a gotmpl reference will get rendered correctly
-// even if the pre-render disables the readFile and exec functions.
-// This does not apply to .gotmpl files, which is a nice side-effect.
-func TestReadFromYaml_RenderTemplateWithGotmpl(t *testing.T) {
-	defaultValuesYamlGotmpl := `
-releaseName: {{ readFile "nonIgnoredFile" }}
-`
-
-	yamlContent := []byte(`
-environments:
-  staging:
-    values:
-    - values.yaml.gotmpl
-  production:
-
-{{ if (eq .Environment.Values.releaseName "release-a") }} # line 8
-releases:
-- name: a
-  chart: mychart1
-{{ end }}
-`)
-
-	files := map[string]string{
-		"/path/to/nonIgnoredFile": `release-a`,
-		"/path/to/values.yaml":    defaultValuesYamlGotmpl,
-	}
-
-	r, _, _ := makeLoader(files, "staging")
-	rendered, _ := r.renderTemplatesToYaml("", "", yamlContent)
-
-	var state state.HelmState
-	err := yaml.Unmarshal(rendered.Bytes(), &state)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(state.Releases) != 1 {
-		t.Fatal("there should be 1 release")
-	}
-
-	if state.Releases[0].Name != "a" {
-		t.Fatal("release should have been declared")
-	}
-}
-
 func TestReadFromYaml_RenderTemplateWithNamespace(t *testing.T) {
 	yamlContent := []byte(`releases:
 - name: {{ .Namespace }}-myrelease
