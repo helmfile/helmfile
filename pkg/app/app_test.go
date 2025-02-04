@@ -3932,6 +3932,7 @@ environments:
     values:
      - myrelease2:
          enabled: false
+---
 releases:
 - name: myrelease1
   chart: mychart1
