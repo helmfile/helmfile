@@ -829,6 +829,7 @@ environments:
   default:
     values:
     - ns: INLINE_NS
+---
 releases:
 - name: bar
   chart: stable/grafana
@@ -839,6 +840,7 @@ environments:
   default:
     values:
     - ns: INLINE_NS
+---
 releases:
 - name: baz
   chart: stable/envoy

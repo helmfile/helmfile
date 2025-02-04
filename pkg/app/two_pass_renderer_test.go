@@ -220,8 +220,8 @@ releases:
 `)
 
 	files := map[string]string{
-		"/path/to/nonIgnoredFile":     `release-a`,
-		"/path/to/values.yaml.gotmpl": defaultValuesYamlGotmpl,
+		"/path/to/nonIgnoredFile": `release-a`,
+		"/path/to/values.yaml":    defaultValuesYamlGotmpl,
 	}
 
 	r, _, _ := makeLoader(files, "staging")
