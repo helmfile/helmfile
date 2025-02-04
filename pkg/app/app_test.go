@@ -171,7 +171,7 @@ BAZ: 4
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	expectedOrder := []string{"helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
+	expectedOrder := []string{"helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
 	actualOrder := fs.SuccessfulReads()
 	if !reflect.DeepEqual(actualOrder, expectedOrder) {
 		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
