@@ -28,7 +28,6 @@ rendering result of "helmfile.yaml.gotmpl.part.0":
 23: 
 
 merged environment: &{default  map[] map[]}
-2 release(s) matching app=test found in helmfile.yaml.gotmpl
+0 release(s) matching app=test_non_existent found in helmfile.yaml.gotmpl
 
-err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
 changing working directory back to "/path/to"
