@@ -7,7 +7,6 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
-	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 	"github.com/helmfile/helmfile/pkg/yaml"
@@ -165,20 +164,7 @@ releases:
 }
 
 func TestReadFromYaml_RenderTemplateLog(t *testing.T) {
-	v := runtime.V1Mode
-	t.Cleanup(func() {
-		runtime.V1Mode = v
-	})
-
-	t.Run("v0mode", func(t *testing.T) {
-		runtime.V1Mode = false
-		testReadFromYaml_RenderTemplateLog(t)
-	})
-
-	t.Run("v1mode", func(t *testing.T) {
-		runtime.V1Mode = true
-		testReadFromYaml_RenderTemplateLog(t)
-	})
+	testReadFromYaml_RenderTemplateLog(t)
 }
 
 func TestReadFromYaml_RenderTemplateWithValuesReferenceError(t *testing.T) {

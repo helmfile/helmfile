@@ -1,8 +1,5 @@
 version: 2
 project_name: helmfile
-env:
-  # We default to non-v1 mode (=helmfile v0.x behavior) when HELMFILE_V1MODE is not set
-  - HELMFILE_V1MODE={{ if index .Env "HELMFILE_V1MODE"  }}{{ .Env.HELMFILE_V1MODE }}{{ else }}false{{ end }}
 builds:
   - id: helmfile
     main: .
@@ -15,7 +12,6 @@ builds:
       - -X go.szostok.io/version.commit={{.FullCommit}}
       - -X go.szostok.io/version.commitDate={{.CommitDate}}
       - -X go.szostok.io/version.dirtyBuild=false
-      - -X github.com/helmfile/helmfile/pkg/runtime.v1Mode={{.Env.HELMFILE_V1MODE}}
     goos:
       - darwin
       - linux

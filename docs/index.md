@@ -564,7 +564,6 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](https://helmfile.readthedocs.io/en/latest/#environment), it has lower priority than CLI argument `--environment`
 * `HELMFILE_TEMPDIR` - specify directory to store temporary files
 * `HELMFILE_UPGRADE_NOTICE_DISABLED` - expecting any non-empty value to skip the check for the latest version of Helmfile in [helmfile version](https://helmfile.readthedocs.io/en/latest/#version)
-* `HELMFILE_V1MODE` - Helmfile v0.x behaves like v1.x with `true`, Helmfile v1.x behaves like v0.x with `false` as value
 * `HELMFILE_GOCCY_GOYAML` - use *goccy/go-yaml* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile v0.x and `true` by default for Helmfile v1.x.
 * `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
 * `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
