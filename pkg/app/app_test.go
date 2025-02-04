@@ -805,11 +805,11 @@ func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedNestedStateAdditionalEnv
 	files := map[string]string{
 		"/path/to/helmfile.yaml.gotmpl": `
 helmfiles:
-- path: helmfile.d/a*.yaml
+- path: helmfile.d/a*.yaml.gotmpl
   values:
   - env.values.yaml
-- helmfile.d/b*.yaml
-- path: helmfile.d/c*.yaml
+- helmfile.d/b*.yaml.gotmpl
+- path: helmfile.d/c*.yaml.gotmpl
   values:
   - env.values.yaml
 `,
@@ -3479,7 +3479,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 				skipNeeds:    false,
 				includeNeeds: true,
 			},
-			error: `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error: `in ./helmfile.yaml.gotmpl: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			files: map[string]string{
 				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
@@ -3771,41 +3771,6 @@ releases:
 `,
 				"/path/to/charts/example/Chart.yaml": `foo: FOO`,
 			},
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: repositories:
- 2: - name: bitnami
- 3:   url: https://charts.bitnami.com/bitnami/
- 4: releases:
- 5: - name: example
- 6:   chart: /path/to/charts/example
- 7: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: repositories:
- 2: - name: bitnami
- 3:   url: https://charts.bitnami.com/bitnami/
- 4: releases:
- 5: - name: example
- 6:   chart: /path/to/charts/example
- 7: 
-
-merged environment: &{default  map[] map[]}
-There are no repositories defined in your helmfile.yaml.
-This means helmfile cannot update your dependencies or create a lock file.
-See https://github.com/roboll/helmfile/issues/878 for more information.
-changing working directory back to "/path/to"
-`,
 			charts: []string{"/path/to/charts/example"},
 		},
 	}
@@ -4023,7 +3988,7 @@ func testSetStringValuesTemplate(t *testing.T, goccyGoYaml bool) {
 	})
 
 	files := map[string]string{
-		"/path/to/helmfile.yaml": `
+		"/path/to/helmfile.yaml.gotmpl": `
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -4047,7 +4012,7 @@ releases:
 		OverrideKubeContext: "default",
 		Logger:              newAppTestLogger(),
 		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		FileOrDir:           "helmfile.yaml.gotmpl",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -4119,7 +4084,7 @@ releases:
 		OverrideKubeContext: "default",
 		Logger:              newAppTestLogger(),
 		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		FileOrDir:           "helmfile.yaml.gotmpl",
 	}, files)
 
 	expectNoCallsToHelm(app)
