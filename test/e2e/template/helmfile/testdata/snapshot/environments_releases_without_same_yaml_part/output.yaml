@@ -1,4 +1,3 @@
-WARNING: environments and releases cannot be defined within the same YAML part. Use --- to extract the environments into a dedicated part
 Building dependency release=raw, chart=../../charts/raw-0.0.1
 Templating release=raw, chart=../../charts/raw-0.0.1
 ---
