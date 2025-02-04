@@ -1,42 +1,5 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: releaseA
- 3:   chart: mychart1
- 4:   namespace: namespaceA
- 5:   kubeContext: arn:aws:eks:us-east-1:1234567890:cluster/myekscluster
- 6: - name: releaseB
- 7:   chart: mychart2
- 8:   namespace: namespaceA
- 9:   kubeContext: arn:aws:eks:us-east-1:1234567890:cluster/myekscluster
-10:   needs:
-11:     - arn:aws:eks:us-east-1:1234567890:cluster/myekscluster/namespaceA/releaseA
-12: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: releaseA
- 3:   chart: mychart1
- 4:   namespace: namespaceA
- 5:   kubeContext: arn:aws:eks:us-east-1:1234567890:cluster/myekscluster
- 6: - name: releaseB
- 7:   chart: mychart2
- 8:   namespace: namespaceA
- 9:   kubeContext: arn:aws:eks:us-east-1:1234567890:cluster/myekscluster
-10:   needs:
-11:     - arn:aws:eks:us-east-1:1234567890:cluster/myekscluster/namespaceA/releaseA
-12: 
-
 merged environment: &{default  map[] map[]}
 2 release(s) found in helmfile.yaml
 
