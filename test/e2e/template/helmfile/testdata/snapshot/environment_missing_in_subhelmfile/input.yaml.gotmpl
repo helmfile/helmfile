@@ -4,13 +4,13 @@ environments:
     - test.yaml.gotmpl
 ---
 helmfiles:
-- path: helmfiles/test.yaml
+- path: helmfiles/test.yaml.gotmpl
   values:
   - envName: {{ .Values.envName }}
-- path: helmfiles/prod.yaml
+- path: helmfiles/prod.yaml.gotmpl
   values:
   - envName: {{ .Values.envName }}
-- path: helmfiles/no-envs.yaml
+- path: helmfiles/no-envs.yaml.gotmpl
   values:
   - envName: {{ .Values.envName }}
-- path: helmfiles/no-values.yaml
+- path: helmfiles/no-values.yaml.gotmpl
