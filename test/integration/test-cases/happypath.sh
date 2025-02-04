@@ -2,14 +2,7 @@ test_start "happypath - simple rollout of httpbin chart"
 
 happypath_case_input_dir="${cases_dir}/happypath/input"
 happypath_case_output_dir="${cases_dir}/happypath/output"
-config_file="happypath.yaml"
-
-if [[ ${HELMFILE_V1MODE} = true ]]; then
-  pushd "${happypath_case_input_dir}"
-  mv "${config_file}" "${config_file}.gotmpl"
-  config_file="${config_file}.gotmpl"
-  popd
-fi
+config_file="happypath.yaml.gotmpl"
 
 info "Diffing ${happypath_case_input_dir}/${config_file}"
 bash -c "${helmfile} -f ${happypath_case_input_dir}/${config_file} diff --detailed-exitcode; code="'$?'"; [ "'${code}'" -eq 2 ]" || fail "unexpected exit code returned by helmfile diff"

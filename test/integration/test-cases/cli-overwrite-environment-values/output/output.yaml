@@ -1,9 +1,3 @@
-Warning: environments and releases cannot be defined within the same YAML part. Use --- to extract the environments into a dedicated part
-Warning: environments and releases cannot be defined within the same YAML part. Use --- to extract the environments into a dedicated part
-Adding repo bitnami https://charts.bitnami.com/bitnami
-"bitnami" has been added to your repositories
-
-Templating release=test, chart=bitnami/nginx
 ---
 # Source: nginx/templates/svc.yaml
 apiVersion: v1
@@ -57,6 +51,7 @@ spec:
         app.kubernetes.io/instance: test
         app.kubernetes.io/managed-by: Helm
       annotations:
+        zone: "zone1,zone2"
     spec:
       
       automountServiceAccountToken: false
@@ -81,7 +76,7 @@ spec:
       initContainers:
       containers:
         - name: nginx
-          image: docker.io/bitnami/nginx:test3
+          image: docker.io/bitnami/nginx:1.23.3
           imagePullPolicy: "IfNotPresent"
           env:
             - name: BITNAMI_DEBUG

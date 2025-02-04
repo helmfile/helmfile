@@ -1,14 +1,7 @@
 chartify_case_input_dir="${cases_dir}/chartify/input"
 chartify_case_output_dir="${cases_dir}/chartify/output"
 
-config_file="helmfile.yaml"
-if [[ ${HELMFILE_V1MODE} = true ]]; then
-  pushd "${chartify_case_input_dir}"
-  mv "${config_file}" "${config_file}.gotmpl"
-  config_file="${config_file}.gotmpl"
-  popd
-fi
-
+config_file="helmfile.yaml.gotmpl"
 chartify_tmp=$(mktemp -d)
 chartify_template_reverse=${chartify_tmp}/chartify.template.log
 
