@@ -8,7 +8,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/helmfile/helmfile/pkg/environment"
-	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
@@ -84,9 +83,6 @@ func (r *desiredStateLoader) renderTemplatesToYamlWithEnv(baseDir, filename stri
 func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *environment.Environment, baseDir, filename string, content []byte) (*bytes.Buffer, error) {
 	// try a first pass render. This will always succeed, but can produce a limited env
 	var phase string
-	if !runtime.V1Mode {
-		phase = "first-pass "
-	}
 	r.logger.Debugf("%srendering starting for \"%s\": inherited=%v, overrode=%v", phase, filename, inherited, overrode)
 
 	initEnv, err := inherited.Merge(nil)
@@ -100,53 +96,14 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 		vals           map[string]any
 	)
 
-	if runtime.V1Mode {
-		var err error
+	finalEnv, err = initEnv.Merge(overrode)
+	if err != nil {
+		return nil, err
+	}
 
-		finalEnv, err = initEnv.Merge(overrode)
-		if err != nil {
-			return nil, err
-		}
-
-		vals, err = finalEnv.GetMergedValues()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		r.logger.Debugf("first-pass uses: %v", initEnv)
-		firstPassEnv, err := initEnv.Merge(nil)
-		if err != nil {
-			return nil, err
-		}
-		renderedEnv, prestate := r.renderPrestate(firstPassEnv, overrode, baseDir, filename, content)
-
-		r.logger.Debugf("first-pass produced: %v", renderedEnv)
-
-		mergedEnv, err := inherited.Merge(renderedEnv)
-		if err != nil {
-			return nil, err
-		}
-
-		mergedEnv, err = mergedEnv.Merge(overrode)
-		if err != nil {
-			return nil, err
-		}
-
-		r.logger.Debugf("first-pass rendering result of \"%s\": %v", filename, *mergedEnv)
-
-		renderingPhase = "second-pass "
-
-		finalEnv = mergedEnv
-
-		vals, err = finalEnv.GetMergedValues()
-		if err != nil {
-			return nil, err
-		}
-
-		if prestate != nil {
-			prestate.Env = *mergedEnv
-			r.logger.Debugf("vals:\n%v\ndefaultVals:%v", vals, prestate.DefaultValues)
-		}
+	vals, err = finalEnv.GetMergedValues()
+	if err != nil {
+		return nil, err
 	}
 
 	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals)
