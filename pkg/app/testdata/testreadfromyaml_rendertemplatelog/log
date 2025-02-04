@@ -1,0 +1,10 @@
+rendering starting for "": inherited=&{default  map[] map[]}, overrode=<nil>
+rendering result of "":
+ 0: 
+ 1: releases:
+ 2: - name: foo
+ 3:   chart: mychart1
+ 4: - name: bar
+ 5: 
+ 6: 
+
