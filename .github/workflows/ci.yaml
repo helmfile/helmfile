@@ -59,7 +59,6 @@ jobs:
             plugin-secrets-version: 3.15.0
             plugin-diff-version: 3.8.1
             extra-helmfile-flags: ''
-            v1mode: ''
           - helm-version: v3.16.4
             kustomize-version: v5.4.3
             # We assume that the helm-secrets plugin is supposed to
@@ -70,26 +69,16 @@ jobs:
             plugin-secrets-version: 4.6.0
             plugin-diff-version: 3.9.14
             extra-helmfile-flags: ''
-            v1mode: ''
           - helm-version: v3.17.0
             kustomize-version: v5.2.1
             plugin-secrets-version: 3.15.0
             plugin-diff-version: 3.8.1
             extra-helmfile-flags: ''
-            v1mode: ''
           - helm-version: v3.17.0
             kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.0
             plugin-diff-version: 3.9.14
             extra-helmfile-flags: ''
-            v1mode: ''
-          # Helmfile v1
-          - helm-version: v3.17.0
-            kustomize-version: v5.4.3
-            plugin-secrets-version: 4.6.0
-            plugin-diff-version: 3.9.14
-            extra-helmfile-flags: ''
-            v1mode: 'true'
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
           - helm-version: v3.17.0
@@ -97,7 +86,6 @@ jobs:
             plugin-secrets-version: 4.6.0
             plugin-diff-version: 3.9.14
             extra-helmfile-flags: '--enable-live-output'
-            v1mode: ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -127,7 +115,6 @@ jobs:
           HELMFILE_HELM3: 1
           TERM: xterm
           EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
-          HELMFILE_V1MODE: ${{ matrix.v1mode }}
 
   e2e_tests:
     needs: tests

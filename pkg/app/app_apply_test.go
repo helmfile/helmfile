@@ -146,7 +146,7 @@ func TestApply_2(t *testing.T) {
 				skipNeeds: true,
 			},
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -199,7 +199,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 				skipNeeds: true,
 			},
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -250,7 +250,7 @@ releases:
 			},
 			error: ``,
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -306,7 +306,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 			},
 			error: ``,
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -359,7 +359,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 			},
 			error: ``,
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -415,7 +415,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 			},
 			error: ``,
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -470,7 +470,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 			},
 			error: ``,
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -517,7 +517,7 @@ serviceC 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	chart-3.1.0	3.1.0      	def
 	t.Run("bad --selector", func(t *testing.T) {
 		check(t, testcase{
 			files: map[string]string{
-				"/path/to/helmfile.yaml": `
+				"/path/to/helmfile.yaml.gotmpl": `
 {{ $mark := "a" }}
 
 releases:
@@ -547,72 +547,6 @@ releases:
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
-			log: `processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: kubernetes-external-secrets
- 5:   chart: incubator/raw
- 6:   namespace: kube-system
- 7: 
- 8: - name: external-secrets
- 9:   chart: incubator/raw
-10:   namespace: default
-11:   labels:
-12:     app: test
-13:   needs:
-14:   - kube-system/kubernetes-external-secrets
-15: 
-16: - name: my-release
-17:   chart: incubator/raw
-18:   namespace: default
-19:   labels:
-20:     app: test
-21:   needs:
-22:   - default/external-secrets
-23: 
-
-merged environment: &{default  map[] map[]}
-0 release(s) matching app=test_non_existent found in helmfile.yaml
-
-changing working directory back to "/path/to"
-`,
 		})
 	})
 
