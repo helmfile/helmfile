@@ -1136,6 +1136,7 @@ type ChartPrepareOptions struct {
 	KubeVersion            string
 	Set                    []string
 	Values                 []string
+	TemplateArgs           string
 	// Delete wait
 	DeleteWait    bool
 	DeleteTimeout int
@@ -1299,6 +1300,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartifyOpts.IncludeCRDs = includeCRDs
 
 					chartifyOpts.Validate = opts.Validate
+
+					if (helmfileCommand == "template" || helmfileCommand == "apply") && opts.TemplateArgs != "" {
+						chartifyOpts.TemplateArgs = opts.TemplateArgs
+					}
 
 					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
 					chartifyOpts.ApiVersions = st.getApiVersions(release)
@@ -1494,6 +1499,7 @@ type TemplateOpts struct {
 	ShowOnly          []string
 	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
+	TemplateArgs      string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
