@@ -50,6 +50,7 @@ func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&templateOptions.SkipSchemaValidation, "skip-schema-validation", false, `pass skip-schema-validation to "helm template" or "helm upgrade --install"`)
 	f.StringVar(&templateOptions.KubeVersion, "kube-version", "", `pass --kube-version to "helm template". Overrides kubeVersion in helmfile.yaml`)
 	f.StringArrayVar(&templateOptions.ShowOnly, "show-only", nil, `pass --show-only to "helm template"`)
+	f.StringVar(&templateOptions.TemplateArgs, "template-args", "", `pass args to helm template`)
 
 	return cmd
 }
