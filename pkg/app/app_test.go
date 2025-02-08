@@ -135,7 +135,6 @@ environments:
   default:
     values:
     - env.*.yaml
----
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -171,7 +170,7 @@ BAZ: 4
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	expectedOrder := []string{"helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
+	expectedOrder := []string{"helmfile.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml", "/path/to/env.1.yaml", "/path/to/env.2.yaml"}
 	actualOrder := fs.SuccessfulReads()
 	if !reflect.DeepEqual(actualOrder, expectedOrder) {
 		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
@@ -185,7 +184,6 @@ environments:
   default:
     values:
     - env.*.yaml
----
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -232,7 +230,6 @@ bases:
 - base.yaml
 environments:
   test:
----
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -284,7 +281,6 @@ environments:
     missingFileHandler: %s
     values:
     - %s
----
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -397,7 +393,7 @@ helmfiles:
 		"/path/to/helmfile.d/a1.yaml": `
 environments:
   prod:
----
+
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -803,44 +799,41 @@ func runFilterSubHelmFilesTests(testcases []struct {
 
 func TestVisitDesiredStatesWithReleasesFiltered_EmbeddedNestedStateAdditionalEnvValues(t *testing.T) {
 	files := map[string]string{
-		"/path/to/helmfile.yaml.gotmpl": `
+		"/path/to/helmfile.yaml": `
 helmfiles:
-- path: helmfile.d/a*.yaml.gotmpl
+- path: helmfile.d/a*.yaml
   values:
   - env.values.yaml
-- helmfile.d/b*.yaml.gotmpl
-- path: helmfile.d/c*.yaml.gotmpl
+- helmfile.d/b*.yaml
+- path: helmfile.d/c*.yaml
   values:
   - env.values.yaml
 `,
-		"/path/to/helmfile.d/a1.yaml.gotmpl": `
+		"/path/to/helmfile.d/a1.yaml": `
 environments:
   default:
     values:
     - ns: INLINE_NS
----
 releases:
 - name: foo
   chart: stable/zipkin
   namespace: {{ .Environment.Values.ns }}
 `,
-		"/path/to/helmfile.d/b.yaml.gotmpl": `
+		"/path/to/helmfile.d/b.yaml": `
 environments:
   default:
     values:
     - ns: INLINE_NS
----
 releases:
 - name: bar
   chart: stable/grafana
   namespace: {{ .Environment.Values.ns }}
 `,
-		"/path/to/helmfile.d/c.yaml.gotmpl": `
+		"/path/to/helmfile.d/c.yaml": `
 environments:
   default:
     values:
     - ns: INLINE_NS
----
 releases:
 - name: baz
   chart: stable/envoy
@@ -858,7 +851,7 @@ ns: INLINE_NS
 		Namespace:           "",
 		Selectors:           []string{},
 		Env:                 "default",
-		FileOrDir:           "/path/to/helmfile.yaml.gotmpl",
+		FileOrDir:           "/path/to/helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -984,7 +977,7 @@ releases:
 
 func TestVisitDesiredStatesWithReleasesFiltered_EnvironmentValueOverrides(t *testing.T) {
 	files := map[string]string{
-		"/path/to/helmfile.yaml.gotmpl": `
+		"/path/to/helmfile.yaml": `
 environments:
   default:
     values:
@@ -1028,7 +1021,7 @@ bar: "bar1"
 			Env:                 "default",
 			ValuesFiles:         []string{"overrides.yaml"},
 			Set:                 map[string]any{"bar": "bar2", "baz": "baz1"},
-			FileOrDir:           "helmfile.yaml.gotmpl",
+			FileOrDir:           "helmfile.yaml",
 		}, files)
 
 		expectNoCallsToHelm(app)
@@ -1082,7 +1075,7 @@ func TestVisitDesiredStatesWithReleasesFiltered_StateValueOverrides(t *testing.T
 		testcase := testcases[i]
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			files := map[string]string{
-				"/path/to/helmfile.yaml.gotmpl": fmt.Sprintf(`
+				"/path/to/helmfile.yaml": fmt.Sprintf(`
 # The top-level "values" are "base" values has inherited to state values with the lowest priority.
 # The lowest priority results in environment-specific values to override values defined in the base.
 values:
@@ -1149,7 +1142,7 @@ x:
 				Env:                 testcase.env,
 				ValuesFiles:         []string{"overrides.yaml"},
 				Set:                 map[string]any{"x": map[string]any{"hoge": "hoge_set", "fuga": "fuga_set"}},
-				FileOrDir:           "helmfile.yaml.gotmpl",
+				FileOrDir:           "helmfile.yaml",
 			}, files)
 
 			expectNoCallsToHelm(app)
@@ -1449,7 +1442,7 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 }
 
 func TestLoadDesiredStateFromYaml_Bases(t *testing.T) {
-	yamlFile := "/path/to/yaml/file.gotmpl"
+	yamlFile := "/path/to/yaml/file"
 	yamlContent := `bases:
 - ../base.yaml
 - ../base.gotmpl
@@ -1520,7 +1513,7 @@ helmDefaults:
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate(t *testing.T) {
-	yamlFile := "/path/to/yaml/file.gotmpl"
+	yamlFile := "/path/to/yaml/file"
 	yamlContent := `bases:
 - ../base.yaml
 ---
@@ -1726,7 +1719,7 @@ foo: FOO
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithNonDefaultEnv(t *testing.T) {
-	yamlFile := "/path/to/yaml/file.gotmpl"
+	yamlFile := "/path/to/yaml/file"
 	yamlContent := `bases:
 - ../base.yaml
 ---
@@ -1817,7 +1810,7 @@ helmDefaults:
 }
 
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_WithReverse(t *testing.T) {
-	yamlFile := "/path/to/yaml/file.gotmpl"
+	yamlFile := "/path/to/yaml/file"
 	yamlContent := `
 {{ readFile "templates.yaml" }}
 
@@ -1875,7 +1868,7 @@ releases:
 
 // See https://github.com/roboll/helmfile/issues/615
 func TestLoadDesiredStateFromYaml_MultiPartTemplate_NoMergeArrayInEnvVal(t *testing.T) {
-	statePath := "/path/to/helmfile.yaml.gotmpl"
+	statePath := "/path/to/helmfile.yaml"
 	stateContent := `
 environments:
   default:
@@ -1940,7 +1933,7 @@ func TestLoadDesiredStateFromYaml_MultiPartTemplate_MergeMapsVariousKeys(t *test
 	}
 	for i := range testcases {
 		tc := testcases[i]
-		statePath := "/path/to/helmfile.yaml.gotmpl"
+		statePath := "/path/to/helmfile.yaml"
 		stateContent := `
 environments:
   default:
@@ -2057,7 +2050,7 @@ releases:
 	}
 	for i := range testcases {
 		tc := testcases[i]
-		statePath := "/path/to/helmfile.yaml.gotmpl"
+		statePath := "/path/to/helmfile.yaml"
 		stateContent := fmt.Sprintf(tc.state, tc.expr)
 		testFs := testhelper.NewTestFs(map[string]string{
 			statePath:         stateContent,
@@ -2220,6 +2213,9 @@ type applyConfig struct {
 	cascade string
 	values  []string
 
+	// TODO: Remove this function once Helmfile v0.x
+	retainValuesFiles bool
+
 	set                     []string
 	validate                bool
 	skipCleanup             bool
@@ -2378,6 +2374,11 @@ func (a applyConfig) Interactive() bool {
 
 func (a applyConfig) Logger() *zap.SugaredLogger {
 	return a.logger
+}
+
+// TODO: Remove this function once Helmfile v0.x
+func (a applyConfig) RetainValuesFiles() bool {
+	return a.retainValuesFiles
 }
 
 func (a applyConfig) SkipDiffOnInstall() bool {
@@ -3428,7 +3429,7 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	defau
 				skipNeeds: true,
 			},
 			files: map[string]string{
-				"/path/to/helmfile.yaml.gotmpl": `
+				"/path/to/helmfile.yaml": `
 {{ $mark := "a" }}
 
 releases:
@@ -3481,9 +3482,9 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 				skipNeeds:    false,
 				includeNeeds: true,
 			},
-			error: `in ./helmfile.yaml.gotmpl: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
+			error: `in ./helmfile.yaml: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			files: map[string]string{
-				"/path/to/helmfile.yaml.gotmpl": `
+				"/path/to/helmfile.yaml": `
 {{ $mark := "a" }}
 
 releases:
@@ -3522,7 +3523,7 @@ releases:
 			name: "upgrades with bad selector",
 			loc:  location(),
 			files: map[string]string{
-				"/path/to/helmfile.yaml.gotmpl": `
+				"/path/to/helmfile.yaml": `
 {{ $mark := "a" }}
 
 releases:
@@ -3773,6 +3774,41 @@ releases:
 `,
 				"/path/to/charts/example/Chart.yaml": `foo: FOO`,
 			},
+			log: `processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
+first-pass uses: &{default  map[] map[]}
+first-pass rendering output of "helmfile.yaml.part.0":
+ 0: 
+ 1: repositories:
+ 2: - name: bitnami
+ 3:   url: https://charts.bitnami.com/bitnami/
+ 4: releases:
+ 5: - name: example
+ 6:   chart: /path/to/charts/example
+ 7: 
+
+first-pass produced: &{default  map[] map[]}
+first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
+vals:
+map[]
+defaultVals:[]
+second-pass rendering result of "helmfile.yaml.part.0":
+ 0: 
+ 1: repositories:
+ 2: - name: bitnami
+ 3:   url: https://charts.bitnami.com/bitnami/
+ 4: releases:
+ 5: - name: example
+ 6:   chart: /path/to/charts/example
+ 7: 
+
+merged environment: &{default  map[] map[]}
+There are no repositories defined in your helmfile.yaml.
+This means helmfile cannot update your dependencies or create a lock file.
+See https://github.com/roboll/helmfile/issues/878 for more information.
+changing working directory back to "/path/to"
+`,
 			charts: []string{"/path/to/charts/example"},
 		},
 	}
@@ -3820,9 +3856,8 @@ releases:
 
 			if tc.log != "" {
 				actual := bs.String()
+
 				assert.Equal(t, tc.log, actual)
-			} else {
-				assertLogEqualsToSnapshot(t, bs.String())
 			}
 		})
 	}
@@ -3927,7 +3962,6 @@ environments:
     values:
      - myrelease2:
          enabled: false
----
 releases:
 - name: myrelease1
   chart: mychart1
@@ -3991,7 +4025,7 @@ func testSetStringValuesTemplate(t *testing.T, goccyGoYaml bool) {
 	})
 
 	files := map[string]string{
-		"/path/to/helmfile.yaml.gotmpl": `
+		"/path/to/helmfile.yaml": `
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -4015,7 +4049,7 @@ releases:
 		OverrideKubeContext: "default",
 		Logger:              newAppTestLogger(),
 		Env:                 "default",
-		FileOrDir:           "helmfile.yaml.gotmpl",
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -4059,7 +4093,7 @@ func testSetValuesTemplate(t *testing.T, goccyGoYaml bool) {
 	})
 
 	files := map[string]string{
-		"/path/to/helmfile.yaml.gotmpl": `
+		"/path/to/helmfile.yaml": `
 releases:
 - name: zipkin
   chart: stable/zipkin
@@ -4087,7 +4121,7 @@ releases:
 		OverrideKubeContext: "default",
 		Logger:              newAppTestLogger(),
 		Env:                 "default",
-		FileOrDir:           "helmfile.yaml.gotmpl",
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)
