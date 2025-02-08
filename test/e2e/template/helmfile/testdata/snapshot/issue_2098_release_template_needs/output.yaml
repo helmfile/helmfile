@@ -1,7 +1,7 @@
 ---
-#  Source: __workingdir__/testdata/snapshot/issue_2098_release_template_needs/input.yaml.gotmpl
+#  Source: __workingdir__/testdata/snapshot/issue_2098_release_template_needs/input.yaml
 
-filepath: input.yaml.gotmpl
+filepath: input.yaml
 helmBinary: helm
 kustomizeBinary: kustomize
 environments:
