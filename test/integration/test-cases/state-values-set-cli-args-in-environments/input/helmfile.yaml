@@ -1,0 +1,17 @@
+environments:
+  default:
+    values:
+      - environments.yaml.gotmpl
+---
+releases:
+- name: state-value-set-args-environments
+  chart: ../../../charts/raw
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: test
+      data:
+        foo: {{ .Values.foo }}
