@@ -50,6 +50,8 @@ type ApplyOptions struct {
 	SuppressDiff bool
 	// Wait is true if the helm command should wait for the release to be deployed
 	Wait bool
+	// WaitRetries is the number of times to retry waiting for the release to be deployed
+	WaitRetries int
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
 	WaitForJobs bool
 	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
@@ -211,6 +213,11 @@ func (a *ApplyImpl) Values() []string {
 // Wait returns the wait.
 func (a *ApplyImpl) Wait() bool {
 	return a.ApplyOptions.Wait
+}
+
+// WaitRetries returns the wait retries.
+func (a *ApplyImpl) WaitRetries() int {
+	return a.ApplyOptions.WaitRetries
 }
 
 // WaitForJobs returns the wait for jobs.

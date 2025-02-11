@@ -63,6 +63,7 @@ type ApplyConfigProvider interface {
 	SkipDeps() bool
 	SkipRefresh() bool
 	Wait() bool
+	WaitRetries() int
 	WaitForJobs() bool
 
 	IncludeTests() bool
@@ -113,6 +114,7 @@ type SyncConfigProvider interface {
 	SkipDeps() bool
 	SkipRefresh() bool
 	Wait() bool
+	WaitRetries() int
 	WaitForJobs() bool
 	SyncArgs() string
 

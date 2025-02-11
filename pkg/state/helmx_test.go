@@ -76,13 +76,16 @@ func TestAppendWaitFlags(t *testing.T) {
 		name     string
 		release  *ReleaseSpec
 		syncOpts *SyncOpts
+		helm     helmexec.Interface
 		helmSpec HelmSpec
 		expected []string
 	}{
+		// --wait
 		{
 			name:     "release wait",
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
 			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{},
 			expected: []string{"--wait"},
 		},
@@ -90,6 +93,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "cli flags wait",
 			release:  &ReleaseSpec{},
 			syncOpts: &SyncOpts{Wait: true},
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{},
 			expected: []string{"--wait"},
 		},
@@ -97,6 +101,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "helm defaults wait",
 			release:  &ReleaseSpec{},
 			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{Wait: true},
 			expected: []string{"--wait"},
 		},
@@ -104,6 +109,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "release wait false",
 			release:  &ReleaseSpec{Wait: &[]bool{false}[0]},
 			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{Wait: true},
 			expected: []string{},
 		},
@@ -111,6 +117,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "cli flags wait false",
 			release:  &ReleaseSpec{},
 			syncOpts: &SyncOpts{},
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{Wait: true},
 			expected: []string{"--wait"},
 		},
@@ -118,8 +125,50 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "helm defaults wait false",
 			release:  &ReleaseSpec{},
 			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{Wait: false},
 			expected: []string{},
+		},
+		// --wait-retries
+		{
+			name:     "release wait and retry unsupported",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], WaitRetries: &[]int{1}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "release wait and retry supported",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], WaitRetries: &[]int{1}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait", "--wait-retries", "1"},
+		},
+		{
+			name:     "no wait retry",
+			release:  &ReleaseSpec{WaitRetries: &[]int{1}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{},
+			expected: []string{},
+		},
+		{
+			name:     "cli flags wait and retry",
+			release:  &ReleaseSpec{},
+			syncOpts: &SyncOpts{Wait: true, WaitRetries: 2},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait", "--wait-retries", "2"},
+		},
+		{
+			name:     "helm defaults wait retry",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{Wait: true, WaitRetries: 3},
+			expected: []string{"--wait", "--wait-retries", "3"},
 		},
 	}
 
@@ -127,7 +176,7 @@ func TestAppendWaitFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{}
 			st.HelmDefaults = tt.helmSpec
-			got := st.appendWaitFlags([]string{}, tt.release, tt.syncOpts)
+			got := st.appendWaitFlags([]string{}, tt.helm, tt.release, tt.syncOpts)
 			require.Equalf(t, tt.expected, got, "appendWaitFlags() = %v, want %v", got, tt.expected)
 		})
 	}

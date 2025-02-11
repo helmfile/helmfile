@@ -20,6 +20,8 @@ type SyncOptions struct {
 	SkipCRDs bool
 	// Wait is the wait flag
 	Wait bool
+	// WaitRetries is the wait retries flag
+	WaitRetries int
 	// WaitForJobs is the wait for jobs flag
 	WaitForJobs bool
 	// ReuseValues is true if the helm command should reuse the values
@@ -108,6 +110,11 @@ func (t *SyncImpl) SkipCRDs() bool {
 // Wait returns the wait
 func (t *SyncImpl) Wait() bool {
 	return t.SyncOptions.Wait
+}
+
+// WaitRetries returns the wait retries
+func (t *SyncImpl) WaitRetries() int {
+	return t.SyncOptions.WaitRetries
 }
 
 // WaitForJobs returns the wait for jobs

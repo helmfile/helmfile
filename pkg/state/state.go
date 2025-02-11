@@ -167,6 +167,8 @@ type HelmSpec struct {
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait bool `yaml:"wait"`
+	// WaitRetries, if set and --wait enabled, will retry any failed check on resource state, except if HTTP status code < 500 is received, subject to the specified number of retries
+	WaitRetries int `yaml:"waitRetries"`
 	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
 	WaitForJobs bool `yaml:"waitForJobs"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -262,6 +264,8 @@ type ReleaseSpec struct {
 	Devel *bool `yaml:"devel,omitempty"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait *bool `yaml:"wait,omitempty"`
+	// WaitRetries, if set and --wait enabled, will retry any failed check on resource state, except if HTTP status code < 500 is received, subject to the specified number of retries
+	WaitRetries *int `yaml:"waitRetries,omitempty"`
 	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
 	WaitForJobs *bool `yaml:"waitForJobs,omitempty"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -781,6 +785,7 @@ type SyncOpts struct {
 	SkipCleanup          bool
 	SkipCRDs             bool
 	Wait                 bool
+	WaitRetries          int
 	WaitForJobs          bool
 	ReuseValues          bool
 	ResetValues          bool
@@ -1122,6 +1127,7 @@ type ChartPrepareOptions struct {
 	Validate               bool
 	IncludeCRDs            *bool
 	Wait                   bool
+	WaitRetries            int
 	WaitForJobs            bool
 	OutputDir              string
 	OutputDirTemplate      string
@@ -2730,7 +2736,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--enable-dns")
 	}
 
-	flags = st.appendWaitFlags(flags, release, opt)
+	flags = st.appendWaitFlags(flags, helm, release, opt)
 	flags = st.appendWaitForJobsFlags(flags, release, opt)
 
 	// non-OCI chart should be verified here

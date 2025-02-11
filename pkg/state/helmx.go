@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/helmfile/chartify"
 
@@ -105,14 +106,30 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 	return flags
 }
 
-func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
+func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, ops *SyncOpts) []string {
+	var hasWait bool
 	switch {
 	case release.Wait != nil && *release.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
 	case ops != nil && ops.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
 	case release.Wait == nil && st.HelmDefaults.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
+	}
+	// see https://github.com/helm/helm/releases/tag/v3.15.0
+	// https://github.com/helm/helm/commit/fc74964
+	if hasWait && helm.IsVersionAtLeast("3.15.0") {
+		switch {
+		case release.WaitRetries != nil && *release.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(*release.WaitRetries))
+		case ops != nil && ops.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(ops.WaitRetries))
+		case release.WaitRetries == nil && st.HelmDefaults.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(st.HelmDefaults.WaitRetries))
+		}
 	}
 	return flags
 }
