@@ -2244,6 +2244,7 @@ type applyConfig struct {
 	diffArgs                string
 	logger                  *zap.SugaredLogger
 	wait                    bool
+	waitRetries             int
 	waitForJobs             bool
 	reuseValues             bool
 	postRenderer            string
@@ -2270,6 +2271,10 @@ func (a applyConfig) Cascade() string {
 
 func (a applyConfig) Wait() bool {
 	return a.wait
+}
+
+func (a applyConfig) WaitRetries() int {
+	return a.waitRetries
 }
 
 func (a applyConfig) WaitForJobs() bool {

@@ -195,6 +195,8 @@ helmDefaults:
   keyring: path/to/keyring.gpg
   # wait for k8s resources via --wait. (default false)
   wait: true
+  # if set and --wait enabled, will retry any failed check on resource state subject to the specified number of retries (default 0)
+  waitRetries: 3
   # if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout (default false, Implemented in Helm3.5)
   waitForJobs: true
   # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -312,6 +314,7 @@ releases:
     verify: true
     keyring: path/to/keyring.gpg
     wait: true
+    waitRetries: 3
     waitForJobs: true
     timeout: 60
     recreatePods: true
