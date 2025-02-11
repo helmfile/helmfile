@@ -178,6 +178,14 @@ func TestAppendWaitFlags(t *testing.T) {
 			helmSpec: HelmSpec{WaitRetries: 4},
 			expected: []string{"--wait", "--wait-retries", "4"},
 		},
+		{
+			name:     "release retries default wait",
+			release:  &ReleaseSpec{WaitRetries: &[]int{5}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{Wait: true},
+			expected: []string{"--wait", "--wait-retries", "5"},
+		},
 	}
 
 	for _, tt := range tests {
