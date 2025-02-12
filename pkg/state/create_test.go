@@ -280,26 +280,6 @@ func TestReadFromYaml_StrictUnmarshalling(t *testing.T) {
 	}
 }
 
-// TODO: Remove this function once Helmfile v0.x
-func TestReadFromYaml_DeprecatedReleaseReferences(t *testing.T) {
-	yamlFile := "example/path/to/yaml/file"
-	yamlContent := []byte(`charts:
-- name: myrelease
-  chart: mychart
-`)
-	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
-	if err != nil {
-		t.Errorf("unxpected error: %v", err)
-	}
-
-	if state.Releases[0].Name != "myrelease" {
-		t.Errorf("unexpected release name: expected=myrelease actual=%s", state.Releases[0].Name)
-	}
-	if state.Releases[0].Chart != "mychart" {
-		t.Errorf("unexpected chart name: expected=mychart actual=%s", state.Releases[0].Chart)
-	}
-}
-
 func TestReadFromYaml_ConflictingReleasesConfig(t *testing.T) {
 	yamlFile := "example/path/to/yaml/file"
 	yamlContent := []byte(`charts:

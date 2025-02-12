@@ -1,35 +1,7 @@
-processing file "helmfile.yaml" in directory "."
+processing file "helmfile.yaml.gotmpl" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: 
- 2: 
- 3: releases:
- 4: - name: serviceA
- 5:   chart: my/chart
- 6:   needs:
- 7:   - serviceB
- 8: 
- 9: - name: serviceB
-10:   chart: my/chart
-11:   needs:
-12:   - serviceC
-13: 
-14: - name: serviceC
-15:   chart: my/chart
-16: 
-17: - name: serviceD
-18:   chart: my/chart
-19: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
+rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
+rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: 
  2: 
@@ -52,7 +24,7 @@ second-pass rendering result of "helmfile.yaml.part.0":
 19: 
 
 merged environment: &{default  map[] map[]}
-3 release(s) matching name=serviceA found in helmfile.yaml
+3 release(s) matching name=serviceA found in helmfile.yaml.gotmpl
 
 Affected releases are:
   serviceA (my/chart) UPDATED

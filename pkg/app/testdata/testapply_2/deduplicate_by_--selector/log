@@ -1,52 +1,5 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: foo
- 3:   chart: incubator/raw
- 4:   namespace: default
- 5:   labels:
- 6:     app: test
- 7:     component: raw
- 8:     index: '1'
- 9: 
-10: - name: foo
-11:   chart: incubator/raw
-12:   namespace: default
-13:   labels:
-14:     app: test
-15:     component: raw
-16:     index: '2'
-17: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: foo
- 3:   chart: incubator/raw
- 4:   namespace: default
- 5:   labels:
- 6:     app: test
- 7:     component: raw
- 8:     index: '1'
- 9: 
-10: - name: foo
-11:   chart: incubator/raw
-12:   namespace: default
-13:   labels:
-14:     app: test
-15:     component: raw
-16:     index: '2'
-17: 
-
 merged environment: &{default  map[] map[]}
 1 release(s) matching index=1 found in helmfile.yaml
 
