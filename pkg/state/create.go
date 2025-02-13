@@ -278,7 +278,11 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 			valuesFiles = append(valuesFiles, f)
 		}
 		envValuesEntries := append(valuesFiles, envSpec.Values...)
-		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, ctxEnv, name)
+		loadValuesEntriesEnv, err := ctxEnv.Merge(overrode)
+		if err != nil {
+			return nil, err
+		}
+		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, loadValuesEntriesEnv, name)
 		if err != nil {
 			return nil, err
 		}

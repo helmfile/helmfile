@@ -65,7 +65,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				if strings.HasSuffix(f, ".hcl") {
 					hclLoader.AddFile(f)
 				} else {
-					tmplData := NewEnvironmentTemplateData(env, "", map[string]any{})
+					tmplData := NewEnvironmentTemplateData(env, "", env.Values)
 					r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
 					bytes, err := r.RenderToBytes(f)
 					if err != nil {
