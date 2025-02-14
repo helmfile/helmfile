@@ -228,3 +228,22 @@ func TestEnvValsLoad_MultiHCL(t *testing.T) {
 		t.Error(diff)
 	}
 }
+
+func TestEnvValsLoad_EnvironmentValues(t *testing.T) {
+	l := newLoader()
+	env := environment.New("test")
+	env.Values["foo"] = "bar"
+
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.9.yaml.gotmpl"}, env, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"foo": "bar",
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
+	}
+}
