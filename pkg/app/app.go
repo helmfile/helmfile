@@ -1441,6 +1441,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		DiffArgs:                c.DiffArgs(),
 		PostRenderer:            c.PostRenderer(),
 		PostRendererArgs:        c.PostRendererArgs(),
+		SkipSchemaValidation:    c.SkipSchemaValidation(),
 		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
 	}
 
@@ -1943,18 +1944,19 @@ Do you really want to sync?
 				subst.Releases = rs
 
 				opts := &state.SyncOpts{
-					Set:              c.Set(),
-					SkipCRDs:         c.SkipCRDs(),
-					Wait:             c.Wait(),
-					WaitRetries:      c.WaitRetries(),
-					WaitForJobs:      c.WaitForJobs(),
-					ReuseValues:      c.ReuseValues(),
-					ResetValues:      c.ResetValues(),
-					PostRenderer:     c.PostRenderer(),
-					PostRendererArgs: c.PostRendererArgs(),
-					SyncArgs:         c.SyncArgs(),
-					HideNotes:        c.HideNotes(),
-					TakeOwnership:    c.TakeOwnership(),
+					Set:                  c.Set(),
+					SkipCRDs:             c.SkipCRDs(),
+					Wait:                 c.Wait(),
+					WaitRetries:          c.WaitRetries(),
+					WaitForJobs:          c.WaitForJobs(),
+					ReuseValues:          c.ReuseValues(),
+					ResetValues:          c.ResetValues(),
+					PostRenderer:         c.PostRenderer(),
+					PostRendererArgs:     c.PostRendererArgs(),
+					SyncArgs:             c.SyncArgs(),
+					HideNotes:            c.HideNotes(),
+					TakeOwnership:        c.TakeOwnership(),
+					SkipSchemaValidation: c.SkipSchemaValidation(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))
@@ -1982,16 +1984,17 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		}
 
 		opts := &state.TemplateOpts{
-			Set:               c.Set(),
-			IncludeCRDs:       c.IncludeCRDs(),
-			NoHooks:           c.NoHooks(),
-			OutputDirTemplate: c.OutputDirTemplate(),
-			SkipCleanup:       c.SkipCleanup(),
-			SkipTests:         c.SkipTests(),
-			PostRenderer:      c.PostRenderer(),
-			PostRendererArgs:  c.PostRendererArgs(),
-			KubeVersion:       c.KubeVersion(),
-			ShowOnly:          c.ShowOnly(),
+			Set:                  c.Set(),
+			IncludeCRDs:          c.IncludeCRDs(),
+			NoHooks:              c.NoHooks(),
+			OutputDirTemplate:    c.OutputDirTemplate(),
+			SkipCleanup:          c.SkipCleanup(),
+			SkipTests:            c.SkipTests(),
+			PostRenderer:         c.PostRenderer(),
+			PostRendererArgs:     c.PostRendererArgs(),
+			KubeVersion:          c.KubeVersion(),
+			ShowOnly:             c.ShowOnly(),
+			SkipSchemaValidation: c.SkipSchemaValidation(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

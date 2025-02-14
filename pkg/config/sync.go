@@ -32,7 +32,7 @@ type SyncOptions struct {
 	PostRenderer string
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string
-	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string

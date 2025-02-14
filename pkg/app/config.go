@@ -103,6 +103,7 @@ type ApplyConfigProvider interface {
 type SyncConfigProvider interface {
 	Args() string
 	PostRenderer() string
+	SkipSchemaValidation() bool
 	PostRendererArgs() []string
 	HideNotes() bool
 	TakeOwnership() bool
@@ -239,6 +240,7 @@ type TemplateConfigProvider interface {
 	Args() string
 	PostRenderer() string
 	PostRendererArgs() []string
+	SkipSchemaValidation() bool
 
 	Values() []string
 	Set() []string
