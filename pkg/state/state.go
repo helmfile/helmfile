@@ -1492,6 +1492,8 @@ type TemplateOpts struct {
 	PostRendererArgs  []string
 	KubeVersion       string
 	ShowOnly          []string
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
+	SkipSchemaValidation bool
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -2837,6 +2839,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
+	flags = st.appendSkipSchemaValidationFlags(flags, release, opt.SkipSchemaValidation)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
