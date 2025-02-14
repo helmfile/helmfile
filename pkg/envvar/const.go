@@ -19,4 +19,5 @@ const (
 	GoccyGoYaml           = "HELMFILE_GOCCY_GOYAML"
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
+	LayeredEnvValuesFlag  = "HELMFILE_LAYERED_ENV_VALUES"
 )

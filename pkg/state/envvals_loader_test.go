@@ -2,6 +2,7 @@ package state
 
 import (
 	"io"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -222,6 +223,28 @@ func TestEnvValsLoad_MultiHCL(t *testing.T) {
 		"crossfile":        "crossfile var",
 		"crossfile_var":    "crossfile var",
 		"localRef":         "localInValues7",
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
+	}
+}
+
+func TestEnvValsLoad_LayeredValues(t *testing.T) {
+	l := newLoader()
+
+	os.Setenv("HELMFILE_LAYERED_ENV_VALUES", "true")
+	defer os.Unsetenv("HELMFILE_LAYERED_ENV_VALUES")
+
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/layered.1.yaml", "testdata/layered.2.yaml.gotmpl", "testdata/layered.3.yaml.gotmpl"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"somevalue":      string("foo"),
+		"someothervalue": string("new foo"),
+		"greeting":       string("hello new foo"),
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
