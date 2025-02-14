@@ -54,7 +54,7 @@ type ApplyOptions struct {
 	WaitRetries int
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
 	WaitForJobs bool
-	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
 	// ReuseValues is true if the helm command should reuse the values
 	ReuseValues bool

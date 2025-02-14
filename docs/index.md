@@ -193,6 +193,8 @@ helmDefaults:
   # verify the chart before upgrading (only works with packaged charts not directories) (default false)
   verify: true
   keyring: path/to/keyring.gpg
+  #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
+  skipSchemaValidation: false
   # wait for k8s resources via --wait. (default false)
   wait: true
   # if set and --wait enabled, will retry any failed check on resource state subject to the specified number of retries (default 0)
@@ -313,6 +315,8 @@ releases:
     # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods and force.
     verify: true
     keyring: path/to/keyring.gpg
+    #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
+    skipSchemaValidation: false
     wait: true
     waitRetries: 3
     waitForJobs: true

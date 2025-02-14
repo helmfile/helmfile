@@ -161,7 +161,7 @@ type HelmSpec struct {
 	Keyring     string   `yaml:"keyring,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS bool `yaml:"enableDNS"`
-	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation *bool `yaml:"skipSchemaValidation,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
@@ -390,7 +390,7 @@ type ReleaseSpec struct {
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
 
-	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation *bool `yaml:"skipSchemaValidation,omitempty"`
 
 	// Propagate '--post-renderer-args' to helmv3 template and helm install

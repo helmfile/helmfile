@@ -38,7 +38,7 @@ type TemplateOptions struct {
 	PostRenderer string
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string
-	// Propagate '--skipSchemaValidation' to helmv3 template and helm install
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
 	// KubeVersion is the kube-version flag
 	KubeVersion string
