@@ -28,6 +28,7 @@ We also provide the alternative way in the latest v0.x release before v1.0. That
 4. [Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`](#remove-helmfile_skip_insecure_template_functions-in-favor-of-helmfile_disable_insecure_features)
 5. [The long deprecated `charts.yaml` has been finally removed](#the-long-deprecated-chartsyaml-has-been-finally-removed)
 6. [List experimental features](#list-experimental-features)
+7. [Remove charts and delete sub-commands](#remove-charts-and-delete-subcommands)
 
 ### Forbid the use of `environments` and `releases` within a single helmfile.yaml.gotmpl part
 
@@ -109,6 +110,9 @@ Why now?
 
 In Helmfile v0.x, all features considered experimental as we follow semver. However, we "ended up" preserving backward-compatibility within v0 and between v0 and v1 "by chance". This doesn't mean anything
 introduced in v0 is stable. For example, we might have some features implemented in a very later stage of v0 that are not stable yet. We should mark them as experimental, or we can't fix them in a backward-incompatible way in v1.x. That's why we need to list experimental features now.
+
+### remove-charts-and-delete-subcommands
+Now we remove `helmfile charts` and `helmfile delete` subcommands. you can use `helmfile destroy` and `helmfile sync` instead.
 
 ## After 1.0
 
