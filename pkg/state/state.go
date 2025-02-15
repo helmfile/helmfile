@@ -2824,22 +2824,24 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendChartVersionFlags(flags, release)
 	flags = st.appendHelmXFlags(flags, release)
 
-	postRenderer := ""
 	var postRendererArgs []string
-	kubeVersion := ""
 	var showOnly []string
+	postRenderer := ""
+	kubeVersion := ""
+	skipSchemaValidation := false
 	if opt != nil {
 		postRenderer = opt.PostRenderer
 		postRendererArgs = opt.PostRendererArgs
 		kubeVersion = opt.KubeVersion
 		showOnly = opt.ShowOnly
+		skipSchemaValidation = opt.SkipSchemaValidation
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
-	flags = st.appendSkipSchemaValidationFlags(flags, release, opt.SkipSchemaValidation)
+	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
