@@ -1324,7 +1324,6 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 	selectedIds := map[string]state.ReleaseSpec{}
 	selectedCounts := map[string]int{}
 	for _, r := range selected {
-		r := r
 		id := state.ReleaseToID(&r)
 		selectedIds[id] = r
 		selectedCounts[id]++
@@ -1338,7 +1337,6 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 
 	groupsByID := map[string][]*state.ReleaseSpec{}
 	for _, r := range allReleases {
-		r := r
 		groupsByID[state.ReleaseToID(&r)] = append(groupsByID[state.ReleaseToID(&r)], &r)
 	}
 
