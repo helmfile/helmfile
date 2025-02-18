@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/fatih/color"
+
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/state"
 )
@@ -216,7 +218,11 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 		names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
 	}
 	for _, r := range releasesToBeDeleted {
-		names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
+		releaseToBeDeleted := fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart)
+		if c.Color() {
+			releaseToBeDeleted = color.RedString(releaseToBeDeleted)
+		}
+		names = append(names, releaseToBeDeleted)
 	}
 	// Make the output deterministic for testing purpose
 	sort.Strings(names)
