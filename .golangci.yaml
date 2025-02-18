@@ -255,7 +255,6 @@ linters:
     - ineffassign
     - misspell
     - nakedret
-    - copyloopvar
     - staticcheck
     - typecheck
     - unconvert
@@ -264,6 +263,7 @@ linters:
     - whitespace
     - gci
   # don't enable:
+  # - copyloopvar
   # - depguard
   # - deadcode
   # - gochecknoglobals
