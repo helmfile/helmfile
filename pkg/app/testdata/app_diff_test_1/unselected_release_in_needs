@@ -1,0 +1,7 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+merged environment: &{default  map[] map[]}
+1 release(s) matching name=foo found in helmfile.yaml
+
+err: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+changing working directory back to "/path/to"

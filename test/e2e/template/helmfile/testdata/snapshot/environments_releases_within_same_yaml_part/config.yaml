@@ -1,5 +1,0 @@
-chartifyTempDir: envs_releases_within_same_yaml_part
-helmfileArgs:
-- --environment
-- prod
-- template
