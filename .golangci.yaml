@@ -255,7 +255,7 @@ linters:
     - ineffassign
     - misspell
     - nakedret
-    - exportloopref
+    - copyloopvar
     - staticcheck
     - typecheck
     - unconvert
