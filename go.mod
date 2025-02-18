@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.23.0
 	github.com/helmfile/chartify v0.20.8
 	github.com/helmfile/vals v0.39.2
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
@@ -181,7 +181,7 @@ require (
 	github.com/containerd/errdefs v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/cyberark/conjur-api-go v0.12.12 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
