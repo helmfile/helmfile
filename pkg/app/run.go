@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/helmfile/chartify"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/state"
@@ -42,6 +43,14 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
+type Chartifier struct {
+	runner *chartify.Runner
+}
+
+func (c *Chartifier) Chartify(release, dirOrChart string, opts ...chartify.ChartifyOption) (string, error) {
+	return c.runner.Chartify(release, dirOrChart, opts...)
+}
+
 func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
 	// Skip chart preparation for certain commands
 	skipCommands := []string{"write-values", "list"}
@@ -49,7 +58,15 @@ func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurre
 		return nil, nil
 	}
 
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	chartifier := &Chartifier{
+		runner: chartify.New(
+			chartify.HelmBin(r.state.DefaultHelmBinary),
+			chartify.KustomizeBin(r.state.DefaultKustomizeBinary),
+			chartify.UseHelm3(true),
+			chartify.WithLogf(r.state.Logger().Debugf)),
+	}
+
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, chartifier, dir, concurrency, helmfileCommand, opts)
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("%v", errs)
 	}

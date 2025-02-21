@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/helmfile/chartify"
 	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2920,6 +2922,107 @@ func TestDiffpareSyncReleases(t *testing.T) {
 		r := results[0]
 
 		require.Equal(t, tt.flags, r.flags)
+	}
+}
+
+// capturingChartifier implements state.Chartifier for tests.
+type capturingChartifier struct {
+	mChartify    func(release string, dirOrChart string, opts ...chartify.ChartifyOption) (string, error)
+	capturedArgs []chartifyArgs
+}
+
+type chartifyArgs struct {
+	release    string
+	dirOrChart string
+	opts       []chartify.ChartifyOption
+}
+
+func (c *capturingChartifier) Chartify(release string, dirOrChart string, opts ...chartify.ChartifyOption) (string, error) {
+	c.capturedArgs = append(c.capturedArgs, chartifyArgs{release: release, dirOrChart: dirOrChart, opts: opts})
+	return c.mChartify(release, dirOrChart, opts...)
+}
+
+func TestPrepareCharts_invokesChartifierWithTemplateArgs(t *testing.T) {
+	tests := []struct {
+		name         string
+		chartifier   *capturingChartifier
+		dir          string
+		concurrency  int
+		command      string
+		opts         ChartPrepareOptions
+		expectedArgs []chartifyArgs
+		helmDefaults *HelmSpec
+	}{
+		{
+			name: "template command",
+			chartifier: &capturingChartifier{
+				mChartify: func(release string, dirOrChart string, opts ...chartify.ChartifyOption) (string, error) {
+					return "someTempDir", nil
+				},
+			},
+			dir:         "someChartPath",
+			concurrency: 1,
+			command:     "template",
+			opts: ChartPrepareOptions{
+				SkipDeps:     true,
+				TemplateArgs: "someArgs",
+			},
+			helmDefaults: &HelmSpec{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "test-prepare-charts-*")
+			if err != nil {
+				t.Fatalf("setup temp test dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			err = os.Mkdir(path.Join(tmpDir, tt.dir), 0755)
+			if err != nil {
+				t.Fatalf("setup chart dir: %v", err)
+			}
+
+			release := ReleaseSpec{
+				Name: tt.name,
+			}
+			releases := []ReleaseSpec{
+				release,
+			}
+
+			state := &HelmState{
+				basePath: tmpDir,
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases:     releases,
+					HelmDefaults: *tt.helmDefaults,
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				fs:             filesystem.DefaultFileSystem(),
+				RenderedValues: map[string]any{},
+			}
+			helm := &exectest.Helm{
+				Lists: map[exectest.ListKey]string{},
+				Helm3: true,
+			}
+
+			_, errs := state.PrepareCharts(helm, tt.chartifier, path.Join(tmpDir, tt.dir), tt.concurrency, tt.command, tt.opts)
+
+			require.Len(t, errs, 0)
+			require.Len(t, tt.chartifier.capturedArgs, 1)
+
+			appliedChartifyOpts := &chartify.ChartifyOpts{}
+
+			for _, o := range tt.chartifier.capturedArgs[0].opts {
+				err = o.SetChartifyOption(appliedChartifyOpts)
+				if err != nil {
+					t.Fatalf("set captured chartify options: %v", err)
+				}
+			}
+
+			require.Equal(t, tt.opts.TemplateArgs, appliedChartifyOpts.TemplateArgs)
+		})
 	}
 }
 
