@@ -28,7 +28,7 @@ func NewCLIConfigImpl(g *GlobalImpl) error {
 	if len(optsSet) > 0 {
 		set := map[string]any{}
 		for i := range optsSet {
-			ops := strings.Split(optsSet[i], ",")
+			ops := parseCommaSeparatedString(optsSet[i])
 			for j := range ops {
 				op := strings.SplitN(ops[j], "=", 2)
 				k := maputil.ParseKey(op[0])
@@ -41,4 +41,46 @@ func NewCLIConfigImpl(g *GlobalImpl) error {
 	}
 
 	return nil
+}
+
+// parseCommaSeparatedString splits assignments on unescaped commas, leaving other
+// backslashes intact for values and subsequent key parsing.
+func parseCommaSeparatedString(input string) []string {
+	result := []string{}
+	var (
+		current strings.Builder
+		escaped bool
+	)
+
+	for i := range len(input) {
+		char := input[i]
+
+		if escaped {
+			if char == ',' {
+				current.WriteByte(',')
+			} else {
+				current.WriteByte('\\')
+				current.WriteByte(char)
+			}
+			escaped = false
+			continue
+		}
+
+		if char == '\\' {
+			escaped = true
+			continue
+		}
+
+		if char == ',' {
+			result = append(result, current.String())
+			current.Reset()
+		} else {
+			current.WriteByte(char)
+		}
+	}
+	if escaped {
+		current.WriteByte('\\')
+	}
+	result = append(result, current.String())
+	return result
 }
