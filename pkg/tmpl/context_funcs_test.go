@@ -46,30 +46,6 @@ func TestCreateFuncMap_DisabledInsecureFeatures(t *testing.T) {
 	disableInsecureFeatures = currentVal
 }
 
-// TODO: Remove this function once Helmfile v0.x
-func TestCreateFuncMap_SkipInsecureTemplateFunctions(t *testing.T) {
-	if runtime.V1Mode {
-		t.Logf("SkipInsecureTemplateFunctions is not supported in V1 mode")
-		return
-	}
-	currentVal := skipInsecureTemplateFunctions
-
-	{
-		skipInsecureTemplateFunctions = true
-		ctx := &Context{basePath: "."}
-		funcMaps := ctx.createFuncMap()
-		args := make([]any, 0)
-		actual1, err1 := funcMaps["exec"].(func(command string, args []any, inputs ...string) (string, error))("ls", args)
-		require.Equal(t, "", actual1)
-		require.ErrorIs(t, err1, nil)
-		actual2, err2 := funcMaps["readFile"].(func(filename string) (string, error))("context_funcs_test.go")
-		require.Equal(t, "", actual2)
-		require.ErrorIs(t, err2, nil)
-	}
-
-	skipInsecureTemplateFunctions = currentVal
-}
-
 func newFSExpecting(expectedFilename string, expected string) *filesystem.FileSystem {
 	return filesystem.FromFileSystem(filesystem.FileSystem{
 		ReadFile: func(filename string) ([]byte, error) {

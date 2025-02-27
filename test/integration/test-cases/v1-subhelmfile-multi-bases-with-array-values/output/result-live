@@ -1,0 +1,25 @@
+Live output is enabled
+Adding repo incubator https://charts.helm.sh/incubator/
+"incubator" has been added to your repositories
+
+Templating release=helmfile-test, chart=incubator/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: raw
+    chart: raw-0.1.0
+    heritage: Helm
+    release: helmfile-test
+  name: test
+spec:
+  containers:
+  - command:
+    - /bin/sh
+    - -c
+    - env
+    image: registry.k8s.io/busybox
+    name: test-container
+
