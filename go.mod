@@ -1,6 +1,6 @@
 module github.com/helmfile/helmfile
 
-go 1.23.1
+go 1.24
 
 require (
 	dario.cat/mergo v1.0.1
