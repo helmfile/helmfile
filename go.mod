@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/go-getter v1.7.8
 	github.com/hashicorp/hcl/v2 v2.23.0
 	github.com/helmfile/chartify v0.20.9
-	github.com/helmfile/vals v0.39.2
+	github.com/helmfile/vals v0.39.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
@@ -47,7 +47,7 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/a8m/envsubst v1.4.2 // indirect
+	github.com/a8m/envsubst v1.4.3 // indirect
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -98,7 +98,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/oauth2 v0.26.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
@@ -235,7 +235,7 @@ require (
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.8 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
-	github.com/hashicorp/hcp-sdk-go v0.136.0 // indirect
+	github.com/hashicorp/hcp-sdk-go v0.137.0 // indirect
 	github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f // indirect
 	github.com/ianlancetaylor/demangle v0.0.0-20240805132620-81f5be970eca // indirect
 	github.com/itchyny/timefmt-go v0.1.6 // indirect
