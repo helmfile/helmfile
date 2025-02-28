@@ -75,6 +75,8 @@ type ApplyOptions struct {
 
 	// TakeOwnership is true if the ownership should be taken
 	TakeOwnership bool
+
+	SyncReleaseLabels bool
 }
 
 // NewApply creates a new Apply
@@ -275,4 +277,8 @@ func (a *ApplyImpl) HideNotes() bool {
 // TakeOwnership returns the TakeOwnership.
 func (a *ApplyImpl) TakeOwnership() bool {
 	return a.ApplyOptions.TakeOwnership
+}
+
+func (a *ApplyImpl) SyncReleaseLabels() bool {
+	return a.ApplyOptions.SyncReleaseLabels
 }

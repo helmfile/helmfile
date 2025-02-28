@@ -92,6 +92,8 @@ type ApplyConfigProvider interface {
 	DiffArgs() string
 	SyncArgs() string
 
+	SyncReleaseLabels() bool
+
 	DAGConfig
 
 	concurrencyConfig
@@ -124,6 +126,9 @@ type SyncConfigProvider interface {
 	SkipNeeds() bool
 	IncludeNeeds() bool
 	IncludeTransitiveNeeds() bool
+
+	SyncReleaseLabels() bool
+
 	DAGConfig
 
 	concurrencyConfig
