@@ -57,7 +57,7 @@ func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurre
 	return releaseToChart, nil
 }
 
-func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
+func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func() []error) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
 	}
@@ -113,9 +113,13 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	r.ReleaseToChart = releaseToChart
 
-	f()
+	errs := f()
+	var firstErr error = nil
+	if len(errs) > 0 {
+		firstErr = errs[0]
+	}
 
-	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand)
+	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand, firstErr)
 	return err
 }
 
