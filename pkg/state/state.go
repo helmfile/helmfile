@@ -1136,6 +1136,7 @@ type ChartPrepareOptions struct {
 	KubeVersion            string
 	Set                    []string
 	Values                 []string
+	TemplateArgs           string
 	// Delete wait
 	DeleteWait    bool
 	DeleteTimeout int
@@ -1171,6 +1172,16 @@ type PrepareChartKey struct {
 	Namespace, Name, KubeContext string
 }
 
+func (st *HelmState) Logger() *zap.SugaredLogger {
+	return st.logger
+}
+
+type Chartifier interface {
+	// Chartify creates a temporary Helm chart from a directory or a remote chart, and applies various transformations.
+	// Returns the full path to the temporary directory containing the generated chart if succeeded.
+	Chartify(release, dirOrChart string, opts ...chartify.ChartifyOption) (string, error)
+}
+
 // PrepareCharts creates temporary directories of charts.
 //
 // Each resulting "chart" can be one of the followings:
@@ -1182,10 +1193,10 @@ type PrepareChartKey struct {
 // When running `helmfile template` on helm v2, or `helmfile lint` on both helm v2 and v3,
 // PrepareCharts will download and untar charts for linting and templating.
 //
-// Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
+// Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, chartifier Chartifier, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
 		if err != nil {
@@ -1279,13 +1290,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
 
 				if chartification != nil && helmfileCommand != "pull" {
-					c := chartify.New(
-						chartify.HelmBin(st.DefaultHelmBinary),
-						chartify.KustomizeBin(st.DefaultKustomizeBinary),
-						chartify.UseHelm3(true),
-						chartify.WithLogf(st.logger.Debugf),
-					)
-
 					chartifyOpts := chartification.Opts
 
 					if skipDeps {
@@ -1299,6 +1303,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartifyOpts.IncludeCRDs = includeCRDs
 
 					chartifyOpts.Validate = opts.Validate
+
+					if (helmfileCommand == "template" || helmfileCommand == "apply") && opts.TemplateArgs != "" {
+						chartifyOpts.TemplateArgs = opts.TemplateArgs
+					}
 
 					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
 					chartifyOpts.ApiVersions = st.getApiVersions(release)
@@ -1315,7 +1323,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					}
 					chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
 
-					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
+					out, err := chartifier.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
 						results <- &chartPrepareResult{err: err}
 						return
@@ -1494,6 +1502,7 @@ type TemplateOpts struct {
 	ShowOnly          []string
 	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
+	TemplateArgs         string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }

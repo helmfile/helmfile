@@ -75,6 +75,8 @@ type ApplyOptions struct {
 
 	// TakeOwnership is true if the ownership should be taken
 	TakeOwnership bool
+	// TemplateArgs is the list of arguments to pass to helm template
+	TemplateArgs string
 }
 
 // NewApply creates a new Apply
@@ -275,4 +277,9 @@ func (a *ApplyImpl) HideNotes() bool {
 // TakeOwnership returns the TakeOwnership.
 func (a *ApplyImpl) TakeOwnership() bool {
 	return a.ApplyOptions.TakeOwnership
+}
+
+// TemplateArgs returns the TemplateArgs.
+func (a *ApplyImpl) TemplateArgs() string {
+	return a.ApplyOptions.TemplateArgs
 }
