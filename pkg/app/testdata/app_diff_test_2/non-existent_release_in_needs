@@ -1,0 +1,8 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+merged environment: &{default  map[] map[]}
+WARNING: release foo needs bar, but bar is not installed due to installed: false. Either mark bar as installed or remove bar from foo's needs
+2 release(s) found in helmfile.yaml
+
+err: release(s) "foo" depend(s) on an undefined release "bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
+changing working directory back to "/path/to"

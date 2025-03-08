@@ -1,36 +1,5 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: backend-v1
- 3:   chart: charts/backend
- 4:   installed: false
- 5: - name: frontend-v1
- 6:   chart: charts/frontend
- 7:   needs:
- 8:   - backend-v1
- 9: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: backend-v1
- 3:   chart: charts/backend
- 4:   installed: false
- 5: - name: frontend-v1
- 6:   chart: charts/frontend
- 7:   needs:
- 8:   - backend-v1
- 9: 
-
 merged environment: &{default  map[] map[]}
 WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 2 release(s) found in helmfile.yaml

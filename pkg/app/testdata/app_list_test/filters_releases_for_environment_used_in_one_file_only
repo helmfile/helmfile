@@ -1,120 +1,14 @@
 found 3 helmfile state files in helmfile.d: /path/to/helmfile.d/helmfile_1.yaml, /path/to/helmfile.d/helmfile_2.yaml, /path/to/helmfile.d/helmfile_3.yaml
 processing file "helmfile_1.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"
-first-pass rendering starting for "helmfile_1.yaml.part.0": inherited=&{test  map[] map[]}, overrode=<nil>
-first-pass uses: &{test  map[] map[]}
-first-pass rendering output of "helmfile_1.yaml.part.0":
- 0: 
- 1: environments:
- 2:   development: {}
- 3:   shared: {}
-
-first-pass produced: &{test  map[] map[]}
-first-pass rendering result of "helmfile_1.yaml.part.0": {test  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile_1.yaml.part.0":
- 0: 
- 1: environments:
- 2:   development: {}
- 3:   shared: {}
-
 merged environment: &{test  map[] map[]}
 changing working directory back to "/path/to"
 processing file "helmfile_2.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"
-first-pass rendering starting for "helmfile_2.yaml.part.0": inherited=&{test  map[] map[]}, overrode=<nil>
-first-pass uses: &{test  map[] map[]}
-first-pass rendering output of "helmfile_2.yaml.part.0":
- 0: 
- 1: environments:
- 2:   test: {}
- 3:   shared: {}
-
-first-pass produced: &{test  map[] map[]}
-first-pass rendering result of "helmfile_2.yaml.part.0": {test  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile_2.yaml.part.0":
- 0: 
- 1: environments:
- 2:   test: {}
- 3:   shared: {}
-
 merged environment: &{test  map[] map[]}
-first-pass rendering starting for "helmfile_2.yaml.part.1": inherited=&{test  map[] map[]}, overrode=<nil>
-first-pass uses: &{test  map[] map[]}
-first-pass rendering output of "helmfile_2.yaml.part.1":
- 0: repositories:
- 1: - name: bitnami
- 2:   url: https://charts.bitnami.com/bitnami
- 3: 
- 4: releases:
- 5: - name: cache
- 6:   namespace: my-app
- 7:   chart: bitnami/redis
- 8:   version: 17.0.7
- 9:   labels:
-10:     app: test
-11: 
-12: - name: database
-13:   namespace: my-app
-14:   chart: bitnami/postgres
-15:   version: 11.6.22
-16: 
-
-first-pass produced: &{test  map[] map[]}
-first-pass rendering result of "helmfile_2.yaml.part.1": {test  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile_2.yaml.part.1":
- 0: repositories:
- 1: - name: bitnami
- 2:   url: https://charts.bitnami.com/bitnami
- 3: 
- 4: releases:
- 5: - name: cache
- 6:   namespace: my-app
- 7:   chart: bitnami/redis
- 8:   version: 17.0.7
- 9:   labels:
-10:     app: test
-11: 
-12: - name: database
-13:   namespace: my-app
-14:   chart: bitnami/postgres
-15:   version: 11.6.22
-16: 
-
 merged environment: &{test  map[] map[]}
 changing working directory back to "/path/to"
 processing file "helmfile_3.yaml" in directory "/path/to/helmfile.d"
 changing working directory to "/path/to/helmfile.d"
-first-pass rendering starting for "helmfile_3.yaml.part.0": inherited=&{test  map[] map[]}, overrode=<nil>
-first-pass uses: &{test  map[] map[]}
-first-pass rendering output of "helmfile_3.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: global
- 3:   chart: incubator/raw
- 4:   namespace: kube-system
- 5: 
-
-first-pass produced: &{test  map[] map[]}
-first-pass rendering result of "helmfile_3.yaml.part.0": {test  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile_3.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: global
- 3:   chart: incubator/raw
- 4:   namespace: kube-system
- 5: 
-
 merged environment: &{test  map[] map[]}
 changing working directory back to "/path/to"

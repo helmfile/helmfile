@@ -1,14 +1,7 @@
 chartify_jsonPatches_and_strategicMergePatches_case_input_dir="${cases_dir}/chartify-jsonPatches-and-strategicMergePatches/input"
 chartify_jsonPatches_and_strategicMergePatches_case_output_dir="${cases_dir}/chartify-jsonPatches-and-strategicMergePatches/output"
 
-config_file="helmfile.yaml"
-if [[ ${HELMFILE_V1MODE} = true ]]; then
-  pushd "${chartify_jsonPatches_and_strategicMergePatches_case_input_dir}"
-  mv "${config_file}" "${config_file}.gotmpl"
-  config_file="${config_file}.gotmpl"
-  popd
-fi
-
+config_file="helmfile.yaml.gotmpl"
 chartify_jsonPatches_and_strategicMergePatches_tmp=$(mktemp -d)
 chartify_jsonPatches_and_strategicMergePatches_template_reverse=${chartify_jsonPatches_and_strategicMergePatches_tmp}/chartify_jsonPatches_and_strategicMergePatches.template.log
 
