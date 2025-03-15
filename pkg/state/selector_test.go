@@ -108,14 +108,14 @@ func TestSelectReleasesWithOverrides(t *testing.T) {
 	}.MustLoadState(t, "/helmfile.yaml", "default")
 
 	for _, tc := range testcases {
+		var err error
 		state.Selectors = tc.selector
 
-		releases, err := state.GetReleasesWithOverrides()
-		state.Releases = releases
-
+		state.Releases, err = state.GetReleasesWithOverrides()
 		if err != nil {
 			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
 		}
+		state.Releases = state.GetReleasesWithLabels()
 
 		rs, err := state.GetSelectedReleases(false)
 		if err != nil {
@@ -144,13 +144,13 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 
 	testcases := []testcase{
 		{
-			subject:                "include transitives",
+			subject:                "include transitives is false",
 			selector:               []string{"name=serviceA"},
 			want:                   []string{"serviceA"},
 			includeTransitiveNeeds: false,
 		},
 		{
-			subject:                "include transitives",
+			subject:                "include transitives is true",
 			selector:               []string{"name=serviceA"},
 			want:                   []string{"serviceA", "serviceB", "serviceC"},
 			includeTransitiveNeeds: true,
@@ -184,13 +184,13 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 	}.MustLoadState(t, "/helmfile.yaml", "default")
 
 	for _, tc := range testcases {
+		var err error
 		state.Selectors = tc.selector
-		releases, err := state.GetReleasesWithOverrides()
+		state.Releases, err = state.GetReleasesWithOverrides()
 		if err != nil {
 			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
 		}
-
-		state.Releases = releases
+		state.Releases = state.GetReleasesWithLabels()
 
 		rs, err := state.GetSelectedReleases(tc.includeTransitiveNeeds)
 		if err != nil {
