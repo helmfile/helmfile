@@ -1106,13 +1106,17 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		}
 	}
 
-	// pre-overrides HelmState
+	// pre-handles HelmState
 	fHelmStatsWithOverrides := func(st *state.HelmState) (bool, []error) {
 		var err error
+		// override release settings
 		st.Releases, err = st.GetReleasesWithOverrides()
 		if err != nil {
 			return false, []error{err}
 		}
+
+		// override release labels
+		st.Releases = st.GetReleasesWithLabels()
 		return f(st)
 	}
 
@@ -1502,6 +1506,7 @@ Do you really want to apply?
 					SyncArgs:             c.SyncArgs(),
 					HideNotes:            c.HideNotes(),
 					TakeOwnership:        c.TakeOwnership(),
+					SyncReleaseLabels:    c.SyncReleaseLabels(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1900,6 +1905,7 @@ Do you really want to sync?
 					HideNotes:            c.HideNotes(),
 					TakeOwnership:        c.TakeOwnership(),
 					SkipSchemaValidation: c.SkipSchemaValidation(),
+					SyncReleaseLabels:    c.SyncReleaseLabels(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))
