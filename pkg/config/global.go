@@ -133,7 +133,7 @@ func (g *GlobalImpl) Chart() string {
 
 // FileOrDir returns the path to the Helmfile.
 func (g *GlobalImpl) FileOrDir() string {
-	file := g.GlobalOptions.File
+	file := g.File
 	if file == "" {
 		file = os.Getenv(envvar.FilePath)
 	}
@@ -143,7 +143,7 @@ func (g *GlobalImpl) FileOrDir() string {
 
 // Selectors returns the selectors to use.
 func (g *GlobalImpl) Selectors() []string {
-	return g.GlobalOptions.Selector
+	return g.Selector
 }
 
 // StateValuesSet returns the set
@@ -158,12 +158,12 @@ func (g *GlobalImpl) RawStateValuesSet() []string {
 
 // RawStateValuesSetString returns the set
 func (g *GlobalImpl) RawStateValuesSetString() []string {
-	return g.GlobalOptions.StateValuesSetString
+	return g.StateValuesSetString
 }
 
 // StateValuesFiles returns the state values files
 func (g *GlobalImpl) StateValuesFiles() []string {
-	return g.GlobalOptions.StateValuesFile
+	return g.StateValuesFile
 }
 
 // EnableLiveOutput return when to pipe the stdout and stderr from Helm live to the helmfile stdout
@@ -193,7 +193,7 @@ func (g *GlobalImpl) DisableForceUpdate() bool {
 
 // Logger returns the logger
 func (g *GlobalImpl) Logger() *zap.SugaredLogger {
-	return g.GlobalOptions.logger
+	return g.logger
 }
 
 func (g *GlobalImpl) Color() bool {
@@ -226,8 +226,8 @@ func (g *GlobalImpl) Env() string {
 	var env string
 
 	switch {
-	case g.GlobalOptions.Environment != "":
-		env = g.GlobalOptions.Environment
+	case g.Environment != "":
+		env = g.Environment
 	case os.Getenv("HELMFILE_ENVIRONMENT") != "":
 		env = os.Getenv("HELMFILE_ENVIRONMENT")
 	default:
@@ -255,7 +255,7 @@ func (g *GlobalImpl) Interactive() bool {
 // Args returns the args to use for helm
 func (g *GlobalImpl) Args() string {
 	args := g.GlobalOptions.Args
-	enableHelmDebug := g.GlobalOptions.Debug
+	enableHelmDebug := g.Debug
 
 	if enableHelmDebug {
 		args = fmt.Sprintf("%s %s", args, "--debug")

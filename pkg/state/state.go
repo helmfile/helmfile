@@ -584,7 +584,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 func gatherUsernamePassword(repoName string, username string, password string) (string, string) {
 	var user, pass string
 
-	replacedRepoName := strings.ToUpper(strings.Replace(repoName, "-", "_", -1))
+	replacedRepoName := strings.ToUpper(strings.ReplaceAll(repoName, "-", "_"))
 	if username != "" {
 		user = username
 	} else if u := os.Getenv(fmt.Sprintf("%s_USERNAME", replacedRepoName)); u != "" {

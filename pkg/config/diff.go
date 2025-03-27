@@ -126,7 +126,7 @@ func (a *DiffImpl) StripTrailingCR() bool {
 
 // Output returns the output
 func (t *DiffImpl) DiffOutput() string {
-	return t.DiffOptions.Output
+	return t.Output
 }
 
 // IncludeTests returns the include tests

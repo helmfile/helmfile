@@ -14,7 +14,7 @@ func prependLineNumbers(text string) string {
 	buf := bytes.NewBufferString("")
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
-		buf.WriteString(fmt.Sprintf("%2d: %s\n", i, line))
+		fmt.Fprintf(buf, "%2d: %s\n", i, line)
 	}
 	return buf.String()
 }
