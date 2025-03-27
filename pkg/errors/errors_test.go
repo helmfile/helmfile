@@ -43,7 +43,7 @@ var (
 
 func expect(t *testing.T, a any, b any) {
 	_, fn, line, _ := runtime.Caller(1)
-	fn = strings.Replace(fn, wd+"/", "", -1)
+	fn = strings.ReplaceAll(fn, wd+"/", "")
 
 	require.Equalf(t, a, b, "(%s:%d) Expected %v (type %v) - Got %v (type %v)", fn, line, b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 }

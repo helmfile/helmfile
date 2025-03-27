@@ -56,7 +56,7 @@ func TestForbidEnvironmentsWithReleases(t *testing.T) {
 			isStrict, err := forbidEnvironmentsWithReleases(tc.filePath, tc.content)
 			require.Equal(t, tc.isStrict, isStrict, "expected isStrict=%v, got=%v", tc.isStrict, isStrict)
 			if tc.expectedErr {
-				require.ErrorIsf(t, err, EnvironmentsAndReleasesWithinSameYamlPartErr, "expected error=%v, got=%v", EnvironmentsAndReleasesWithinSameYamlPartErr, err)
+				require.ErrorIsf(t, err, ErrEnvironmentsAndReleasesWithinSameYamlPart, "expected error=%v, got=%v", ErrEnvironmentsAndReleasesWithinSameYamlPart, err)
 			} else {
 				require.NoError(t, err, "expected no error but got error: %v", err)
 			}

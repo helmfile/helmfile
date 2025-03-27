@@ -119,7 +119,7 @@ func (a *ApplyImpl) StripTrailingCR() bool {
 
 // DiffOutput returns the diff output.
 func (a *ApplyImpl) DiffOutput() string {
-	return a.ApplyOptions.Output
+	return a.Output
 }
 
 // IncludeNeeds returns the include needs.

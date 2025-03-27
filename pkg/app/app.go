@@ -1005,7 +1005,7 @@ func printDAG(batches [][]state.Release) string {
 	for i, batch := range batches {
 		for _, r := range batch {
 			id := state.ReleaseToID(&r.ReleaseSpec)
-			needs := r.ReleaseSpec.Needs
+			needs := r.Needs
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", i+1, id, strings.Join(needs, ", "))
 		}
 	}
