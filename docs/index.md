@@ -240,6 +240,9 @@ helmDefaults:
   # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
   suppressOutputLineRegex:
     - "version"
+  # syncReleaseLabels is a list of labels to be added to the release when syncing.
+  syncReleaseLabels: false
+
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
@@ -369,6 +372,8 @@ releases:
     # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
     suppressOutputLineRegex:
       - "version"
+    # syncReleaseLabels is a list of labels to be added to the release when syncing.
+    syncReleaseLabels: false
 
 
   # Local chart example
