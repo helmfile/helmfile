@@ -42,6 +42,8 @@ type SyncOptions struct {
 	HideNotes bool
 	// TakeOwnership is the take ownership flag
 	TakeOwnership bool
+	// SyncReleaseLabels is the sync release labels flag
+	SyncReleaseLabels bool
 }
 
 // NewSyncOptions creates a new Apply
@@ -166,4 +168,8 @@ func (t *SyncImpl) HideNotes() bool {
 // TakeOwnership returns the take ownership
 func (t *SyncImpl) TakeOwnership() bool {
 	return t.SyncOptions.TakeOwnership
+}
+
+func (t *SyncImpl) SyncReleaseLabels() bool {
+	return t.SyncOptions.SyncReleaseLabels
 }
