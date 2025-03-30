@@ -764,7 +764,7 @@ For additional context, take a look at [paths examples](paths.md).
 
 A selector can be used to only target a subset of releases when running Helmfile. This is useful for large helmfiles with releases that are logically grouped together.
 
-Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
+Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=frontend` would only match releases with the `tier: frontend` label.
 
 Multiple labels can be specified using `,` as a separator. A release must match all selectors in order to be selected for the final helm command.
 
