@@ -488,7 +488,20 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 	var needs []string
 	releaseInstalledInfo := make(map[string]bool)
 	for _, r := range st.OrginReleases {
-		releaseInstalledInfo[fmt.Sprintf("%s/%s/%s", r.KubeContext, r.Namespace, r.Name)] = r.Desired()
+		var kubecontext, namespace string
+
+		if st.OverrideKubeContext != "" {
+			kubecontext = st.OverrideKubeContext
+		} 	else {
+			kubecontext = r.KubeContext
+		}
+		if st.OverrideNamespace != "" {
+			namespace = st.OverrideNamespace
+		} 	else {
+			namespace = r.Namespace
+		}
+
+		releaseInstalledInfo[fmt.Sprintf("%s/%s/%s", kubecontext, namespace, r.Name)] = r.Desired()
 	}
 
 	// Since the representation differs between needs and id,
