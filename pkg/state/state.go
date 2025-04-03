@@ -492,12 +492,12 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 
 		if st.OverrideKubeContext != "" {
 			kubecontext = st.OverrideKubeContext
-		} 	else {
+		} else {
 			kubecontext = r.KubeContext
 		}
 		if st.OverrideNamespace != "" {
 			namespace = st.OverrideNamespace
-		} 	else {
+		} else {
 			namespace = r.Namespace
 		}
 
