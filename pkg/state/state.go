@@ -488,7 +488,17 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 	var needs []string
 	releaseInstalledInfo := make(map[string]bool)
 	for _, r := range st.OrginReleases {
-		releaseInstalledInfo[r.Name] = r.Desired()
+		kubecontext := r.KubeContext
+		namespace := r.Namespace
+
+		if st.OverrideKubeContext != "" {
+			kubecontext = st.OverrideKubeContext
+		}
+		if st.OverrideNamespace != "" {
+			namespace = st.OverrideNamespace
+		}
+
+		releaseInstalledInfo[fmt.Sprintf("%s/%s/%s", kubecontext, namespace, r.Name)] = r.Desired()
 	}
 
 	// Since the representation differs between needs and id,
@@ -501,9 +511,6 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 		components := strings.Split(n, "/")
 
 		name = components[len(components)-1]
-		if spec.Desired() && !releaseInstalledInfo[name] {
-			st.logger.Warnf("WARNING: %s", fmt.Sprintf("release %s needs %s, but %s is not installed due to installed: false. Either mark %s as installed or remove %s from %s's needs", spec.Name, name, name, name, name, spec.Name))
-		}
 
 		if len(components) > 1 {
 			ns = components[len(components)-2]
@@ -517,6 +524,10 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 			kubecontext = strings.Join(components[:len(components)-2], "/")
 		} else {
 			kubecontext = spec.KubeContext
+		}
+
+		if spec.Desired() && !releaseInstalledInfo[fmt.Sprintf("%s/%s/%s", kubecontext, ns, name)] {
+			st.logger.Warnf("WARNING: %s", fmt.Sprintf("release %s needs %s, but %s is not installed due to installed: false. Either mark %s as installed or remove %s from %s's needs", spec.Name, name, name, name, name, spec.Name))
 		}
 
 		var componentsAfterOverride []string
