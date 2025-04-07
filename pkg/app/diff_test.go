@@ -534,6 +534,34 @@ releases:
 			upgraded: []exectest.Release{},
 		},
 		{
+			name: "upgrade when ns1/foo needs ns1/bar and ns2/bar is disabled",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: bar
+  chart: mychart2
+  namespace: ns1
+- name: bar
+  chart: mychart2
+  namespace: ns2
+  installed: false
+- name: foo
+  chart: mychart1
+  namespace: ns1
+  needs:
+  - ns1/bar
+`,
+			},
+			detailedExitcode: true,
+			error:            "Identified at least one change",
+			diffs: map[exectest.DiffKey]error{
+				{Name: "bar", Chart: "mychart2", Flags: "--kube-context default --namespace ns1 --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "mychart1", Flags: "--kube-context default --namespace ns1 --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+			},
+			upgraded: []exectest.Release{},
+		},
+		{
 			name: "upgrade when tns1 ns1 foo needs tns2 ns2 bar",
 			loc:  location(),
 
