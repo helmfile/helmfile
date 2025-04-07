@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -109,7 +110,10 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return nil, &StateLoadError{fmt.Sprintf("failed to read %s: reading document at index %d, you should add .gotmpl extension to your helmfile to enable helmfile to load it as a template since helmfile v1", file, i), err}
+			if filepath.Ext(file) != ".gotmpl" {
+				return nil, &StateLoadError{fmt.Sprintf("failed to read %s: reading document at index %d. Started seeing this since Helmfile v1? Add the .gotmpl file extension", file, i), err}
+			}
+			return nil, &StateLoadError{fmt.Sprintf("failed to read %s: reading document at index %d", file, i), err}
 		}
 
 		if err := mergo.Merge(&state, &intermediate, mergo.WithAppendSlice); err != nil {
