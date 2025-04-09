@@ -54,7 +54,7 @@ func formatLabels(labels map[string]string) string {
 
 // append labels flags to helm flags, starting from helm v3.13.0
 func (st *HelmState) appendLabelsFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, syncReleaseLabels bool) []string {
-	if helm.IsVersionAtLeast("3.13.0") && (syncReleaseLabels || release.SyncReleaseLabels) {
+	if helm.IsVersionAtLeast("3.13.0") && (syncReleaseLabels || st.HelmDefaults.SyncReleaseLabels || release.SyncReleaseLabels) {
 		labels := formatLabels(release.Labels)
 		if labels != "" {
 			flags = append(flags, "--labels", labels)
