@@ -39,5 +39,5 @@ templates:
     name: default-{{ .Release.Labels.service }}
     namespace: default
     syncReleaseLabels: false
-  takeOwnership: false
+    takeOwnership: false
 renderedvalues: {}
