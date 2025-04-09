@@ -2974,7 +2974,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = st.appendSuppressOutputLineRegexFlags(flags, release, suppressOutputLineRegex)
 	}
 
-	if opt.TakeOwnership || st.HelmDefaults.TakeOwnership || release.TakeOwnership {
+	takeOwnership := false
+	if opt != nil {
+		takeOwnership = opt.TakeOwnership
+	}
+	if takeOwnership || st.HelmDefaults.TakeOwnership || release.TakeOwnership {
 		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
 		if err != nil {
 			return nil, nil, err
