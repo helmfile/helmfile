@@ -52,6 +52,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&diffOptions.Suppress, "suppress", nil, "suppress specified Kubernetes objects in the output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
 	f.BoolVar(&diffOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm diff upgrade --install --reuse-values"`)
 	f.BoolVar(&diffOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm diff upgrade --install --reset-values"`)
+	f.BoolVar(&diffOptions.TakeOwnership, "take-ownership", false, "add --take-ownership flag to helm")
 	f.StringVar(&diffOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&diffOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&diffOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from the diff output")
