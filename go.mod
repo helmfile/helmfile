@@ -14,7 +14,7 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.8
 	github.com/hashicorp/hcl/v2 v2.23.0
-	github.com/helmfile/chartify v0.21.1
+	github.com/helmfile/chartify v0.22.0
 	github.com/helmfile/vals v0.40.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
@@ -29,7 +29,7 @@ require (
 	golang.org/x/sync v0.13.0
 	golang.org/x/term v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v3 v3.17.2
+	helm.sh/helm/v3 v3.17.3
 	k8s.io/apimachinery v0.32.3
 )
 
