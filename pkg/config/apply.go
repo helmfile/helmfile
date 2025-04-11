@@ -1,5 +1,7 @@
 package config
 
+import "github.com/helmfile/helmfile/pkg/common"
+
 // ApplyOptoons is the options for the apply command
 type ApplyOptions struct {
 	// Set is a list of key value pairs to be merged into the command
@@ -20,8 +22,10 @@ type ApplyOptions struct {
 	StripTrailingCR bool
 	// SkipCleanup is true if the cleanup of temporary values files should be skipped
 	SkipCleanup bool
-	// SkipCRDs is true if the CRDs should be skipped
-	SkipCRDs bool
+	// SkipCRDsFlag is true if the CRDs should be skipped
+	SkipCRDsFlag common.BoolFlag
+	// IncludeCRDsFlag is true if the CRDs should be included
+	IncludeCRDsFlag common.BoolFlag
 	// SkipNeeds is true if the needs should be skipped
 	SkipNeeds bool
 	// IncludeNeeds is true if the needs should be included
@@ -77,7 +81,12 @@ type ApplyOptions struct {
 
 // NewApply creates a new Apply
 func NewApplyOptions() *ApplyOptions {
-	return &ApplyOptions{}
+	newOptions := &ApplyOptions{
+		IncludeCRDsFlag: common.NewBoolFlag(false),
+		SkipCRDsFlag:    common.NewBoolFlag(false),
+	}
+
+	return newOptions
 }
 
 // ApplyImpl is impl for applyOptions
@@ -149,9 +158,22 @@ func (a *ApplyImpl) NoHooks() bool {
 	return a.ApplyOptions.NoHooks
 }
 
-// SkipCRDs returns the skip crds.
+// SkipCRDs returns the skip CRDs.
 func (a *ApplyImpl) SkipCRDs() bool {
-	return a.ApplyOptions.SkipCRDs
+    return a.ApplyOptions.SkipCRDsFlag.Value()
+}
+
+// IncludeCRDs returns the include CRDs.
+func (a *ApplyImpl) IncludeCRDs() bool {
+    return a.ApplyOptions.IncludeCRDsFlag.Value()
+}
+
+// ShouldIncludeCRDs returns true if CRDs should be included.
+func (a *ApplyImpl) ShouldIncludeCRDs() bool {
+    includeCRDsExplicit := a.IncludeCRDsFlag.WasExplicitlySet() && a.IncludeCRDsFlag.Value()
+    skipCRDsExplicit := a.SkipCRDsFlag.WasExplicitlySet() && !a.SkipCRDsFlag.Value()
+
+    return includeCRDsExplicit || skipCRDsExplicit
 }
 
 // SkipCleanup returns the skip cleanup.

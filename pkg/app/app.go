@@ -152,13 +152,11 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		var errs []error
 
-		includeCRDs := !c.SkipCRDs()
-
 		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
-			IncludeCRDs:            &includeCRDs,
+			IncludeCRDs:            c.ShouldIncludeCRDs(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
@@ -215,8 +213,6 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 func (a *App) Template(c TemplateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		includeCRDs := c.IncludeCRDs()
-
 		// Live output should never be enabled for the "template" subcommand to avoid breaking `helmfile template | kubectl apply -f -`
 		run.helm.SetEnableLiveOutput(false)
 
@@ -228,7 +224,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
-			IncludeCRDs:            &includeCRDs,
+			IncludeCRDs:            c.ShouldIncludeCRDs(),
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
@@ -358,8 +354,6 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 
 func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		includeCRDs := !c.SkipCRDs()
-
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
@@ -367,7 +361,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			Wait:                   c.Wait(),
 			WaitRetries:            c.WaitRetries(),
 			WaitForJobs:            c.WaitForJobs(),
-			IncludeCRDs:            &includeCRDs,
+			IncludeCRDs:            c.ShouldIncludeCRDs(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
@@ -393,8 +387,6 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 	opts = append(opts, SetRetainValuesFiles(c.SkipCleanup()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		includeCRDs := !c.SkipCRDs()
-
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
@@ -402,7 +394,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Wait:                   c.Wait(),
 			WaitRetries:            c.WaitRetries(),
 			WaitForJobs:            c.WaitForJobs(),
-			IncludeCRDs:            &includeCRDs,
+			IncludeCRDs:            c.ShouldIncludeCRDs(),
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
@@ -1385,6 +1377,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipDiffOnInstall:       c.SkipDiffOnInstall(),
 		ReuseValues:             c.ReuseValues(),
 		ResetValues:             c.ResetValues(),
+		IncludeCRDs:			 c.ShouldIncludeCRDs(),
 		DiffArgs:                c.DiffArgs(),
 		PostRenderer:            c.PostRenderer(),
 		PostRendererArgs:        c.PostRendererArgs(),

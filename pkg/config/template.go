@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/helmfile/helmfile/pkg/common"
 )
 
 // TemplateOptions is the options for the build command
@@ -20,8 +22,11 @@ type TemplateOptions struct {
 	Concurrency int
 	// Validate is the validate flag
 	Validate bool
-	// IncludeCRDs is the include crds flag
-	IncludeCRDs bool
+	// SkipCRDsFlag is the skip crds flag
+	// Deprecated: Use IncludeCRDsFlag instead
+	SkipCRDsFlag    common.BoolFlag
+	// IncludeCRDsFlag is the include crds flag
+	IncludeCRDsFlag common.BoolFlag
 	// SkipTests is the skip tests flag
 	SkipTests bool
 	// SkipNeeds is the skip needs flag
@@ -48,7 +53,11 @@ type TemplateOptions struct {
 
 // NewTemplateOptions creates a new Apply
 func NewTemplateOptions() *TemplateOptions {
-	return &TemplateOptions{}
+	newOptions := &TemplateOptions{
+		SkipCRDsFlag:    common.NewBoolFlag(false),
+		IncludeCRDsFlag: common.NewBoolFlag(false),
+	}
+	return newOptions
 }
 
 // TemplateImpl is impl for applyOptions
@@ -70,9 +79,22 @@ func (t *TemplateImpl) Concurrency() int {
 	return t.TemplateOptions.Concurrency
 }
 
+// SkipCRDs returns the skip crds
+func (t *TemplateImpl) SkipCRDs() bool {
+	return t.TemplateOptions.SkipCRDsFlag.Value()
+}
+
 // IncludeCRDs returns the include crds
 func (t *TemplateImpl) IncludeCRDs() bool {
-	return t.TemplateOptions.IncludeCRDs
+	return t.TemplateOptions.IncludeCRDsFlag.Value()
+}
+
+// ShouldIncludeCRDs returns whether to include crds
+func (t *TemplateImpl) ShouldIncludeCRDs() bool {
+    includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
+    skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
+
+    return includeCRDsExplicit || skipCRDsExplicit
 }
 
 // NoHooks returns the no hooks

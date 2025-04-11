@@ -1136,7 +1136,7 @@ type ChartPrepareOptions struct {
 	// Validate is a helm-3-only option. When it is set to true, it configures chartify to pass --validate to helm-template run by it.
 	// It's required when one of your chart relies on Capabilities.APIVersions in a template
 	Validate               bool
-	IncludeCRDs            *bool
+	IncludeCRDs            bool
 	Wait                   bool
 	WaitRetries            int
 	WaitForJobs            bool
@@ -1298,33 +1298,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					)
 
 					chartifyOpts := chartification.Opts
-
-					if skipDeps {
-						chartifyOpts.SkipDeps = true
-					}
-
-					includeCRDs := true
-					if opts.IncludeCRDs != nil {
-						includeCRDs = *opts.IncludeCRDs
-					}
-					chartifyOpts.IncludeCRDs = includeCRDs
-
-					chartifyOpts.Validate = opts.Validate
-
-					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
-					chartifyOpts.ApiVersions = st.getApiVersions(release)
-
-					if opts.Values != nil {
-						chartifyOpts.ValuesFiles = append(opts.Values, chartifyOpts.ValuesFiles...)
-					}
-
-					// https://github.com/helmfile/helmfile/pull/867
-					// https://github.com/helmfile/helmfile/issues/895
-					var flags []string
-					for _, s := range opts.Set {
-						flags = append(flags, "--set", s)
-					}
-					chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
+					st.mergeChartifyOpts(chartifyOpts, opts, skipDeps, release)
 
 					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
@@ -1452,6 +1426,33 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	}
 
 	return prepareChartInfo, nil
+}
+
+// mergeChartifyOpts merges the source opts into the destination opts, modifying dest directly
+func (st *HelmState) mergeChartifyOpts(dest *chartify.ChartifyOpts, source ChartPrepareOptions, skipDeps bool, release *ReleaseSpec) {
+	// @TODO why is this not just `chartifyOpts.SkipDeps = skipDeps`??
+	if skipDeps {
+		dest.SkipDeps = true
+	}
+
+	dest.IncludeCRDs = source.IncludeCRDs
+
+	dest.Validate = source.Validate
+
+	dest.KubeVersion = st.getKubeVersion(release, source.KubeVersion)
+	dest.ApiVersions = st.getApiVersions(release)
+
+	if source.Values != nil {
+		dest.ValuesFiles = append(source.Values, dest.ValuesFiles...)
+	}
+
+	// https://github.com/helmfile/helmfile/pull/867
+	// https://github.com/helmfile/helmfile/issues/895
+	var flags []string
+	for _, s := range source.Set {
+		flags = append(flags, "--set", s)
+	}
+	dest.SetFlags = append(dest.SetFlags, flags...)
 }
 
 // nolint: unparam
@@ -1852,6 +1853,12 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool
 			flags = append(flags, "--set", s)
 		}
 	}
+
+	// internally we only care about include-crds since skip-crds is misleading and used only in command interface
+	if opt.IncludeCRDs {
+		flags = append(flags, "--include-crds")
+	}
+
 	flags = st.appendExtraDiffFlags(flags, opt)
 
 	return flags
@@ -2029,6 +2036,7 @@ type DiffOpts struct {
 	// If this is true, Color has no effect.
 	NoColor                 bool
 	Set                     []string
+	IncludeCRDs				bool
 	SkipCleanup             bool
 	SkipDiffOnInstall       bool
 	DiffArgs                string

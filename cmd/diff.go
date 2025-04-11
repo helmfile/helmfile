@@ -5,15 +5,20 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
+	"github.com/helmfile/helmfile/pkg/flags"
 )
 
 // NewDiffCmd returns diff subcmd
 func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	diffOptions := config.NewDiffOptions()
+	flagRegistrar := flags.NewDiffFlagRegistrar()
 
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Diff releases defined in state file",
+		PreRun: func(cmd *cobra.Command, args []string) {
+			flagRegistrar.TransferFlags(cmd, diffOptions)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			diffImpl := config.NewDiffImpl(globalCfg, diffOptions)
 			err := config.NewCLIConfigImpl(diffImpl.GlobalImpl)
@@ -55,6 +60,9 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&diffOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&diffOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&diffOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from the diff output")
+
+	// Register flags using the registrar
+    flagRegistrar.RegisterFlags(cmd)
 
 	return cmd
 }

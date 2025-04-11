@@ -1,5 +1,7 @@
 package config
 
+import "github.com/helmfile/helmfile/pkg/common"
+
 // SyncOptions is the options for the build command
 type SyncOptions struct {
 	// Set is the set flag
@@ -16,8 +18,10 @@ type SyncOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
-	// SkipCrds is the skip crds flag
-	SkipCRDs bool
+	// SkipCRDsFlag is the skip crds flag
+	SkipCRDsFlag common.BoolFlag
+	// IncludeCRDsFlag is the include crds flag
+	IncludeCRDsFlag common.BoolFlag
 	// Wait is the wait flag
 	Wait bool
 	// WaitRetries is the wait retries flag
@@ -48,7 +52,12 @@ type SyncOptions struct {
 
 // NewSyncOptions creates a new Apply
 func NewSyncOptions() *SyncOptions {
-	return &SyncOptions{}
+	newOptions := &SyncOptions{
+		IncludeCRDsFlag: common.NewBoolFlag(false),
+		SkipCRDsFlag:    common.NewBoolFlag(false),
+	}
+
+	return newOptions
 }
 
 // SyncImpl is impl for applyOptions
@@ -104,9 +113,22 @@ func (t *SyncImpl) Values() []string {
 	return t.SyncOptions.Values
 }
 
-// SkipCRDS returns the skip crds
+// SkipCRDs returns the skip crds
 func (t *SyncImpl) SkipCRDs() bool {
-	return t.SyncOptions.SkipCRDs
+    return t.SyncOptions.SkipCRDsFlag.Value()
+}
+
+// IncludeCRDs returns the include crds
+func (t *SyncImpl) IncludeCRDs() bool {
+    return t.SyncOptions.IncludeCRDsFlag.Value()
+}
+
+// ShouldIncludeCRDs returns true if CRDs should be included
+func (t *SyncImpl) ShouldIncludeCRDs() bool {
+    includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
+    skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
+
+    return includeCRDsExplicit || skipCRDsExplicit
 }
 
 // Wait returns the wait

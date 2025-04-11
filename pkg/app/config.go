@@ -50,12 +50,13 @@ type ApplyConfigProvider interface {
 
 	Values() []string
 	Set() []string
-	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
+
+	CRDConfig
 
 	IncludeTests() bool
 
@@ -101,9 +102,11 @@ type SyncConfigProvider interface {
 
 	Values() []string
 	Set() []string
-	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+
+	CRDConfig
+
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
@@ -135,11 +138,12 @@ type DiffConfigProvider interface {
 	Values() []string
 	Set() []string
 	Validate() bool
-	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
 
 	IncludeTests() bool
+
+	CRDConfig
 
 	Suppress() []string
 	SuppressSecrets() bool
@@ -226,8 +230,10 @@ type TemplateConfigProvider interface {
 	SkipRefresh() bool
 	SkipCleanup() bool
 	SkipTests() bool
+
+	CRDConfig
+
 	OutputDir() string
-	IncludeCRDs() bool
 	NoHooks() bool
 	KubeVersion() string
 	ShowOnly() []string
@@ -235,6 +241,12 @@ type TemplateConfigProvider interface {
 	DAGConfig
 
 	concurrencyConfig
+}
+
+type CRDConfig interface {
+    SkipCRDs() bool
+    IncludeCRDs() bool
+    ShouldIncludeCRDs() bool
 }
 
 type DAGConfig interface {

@@ -5,15 +5,20 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
+	"github.com/helmfile/helmfile/pkg/flags"
 )
 
 // NewSyncCmd returns sync subcmd
 func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	syncOptions := config.NewSyncOptions()
+	flagRegistrar := flags.NewSyncFlagRegistrar()
 
 	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Sync releases defined in state file",
+		PreRun: func(cmd *cobra.Command, args []string) {
+			flagRegistrar.TransferFlags(cmd, syncOptions)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			syncImpl := config.NewSyncImpl(globalCfg, syncOptions)
 			err := config.NewCLIConfigImpl(syncImpl.GlobalImpl)
@@ -38,7 +43,6 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&syncOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&syncOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the sync of available API versions")
 	f.BoolVar(&syncOptions.SkipNeeds, "skip-needs", true, `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`)
-	f.BoolVar(&syncOptions.SkipCRDs, "skip-crds", false, "if set, no CRDs will be installed on sync. By default, CRDs are installed if not already present")
 	f.BoolVar(&syncOptions.IncludeNeeds, "include-needs", false, `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when --selector/-l flag is not provided`)
 	f.BoolVar(&syncOptions.IncludeTransitiveNeeds, "include-transitive-needs", false, `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`)
 	f.BoolVar(&syncOptions.HideNotes, "hide-notes", false, "add --hide-notes flag to helm")
@@ -52,6 +56,9 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&syncOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
 	f.BoolVar(&syncOptions.SkipSchemaValidation, "skip-schema-validation", false, `pass --skip-schema-validation to "helm template" or "helm upgrade --install"`)
 	f.StringVar(&syncOptions.Cascade, "cascade", "", "pass cascade to helm exec, default: background")
+
+	// Register flags using the registrar
+	flagRegistrar.RegisterFlags(cmd)
 
 	return cmd
 }

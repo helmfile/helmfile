@@ -5,15 +5,20 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/config"
+	"github.com/helmfile/helmfile/pkg/flags"
 )
 
 // NewTemplateCmd returm template subcmd
 func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	templateOptions := config.NewTemplateOptions()
+	flagRegistrar := flags.NewDiffFlagRegistrar()
 
 	cmd := &cobra.Command{
 		Use:   "template",
 		Short: "Template releases defined in state file",
+		PreRun: func(cmd *cobra.Command, args []string) {
+			flagRegistrar.TransferFlags(cmd, templateOptions)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			templateImpl := config.NewTemplateImpl(globalCfg, templateOptions)
 			err := config.NewCLIConfigImpl(templateImpl.GlobalImpl)
@@ -38,7 +43,6 @@ func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&templateOptions.OutputDirTemplate, "output-dir-template", "", "go text template for generating the output directory. Default: {{ .OutputDir }}/{{ .State.BaseName }}-{{ .State.AbsPathSHA1 }}-{{ .Release.Name}}")
 	f.IntVar(&templateOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.BoolVar(&templateOptions.Validate, "validate", false, "validate your manifests against the Kubernetes cluster you are currently pointing at. Note that this requires access to a Kubernetes cluster to obtain information necessary for validating, like the template of available API versions")
-	f.BoolVar(&templateOptions.IncludeCRDs, "include-crds", false, "include CRDs in the templated output")
 	f.BoolVar(&templateOptions.SkipTests, "skip-tests", false, "skip tests from templated output")
 	f.BoolVar(&templateOptions.SkipNeeds, "skip-needs", true, `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`)
 	f.BoolVar(&templateOptions.IncludeNeeds, "include-needs", false, `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when --selector/-l flag is not provided`)
@@ -51,5 +55,6 @@ func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&templateOptions.KubeVersion, "kube-version", "", `pass --kube-version to "helm template". Overrides kubeVersion in helmfile.yaml`)
 	f.StringArrayVar(&templateOptions.ShowOnly, "show-only", nil, `pass --show-only to "helm template"`)
 
+	flagRegistrar.RegisterFlags(cmd)
 	return cmd
 }

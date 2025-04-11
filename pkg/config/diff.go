@@ -1,5 +1,7 @@
 package config
 
+import "github.com/helmfile/helmfile/pkg/common"
+
 // DiffOptions is the options for the build command
 type DiffOptions struct {
 	// Set is the set flag
@@ -12,6 +14,10 @@ type DiffOptions struct {
 	StripTrailingCR bool
 	// IncludeTests is the include tests flag
 	IncludeTests bool
+	// SkipCRDsFlag is the skip crds flag
+	SkipCRDsFlag common.BoolFlag
+	// IncludeCRDsFlag is the include crds flag
+	IncludeCRDsFlag common.BoolFlag
 	// SkipNeeds is the include crds flag
 	SkipNeeds bool
 	// IncludeNeeds is the include needs flag
@@ -53,7 +59,12 @@ type DiffOptions struct {
 
 // NewDiffOptions creates a new Apply
 func NewDiffOptions() *DiffOptions {
-	return &DiffOptions{}
+	newOptions := &DiffOptions{
+		IncludeCRDsFlag: common.NewBoolFlag(false),
+		SkipCRDsFlag:    common.NewBoolFlag(false),
+	}
+
+	return newOptions
 }
 
 // DiffImpl is impl for applyOptions
@@ -144,9 +155,22 @@ func (t *DiffImpl) NoHooks() bool {
 	return t.DiffOptions.NoHooks
 }
 
-// ShowCRDs returns the show crds
+// SkipCRDs returns the skip crds
 func (t *DiffImpl) SkipCRDs() bool {
-	return false
+    return t.DiffOptions.SkipCRDsFlag.Value()
+}
+
+// IncludeCRDs returns the include crds
+func (t *DiffImpl) IncludeCRDs() bool {
+    return t.DiffOptions.IncludeCRDsFlag.Value()
+}
+
+// ShouldIncludeCRDs returns true if CRDs should be included
+func (t *DiffImpl) ShouldIncludeCRDs() bool {
+    includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
+    skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
+
+    return includeCRDsExplicit || skipCRDsExplicit
 }
 
 // SkipDiffOnInstall returns the skip diff on install
