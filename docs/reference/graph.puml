@@ -1,0 +1,2402 @@
+@startuml
+' Color scheme - eye-friendly colors with darker headers
+skinparam {
+  ClassBackgroundColor #f1f1f1
+  ClassHeaderBackgroundColor #f1f1f1
+  ClassArrowColor #091E42
+  ClassBorderColor #172B4D
+
+  ' Make header text white for better contrast with dark header
+  ClassFontColor #000000
+
+  ' Optional: make the header font bold
+  ClassHeaderFontStyle bold
+
+  PackageBackgroundColor #F4F5F7
+  PackageBorderColor #DDDDDD
+
+  NoteBackgroundColor #FFF8DC
+  NoteBorderColor #DCDCAA
+}
+
+namespace app {
+    class App << (S,Aquamarine) >> {
+        - fs *filesystem.FileSystem
+        - remote *remote.Remote
+        - valsRuntime vals.Evaluator
+        - helms <font color=blue>map</font>[helmKey]helmexec.Interface
+        - helmsMutex sync.Mutex
+        - ctx context.Context
+
+        + OverrideKubeContext string
+        + OverrideHelmBinary string
+        + OverrideKustomizeBinary string
+        + EnableLiveOutput bool
+        + StripArgsValuesOnExitError bool
+        + DisableForceUpdate bool
+        + Logger *zap.SugaredLogger
+        + Kubeconfig string
+        + Env string
+        + Namespace string
+        + Chart string
+        + Selectors []string
+        + Args string
+        + ValuesFiles []string
+        + Set <font color=blue>map</font>[string]any
+        + FileOrDir string
+
+        - dag(r *Run) error
+        - list(run *Run) ([]*HelmRelease, error)
+        - within(dir string, do <font color=blue>func</font>() error) error
+        - visitStateFiles(fileOrDir string, opts LoadOpts, do <font color=blue>func</font>(string, string) error) error
+        - loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.HelmState, error)
+        - getHelm(st *state.HelmState) helmexec.Interface
+        - visitStates(fileOrDir string, defOpts LoadOpts, converge <font color=blue>func</font>(*state.HelmState) (bool, []error)) error
+        - visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge <font color=blue>func</font>(*state.HelmState) (bool, []error), includeTransitiveNeeds bool, opt ...LoadOption) error
+        - findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]string, error)
+        - getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.ReleaseSpec, []state.ReleaseSpec, error)
+        - apply(r *Run, c ApplyConfigProvider) (bool, bool, []error)
+        - delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error)
+        - diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error)
+        - lint(r *Run, c LintConfigProvider) (bool, []error, []error)
+        - status(r *Run, c StatusesConfigProvider) (bool, []error)
+        - sync(r *Run, c SyncConfigProvider) (bool, []error)
+        - template(r *Run, c TemplateConfigProvider) (bool, []error)
+        - withNeeds(r *Run, c DAGConfig, includeDisabled bool, f <font color=blue>func</font>(*state.HelmState) []error) (bool, []error)
+        - test(r *Run, c TestConfigProvider) []error
+        - writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error)
+
+        + Init(c InitConfigProvider) error
+        + Deps(c DepsConfigProvider) error
+        + Repos(c ReposConfigProvider) error
+        + Diff(c DiffConfigProvider) error
+        + Template(c TemplateConfigProvider) error
+        + WriteValues(c WriteValuesConfigProvider) error
+        + Lint(c LintConfigProvider) error
+        + Fetch(c FetchConfigProvider) error
+        + Sync(c SyncConfigProvider) error
+        + Apply(c ApplyConfigProvider) error
+        + Status(c StatusesConfigProvider) error
+        + Destroy(c DestroyConfigProvider) error
+        + Test(c TestConfigProvider) error
+        + PrintDAGState(c DAGConfigProvider) error
+        + PrintState(c StateConfigProvider) error
+        + ListReleases(c ListConfigProvider) error
+        + ForEachState(do <font color=blue>func</font>(*Run) (bool, []error), includeTransitiveNeeds bool, o ...LoadOption) error
+        + Wrap(converge <font color=blue>func</font>(*state.HelmState, helmexec.Interface) []error) <font color=blue>func</font>(*state.HelmState, helmexec.Interface, bool) (bool, []error)
+        + WrapWithoutSelector(converge <font color=blue>func</font>(*state.HelmState, helmexec.Interface) []error) <font color=blue>func</font>(*state.HelmState, helmexec.Interface) (bool, []error)
+        + ShowCacheDir(c CacheConfigProvider) error
+        + CleanCacheDir(c CacheConfigProvider) error
+
+    }
+    interface ApplyConfigProvider  {
+        + Args() string
+        + PostRenderer() string
+        + PostRendererArgs() []string
+        + SkipSchemaValidation() bool
+        + Cascade() string
+        + HideNotes() bool
+        + TakeOwnership() bool
+        + SuppressOutputLineRegex() []string
+        + Values() []string
+        + Set() []string
+        + SkipCRDs() bool
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + Wait() bool
+        + WaitRetries() int
+        + WaitForJobs() bool
+        + IncludeTests() bool
+        + Suppress() []string
+        + SuppressSecrets() bool
+        + ShowSecrets() bool
+        + NoHooks() bool
+        + SuppressDiff() bool
+        + DetailedExitcode() bool
+        + StripTrailingCR() bool
+        + Color() bool
+        + NoColor() bool
+        + Context() int
+        + DiffOutput() string
+        + Validate() bool
+        + SkipCleanup() bool
+        + SkipDiffOnInstall() bool
+        + DiffArgs() string
+        + SyncArgs() string
+        + SyncReleaseLabels() bool
+
+    }
+    interface ConfigProvider  {
+        + Args() string
+        + HelmBinary() string
+        + KustomizeBinary() string
+        + EnableLiveOutput() bool
+        + StripArgsValuesOnExitError() bool
+        + DisableForceUpdate() bool
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + FileOrDir() string
+        + KubeContext() string
+        + Namespace() string
+        + Chart() string
+        + Selectors() []string
+        + StateValuesSet() <font color=blue>map</font>[string]any
+        + StateValuesFiles() []string
+        + Kubeconfig() string
+        + Env() string
+
+    }
+    class Context << (S,Aquamarine) >> {
+        - updatedRepos <font color=blue>map</font>[string]bool
+
+        + SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) error
+
+    }
+    interface DAGConfig  {
+        + SkipNeeds() bool
+        + IncludeNeeds() bool
+        + IncludeTransitiveNeeds() bool
+
+    }
+    interface DepsConfigProvider  {
+        + Args() string
+        + SkipRepos() bool
+        + IncludeTransitiveNeeds() bool
+
+    }
+    interface DestroyConfigProvider  {
+        + Args() string
+        + Cascade() string
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + SkipCharts() bool
+        + DeleteWait() bool
+        + DeleteTimeout() int
+
+    }
+    interface DiffConfigProvider  {
+        + Args() string
+        + PostRenderer() string
+        + PostRendererArgs() []string
+        + SkipSchemaValidation() bool
+        + SuppressOutputLineRegex() []string
+        + Values() []string
+        + Set() []string
+        + Validate() bool
+        + SkipCRDs() bool
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + IncludeTests() bool
+        + Suppress() []string
+        + SuppressSecrets() bool
+        + ShowSecrets() bool
+        + NoHooks() bool
+        + SuppressDiff() bool
+        + SkipDiffOnInstall() bool
+        + DiffArgs() string
+        + DetailedExitcode() bool
+        + StripTrailingCR() bool
+        + Color() bool
+        + NoColor() bool
+        + Context() int
+        + DiffOutput() string
+
+    }
+    class Error << (S,Aquamarine) >> {
+        - msg string
+        - code *int
+
+        + Errors []error
+
+        + Error() string
+        + Code() int
+
+    }
+    interface FetchConfigProvider  {
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + OutputDir() string
+        + OutputDirTemplate() string
+
+    }
+    class HelmRelease << (S,Aquamarine) >> {
+        + Name string
+        + Namespace string
+        + Enabled bool
+        + Installed bool
+        + Labels string
+        + Chart string
+        + Version string
+
+    }
+    class HelmfileInit << (S,Aquamarine) >> {
+        - helmBinary string
+        - configProvider InitConfigProvider
+        - logger *zap.SugaredLogger
+        - runner helmexec.Runner
+
+        - installHelmOnWindows() error
+
+        + UpdateHelm() error
+        + InstallHelm() error
+        + WhetherContinue(ask string) error
+        + CheckHelmPlugins() error
+        + CheckHelm() error
+        + Initialize() error
+
+    }
+    interface InitConfigProvider  {
+        + Force() bool
+
+    }
+    interface LintConfigProvider  {
+        + Args() string
+        + Values() []string
+        + Set() []string
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + SkipCleanup() bool
+
+    }
+    interface ListConfigProvider  {
+        + Output() string
+        + SkipCharts() bool
+
+    }
+    class LoadOpts << (S,Aquamarine) >> {
+        + Selectors []string
+        + Environment state.SubhelmfileEnvironmentSpec
+        + RetainValuesFiles bool
+        + CalleePath string
+        + Reverse bool
+        + Filter bool
+
+        + DeepCopy() LoadOpts
+
+    }
+    class MultiError << (S,Aquamarine) >> {
+        + Errors []error
+
+        + Error() string
+
+    }
+    class NoMatchingHelmfileError << (S,Aquamarine) >> {
+        - selectors []string
+        - env string
+
+        + Error() string
+
+    }
+    class Opts << (S,Aquamarine) >> {
+        + DAGEnabled bool
+
+    }
+    class RenderOpts << (S,Aquamarine) >> {
+    }
+    interface ReposConfigProvider  {
+        + Args() string
+        + IncludeTransitiveNeeds() bool
+
+    }
+    class Run << (S,Aquamarine) >> {
+        - state *state.HelmState
+        - helm helmexec.Interface
+        - ctx Context
+
+        + ReleaseToChart <font color=blue>map</font>[state.PrepareChartKey]string
+        + Ask <font color=blue>func</font>(string) bool
+
+        - askForConfirmation(msg string) bool
+        - prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (<font color=blue>map</font>[state.PrepareChartKey]string, error)
+        - withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f <font color=blue>func</font>() ) error
+        - diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts) (*string, <font color=blue>map</font>[string]state.ReleaseSpec, <font color=blue>map</font>[string]state.ReleaseSpec, []error)
+
+        + Deps(c DepsConfigProvider) []error
+        + Repos(c ReposConfigProvider) error
+
+    }
+    interface StateConfigProvider  {
+        + EmbedValues() bool
+
+    }
+    interface StatusesConfigProvider  {
+        + Args() string
+
+    }
+    interface SyncConfigProvider  {
+        + Args() string
+        + PostRenderer() string
+        + SkipSchemaValidation() bool
+        + PostRendererArgs() []string
+        + HideNotes() bool
+        + TakeOwnership() bool
+        + Cascade() string
+        + Values() []string
+        + Set() []string
+        + SkipCRDs() bool
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + Wait() bool
+        + WaitRetries() int
+        + WaitForJobs() bool
+        + SyncArgs() string
+        + Validate() bool
+        + SkipNeeds() bool
+        + IncludeNeeds() bool
+        + IncludeTransitiveNeeds() bool
+        + SyncReleaseLabels() bool
+
+    }
+    interface TemplateConfigProvider  {
+        + Args() string
+        + PostRenderer() string
+        + PostRendererArgs() []string
+        + SkipSchemaValidation() bool
+        + Values() []string
+        + Set() []string
+        + OutputDirTemplate() string
+        + Validate() bool
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + SkipCleanup() bool
+        + SkipTests() bool
+        + OutputDir() string
+        + IncludeCRDs() bool
+        + NoHooks() bool
+        + KubeVersion() string
+        + ShowOnly() []string
+
+    }
+    interface TestConfigProvider  {
+        + Args() string
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + Timeout() int
+        + Cleanup() bool
+        + Logs() bool
+
+    }
+    interface WriteValuesConfigProvider  {
+        + Values() []string
+        + Set() []string
+        + OutputFileTemplate() string
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + SkipCleanup() bool
+        + IncludeTransitiveNeeds() bool
+
+    }
+    class app.CacheConfigProvider << (T, #FF7700) >>  {
+    }
+    class app.DAGConfigProvider << (T, #FF7700) >>  {
+    }
+    class app.LoadOption << (T, #FF7700) >>  {
+    }
+    interface concurrencyConfig  {
+        + Concurrency() int
+
+    }
+    class context << (S,Aquamarine) >> {
+        - app *App
+        - st *state.HelmState
+        - retainValues bool
+
+        - clean(errs []error) error
+        - wrapErrs(errs ...error) error
+
+    }
+    class desiredStateLoader << (S,Aquamarine) >> {
+        - overrideKubeContext string
+        - overrideHelmBinary string
+        - overrideKustomizeBinary string
+        - enableLiveOutput bool
+        - env string
+        - namespace string
+        - chart string
+        - fs *filesystem.FileSystem
+        - getHelm <font color=blue>func</font>(*state.HelmState) helmexec.Interface
+        - remote *remote.Remote
+        - logger *zap.SugaredLogger
+        - valsRuntime vals.Evaluator
+        - lockFilePath string
+
+        - loadFile(inheritedEnv *environment.Environment, overrodeEnv *environment.Environment, baseDir string, file string, evaluateBases bool) (*state.HelmState, error)
+        - loadFileWithOverrides(inheritedEnv *environment.Environment, overrodeEnv *environment.Environment, baseDir string, file string, evaluateBases bool) (*state.HelmState, error)
+        - underlying() *state.StateCreator
+        - rawLoad(yaml []byte, baseDir string, file string, evaluateBases bool, env *environment.Environment, overrodeEnv *environment.Environment) (*state.HelmState, error)
+        - load(env *environment.Environment, overrodeEnv *environment.Environment, baseDir string, filename string, content []byte, evaluateBases bool) (*state.HelmState, error)
+        - renderTemplatesToYaml(baseDir string, filename string, content []byte) (*bytes.Buffer, error)
+        - renderTemplatesToYamlWithEnv(baseDir string, filename string, content []byte, inherited *environment.Environment, overrode *environment.Environment) (*bytes.Buffer, error)
+        - twoPassRenderTemplateToYaml(inherited *environment.Environment, overrode *environment.Environment, baseDir string, filename string, content []byte) (*bytes.Buffer, error)
+
+        + Load(f string, opts LoadOpts) (*state.HelmState, error)
+
+    }
+    class helmKey << (S,Aquamarine) >> {
+        + Binary string
+        + Context string
+
+    }
+    class helmRecommendedPlugin << (S,Aquamarine) >> {
+        - name string
+        - version string
+        - repo string
+
+    }
+    interface interactive  {
+        + Interactive() bool
+
+    }
+    interface loggingConfig  {
+        + Logger() *zap.SugaredLogger
+
+    }
+    interface valuesControlMode  {
+        + ReuseValues() bool
+        + ResetValues() bool
+
+    }
+}
+"app.DAGConfig" *-- "app.ApplyConfigProvider"
+"app.concurrencyConfig" *-- "app.ApplyConfigProvider"
+"app.interactive" *-- "app.ApplyConfigProvider"
+"app.loggingConfig" *-- "app.ApplyConfigProvider"
+"app.valuesControlMode" *-- "app.ApplyConfigProvider"
+"app.loggingConfig" *-- "app.ConfigProvider"
+"app.concurrencyConfig" *-- "app.DepsConfigProvider"
+"app.concurrencyConfig" *-- "app.DestroyConfigProvider"
+"app.interactive" *-- "app.DestroyConfigProvider"
+"app.loggingConfig" *-- "app.DestroyConfigProvider"
+"app.DAGConfig" *-- "app.DiffConfigProvider"
+"app.concurrencyConfig" *-- "app.DiffConfigProvider"
+"app.valuesControlMode" *-- "app.DiffConfigProvider"
+"app.concurrencyConfig" *-- "app.FetchConfigProvider"
+"app.DAGConfig" *-- "app.LintConfigProvider"
+"app.concurrencyConfig" *-- "app.LintConfigProvider"
+"app.concurrencyConfig" *-- "app.StatusesConfigProvider"
+"app.DAGConfig" *-- "app.SyncConfigProvider"
+"app.concurrencyConfig" *-- "app.SyncConfigProvider"
+"app.interactive" *-- "app.SyncConfigProvider"
+"app.loggingConfig" *-- "app.SyncConfigProvider"
+"app.valuesControlMode" *-- "app.SyncConfigProvider"
+"app.DAGConfig" *-- "app.TemplateConfigProvider"
+"app.concurrencyConfig" *-- "app.TemplateConfigProvider"
+"app.concurrencyConfig" *-- "app.TestConfigProvider"
+"app.concurrencyConfig" *-- "app.WriteValuesConfigProvider"
+
+
+namespace argparser {
+    class argMap << (S,Aquamarine) >> {
+        - m <font color=blue>map</font>[string][]*keyVal
+        - flags []string
+
+        + SetArg(flag string, arg string, isSpace bool)
+
+    }
+    class keyVal << (S,Aquamarine) >> {
+        - key string
+        - val string
+        - spaceFlag bool
+
+    }
+}
+
+
+namespace config {
+    class ApplyImpl << (S,Aquamarine) >> {
+        + Set() []string
+        + Concurrency() int
+        + Context() int
+        + DetailedExitcode() bool
+        + StripTrailingCR() bool
+        + DiffOutput() string
+        + IncludeNeeds() bool
+        + IncludeTests() bool
+        + IncludeTransitiveNeeds() bool
+        + ShowSecrets() bool
+        + NoHooks() bool
+        + SkipCRDs() bool
+        + SkipCleanup() bool
+        + SkipDiffOnInstall() bool
+        + DiffArgs() string
+        + SkipNeeds() bool
+        + Suppress() []string
+        + SuppressDiff() bool
+        + SuppressSecrets() bool
+        + Validate() bool
+        + Values() []string
+        + Wait() bool
+        + WaitRetries() int
+        + WaitForJobs() bool
+        + ReuseValues() bool
+        + ResetValues() bool
+        + PostRenderer() string
+        + PostRendererArgs() []string
+        + SkipSchemaValidation() bool
+        + Cascade() string
+        + SuppressOutputLineRegex() []string
+        + SyncArgs() string
+        + HideNotes() bool
+        + TakeOwnership() bool
+        + SyncReleaseLabels() bool
+
+    }
+    class ApplyOptions << (S,Aquamarine) >> {
+        + Set []string
+        + Values []string
+        + Concurrency int
+        + Validate bool
+        + Context int
+        + Output string
+        + DetailedExitcode bool
+        + StripTrailingCR bool
+        + SkipCleanup bool
+        + SkipCRDs bool
+        + SkipNeeds bool
+        + IncludeNeeds bool
+        + IncludeTransitiveNeeds bool
+        + SkipDiffOnInstall bool
+        + DiffArgs string
+        + IncludeTests bool
+        + Suppress []string
+        + SuppressSecrets bool
+        + ShowSecrets bool
+        + NoHooks bool
+        + SuppressDiff bool
+        + Wait bool
+        + WaitRetries int
+        + WaitForJobs bool
+        + SkipSchemaValidation bool
+        + ReuseValues bool
+        + ResetValues bool
+        + PostRenderer string
+        + PostRendererArgs []string
+        + Cascade string
+        + SuppressOutputLineRegex []string
+        + SyncArgs string
+        + HideNotes bool
+        + TakeOwnership bool
+        + SyncReleaseLabels bool
+
+    }
+    class BuildImpl << (S,Aquamarine) >> {
+        + EmbedValues() bool
+
+    }
+    class BuildOptions << (S,Aquamarine) >> {
+        + EmbedValues bool
+
+    }
+    class CacheImpl << (S,Aquamarine) >> {
+    }
+    class CacheOptions << (S,Aquamarine) >> {
+    }
+    class DepsImpl << (S,Aquamarine) >> {
+        + SkipRepos() bool
+        + IncludeTransitiveNeeds() bool
+        + Concurrency() int
+
+    }
+    class DepsOptions << (S,Aquamarine) >> {
+        + SkipRepos bool
+        + Concurrency int
+
+    }
+    class DestroyImpl << (S,Aquamarine) >> {
+        + Concurrency() int
+        + SkipCharts() bool
+        + Cascade() string
+        + DeleteWait() bool
+        + DeleteTimeout() int
+
+    }
+    class DestroyOptions << (S,Aquamarine) >> {
+        + Concurrency int
+        + SkipCharts bool
+        + Cascade string
+        + DeleteWait bool
+        + DeleteTimeout int
+
+    }
+    class DiffImpl << (S,Aquamarine) >> {
+        + Concurrency() int
+        + IncludeNeeds() bool
+        + IncludeTransitiveNeeds() bool
+        + Set() []string
+        + SkipNeeds() bool
+        + Validate() bool
+        + Values() []string
+        + Context() int
+        + DetailedExitcode() bool
+        + StripTrailingCR() bool
+        + DiffOutput() string
+        + IncludeTests() bool
+        + ShowSecrets() bool
+        + NoHooks() bool
+        + SkipCRDs() bool
+        + SkipDiffOnInstall() bool
+        + DiffArgs() string
+        + Suppress() []string
+        + SuppressDiff() bool
+        + SuppressSecrets() bool
+        + ReuseValues() bool
+        + ResetValues() bool
+        + PostRenderer() string
+        + PostRendererArgs() []string
+        + SuppressOutputLineRegex() []string
+        + SkipSchemaValidation() bool
+
+    }
+    class DiffOptions << (S,Aquamarine) >> {
+        + Set []string
+        + Values []string
+        + DetailedExitcode bool
+        + StripTrailingCR bool
+        + IncludeTests bool
+        + SkipNeeds bool
+        + IncludeNeeds bool
+        + IncludeTransitiveNeeds bool
+        + SkipDiffOnInstall bool
+        + ShowSecrets bool
+        + NoHooks bool
+        + Suppress []string
+        + SuppressSecrets bool
+        + Concurrency int
+        + Validate bool
+        + Context int
+        + Output string
+        + ReuseValues bool
+        + ResetValues bool
+        + PostRenderer string
+        + PostRendererArgs []string
+        + DiffArgs string
+        + SuppressOutputLineRegex []string
+        + SkipSchemaValidation bool
+
+    }
+    class FetchImpl << (S,Aquamarine) >> {
+        + Concurrency() int
+        + OutputDir() string
+        + OutputDirTemplate() string
+
+    }
+    class FetchOptions << (S,Aquamarine) >> {
+        + Concurrency int
+        + OutputDir string
+        + OutputDirTemplate string
+
+    }
+    class GlobalImpl << (S,Aquamarine) >> {
+        - set <font color=blue>map</font>[string]any
+
+        + SetSet(set <font color=blue>map</font>[string]any)
+        + HelmBinary() string
+        + KustomizeBinary() string
+        + Kubeconfig() string
+        + KubeContext() string
+        + Namespace() string
+        + Chart() string
+        + FileOrDir() string
+        + Selectors() []string
+        + StateValuesSet() <font color=blue>map</font>[string]any
+        + RawStateValuesSet() []string
+        + RawStateValuesSetString() []string
+        + StateValuesFiles() []string
+        + EnableLiveOutput() bool
+        + SkipDeps() bool
+        + SkipRefresh() bool
+        + StripArgsValuesOnExitError() bool
+        + DisableForceUpdate() bool
+        + Logger() *zap.SugaredLogger
+        + Color() bool
+        + NoColor() bool
+        + Env() string
+        + ValidateConfig() error
+        + Interactive() bool
+        + Args() string
+
+    }
+    class GlobalOptions << (S,Aquamarine) >> {
+        - logger *zap.SugaredLogger
+
+        + HelmBinary string
+        + KustomizeBinary string
+        + File string
+        + Environment string
+        + StateValuesSet []string
+        + StateValuesSetString []string
+        + StateValuesFile []string
+        + SkipDeps bool
+        + SkipRefresh bool
+        + StripArgsValuesOnExitError bool
+        + DisableForceUpdate bool
+        + Quiet bool
+        + Kubeconfig string
+        + KubeContext string
+        + Debug bool
+        + Color bool
+        + NoColor bool
+        + LogLevel string
+        + Namespace string
+        + Chart string
+        + Selector []string
+        + AllowNoMatchingRelease bool
+        + EnableLiveOutput bool
+        + Interactive bool
+        + Args string
+        + LogOutput io.Writer
+
+        + Logger() *zap.SugaredLogger
+        + SetLogger(logger *zap.SugaredLogger)
+
+    }
+    class InitImpl << (S,Aquamarine) >> {
+        + Force() bool
+
+    }
+    class InitOptions << (S,Aquamarine) >> {
+        + Force bool
+
+    }
+    class LintImpl << (S,Aquamarine) >> {
+        + Concurrency() int
+        + Set() []string
+        + Values() []string
+        + SkipCleanup() bool
+        + IncludeNeeds() bool
+        + IncludeTransitiveNeeds() bool
+        + SkipNeeds() bool
+
+    }
+    class LintOptions << (S,Aquamarine) >> {
+        + Concurrency int
+        + Set []string
+        + Values []string
+        + SkipNeeds bool
+        + IncludeNeeds bool
+        + IncludeTransitiveNeeds bool
+
+    }
+    class ListImpl << (S,Aquamarine) >> {
+        + Output() string
+        + SkipCharts() bool
+
+    }
+    class ListOptions << (S,Aquamarine) >> {
+        + Output string
+        + KeepTempDir bool
+        + SkipCharts bool
+
+    }
+    class ReposImpl << (S,Aquamarine) >> {
+        + IncludeTransitiveNeeds() bool
+
+    }
+    class ReposOptions << (S,Aquamarine) >> {
+    }
+    class ShowDAGImpl << (S,Aquamarine) >> {
+    }
+    class ShowDAGOptions << (S,Aquamarine) >> {
+    }
+    class StatusImpl << (S,Aquamarine) >> {
+        + IncludeTransitiveNeeds() bool
+        + Concurrency() int
+
+    }
+    class StatusOptions << (S,Aquamarine) >> {
+        + Concurrency int
+
+    }
+    class SyncImpl << (S,Aquamarine) >> {
+        + Concurrency() int
+        + IncludeNeeds() bool
+        + IncludeTransitiveNeeds() bool
+        + Set() []string
+        + SkipNeeds() bool
+        + Validate() bool
+        + Values() []string
+        + SkipCRDs() bool
+        + Wait() bool
+        + WaitRetries() int
+        + WaitForJobs() bool
+        + ReuseValues() bool
+        + ResetValues() bool
+        + PostRenderer() string
+        + PostRendererArgs() []string
+        + SkipSchemaValidation() bool
+        + Cascade() string
+        + SyncArgs() string
+        + HideNotes() bool
+        + TakeOwnership() bool
+        + SyncReleaseLabels() bool
+
+    }
+    class SyncOptions << (S,Aquamarine) >> {
+        + Set []string
+        + Values []string
+        + Concurrency int
+        + Validate bool
+        + SkipNeeds bool
+        + IncludeNeeds bool
+        + IncludeTransitiveNeeds bool
+        + SkipCRDs bool
+        + Wait bool
+        + WaitRetries int
+        + WaitForJobs bool
+        + ReuseValues bool
+        + ResetValues bool
+        + PostRenderer string
+        + PostRendererArgs []string
+        + SkipSchemaValidation bool
+        + Cascade string
+        + SyncArgs string
+        + HideNotes bool
+        + TakeOwnership bool
+        + SyncReleaseLabels bool
+
+    }
+    class TemplateImpl << (S,Aquamarine) >> {
+        + Concurrency() int
+        + IncludeCRDs() bool
+        + NoHooks() bool
+        + IncludeNeeds() bool
+        + IncludeTransitiveNeeds() bool
+        + OutputDir() string
+        + OutputDirTemplate() string
+        + Set() []string
+        + SkipCleanup() bool
+        + SkipNeeds() bool
+        + SkipTests() bool
+        + Validate() bool
+        + Values() []string
+        + PostRenderer() string
+        + PostRendererArgs() []string
+        + SkipSchemaValidation() bool
+        + KubeVersion() string
+        + ShowOnly() []string
+
+    }
+    class TemplateOptions << (S,Aquamarine) >> {
+        + Set []string
+        + Values []string
+        + OutputDir string
+        + OutputDirTemplate string
+        + Concurrency int
+        + Validate bool
+        + IncludeCRDs bool
+        + SkipTests bool
+        + SkipNeeds bool
+        + IncludeNeeds bool
+        + IncludeTransitiveNeeds bool
+        + NoHooks bool
+        + SkipCleanup bool
+        + PostRenderer string
+        + PostRendererArgs []string
+        + SkipSchemaValidation bool
+        + KubeVersion string
+        + ShowOnly []string
+
+    }
+    class TestImpl << (S,Aquamarine) >> {
+        + Cmd *cobra.Command
+
+        + Concurrency() int
+        + Cleanup() bool
+        + Logs() bool
+        + Timeout() int
+
+    }
+    class TestOptions << (S,Aquamarine) >> {
+        + Concurrency int
+        + Cleanup bool
+        + Logs bool
+        + Timeout int
+
+    }
+    class WriteValuesImpl << (S,Aquamarine) >> {
+        + Concurrency() int
+        + Set() []string
+        + Values() []string
+        + SkipCleanup() bool
+        + IncludeTransitiveNeeds() bool
+        + OutputFileTemplate() string
+
+    }
+    class WriteValuesOptions << (S,Aquamarine) >> {
+        + Concurrency int
+        + Set []string
+        + Values []string
+        + OutputFileTemplate string
+
+    }
+}
+"config.ApplyOptions" *-- "config.ApplyImpl"
+"config.GlobalImpl" *-- "config.ApplyImpl"
+"config.BuildOptions" *-- "config.BuildImpl"
+"config.GlobalImpl" *-- "config.BuildImpl"
+"config.CacheOptions" *-- "config.CacheImpl"
+"config.GlobalImpl" *-- "config.CacheImpl"
+"config.DepsOptions" *-- "config.DepsImpl"
+"config.GlobalImpl" *-- "config.DepsImpl"
+"config.DestroyOptions" *-- "config.DestroyImpl"
+"config.GlobalImpl" *-- "config.DestroyImpl"
+"config.DiffOptions" *-- "config.DiffImpl"
+"config.GlobalImpl" *-- "config.DiffImpl"
+"config.FetchOptions" *-- "config.FetchImpl"
+"config.GlobalImpl" *-- "config.FetchImpl"
+"config.GlobalOptions" *-- "config.GlobalImpl"
+"config.GlobalImpl" *-- "config.InitImpl"
+"config.InitOptions" *-- "config.InitImpl"
+"config.GlobalImpl" *-- "config.LintImpl"
+"config.LintOptions" *-- "config.LintImpl"
+"config.GlobalImpl" *-- "config.ListImpl"
+"config.ListOptions" *-- "config.ListImpl"
+"config.GlobalImpl" *-- "config.ReposImpl"
+"config.ReposOptions" *-- "config.ReposImpl"
+"config.GlobalImpl" *-- "config.ShowDAGImpl"
+"config.ShowDAGOptions" *-- "config.ShowDAGImpl"
+"config.GlobalImpl" *-- "config.StatusImpl"
+"config.StatusOptions" *-- "config.StatusImpl"
+"config.GlobalImpl" *-- "config.SyncImpl"
+"config.SyncOptions" *-- "config.SyncImpl"
+"config.GlobalImpl" *-- "config.TemplateImpl"
+"config.TemplateOptions" *-- "config.TemplateImpl"
+"config.GlobalImpl" *-- "config.TestImpl"
+"config.TestOptions" *-- "config.TestImpl"
+"config.GlobalImpl" *-- "config.WriteValuesImpl"
+"config.WriteValuesOptions" *-- "config.WriteValuesImpl"
+
+"app.DAGConfig" <|-- "config.ApplyImpl"
+"app.concurrencyConfig" <|-- "config.ApplyImpl"
+"app.valuesControlMode" <|-- "config.ApplyImpl"
+"app.StateConfigProvider" <|-- "config.BuildImpl"
+"app.concurrencyConfig" <|-- "config.DepsImpl"
+"app.concurrencyConfig" <|-- "config.DestroyImpl"
+"app.DAGConfig" <|-- "config.DiffImpl"
+"app.concurrencyConfig" <|-- "config.DiffImpl"
+"app.valuesControlMode" <|-- "config.DiffImpl"
+"app.concurrencyConfig" <|-- "config.FetchImpl"
+"app.StatusesConfigProvider" <|-- "config.GlobalImpl"
+"app.interactive" <|-- "config.GlobalImpl"
+"app.loggingConfig" <|-- "config.GlobalImpl"
+"app.loggingConfig" <|-- "config.GlobalOptions"
+"app.InitConfigProvider" <|-- "config.InitImpl"
+"app.DAGConfig" <|-- "config.LintImpl"
+"app.concurrencyConfig" <|-- "config.LintImpl"
+"app.ListConfigProvider" <|-- "config.ListImpl"
+"app.concurrencyConfig" <|-- "config.StatusImpl"
+"app.DAGConfig" <|-- "config.SyncImpl"
+"app.concurrencyConfig" <|-- "config.SyncImpl"
+"app.valuesControlMode" <|-- "config.SyncImpl"
+"app.DAGConfig" <|-- "config.TemplateImpl"
+"app.concurrencyConfig" <|-- "config.TemplateImpl"
+"app.concurrencyConfig" <|-- "config.TestImpl"
+"app.concurrencyConfig" <|-- "config.WriteValuesImpl"
+
+namespace environment {
+    class Environment << (S,Aquamarine) >> {
+        + Name string
+        + KubeContext string
+        + Values <font color=blue>map</font>[string]any
+        + Defaults <font color=blue>map</font>[string]any
+
+        + DeepCopy() Environment
+        + Merge(other *Environment) (*Environment, error)
+        + GetMergedValues() (<font color=blue>map</font>[string]any, error)
+
+    }
+}
+
+
+namespace errors {
+    interface ErrorFormatter  {
+        + Format(s fmt.State, verb rune)
+
+    }
+    interface ExitCoder  {
+        + ExitCode() int
+
+    }
+    class ExitError << (S,Aquamarine) >> {
+        - exitCode int
+        - message any
+
+        + Error() string
+        + ExitCode() int
+
+    }
+}
+"__builtin__.error" *-- "errors.ExitCoder"
+
+"errors.ExitCoder" <|-- "errors.ExitError"
+
+namespace event {
+    class Bus << (S,Aquamarine) >> {
+        + Runner helmexec.Runner
+        + Hooks []Hook
+        + BasePath string
+        + StateFilePath string
+        + Namespace string
+        + Chart string
+        + Env environment.Environment
+        + Fs *filesystem.FileSystem
+        + Logger *zap.SugaredLogger
+
+        + Trigger(evt string, evtErr error, context <font color=blue>map</font>[string]any) (bool, error)
+
+    }
+    class Hook << (S,Aquamarine) >> {
+        + Name string
+        + Events []string
+        + Command string
+        + Kubectl <font color=blue>map</font>[string]string
+        + Args []string
+        + ShowLogs bool
+
+    }
+    class event << (S,Aquamarine) >> {
+        + Name string
+        + Error error
+
+    }
+}
+
+
+namespace exectest {
+    class Affected << (S,Aquamarine) >> {
+        + Upgraded []*Release
+        + Deleted []*Release
+        + Failed []*Release
+
+    }
+    class DiffKey << (S,Aquamarine) >> {
+        + Name string
+        + Chart string
+        + Flags string
+
+    }
+    class Helm << (S,Aquamarine) >> {
+        + Charts []string
+        + Repo []string
+        + Releases []Release
+        + Deleted []Release
+        + Linted []Release
+        + Templated []Release
+        + Lists <font color=blue>map</font>[ListKey]string
+        + Diffs <font color=blue>map</font>[DiffKey]error
+        + Diffed []Release
+        + FailOnUnexpectedDiff bool
+        + FailOnUnexpectedList bool
+        + Version *semver.Version
+        + UpdateDepsCallbacks <font color=blue>map</font>[string]<font color=blue>func</font>(string) error
+        + DiffMutex *sync.Mutex
+        + ChartsMutex *sync.Mutex
+        + ReleasesMutex *sync.Mutex
+        + Helm3 bool
+
+        - sync(m *sync.Mutex, f <font color=blue>func</font>() )
+
+        + UpdateDeps(chart string) error
+        + BuildDeps(name string, chart string, flags ...string) error
+        + SetExtraArgs(args ...string)
+        + SetHelmBinary(bin string)
+        + SetEnableLiveOutput(enableLiveOutput bool)
+        + SetDisableForceUpdate(forceUpdate bool)
+        + SkipSchemaValidation(skipSchemaValidation bool)
+        + AddRepo(name string, repository string, cafile string, certfile string, keyfile string, username string, password string, managed string, passCredentials bool, skipTLSVerify bool) error
+        + UpdateRepo() error
+        + RegistryLogin(name string, username string, password string, caFile string, certFile string, keyFile string, skipTLSVerify bool) error
+        + SyncRelease(context helmexec.HelmContext, name string, chart string, namespace string, flags ...string) error
+        + DiffRelease(context helmexec.HelmContext, name string, chart string, namespace string, suppressDiff bool, flags ...string) error
+        + ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error
+        + DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error
+        + List(context helmexec.HelmContext, filter string, flags ...string) (string, error)
+        + DecryptSecret(context helmexec.HelmContext, name string, flags ...string) (string, error)
+        + TestRelease(context helmexec.HelmContext, name string, flags ...string) error
+        + Fetch(chart string, flags ...string) error
+        + Lint(name string, chart string, flags ...string) error
+        + TemplateRelease(name string, chart string, flags ...string) error
+        + ChartPull(chart string, path string, flags ...string) error
+        + ChartExport(chart string, path string) error
+        + IsHelm3() bool
+        + GetVersion() helmexec.Version
+        + IsVersionAtLeast(versionStr string) bool
+        + ShowChart(chartPath string) (chart.Metadata, error)
+
+    }
+    class ListKey << (S,Aquamarine) >> {
+        + Filter string
+        + Flags string
+
+        + String() string
+
+    }
+    class Release << (S,Aquamarine) >> {
+        + Name string
+        + Flags []string
+
+    }
+}
+
+"helmexec.DependencyUpdater" <|-- "exectest.Helm"
+"helmexec.Interface" <|-- "exectest.Helm"
+"state.RepoUpdater" <|-- "exectest.Helm"
+
+namespace filesystem {
+    class FileSystem << (S,Aquamarine) >> {
+        + ReadFile <font color=blue>func</font>(string) ([]byte, error)
+        + ReadDir <font color=blue>func</font>(string) ([]fs.DirEntry, error)
+        + DeleteFile <font color=blue>func</font>(string) error
+        + FileExists <font color=blue>func</font>(string) (bool, error)
+        + Glob <font color=blue>func</font>(string) ([]string, error)
+        + FileExistsAt <font color=blue>func</font>(string) bool
+        + DirectoryExistsAt <font color=blue>func</font>(string) bool
+        + Dir <font color=blue>func</font>(string) string
+        + Stat <font color=blue>func</font>(string) (os.FileInfo, error)
+        + Getwd <font color=blue>func</font>() (string, error)
+        + Chdir <font color=blue>func</font>(string) error
+        + Abs <font color=blue>func</font>(string) (string, error)
+        + EvalSymlinks <font color=blue>func</font>(string) (string, error)
+
+        - stat(name string) (os.FileInfo, error)
+        - readFile(name string) ([]byte, error)
+        - fileExistsAtDefault(path string) bool
+        - fileExistsDefault(path string) (bool, error)
+        - directoryExistsDefault(path string) bool
+        - resolveSymlinks(path string) (string, error)
+        - absDefault(path string) (string, error)
+
+    }
+    class fileStat << (S,Aquamarine) >> {
+        - name string
+        - size int64
+        - mode fs.FileMode
+        - modTime time.Time
+
+        + Name() string
+        + Size() int64
+        + Mode() fs.FileMode
+        + ModTime() time.Time
+        + IsDir() bool
+        + Sys() any
+
+    }
+}
+
+
+namespace hcllang {
+    class HCLLoader << (S,Aquamarine) >> {
+        - hclFilesPath []string
+        - fs *filesystem.FileSystem
+        - logger *zap.SugaredLogger
+
+        - createDAGGraph(HelmfileHCLValues <font color=blue>map</font>[string]*HelmfileHCLValue, blockType string) (*dag.Topology, error)
+        - decodeGraph(dagTopology *dag.Topology, blocktype string, vars <font color=blue>map</font>[string]*HelmfileHCLValue, additionalLocalContext <font color=blue>map</font>[string]<font color=blue>map</font>[string]cty.Value) (<font color=blue>map</font>[string]cty.Value, error)
+        - readHCLs() (<font color=blue>map</font>[string]*HelmfileHCLValue, <font color=blue>map</font>[string]<font color=blue>map</font>[string]*HelmfileHCLValue, hcl.Diagnostics)
+        - readHCL(hvars <font color=blue>map</font>[string]*HelmfileHCLValue, file string) (<font color=blue>map</font>[string]*HelmfileHCLValue, <font color=blue>map</font>[string]*HelmfileHCLValue, hcl.Diagnostics)
+        - decodeHelmfileHCLValuesBlock(block *hcl.Block) (<font color=blue>map</font>[string]*HelmfileHCLValue, hcl.Diagnostics)
+        - parseSingleAttrRef(traversal hcl.Traversal, blockType string) (string, hcl.Diagnostics)
+        - convertToGo(src <font color=blue>map</font>[string]cty.Value) (<font color=blue>map</font>[string]any, error)
+
+        + AddFile(file string)
+        + AddFiles(files []string)
+        + Length() int
+        + HCLRender() (<font color=blue>map</font>[string]any, error)
+
+    }
+    class HelmfileHCLValue << (S,Aquamarine) >> {
+        + Name string
+        + Expr hcl.Expression
+        + Range hcl.Range
+
+    }
+}
+
+
+namespace helmexec {
+    interface DependencyUpdater  {
+        + UpdateDeps(chart string) error
+        + IsHelm3() bool
+
+    }
+    class ExitError << (S,Aquamarine) >> {
+        + Message string
+        + Code int
+
+        + Error() string
+        + ExitStatus() int
+
+    }
+    class HelmContext << (S,Aquamarine) >> {
+        + HistoryMax int
+        + WorkerIndex int
+        + Writer io.Writer
+
+    }
+    class HelmExecOptions << (S,Aquamarine) >> {
+        + EnableLiveOutput bool
+        + DisableForceUpdate bool
+
+    }
+    interface Interface  {
+        + SetExtraArgs(args ...string)
+        + SetHelmBinary(bin string)
+        + SetEnableLiveOutput(enableLiveOutput bool)
+        + SetDisableForceUpdate(forceUpdate bool)
+        + AddRepo(name string, repository string, cafile string, certfile string, keyfile string, username string, password string, managed string, passCredentials bool, skipTLSVerify bool) error
+        + UpdateRepo() error
+        + RegistryLogin(name string, username string, password string, caFile string, certFile string, keyFile string, skipTLSVerify bool) error
+        + BuildDeps(name string, chart string, flags ...string) error
+        + UpdateDeps(chart string) error
+        + SyncRelease(context HelmContext, name string, chart string, namespace string, flags ...string) error
+        + DiffRelease(context HelmContext, name string, chart string, namespace string, suppressDiff bool, flags ...string) error
+        + TemplateRelease(name string, chart string, flags ...string) error
+        + Fetch(chart string, flags ...string) error
+        + ChartPull(chart string, path string, flags ...string) error
+        + ChartExport(chart string, path string) error
+        + Lint(name string, chart string, flags ...string) error
+        + ReleaseStatus(context HelmContext, name string, flags ...string) error
+        + DeleteRelease(context HelmContext, name string, flags ...string) error
+        + TestRelease(context HelmContext, name string, flags ...string) error
+        + List(context HelmContext, filter string, flags ...string) (string, error)
+        + DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
+        + IsHelm3() bool
+        + GetVersion() Version
+        + IsVersionAtLeast(versionStr string) bool
+        + ShowChart(chart string) (chart.Metadata, error)
+
+    }
+    interface Runner  {
+        + Execute(cmd string, args []string, env <font color=blue>map</font>[string]string, enableLiveOutput bool) ([]byte, error)
+        + ExecuteStdIn(cmd string, args []string, env <font color=blue>map</font>[string]string, stdin io.Reader) ([]byte, error)
+
+    }
+    class ShellRunner << (S,Aquamarine) >> {
+        + Dir string
+        + StripArgsValuesOnExitError bool
+        + Logger *zap.SugaredLogger
+        + Ctx context.Context
+
+        + Execute(cmd string, args []string, env <font color=blue>map</font>[string]string, enableLiveOutput bool) ([]byte, error)
+        + ExecuteStdIn(cmd string, args []string, env <font color=blue>map</font>[string]string, stdin io.Reader) ([]byte, error)
+
+    }
+    class Version << (S,Aquamarine) >> {
+        + Major int
+        + Minor int
+        + Patch int
+
+    }
+    class decryptedSecret << (S,Aquamarine) >> {
+        - mutex sync.RWMutex
+        - bytes []byte
+        - err error
+
+    }
+    class execer << (S,Aquamarine) >> {
+        - helmBinary string
+        - options HelmExecOptions
+        - version *semver.Version
+        - runner Runner
+        - logger *zap.SugaredLogger
+        - kubeconfig string
+        - kubeContext string
+        - extra []string
+        - decryptedSecretMutex sync.Mutex
+        - decryptedSecrets <font color=blue>map</font>[string]*decryptedSecret
+        - writeTempFile <font color=blue>func</font>([]byte) (string, error)
+
+        - exec(args []string, env <font color=blue>map</font>[string]string, overrideEnableLiveOutput *bool) ([]byte, error)
+        - execStdIn(args []string, env <font color=blue>map</font>[string]string, stdin io.Reader) ([]byte, error)
+        - azcli(name string) ([]byte, error)
+        - info(out []byte)
+        - write(w io.Writer, out []byte)
+
+        + SetExtraArgs(args ...string)
+        + SetHelmBinary(bin string)
+        + SetEnableLiveOutput(enableLiveOutput bool)
+        + SetDisableForceUpdate(forceUpdate bool)
+        + AddRepo(name string, repository string, cafile string, certfile string, keyfile string, username string, password string, managed string, passCredentials bool, skipTLSVerify bool) error
+        + UpdateRepo() error
+        + RegistryLogin(repository string, username string, password string, caFile string, certFile string, keyFile string, skipTLSVerify bool) error
+        + BuildDeps(name string, chart string, flags ...string) error
+        + UpdateDeps(chart string) error
+        + SyncRelease(context HelmContext, name string, chart string, namespace string, flags ...string) error
+        + ReleaseStatus(context HelmContext, name string, flags ...string) error
+        + List(context HelmContext, filter string, flags ...string) (string, error)
+        + DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
+        + TemplateRelease(name string, chart string, flags ...string) error
+        + DiffRelease(context HelmContext, name string, chart string, namespace string, suppressDiff bool, flags ...string) error
+        + Lint(name string, chart string, flags ...string) error
+        + Fetch(chart string, flags ...string) error
+        + ChartPull(chart string, path string, flags ...string) error
+        + ChartExport(chart string, path string) error
+        + DeleteRelease(context HelmContext, name string, flags ...string) error
+        + TestRelease(context HelmContext, name string, flags ...string) error
+        + AddPlugin(name string, path string, version string) error
+        + UpdatePlugin(name string) error
+        + IsHelm3() bool
+        + GetVersion() Version
+        + IsVersionAtLeast(versionStr string) bool
+        + ShowChart(chartPath string) (chart.Metadata, error)
+
+    }
+    class logWriter << (S,Aquamarine) >> {
+        - log *zap.SugaredLogger
+        - prefix string
+
+        + Write(p []byte) (int, error)
+
+    }
+    class logWriterGenerator << (S,Aquamarine) >> {
+        - log *zap.SugaredLogger
+
+        + Writer(prefix string) *logWriter
+
+    }
+}
+
+"helmexec.Runner" <|-- "helmexec.ShellRunner"
+"helmexec.DependencyUpdater" <|-- "helmexec.execer"
+"helmexec.Interface" <|-- "helmexec.execer"
+"state.RepoUpdater" <|-- "helmexec.execer"
+
+namespace main {
+    class main.diffSource << (T, #FF7700) >>  {
+    }
+    class main.resource << (T, #FF7700) >>  {
+    }
+    class meta << (S,Aquamarine) >> {
+        - apiVersion string
+        - kind string
+        - name string
+        - namespace string
+
+    }
+    class pair << (S,Aquamarine) >> {
+        - meta meta
+        - left resource
+        - right resource
+
+        - add(node resource, source diffSource) error
+
+    }
+    class pairs << (S,Aquamarine) >> {
+        - list []*pair
+
+        - isSameResource(meta1 meta, meta2 meta) bool
+        - add(node resource, source diffSource) error
+
+    }
+    class resource << (S,Aquamarine) >> {
+        - getMeta() meta
+        - getID() string
+
+    }
+}
+
+
+namespace maputil {
+    interface arg  {
+        - getMap( <font color=blue>map</font>[string]any) <font color=blue>map</font>[string]any
+        - set( <font color=blue>map</font>[string]any,  any)
+
+    }
+    class indexedKeyArg << (S,Aquamarine) >> {
+        - key string
+        - index int
+
+        - getArray(m <font color=blue>map</font>[string]any) []any
+        - getMap(m <font color=blue>map</font>[string]any) <font color=blue>map</font>[string]any
+        - set(m <font color=blue>map</font>[string]any, value any)
+
+    }
+    class keyArg << (S,Aquamarine) >> {
+        - key string
+
+        - getMap(m <font color=blue>map</font>[string]any) <font color=blue>map</font>[string]any
+        - set(m <font color=blue>map</font>[string]any, value any)
+
+    }
+}
+
+"maputil.arg" <|-- "maputil.indexedKeyArg"
+"maputil.arg" <|-- "maputil.keyArg"
+
+namespace policy {
+    class policy.checkerFunc << (T, #FF7700) >>  {
+    }
+}
+
+
+namespace remote {
+    interface Getter  {
+        + Get(wd string, src string, dst string) error
+
+    }
+    class GoGetter << (S,Aquamarine) >> {
+        + Logger *zap.SugaredLogger
+
+        + Get(wd string, src string, dst string) error
+
+    }
+    class HttpGetter << (S,Aquamarine) >> {
+        + Logger *zap.SugaredLogger
+
+        + Get(wd string, src string, dst string) error
+
+    }
+    class InvalidURLError << (S,Aquamarine) >> {
+        - err string
+
+        + Error() string
+
+    }
+    class Remote << (S,Aquamarine) >> {
+        - fs *filesystem.FileSystem
+
+        + Logger *zap.SugaredLogger
+        + Home string
+        + Getter Getter
+        + S3Getter Getter
+        + HttpGetter Getter
+
+        + Locate(urlOrPath string, cacheDirOpt ...string) (string, error)
+        + Fetch(path string, cacheDirOpt ...string) (string, error)
+
+    }
+    class S3Getter << (S,Aquamarine) >> {
+        + Logger *zap.SugaredLogger
+
+        + Get(wd string, src string, dst string) error
+        + S3FileExists(path string) (string, error)
+
+    }
+    class Source << (S,Aquamarine) >> {
+        + Getter string
+
+    }
+}
+
+"remote.Getter" <|-- "remote.GoGetter"
+"remote.Getter" <|-- "remote.HttpGetter"
+"remote.Getter" <|-- "remote.S3Getter"
+
+namespace state {
+    class AffectedReleases << (S,Aquamarine) >> {
+        + Upgraded []*ReleaseSpec
+        + Deleted []*ReleaseSpec
+        + Failed []*ReleaseSpec
+        + DeleteFailed []*ReleaseSpec
+
+        + DisplayAffectedReleases(logger *zap.SugaredLogger)
+
+    }
+    class ChartLockedRequirements << (S,Aquamarine) >> {
+        + Version string
+        + ResolvedDependencies []ResolvedChartDependency
+        + Digest string
+        + Generated string
+
+    }
+    class ChartMeta << (S,Aquamarine) >> {
+        + Name string
+
+    }
+    class ChartPrepareOptions << (S,Aquamarine) >> {
+        + ForceDownload bool
+        + SkipRepos bool
+        + SkipDeps bool
+        + SkipRefresh bool
+        + SkipResolve bool
+        + SkipCleanup bool
+        + Validate bool
+        + IncludeCRDs *bool
+        + Wait bool
+        + WaitRetries int
+        + WaitForJobs bool
+        + OutputDir string
+        + OutputDirTemplate string
+        + IncludeTransitiveNeeds bool
+        + Concurrency int
+        + KubeVersion string
+        + Set []string
+        + Values []string
+        + DeleteWait bool
+        + DeleteTimeout int
+
+    }
+    class ChartRequirements << (S,Aquamarine) >> {
+        + UnresolvedDependencies []unresolvedChartDependency
+
+    }
+    class Chartify << (S,Aquamarine) >> {
+        + Opts *chartify.ChartifyOpts
+        + Clean <font color=blue>func</font>()
+
+    }
+    class CyclicReleaseTemplateInheritanceError << (S,Aquamarine) >> {
+        + Message string
+
+        + Error() string
+
+    }
+    class Dependency << (S,Aquamarine) >> {
+        + Chart string
+        + Version string
+        + Alias string
+
+    }
+    interface DiffOpt  {
+        + Apply( *DiffOpts)
+
+    }
+    class DiffOpts << (S,Aquamarine) >> {
+        + Context int
+        + Output string
+        + Color bool
+        + NoColor bool
+        + Set []string
+        + SkipCleanup bool
+        + SkipDiffOnInstall bool
+        + DiffArgs string
+        + ReuseValues bool
+        + ResetValues bool
+        + PostRenderer string
+        + PostRendererArgs []string
+        + SuppressOutputLineRegex []string
+        + SkipSchemaValidation bool
+
+        + Apply(opts *DiffOpts)
+
+    }
+    class EnvironmentSpec << (S,Aquamarine) >> {
+        + Values []any
+        + Secrets []string
+        + KubeContext string
+        + MissingFileHandler *string
+        + MissingFileHandlerConfig MissingFileHandlerConfig
+
+    }
+    class EnvironmentTemplateData << (S,Aquamarine) >> {
+        + Environment environment.Environment
+        + Namespace string
+        + Values <font color=blue>map</font>[string]any
+        + StateValues *<font color=blue>map</font>[string]any
+
+    }
+    class EnvironmentValuesLoader << (S,Aquamarine) >> {
+        - storage *Storage
+        - fs *filesystem.FileSystem
+        - logger *zap.SugaredLogger
+        - remote *remote.Remote
+
+        + LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string) (<font color=blue>map</font>[string]any, error)
+
+    }
+    class HelmSpec << (S,Aquamarine) >> {
+        + KubeContext string
+        + Args []string
+        + DiffArgs []string
+        + SyncArgs []string
+        + Verify bool
+        + Keyring string
+        + EnableDNS bool
+        + SkipSchemaValidation *bool
+        + Devel bool
+        + Wait bool
+        + WaitRetries int
+        + WaitForJobs bool
+        + Timeout int
+        + RecreatePods bool
+        + Force bool
+        + Atomic bool
+        + CleanupOnFail bool
+        + HistoryMax *int
+        + CreateNamespace *bool
+        + SkipDeps bool
+        + SkipRefresh bool
+        + ReuseValues bool
+        + PostRenderer *string
+        + PostRendererArgs []string
+        + Cascade *string
+        + SuppressOutputLineRegex []string
+        + DisableValidation *bool
+        + DisableOpenAPIValidation *bool
+        + InsecureSkipTLSVerify bool
+        + PlainHttp bool
+        + DeleteWait bool
+        + DeleteTimeout int
+        + SyncReleaseLabels bool
+
+    }
+    class HelmState << (S,Aquamarine) >> {
+        - basePath string
+        - logger *zap.SugaredLogger
+        - fs *filesystem.FileSystem
+        - tempDir <font color=blue>func</font>(string, string) (string, error)
+        - valsRuntime vals.Evaluator
+
+        + FilePath string
+        + RenderedValues <font color=blue>map</font>[string]any
+
+        - mergeLockedDependencies() (*HelmState, error)
+        - updateDependenciesInTempDir(shell helmexec.DependencyUpdater, tempDir <font color=blue>func</font>(string, string) (string, error)) (*HelmState, error)
+        - loadValuesEntries(missingFileHandler *string, entries []any, remote *remote.Remote, ctxEnv *environment.Environment, envName string) (<font color=blue>map</font>[string]any, error)
+        - appendHelmXFlags(flags []string, release *ReleaseSpec) []string
+        - appendLabelsFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, syncReleaseLabels bool) []string
+        - appendPostRenderFlags(flags []string, release *ReleaseSpec, postRenderer string) []string
+        - appendPostRenderArgsFlags(flags []string, release *ReleaseSpec, postRendererArgs []string) []string
+        - appendSkipSchemaValidationFlags(flags []string, release *ReleaseSpec, skipSchemaValidation bool) []string
+        - appendSuppressOutputLineRegexFlags(flags []string, release *ReleaseSpec, suppressOutputLineRegex []string) []string
+        - appendWaitForJobsFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string
+        - appendWaitFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, ops *SyncOpts) []string
+        - appendCascadeFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, cascade string) []string
+        - appendHideNotesFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string
+        - appendTakeOwnershipFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string
+        - appendShowOnlyFlags(flags []string, showOnly []string) []string
+        - downloadChartWithGoGetter(r *ReleaseSpec) (string, error)
+        - goGetterChart(chart string, dir string, cacheDir string, force bool) (string, error)
+        - reformat(spec *ReleaseSpec) []string
+        - prepareSyncReleases(helm helmexec.Interface, additionalValues []string, concurrency int, opt ...SyncOpt) ([]syncPrepareResult, []error)
+        - isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error)
+        - appendDeleteWaitFlags(args []string, release *ReleaseSpec) []string
+        - listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error)
+        - getDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error)
+        - runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult) error
+        - commonDiffFlags(detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string
+        - prepareDiffReleases(helm helmexec.Interface, additionalValues []string, concurrency int, detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opts ...DiffOpt) ([]diffPrepareResult, []error)
+        - createHelmContext(spec *ReleaseSpec, workerIndex int) helmexec.HelmContext
+        - createHelmContextWithWriter(spec *ReleaseSpec, w io.Writer) helmexec.HelmContext
+        - triggerGlobalReleaseEvent(evt string, evtErr error, helmfileCmd string) (bool, error)
+        - triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string) (bool, error)
+        - triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error)
+        - triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfileCommand string) (bool, error)
+        - triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string) (bool, error)
+        - appendConnectionFlags(flags []string, release *ReleaseSpec) []string
+        - appendExtraDiffFlags(flags []string, opt *DiffOpts) []string
+        - appendExtraSyncFlags(flags []string, opt *SyncOpts) []string
+        - appendVerifyFlags(flags []string, release *ReleaseSpec) []string
+        - appendKeyringFlags(flags []string, release *ReleaseSpec) []string
+        - kubeConnectionFlags(release *ReleaseSpec) []string
+        - appendChartDownloadFlags(flags []string, release *ReleaseSpec) []string
+        - needsPlainHttp(release *ReleaseSpec, repo *RepositorySpec) bool
+        - needsInsecureSkipTLSVerify(release *ReleaseSpec, repo *RepositorySpec) bool
+        - timeoutFlags(release *ReleaseSpec) []string
+        - flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error)
+        - flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error)
+        - flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error)
+        - appendChartVersionFlags(flags []string, release *ReleaseSpec) []string
+        - chartOCIFlags(r *ReleaseSpec) []string
+        - appendValuesControlModeFlag(flags []string, reuseValues bool, resetValues bool) []string
+        - getApiVersions(r *ReleaseSpec) []string
+        - getKubeVersion(r *ReleaseSpec, kubeVersion string) string
+        - appendApiVersionsFlags(flags []string, r *ReleaseSpec, kubeVersion string) []string
+        - isDevelopment(release *ReleaseSpec) bool
+        - flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error)
+        - newReleaseTemplateData(release *ReleaseSpec) releaseTemplateData
+        - newReleaseTemplateFuncMap(dir string) template.FuncMap
+        - storage() *Storage
+        - removeFiles(files []string)
+        - generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []any, missingFileHandler *string) ([]string, error)
+        - generateVanillaValuesFiles(release *ReleaseSpec) ([]string, error)
+        - generateSecretValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error)
+        - generateValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error)
+        - namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error)
+        - setFlags(setValues []SetValue) ([]string, error)
+        - setStringFlags(setValues []SetValue) ([]string, error)
+        - getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, outputDirTemplate string) (*string, error)
+        - getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (string, string, string, error)
+        - getOCIChartPath(tempDir string, release *ReleaseSpec, chartName string, chartVersion string, outputDirTemplate string) (string, error)
+        - createReleaseTemplateData(release *ReleaseSpec, vals <font color=blue>map</font>[string]any) releaseTemplateData
+        - releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePath []string) (*ReleaseSpec, error)
+        - scatterGather(concurrency int, items int, produceInputs <font color=blue>func</font>() , receiveInputsAndProduceIntermediates <font color=blue>func</font>(int) , aggregateIntermediates <font color=blue>func</font>() )
+        - scatterGatherReleases(helm helmexec.Interface, concurrency int, do <font color=blue>func</font>(ReleaseSpec, int) error) []error
+        - iterateOnReleases(helm helmexec.Interface, concurrency int, inputs []ReleaseSpec, do <font color=blue>func</font>(ReleaseSpec, int) error) []error
+
+        + PrepareChartify(helm helmexec.Interface, release *ReleaseSpec, chart string, workerIndex int) (*Chartify, <font color=blue>func</font>() , error)
+        + UnmarshalYAML(unmarshal <font color=blue>func</font>(any) error) error
+        + ApplyOverrides(spec *ReleaseSpec)
+        + SyncRepos(helm RepoUpdater, shouldSkip <font color=blue>map</font>[string]bool) ([]string, error)
+        + DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error)
+        + DetectReleasesToBeDeleted(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error)
+        + DeleteReleasesForSync(affectedReleases *AffectedReleases, helm helmexec.Interface, workerLimit int, cascade string) []error
+        + SyncReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, additionalValues []string, workerLimit int, opt ...SyncOpt) []error
+        + GetRepositoryAndNameFromChartName(chartName string) (*RepositorySpec, string)
+        + PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (<font color=blue>map</font>[PrepareChartKey]string, []error)
+        + TemplateReleases(helm helmexec.Interface, outputDir string, additionalValues []string, args []string, workerLimit int, validate bool, opt ...TemplateOpt) []error
+        + WriteReleasesValues(helm helmexec.Interface, additionalValues []string, opt ...WriteValuesOpt) []error
+        + LintReleases(helm helmexec.Interface, additionalValues []string, args []string, workerLimit int, opt ...LintOpt) []error
+        + DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, suppressDiff bool, triggerCleanupEvents bool, opt ...DiffOpt) ([]ReleaseSpec, []error)
+        + ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error
+        + DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error
+        + TestReleases(helm helmexec.Interface, cleanup bool, timeout int, concurrency int, options ...TestOption) []error
+        + Clean() []error
+        + GetReleasesWithOverrides() ([]ReleaseSpec, error)
+        + GetReleasesWithLabels() []ReleaseSpec
+        + SelectReleases(includeTransitiveNeeds bool) ([]Release, error)
+        + GetSelectedReleases(includeTransitiveNeeds bool) ([]ReleaseSpec, error)
+        + FilterReleases(includeTransitiveNeeds bool) error
+        + TriggerGlobalPrepareEvent(helmfileCommand string) (bool, error)
+        + TriggerGlobalCleanupEvent(helmfileCommand string) (bool, error)
+        + TriggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error)
+        + TriggerPreapplyEvent(r *ReleaseSpec, helmfileCommand string) (bool, error)
+        + ResolveDeps() (*HelmState, error)
+        + UpdateDeps(helm helmexec.Interface, includeTransitiveNeeds bool) []error
+        + RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error)
+        + ExpandedHelmfiles() ([]SubHelmfileSpec, error)
+        + GenerateOutputDir(outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error)
+        + GenerateOutputFilePath(release *ReleaseSpec, outputFileTemplate string) (string, error)
+        + ToYaml() (string, error)
+        + LoadYAMLForEmbedding(release *ReleaseSpec, entries []any, missingFileHandler *string, pathPrefix string) ([]any, error)
+        + Reverse()
+        + IsOCIChart(chart string) bool
+        + FullFilePath() (string, error)
+        + Values() <font color=blue>map</font>[string]any
+        + ExecuteTemplates() (*HelmState, error)
+        + PlanReleases(opts PlanOptions) ([][]Release, error)
+
+    }
+    class Inherit << (S,Aquamarine) >> {
+        + Template string
+        + Except []string
+
+    }
+    class Inherits << (S,Aquamarine) >> {
+        + UnmarshalYAML(unmarshal <font color=blue>func</font>(any) error) error
+
+    }
+    class LabelFilter << (S,Aquamarine) >> {
+        - positiveLabels [][]string
+        - negativeLabels [][]string
+
+        + Match(r ReleaseSpec) bool
+
+    }
+    interface LintOpt  {
+        + Apply( *LintOpts)
+
+    }
+    class LintOpts << (S,Aquamarine) >> {
+        + Set []string
+        + SkipCleanup bool
+
+        + Apply(opts *LintOpts)
+
+    }
+    class MissingFileHandlerConfig << (S,Aquamarine) >> {
+        + IgnoreMissingGitBranch bool
+
+        - resolveFileOptions() []resolveFileOption
+
+    }
+    class PlanOptions << (S,Aquamarine) >> {
+        + Purpose string
+        + Reverse bool
+        + IncludeNeeds bool
+        + IncludeTransitiveNeeds bool
+        + SkipNeeds bool
+        + SelectedReleases []ReleaseSpec
+
+    }
+    class PrepareChartKey << (S,Aquamarine) >> {
+        + Namespace string
+
+    }
+    class Release << (S,Aquamarine) >> {
+        + Filtered bool
+
+    }
+    class ReleaseError << (S,Aquamarine) >> {
+        - err error
+
+        + Code int
+
+        + Error() string
+
+    }
+    interface ReleaseFilter  {
+        + Match(r ReleaseSpec) bool
+
+    }
+    class ReleaseSetSpec << (S,Aquamarine) >> {
+        + DefaultHelmBinary string
+        + DefaultKustomizeBinary string
+        + DefaultValues []any
+        + Environments <font color=blue>map</font>[string]EnvironmentSpec
+        + Bases []string
+        + HelmDefaults HelmSpec
+        + Helmfiles []SubHelmfileSpec
+        + OverrideKubeContext string
+        + OverrideNamespace string
+        + OverrideChart string
+        + Repositories []RepositorySpec
+        + CommonLabels <font color=blue>map</font>[string]string
+        + Releases []ReleaseSpec
+        + OrginReleases []ReleaseSpec
+        + Selectors []string
+        + ApiVersions []string
+        + KubeVersion string
+        + Hooks []event.Hook
+        + Templates <font color=blue>map</font>[string]TemplateSpec
+        + Env environment.Environment
+        + MissingFileHandler string
+        + MissingFileHandlerConfig MissingFileHandlerConfig
+        + LockFile string
+
+    }
+    class ReleaseSpec << (S,Aquamarine) >> {
+        - duration time.Duration
+        - installedVersion string
+
+        + Chart string
+        + ChartPath string
+        + Directory string
+        + Version string
+        + Verify *bool
+        + Keyring string
+        + EnableDNS *bool
+        + Devel *bool
+        + Wait *bool
+        + WaitRetries *int
+        + WaitForJobs *bool
+        + Timeout *int
+        + RecreatePods *bool
+        + Force *bool
+        + Installed *bool
+        + Atomic *bool
+        + CleanupOnFail *bool
+        + HistoryMax *int
+        + Condition string
+        + CreateNamespace *bool
+        + DisableOpenAPIValidation *bool
+        + DisableValidation *bool
+        + DisableValidationOnInstall *bool
+        + MissingFileHandler *string
+        + Needs []string
+        + Hooks []event.Hook
+        + Name string
+        + Namespace string
+        + Labels <font color=blue>map</font>[string]string
+        + Values []any
+        + Secrets []any
+        + SetValues []SetValue
+        + SetStringValues []SetValue
+        + ValuesTemplate []any
+        + SetValuesTemplate []SetValue
+        + ApiVersions []string
+        + KubeVersion string
+        + EnvValues []SetValue
+        + ValuesPathPrefix string
+        + KubeContext string
+        + InsecureSkipTLSVerify bool
+        + PlainHttp bool
+        + VerifyTemplate *string
+        + WaitTemplate *string
+        + InstalledTemplate *string
+        + Dependencies []Dependency
+        + JSONPatches []any
+        + StrategicMergePatches []any
+        + Transformers []any
+        + Adopt []string
+        + ForceGoGetter bool
+        + ForceNamespace string
+        + SkipDeps *bool
+        + SkipRefresh *bool
+        + PostRenderer *string
+        + SkipSchemaValidation *bool
+        + PostRendererArgs []string
+        + Cascade *string
+        + SuppressOutputLineRegex []string
+        + Inherit Inherits
+        + SuppressDiff *bool
+        + DeleteWait *bool
+        + DeleteTimeout *int
+        + SyncReleaseLabels bool
+
+        + ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*ReleaseSpec, error)
+        + Clone() (*ReleaseSpec, error)
+        + Desired() bool
+        + ChartPathOrName() string
+
+    }
+    interface RepoUpdater  {
+        + IsHelm3() bool
+        + AddRepo(name string, repository string, cafile string, certfile string, keyfile string, username string, password string, managed string, passCredentials bool, skipTLSVerify bool) error
+        + UpdateRepo() error
+        + RegistryLogin(name string, username string, password string, caFile string, certFile string, keyFile string, skipTLSVerify bool) error
+
+    }
+    class RepositorySpec << (S,Aquamarine) >> {
+        + Name string
+        + URL string
+        + CaFile string
+        + CertFile string
+        + KeyFile string
+        + Username string
+        + Password string
+        + RegistryConfig string
+        + Managed string
+        + OCI bool
+        + Verify bool
+        + Keyring string
+        + PassCredentials bool
+        + SkipTLSVerify bool
+        + PlainHttp bool
+
+    }
+    class ResolvedChartDependency << (S,Aquamarine) >> {
+        + ChartName string
+        + Repository string
+        + Version string
+
+    }
+    class ResolvedDependencies << (S,Aquamarine) >> {
+        - deps <font color=blue>map</font>[string][]ResolvedChartDependency
+
+        - add(dep ResolvedChartDependency) error
+
+        + Get(chart string, versionConstraint string) (string, error)
+
+    }
+    class SetValue << (S,Aquamarine) >> {
+        + Name string
+        + Value string
+        + File string
+        + Values []string
+
+    }
+    class StateCreator << (S,Aquamarine) >> {
+        - logger *zap.SugaredLogger
+        - fs *filesystem.FileSystem
+        - valsRuntime vals.Evaluator
+        - getHelm <font color=blue>func</font>(*HelmState) helmexec.Interface
+        - overrideHelmBinary string
+        - overrideKustomizeBinary string
+        - enableLiveOutput bool
+        - remote *remote.Remote
+        - lockFile string
+
+        + Strict bool
+        + LoadFile <font color=blue>func</font>(*environment.Environment, *environment.Environment, string, string, bool) (*HelmState, error)
+
+        - loadBases(envValues *environment.Environment, overrodeEnv *environment.Environment, st *HelmState, baseDir string) (*HelmState, error)
+        - loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv *environment.Environment, overrode *environment.Environment) (*environment.Environment, error)
+        - scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals <font color=blue>map</font>[string]any, keepFileExtensions []string) ([]string, error)
+
+        + Parse(content []byte, baseDir string, file string) (*HelmState, error)
+        + LoadEnvValues(target *HelmState, env string, failOnMissingEnv bool, ctxEnv *environment.Environment, overrode *environment.Environment) (*HelmState, error)
+        + ParseAndLoad(content []byte, baseDir string, file string, envName string, failOnMissingEnv bool, evaluateBases bool, envValues *environment.Environment, overrode *environment.Environment) (*HelmState, error)
+
+    }
+    class StateLoadError << (S,Aquamarine) >> {
+        + Msg string
+        + Cause error
+
+        + Error() string
+
+    }
+    class Storage << (S,Aquamarine) >> {
+        - logger *zap.SugaredLogger
+        - basePath string
+        - fs *filesystem.FileSystem
+
+        + FilePath string
+
+        - resolveFile(missingFileHandler *string, tpe string, path string, opts ...resolveFileOption) ([]string, bool, error)
+        - normalizePath(path string) string
+        - normalizeSetFilePath(path string, goos string) string
+
+        + ExpandPaths(globPattern string) ([]string, error)
+        + JoinBase(relPath string) string
+
+    }
+    class SubHelmfileSpec << (S,Aquamarine) >> {
+        + Path string
+        + Selectors []string
+        + SelectorsInherited bool
+        + Environment SubhelmfileEnvironmentSpec
+
+        + MarshalYAML() (any, error)
+        + UnmarshalYAML(unmarshal <font color=blue>func</font>(any) error) error
+
+    }
+    class SubhelmfileEnvironmentSpec << (S,Aquamarine) >> {
+        + OverrideValues []any
+
+    }
+    interface SyncOpt  {
+        + Apply( *SyncOpts)
+
+    }
+    class SyncOpts << (S,Aquamarine) >> {
+        + Set []string
+        + SkipCleanup bool
+        + SkipCRDs bool
+        + Wait bool
+        + WaitRetries int
+        + WaitForJobs bool
+        + SyncReleaseLabels bool
+        + ReuseValues bool
+        + ResetValues bool
+        + PostRenderer string
+        + SkipSchemaValidation bool
+        + PostRendererArgs []string
+        + SyncArgs string
+        + HideNotes bool
+        + TakeOwnership bool
+
+        + Apply(opts *SyncOpts)
+
+    }
+    interface TemplateOpt  {
+        + Apply( *TemplateOpts)
+
+    }
+    class TemplateOpts << (S,Aquamarine) >> {
+        + Set []string
+        + SkipCleanup bool
+        + OutputDirTemplate string
+        + IncludeCRDs bool
+        + NoHooks bool
+        + SkipTests bool
+        + PostRenderer string
+        + PostRendererArgs []string
+        + KubeVersion string
+        + ShowOnly []string
+        + SkipSchemaValidation bool
+
+        + Apply(opts *TemplateOpts)
+
+    }
+    class TemplateSpec << (S,Aquamarine) >> {
+    }
+    class TestOpts << (S,Aquamarine) >> {
+        + Logs bool
+
+    }
+    class UndefinedEnvError << (S,Aquamarine) >> {
+        + Env string
+
+        + Error() string
+
+    }
+    class UnresolvedDependencies << (S,Aquamarine) >> {
+        - deps <font color=blue>map</font>[string][]unresolvedChartDependency
+
+        + Add(chart string, url string, versionConstraint string, alias string)
+        + ToChartRequirements() *ChartRequirements
+
+    }
+    interface WriteValuesOpt  {
+        + Apply( *WriteValuesOpts)
+
+    }
+    class WriteValuesOpts << (S,Aquamarine) >> {
+        + Set []string
+        + OutputFileTemplate string
+        + SkipCleanup bool
+
+        + Apply(opts *WriteValuesOpts)
+
+    }
+    class chartDependencyManager << (S,Aquamarine) >> {
+        - lockFilePath string
+        - logger *zap.SugaredLogger
+        - readFile <font color=blue>func</font>(string) ([]byte, error)
+        - writeFile <font color=blue>func</font>(string, []byte, os.FileMode) error
+
+        + Name string
+
+        - lockFileName() string
+        - updateHelm3(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error)
+        - doUpdate(chartLockFile string, unresolved *UnresolvedDependencies, shell helmexec.DependencyUpdater, wd string) (*ResolvedDependencies, error)
+        - readBytes(filename string) ([]byte, error)
+        - writeBytes(filename string, data []byte) error
+
+        + Update(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error)
+        + Resolve(unresolved *UnresolvedDependencies) (*ResolvedDependencies, bool, error)
+
+    }
+    class chartPrepareResult << (S,Aquamarine) >> {
+        - releaseName string
+        - releaseNamespace string
+        - releaseContext string
+        - chartName string
+        - chartPath string
+        - err error
+        - buildDeps bool
+        - skipRefresh bool
+        - chartFetchedByGoGetter bool
+
+    }
+    class diffPrepareResult << (S,Aquamarine) >> {
+        - release *ReleaseSpec
+        - flags []string
+        - errors []*ReleaseError
+        - files []string
+        - upgradeDueToSkippedDiff bool
+        - suppressDiff bool
+
+    }
+    class diffResult << (S,Aquamarine) >> {
+        - release *ReleaseSpec
+        - err *ReleaseError
+        - buf *bytes.Buffer
+
+    }
+    class releaseTemplateData << (S,Aquamarine) >> {
+        + Environment environment.Environment
+        + Release releaseTemplateDataRelease
+        + Values <font color=blue>map</font>[string]any
+        + StateValues *<font color=blue>map</font>[string]any
+        + KubeContext string
+        + Namespace string
+        + Chart string
+
+    }
+    class releaseTemplateDataRelease << (S,Aquamarine) >> {
+        + Name string
+        + Namespace string
+        + Labels <font color=blue>map</font>[string]string
+        + Chart string
+        + KubeContext string
+
+    }
+    class resolveFileConfig << (S,Aquamarine) >> {
+        + IgnoreMissingGitBranch bool
+
+    }
+    class result << (S,Aquamarine) >> {
+        - release ReleaseSpec
+        - err error
+
+    }
+    class state.Inherits << (T, #FF7700) >>  {
+    }
+    class state.TestOption << (T, #FF7700) >>  {
+    }
+    class state.helmStateAlias << (T, #FF7700) >>  {
+    }
+    class state.resolveFileOption << (T, #FF7700) >>  {
+    }
+    class syncPrepareResult << (S,Aquamarine) >> {
+        - release *ReleaseSpec
+        - flags []string
+        - errors []*ReleaseError
+        - files []string
+
+    }
+    class syncResult << (S,Aquamarine) >> {
+        - errors []*ReleaseError
+
+    }
+    class unresolvedChartDependency << (S,Aquamarine) >> {
+        + ChartName string
+        + Repository string
+        + VersionConstraint string
+        + Alias string
+
+    }
+}
+"state.ReleaseSetSpec" *-- "state.HelmState"
+"state.ReleaseSpec" *-- "state.Release"
+"state.ReleaseSpec" *-- "state.ReleaseError"
+"state.ReleaseSpec" *-- "state.TemplateSpec"
+
+"state.DiffOpt" <|-- "state.DiffOpts"
+"state.ReleaseFilter" <|-- "state.LabelFilter"
+"state.LintOpt" <|-- "state.LintOpts"
+"state.SyncOpt" <|-- "state.SyncOpts"
+"state.TemplateOpt" <|-- "state.TemplateOpts"
+"state.WriteValuesOpt" <|-- "state.WriteValuesOpts"
+
+namespace testhelper {
+    class TestFs << (S,Aquamarine) >> {
+        - dirs <font color=blue>map</font>[string]bool
+        - files <font color=blue>map</font>[string]string
+        - fileReaderCalls int
+        - successfulReads []string
+
+        + Cwd string
+        + GlobFixtures <font color=blue>map</font>[string][]string
+        + DeleteFile <font color=blue>func</font>(string) error
+
+        + ToFileSystem() *filesystem.FileSystem
+        + FileExistsAt(path string) bool
+        + FileExists(path string) (bool, error)
+        + DirectoryExistsAt(path string) bool
+        + ReadFile(filename string) ([]byte, error)
+        + SuccessfulReads() []string
+        + FileReaderCalls() int
+        + Glob(relPattern string) ([]string, error)
+        + Abs(path string) (string, error)
+        + Getwd() (string, error)
+        + Chdir(dir string) error
+
+    }
+}
+
+
+namespace testutil {
+    class V3HelmExec << (S,Aquamarine) >> {
+        - isHelm3 bool
+
+        + IsHelm3() bool
+
+    }
+    class VersionHelmExec << (S,Aquamarine) >> {
+        - version string
+
+        + IsVersionAtLeast(ver string) bool
+
+    }
+    class noCallHelmExec << (S,Aquamarine) >> {
+        - doPanic()
+
+        + TemplateRelease(name string, chart string, flags ...string) error
+        + ChartPull(chart string, path string, flags ...string) error
+        + ChartExport(chart string, path string) error
+        + UpdateDeps(chart string) error
+        + BuildDeps(name string, chart string, flags ...string) error
+        + SetExtraArgs(args ...string)
+        + SetHelmBinary(bin string)
+        + SetEnableLiveOutput(enableLiveOutput bool)
+        + SetDisableForceUpdate(forceUpdate bool)
+        + AddRepo(name string, repository string, cafile string, certfile string, keyfile string, username string, password string, managed string, passCredentials bool, skipTLSVerify bool) error
+        + UpdateRepo() error
+        + RegistryLogin(name string, username string, password string, caFile string, certFile string, keyFile string, skipTLSVerify bool) error
+        + SyncRelease(context helmexec.HelmContext, name string, chart string, namespace string, flags ...string) error
+        + DiffRelease(context helmexec.HelmContext, name string, chart string, namespace string, suppressDiff bool, flags ...string) error
+        + ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error
+        + DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error
+        + List(context helmexec.HelmContext, filter string, flags ...string) (string, error)
+        + DecryptSecret(context helmexec.HelmContext, name string, flags ...string) (string, error)
+        + TestRelease(context helmexec.HelmContext, name string, flags ...string) error
+        + Fetch(chart string, flags ...string) error
+        + Lint(name string, chart string, flags ...string) error
+        + IsHelm3() bool
+        + GetVersion() helmexec.Version
+        + IsVersionAtLeast(versionStr string) bool
+        + ShowChart(chartPath string) (chart.Metadata, error)
+
+    }
+}
+"testutil.noCallHelmExec" *-- "testutil.V3HelmExec"
+"testutil.noCallHelmExec" *-- "testutil.VersionHelmExec"
+
+"helmexec.DependencyUpdater" <|-- "testutil.noCallHelmExec"
+"helmexec.Interface" <|-- "testutil.noCallHelmExec"
+"state.RepoUpdater" <|-- "testutil.noCallHelmExec"
+
+namespace tmpl {
+    class Context << (S,Aquamarine) >> {
+        - preRender bool
+        - basePath string
+        - fs *filesystem.FileSystem
+
+        - createFuncMap() template.FuncMap
+        - helperTPLs() ([]tplInfo, error)
+        - newTemplate() (*template.Template, error)
+
+        + SetBasePath(path string)
+        + SetFileSystem(fs *filesystem.FileSystem)
+        + EnvExec(envs <font color=blue>map</font>[string]any, command string, args []any, inputs ...string) (string, error)
+        + Exec(command string, args []any, inputs ...string) (string, error)
+        + IsFile(filename string) (bool, error)
+        + IsDir(filename string) (bool, error)
+        + ReadFile(filename string) (string, error)
+        + ReadDir(path string) ([]string, error)
+        + ReadDirEntries(path string) ([]fs.DirEntry, error)
+        + Tpl(text string, data any) (string, error)
+        + CreateFuncMap() template.FuncMap
+        + RenderTemplateToBuffer(s string, data ...any) (*bytes.Buffer, error)
+
+    }
+    class DisableInsecureFeaturesError << (S,Aquamarine) >> {
+        - err string
+
+        + Error() string
+
+    }
+    class FileRenderer << (S,Aquamarine) >> {
+        - fs *filesystem.FileSystem
+
+        + Context *Context
+        + Data any
+
+        + RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error)
+        + RenderToBytes(path string) ([]byte, error)
+        + RenderTemplateContentToBuffer(content []byte) (*bytes.Buffer, error)
+        + RenderTemplateContentToString(content []byte) (string, error)
+
+    }
+    class MockvalClient << (S,Aquamarine) >> {
+        - ctrl *gomock.Controller
+        - recorder *MockvalClientMockRecorder
+
+        + EXPECT() *MockvalClientMockRecorder
+        + Eval(template <font color=blue>map</font>[string]any) (<font color=blue>map</font>[string]any, error)
+
+    }
+    class MockvalClientMockRecorder << (S,Aquamarine) >> {
+        - mock *MockvalClient
+
+        + Eval(arg0 any) *gomock.Call
+
+    }
+    interface TextRenderer  {
+        + RenderTemplateText(text string) (string, error)
+
+    }
+    class noValueError << (S,Aquamarine) >> {
+        - msg string
+
+        + Error() string
+
+    }
+    class templateTextRenderer << (S,Aquamarine) >> {
+        + ReadText <font color=blue>func</font>(string) ([]byte, error)
+        + Context *Context
+        + Data any
+
+        + RenderTemplateText(text string) (string, error)
+
+    }
+    class tmpl.Values << (T, #FF7700) >>  {
+    }
+    class tplInfo << (S,Aquamarine) >> {
+        - name string
+        - content string
+
+    }
+    interface valClient  {
+        + Eval(template <font color=blue>map</font>[string]any) (<font color=blue>map</font>[string]any, error)
+
+    }
+}
+
+"tmpl.valClient" <|-- "tmpl.MockvalClient"
+"tmpl.TextRenderer" <|-- "tmpl.templateTextRenderer"
+
+namespace yaml {
+    interface Encoder  {
+        + Encode( any) error
+        + Close() error
+
+    }
+}
+
+
+"__builtin__.string" #.. "main.diffSource"
+"app.<font color=blue>func</font>(*LoadOpts) " #.. "app.LoadOption"
+"app.any" #.. "app.CacheConfigProvider"
+"app.any" #.. "app.DAGConfigProvider"
+"main.<font color=blue>map</font>[string]any" #.. "main.resource"
+"policy.<font color=blue>func</font>(string, []byte) (bool, error)" #.. "policy.checkerFunc"
+"state.<font color=blue>func</font>(*TestOpts) " #.. "state.TestOption"
+"state.<font color=blue>func</font>(*resolveFileConfig) " #.. "state.resolveFileOption"
+"state.HelmState" #.. "state.helmStateAlias"
+"state.[]Inherit" #.. "state.Inherits"
+"tmpl.<font color=blue>map</font>[string]any" #.. "tmpl.Values"
+@enduml

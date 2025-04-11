@@ -1,0 +1,367 @@
+@startuml "Helmfile Commands Flow"
+
+' Color scheme - eye-friendly colors with darker headers
+skinparam {
+  ClassBackgroundColor #E8F4F9
+  ClassHeaderBackgroundColor #5D8AA8
+  ClassFontColor #000000
+  ClassStereotypeFontColor #FFFFFF
+  ClassAttributeFontColor #000000
+  ClassFontStyle bold
+
+  PackageBackgroundColor #F5F5F5
+  PackageBorderColor #DDDDDD
+
+  NoteBackgroundColor #FFF8DC
+  NoteBorderColor #DCDCAA
+
+  ArrowColor #5D8AA8
+}
+
+package "cmd" {
+  class "RootCmd" as RootCmd {
+    +Execute(): error
+  }
+
+  class "DiffCmd" as DiffCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "ApplyCmd" as ApplyCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "SyncCmd" as SyncCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "TemplateCmd" as TemplateCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "LintCmd" as LintCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "StatusCmd" as StatusCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "DeleteCmd" as DeleteCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "TestCmd" as TestCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "FetchCmd" as FetchCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+
+  class "WriteValuesCmd" as WriteValuesCmd {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+}
+
+package "pkg/config" {
+  interface "ConfigProvider" as ConfigProvider {
+    +KubeContext(): string
+    +HelmBinary(): string
+    +Logger(): *zap.SugaredLogger
+    +Args(): string
+    +...()
+  }
+
+  interface "DiffConfigProvider" as DiffConfigProvider {
+    +DiffArgs(): string
+    +DetailedExitcode(): bool
+    +...()
+  }
+
+  interface "ApplyConfigProvider" as ApplyConfigProvider {
+    +SyncArgs(): string
+    +Wait(): bool
+    +...()
+  }
+
+  interface "SyncConfigProvider" as SyncConfigProvider {
+    +SyncArgs(): string
+    +Wait(): bool
+    +...()
+  }
+
+  interface "TemplateConfigProvider" as TemplateConfigProvider {
+    +OutputDir(): string
+    +IncludeCRDs(): bool
+    +...()
+  }
+
+  interface "LintConfigProvider" as LintConfigProvider {
+    +Values(): []string
+    +Set(): []string
+    +...()
+  }
+
+  interface "StatusesConfigProvider" as StatusesConfigProvider {
+    +Args(): string
+    +...()
+  }
+
+  interface "DestroyConfigProvider" as DestroyConfigProvider {
+    +Args(): string
+    +Cascade(): string
+    +...()
+  }
+
+  interface "TestConfigProvider" as TestConfigProvider {
+    +Cleanup(): bool
+    +Logs(): bool
+    +...()
+  }
+
+  interface "FetchConfigProvider" as FetchConfigProvider {
+    +OutputDir(): string
+    +...()
+  }
+
+  interface "WriteValuesConfigProvider" as WriteValuesConfigProvider {
+    +OutputFileTemplate(): string
+    +...()
+  }
+
+  class "GlobalImpl" as GlobalImpl {
+    +GlobalOptions: *GlobalOptions
+    +...()
+  }
+
+  class "DiffImpl" as DiffImpl {
+    +GlobalImpl: *GlobalImpl
+    +DiffOptions: *DiffOptions
+    +...()
+  }
+
+  class "ApplyImpl" as ApplyImpl {
+    +GlobalImpl: *GlobalImpl
+    +ApplyOptions: *ApplyOptions
+    +...()
+  }
+
+  class "SyncImpl" as SyncImpl {
+    +GlobalImpl: *GlobalImpl
+    +SyncOptions: *SyncOptions
+    +...()
+  }
+
+  class "TemplateImpl" as TemplateImpl {
+    +GlobalImpl: *GlobalImpl
+    +TemplateOptions: *TemplateOptions
+    +...()
+  }
+
+  class "LintImpl" as LintImpl {
+    +GlobalImpl: *GlobalImpl
+    +LintOptions: *LintOptions
+    +...()
+  }
+
+  class "StatusImpl" as StatusImpl {
+    +GlobalImpl: *GlobalImpl
+    +StatusOptions: *StatusOptions
+    +...()
+  }
+
+  class "DestroyImpl" as DestroyImpl {
+    +GlobalImpl: *GlobalImpl
+    +DestroyOptions: *DestroyOptions
+    +...()
+  }
+
+  class "TestImpl" as TestImpl {
+    +GlobalImpl: *GlobalImpl
+    +TestOptions: *TestOptions
+    +...()
+  }
+
+  class "FetchImpl" as FetchImpl {
+    +GlobalImpl: *GlobalImpl
+    +FetchOptions: *FetchOptions
+    +...()
+  }
+
+  class "WriteValuesImpl" as WriteValuesImpl {
+    +GlobalImpl: *GlobalImpl
+    +WriteValuesOptions: *WriteValuesOptions
+    +...()
+  }
+}
+
+package "pkg/app" {
+  class "App" as App {
+    +OverrideKubeContext: string
+    +OverrideHelmBinary: string
+    +Logger: *zap.SugaredLogger
+    +...
+    +New(conf ConfigProvider): *App
+    +Diff(c DiffConfigProvider): error
+    +Apply(c ApplyConfigProvider): error
+    +Sync(c SyncConfigProvider): error
+    +Template(c TemplateConfigProvider): error
+    +Lint(c LintConfigProvider): error
+    +Status(c StatusesConfigProvider): error
+    +Destroy(c DestroyConfigProvider): error
+    +Test(c TestConfigProvider): error
+    +Fetch(c FetchConfigProvider): error
+    +WriteValues(c WriteValuesConfigProvider): error
+    +...()
+  }
+
+  class "Run" as Run {
+    +state: *state.HelmState
+    +helm: helmexec.Interface
+    +ctx: Context
+    +ReleaseToChart: map[state.PrepareChartKey]string
+    +...
+    +diff(...): (...)
+    +withPreparedCharts(...): error
+    +...()
+  }
+}
+
+package "pkg/state" {
+  class "HelmState" as HelmState {
+    +FilePath: string
+    +Releases: []ReleaseSpec
+    +...
+    +DiffReleases(...): ([]ReleaseSpec, []error)
+    +SyncReleases(...): []error
+    +TemplateReleases(...): []error
+    +LintReleases(...): []error
+    +ReleaseStatuses(...): []error
+    +DeleteReleases(...): []error
+    +TestReleases(...): []error
+    +WriteReleasesValues(...): []error
+    +PrepareCharts(...): (map[PrepareChartKey]string, []error)
+    +...()
+  }
+}
+
+package "pkg/helmexec" {
+  interface "Interface" as HelmExec {
+    +SetExtraArgs(...string)
+    +DiffRelease(...): error
+    +SyncRelease(...): error
+    +TemplateRelease(...): error
+    +Lint(...): error
+    +ReleaseStatus(...): error
+    +DeleteRelease(...): error
+    +TestRelease(...): error
+    +...()
+  }
+}
+
+' Root command relationships
+RootCmd --> DiffCmd : adds subcommand
+RootCmd --> ApplyCmd : adds subcommand
+RootCmd --> SyncCmd : adds subcommand
+RootCmd --> TemplateCmd : adds subcommand
+RootCmd --> LintCmd : adds subcommand
+RootCmd --> StatusCmd : adds subcommand
+RootCmd --> DeleteCmd : adds subcommand
+RootCmd --> TestCmd : adds subcommand
+RootCmd --> FetchCmd : adds subcommand
+RootCmd --> WriteValuesCmd : adds subcommand
+
+' Command to Config Impl relationships
+DiffCmd --> DiffImpl : creates
+ApplyCmd --> ApplyImpl : creates
+SyncCmd --> SyncImpl : creates
+TemplateCmd --> TemplateImpl : creates
+LintCmd --> LintImpl : creates
+StatusCmd --> StatusImpl : creates
+DeleteCmd --> DestroyImpl : creates
+TestCmd --> TestImpl : creates
+FetchCmd --> FetchImpl : creates
+WriteValuesCmd --> WriteValuesImpl : creates
+
+' Command to App relationships
+DiffCmd --> App : creates and uses
+ApplyCmd --> App : creates and uses
+SyncCmd --> App : creates and uses
+TemplateCmd --> App : creates and uses
+LintCmd --> App : creates and uses
+StatusCmd --> App : creates and uses
+DeleteCmd --> App : creates and uses
+TestCmd --> App : creates and uses
+FetchCmd --> App : creates and uses
+WriteValuesCmd --> App : creates and uses
+
+' Config interface implementations
+DiffConfigProvider <|.. DiffImpl : implements
+ApplyConfigProvider <|.. ApplyImpl : implements
+SyncConfigProvider <|.. SyncImpl : implements
+TemplateConfigProvider <|.. TemplateImpl : implements
+LintConfigProvider <|.. LintImpl : implements
+StatusesConfigProvider <|.. StatusImpl : implements
+DestroyConfigProvider <|.. DestroyImpl : implements
+TestConfigProvider <|.. TestImpl : implements
+FetchConfigProvider <|.. FetchImpl : implements
+WriteValuesConfigProvider <|.. WriteValuesImpl : implements
+
+ConfigProvider <|.. GlobalImpl : implements
+GlobalImpl <-- DiffImpl : contains
+GlobalImpl <-- ApplyImpl : contains
+GlobalImpl <-- SyncImpl : contains
+GlobalImpl <-- TemplateImpl : contains
+GlobalImpl <-- LintImpl : contains
+GlobalImpl <-- StatusImpl : contains
+GlobalImpl <-- DestroyImpl : contains
+GlobalImpl <-- TestImpl : contains
+GlobalImpl <-- FetchImpl : contains
+GlobalImpl <-- WriteValuesImpl : contains
+
+' App relationships
+App --> Run : creates and uses
+App ..> DiffConfigProvider : uses for Diff()
+App ..> ApplyConfigProvider : uses for Apply()
+App ..> SyncConfigProvider : uses for Sync()
+App ..> TemplateConfigProvider : uses for Template()
+App ..> LintConfigProvider : uses for Lint()
+App ..> StatusesConfigProvider : uses for Status()
+App ..> DestroyConfigProvider : uses for Destroy()
+App ..> TestConfigProvider : uses for Test()
+App ..> FetchConfigProvider : uses for Fetch()
+App ..> WriteValuesConfigProvider : uses for WriteValues()
+
+' Run relationships
+Run --> HelmState : operates on
+Run --> HelmExec : executes helm commands
+
+' State relationships
+HelmState ..> HelmExec : uses for helm operations
+
+note right of RootCmd
+  Command Flow:
+  1. Root command adds subcommands
+  2. Each subcommand parses flags into its Config implementation
+  3. Creates App with Config implementation
+  4. Calls corresponding App method
+end note
+
+note right of App
+  App Flow:
+  1. ForEachState() loads state files
+  2. Creates Run instances
+  3. Calls appropriate Run methods
+  4. Run methods use HelmState for operations
+end note
+
+note right of Run
+  Run Flow:
+  1. withPreparedCharts() prepares charts
+  2. Command-specific methods execute operations
+  3. Uses HelmState for actual operations
+  4. HelmState uses helmexec interface
+end note
+
+@enduml
