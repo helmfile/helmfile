@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -172,21 +173,29 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 			// run the docker registry v2 and push the test charts to the registry
 			// so that it can be accessed by helm and helmfile as a oci registry based chart repository.
 			if config.LocalDockerRegistry.Enabled {
-				containerName := strings.Join([]string{"helmfile_docker_registry", name}, "_")
+				containerName := strings.Join([]string{
+					"helmfile_docker_registry",
+					name,
+					strconv.FormatInt(time.Now().UnixNano(), 10)}, "_")
 
 				hostPort := config.LocalDockerRegistry.Port
 				if hostPort <= 0 {
 					hostPort = 5000
 				}
 
-				execDocker(t, "run", "--rm", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--name", containerName, "registry:2")
-				t.Cleanup(func() {
-					execDocker(t, "stop", containerName)
-				})
+				containerPort := fmt.Sprintf("%d:5000", hostPort)
 
-				// FIXME: this is a hack to wait for registry to be up and running
-				// please replace with proper wait for registry
-				time.Sleep(5 * time.Second)
+				// Register cleanup BEFORE starting the container
+				t.Cleanup(func() {
+					cmd := exec.Command("docker", "stop", containerName)
+					_ = cmd.Run() // Ignore errors during cleanup
+				})
+				execDocker(t, "run", "--rm", "-d", "-p", containerPort, "--name", containerName, "registry:2")
+
+				// Wait for the registry to be ready instead of using time.Sleep
+				if err := waitForRegistry(t, fmt.Sprintf("localhost:%d", hostPort), 30*time.Second); err != nil {
+					t.Fatalf("Registry container failed to become ready: %v", err)
+				}
 
 				// We helm-package and helm-push every test chart saved in the ./testdata/charts directory
 				// to the local registry, so that they can be accessed by helmfile and helm invoked while testing.
@@ -375,4 +384,31 @@ func execHelm(t *testing.T, args ...string) string {
 	}
 
 	return string(out)
+}
+
+func waitForRegistry(t *testing.T, address string, timeout time.Duration) error {
+	t.Helper()
+
+    client := http.Client{
+        Timeout: 1 * time.Second,
+    }
+
+    url := fmt.Sprintf("http://%s/v2/", address)
+    deadline := time.Now().Add(timeout)
+
+    for time.Now().Before(deadline) {
+        resp, err := client.Get(url)
+        if err == nil {
+            resp.Body.Close()
+            if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized {
+                // Registry is up - a 200 OK or 401 Unauthorized both indicate the registry is running
+                return nil
+            }
+        }
+
+        // Wait a bit before trying again
+        time.Sleep(500 * time.Millisecond)
+    }
+
+    return fmt.Errorf("timed out waiting for registry at %s after %s", address, timeout)
 }
