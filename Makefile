@@ -3,7 +3,8 @@ PKGS    := $(shell go list ./... | grep -v /vendor/)
 
 INSTALL_DEPS ?= 0
 
-TAG  ?= $(shell git describe --tags --abbrev=0 HEAD)
+TAG  ?= $(shell git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "v0.0.1")
+
 LAST = $(shell git describe --tags --abbrev=0 HEAD^)
 BODY = "`git log ${LAST}..HEAD --oneline --decorate` `printf '\n\#\#\# [Build Info](${BUILD_URL})'`"
 DATE_FMT = +"%Y-%m-%dT%H:%M:%S%z"
@@ -28,6 +29,9 @@ GO_BUILD_VERSION_LDFLAGS=\
 define check_command
 	command -v $(1) >/dev/null
 endef
+
+all: build
+.PHONY: all
 
 # Install all required Go tools
 install-go-deps:
