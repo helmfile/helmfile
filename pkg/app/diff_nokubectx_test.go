@@ -826,14 +826,14 @@ releases:
 					app.Selectors = tc.selectors
 				}
 
-				diffErr := app.Diff(diffConfig{
+				diffErr := app.Diff(NewDiffConfigWithDefaults(&diffConfig{
 					// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 					concurrency:      tc.concurrency,
 					logger:           logger,
 					detailedExitcode: tc.detailedExitcode,
 					skipNeeds:        tc.flags.skipNeeds,
 					includeNeeds:     tc.flags.includeNeeds,
-				})
+				}))
 
 				var diffErrStr string
 				if diffErr != nil {

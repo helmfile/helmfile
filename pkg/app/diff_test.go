@@ -9,8 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
+	"github.com/helmfile/helmfile/pkg/common"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/flags"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
@@ -22,7 +24,8 @@ type diffConfig struct {
 	retainValuesFiles       bool
 	set                     []string
 	validate                bool
-	skipCRDs                bool
+	skipCRDs                common.BoolFlag
+	includeCRDs		 		common.BoolFlag
 	skipDeps                bool
 	skipRefresh             bool
 	includeTests            bool
@@ -48,6 +51,30 @@ type diffConfig struct {
 	logger                  *zap.SugaredLogger
 }
 
+// New creates a new applyConfig with default values
+func NewDiffConfig() *diffConfig {
+	return &diffConfig{
+		skipCRDs:    common.NewBoolFlag(false),
+		includeCRDs: common.NewBoolFlag(false),
+	}
+}
+
+// NewDiffConfigWithDefaults creates a new diffConfig with default values.
+// If an existing config is provided, it ensures all fields are initialized.
+// If the existing config is nil, a new config is created.
+// The existing config is modified in place, so it should not be nil if you want to reuse it.
+func NewDiffConfigWithDefaults(existing *diffConfig) *diffConfig {
+	if existing == nil {
+		return NewDiffConfig()
+	}
+
+	// Initialize any nil fields in the existing config
+	flags.EnsureBoolFlag(&existing.skipCRDs, false)
+	flags.EnsureBoolFlag(&existing.includeCRDs, false)
+
+	return existing
+}
+
 func (a diffConfig) Args() string {
 	return a.args
 }
@@ -69,7 +96,18 @@ func (a diffConfig) Validate() bool {
 }
 
 func (a diffConfig) SkipCRDs() bool {
-	return a.skipCRDs
+	return a.skipCRDs.Value()
+}
+
+func (a diffConfig) IncludeCRDs() bool {
+	return a.includeCRDs.Value()
+}
+
+func (a diffConfig) ShouldIncludeCRDs() bool {
+    includeCRDsExplicit := a.includeCRDs.WasExplicitlySet() && a.includeCRDs.Value()
+    skipCRDsExplicit := a.skipCRDs.WasExplicitlySet() && !a.skipCRDs.Value()
+
+    return includeCRDsExplicit || skipCRDsExplicit
 }
 
 func (a diffConfig) SkipDeps() bool {
@@ -1181,7 +1219,7 @@ releases:
 					app.Selectors = tc.selectors
 				}
 
-				diffErr := app.Diff(diffConfig{
+				diffErr := app.Diff(NewDiffConfigWithDefaults(&diffConfig{
 					// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 					concurrency:      tc.concurrency,
 					logger:           logger,
@@ -1189,7 +1227,7 @@ releases:
 					skipNeeds:        tc.flags.skipNeeds,
 					includeNeeds:     tc.flags.includeNeeds,
 					noHooks:          tc.flags.noHooks,
-				})
+				}))
 
 				var diffErrStr string
 				if diffErr != nil {

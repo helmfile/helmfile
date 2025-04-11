@@ -21,9 +21,11 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/chart"
 
+	"github.com/helmfile/helmfile/pkg/common"
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/flags"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/runtime"
@@ -2096,9 +2098,9 @@ type configImpl struct {
 	set                  []string
 	output               string
 	noHooks              bool
-	includeCRDs          bool
+	skipCRDs             common.BoolFlag
+	includeCRDs          common.BoolFlag
 	skipCleanup          bool
-	skipCRDs             bool
 	skipDeps             bool
 	skipTests            bool
 	skipSchemaValidation bool
@@ -2109,6 +2111,29 @@ type configImpl struct {
 	includeTransitiveNeeds bool
 	skipCharts             bool
 	kubeVersion            string
+}
+
+func NewConfigImpl() *configImpl {
+	return &configImpl{
+		skipCRDs:    common.NewBoolFlag(false),
+		includeCRDs: common.NewBoolFlag(false),
+	}
+}
+
+// NewConfigImplWithDefaults creates a new configImpl with default values.
+// If an existing config is provided, it ensures all fields are initialized.
+// If the existing config is nil, a new config is created.
+// The existing config is modified in place, so it should not be nil if you want to reuse it.
+func NewConfigImplWithDefaults(existing *configImpl) *configImpl {
+	if existing == nil {
+		return NewConfigImpl()
+	}
+
+	// Initialize any nil fields in the existing config
+	flags.EnsureBoolFlag(&existing.skipCRDs, false)
+	flags.EnsureBoolFlag(&existing.includeCRDs, false)
+
+	return existing
 }
 
 func (c configImpl) Selectors() []string {
@@ -2135,12 +2160,23 @@ func (c configImpl) SkipCleanup() bool {
 	return c.skipCleanup
 }
 
-func (c configImpl) SkipCRDs() bool {
-	return c.skipCRDs
-}
-
 func (c configImpl) SkipDeps() bool {
 	return c.skipDeps
+}
+
+func (c configImpl) SkipCRDs() bool {
+	return c.skipCRDs.Value()
+}
+
+func (c configImpl) IncludeCRDs() bool {
+	return c.includeCRDs.Value()
+}
+
+func (c configImpl) ShouldIncludeCRDs() bool {
+	includeCRDsExplicit := c.includeCRDs.WasExplicitlySet() && c.includeCRDs.Value()
+	skipCRDsExplicit := c.skipCRDs.WasExplicitlySet() && !c.skipCRDs.Value()
+
+	return includeCRDsExplicit || skipCRDsExplicit
 }
 
 func (c configImpl) SkipRefresh() bool {
@@ -2169,10 +2205,6 @@ func (c configImpl) OutputDir() string {
 
 func (c configImpl) OutputDirTemplate() string {
 	return ""
-}
-
-func (c configImpl) IncludeCRDs() bool {
-	return c.includeCRDs
 }
 
 func (c configImpl) NoHooks() bool {
@@ -2223,7 +2255,8 @@ type applyConfig struct {
 	set                     []string
 	validate                bool
 	skipCleanup             bool
-	skipCRDs                bool
+	skipCRDs                common.BoolFlag
+	includeCRDs             common.BoolFlag
 	skipDeps                bool
 	skipRefresh             bool
 	skipNeeds               bool
@@ -2262,8 +2295,33 @@ type applyConfig struct {
 	syncReleaseLabels       bool
 
 	// template-only options
-	includeCRDs, skipTests       bool
-	outputDir, outputDirTemplate string
+	skipTests         bool
+	outputDir         string
+	outputDirTemplate string
+}
+
+// New creates a new applyConfig with default values
+func NewApplyConfig() *applyConfig {
+	return &applyConfig{
+		skipCRDs:    common.NewBoolFlag(false),
+		includeCRDs: common.NewBoolFlag(false),
+	}
+}
+
+// NewApplyConfigWithDefaults creates a new applyConfig with default values.
+// If an existing config is provided, it ensures all fields are initialized.
+// If the existing config is nil, a new config is created.
+// The existing config is modified in place, so it should not be nil if you want to reuse it.
+func NewApplyConfigWithDefaults(existing *applyConfig) *applyConfig {
+	if existing == nil {
+		return NewApplyConfig()
+	}
+
+	// Initialize any nil fields in the existing config
+	flags.EnsureBoolFlag(&existing.skipCRDs, false)
+	flags.EnsureBoolFlag(&existing.includeCRDs, false)
+
+	return existing
 }
 
 func (a applyConfig) Args() string {
@@ -2303,7 +2361,18 @@ func (a applyConfig) SkipCleanup() bool {
 }
 
 func (a applyConfig) SkipCRDs() bool {
-	return a.skipCRDs
+	return a.skipCRDs.Value()
+}
+
+func (a applyConfig) IncludeCRDs() bool {
+	return a.includeCRDs.Value()
+}
+
+func (c applyConfig) ShouldIncludeCRDs() bool {
+	includeCRDsExplicit := c.includeCRDs.WasExplicitlySet() && c.includeCRDs.Value()
+	skipCRDsExplicit := c.skipCRDs.WasExplicitlySet() && !c.skipCRDs.Value()
+
+	return includeCRDsExplicit || skipCRDsExplicit
 }
 
 func (a applyConfig) SkipDeps() bool {
@@ -2399,10 +2468,6 @@ func (a applyConfig) DiffArgs() string {
 }
 
 // helmfile-template-only flags
-func (a applyConfig) IncludeCRDs() bool {
-	return a.includeCRDs
-}
-
 func (a applyConfig) SkipTests() bool {
 	return a.skipTests
 }
@@ -2659,7 +2724,7 @@ releases:
 		},
 	}, files)
 
-	if err := app.Template(configImpl{set: []string{"foo=a", "bar=b"}, skipDeps: false}); err != nil {
+	if err := app.Template(NewConfigImplWithDefaults(&configImpl{set: []string{"foo=a", "bar=b"}, skipDeps: false})); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -2729,7 +2794,7 @@ releases:
 
 	fmt.Printf("CRAFTED APP WITH %p\n", app.fs.DirectoryExistsAt)
 
-	if err := app.Template(configImpl{}); err != nil {
+	if err := app.Template(NewConfigImpl()); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -3728,13 +3793,13 @@ releases:
 					app.Selectors = tc.selectors
 				}
 
-				applyErr := app.Apply(applyConfig{
+				applyErr := app.Apply(NewApplyConfigWithDefaults(&applyConfig{
 					// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 					concurrency:       tc.concurrency,
 					logger:            logger,
 					skipDiffOnInstall: tc.skipDiffOnInstall,
 					skipNeeds:         tc.fields.skipNeeds,
-				})
+				}))
 				switch {
 				case tc.error == "" && applyErr != nil:
 					t.Fatalf("unexpected error for data defined at %s: %v", tc.loc, applyErr)
@@ -4006,7 +4071,7 @@ releases:
 	expectNoCallsToHelm(app)
 
 	out, err := testutil.CaptureStdout(func() {
-		err := app.ListReleases(configImpl{})
+		err := app.ListReleases(NewConfigImpl())
 		assert.Nil(t, err)
 	})
 	assert.NoError(t, err)

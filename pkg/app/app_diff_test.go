@@ -121,7 +121,7 @@ releases:
 				app.Selectors = tc.selectors
 			}
 
-			diffErr := app.Diff(applyConfig{
+			diffErr := app.Diff(NewApplyConfigWithDefaults(&applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency:            1,
 				logger:                 logger,
@@ -129,7 +129,7 @@ releases:
 				includeNeeds:           tc.fields.includeNeeds,
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
 				noHooks:                tc.fields.noHooks,
-			})
+			}))
 
 			var gotErr string
 			if diffErr != nil {
@@ -352,12 +352,12 @@ func TestDiffWithInstalled(t *testing.T) {
 				app.Selectors = tc.selectors
 			}
 
-			diffErr := app.Diff(applyConfig{
+			diffErr := app.Diff(NewApplyConfigWithDefaults(&applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency: 1,
 				logger:      logger,
 				skipNeeds:   true,
-			})
+			}))
 
 			var gotErr string
 			if diffErr != nil {

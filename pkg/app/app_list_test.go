@@ -223,10 +223,10 @@ database                   	my-app     	true   	true     	chart:postgres,name:da
 
 func TestListWithEnvironment(t *testing.T) {
 	t.Run("with skipCharts=false", func(t *testing.T) {
-		testListWithEnvironment(t, configImpl{skipCharts: false})
+		testListWithEnvironment(t, *NewConfigImplWithDefaults(&configImpl{skipCharts: false}))
 	})
 	t.Run("with skipCharts=true", func(t *testing.T) {
-		testListWithEnvironment(t, configImpl{skipCharts: true})
+		testListWithEnvironment(t, *NewConfigImplWithDefaults(&configImpl{skipCharts: true}))
 	})
 }
 
@@ -292,9 +292,9 @@ releases:
 
 func TestListWithJSONOutput(t *testing.T) {
 	t.Run("with skipCharts=false", func(t *testing.T) {
-		testListWithJSONOutput(t, configImpl{skipCharts: false})
+		testListWithJSONOutput(t, *NewConfigImplWithDefaults(&configImpl{skipCharts: false}))
 	})
 	t.Run("with skipCharts=true", func(t *testing.T) {
-		testListWithJSONOutput(t, configImpl{skipCharts: true})
+		testListWithJSONOutput(t, *NewConfigImplWithDefaults(&configImpl{skipCharts: true}))
 	})
 }
