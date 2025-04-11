@@ -43,9 +43,12 @@ build-test-tools:
 	curl --progress-bar --location https://github.com/homeport/dyff/releases/download/v1.5.6/dyff_1.5.6_linux_amd64.tar.gz  | tar -xzf - -C `pwd` dyff
 .PHONY: build-test-tools
 
-test:
+test-build:
 	@which helm &> /dev/null || (echo "helm binary not found. Please see: https://helm.sh/docs/intro/install/" && exit 1)
 	go build -o helmfile .
+.PHONY: test-build
+
+test: test-build
 	go test -v ${PKGS} -coverprofile cover.out -race -p=1
 	go tool cover -func cover.out
 .PHONY: test
