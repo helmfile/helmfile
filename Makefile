@@ -33,14 +33,14 @@ endef
 all: build
 .PHONY: all
 
-# Install all required Go tools
-install-go-deps:
+# Install all required tools
+install-deps: build-test-tools
 	@echo "Installing Go dependencies..."
 	@go install github.com/daixiang0/gci@latest
 	@go install github.com/tcnksm/ghr@latest
 	@go install github.com/mitchellh/gox@latest
 	@echo "Go dependencies installed successfully"
-.PHONY: install-go-deps
+.PHONY: install-deps
 
 # Check for all required dependencies
 check-deps:
@@ -70,8 +70,8 @@ check-deps:
             echo "Go tools installed successfully" ; \
         else \
             printf "\nMissing Go tools:$$missing_go_tools\n" ; \
-            echo "Run 'make install-go-deps' to install them, or run 'make check-deps INSTALL_DEPS=1' to check and install." ; \
-            missing_deps="$$missing_deps\n- Go tools: run 'make install-go-deps'" ; \
+            echo "Run 'make install-deps' to install them, or run 'make check-deps INSTALL_DEPS=1' to check and install." ; \
+            missing_deps="$$missing_deps\n- Go tools: run 'make install-deps'" ; \
         fi ; \
     fi ; \
     if [ -n "$$missing_deps" ] && [ -z "$$INSTALL_DEPS" ]; then \
