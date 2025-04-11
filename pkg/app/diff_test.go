@@ -25,7 +25,7 @@ type diffConfig struct {
 	set                     []string
 	validate                bool
 	skipCRDs                common.BoolFlag
-	includeCRDs		 		common.BoolFlag
+	includeCRDs             common.BoolFlag
 	skipDeps                bool
 	skipRefresh             bool
 	includeTests            bool
@@ -104,10 +104,10 @@ func (a diffConfig) IncludeCRDs() bool {
 }
 
 func (a diffConfig) ShouldIncludeCRDs() bool {
-    includeCRDsExplicit := a.includeCRDs.WasExplicitlySet() && a.includeCRDs.Value()
-    skipCRDsExplicit := a.skipCRDs.WasExplicitlySet() && !a.skipCRDs.Value()
+	includeCRDsExplicit := a.includeCRDs.WasExplicitlySet() && a.includeCRDs.Value()
+	skipCRDsExplicit := a.skipCRDs.WasExplicitlySet() && !a.skipCRDs.Value()
 
-    return includeCRDsExplicit || skipCRDsExplicit
+	return includeCRDsExplicit || skipCRDsExplicit
 }
 
 func (a diffConfig) SkipDeps() bool {

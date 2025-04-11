@@ -2036,7 +2036,7 @@ type DiffOpts struct {
 	// If this is true, Color has no effect.
 	NoColor                 bool
 	Set                     []string
-	IncludeCRDs				bool
+	IncludeCRDs             bool
 	SkipCleanup             bool
 	SkipDiffOnInstall       bool
 	DiffArgs                string

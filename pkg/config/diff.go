@@ -157,20 +157,20 @@ func (t *DiffImpl) NoHooks() bool {
 
 // SkipCRDs returns the skip crds
 func (t *DiffImpl) SkipCRDs() bool {
-    return t.DiffOptions.SkipCRDsFlag.Value()
+	return t.DiffOptions.SkipCRDsFlag.Value()
 }
 
 // IncludeCRDs returns the include crds
 func (t *DiffImpl) IncludeCRDs() bool {
-    return t.DiffOptions.IncludeCRDsFlag.Value()
+	return t.DiffOptions.IncludeCRDsFlag.Value()
 }
 
 // ShouldIncludeCRDs returns true if CRDs should be included
 func (t *DiffImpl) ShouldIncludeCRDs() bool {
-    includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
-    skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
+	includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
+	skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
 
-    return includeCRDsExplicit || skipCRDsExplicit
+	return includeCRDsExplicit || skipCRDsExplicit
 }
 
 // SkipDiffOnInstall returns the skip diff on install

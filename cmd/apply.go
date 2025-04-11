@@ -73,7 +73,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&applyOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from the diff output")
 
 	// Register flags using the registrar
-    flagRegistrar.RegisterFlags(cmd)
+	flagRegistrar.RegisterFlags(cmd)
 
 	return cmd
 }

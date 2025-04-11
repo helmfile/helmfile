@@ -115,20 +115,20 @@ func (t *SyncImpl) Values() []string {
 
 // SkipCRDs returns the skip crds
 func (t *SyncImpl) SkipCRDs() bool {
-    return t.SyncOptions.SkipCRDsFlag.Value()
+	return t.SyncOptions.SkipCRDsFlag.Value()
 }
 
 // IncludeCRDs returns the include crds
 func (t *SyncImpl) IncludeCRDs() bool {
-    return t.SyncOptions.IncludeCRDsFlag.Value()
+	return t.SyncOptions.IncludeCRDsFlag.Value()
 }
 
 // ShouldIncludeCRDs returns true if CRDs should be included
 func (t *SyncImpl) ShouldIncludeCRDs() bool {
-    includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
-    skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
+	includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
+	skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
 
-    return includeCRDsExplicit || skipCRDsExplicit
+	return includeCRDsExplicit || skipCRDsExplicit
 }
 
 // Wait returns the wait

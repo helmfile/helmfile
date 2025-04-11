@@ -24,7 +24,7 @@ type TemplateOptions struct {
 	Validate bool
 	// SkipCRDsFlag is the skip crds flag
 	// Deprecated: Use IncludeCRDsFlag instead
-	SkipCRDsFlag    common.BoolFlag
+	SkipCRDsFlag common.BoolFlag
 	// IncludeCRDsFlag is the include crds flag
 	IncludeCRDsFlag common.BoolFlag
 	// SkipTests is the skip tests flag
@@ -91,10 +91,10 @@ func (t *TemplateImpl) IncludeCRDs() bool {
 
 // ShouldIncludeCRDs returns whether to include crds
 func (t *TemplateImpl) ShouldIncludeCRDs() bool {
-    includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
-    skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
+	includeCRDsExplicit := t.IncludeCRDsFlag.WasExplicitlySet() && t.IncludeCRDsFlag.Value()
+	skipCRDsExplicit := t.SkipCRDsFlag.WasExplicitlySet() && !t.SkipCRDsFlag.Value()
 
-    return includeCRDsExplicit || skipCRDsExplicit
+	return includeCRDsExplicit || skipCRDsExplicit
 }
 
 // NoHooks returns the no hooks

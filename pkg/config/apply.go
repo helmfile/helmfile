@@ -160,20 +160,20 @@ func (a *ApplyImpl) NoHooks() bool {
 
 // SkipCRDs returns the skip CRDs.
 func (a *ApplyImpl) SkipCRDs() bool {
-    return a.ApplyOptions.SkipCRDsFlag.Value()
+	return a.ApplyOptions.SkipCRDsFlag.Value()
 }
 
 // IncludeCRDs returns the include CRDs.
 func (a *ApplyImpl) IncludeCRDs() bool {
-    return a.ApplyOptions.IncludeCRDsFlag.Value()
+	return a.ApplyOptions.IncludeCRDsFlag.Value()
 }
 
 // ShouldIncludeCRDs returns true if CRDs should be included.
 func (a *ApplyImpl) ShouldIncludeCRDs() bool {
-    includeCRDsExplicit := a.IncludeCRDsFlag.WasExplicitlySet() && a.IncludeCRDsFlag.Value()
-    skipCRDsExplicit := a.SkipCRDsFlag.WasExplicitlySet() && !a.SkipCRDsFlag.Value()
+	includeCRDsExplicit := a.IncludeCRDsFlag.WasExplicitlySet() && a.IncludeCRDsFlag.Value()
+	skipCRDsExplicit := a.SkipCRDsFlag.WasExplicitlySet() && !a.SkipCRDsFlag.Value()
 
-    return includeCRDsExplicit || skipCRDsExplicit
+	return includeCRDsExplicit || skipCRDsExplicit
 }
 
 // SkipCleanup returns the skip cleanup.

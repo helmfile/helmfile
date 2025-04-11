@@ -1377,7 +1377,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipDiffOnInstall:       c.SkipDiffOnInstall(),
 		ReuseValues:             c.ReuseValues(),
 		ResetValues:             c.ResetValues(),
-		IncludeCRDs:			 c.ShouldIncludeCRDs(),
+		IncludeCRDs:             c.ShouldIncludeCRDs(),
 		DiffArgs:                c.DiffArgs(),
 		PostRenderer:            c.PostRenderer(),
 		PostRendererArgs:        c.PostRendererArgs(),

@@ -244,9 +244,9 @@ type TemplateConfigProvider interface {
 }
 
 type CRDConfig interface {
-    SkipCRDs() bool
-    IncludeCRDs() bool
-    ShouldIncludeCRDs() bool
+	SkipCRDs() bool
+	IncludeCRDs() bool
+	ShouldIncludeCRDs() bool
 }
 
 type DAGConfig interface {

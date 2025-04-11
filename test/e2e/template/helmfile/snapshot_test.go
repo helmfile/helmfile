@@ -389,26 +389,26 @@ func execHelm(t *testing.T, args ...string) string {
 func waitForRegistry(t *testing.T, address string, timeout time.Duration) error {
 	t.Helper()
 
-    client := http.Client{
-        Timeout: 1 * time.Second,
-    }
+	client := http.Client{
+		Timeout: 1 * time.Second,
+	}
 
-    url := fmt.Sprintf("http://%s/v2/", address)
-    deadline := time.Now().Add(timeout)
+	url := fmt.Sprintf("http://%s/v2/", address)
+	deadline := time.Now().Add(timeout)
 
-    for time.Now().Before(deadline) {
-        resp, err := client.Get(url)
-        if err == nil {
-            resp.Body.Close()
-            if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized {
-                // Registry is up - a 200 OK or 401 Unauthorized both indicate the registry is running
-                return nil
-            }
-        }
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(url)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized {
+				// Registry is up - a 200 OK or 401 Unauthorized both indicate the registry is running
+				return nil
+			}
+		}
 
-        // Wait a bit before trying again
-        time.Sleep(500 * time.Millisecond)
-    }
+		// Wait a bit before trying again
+		time.Sleep(500 * time.Millisecond)
+	}
 
-    return fmt.Errorf("timed out waiting for registry at %s after %s", address, timeout)
+	return fmt.Errorf("timed out waiting for registry at %s after %s", address, timeout)
 }
