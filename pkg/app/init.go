@@ -15,8 +15,6 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/version"
-)
-
 var (
 	manuallyInstallCode   = 1
 	windowPackageManagers = map[string]string{
