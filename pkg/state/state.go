@@ -1803,7 +1803,7 @@ type diffPrepareResult struct {
 
 // commonDiffFlags returns common flags for helm diff, not in release-specific context
 func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
-	var flags []string = []string{}
+	var flags = []string{}
 
 	if detailedExitCode {
 		flags = append(flags, "--detailed-exitcode")
