@@ -1,48 +1,5 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: stable/mychart3
- 4:   disableValidationOnInstall: true
- 5:   updateStrategy: reinstall
- 6: - name: foo
- 7:   chart: stable/mychart1
- 8:   disableValidationOnInstall: true
- 9:   needs:
-10:   - bar
-11: - name: bar
-12:   chart: stable/mychart2
-13:   disableValidation: true
-14:   updateStrategy: reinstall
-15: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: baz
- 3:   chart: stable/mychart3
- 4:   disableValidationOnInstall: true
- 5:   updateStrategy: reinstall
- 6: - name: foo
- 7:   chart: stable/mychart1
- 8:   disableValidationOnInstall: true
- 9:   needs:
-10:   - bar
-11: - name: bar
-12:   chart: stable/mychart2
-13:   disableValidation: true
-14:   updateStrategy: reinstall
-15: 
-
 merged environment: &{default  map[] map[]}
 3 release(s) found in helmfile.yaml
 
@@ -64,6 +21,8 @@ GROUP RELEASES
 2     default//foo
 
 processing releases in group 1/2: default//baz, default//bar
+reinstallIfForbidden update strategy - reinstalling...
+reinstallIfForbidden update strategy - reinstalling...
 processing releases in group 2/2: default//foo
 getting deployed release version failed: Failed to get the version for: mychart1
 
