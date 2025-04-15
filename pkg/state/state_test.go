@@ -4375,3 +4375,202 @@ func TestHelmState_setStringFlags(t *testing.T) {
 		})
 	}
 }
+func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
+	tests := []struct {
+		flags        []string
+		diffOptions  *DiffOpts
+		helmDefaults *HelmSpec
+		release      *ReleaseSpec
+	}{
+		{
+			flags:        []string{"--reuse-values"},
+			diffOptions:  &DiffOpts{},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-from-release",
+				ReuseValues: boolValue(true),
+			},
+		},
+		{
+			flags: []string{"--reuse-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-from-cli",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags: []string{"--reuse-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-all",
+				ReuseValues: boolValue(true),
+			},
+		},
+		{
+			flags:       []string{"--reset-values"},
+			diffOptions: &DiffOpts{},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+			release: &ReleaseSpec{
+				Name:        "reset-values-from-helm-defaults",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags:        []string{"--reset-values"},
+			diffOptions:  &DiffOpts{},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reset-values-from-release",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags: []string{"--reset-values"},
+			diffOptions: &DiffOpts{
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reset-values-cli-overrides-release",
+				ReuseValues: boolValue(true),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		releases := []ReleaseSpec{
+			*tt.release,
+		}
+		state := &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				Releases:     releases,
+				HelmDefaults: *tt.helmDefaults,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+		helm := &exectest.Helm{
+			Lists: map[exectest.ListKey]string{},
+			Helm3: true,
+		}
+		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
+
+		require.Len(t, es, 0)
+		require.Len(t, results, 1)
+
+		r := results[0]
+
+		require.Equal(t, tt.flags, r.flags, "Wrong value control flag for release %s", r.release.Name)
+	}
+}
+
+func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
+	tests := []struct {
+		flags        []string
+		syncOptions  *SyncOpts
+		helmDefaults *HelmSpec
+		release      *ReleaseSpec
+	}{
+		{
+			flags:        []string{"--reuse-values"},
+			syncOptions:  &SyncOpts{},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-from-release",
+				ReuseValues: boolValue(true),
+			},
+		},
+		{
+			flags: []string{"--reuse-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-from-cli",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags: []string{"--reuse-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-all",
+				ReuseValues: boolValue(true),
+			},
+		},
+		{
+			flags:       []string{"--reset-values"},
+			syncOptions: &SyncOpts{},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+			release: &ReleaseSpec{
+				Name:        "reset-values-from-helm-defaults",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags:        []string{"--reset-values"},
+			syncOptions:  &SyncOpts{},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reset-values-from-release",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags: []string{"--reset-values"},
+			syncOptions: &SyncOpts{
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reset-values-cli-overrides-release",
+				ReuseValues: boolValue(true),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		releases := []ReleaseSpec{
+			*tt.release,
+		}
+		state := &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				Releases:     releases,
+				HelmDefaults: *tt.helmDefaults,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+		helm := &exectest.Helm{
+			Lists: map[exectest.ListKey]string{},
+			Helm3: true,
+		}
+		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
+
+		require.Len(t, es, 0)
+		require.Len(t, results, 1)
+
+		r := results[0]
+
+		require.Equal(t, tt.flags, r.flags, "Wrong value control flag for release %s", r.release.Name)
+	}
+}

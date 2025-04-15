@@ -283,6 +283,8 @@ type ReleaseSpec struct {
 	Condition string `yaml:"condition,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
+	// ReuseValues, on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
+	ReuseValues *bool `yaml:"reuseValues,omitempty"`
 
 	// DisableOpenAPIValidation is rarely used to bypass OpenAPI validations only that is used for e.g.
 	// work-around against broken CRs
@@ -706,7 +708,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--skip-crds")
 				}
 
-				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues)
+				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues, release)
 
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
@@ -1845,8 +1847,6 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool
 		flags = append(flags, "--output", opt.Output)
 	}
 
-	flags = st.appendValuesControlModeFlag(flags, opt.ReuseValues, opt.ResetValues)
-
 	if opt.Set != nil {
 		for _, s := range opt.Set {
 			flags = append(flags, "--set", s)
@@ -1959,6 +1959,8 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					}
 					flags = append(flags, "--values", valfile)
 				}
+
+				flags = st.appendValuesControlModeFlag(flags, opt.ReuseValues, opt.ResetValues, release)
 
 				flags = append(flags, commonDiffFlags...)
 
@@ -3019,8 +3021,8 @@ func (st *HelmState) chartOCIFlags(r *ReleaseSpec) []string {
 	return flags
 }
 
-func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues bool, resetValues bool) []string {
-	if !resetValues && (st.HelmDefaults.ReuseValues || reuseValues) {
+func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues bool, resetValues bool, release *ReleaseSpec) []string {
+	if !resetValues && (release.ReuseValues != nil && *release.ReuseValues || release.ReuseValues == nil && st.HelmDefaults.ReuseValues || reuseValues) {
 		flags = append(flags, "--reuse-values")
 	} else {
 		flags = append(flags, "--reset-values")
