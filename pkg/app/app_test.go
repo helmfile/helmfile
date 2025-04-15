@@ -4076,12 +4076,11 @@ releases:
 	})
 	assert.NoError(t, err)
 
-	expected := `NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                                                                           	CHART   	VERSION
-myrelease1	testNamespace	true   	false    	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace	mychart1	       
-myrelease2	testNamespace	false  	true     	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              	mychart1	       
-myrelease3	testNamespace	true   	true     	chart:mychart1,name:myrelease3,namespace:testNamespace                           	mychart1	       
-myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             	mychart1	       
-`
+	expected := "NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                                                                           	CHART   	VERSION\n" +
+"myrelease1	testNamespace	true   	false    	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace	mychart1\t       \n" +
+"myrelease2	testNamespace	false  	true     	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              	mychart1\t       \n" +
+"myrelease3	testNamespace	true   	true     	chart:mychart1,name:myrelease3,namespace:testNamespace                           	mychart1\t       \n" +
+"myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             	mychart1\t       \n"
 
 	assert.Equal(t, expected, out)
 }
