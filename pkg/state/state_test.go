@@ -3458,14 +3458,11 @@ func TestCommonDiffFlags(t *testing.T) {
 			stripTrailingCR: true,
 			expected: []string{
 				"--strip-trailing-cr",
-				"--reset-values",
 			},
 		},
 		{
-			name: "stripTrailingCR disenabled",
-			expected: []string{
-				"--reset-values",
-			},
+			name:     "stripTrailingCR disenabled",
+			expected: []string{},
 		},
 	}
 	for _, tt := range tests {

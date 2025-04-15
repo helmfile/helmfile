@@ -1803,7 +1803,7 @@ type diffPrepareResult struct {
 
 // commonDiffFlags returns common flags for helm diff, not in release-specific context
 func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
-	var flags []string
+	var flags []string = []string{}
 
 	if detailedExitCode {
 		flags = append(flags, "--detailed-exitcode")
@@ -3022,7 +3022,7 @@ func (st *HelmState) chartOCIFlags(r *ReleaseSpec) []string {
 }
 
 func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues bool, resetValues bool, release *ReleaseSpec) []string {
-	if !resetValues && (release.ReuseValues != nil && *release.ReuseValues || release.ReuseValues == nil && st.HelmDefaults.ReuseValues || reuseValues) {
+	if !resetValues && ((release.ReuseValues != nil && *release.ReuseValues || release.ReuseValues == nil && st.HelmDefaults.ReuseValues) || reuseValues) {
 		flags = append(flags, "--reuse-values")
 	} else {
 		flags = append(flags, "--reset-values")
