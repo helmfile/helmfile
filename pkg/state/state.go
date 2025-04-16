@@ -208,9 +208,9 @@ type HelmSpec struct {
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout int `yaml:"deleteTimeout"`
 	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
-	SyncReleaseLabels bool `yaml:"syncReleaseLabels"`
+	SyncReleaseLabels *bool `yaml:"syncReleaseLabels"`
 	// TakeOwnership is true if the helmfile should take ownership of the release
-	TakeOwnership bool `yaml:"takeOwnership"`
+	TakeOwnership *bool `yaml:"takeOwnership"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -414,9 +414,9 @@ type ReleaseSpec struct {
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
 	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
-	SyncReleaseLabels bool `yaml:"syncReleaseLabels"`
+	SyncReleaseLabels *bool `yaml:"syncReleaseLabels"`
 	// TakeOwnership is true if the release should take ownership of the resources
-	TakeOwnership bool `yaml:"takeOwnership"`
+	TakeOwnership *bool `yaml:"takeOwnership"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -2802,9 +2802,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	postRenderer := ""
 	syncReleaseLabels := false
+	takeOwnership := false
 	if opt != nil {
 		postRenderer = opt.PostRenderer
 		syncReleaseLabels = opt.SyncReleaseLabels
+		takeOwnership = opt.TakeOwnership
 	}
 
 	flags = st.appendConnectionFlags(flags, release)
@@ -2833,7 +2835,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	flags = st.appendHideNotesFlags(flags, helm, opt)
 
 	// append take-ownership flag
-	flags = st.appendTakeOwnershipFlags(flags, helm, opt)
+	flags = st.appendTakeOwnershipFlagsForUpgrade(flags, helm, release, takeOwnership)
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
@@ -2978,17 +2980,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if opt != nil {
 		takeOwnership = opt.TakeOwnership
 	}
-	if takeOwnership || st.HelmDefaults.TakeOwnership || release.TakeOwnership {
-		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
-		if err != nil {
-			return nil, nil, err
-		}
-		dv, _ := semver.NewVersion("v3.11.0")
 
-		if diffVersion.LessThan(dv) {
-			return nil, nil, fmt.Errorf("take-ownership is not supported by helm-diff plugin version %s, please use at least v3.11.0", diffVersion)
-		}
-		flags = append(flags, "--take-ownership")
+	var err error
+	flags, err = st.appendTakeOwnershipFlagsForDiff(flags, release, takeOwnership)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
@@ -2997,6 +2993,33 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 
 	return append(flags, common...), files, nil
+}
+
+func (st *HelmState) appendTakeOwnershipFlagsForDiff(flags []string, release *ReleaseSpec, takeOwnership bool) ([]string, error) {
+	settings := cli.New()
+	isAppendTakeOwnership := false
+
+	switch {
+	case release.TakeOwnership != nil && *release.TakeOwnership:
+		isAppendTakeOwnership = true
+	case takeOwnership:
+		isAppendTakeOwnership = true
+	case st.HelmDefaults.TakeOwnership != nil && *st.HelmDefaults.TakeOwnership:
+		isAppendTakeOwnership = true
+	}
+	if isAppendTakeOwnership {
+		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+		if err != nil {
+			return flags, err
+		}
+		dv, _ := semver.NewVersion("v3.11.0")
+
+		if diffVersion.LessThan(dv) {
+			return flags, fmt.Errorf("take-ownership is not supported by helm-diff plugin version %s, please use at least v3.11.0", diffVersion)
+		}
+		flags = append(flags, "--take-ownership")
+	}
+	return flags, nil
 }
 
 func (st *HelmState) appendChartVersionFlags(flags []string, release *ReleaseSpec) []string {
