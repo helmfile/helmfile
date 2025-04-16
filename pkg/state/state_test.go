@@ -3477,44 +3477,44 @@ func TestCommonDiffFlags(t *testing.T) {
 }
 
 func TestCommonDiffFlags_IncludeCRDs(t *testing.T) {
-    tests := []struct {
-        name       string
-        inputOpts  *DiffOpts
-        expected   []string
-    }{
-        {
-            name:       "Include CRDs flag is set to true",
-            inputOpts: &DiffOpts{
-                IncludeCRDs: true,
-            },
-            expected: []string{"--reset-values", "--include-crds"},
-        },
-        {
-            name:       "Include CRDs flag is set to false",
-            inputOpts: &DiffOpts{
-                IncludeCRDs: false,
-            },
-            expected: []string{"--reset-values"},
-        },
-        {
-            name:       "Include CRDs flag not set in options",
-            inputOpts:  &DiffOpts{},
-            expected:   []string{"--reset-values"},
-        },
-    }
+	tests := []struct {
+		name      string
+		inputOpts *DiffOpts
+		expected  []string
+	}{
+		{
+			name: "Include CRDs flag is set to true",
+			inputOpts: &DiffOpts{
+				IncludeCRDs: true,
+			},
+			expected: []string{"--reset-values", "--include-crds"},
+		},
+		{
+			name: "Include CRDs flag is set to false",
+			inputOpts: &DiffOpts{
+				IncludeCRDs: false,
+			},
+			expected: []string{"--reset-values"},
+		},
+		{
+			name:      "Include CRDs flag not set in options",
+			inputOpts: &DiffOpts{},
+			expected:  []string{"--reset-values"},
+		},
+	}
 
-    for _, test := range tests {
-        t.Run(test.name, func(t *testing.T) {
-            state := &HelmState{}
-            result := state.commonDiffFlags(false, false, false, []string{}, false, false, false, test.inputOpts)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := &HelmState{}
+			result := state.commonDiffFlags(false, false, false, []string{}, false, false, false, test.inputOpts)
 
-            // Check if the result contains the expected flags
-            if !reflect.DeepEqual(result, test.expected) {
-                t.Errorf("commonDiffFlags() with IncludeCRDs=%v = %v, want %v",
-                    test.inputOpts.IncludeCRDs, result, test.expected)
-            }
-        })
-    }
+			// Check if the result contains the expected flags
+			if !reflect.DeepEqual(result, test.expected) {
+				t.Errorf("commonDiffFlags() with IncludeCRDs=%v = %v, want %v",
+					test.inputOpts.IncludeCRDs, result, test.expected)
+			}
+		})
+	}
 }
 
 func TestAppendChartDownloadFlags(t *testing.T) {

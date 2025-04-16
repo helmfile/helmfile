@@ -75,151 +75,158 @@ func NewDiffConfigWithDefaults(existing *diffConfig) *diffConfig {
 	return existing
 }
 
-func (a diffConfig) Args() string {
-	return a.args
+func (c diffConfig) Args() string {
+	return c.args
 }
 
-func (a diffConfig) DiffArgs() string {
-	return a.diffArgs
+func (c diffConfig) DiffArgs() string {
+	return c.diffArgs
 }
 
-func (a diffConfig) Values() []string {
-	return a.values
+func (c diffConfig) Values() []string {
+	return c.values
 }
 
-func (a diffConfig) Set() []string {
-	return a.set
+func (c diffConfig) Set() []string {
+	return c.set
 }
 
-func (a diffConfig) Validate() bool {
-	return a.validate
+func (c diffConfig) Validate() bool {
+	return c.validate
 }
 
-func (a diffConfig) SkipCRDs() bool {
-	return a.skipCRDs.Value()
+func (c diffConfig) SkipCRDs() bool {
+	return c.skipCRDs.Value()
 }
 
-func (a diffConfig) IncludeCRDs() bool {
-	return a.includeCRDs.Value()
+func (c diffConfig) IncludeCRDs() bool {
+	return c.includeCRDs.Value()
 }
 
-func (a diffConfig) ShouldIncludeCRDs() bool {
-	includeCRDsExplicit := a.includeCRDs.WasExplicitlySet() && a.includeCRDs.Value()
-	skipCRDsExplicit := a.skipCRDs.WasExplicitlySet() && !a.skipCRDs.Value()
+// ShouldIncludeCRDs determines if CRDs should be included in the operation.
+// It returns true only when:
+//   - includeCRDs flag is explicitly provided on the command line and set to true
+//   - AND skipCRDs flag is not provided on the command line
+//
+// This ensures that CRDs are only included when explicitly requested and not
+// contradicted by the skipCRDs flag.
+func (c diffConfig) ShouldIncludeCRDs() bool {
+	includeCRDsExplicit := c.includeCRDs.WasExplicitlySet() && c.includeCRDs.Value()
+	skipCRDsNotProvided := !c.skipCRDs.WasExplicitlySet()
 
-	return includeCRDsExplicit || skipCRDsExplicit
+	return includeCRDsExplicit && skipCRDsNotProvided
 }
 
-func (a diffConfig) SkipDeps() bool {
-	return a.skipDeps
+func (c diffConfig) SkipDeps() bool {
+	return c.skipDeps
 }
 
-func (a diffConfig) SkipRefresh() bool {
-	return a.skipRefresh
+func (c diffConfig) SkipRefresh() bool {
+	return c.skipRefresh
 }
 
-func (a diffConfig) IncludeTests() bool {
-	return a.includeTests
+func (c diffConfig) IncludeTests() bool {
+	return c.includeTests
 }
 
-func (a diffConfig) SkipNeeds() bool {
-	return a.skipNeeds
+func (c diffConfig) SkipNeeds() bool {
+	return c.skipNeeds
 }
 
-func (a diffConfig) IncludeNeeds() bool {
-	return a.includeNeeds || a.IncludeTransitiveNeeds()
+func (c diffConfig) IncludeNeeds() bool {
+	return c.includeNeeds || c.IncludeTransitiveNeeds()
 }
 
-func (a diffConfig) IncludeTransitiveNeeds() bool {
-	return a.includeTransitiveNeeds
+func (c diffConfig) IncludeTransitiveNeeds() bool {
+	return c.includeTransitiveNeeds
 }
 
-func (a diffConfig) Suppress() []string {
-	return a.suppress
+func (c diffConfig) Suppress() []string {
+	return c.suppress
 }
 
-func (a diffConfig) SuppressSecrets() bool {
-	return a.suppressSecrets
+func (c diffConfig) SuppressSecrets() bool {
+	return c.suppressSecrets
 }
 
-func (a diffConfig) ShowSecrets() bool {
-	return a.showSecrets
+func (c diffConfig) ShowSecrets() bool {
+	return c.showSecrets
 }
 
-func (a diffConfig) NoHooks() bool {
-	return a.noHooks
+func (c diffConfig) NoHooks() bool {
+	return c.noHooks
 }
 
-func (a diffConfig) SuppressDiff() bool {
-	return a.suppressDiff
+func (c diffConfig) SuppressDiff() bool {
+	return c.suppressDiff
 }
 
-func (a diffConfig) Color() bool {
+func (c diffConfig) Color() bool {
 	return false
 }
 
-func (a diffConfig) NoColor() bool {
-	return a.noColor
+func (c diffConfig) NoColor() bool {
+	return c.noColor
 }
 
-func (a diffConfig) Context() int {
-	return a.context
+func (c diffConfig) Context() int {
+	return c.context
 }
 
-func (a diffConfig) DiffOutput() string {
-	return a.diffOutput
+func (c diffConfig) DiffOutput() string {
+	return c.diffOutput
 }
 
-func (a diffConfig) Concurrency() int {
-	return a.concurrency
+func (c diffConfig) Concurrency() int {
+	return c.concurrency
 }
 
-func (a diffConfig) DetailedExitcode() bool {
-	return a.detailedExitcode
+func (c diffConfig) DetailedExitcode() bool {
+	return c.detailedExitcode
 }
 
-func (a diffConfig) StripTrailingCR() bool {
-	return a.stripTrailingCR
+func (c diffConfig) StripTrailingCR() bool {
+	return c.stripTrailingCR
 }
 
-func (a diffConfig) Interactive() bool {
-	return a.interactive
+func (c diffConfig) Interactive() bool {
+	return c.interactive
 }
 
-func (a diffConfig) SkipDiffOnInstall() bool {
-	return a.skipDiffOnInstall
+func (c diffConfig) SkipDiffOnInstall() bool {
+	return c.skipDiffOnInstall
 }
 
-func (a diffConfig) Logger() *zap.SugaredLogger {
-	return a.logger
+func (c diffConfig) Logger() *zap.SugaredLogger {
+	return c.logger
 }
 
-func (a diffConfig) RetainValuesFiles() bool {
-	return a.retainValuesFiles
+func (c diffConfig) RetainValuesFiles() bool {
+	return c.retainValuesFiles
 }
 
-func (a diffConfig) ReuseValues() bool {
-	return a.reuseValues
+func (c diffConfig) ReuseValues() bool {
+	return c.reuseValues
 }
 
-func (a diffConfig) ResetValues() bool {
-	return !a.reuseValues
+func (c diffConfig) ResetValues() bool {
+	return !c.reuseValues
 }
 
-func (a diffConfig) PostRenderer() string {
+func (c diffConfig) PostRenderer() string {
 	return ""
 }
 
-func (a diffConfig) PostRendererArgs() []string {
+func (c diffConfig) PostRendererArgs() []string {
 	return nil
 }
 
-func (a diffConfig) SkipSchemaValidation() bool {
-	return a.skipSchemaValidation
+func (c diffConfig) SkipSchemaValidation() bool {
+	return c.skipSchemaValidation
 }
 
-func (a diffConfig) SuppressOutputLineRegex() []string {
-	return a.suppressOutputLineRegex
+func (c diffConfig) SuppressOutputLineRegex() []string {
+	return c.suppressOutputLineRegex
 }
 
 func TestDiff(t *testing.T) {

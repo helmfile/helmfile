@@ -2172,11 +2172,18 @@ func (c configImpl) IncludeCRDs() bool {
 	return c.includeCRDs.Value()
 }
 
+// ShouldIncludeCRDs determines if CRDs should be included in the operation.
+// It returns true only when:
+//   - includeCRDs flag is explicitly provided on the command line and set to true
+//   - AND skipCRDs flag is not provided on the command line
+//
+// This ensures that CRDs are only included when explicitly requested and not
+// contradicted by the skipCRDs flag.
 func (c configImpl) ShouldIncludeCRDs() bool {
 	includeCRDsExplicit := c.includeCRDs.WasExplicitlySet() && c.includeCRDs.Value()
-	skipCRDsExplicit := c.skipCRDs.WasExplicitlySet() && !c.skipCRDs.Value()
+	skipCRDsNotProvided := !c.skipCRDs.WasExplicitlySet()
 
-	return includeCRDsExplicit || skipCRDsExplicit
+	return includeCRDsExplicit && skipCRDsNotProvided
 }
 
 func (c configImpl) SkipRefresh() bool {
@@ -2324,203 +2331,210 @@ func NewApplyConfigWithDefaults(existing *applyConfig) *applyConfig {
 	return existing
 }
 
-func (a applyConfig) Args() string {
-	return a.args
+func (c applyConfig) Args() string {
+	return c.args
 }
 
-func (a applyConfig) Cascade() string {
-	return a.cascade
+func (c applyConfig) Cascade() string {
+	return c.cascade
 }
 
-func (a applyConfig) Wait() bool {
-	return a.wait
+func (c applyConfig) Wait() bool {
+	return c.wait
 }
 
-func (a applyConfig) WaitRetries() int {
-	return a.waitRetries
+func (c applyConfig) WaitRetries() int {
+	return c.waitRetries
 }
 
-func (a applyConfig) WaitForJobs() bool {
-	return a.waitForJobs
+func (c applyConfig) WaitForJobs() bool {
+	return c.waitForJobs
 }
 
-func (a applyConfig) Values() []string {
-	return a.values
+func (c applyConfig) Values() []string {
+	return c.values
 }
 
-func (a applyConfig) Set() []string {
-	return a.set
+func (c applyConfig) Set() []string {
+	return c.set
 }
 
-func (a applyConfig) Validate() bool {
-	return a.validate
+func (c applyConfig) Validate() bool {
+	return c.validate
 }
 
-func (a applyConfig) SkipCleanup() bool {
-	return a.skipCleanup
+func (c applyConfig) SkipCleanup() bool {
+	return c.skipCleanup
 }
 
-func (a applyConfig) SkipCRDs() bool {
-	return a.skipCRDs.Value()
+func (c applyConfig) SkipCRDs() bool {
+	return c.skipCRDs.Value()
 }
 
-func (a applyConfig) IncludeCRDs() bool {
-	return a.includeCRDs.Value()
+func (c applyConfig) IncludeCRDs() bool {
+	return c.includeCRDs.Value()
 }
 
+// ShouldIncludeCRDs determines if CRDs should be included in the operation.
+// It returns true only when:
+//   - includeCRDs flag is explicitly provided on the command line and set to true
+//   - AND skipCRDs flag is not provided on the command line
+//
+// This ensures that CRDs are only included when explicitly requested and not
+// contradicted by the skipCRDs flag.
 func (c applyConfig) ShouldIncludeCRDs() bool {
 	includeCRDsExplicit := c.includeCRDs.WasExplicitlySet() && c.includeCRDs.Value()
-	skipCRDsExplicit := c.skipCRDs.WasExplicitlySet() && !c.skipCRDs.Value()
+	skipCRDsNotProvided := !c.skipCRDs.WasExplicitlySet()
 
-	return includeCRDsExplicit || skipCRDsExplicit
+	return includeCRDsExplicit && skipCRDsNotProvided
 }
 
-func (a applyConfig) SkipDeps() bool {
-	return a.skipDeps
+func (c applyConfig) SkipDeps() bool {
+	return c.skipDeps
 }
 
-func (a applyConfig) SkipRefresh() bool {
-	return a.skipRefresh
+func (c applyConfig) SkipRefresh() bool {
+	return c.skipRefresh
 }
 
-func (a applyConfig) SkipNeeds() bool {
-	return a.skipNeeds
+func (c applyConfig) SkipNeeds() bool {
+	return c.skipNeeds
 }
 
-func (a applyConfig) IncludeNeeds() bool {
-	return a.includeNeeds || a.IncludeTransitiveNeeds()
+func (c applyConfig) IncludeNeeds() bool {
+	return c.includeNeeds || c.IncludeTransitiveNeeds()
 }
 
-func (a applyConfig) IncludeTransitiveNeeds() bool {
-	return a.includeTransitiveNeeds
+func (c applyConfig) IncludeTransitiveNeeds() bool {
+	return c.includeTransitiveNeeds
 }
 
-func (a applyConfig) IncludeTests() bool {
-	return a.includeTests
+func (c applyConfig) IncludeTests() bool {
+	return c.includeTests
 }
 
-func (a applyConfig) Suppress() []string {
-	return a.suppress
+func (c applyConfig) Suppress() []string {
+	return c.suppress
 }
 
-func (a applyConfig) SuppressSecrets() bool {
-	return a.suppressSecrets
+func (c applyConfig) SuppressSecrets() bool {
+	return c.suppressSecrets
 }
 
-func (a applyConfig) ShowSecrets() bool {
-	return a.showSecrets
+func (c applyConfig) ShowSecrets() bool {
+	return c.showSecrets
 }
 
-func (a applyConfig) NoHooks() bool {
-	return a.noHooks
+func (c applyConfig) NoHooks() bool {
+	return c.noHooks
 }
 
-func (a applyConfig) SuppressDiff() bool {
-	return a.suppressDiff
+func (c applyConfig) SuppressDiff() bool {
+	return c.suppressDiff
 }
 
-func (a applyConfig) Color() bool {
-	return a.color
+func (c applyConfig) Color() bool {
+	return c.color
 }
 
-func (a applyConfig) NoColor() bool {
-	return a.noColor
+func (c applyConfig) NoColor() bool {
+	return c.noColor
 }
 
-func (a applyConfig) Context() int {
-	return a.context
+func (c applyConfig) Context() int {
+	return c.context
 }
 
-func (a applyConfig) DiffOutput() string {
-	return a.diffOutput
+func (c applyConfig) DiffOutput() string {
+	return c.diffOutput
 }
 
-func (a applyConfig) Concurrency() int {
-	return a.concurrency
+func (c applyConfig) Concurrency() int {
+	return c.concurrency
 }
 
-func (a applyConfig) DetailedExitcode() bool {
-	return a.detailedExitcode
+func (c applyConfig) DetailedExitcode() bool {
+	return c.detailedExitcode
 }
 
-func (a applyConfig) StripTrailingCR() bool {
-	return a.stripTrailingCR
+func (c applyConfig) StripTrailingCR() bool {
+	return c.stripTrailingCR
 }
 
-func (a applyConfig) Interactive() bool {
-	return a.interactive
+func (c applyConfig) Interactive() bool {
+	return c.interactive
 }
 
-func (a applyConfig) Logger() *zap.SugaredLogger {
-	return a.logger
+func (c applyConfig) Logger() *zap.SugaredLogger {
+	return c.logger
 }
 
-func (a applyConfig) SkipDiffOnInstall() bool {
-	return a.skipDiffOnInstall
+func (c applyConfig) SkipDiffOnInstall() bool {
+	return c.skipDiffOnInstall
 }
 
-func (a applyConfig) SyncArgs() string {
-	return a.syncArgs
+func (c applyConfig) SyncArgs() string {
+	return c.syncArgs
 }
 
-func (a applyConfig) DiffArgs() string {
-	return a.diffArgs
+func (c applyConfig) DiffArgs() string {
+	return c.diffArgs
 }
 
 // helmfile-template-only flags
-func (a applyConfig) SkipTests() bool {
-	return a.skipTests
+func (c applyConfig) SkipTests() bool {
+	return c.skipTests
 }
 
-func (a applyConfig) OutputDir() string {
-	return a.outputDir
+func (c applyConfig) OutputDir() string {
+	return c.outputDir
 }
-func (a applyConfig) OutputDirTemplate() string {
-	return a.outputDirTemplate
-}
-
-func (a applyConfig) ReuseValues() bool {
-	return a.reuseValues
+func (c applyConfig) OutputDirTemplate() string {
+	return c.outputDirTemplate
 }
 
-func (a applyConfig) ResetValues() bool {
-	return !a.reuseValues
+func (c applyConfig) ReuseValues() bool {
+	return c.reuseValues
 }
 
-func (a applyConfig) PostRenderer() string {
-	return a.postRenderer
+func (c applyConfig) ResetValues() bool {
+	return !c.reuseValues
 }
 
-func (a applyConfig) PostRendererArgs() []string {
-	return a.postRendererArgs
+func (c applyConfig) PostRenderer() string {
+	return c.postRenderer
 }
 
-func (a applyConfig) SuppressOutputLineRegex() []string {
-	return a.suppressOutputLineRegex
+func (c applyConfig) PostRendererArgs() []string {
+	return c.postRendererArgs
 }
 
-func (a applyConfig) KubeVersion() string {
-	return a.kubeVersion
+func (c applyConfig) SuppressOutputLineRegex() []string {
+	return c.suppressOutputLineRegex
 }
 
-func (a applyConfig) SkipSchemaValidation() bool {
-	return a.skipSchemaValidation
+func (c applyConfig) KubeVersion() string {
+	return c.kubeVersion
 }
 
-func (a applyConfig) ShowOnly() []string {
-	return a.showOnly
+func (c applyConfig) SkipSchemaValidation() bool {
+	return c.skipSchemaValidation
 }
 
-func (a applyConfig) HideNotes() bool {
-	return a.hideNotes
+func (c applyConfig) ShowOnly() []string {
+	return c.showOnly
 }
 
-func (a applyConfig) TakeOwnership() bool {
-	return a.takeOwnership
+func (c applyConfig) HideNotes() bool {
+	return c.hideNotes
 }
 
-func (a applyConfig) SyncReleaseLabels() bool {
-	return a.syncReleaseLabels
+func (c applyConfig) TakeOwnership() bool {
+	return c.takeOwnership
+}
+
+func (c applyConfig) SyncReleaseLabels() bool {
+	return c.syncReleaseLabels
 }
 
 type depsConfig struct {
@@ -2528,19 +2542,19 @@ type depsConfig struct {
 	includeTransitiveNeeds bool
 }
 
-func (d depsConfig) SkipRepos() bool {
-	return d.skipRepos
+func (c depsConfig) SkipRepos() bool {
+	return c.skipRepos
 }
 
-func (d depsConfig) IncludeTransitiveNeeds() bool {
-	return d.includeTransitiveNeeds
+func (c depsConfig) IncludeTransitiveNeeds() bool {
+	return c.includeTransitiveNeeds
 }
 
-func (d depsConfig) Args() string {
+func (c depsConfig) Args() string {
 	return ""
 }
 
-func (d depsConfig) Concurrency() int {
+func (c depsConfig) Concurrency() int {
 	return 2
 }
 
@@ -4077,10 +4091,10 @@ releases:
 	assert.NoError(t, err)
 
 	expected := "NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                                                                           	CHART   	VERSION\n" +
-"myrelease1	testNamespace	true   	false    	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace	mychart1\t       \n" +
-"myrelease2	testNamespace	false  	true     	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              	mychart1\t       \n" +
-"myrelease3	testNamespace	true   	true     	chart:mychart1,name:myrelease3,namespace:testNamespace                           	mychart1\t       \n" +
-"myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             	mychart1\t       \n"
+		"myrelease1	testNamespace	true   	false    	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace	mychart1\t       \n" +
+		"myrelease2	testNamespace	false  	true     	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              	mychart1\t       \n" +
+		"myrelease3	testNamespace	true   	true     	chart:mychart1,name:myrelease3,namespace:testNamespace                           	mychart1\t       \n" +
+		"myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             	mychart1\t       \n"
 
 	assert.Equal(t, expected, out)
 }

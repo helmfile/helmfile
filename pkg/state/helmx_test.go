@@ -7,6 +7,7 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testutil"
+	"github.com/helmfile/helmfile/pkg/version"
 )
 
 func TestAppendWaitForJobsFlags(t *testing.T) {
@@ -428,6 +429,74 @@ func TestAppendTakeOwnershipFlags(t *testing.T) {
 			st.HelmDefaults = tt.args.helmSpec
 			got := st.appendTakeOwnershipFlags(tt.args.flags, tt.args.helm, tt.args.opt)
 			require.Equalf(t, tt.args.expected, got, "appendTakeOwnershipFlags() = %v, want %v", got, tt.args.expected)
+		})
+	}
+}
+
+func TestAppendCRDFlags(t *testing.T) {
+	type args struct {
+		flags    []string
+		helm     helmexec.Interface
+		helmSpec HelmSpec
+		opt      *DiffOpts
+		expected []string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "no include-crds nor skip-crds provided",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewVersionHelmExec(version.HelmRequiredVersion),
+				opt:      &DiffOpts{},
+				expected: []string{},
+			},
+		},
+		{
+			name: "include-crds set but no skip-crds",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec(version.HelmRequiredVersion),
+				opt: &DiffOpts{
+					SkipCRDs:    false,
+					IncludeCRDs: true,
+				},
+				expected: []string{"--include-crds"},
+			},
+		},
+		{
+			name: "include-crds and skip-crds set",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec(version.HelmRequiredVersion),
+				opt: &DiffOpts{
+					SkipCRDs:    true,
+					IncludeCRDs: true,
+				},
+				expected: []string{"--skip-crds"},
+			},
+		},
+		{
+			name: "include-crds not set but skip-crds is",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec(version.HelmRequiredVersion),
+				opt: &DiffOpts{
+					SkipCRDs:    true,
+					IncludeCRDs: false,
+				},
+				expected: []string{"--skip-crds"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.args.helmSpec
+			got := st.appendCRDFlags(tt.args.flags, tt.args.opt.SkipCRDs, tt.args.opt.IncludeCRDs)
+			require.Equalf(t, tt.args.expected, got, "appendCRDFlags() = %v, want %v", got, tt.args.expected)
 		})
 	}
 }

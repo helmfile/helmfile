@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/helmfile/helmfile/pkg/common"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -412,6 +413,141 @@ releases:
 			selectors: []string{"name=a"},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^a$", Flags: listFlags("default", "default")}: ``,
+			},
+		})
+	})
+}
+
+func TestDiffWithIncludeCRDs(t *testing.T) {
+	type fields struct {
+		includeCRDs common.BoolFlag
+		skipCRDs    common.BoolFlag
+	}
+
+	type testcase struct {
+		fields    fields
+		ns        string
+		error     string
+		selectors []string
+		diffed    []exectest.Release
+	}
+
+	check := func(t *testing.T, tc testcase) {
+		t.Helper()
+
+		wantDiffs := tc.diffed
+
+		var helm = &exectest.Helm{
+			FailOnUnexpectedList: true,
+			FailOnUnexpectedDiff: true,
+			DiffMutex:            &sync.Mutex{},
+			ChartsMutex:          &sync.Mutex{},
+			ReleasesMutex:        &sync.Mutex{},
+			Helm3:                true,
+		}
+
+		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
+			t.Helper()
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Errorf("unexpected error creating vals runtime: %v", err)
+			}
+
+			files := map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: include-crds
+  chart: incubator/raw
+  namespace: default
+`,
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:  DefaultHelmBinary,
+				fs:                  filesystem.DefaultFileSystem(),
+				OverrideKubeContext: "default",
+				Env:                 "default",
+				Logger:              logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			if tc.ns != "" {
+				app.Namespace = tc.ns
+			}
+
+			if tc.selectors != nil {
+				app.Selectors = tc.selectors
+			}
+
+			diffConfig := NewApplyConfigWithDefaults(&applyConfig{
+				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
+				concurrency: 1,
+				logger:      logger,
+				includeCRDs: tc.fields.includeCRDs,
+				skipCRDs:    tc.fields.skipCRDs,
+			})
+			diffErr := app.Diff(diffConfig)
+
+			var gotErr string
+			if diffErr != nil {
+				gotErr = diffErr.Error()
+			}
+
+			if d := cmp.Diff(tc.error, gotErr); d != "" {
+				t.Fatalf("unexpected error: want (-), got (+): %s", d)
+			}
+
+			require.Equal(t, wantDiffs, helm.Diffed)
+		})
+
+		testhelper.RequireLog(t, "app_diff_test", bs)
+	}
+
+	t.Run("include-crds", func(t *testing.T) {
+		includeCRDs := common.NewBoolFlag(false)
+		includeCRDs.Set(true)
+
+		check(t, testcase{
+			fields: fields{
+				skipCRDs:    common.NewBoolFlag(false),
+				includeCRDs: includeCRDs,
+			},
+			diffed: []exectest.Release{
+				{Name: "include-crds", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values", "--include-crds"}},
+			},
+		})
+	})
+
+	t.Run("include-or-skip-crds-unset", func(t *testing.T) {
+		includeCRDs := common.NewBoolFlag(false)
+		includeCRDs.Set(true)
+
+		check(t, testcase{
+			fields: fields{
+				skipCRDs:    common.NewBoolFlag(false),
+				includeCRDs: common.NewBoolFlag(false),
+			},
+			diffed: []exectest.Release{
+				{Name: "include-crds", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+			},
+		})
+	})
+
+	t.Run("skip-crds", func(t *testing.T) {
+		skipCRDs := common.NewBoolFlag(false)
+		skipCRDs.Set(true)
+
+		check(t, testcase{
+			fields: fields{
+				skipCRDs:    skipCRDs,
+				includeCRDs: common.NewBoolFlag(false),
+			},
+			diffed: []exectest.Release{
+				{Name: "include-crds", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values", "--skip-crds"}},
 			},
 		})
 	})
