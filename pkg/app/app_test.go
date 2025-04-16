@@ -26,7 +26,6 @@ import (
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
-	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 	"github.com/helmfile/helmfile/pkg/testutil"
@@ -4020,14 +4019,8 @@ myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myr
 
 	assert.Equal(t, expected, out)
 }
-func testSetStringValuesTemplate(t *testing.T, goccyGoYaml bool) {
+func testSetStringValuesTemplate(t *testing.T) {
 	t.Helper()
-
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = goccyGoYaml
-	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
-	})
 
 	files := map[string]string{
 		"/path/to/helmfile.yaml.gotmpl": `
@@ -4088,14 +4081,8 @@ releases:
 	}
 }
 
-func testSetValuesTemplate(t *testing.T, goccyGoYaml bool) {
+func testSetValuesTemplate(t *testing.T) {
 	t.Helper()
-
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = goccyGoYaml
-	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
-	})
 
 	files := map[string]string{
 		"/path/to/helmfile.yaml.gotmpl": `
@@ -4162,21 +4149,13 @@ releases:
 
 func TestSetValuesTemplate(t *testing.T) {
 	t.Run("with goccy/go-yaml", func(t *testing.T) {
-		testSetValuesTemplate(t, true)
-	})
-
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
-		testSetValuesTemplate(t, false)
+		testSetValuesTemplate(t)
 	})
 }
 
 func TestSetStringValuesTemplate(t *testing.T) {
 	t.Run("with goccy/go-yaml", func(t *testing.T) {
-		testSetStringValuesTemplate(t, true)
-	})
-
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
-		testSetStringValuesTemplate(t, false)
+		testSetStringValuesTemplate(t)
 	})
 }
 
