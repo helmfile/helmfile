@@ -13,7 +13,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/tj/assert"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 

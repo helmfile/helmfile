@@ -123,14 +123,14 @@ releases:
 				app.Selectors = tc.selectors
 			}
 
-			lintErr := app.Lint(applyConfig{
+			lintErr := app.Lint(NewApplyConfigWithDefaults(&applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency:            1,
 				logger:                 logger,
 				skipNeeds:              tc.fields.skipNeeds,
 				includeNeeds:           tc.fields.includeNeeds,
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
-			})
+			}))
 
 			var gotErr string
 			if lintErr != nil {

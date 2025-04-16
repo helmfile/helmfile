@@ -14,45 +14,14 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
-)
-
-const (
-	HelmRequiredVersion           = "v3.16.4"
-	HelmRecommendedVersion        = "v3.17.3"
-	HelmDiffRecommendedVersion    = "v3.11.0"
-	HelmSecretsRecommendedVersion = "v4.6.3"
-	HelmGitRecommendedVersion     = "v1.3.0"
-	HelmS3RecommendedVersion      = "v0.16.3"
-	HelmInstallCommand            = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
+	"github.com/helmfile/helmfile/pkg/version"
 )
 
 var (
 	manuallyInstallCode   = 1
 	windowPackageManagers = map[string]string{
-		"scoop": fmt.Sprintf("scoop install helm@%s", strings.TrimLeft(HelmRecommendedVersion, "v")),
-		"choco": fmt.Sprintf("choco install kubernetes-helm --version %s", strings.TrimLeft(HelmRecommendedVersion, "v")),
-	}
-	helmPlugins = []helmRecommendedPlugin{
-		{
-			name:    "diff",
-			version: HelmDiffRecommendedVersion,
-			repo:    "https://github.com/databus23/helm-diff",
-		},
-		{
-			name:    "secrets",
-			version: HelmSecretsRecommendedVersion,
-			repo:    "https://github.com/jkroepke/helm-secrets",
-		},
-		{
-			name:    "s3",
-			version: HelmS3RecommendedVersion,
-			repo:    "https://github.com/hypnoglow/helm-s3.git",
-		},
-		{
-			name:    "helm-git",
-			version: HelmGitRecommendedVersion,
-			repo:    "https://github.com/aslafy-z/helm-git.git",
-		},
+		"scoop": fmt.Sprintf("scoop install helm@%s", strings.TrimLeft(version.HelmRecommendedVersion, "v")),
+		"choco": fmt.Sprintf("choco install kubernetes-helm --version %s", strings.TrimLeft(version.HelmRecommendedVersion, "v")),
 	}
 )
 
@@ -122,7 +91,7 @@ func (h *HelmfileInit) InstallHelm() error {
 		return h.installHelmOnWindows()
 	}
 
-	err := h.WhetherContinue(fmt.Sprintf("use: '%s'", HelmInstallCommand))
+	err := h.WhetherContinue(fmt.Sprintf("use: '%s'", version.HelmInstallCommand))
 	if err != nil {
 		return err
 	}
@@ -134,14 +103,14 @@ func (h *HelmfileInit) InstallHelm() error {
 	if err != nil {
 		return err
 	}
-	err = downloadfile(getHelmScript.Name(), HelmInstallCommand)
+	err = downloadfile(getHelmScript.Name(), version.HelmInstallCommand)
 	if err != nil {
 		return err
 	}
 	_, err = h.runner.Execute("bash", []string{
 		getHelmScript.Name(),
 		"--version",
-		HelmRecommendedVersion,
+		version.HelmRecommendedVersion,
 	}, nil, true)
 	if err != nil {
 		return err
@@ -214,7 +183,7 @@ func (h *HelmfileInit) CheckHelm() error {
 	if err != nil {
 		return err
 	}
-	requiredHelmVersion, _ := semver.NewVersion(HelmRequiredVersion)
+	requiredHelmVersion, _ := semver.NewVersion(version.HelmRequiredVersion)
 	if helmversion.LessThan(requiredHelmVersion) {
 		h.logger.Infof("helm version is too low, the current version is %s, the required version is %s", helmversion, requiredHelmVersion)
 		err = h.UpdateHelm()

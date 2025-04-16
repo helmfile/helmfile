@@ -7,17 +7,3 @@ type CacheOptions struct{}
 func NewCacheOptions() *CacheOptions {
 	return &CacheOptions{}
 }
-
-// CacheImpl is impl for applyOptions
-type CacheImpl struct {
-	*GlobalImpl
-	*CacheOptions
-}
-
-// NewCacheImpl creates a new CacheImpl
-func NewCacheImpl(g *GlobalImpl, b *CacheOptions) *CacheImpl {
-	return &CacheImpl{
-		GlobalImpl:   g,
-		CacheOptions: b,
-	}
-}

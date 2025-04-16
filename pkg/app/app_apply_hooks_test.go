@@ -80,7 +80,7 @@ func TestApply_hooks(t *testing.T) {
 				app.Selectors = tc.selectors
 			}
 
-			syncErr := app.Apply(applyConfig{
+			syncErr := app.Apply(NewApplyConfigWithDefaults(&applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency:            tc.concurrency,
 				logger:                 logger,
@@ -88,7 +88,7 @@ func TestApply_hooks(t *testing.T) {
 				skipNeeds:              tc.fields.skipNeeds,
 				includeNeeds:           tc.fields.includeNeeds,
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
-			})
+			}))
 
 			var gotErr string
 			if syncErr != nil {

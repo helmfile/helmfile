@@ -1,0 +1,156 @@
+@startuml "Helmfile Command Flow - Diff"
+
+' Color scheme - eye-friendly colors with darker headers
+skinparam {
+  ClassBackgroundColor #E8F4F9
+  ClassHeaderBackgroundColor #5D8AA8
+  ClassFontColor #000000
+  ClassStereotypeFontColor #FFFFFF
+  ClassAttributeFontColor #000000
+  ClassFontStyle bold
+
+  PackageBackgroundColor #F5F5F5
+  PackageBorderColor #DDDDDD
+
+  NoteBackgroundColor #FFF8DC
+  NoteBorderColor #DCDCAA
+
+  ArrowColor #5D8AA8
+}
+
+package "cmd" {
+  class "Command (e.g. DiffCmd)" as Command {
+    +RunE(cmd *cobra.Command, args []string): error
+  }
+}
+
+package "pkg/config" {
+  interface "ConfigProvider" as ConfigProvider {
+    +KubeContext(): string
+    +HelmBinary(): string
+    +Logger(): *zap.SugaredLogger
+    +Args(): string
+    +...()
+  }
+
+  interface "DiffConfigProvider" as DiffConfigProvider {
+    +DiffArgs(): string
+    +DetailedExitcode(): bool
+    +IncludeTests(): bool
+    +SkipDiffOnInstall(): bool
+    +...()
+  }
+
+  class "DiffImpl" as DiffImpl {
+    +GlobalImpl: *GlobalImpl
+    +DiffOptions: *DiffOptions
+    +Concurrency(): int
+    +IncludeNeeds(): bool
+    +Set(): []string
+    +...()
+  }
+}
+
+package "pkg/app" {
+  class "App" as App {
+    +OverrideKubeContext: string
+    +OverrideHelmBinary: string
+    +Logger: *zap.SugaredLogger
+    +...
+    +New(conf ConfigProvider): *App
+    +Diff(c DiffConfigProvider): error
+    +Apply(c ApplyConfigProvider): error
+    +...()
+  }
+
+  class "Run" as Run {
+    +state: *state.HelmState
+    +helm: helmexec.Interface
+    +ctx: Context
+    +ReleaseToChart: map[state.PrepareChartKey]string
+    +...
+    +diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts): (*string, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, []error)
+    +withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()): error
+    +...()
+  }
+}
+
+package "pkg/state" {
+  class "HelmState" as HelmState {
+    +FilePath: string
+    +Releases: []ReleaseSpec
+    +...
+    +DiffReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, ...): ([]ReleaseSpec, []error)
+    +PrepareCharts(helm helmexec.Interface, dir string, concurrency int, ...): (map[PrepareChartKey]string, []error)
+    +...()
+  }
+
+  class "DiffOpts" as DiffOpts {
+    +Context: int
+    +Output: string
+    +Color: bool
+    +NoColor: bool
+    +Set: []string
+    +...
+  }
+}
+
+package "pkg/helmexec" {
+  interface "Interface" as HelmExec {
+    +SetExtraArgs(...string)
+    +DiffRelease(context HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string): error
+    +SyncRelease(context HelmContext, name, chart, namespace string, flags ...string): error
+    +...()
+  }
+}
+
+' Command flow
+Command --> DiffImpl : creates
+Command --> App : creates and uses
+
+' Config relationships
+DiffConfigProvider <|.. DiffImpl : implements
+ConfigProvider <|.. DiffImpl : implements
+
+' App relationships
+App --> Run : creates and uses
+App ..> DiffConfigProvider : uses
+
+' Run relationships
+Run --> HelmState : operates on
+Run --> HelmExec : executes helm commands
+Run ..> DiffOpts : configures diff options
+
+' State relationships
+HelmState ..> HelmExec : uses for helm operations
+HelmState ..> DiffOpts : uses for diff configuration
+
+note right of Command
+  Command Flow:
+  1. Parse flags into DiffImpl
+  2. Create App with DiffImpl
+  3. Call App.Diff()
+end note
+
+note right of App
+  App Flow:
+  1. ForEachState() loads state files
+  2. Creates Run instances
+  3. Calls Run.diff()
+end note
+
+note right of Run
+  Run Flow:
+  1. withPreparedCharts() prepares charts
+  2. diff() plans and executes diff operation
+  3. Uses HelmState.DiffReleases() for actual diff
+end note
+
+note right of HelmState
+  HelmState Flow:
+  1. prepareDiffReleases() prepares flags and options
+  2. DiffReleases() executes helm diff via helmexec
+  3. Returns affected releases and errors
+end note
+
+@enduml

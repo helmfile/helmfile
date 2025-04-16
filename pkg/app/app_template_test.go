@@ -126,7 +126,7 @@ releases:
 				app.Selectors = tc.selectors
 			}
 
-			tmplErr := app.Template(applyConfig{
+			tmplErr := app.Template(NewApplyConfigWithDefaults(&applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency:            1,
 				logger:                 logger,
@@ -135,7 +135,7 @@ releases:
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
 				showOnly:               tc.fields.showOnly,
 				noHooks:                tc.fields.noHooks,
-			})
+			}))
 
 			var gotErr string
 			if tmplErr != nil {
@@ -394,11 +394,11 @@ releases:
 				app.Namespace = tc.ns
 			}
 
-			tmplErr := app.Template(applyConfig{
+			tmplErr := app.Template(NewApplyConfigWithDefaults(&applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency: 1,
 				logger:      logger,
-			})
+			}))
 
 			var gotErr string
 			if tmplErr != nil {
@@ -499,11 +499,11 @@ releases:
 				app.Namespace = tc.ns
 			}
 
-			tmplErr := app.Template(applyConfig{
+			tmplErr := app.Template(NewApplyConfigWithDefaults(&applyConfig{
 				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency: 1,
 				logger:      logger,
-			})
+			}))
 
 			var gotErr string
 			if tmplErr != nil {

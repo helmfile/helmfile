@@ -1,14 +1,17 @@
 ORG     ?= $(shell basename $(realpath ..))
 PKGS    := $(shell go list ./... | grep -v /vendor/)
 
-TAG  ?= $(shell git describe --tags --abbrev=0 HEAD)
+INSTALL_DEPS ?= 0
+
+TAG  ?= $(shell git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "v0.0.1")
+
 LAST = $(shell git describe --tags --abbrev=0 HEAD^)
 BODY = "`git log ${LAST}..HEAD --oneline --decorate` `printf '\n\#\#\# [Build Info](${BUILD_URL})'`"
 DATE_FMT = +"%Y-%m-%dT%H:%M:%S%z"
 ifdef SOURCE_DATE_EPOCH
-    BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u "$(DATE_FMT)")
+	BUILD_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u -r "$(SOURCE_DATE_EPOCH)" "$(DATE_FMT)" 2>/dev/null || date -u "$(DATE_FMT)")
 else
-    BUILD_DATE ?= $(shell date "$(DATE_FMT)")
+	BUILD_DATE ?= $(shell date "$(DATE_FMT)")
 endif
 
 
@@ -20,6 +23,65 @@ GO_BUILD_VERSION_LDFLAGS=\
   -X go.szostok.io/version.commitDate=$(shell git log -1 --date=format:"%Y-%m-%dT%H:%M:%S%z" --format=%cd) \
   -X go.szostok.io/version.dirtyBuild=false
 
+# Define a function to check if a command exists
+# Usage: $(call check_command,command_name,installation_instructions)
+# Returns 0 if command exists, 1 if not
+define check_command
+	command -v $(1) >/dev/null
+endef
+
+all: build
+.PHONY: all
+
+# Install all required tools
+install-deps: build-test-tools
+	@echo "Installing Go dependencies..."
+	@go install github.com/daixiang0/gci@latest
+	@go install github.com/tcnksm/ghr@latest
+	@go install github.com/mitchellh/gox@latest
+	@echo "Go dependencies installed successfully"
+.PHONY: install-deps
+
+# Check for all required dependencies
+check-deps:
+	@echo "Checking dependencies..."
+	@missing_deps="" ; \
+	missing_go_tools="" ; \
+	$(call check_command,go,https://golang.org/doc/install) || missing_deps="$$missing_deps\n- go: install from https://golang.org/doc/install" ; \
+	$(call check_command,gci,) || missing_go_tools="$$missing_go_tools gci" ; \
+	$(call check_command,ghr,) || missing_go_tools="$$missing_go_tools ghr" ; \
+	$(call check_command,gox,) || missing_go_tools="$$missing_go_tools gox" ; \
+	$(call check_command,curl,https://curl.se/docs/install.html) || missing_deps="$$missing_deps\n- curl: install using your system package manager" ; \
+	$(call check_command,docker,https://docs.docker.com/get-docker/) || missing_deps="$$missing_deps\n- docker: install from https://docs.docker.com/get-docker/" ; \
+	$(call check_command,git,https://git-scm.com/downloads) || missing_deps="$$missing_deps\n- git: install from https://git-scm.com/downloads" ; \
+	$(call check_command,bash,) || missing_deps="$$missing_deps\n- bash: install using your system package manager" ; \
+    if [ -n "$$missing_go_tools" ]; then \
+        if [ -n "$$missing_deps" ]; then \
+            printf "\nCannot install Go tools because Go itself is missing.\n" ; \
+        elif [ -n "$$INSTALL_DEPS" ]; then \
+            echo "Installing missing Go tools:$$missing_go_tools" ; \
+            for tool in $$missing_go_tools; do \
+                case $$tool in \
+                    gci) go install github.com/daixiang0/gci@latest ;; \
+                    ghr) go install github.com/tcnksm/ghr@latest ;; \
+                    gox) go install github.com/mitchellh/gox@latest ;; \
+                esac ; \
+            done ; \
+            echo "Go tools installed successfully" ; \
+        else \
+            printf "\nMissing Go tools:$$missing_go_tools\n" ; \
+            echo "Run 'make install-deps' to install them, or run 'make check-deps INSTALL_DEPS=1' to check and install." ; \
+            missing_deps="$$missing_deps\n- Go tools: run 'make install-deps'" ; \
+        fi ; \
+    fi ; \
+    if [ -n "$$missing_deps" ] && [ -z "$$INSTALL_DEPS" ]; then \
+        printf "\nMissing dependencies:$$missing_deps\n\n" ; \
+        echo "Please install the missing dependencies and try again." ; \
+        exit 1 ; \
+    else \
+        echo "All dependencies are available" ; \
+    fi
+.PHONY: check-deps
 
 build:
 	go build -ldflags="$(GO_BUILD_VERSION_LDFLAGS)" ${TARGETS}
@@ -43,9 +105,12 @@ build-test-tools:
 	curl --progress-bar --location https://github.com/homeport/dyff/releases/download/v1.5.6/dyff_1.5.6_linux_amd64.tar.gz  | tar -xzf - -C `pwd` dyff
 .PHONY: build-test-tools
 
-test:
+test-build:
 	@which helm &> /dev/null || (echo "helm binary not found. Please see: https://helm.sh/docs/intro/install/" && exit 1)
 	go build -o helmfile .
+.PHONY: test-build
+
+test: test-build
 	go test -v ${PKGS} -coverprofile cover.out -race -p=1
 	go tool cover -func cover.out
 .PHONY: test

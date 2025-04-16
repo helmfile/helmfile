@@ -229,6 +229,31 @@ func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []st
 	return flags
 }
 
+// appendCRDFlags appends the appropriate CRD-related flag to the command line flags
+// based on the provided boolean parameters.
+//
+// If skipCRDs is true, it appends "--skip-crds" to the flags.
+// Otherwise, if includeCRDs is true, it appends "--include-crds" to the flags.
+// If neither condition is met, it returns the flags unchanged.
+//
+// This function ensures that skipCRDs takes precedence over includeCRDs when both are true.
+//
+// Parameters:
+//   - flags: The existing slice of command line flags
+//   - skipCRDs: Whether to skip CRDs installation/processing
+//   - includeCRDs: Whether to include CRDs installation/processing
+//
+// Returns:
+//   - The updated slice of command line flags
+func (st *HelmState) appendCRDFlags(flags []string, skipCRDs, includeCRDs bool) []string {
+	if skipCRDs {
+		return append(flags, "--skip-crds")
+	} else if includeCRDs {
+		return append(flags, "--include-crds")
+	}
+	return flags
+}
+
 type Chartify struct {
 	Opts  *chartify.ChartifyOpts
 	Clean func()

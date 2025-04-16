@@ -702,9 +702,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					}
 				}
 
-				if opts.SkipCRDs {
-					flags = append(flags, "--skip-crds")
-				}
+				flags = st.appendCRDFlags(flags, opts.SkipCRDs, opts.IncludeCRDs)
 
 				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues)
 
@@ -794,6 +792,7 @@ type SyncOpts struct {
 	Set                  []string
 	SkipCleanup          bool
 	SkipCRDs             bool
+	IncludeCRDs          bool
 	Wait                 bool
 	WaitRetries          int
 	WaitForJobs          bool
@@ -1136,7 +1135,7 @@ type ChartPrepareOptions struct {
 	// Validate is a helm-3-only option. When it is set to true, it configures chartify to pass --validate to helm-template run by it.
 	// It's required when one of your chart relies on Capabilities.APIVersions in a template
 	Validate               bool
-	IncludeCRDs            *bool
+	IncludeCRDs            bool
 	Wait                   bool
 	WaitRetries            int
 	WaitForJobs            bool
@@ -1298,33 +1297,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					)
 
 					chartifyOpts := chartification.Opts
-
-					if skipDeps {
-						chartifyOpts.SkipDeps = true
-					}
-
-					includeCRDs := true
-					if opts.IncludeCRDs != nil {
-						includeCRDs = *opts.IncludeCRDs
-					}
-					chartifyOpts.IncludeCRDs = includeCRDs
-
-					chartifyOpts.Validate = opts.Validate
-
-					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
-					chartifyOpts.ApiVersions = st.getApiVersions(release)
-
-					if opts.Values != nil {
-						chartifyOpts.ValuesFiles = append(opts.Values, chartifyOpts.ValuesFiles...)
-					}
-
-					// https://github.com/helmfile/helmfile/pull/867
-					// https://github.com/helmfile/helmfile/issues/895
-					var flags []string
-					for _, s := range opts.Set {
-						flags = append(flags, "--set", s)
-					}
-					chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
+					st.mergeChartifyOpts(chartifyOpts, opts, skipDeps, release)
 
 					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 					if err != nil {
@@ -1454,6 +1427,33 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	return prepareChartInfo, nil
 }
 
+// mergeChartifyOpts merges the source opts into the destination opts, modifying dest directly
+func (st *HelmState) mergeChartifyOpts(dest *chartify.ChartifyOpts, source ChartPrepareOptions, skipDeps bool, release *ReleaseSpec) {
+	// @TODO why is this not just `chartifyOpts.SkipDeps = skipDeps`??
+	if skipDeps {
+		dest.SkipDeps = true
+	}
+
+	dest.IncludeCRDs = source.IncludeCRDs
+
+	dest.Validate = source.Validate
+
+	dest.KubeVersion = st.getKubeVersion(release, source.KubeVersion)
+	dest.ApiVersions = st.getApiVersions(release)
+
+	if source.Values != nil {
+		dest.ValuesFiles = append(source.Values, dest.ValuesFiles...)
+	}
+
+	// https://github.com/helmfile/helmfile/pull/867
+	// https://github.com/helmfile/helmfile/issues/895
+	var flags []string
+	for _, s := range source.Set {
+		flags = append(flags, "--set", s)
+	}
+	dest.SetFlags = append(dest.SetFlags, flags...)
+}
+
 // nolint: unparam
 func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult) error {
 	// NOTES:
@@ -1496,6 +1496,7 @@ type TemplateOpts struct {
 	Set               []string
 	SkipCleanup       bool
 	OutputDirTemplate string
+	SkipCRDs          bool
 	IncludeCRDs       bool
 	NoHooks           bool
 	SkipTests         bool
@@ -1578,9 +1579,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			flags = append(flags, "--validate")
 		}
 
-		if opts.IncludeCRDs {
-			flags = append(flags, "--include-crds")
-		}
+		flags = st.appendCRDFlags(flags, opts.SkipCRDs, opts.IncludeCRDs)
 
 		if opts.NoHooks {
 			flags = append(flags, "--no-hooks")
@@ -1852,6 +1851,9 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool
 			flags = append(flags, "--set", s)
 		}
 	}
+
+	flags = st.appendCRDFlags(flags, opt.SkipCRDs, opt.IncludeCRDs)
+
 	flags = st.appendExtraDiffFlags(flags, opt)
 
 	return flags
@@ -2029,6 +2031,8 @@ type DiffOpts struct {
 	// If this is true, Color has no effect.
 	NoColor                 bool
 	Set                     []string
+	SkipCRDs                bool
+	IncludeCRDs             bool
 	SkipCleanup             bool
 	SkipDiffOnInstall       bool
 	DiffArgs                string
@@ -2744,6 +2748,17 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 	return flags
 }
 
+// flagsForUpgrade returns the flags for the helm upgrade command for the given release.
+// It considers both global options and release-specific settings to determine the appropriate flags.
+// The returned flags include settings for CRDs, values, wait conditions, hooks, timeouts, and other upgrade-specific options.
+//
+// Parameters:
+//   - release: The release specification containing release-specific settings
+//   - workerIndex: The index of the worker processing this release (for concurrent operations)
+//   - opt: Options containing global settings for the upgrade operation
+//
+// Returns:
+//   - A string slice containing all flags to be passed to the helm upgrade command
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
@@ -2837,6 +2852,17 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	return append(flags, common...), clean, nil
 }
 
+// flagsForTemplate returns the flags for the helm template command for the given release.
+// It considers both global options and release-specific settings to determine the appropriate flags.
+// The returned flags include settings for CRDs, values, validation, output formatting, and other template-specific options.
+//
+// Parameters:
+//   - release: The release specification containing release-specific settings
+//   - workerIndex: The index of the worker processing this release (for concurrent operations)
+//   - opt: Options containing global settings for the template operation
+//
+// Returns:
+//   - A string slice containing all flags to be passed to the helm template command
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error) {
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
@@ -2868,6 +2894,17 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	return append(flags, common...), files, nil
 }
 
+// flagsForDiff returns the flags for the helm diff command for the given release
+// It considers both global options and release-specific settings to determine the appropriate flags.
+// The returned flags include settings for CRDs, values, validation, hooks, and other diff-specific options.
+//
+// Parameters:
+//   - release: The release specification containing release-specific settings
+//   - workerIndex: The index of the worker processing this release (for concurrent operations)
+//   - opt: Options containing global settings for the diff operation
+//
+// Returns:
+//   - A string slice containing all flags to be passed to the helm diff command
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
 	settings := cli.New()
 	var flags []string
@@ -3069,6 +3106,17 @@ func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
 	return result
 }
 
+// flagsForLint returns the flags for the helm lint command for the given release.
+// It considers both global options and release-specific settings to determine the appropriate flags.
+// The returned flags include settings for values files, set values, and other lint-specific options.
+//
+// Parameters:
+//   - release: The release specification containing release-specific settings
+//   - workerIndex: The index of the worker processing this release (for concurrent operations)
+//   - opt: Options containing global settings for the lint operation
+//
+// Returns:
+//   - A string slice containing all flags to be passed to the helm lint command
 func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
 	flags, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
