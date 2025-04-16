@@ -14,13 +14,14 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/version"
 )
 
 var (
 	manuallyInstallCode   = 1
 	windowPackageManagers = map[string]string{
-		"scoop": fmt.Sprintf("scoop install helm@%s", strings.TrimLeft(HelmRecommendedVersion, "v")),
-		"choco": fmt.Sprintf("choco install kubernetes-helm --version %s", strings.TrimLeft(HelmRecommendedVersion, "v")),
+		"scoop": fmt.Sprintf("scoop install helm@%s", strings.TrimLeft(version.HelmRecommendedVersion, "v")),
+		"choco": fmt.Sprintf("choco install kubernetes-helm --version %s", strings.TrimLeft(version.HelmRecommendedVersion, "v")),
 	}
 )
 
@@ -90,7 +91,7 @@ func (h *HelmfileInit) InstallHelm() error {
 		return h.installHelmOnWindows()
 	}
 
-	err := h.WhetherContinue(fmt.Sprintf("use: '%s'", HelmInstallCommand))
+	err := h.WhetherContinue(fmt.Sprintf("use: '%s'", version.HelmInstallCommand))
 	if err != nil {
 		return err
 	}
@@ -102,14 +103,14 @@ func (h *HelmfileInit) InstallHelm() error {
 	if err != nil {
 		return err
 	}
-	err = downloadfile(getHelmScript.Name(), HelmInstallCommand)
+	err = downloadfile(getHelmScript.Name(), version.HelmInstallCommand)
 	if err != nil {
 		return err
 	}
 	_, err = h.runner.Execute("bash", []string{
 		getHelmScript.Name(),
 		"--version",
-		HelmRecommendedVersion,
+		version.HelmRecommendedVersion,
 	}, nil, true)
 	if err != nil {
 		return err
@@ -182,7 +183,7 @@ func (h *HelmfileInit) CheckHelm() error {
 	if err != nil {
 		return err
 	}
-	requiredHelmVersion, _ := semver.NewVersion(HelmRequiredVersion)
+	requiredHelmVersion, _ := semver.NewVersion(version.HelmRequiredVersion)
 	if helmversion.LessThan(requiredHelmVersion) {
 		h.logger.Infof("helm version is too low, the current version is %s, the required version is %s", helmversion, requiredHelmVersion)
 		err = h.UpdateHelm()
