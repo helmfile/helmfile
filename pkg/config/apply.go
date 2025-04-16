@@ -1,6 +1,9 @@
 package config
 
-import "github.com/helmfile/helmfile/pkg/common"
+import (
+	"github.com/helmfile/helmfile/pkg/common"
+	"github.com/helmfile/helmfile/pkg/flags"
+)
 
 // ApplyOptoons is the options for the apply command
 type ApplyOptions struct {
@@ -81,216 +84,34 @@ type ApplyOptions struct {
 
 // NewApply creates a new Apply
 func NewApplyOptions() *ApplyOptions {
-	newOptions := &ApplyOptions{
-		IncludeCRDsFlag: common.NewBoolFlag(false),
-		SkipCRDsFlag:    common.NewBoolFlag(false),
-	}
+	newOptions := &ApplyOptions{}
+	newOptions.Initialize()
 
 	return newOptions
 }
 
-// ApplyImpl is impl for applyOptions
-type ApplyImpl struct {
-	*GlobalImpl
-	*ApplyOptions
+func (o *ApplyOptions) Initialize() {
+	flags.EnsureBoolFlag(&o.IncludeCRDsFlag, false)
+	flags.EnsureBoolFlag(&o.SkipCRDsFlag, false)
 }
 
-// NewApplyImpl creates a new ApplyImpl
-func NewApplyImpl(g *GlobalImpl, a *ApplyOptions) *ApplyImpl {
-	return &ApplyImpl{
-		GlobalImpl:   g,
-		ApplyOptions: a,
+func (o *ApplyOptions) HandleFlag(name string, value interface{}, changed bool) bool {
+	switch name {
+	case "include-crds":
+		if changed {
+			if boolVal, ok := value.(*bool); ok {
+				o.IncludeCRDsFlag.Set(*boolVal)
+			}
+		}
+		return true
+	case "skip-crds":
+		if changed {
+			if boolVal, ok := value.(*bool); ok {
+				o.SkipCRDsFlag.Set(*boolVal)
+			}
+		}
+		return true
 	}
-}
 
-// Set returns the set.
-func (a *ApplyImpl) Set() []string {
-	return a.ApplyOptions.Set
-}
-
-// Concurrency returns the concurrency.
-func (a *ApplyImpl) Concurrency() int {
-	return a.ApplyOptions.Concurrency
-}
-
-// Context returns the context.
-func (a *ApplyImpl) Context() int {
-	return a.ApplyOptions.Context
-}
-
-// DetailedExitcode returns the detailed exitcode.
-func (a *ApplyImpl) DetailedExitcode() bool {
-	return a.ApplyOptions.DetailedExitcode
-}
-
-// StripTrailingCR is true if trailing carriage returns should be stripped during diffing
-func (a *ApplyImpl) StripTrailingCR() bool {
-	return a.ApplyOptions.StripTrailingCR
-}
-
-// DiffOutput returns the diff output.
-func (a *ApplyImpl) DiffOutput() string {
-	return a.Output
-}
-
-// IncludeNeeds returns the include needs.
-func (a *ApplyImpl) IncludeNeeds() bool {
-	return a.ApplyOptions.IncludeNeeds || a.IncludeTransitiveNeeds()
-}
-
-// IncludeTests returns the include tests.
-func (a *ApplyImpl) IncludeTests() bool {
-	return a.ApplyOptions.IncludeTests
-}
-
-// IncludeTransitiveNeeds returns the include transitive needs.
-func (a *ApplyImpl) IncludeTransitiveNeeds() bool {
-	return a.ApplyOptions.IncludeTransitiveNeeds
-}
-
-// ShowSecrets returns the show secrets.
-func (a *ApplyImpl) ShowSecrets() bool {
-	return a.ApplyOptions.ShowSecrets
-}
-
-// NoHooks skips hooks.
-func (a *ApplyImpl) NoHooks() bool {
-	return a.ApplyOptions.NoHooks
-}
-
-// SkipCRDs returns the skip CRDs.
-func (a *ApplyImpl) SkipCRDs() bool {
-	return a.ApplyOptions.SkipCRDsFlag.Value()
-}
-
-// IncludeCRDs returns the include CRDs.
-func (a *ApplyImpl) IncludeCRDs() bool {
-	return a.ApplyOptions.IncludeCRDsFlag.Value()
-}
-
-// ShouldIncludeCRDs returns true if CRDs should be included.
-func (a *ApplyImpl) ShouldIncludeCRDs() bool {
-	includeCRDsExplicit := a.IncludeCRDsFlag.WasExplicitlySet() && a.IncludeCRDsFlag.Value()
-	skipCRDsExplicit := a.SkipCRDsFlag.WasExplicitlySet() && !a.SkipCRDsFlag.Value()
-
-	return includeCRDsExplicit || skipCRDsExplicit
-}
-
-// SkipCleanup returns the skip cleanup.
-func (a *ApplyImpl) SkipCleanup() bool {
-	return a.ApplyOptions.SkipCleanup
-}
-
-// SkipDiffOnInstall returns the skip diff on install.
-func (a *ApplyImpl) SkipDiffOnInstall() bool {
-	return a.ApplyOptions.SkipDiffOnInstall
-}
-
-// DiffArgs is the list of arguments to pass to helm-diff.
-func (a *ApplyImpl) DiffArgs() string {
-	return a.ApplyOptions.DiffArgs
-}
-
-// SkipNeeds returns the skip needs.
-func (a *ApplyImpl) SkipNeeds() bool {
-	if !a.IncludeNeeds() {
-		return a.ApplyOptions.SkipNeeds
-	}
 	return false
-}
-
-// Suppress returns the suppress.
-func (a *ApplyImpl) Suppress() []string {
-	return a.ApplyOptions.Suppress
-}
-
-// SuppressDiff returns the suppress diff.
-func (a *ApplyImpl) SuppressDiff() bool {
-	return a.ApplyOptions.SuppressDiff
-}
-
-// SuppressSecrets returns the suppress secrets.
-func (a *ApplyImpl) SuppressSecrets() bool {
-	return a.ApplyOptions.SuppressSecrets
-}
-
-// Validate returns the validate.
-func (a *ApplyImpl) Validate() bool {
-	return a.ApplyOptions.Validate
-}
-
-// Values returns the values.
-func (a *ApplyImpl) Values() []string {
-	return a.ApplyOptions.Values
-}
-
-// Wait returns the wait.
-func (a *ApplyImpl) Wait() bool {
-	return a.ApplyOptions.Wait
-}
-
-// WaitRetries returns the wait retries.
-func (a *ApplyImpl) WaitRetries() int {
-	return a.ApplyOptions.WaitRetries
-}
-
-// WaitForJobs returns the wait for jobs.
-func (a *ApplyImpl) WaitForJobs() bool {
-	return a.ApplyOptions.WaitForJobs
-}
-
-// ReuseValues returns the ReuseValues.
-func (a *ApplyImpl) ReuseValues() bool {
-	if !a.ResetValues() {
-		return a.ApplyOptions.ReuseValues
-	}
-	return false
-}
-
-func (a *ApplyImpl) ResetValues() bool {
-	return a.ApplyOptions.ResetValues
-}
-
-// PostRenderer returns the PostRenderer.
-func (a *ApplyImpl) PostRenderer() string {
-	return a.ApplyOptions.PostRenderer
-}
-
-// PostRendererArgs returns the PostRendererArgs.
-func (a *ApplyImpl) PostRendererArgs() []string {
-	return a.ApplyOptions.PostRendererArgs
-}
-
-// SkipSchemaValidation returns the SkipSchemaValidation.
-func (a *ApplyImpl) SkipSchemaValidation() bool {
-	return a.ApplyOptions.SkipSchemaValidation
-}
-
-// Cascade returns cascade flag
-func (a *ApplyImpl) Cascade() string {
-	return a.ApplyOptions.Cascade
-}
-
-// SuppressOutputLineRegex returns the SuppressOutputLineRegex.
-func (a *ApplyImpl) SuppressOutputLineRegex() []string {
-	return a.ApplyOptions.SuppressOutputLineRegex
-}
-
-// SyncArgs returns the SyncArgs.
-func (a *ApplyImpl) SyncArgs() string {
-	return a.ApplyOptions.SyncArgs
-}
-
-// HideNotes returns the HideNotes.
-func (a *ApplyImpl) HideNotes() bool {
-	return a.ApplyOptions.HideNotes
-}
-
-// TakeOwnership returns the TakeOwnership.
-func (a *ApplyImpl) TakeOwnership() bool {
-	return a.ApplyOptions.TakeOwnership
-}
-
-func (a *ApplyImpl) SyncReleaseLabels() bool {
-	return a.ApplyOptions.SyncReleaseLabels
 }

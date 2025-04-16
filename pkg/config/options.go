@@ -1,65 +1,13 @@
 package config
 
-func (o *ApplyOptions) HandleFlag(name string, value interface{}, changed bool) {
-	if !changed {
-		return
-	}
-
-	switch name {
-	case "include-crds":
-		if boolVal, ok := value.(*bool); ok {
-			o.IncludeCRDsFlag.Set(*boolVal)
-		}
-	case "skip-crds":
-		if boolVal, ok := value.(*bool); ok {
-			o.SkipCRDsFlag.Set(*boolVal)
-		}
-		// Handle other flags...
-	}
+// Options is the base interface for all command options
+type Options interface {
+	// Initialize sets default values for options
+	Initialize()
 }
 
-func (o *DiffOptions) HandleFlag(name string, value interface{}, changed bool) {
-	if !changed {
-		return
-	}
-
-	switch name {
-	case "include-crds":
-		if boolVal, ok := value.(*bool); ok {
-			o.IncludeCRDsFlag.Set(*boolVal)
-		}
-		// Handle other flags...
-	}
-}
-
-func (o *SyncOptions) HandleFlag(name string, value interface{}, changed bool) {
-	if !changed {
-		return
-	}
-
-	switch name {
-	case "include-crds":
-		if boolVal, ok := value.(*bool); ok {
-			o.IncludeCRDsFlag.Set(*boolVal)
-		}
-	case "skip-crds":
-		if boolVal, ok := value.(*bool); ok {
-			o.SkipCRDsFlag.Set(*boolVal)
-		}
-		// Handle other flags...
-	}
-}
-
-func (o *TemplateOptions) HandleFlag(name string, value interface{}, changed bool) {
-	if !changed {
-		return
-	}
-
-	switch name {
-	case "include-crds":
-		if boolVal, ok := value.(*bool); ok {
-			o.IncludeCRDsFlag.Set(*boolVal)
-		}
-		// Handle other flags...
-	}
+// FlagHandler handles flag values from command line
+type FlagHandler interface {
+	// HandleFlag processes a flag value
+	HandleFlag(name string, value interface{}, changed bool)
 }
