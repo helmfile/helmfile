@@ -1618,6 +1618,8 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			Output:                  c.DiffOutput(),
 			Color:                   c.Color(),
 			NoColor:                 c.NoColor(),
+			SkipCRDs:                c.SkipCRDs(),
+			IncludeCRDs:             c.ShouldIncludeCRDs(),
 			Set:                     c.Set(),
 			DiffArgs:                c.DiffArgs(),
 			SkipDiffOnInstall:       c.SkipDiffOnInstall(),

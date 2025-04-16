@@ -702,9 +702,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					}
 				}
 
-				if opts.SkipCRDs {
-					flags = append(flags, "--skip-crds")
-				}
+				flags = st.appendCRDFlags(flags, opts.SkipCRDs, opts.IncludeCRDs)
 
 				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues)
 
@@ -794,6 +792,7 @@ type SyncOpts struct {
 	Set                  []string
 	SkipCleanup          bool
 	SkipCRDs             bool
+	IncludeCRDs          bool
 	Wait                 bool
 	WaitRetries          int
 	WaitForJobs          bool
@@ -1497,6 +1496,7 @@ type TemplateOpts struct {
 	Set               []string
 	SkipCleanup       bool
 	OutputDirTemplate string
+	SkipCRDs          bool
 	IncludeCRDs       bool
 	NoHooks           bool
 	SkipTests         bool
@@ -1579,9 +1579,7 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 			flags = append(flags, "--validate")
 		}
 
-		if opts.IncludeCRDs {
-			flags = append(flags, "--include-crds")
-		}
+		flags = st.appendCRDFlags(flags, opts.SkipCRDs, opts.IncludeCRDs)
 
 		if opts.NoHooks {
 			flags = append(flags, "--no-hooks")
@@ -1854,10 +1852,7 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool
 		}
 	}
 
-	// internally we only care about include-crds since skip-crds is misleading and used only in command interface
-	if opt.IncludeCRDs {
-		flags = append(flags, "--include-crds")
-	}
+	flags = st.appendCRDFlags(flags, opt.SkipCRDs, opt.IncludeCRDs)
 
 	flags = st.appendExtraDiffFlags(flags, opt)
 
@@ -2036,6 +2031,7 @@ type DiffOpts struct {
 	// If this is true, Color has no effect.
 	NoColor                 bool
 	Set                     []string
+	SkipCRDs                bool
 	IncludeCRDs             bool
 	SkipCleanup             bool
 	SkipDiffOnInstall       bool
@@ -2752,6 +2748,17 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 	return flags
 }
 
+// flagsForUpgrade returns the flags for the helm upgrade command for the given release.
+// It considers both global options and release-specific settings to determine the appropriate flags.
+// The returned flags include settings for CRDs, values, wait conditions, hooks, timeouts, and other upgrade-specific options.
+//
+// Parameters:
+//   - release: The release specification containing release-specific settings
+//   - workerIndex: The index of the worker processing this release (for concurrent operations)
+//   - opt: Options containing global settings for the upgrade operation
+//
+// Returns:
+//   - A string slice containing all flags to be passed to the helm upgrade command
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
@@ -2845,6 +2852,17 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	return append(flags, common...), clean, nil
 }
 
+// flagsForTemplate returns the flags for the helm template command for the given release.
+// It considers both global options and release-specific settings to determine the appropriate flags.
+// The returned flags include settings for CRDs, values, validation, output formatting, and other template-specific options.
+//
+// Parameters:
+//   - release: The release specification containing release-specific settings
+//   - workerIndex: The index of the worker processing this release (for concurrent operations)
+//   - opt: Options containing global settings for the template operation
+//
+// Returns:
+//   - A string slice containing all flags to be passed to the helm template command
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error) {
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
@@ -2876,6 +2894,17 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	return append(flags, common...), files, nil
 }
 
+// flagsForDiff returns the flags for the helm diff command for the given release
+// It considers both global options and release-specific settings to determine the appropriate flags.
+// The returned flags include settings for CRDs, values, validation, hooks, and other diff-specific options.
+//
+// Parameters:
+//   - release: The release specification containing release-specific settings
+//   - workerIndex: The index of the worker processing this release (for concurrent operations)
+//   - opt: Options containing global settings for the diff operation
+//
+// Returns:
+//   - A string slice containing all flags to be passed to the helm diff command
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
 	settings := cli.New()
 	var flags []string
@@ -3077,6 +3106,17 @@ func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
 	return result
 }
 
+// flagsForLint returns the flags for the helm lint command for the given release.
+// It considers both global options and release-specific settings to determine the appropriate flags.
+// The returned flags include settings for values files, set values, and other lint-specific options.
+//
+// Parameters:
+//   - release: The release specification containing release-specific settings
+//   - workerIndex: The index of the worker processing this release (for concurrent operations)
+//   - opt: Options containing global settings for the lint operation
+//
+// Returns:
+//   - A string slice containing all flags to be passed to the helm lint command
 func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
 	flags, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
