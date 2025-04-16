@@ -19,8 +19,6 @@ releases:
     name: default-shared-resources
     namespace: default
     service: shared-resources
-  syncReleaseLabels: false
-  takeOwnership: false
 - chart: aservo/util
   version: 0.0.1
   needs:
@@ -32,12 +30,8 @@ releases:
     name: default-release-resources
     namespace: default
     service: release-resources
-  syncReleaseLabels: false
-  takeOwnership: false
 templates:
   defaults:
     name: default-{{ .Release.Labels.service }}
     namespace: default
-    syncReleaseLabels: false
-    takeOwnership: false
 renderedvalues: {}

@@ -204,13 +204,13 @@ type HelmSpec struct {
 	// PlainHttp is true if the remote charte should be fetched using HTTP and not HTTPS
 	PlainHttp bool `yaml:"plainHttp,omitempty"`
 	// Wait, if set to true, will wait until all resources are deleted before mark delete command as successful
-	DeleteWait bool `yaml:"deleteWait"`
+	DeleteWait bool `yaml:"deleteWait,omitempty"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
-	DeleteTimeout int `yaml:"deleteTimeout"`
+	DeleteTimeout int `yaml:"deleteTimeout,omitempty"`
 	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
-	SyncReleaseLabels *bool `yaml:"syncReleaseLabels"`
+	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
 	// TakeOwnership is true if the helmfile should take ownership of the release
-	TakeOwnership *bool `yaml:"takeOwnership"`
+	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -414,9 +414,9 @@ type ReleaseSpec struct {
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
 	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
-	SyncReleaseLabels *bool `yaml:"syncReleaseLabels"`
+	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
 	// TakeOwnership is true if the release should take ownership of the resources
-	TakeOwnership *bool `yaml:"takeOwnership"`
+	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
