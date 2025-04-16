@@ -1,7 +1,3 @@
-I need to create a comprehensive README.md for the pkg/factory package, including all files in the directory structure.
-
-Action: DirectAnswer
-
 # Factory Package
 
 ## Overview
