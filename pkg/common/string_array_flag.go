@@ -1,56 +1,63 @@
 package common
 
-// For array/slice flags
+// StringArrayFlag represents a string array flag that tracks whether it was explicitly set
 type StringArrayFlag interface {
-	Values() []string
+	// Value returns a copy of the current string array value
+	Value() []string
+
+	// WasExplicitlySet returns whether the flag was explicitly set
 	WasExplicitlySet() bool
-	Add(value string)
-	Set(values []string)
+
+	// Set sets the value and marks the flag as explicitly set
+	Set(value []string)
+
+	// Append adds a value to the array and marks the flag as explicitly set
+	Append(value string)
 }
 
+// stringArrayFlag is the implementation of ArrayFlag
 type stringArrayFlag struct {
-	values           []string
+	value            []string
 	wasExplicitlySet bool
 }
 
-// NewStringArrayFlag creates a new StringArrayFlag with the given default values
-// Create a defensive copy of the default values to prevent external modifications
-// and to ensure that the original values remain unchanged.
-func NewStringArrayFlag(defaultValues []string) StringArrayFlag {
-	valuesCopy := make([]string, len(defaultValues))
-	copy(valuesCopy, defaultValues)
+// NewStringArrayFlag creates a new ArrayFlag with default values
+func NewStringArrayFlag(defaultValue []string) StringArrayFlag {
+	// Create a copy of the default value to avoid modifying the original
+	valueCopy := make([]string, len(defaultValue))
+	copy(valueCopy, defaultValue)
 
 	return &stringArrayFlag{
-		values:           valuesCopy,
+		value:            valueCopy,
 		wasExplicitlySet: false,
 	}
 }
 
-// Values returns the values of the flag
-// It returns a copy of the values to prevent external modifications
-// and to ensure that the original values remain unchanged.
-// This is important for flags that may be modified by the user
-// or other parts of the program.
-func (f *stringArrayFlag) Values() []string {
-	// Return a copy to prevent external modifications
-	valuesCopy := make([]string, len(f.values))
-	copy(valuesCopy, f.values)
-	return valuesCopy
+// Value returns a copy of the current string array value
+func (af *stringArrayFlag) Value() []string {
+	// Create a copy to prevent external modification of internal state
+	result := make([]string, len(af.value))
+	copy(result, af.value)
+	return result
 }
 
 // WasExplicitlySet returns whether the flag was explicitly set
-func (f *stringArrayFlag) WasExplicitlySet() bool {
-	return f.wasExplicitlySet
+func (af *stringArrayFlag) WasExplicitlySet() bool {
+	return af.wasExplicitlySet
 }
 
-// Set sets the values and marks the flag as explicitly set
-func (f *stringArrayFlag) Set(values []string) {
-	f.values = values
-	f.wasExplicitlySet = true
+// Set sets the value and marks the flag as explicitly set
+func (af *stringArrayFlag) Set(value []string) {
+	// Create a copy of the value to avoid modifying the original
+	valueCopy := make([]string, len(value))
+	copy(valueCopy, value)
+
+	af.value = valueCopy
+	af.wasExplicitlySet = true
 }
 
-// Add sets the value and marks the flag as explicitly set
-func (f *stringArrayFlag) Add(value string) {
-	f.values = append(f.values, value)
-	f.wasExplicitlySet = true
+// Append adds a value to the array and marks the flag as explicitly set
+func (af *stringArrayFlag) Append(value string) {
+	af.value = append(af.value, value)
+	af.wasExplicitlySet = true
 }
