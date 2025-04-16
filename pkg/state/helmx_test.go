@@ -387,12 +387,13 @@ func TestAppendHideNotesFlags(t *testing.T) {
 	}
 }
 
-func TestAppendTakeOwnershipFlags(t *testing.T) {
+func TestAppendTakeOwnershipFlagsForUpgrade(t *testing.T) {
 	type args struct {
 		flags    []string
 		helm     helmexec.Interface
 		helmSpec HelmSpec
 		opt      *SyncOpts
+		release  *ReleaseSpec
 		expected []string
 	}
 	tests := []struct {
@@ -402,8 +403,9 @@ func TestAppendTakeOwnershipFlags(t *testing.T) {
 		{
 			name: "no take-ownership when helm less than 3.17.0",
 			args: args{
-				flags: []string{},
-				helm:  testutil.NewVersionHelmExec("3.16.0"),
+				flags:   []string{},
+				release: &ReleaseSpec{},
+				helm:    testutil.NewVersionHelmExec("3.16.0"),
 				opt: &SyncOpts{
 					TakeOwnership: true,
 				},
@@ -413,8 +415,9 @@ func TestAppendTakeOwnershipFlags(t *testing.T) {
 		{
 			name: "take-ownership from cmd flag",
 			args: args{
-				flags: []string{},
-				helm:  testutil.NewVersionHelmExec("3.17.0"),
+				flags:   []string{},
+				helm:    testutil.NewVersionHelmExec("3.17.0"),
+				release: &ReleaseSpec{},
 				opt: &SyncOpts{
 					TakeOwnership: true,
 				},
@@ -426,8 +429,8 @@ func TestAppendTakeOwnershipFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{}
 			st.HelmDefaults = tt.args.helmSpec
-			got := st.appendTakeOwnershipFlags(tt.args.flags, tt.args.helm, tt.args.opt)
-			require.Equalf(t, tt.args.expected, got, "appendTakeOwnershipFlags() = %v, want %v", got, tt.args.expected)
+			got := st.appendTakeOwnershipFlagsForUpgrade(tt.args.flags, tt.args.helm, tt.args.release, tt.args.opt.TakeOwnership)
+			require.Equalf(t, tt.args.expected, got, "appendTakeOwnershipFlagsForUpgrade() = %v, want %v", got, tt.args.expected)
 		})
 	}
 }

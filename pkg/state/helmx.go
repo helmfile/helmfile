@@ -54,7 +54,22 @@ func formatLabels(labels map[string]string) string {
 
 // append labels flags to helm flags, starting from helm v3.13.0
 func (st *HelmState) appendLabelsFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, syncReleaseLabels bool) []string {
-	if helm.IsVersionAtLeast("3.13.0") && (syncReleaseLabels || st.HelmDefaults.SyncReleaseLabels || release.SyncReleaseLabels) {
+	if !helm.IsVersionAtLeast("3.13.0") {
+		return flags
+	}
+	isSyncReleaseLabels := false
+	switch {
+	// Check if SyncReleaseLabels is true in the release spec.
+	case release.SyncReleaseLabels != nil && *release.SyncReleaseLabels:
+		isSyncReleaseLabels = true
+	// Check if syncReleaseLabels argument is true.
+	case syncReleaseLabels:
+		isSyncReleaseLabels = true
+	// Check if SyncReleaseLabels is true in HelmDefaults.
+	case st.HelmDefaults.SyncReleaseLabels != nil && *st.HelmDefaults.SyncReleaseLabels:
+		isSyncReleaseLabels = true
+	}
+	if isSyncReleaseLabels {
 		labels := formatLabels(release.Labels)
 		if labels != "" {
 			flags = append(flags, "--labels", labels)
@@ -203,13 +218,17 @@ func (st *HelmState) appendHideNotesFlags(flags []string, helm helmexec.Interfac
 }
 
 // append take-ownership flags to helm flags
-func (st *HelmState) appendTakeOwnershipFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string {
+func (st *HelmState) appendTakeOwnershipFlagsForUpgrade(flags []string, helm helmexec.Interface, release *ReleaseSpec, takeOwnership bool) []string {
 	// see https://github.com/helm/helm/releases/tag/v3.17.0
 	if !helm.IsVersionAtLeast("3.17.0") {
 		return flags
 	}
 	switch {
-	case ops.TakeOwnership:
+	case release.TakeOwnership != nil && *release.TakeOwnership:
+		flags = append(flags, "--take-ownership")
+	case takeOwnership:
+		flags = append(flags, "--take-ownership")
+	case st.HelmDefaults.TakeOwnership != nil && *st.HelmDefaults.TakeOwnership:
 		flags = append(flags, "--take-ownership")
 	}
 	return flags
