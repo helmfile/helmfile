@@ -4,25 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
-func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
+func testYamlMarshal(t *testing.T) {
 	t.Helper()
 
-	var yamlLibraryName string
-	if goccyGoYaml {
-		yamlLibraryName = "goccy/go-yaml"
-	} else {
-		yamlLibraryName = "gopkg.in/yaml.v2"
-	}
-
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = goccyGoYaml
-	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
-	})
+	yamlLibraryName := "goccy/go-yaml"
 
 	tests := []struct {
 		Name string `yaml:"name"`
@@ -49,8 +36,7 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 				Annotation: "on",
 			}},
 			expected: map[string]string{
-				"goccy/go-yaml":    "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: 'on'\n",
-				"gopkg.in/yaml.v2": "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: \"on\"\n",
+				"goccy/go-yaml": "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: 'on'\n",
 			},
 		},
 	}
@@ -64,10 +50,6 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 
 func TestYamlMarshal(t *testing.T) {
 	t.Run("with goccy/go-yaml", func(t *testing.T) {
-		testYamlMarshal(t, true)
-	})
-
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
-		testYamlMarshal(t, false)
+		testYamlMarshal(t)
 	})
 }
