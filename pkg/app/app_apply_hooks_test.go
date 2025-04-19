@@ -161,7 +161,7 @@ releases:
 				{Name: "foo"},
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -192,7 +192,7 @@ releases:
 				{Name: "foo"},
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -223,7 +223,7 @@ releases:
 				{Name: "foo"},
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -252,7 +252,7 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: nil,
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: nil,
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -299,8 +299,8 @@ releases:
 				{Name: "bar"},
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
-				{Name: "bar", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -346,7 +346,7 @@ releases:
 				{Name: "foo"},
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -396,7 +396,7 @@ bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 				{Name: "foo"},
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -444,7 +444,7 @@ foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
 				{Name: "foo"},
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
