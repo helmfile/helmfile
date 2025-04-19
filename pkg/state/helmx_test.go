@@ -424,6 +424,18 @@ func TestAppendTakeOwnershipFlagsForUpgrade(t *testing.T) {
 				expected: []string{"--take-ownership"},
 			},
 		},
+		{
+			name: "take-ownership from release",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.17.0"),
+				release: &ReleaseSpec{
+					TakeOwnership: &[]bool{true}[0],
+				},
+				opt:      &SyncOpts{},
+				expected: []string{"--take-ownership"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
