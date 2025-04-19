@@ -20,7 +20,14 @@ builds:
       - amd64
       - arm64
       - "386"
-
+archives:
+  - id: helmfile
+    ids:
+      - helmfile
+    builds_info:
+      group: root
+      owner: root
+      mode: 0644
 changelog:
   use: github
   sort: asc
