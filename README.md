@@ -105,6 +105,10 @@ Iterate on the `helmfile.yaml` by referencing:
 * [CLI reference](https://helmfile.readthedocs.io/en/latest/#cli-reference)
 * [Helmfile Best Practices Guide](https://helmfile.readthedocs.io/en/latest/writing-helmfile/)
 
+## More complex examples
+
+See: https://github.com/helmfile/multi-env-helmfile
+
 ## Docs
 
 Please read [complete documentation](https://helmfile.readthedocs.io/)
