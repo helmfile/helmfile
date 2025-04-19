@@ -269,6 +269,7 @@ func (a *ApplyImpl) TakeOwnership() bool {
 	return a.ApplyOptions.TakeOwnership
 }
 
+// SyncReleaseLabels returns the SyncReleaseLabels.
 func (a *ApplyImpl) SyncReleaseLabels() bool {
 	return a.ApplyOptions.SyncReleaseLabels
 }
