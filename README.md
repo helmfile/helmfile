@@ -107,7 +107,7 @@ Iterate on the `helmfile.yaml` by referencing:
 
 ## More complex examples
 
-See: https://github.com/helmfile/multi-env-helmfile
+See: [multi-env-helmfile](https://github.com/helmfile/multi-env-helmfile)
 
 ## Docs
 
