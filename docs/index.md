@@ -315,7 +315,7 @@ releases:
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
-    # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods and force.
+    # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods, force and reuseValues.
     verify: true
     keyring: path/to/keyring.gpg
     #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
@@ -326,6 +326,7 @@ releases:
     timeout: 60
     recreatePods: true
     force: false
+    reuseValues: false
     # set `false` to uninstall this release on sync.  (default true)
     installed: true
     # restores previous state in case of failed release (default false)
