@@ -16,7 +16,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/exectest"
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
-	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
 func TestTemplate(t *testing.T) {
@@ -338,19 +337,12 @@ releases:
 
 func TestTemplate_StrictParsing(t *testing.T) {
 	type testcase struct {
-		goccyGoYaml bool
-		ns          string
-		error       string
+		ns    string
+		error string
 	}
 
 	check := func(t *testing.T, tc testcase) {
 		t.Helper()
-
-		v := runtime.GoccyGoYaml
-		runtime.GoccyGoYaml = tc.goccyGoYaml
-		t.Cleanup(func() {
-			runtime.GoccyGoYaml = v
-		})
 
 		var helm = &exectest.Helm{
 			FailOnUnexpectedList: true,
@@ -413,21 +405,12 @@ releases:
 
 	t.Run("fail due to unknown field with goccy/go-yaml", func(t *testing.T) {
 		check(t, testcase{
-			goccyGoYaml: true,
 			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: [4:3] unknown field "foobar"
    2 | releases:
    3 | - name: app1
 >  4 |   foobar: FOOBAR
          ^
    5 |   chart: incubator/raw`,
-		})
-	})
-
-	t.Run("fail due to unknown field with gopkg.in/yaml.v2", func(t *testing.T) {
-		check(t, testcase{
-			goccyGoYaml: false,
-			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: yaml: unmarshal errors:
-  line 4: field foobar not found in type state.ReleaseSpec`,
 		})
 	})
 }

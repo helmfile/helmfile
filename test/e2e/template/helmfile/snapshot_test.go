@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 	goruntime "runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -59,17 +58,11 @@ func (f fakeInit) Force() bool {
 
 func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 	t.Run("with goccy/go-yaml", func(t *testing.T) {
-		testHelmfileTemplateWithBuildCommand(t, true)
-	})
-
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
-		testHelmfileTemplateWithBuildCommand(t, false)
+		testHelmfileTemplateWithBuildCommand(t)
 	})
 }
 
-func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
-	t.Setenv(envvar.GoccyGoYaml, strconv.FormatBool(goccyGoYaml))
-
+func testHelmfileTemplateWithBuildCommand(t *testing.T) {
 	localChartPortSets := make(map[int]struct{})
 
 	logger := helmexec.NewLogger(os.Stderr, "info")

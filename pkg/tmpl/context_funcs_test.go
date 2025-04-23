@@ -200,14 +200,8 @@ func TestToYaml(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
-func testFromYaml(t *testing.T, goccyGoYaml bool, expected Values) {
+func testFromYaml(t *testing.T, expected Values) {
 	t.Helper()
-
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = goccyGoYaml
-	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
-	})
 
 	raw := `foo:
   bar: BAR
@@ -221,20 +215,6 @@ func TestFromYaml(t *testing.T) {
 	t.Run("with goccy/go-yaml", func(t *testing.T) {
 		testFromYaml(
 			t,
-			true,
-			// nolint: unconvert
-			Values(map[string]any{
-				"foo": map[string]any{
-					"bar": "BAR",
-				},
-			}),
-		)
-	})
-
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
-		testFromYaml(
-			t,
-			false,
 			// nolint: unconvert
 			Values(map[string]any{
 				"foo": map[string]any{
