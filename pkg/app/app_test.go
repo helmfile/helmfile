@@ -3097,9 +3097,9 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-context default --detailed-exitcode --reset-values"}:                      helmexec.ExitError{Code: 2},
-				{Name: "foo", Chart: "stable/mychart1", Flags: "--disable-validation --kube-context default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-context default --reset-values --detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: listFlags("", "default")}: ``,
@@ -3148,8 +3148,8 @@ releases:
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
-				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-context default --detailed-exitcode --reset-values"}:                      helmexec.ExitError{Code: 2},
-				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --detailed-exitcode --reset-values"}: helmexec.ExitError{Code: 2},
+				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-context default --reset-values --detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^foo$", Flags: listFlags("", "default")}: ``,
