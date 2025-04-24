@@ -307,14 +307,14 @@ func ToYaml(v any) (string, error) {
 	return string(data), nil
 }
 
-func FromYaml(str string) (Values, error) {
-	m := map[string]any{}
+func FromYaml(str string) (any, error) {
+	var m any
 
 	if err := yaml.Unmarshal([]byte(str), &m); err != nil {
 		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
 	}
 
-	m, err := maputil.CastKeysToStrings(m)
+	m, err := maputil.RecursivelyStringifyMapKey(m)
 	if err != nil {
 		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
 	}
