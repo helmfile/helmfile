@@ -1050,76 +1050,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						m.Unlock()
 					}
 				} else if release.UpdateStrategy == "reinstall" || release.UpdateStrategy == "reinstallIfForbidden" {
-					syncSuccessful := false
-					if release.UpdateStrategy == "reinstallIfForbidden" {
-						if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
-							st.logger.Debugf("reinstallIfForbidden update strategy - sync failed: %s", err.Error())
-							// Only fail if a different error than forbidden updates
-							if !strings.Contains(err.Error(), "Forbidden: updates") {
-								st.logger.Debugf("reinstallIfForbidden update strategy - sync failed not due to Fobidden updates")
-								m.Lock()
-								affectedReleases.Failed = append(affectedReleases.Failed, release)
-								m.Unlock()
-								relErr = newReleaseFailedError(release, err)
-							}
-						} else {
-							st.logger.Debugf("reinstallIfForbidden update strategy - sync success")
-							syncSuccessful = true
-							m.Lock()
-							affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
-							m.Unlock()
-							installedVersion, err := st.getDeployedVersion(context, helm, release)
-							if err != nil { // err is not really impacting so just log it
-								st.logger.Debugf("getting deployed release version failed: %v", err)
-							} else {
-								release.installedVersion = installedVersion
-							}
-						}
-					}
-					// Don't attempt to reinstall if a sync was successful
-					if !syncSuccessful {
-						st.logger.Debugf("reinstallIfForbidden update strategy - reinstalling...")
-						installed, err := st.isReleaseInstalled(context, helm, *release)
-						if err != nil {
-							relErr = newReleaseFailedError(release, err)
-						}
-						if installed {
-							var args []string
-							if release.Namespace != "" {
-								args = append(args, "--namespace", release.Namespace)
-							}
-							args = st.appendDeleteWaitFlags(args, release)
-							deletionFlags := st.appendConnectionFlags(args, release)
-							m.Lock()
-							if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
-								affectedReleases.Failed = append(affectedReleases.Failed, release)
-								relErr = newReleaseFailedError(release, err)
-							} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
-								affectedReleases.Failed = append(affectedReleases.Failed, release)
-								relErr = newReleaseFailedError(release, err)
-							} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
-								affectedReleases.Failed = append(affectedReleases.Failed, release)
-								relErr = newReleaseFailedError(release, err)
-							}
-							m.Unlock()
-						}
-						if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
-							m.Lock()
-							affectedReleases.Failed = append(affectedReleases.Failed, release)
-							m.Unlock()
-							relErr = newReleaseFailedError(release, err)
-						} else {
-							m.Lock()
-							affectedReleases.Reinstalled = append(affectedReleases.Reinstalled, release)
-							m.Unlock()
-							installedVersion, err := st.getDeployedVersion(context, helm, release)
-							if err != nil { // err is not really impacting so just log it
-								st.logger.Debugf("getting deployed release version failed: %v", err)
-							} else {
-								release.installedVersion = installedVersion
-							}
-						}
-					}
+					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
 				} else {
 					if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
 						m.Lock()
@@ -1178,6 +1109,81 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	if len(errs) > 0 {
 		return errs
 	}
+	return nil
+}
+
+func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedReleases, helm helmexec.Interface, context helmexec.HelmContext, release *ReleaseSpec, chart string, m *sync.Mutex, flags ...string) *ReleaseError {
+	syncSuccessful := false
+	if release.UpdateStrategy == "reinstallIfForbidden" {
+		if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+			st.logger.Debugf("reinstallIfForbidden update strategy - sync failed: %s", err.Error())
+			// Only fail if a different error than forbidden updates
+			if !strings.Contains(err.Error(), "Forbidden: updates") {
+				st.logger.Debugf("reinstallIfForbidden update strategy - sync failed not due to Fobidden updates")
+				m.Lock()
+				affectedReleases.Failed = append(affectedReleases.Failed, release)
+				m.Unlock()
+				return newReleaseFailedError(release, err)
+			}
+		} else {
+			st.logger.Debugf("reinstallIfForbidden update strategy - sync success")
+			syncSuccessful = true
+			m.Lock()
+			affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
+			m.Unlock()
+			installedVersion, err := st.getDeployedVersion(context, helm, release)
+			if err != nil { // err is not really impacting so just log it
+				st.logger.Debugf("getting deployed release version failed: %v", err)
+			} else {
+				release.installedVersion = installedVersion
+			}
+		}
+	}
+	// Don't attempt to reinstall if a sync was successful or needed a forced reinstall
+	if !syncSuccessful {
+		st.logger.Debugf("reinstallIfForbidden update strategy - reinstalling...")
+		installed, err := st.isReleaseInstalled(context, helm, *release)
+		if err != nil {
+			return newReleaseFailedError(release, err)
+		}
+		if installed {
+			var args []string
+			if release.Namespace != "" {
+				args = append(args, "--namespace", release.Namespace)
+			}
+			args = st.appendDeleteWaitFlags(args, release)
+			deletionFlags := st.appendConnectionFlags(args, release)
+			m.Lock()
+			if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+				affectedReleases.Failed = append(affectedReleases.Failed, release)
+				return newReleaseFailedError(release, err)
+			} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+				affectedReleases.Failed = append(affectedReleases.Failed, release)
+				return newReleaseFailedError(release, err)
+			} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+				affectedReleases.Failed = append(affectedReleases.Failed, release)
+				return newReleaseFailedError(release, err)
+			}
+			m.Unlock()
+		}
+		if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+			m.Lock()
+			affectedReleases.Failed = append(affectedReleases.Failed, release)
+			m.Unlock()
+			return newReleaseFailedError(release, err)
+		} else {
+			m.Lock()
+			affectedReleases.Reinstalled = append(affectedReleases.Reinstalled, release)
+			m.Unlock()
+			installedVersion, err := st.getDeployedVersion(context, helm, release)
+			if err != nil { // err is not really impacting so just log it
+				st.logger.Debugf("getting deployed release version failed: %v", err)
+			} else {
+				release.installedVersion = installedVersion
+			}
+		}
+	}
+
 	return nil
 }
 
