@@ -19,7 +19,7 @@ func CastKeysToStrings(s any) (map[string]any, error) {
 				return nil, fmt.Errorf("unexpected type of key in map: expected string, got %T: value=%v, map=%v", typedK, typedK, src)
 			}
 
-			castedV, err := recursivelyStringifyMapKey(v)
+			castedV, err := RecursivelyStringifyMapKey(v)
 			if err != nil {
 				return nil, err
 			}
@@ -28,7 +28,7 @@ func CastKeysToStrings(s any) (map[string]any, error) {
 		}
 	case map[string]any:
 		for k, v := range src {
-			castedV, err := recursivelyStringifyMapKey(v)
+			castedV, err := RecursivelyStringifyMapKey(v)
 			if err != nil {
 				return nil, err
 			}
@@ -39,7 +39,7 @@ func CastKeysToStrings(s any) (map[string]any, error) {
 	return new, nil
 }
 
-func recursivelyStringifyMapKey(v any) (any, error) {
+func RecursivelyStringifyMapKey(v any) (any, error) {
 	var castedV any
 	switch typedV := v.(type) {
 	case map[any]any, map[string]any:
@@ -51,7 +51,7 @@ func recursivelyStringifyMapKey(v any) (any, error) {
 	case []any:
 		a := []any{}
 		for i := range typedV {
-			res, err := recursivelyStringifyMapKey(typedV[i])
+			res, err := RecursivelyStringifyMapKey(typedV[i])
 			if err != nil {
 				return nil, err
 			}
@@ -231,6 +231,9 @@ func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
 		out[k] = v
 	}
 	for k, v := range b {
+		if v == nil {
+			continue
+		}
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {

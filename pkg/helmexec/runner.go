@@ -146,7 +146,7 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError boo
 			}
 
 			line = strings.TrimSuffix(line, "\n")
-			fmt.Fprintln(stdout, line)
+			_, _ = fmt.Fprintln(stdout, line)
 		}
 	}()
 

@@ -17,8 +17,8 @@ To fetch single key from remote secret storage you can use `fetchSecretValue` te
 
 repositories:
   - name: stable
-    url: https://kubernetes-charts.storage.googleapis.com
-
+    url: https://charts.helm.sh/stable
+---
 environments:
   default:
     values:

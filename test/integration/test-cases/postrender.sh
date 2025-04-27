@@ -1,14 +1,7 @@
 postrender_case_input_dir="${cases_dir}/postrender/input"
 postrender_case_output_dir="${cases_dir}/postrender/output"
 
-config_file="helmfile.yaml"
-if [[ ${HELMFILE_V1MODE} = true ]]; then
-  pushd "${postrender_case_input_dir}"
-  mv "${config_file}" "${config_file}.gotmpl"
-  config_file="${config_file}.gotmpl"
-  popd
-fi
-
+config_file="helmfile.yaml.gotmpl"
 postrender_diff_out_file=${postrender_case_output_dir}/diff-result
 if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
     postrender_diff_out_file=${postrender_case_output_dir}/diff-result-live

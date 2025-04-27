@@ -12,7 +12,7 @@
 # Helmfile
 
 [![Tests](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml?query=branch%3Amain)
-[![Container Image Repository on GHCR](https://ghcr-badge.deta.dev/helmfile/helmfile/latest_tag?trim=major&label=latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
+[![Container Image Repository on GHCR](https://ghcr-badge.egpl.dev/helmfile/helmfile/latest_tag?trim=major&label=latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
 [![Go Report Card](https://goreportcard.com/badge/github.com/helmfile/helmfile)](https://goreportcard.com/report/github.com/helmfile/helmfile)
 [![Slack Community #helmfile](https://slack.sweetops.com/badge.svg)](https://slack.sweetops.com)
 [![Documentation](https://readthedocs.org/projects/helmfile/badge/?version=latest&style=flat)](https://helmfile.readthedocs.io/en/latest/)
@@ -193,8 +193,12 @@ helmDefaults:
   # verify the chart before upgrading (only works with packaged charts not directories) (default false)
   verify: true
   keyring: path/to/keyring.gpg
+  #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
+  skipSchemaValidation: false
   # wait for k8s resources via --wait. (default false)
   wait: true
+  # if set and --wait enabled, will retry any failed check on resource state subject to the specified number of retries (default 0)
+  waitRetries: 3
   # if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout (default false, Implemented in Helm3.5)
   waitForJobs: true
   # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -233,9 +237,12 @@ helmDefaults:
   deleteWait: false
   # Timeout is the time in seconds to wait for helmfile destroy/delete (default 300)
   deleteTimeout: 300
-  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
+  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
   suppressOutputLineRegex:
     - "version"
+  # syncReleaseLabels is a list of labels to be added to the release when syncing.
+  syncReleaseLabels: false
+
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
@@ -282,6 +289,16 @@ releases:
           domain: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
           scheme: {{ env "SCHEME" | default "https" }}
     # Use `values` whenever possible!
+    # `setString` translates to helm's `--set-string key=val`
+    setString:
+    # set a single array value in an array, translates to --set-string bar[0]={1,2}
+    - name: bar[0]
+      values:
+      - 1
+      - 2
+    # set a templated value
+    - name: namespace
+      value: {{ .Namespace }}
     # `set` translates to helm's `--set key=val`, that is known to suffer from type issues like https://github.com/roboll/helmfile/issues/608
     set:
     # single value loaded from a local file, translates to --set-file foo.config=path/to/file
@@ -298,14 +315,18 @@ releases:
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
-    # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods and force.
+    # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods, force and reuseValues.
     verify: true
     keyring: path/to/keyring.gpg
+    #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
+    skipSchemaValidation: false
     wait: true
+    waitRetries: 3
     waitForJobs: true
     timeout: 60
     recreatePods: true
     force: false
+    reuseValues: false
     # set `false` to uninstall this release on sync.  (default true)
     installed: true
     # restores previous state in case of failed release (default false)
@@ -349,9 +370,11 @@ releases:
     plainHttp: false
     # suppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
     suppressDiff: false
-    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
+    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
     suppressOutputLineRegex:
       - "version"
+    # syncReleaseLabels is a list of labels to be added to the release when syncing.
+    syncReleaseLabels: false
 
 
   # Local chart example
@@ -542,15 +565,15 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_DISABLE_INSECURE_FEATURES` - disable insecure features, expecting `true` lower case
 * `HELMFILE_DISABLE_RUNNER_UNIQUE_ID` - disable unique logging ID, expecting any non-empty value
 * `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` - disable insecure template functions, expecting `true` lower case
-* `HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE` - expecting non-empty value to use `helm status` to check release existence, instead of `helm list` which is the default behaviour 
+* `HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE` - expecting non-empty value to use `helm status` to check release existence, instead of `helm list` which is the default behaviour
 * `HELMFILE_EXPERIMENTAL` - enable experimental features, expecting `true` lower case
 * `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](https://helmfile.readthedocs.io/en/latest/#environment), it has lower priority than CLI argument `--environment`
 * `HELMFILE_TEMPDIR` - specify directory to store temporary files
 * `HELMFILE_UPGRADE_NOTICE_DISABLED` - expecting any non-empty value to skip the check for the latest version of Helmfile in [helmfile version](https://helmfile.readthedocs.io/en/latest/#version)
-* `HELMFILE_V1MODE` - Helmfile v0.x behaves like v1.x with `true`, Helmfile v1.x behaves like v0.x with `false` as value
 * `HELMFILE_GOCCY_GOYAML` - use *goccy/go-yaml* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile v0.x and `true` by default for Helmfile v1.x.
 * `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
-* `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file  
+* `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
+* `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
 
 ## CLI Reference
 
@@ -674,7 +697,7 @@ The `helmfile destroy` sub-command uninstalls and purges all the releases define
 `helmfile --interactive destroy` instructs Helmfile to request your confirmation before actually deleting releases.
 
 `destroy` basically runs `helm uninstall --purge` on all the targeted releases. If you don't want purging, use `helmfile delete` instead.
-If `--skip-charts` flag is not set, destory would prepare all releases, by fetching charts and templating them.
+If `--skip-charts` flag is not set, destroy would prepare all releases, by fetching charts and templating them.
 
 ### delete (DEPRECATED)
 
@@ -683,7 +706,7 @@ The `helmfile delete` sub-command deletes all the releases defined in the manife
 `helmfile --interactive delete` instructs Helmfile to request your confirmation before actually deleting releases.
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
-If `--skip-charts` flag is not set, destory would prepare all releases, by fetching charts and templating them.
+If `--skip-charts` flag is not set, destroy would prepare all releases, by fetching charts and templating them.
 
 ### secrets
 
@@ -747,7 +770,7 @@ For additional context, take a look at [paths examples](paths.md).
 
 A selector can be used to only target a subset of releases when running Helmfile. This is useful for large helmfiles with releases that are logically grouped together.
 
-Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
+Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=frontend` would only match releases with the `tier: frontend` label.
 
 Multiple labels can be specified using `,` as a separator. A release must match all selectors in order to be selected for the final helm command.
 
@@ -920,7 +943,7 @@ releases:
 ```
 
 ### Environment Values
-Helmfile supports 3 values languages : 
+Helmfile supports 3 values languages :
 - Straight yaml
 - Go templates to generate straight yaml
 - HCL
@@ -1008,7 +1031,7 @@ HCL values supports interpolations and sharing values across files
 * Helmfile hcl `values` are referenced using the `hv` accessor.
 * Helmfile hcl `locals` are referenced using the `local` accessor.
 * Duplicated variables across .hcl `values` blocks are forbidden (An error will pop up specifying where are the duplicates)
-* All cty [standard library functions](`https://pkg.go.dev/github.com/zclconf/go-cty@v1.14.3/cty/function/stdlib`) are available and custom functions could be created in the future 
+* All cty [standard library functions](`https://pkg.go.dev/github.com/zclconf/go-cty@v1.14.3/cty/function/stdlib`) are available and custom functions could be created in the future
 
 Consider the following example :
 
@@ -1346,7 +1369,7 @@ helmfiles:
   - name=prometheus
   - tier=frontend
 - path: apps/b-helmfile.yaml # no selector, so all releases are used
-selectors: []
+  selectors: []
 - path: apps/c-helmfile.yaml # parent selector to be used or cli selector for the initial helmfile
   selectorsInherited: true
 ```
@@ -1656,6 +1679,9 @@ Please see #203 for more context.
 Use it when you're running `helmfile` manually on your local machine or a kind of secure administrative hosts.
 
 For your local use-case, aliasing it like `alias hi='helmfile --interactive'` would be convenient.
+
+Another way to use it is to set the environment variable `HELMFILE_INTERACTIVE=true` to enable the interactive mode by default.
+Anything other than `true` will disable the interactive mode. The precedence has the `--interactive` flag.
 
 ## Running Helmfile without an Internet connection
 

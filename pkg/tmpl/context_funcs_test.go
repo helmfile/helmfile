@@ -46,30 +46,6 @@ func TestCreateFuncMap_DisabledInsecureFeatures(t *testing.T) {
 	disableInsecureFeatures = currentVal
 }
 
-// TODO: Remove this function once Helmfile v0.x
-func TestCreateFuncMap_SkipInsecureTemplateFunctions(t *testing.T) {
-	if runtime.V1Mode {
-		t.Logf("SkipInsecureTemplateFunctions is not supported in V1 mode")
-		return
-	}
-	currentVal := skipInsecureTemplateFunctions
-
-	{
-		skipInsecureTemplateFunctions = true
-		ctx := &Context{basePath: "."}
-		funcMaps := ctx.createFuncMap()
-		args := make([]any, 0)
-		actual1, err1 := funcMaps["exec"].(func(command string, args []any, inputs ...string) (string, error))("ls", args)
-		require.Equal(t, "", actual1)
-		require.ErrorIs(t, err1, nil)
-		actual2, err2 := funcMaps["readFile"].(func(filename string) (string, error))("context_funcs_test.go")
-		require.Equal(t, "", actual2)
-		require.ErrorIs(t, err2, nil)
-	}
-
-	skipInsecureTemplateFunctions = currentVal
-}
-
 func newFSExpecting(expectedFilename string, expected string) *filesystem.FileSystem {
 	return filesystem.FromFileSystem(filesystem.FileSystem{
 		ReadFile: func(filename string) ([]byte, error) {
@@ -224,7 +200,88 @@ func TestToYaml(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
-func testFromYaml(t *testing.T, goccyGoYaml bool, expected Values) {
+func testFromYamlObject(t *testing.T) {
+	raw := `foo:
+  bar: BAR
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		map[string]any{
+			"foo": map[string]any{
+				"bar": "BAR",
+			},
+		},
+		actual,
+	)
+}
+
+func testFromYamlArray(t *testing.T) {
+	raw := `- foo
+- bar: BAR
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		[]any{
+			"foo",
+			map[string]any{
+				"bar": "BAR",
+			},
+		},
+		actual,
+	)
+}
+
+func testFromYamlString(t *testing.T) {
+	raw := `foo
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(t, "foo", actual)
+}
+
+func testFromYamlNumber(t *testing.T) {
+	raw := `1234
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+
+	switch a := actual.(type) {
+	case int:
+		require.Equal(t, 1234, a)
+	case uint64:
+		require.Equal(t, uint64(1234), a)
+	default:
+		t.Errorf("unexpected type: %T", a)
+	}
+}
+
+func testFromYamlBoolean(t *testing.T) {
+	raw := `true
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(t, true, actual)
+}
+
+func testFromYamlNull(t *testing.T) {
+	raw := `null
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(t, nil, actual)
+}
+
+func testFromYaml(t *testing.T, goccyGoYaml bool) {
 	t.Helper()
 
 	v := runtime.GoccyGoYaml
@@ -233,39 +290,26 @@ func testFromYaml(t *testing.T, goccyGoYaml bool, expected Values) {
 		runtime.GoccyGoYaml = v
 	})
 
-	raw := `foo:
-  bar: BAR
-`
-	actual, err := FromYaml(raw)
-	require.NoError(t, err)
-	require.Equal(t, expected, actual)
+	t.Run("test unmarshalling object", testFromYamlObject)
+
+	t.Run("test unmarshalling array", testFromYamlArray)
+
+	t.Run("test unmarshalling string", testFromYamlString)
+
+	t.Run("test unmarshalling number", testFromYamlNumber)
+
+	t.Run("test unmarshalling boolean", testFromYamlBoolean)
+
+	t.Run("test unmarshalling null", testFromYamlNull)
 }
 
 func TestFromYaml(t *testing.T) {
 	t.Run("with goccy/go-yaml", func(t *testing.T) {
-		testFromYaml(
-			t,
-			true,
-			// nolint: unconvert
-			Values(map[string]any{
-				"foo": map[string]any{
-					"bar": "BAR",
-				},
-			}),
-		)
+		testFromYaml(t, true)
 	})
 
 	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
-		testFromYaml(
-			t,
-			false,
-			// nolint: unconvert
-			Values(map[string]any{
-				"foo": map[string]any{
-					"bar": "BAR",
-				},
-			}),
-		)
+		testFromYaml(t, false)
 	})
 }
 

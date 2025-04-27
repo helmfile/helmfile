@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,69 +40,154 @@ func NewTestFileSystem() FileSystem {
 }
 
 func TestFs_resolveSymlinks(t *testing.T) {
+	cases := []struct {
+		name        string
+		symlinkPath string
+		expected    string
+		expectedErr error
+	}{
+		{
+			name:        "existing file symlink",
+			symlinkPath: "../existing_file.txt",
+			expected:    "/real/existing_file.txt",
+			expectedErr: nil,
+		},
+		{
+			name:        "missing file symlink",
+			symlinkPath: "../missing_file.txt",
+			expected:    "",
+			expectedErr: os.ErrExist,
+		},
+		{
+			name:        "local existing file symlink",
+			symlinkPath: "./existing_file.txt",
+			expected:    "./existing_file.txt",
+			expectedErr: nil,
+		},
+		{
+			name:        "absolute existing file symlink",
+			symlinkPath: "/a/b/c/existing_file.txt",
+			expected:    "/a/b/c/existing_file.txt",
+			expectedErr: nil,
+		},
+		{
+			name:        "current directory existing file symlink",
+			symlinkPath: "existing_file.txt",
+			expected:    "existing_file.txt",
+			expectedErr: nil,
+		},
+	}
+
 	ffs := NewTestFileSystem()
-	path, err := ffs.resolveSymlinks("../existing_file.txt")
-	require.NoErrorf(t, err, "Expected no error but got %v", err)
-	require.Equalf(t, "/real/existing_file.txt", path, "Expected absolute path %s but got %s", "/real/existing_file.txt", path)
 
-	path, err = ffs.resolveSymlinks("../missing_file.txt")
-	require.ErrorIsf(t, err, os.ErrExist, "Expected error %v but got %v", os.ErrExist, err)
-	require.Equalf(t, "", path, "Expected empty path but got %s", path)
-
-	path, err = ffs.resolveSymlinks("./existing_file.txt")
-	require.NoErrorf(t, err, "Expected no error but got %v", err)
-	require.Equalf(t, "./existing_file.txt", path, "Expected local path %s but got %s", "./existing_file.txt", path)
-
-	path, err = ffs.resolveSymlinks("existing_file.txt")
-	require.NoErrorf(t, err, "Expected no error but got %v", err)
-	require.Equalf(t, "existing_file.txt", path, "Expected local path %s but got %s", "existing_file.txt", path)
-
-	path, err = ffs.resolveSymlinks("/a/b/c/existing_file.txt")
-
-	require.NoErrorf(t, err, "Expected no error but got %v", err)
-	require.Equalf(t, "/a/b/c/existing_file.txt", path, "Expected absolute path %s but got %s", "/a/b/c/existing_file.txt", path)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			path, err := ffs.resolveSymlinks(c.symlinkPath)
+			if c.expectedErr != nil {
+				require.ErrorIs(t, err, c.expectedErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, c.expected, path)
+		})
+	}
 }
 
 func TestFs_fileExistsDefault(t *testing.T) {
+	cases := []struct {
+		name        string
+		filePath    string
+		expected    bool
+		expectedErr error
+	}{
+		{
+			name:        "existing file",
+			filePath:    "existing_file.txt",
+			expected:    true,
+			expectedErr: nil,
+		},
+		{
+			name:        "missing file",
+			filePath:    "missing_file.txt",
+			expected:    false,
+			expectedErr: os.ErrExist,
+		},
+	}
+
 	ffs := NewTestFileSystem()
-	exists, err := ffs.FileExists("existing_file.txt")
-	require.NoErrorf(t, err, "Expected no error but got %v", err)
-	require.Truef(t, exists, "Expected file %s, not found", "existing_file.txt")
 
-	exists, err = ffs.FileExists("missing_file.txt")
-	require.Falsef(t, exists, "Not expected file %s, found", "missing_file.txt")
-	require.ErrorIsf(t, err, os.ErrExist, "Expected error %v but got %v", os.ErrExist, err)
-
-	dfs := DefaultFileSystem()
-	exists, err = dfs.FileExists("-")
-	require.NoErrorf(t, err, "Expected no error but got %v", err)
-	require.Truef(t, exists, "Expected file %s, not found", "-")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			exists, err := ffs.FileExists(c.filePath)
+			if c.expectedErr != nil {
+				require.ErrorIs(t, err, c.expectedErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, c.expected, exists)
+		})
+	}
 }
 
 func TestFs_fileExistsAtDefault(t *testing.T) {
+	cases := []struct {
+		name     string
+		filePath string
+		expected bool
+	}{
+		{
+			name:     "existing file",
+			filePath: "existing_file.txt",
+			expected: true,
+		},
+		{
+			name:     "missing file",
+			filePath: "missing_file.txt",
+			expected: false,
+		},
+		{
+			name:     "existing dir",
+			filePath: "existing_dir",
+			expected: false,
+		},
+	}
+
 	ffs := NewTestFileSystem()
 
-	exists := ffs.FileExistsAt("existing_file.txt")
-	require.Truef(t, exists, "Expected file %s, not found", "existing_file.txt")
-
-	exists = ffs.FileExistsAt("missing_file.txt")
-	require.Falsef(t, exists, "Not expected file %s, found", "missing_file.txt")
-
-	exists = ffs.FileExistsAt("existing_dir")
-	require.Falsef(t, exists, "Not expected file %s, found", "existing_dir")
-
-	dfs := DefaultFileSystem()
-	exists = dfs.FileExistsAt("-")
-	require.Truef(t, exists, "Expected file %s, not found", "-")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			exists := ffs.FileExistsAt(c.filePath)
+			assert.Equal(t, c.expected, exists)
+		})
+	}
 }
 
 func TestFs_directoryExistsDefault(t *testing.T) {
-	ffs := NewTestFileSystem()
-	exists := ffs.DirectoryExistsAt("existing_dir")
-	require.Truef(t, exists, "Expected file %s, not found", "existing_dir")
+	cases := []struct {
+		name     string
+		dirPath  string
+		expected bool
+	}{
+		{
+			name:     "existing dir",
+			dirPath:  "existing_dir",
+			expected: true,
+		},
+		{
+			name:     "missing dir",
+			dirPath:  "missing_dir",
+			expected: false,
+		},
+	}
 
-	exists = ffs.DirectoryExistsAt("missing_dir")
-	require.Falsef(t, exists, "Not expected file %s, found", "missing_dir")
+	ffs := NewTestFileSystem()
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			exists := ffs.DirectoryExistsAt(c.dirPath)
+			assert.Equal(t, c.expected, exists)
+		})
+	}
 }
 
 func TestFsTeadFile(t *testing.T) {
@@ -122,6 +208,7 @@ func TestFsTeadFile(t *testing.T) {
 			path:    "-",
 		},
 	}
+
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -129,9 +216,6 @@ func TestFsTeadFile(t *testing.T) {
 
 			dfs := DefaultFileSystem()
 			tmpfile, err := os.Create(yamlPath)
-			if err != nil {
-				t.Errorf("create file %s error: %v", yamlPath, err)
-			}
 			require.NoErrorf(t, err, "create file %s error: %v", yamlPath, err)
 
 			_, err = tmpfile.Write(c.content)
@@ -156,18 +240,16 @@ func TestFsTeadFile(t *testing.T) {
 
 func TestFs_DefaultBuilder(t *testing.T) {
 	ffs := DefaultFileSystem()
-	if ffs.ReadFile == nil ||
-		ffs.ReadDir == nil ||
-		ffs.DeleteFile == nil ||
-		ffs.FileExists == nil ||
-		ffs.Glob == nil ||
-		ffs.FileExistsAt == nil ||
-		ffs.DirectoryExistsAt == nil ||
-		ffs.Stat == nil ||
-		ffs.Getwd == nil ||
-		ffs.Chdir == nil ||
-		ffs.Abs == nil ||
-		ffs.EvalSymlinks == nil {
-		t.Errorf("Missing functions in DefaultFileSystem")
-	}
+	assert.NotNil(t, ffs.ReadFile)
+	assert.NotNil(t, ffs.ReadDir)
+	assert.NotNil(t, ffs.DeleteFile)
+	assert.NotNil(t, ffs.FileExists)
+	assert.NotNil(t, ffs.Glob)
+	assert.NotNil(t, ffs.FileExistsAt)
+	assert.NotNil(t, ffs.DirectoryExistsAt)
+	assert.NotNil(t, ffs.Stat)
+	assert.NotNil(t, ffs.Getwd)
+	assert.NotNil(t, ffs.Chdir)
+	assert.NotNil(t, ffs.Abs)
+	assert.NotNil(t, ffs.EvalSymlinks)
 }

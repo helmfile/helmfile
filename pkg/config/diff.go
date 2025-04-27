@@ -48,6 +48,7 @@ type DiffOptions struct {
 	DiffArgs string
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string
+	SkipSchemaValidation    bool
 }
 
 // NewDiffOptions creates a new Apply
@@ -125,7 +126,7 @@ func (a *DiffImpl) StripTrailingCR() bool {
 
 // Output returns the output
 func (t *DiffImpl) DiffOutput() string {
-	return t.DiffOptions.Output
+	return t.Output
 }
 
 // IncludeTests returns the include tests
@@ -198,4 +199,8 @@ func (t *DiffImpl) PostRendererArgs() []string {
 // SuppressOutputLineRegex returns the SuppressOutputLineRegex.
 func (t *DiffImpl) SuppressOutputLineRegex() []string {
 	return t.DiffOptions.SuppressOutputLineRegex
+}
+
+func (t *DiffImpl) SkipSchemaValidation() bool {
+	return t.DiffOptions.SkipSchemaValidation
 }

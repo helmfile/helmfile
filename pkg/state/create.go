@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -109,26 +110,15 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 		if err == io.EOF {
 			break
 		} else if err != nil {
+			if filepath.Ext(file) != ".gotmpl" {
+				return nil, &StateLoadError{fmt.Sprintf("failed to read %s: reading document at index %d. Started seeing this since Helmfile v1? Add the .gotmpl file extension", file, i), err}
+			}
 			return nil, &StateLoadError{fmt.Sprintf("failed to read %s: reading document at index %d", file, i), err}
 		}
 
 		if err := mergo.Merge(&state, &intermediate, mergo.WithAppendSlice); err != nil {
 			return nil, &StateLoadError{fmt.Sprintf("failed to read %s: merging document at index %d", file, i), err}
 		}
-	}
-
-	// TODO: Remove this function once Helmfile v0.x
-	if len(state.DeprecatedReleases) > 0 {
-		if len(state.Releases) > 0 {
-			return nil, fmt.Errorf("failed to parse %s: you can't specify both `charts` and `releases` sections", file)
-		}
-		state.Releases = state.DeprecatedReleases
-		state.DeprecatedReleases = []ReleaseSpec{}
-	}
-
-	// TODO: Remove this function once Helmfile v0.x
-	if state.DeprecatedContext != "" && state.HelmDefaults.KubeContext == "" {
-		state.HelmDefaults.KubeContext = state.DeprecatedContext
 	}
 
 	if c.overrideHelmBinary != "" && c.overrideHelmBinary != DefaultHelmBinary {
@@ -278,7 +268,11 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 			valuesFiles = append(valuesFiles, f)
 		}
 		envValuesEntries := append(valuesFiles, envSpec.Values...)
-		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, ctxEnv, name)
+		loadValuesEntriesEnv, err := ctxEnv.Merge(overrode)
+		if err != nil {
+			return nil, err
+		}
+		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, loadValuesEntriesEnv, name)
 		if err != nil {
 			return nil, err
 		}

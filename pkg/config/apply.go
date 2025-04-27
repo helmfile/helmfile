@@ -18,10 +18,6 @@ type ApplyOptions struct {
 	DetailedExitcode bool
 	// StripTrailingCR is true if trailing carriage returns should be stripped during diffing
 	StripTrailingCR bool
-	// TODO: Remove this function once Helmfile v0.x
-	// DEPRECATED: Use skip-cleanup instead
-	RetainValuesFiles bool
-
 	// SkipCleanup is true if the cleanup of temporary values files should be skipped
 	SkipCleanup bool
 	// SkipCRDs is true if the CRDs should be skipped
@@ -50,8 +46,12 @@ type ApplyOptions struct {
 	SuppressDiff bool
 	// Wait is true if the helm command should wait for the release to be deployed
 	Wait bool
+	// WaitRetries is the number of times to retry waiting for the release to be deployed
+	WaitRetries int
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
 	WaitForJobs bool
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
+	SkipSchemaValidation bool
 	// ReuseValues is true if the helm command should reuse the values
 	ReuseValues bool
 	// ResetValues is true if helm command should reset values to charts' default
@@ -68,6 +68,11 @@ type ApplyOptions struct {
 	SyncArgs string
 	// HideNotes is the hide notes flag
 	HideNotes bool
+
+	// TakeOwnership is true if the ownership should be taken
+	TakeOwnership bool
+
+	SyncReleaseLabels bool
 }
 
 // NewApply creates a new Apply
@@ -116,7 +121,7 @@ func (a *ApplyImpl) StripTrailingCR() bool {
 
 // DiffOutput returns the diff output.
 func (a *ApplyImpl) DiffOutput() string {
-	return a.ApplyOptions.Output
+	return a.Output
 }
 
 // IncludeNeeds returns the include needs.
@@ -132,12 +137,6 @@ func (a *ApplyImpl) IncludeTests() bool {
 // IncludeTransitiveNeeds returns the include transitive needs.
 func (a *ApplyImpl) IncludeTransitiveNeeds() bool {
 	return a.ApplyOptions.IncludeTransitiveNeeds
-}
-
-// TODO: Remove this function once Helmfile v0.x
-// RetainValuesFiles returns the retain values files.
-func (a *ApplyImpl) RetainValuesFiles() bool {
-	return a.ApplyOptions.RetainValuesFiles
 }
 
 // ShowSecrets returns the show secrets.
@@ -208,6 +207,11 @@ func (a *ApplyImpl) Wait() bool {
 	return a.ApplyOptions.Wait
 }
 
+// WaitRetries returns the wait retries.
+func (a *ApplyImpl) WaitRetries() int {
+	return a.ApplyOptions.WaitRetries
+}
+
 // WaitForJobs returns the wait for jobs.
 func (a *ApplyImpl) WaitForJobs() bool {
 	return a.ApplyOptions.WaitForJobs
@@ -235,6 +239,11 @@ func (a *ApplyImpl) PostRendererArgs() []string {
 	return a.ApplyOptions.PostRendererArgs
 }
 
+// SkipSchemaValidation returns the SkipSchemaValidation.
+func (a *ApplyImpl) SkipSchemaValidation() bool {
+	return a.ApplyOptions.SkipSchemaValidation
+}
+
 // Cascade returns cascade flag
 func (a *ApplyImpl) Cascade() string {
 	return a.ApplyOptions.Cascade
@@ -250,6 +259,16 @@ func (a *ApplyImpl) SyncArgs() string {
 	return a.ApplyOptions.SyncArgs
 }
 
+// HideNotes returns the HideNotes.
 func (a *ApplyImpl) HideNotes() bool {
 	return a.ApplyOptions.HideNotes
+}
+
+// TakeOwnership returns the TakeOwnership.
+func (a *ApplyImpl) TakeOwnership() bool {
+	return a.ApplyOptions.TakeOwnership
+}
+
+func (a *ApplyImpl) SyncReleaseLabels() bool {
+	return a.ApplyOptions.SyncReleaseLabels
 }

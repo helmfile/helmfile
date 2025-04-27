@@ -24,6 +24,7 @@ func TestTemplate(t *testing.T) {
 		skipNeeds              bool
 		includeNeeds           bool
 		includeTransitiveNeeds bool
+		noHooks                bool
 		showOnly               []string
 	}
 
@@ -133,6 +134,7 @@ releases:
 				includeNeeds:           tc.fields.includeNeeds,
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
 				showOnly:               tc.fields.showOnly,
+				noHooks:                tc.fields.noHooks,
 			})
 
 			var gotErr string
@@ -236,7 +238,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
+				{Name: "test2"},
 			},
 		})
 	})
@@ -249,8 +251,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
-				{Name: "test3", Flags: []string{}},
+				{Name: "test2"},
+				{Name: "test3"},
 			},
 		})
 	})
@@ -264,8 +266,8 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
-				{Name: "test3", Flags: []string{}},
+				{Name: "test2"},
+				{Name: "test3"},
 			},
 		})
 	})
@@ -279,7 +281,7 @@ releases:
 			},
 			selectors: []string{"name=test2"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
+				{Name: "test2"},
 			},
 		})
 	})
@@ -293,8 +295,22 @@ releases:
 			},
 			selectors: []string{"name=test3"},
 			templated: []exectest.Release{
-				{Name: "test2", Flags: []string{}},
-				{Name: "test3", Flags: []string{}},
+				{Name: "test2"},
+				{Name: "test3"},
+			},
+		})
+	})
+
+	t.Run("no-hooks", func(t *testing.T) {
+		check(t, testcase{
+			fields: fields{
+				skipNeeds: true,
+				noHooks:   true,
+			},
+			selectors: []string{"app=test"},
+			templated: []exectest.Release{
+				{Name: "external-secrets", Flags: []string{"--namespace", "default", "--no-hooks"}},
+				{Name: "my-release", Flags: []string{"--namespace", "default", "--no-hooks"}},
 			},
 		})
 	})
@@ -398,19 +414,19 @@ releases:
 	t.Run("fail due to unknown field with goccy/go-yaml", func(t *testing.T) {
 		check(t, testcase{
 			goccyGoYaml: true,
-			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1: [4:3] unknown field "foobar"
-       2 | releases:
-       3 | - name: app1
-    >  4 |   foobar: FOOBAR
-             ^
-       5 |   chart: incubator/raw`,
+			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: [4:3] unknown field "foobar"
+   2 | releases:
+   3 | - name: app1
+>  4 |   foobar: FOOBAR
+         ^
+   5 |   chart: incubator/raw`,
 		})
 	})
 
 	t.Run("fail due to unknown field with gopkg.in/yaml.v2", func(t *testing.T) {
 		check(t, testcase{
 			goccyGoYaml: false,
-			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1: yaml: unmarshal errors:
+			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: yaml: unmarshal errors:
   line 4: field foobar not found in type state.ReleaseSpec`,
 		})
 	})

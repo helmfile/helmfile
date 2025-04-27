@@ -1,40 +1,6 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   chart: stable/mychart2
- 4:   installed: false
- 5:   needs:
- 6:   - foo
- 7: - name: foo
- 8:   chart: stable/mychart1
- 9:   installed: false
-10: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: releases:
- 2: - name: bar
- 3:   chart: stable/mychart2
- 4:   installed: false
- 5:   needs:
- 6:   - foo
- 7: - name: foo
- 8:   chart: stable/mychart1
- 9:   installed: false
-10: 
-
 merged environment: &{default  map[] map[]}
-WARNING: release bar needs foo, but foo is not installed due to installed: false. Either mark foo as installed or remove foo from bar's needs
 2 release(s) found in helmfile.yaml
 
 Affected releases are:

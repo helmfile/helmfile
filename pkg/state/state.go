@@ -59,10 +59,6 @@ type ReleaseSetSpec struct {
 	HelmDefaults HelmSpec          `yaml:"helmDefaults,omitempty"`
 	Helmfiles    []SubHelmfileSpec `yaml:"helmfiles,omitempty"`
 
-	// TODO: Remove this function once Helmfile v0.x
-	DeprecatedContext  string        `yaml:"context,omitempty"`
-	DeprecatedReleases []ReleaseSpec `yaml:"charts,omitempty"`
-
 	OverrideKubeContext string            `yaml:"kubeContext,omitempty"`
 	OverrideNamespace   string            `yaml:"namespace,omitempty"`
 	OverrideChart       string            `yaml:"chart,omitempty"`
@@ -160,10 +156,14 @@ type HelmSpec struct {
 	Keyring     string   `yaml:"keyring,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS bool `yaml:"enableDNS"`
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
+	SkipSchemaValidation *bool `yaml:"skipSchemaValidation,omitempty"`
 	// Devel, when set to true, use development versions, too. Equivalent to version '>0.0.0-0'
 	Devel bool `yaml:"devel"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait bool `yaml:"wait"`
+	// WaitRetries, if set and --wait enabled, will retry any failed check on resource state, except if HTTP status code < 500 is received, subject to the specified number of retries
+	WaitRetries int `yaml:"waitRetries"`
 	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
 	WaitForJobs bool `yaml:"waitForJobs"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -184,6 +184,8 @@ type HelmSpec struct {
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
 	SkipDeps bool `yaml:"skipDeps"`
+	// SkipRefresh disables running `helm dependency up`
+	SkipRefresh bool `yaml:"skipRefresh"`
 	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues bool `yaml:"reuseValues"`
 	// Propagate '--post-renderer' to helmv3 template and helm install
@@ -205,6 +207,8 @@ type HelmSpec struct {
 	DeleteWait bool `yaml:"deleteWait"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout int `yaml:"deleteTimeout"`
+	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
+	SyncReleaseLabels bool `yaml:"syncReleaseLabels"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -257,6 +261,8 @@ type ReleaseSpec struct {
 	Devel *bool `yaml:"devel,omitempty"`
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait *bool `yaml:"wait,omitempty"`
+	// WaitRetries, if set and --wait enabled, will retry any failed check on resource state, except if HTTP status code < 500 is received, subject to the specified number of retries
+	WaitRetries *int `yaml:"waitRetries,omitempty"`
 	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
 	WaitForJobs *bool `yaml:"waitForJobs,omitempty"`
 	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -277,6 +283,8 @@ type ReleaseSpec struct {
 	Condition string `yaml:"condition,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install (ignored for helm2)
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
+	// ReuseValues, on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
+	ReuseValues *bool `yaml:"reuseValues,omitempty"`
 
 	// DisableOpenAPIValidation is rarely used to bypass OpenAPI validations only that is used for e.g.
 	// work-around against broken CRs
@@ -304,13 +312,14 @@ type ReleaseSpec struct {
 	Hooks []event.Hook `yaml:"hooks,omitempty"`
 
 	// Name is the name of this release
-	Name      string            `yaml:"name,omitempty"`
-	Namespace string            `yaml:"namespace,omitempty"`
-	Labels    map[string]string `yaml:"labels,omitempty"`
-	Values    []any             `yaml:"values,omitempty"`
-	Secrets   []any             `yaml:"secrets,omitempty"`
-	SetValues []SetValue        `yaml:"set,omitempty"`
-	duration  time.Duration
+	Name            string            `yaml:"name,omitempty"`
+	Namespace       string            `yaml:"namespace,omitempty"`
+	Labels          map[string]string `yaml:"labels,omitempty"`
+	Values          []any             `yaml:"values,omitempty"`
+	Secrets         []any             `yaml:"secrets,omitempty"`
+	SetValues       []SetValue        `yaml:"set,omitempty"`
+	SetStringValues []SetValue        `yaml:"setString,omitempty"`
+	duration        time.Duration
 
 	ValuesTemplate    []any      `yaml:"valuesTemplate,omitempty"`
 	SetValuesTemplate []SetValue `yaml:"setTemplate,omitempty"`
@@ -374,8 +383,14 @@ type ReleaseSpec struct {
 	// as a Helm chart.
 	SkipDeps *bool `yaml:"skipDeps,omitempty"`
 
+	// SkipRefresh disables running `helm dependency up`
+	SkipRefresh *bool `yaml:"skipRefresh,omitempty"`
+
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
+
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
+	SkipSchemaValidation *bool `yaml:"skipSchemaValidation,omitempty"`
 
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string `yaml:"postRendererArgs,omitempty"`
@@ -396,6 +411,8 @@ type ReleaseSpec struct {
 	DeleteWait *bool `yaml:"deleteWait,omitempty"`
 	// Timeout is the time in seconds to wait for helmfile delete command (default 300)
 	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
+	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
+	SyncReleaseLabels bool `yaml:"syncReleaseLabels"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -439,9 +456,10 @@ type SetValue struct {
 
 // AffectedReleases hold the list of released that where updated, deleted, or in error
 type AffectedReleases struct {
-	Upgraded []*ReleaseSpec
-	Deleted  []*ReleaseSpec
-	Failed   []*ReleaseSpec
+	Upgraded     []*ReleaseSpec
+	Deleted      []*ReleaseSpec
+	Failed       []*ReleaseSpec
+	DeleteFailed []*ReleaseSpec
 }
 
 // DefaultEnv is the default environment to use for helm commands
@@ -472,7 +490,17 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 	var needs []string
 	releaseInstalledInfo := make(map[string]bool)
 	for _, r := range st.OrginReleases {
-		releaseInstalledInfo[r.Name] = r.Desired()
+		kubecontext := r.KubeContext
+		namespace := r.Namespace
+
+		if st.OverrideKubeContext != "" {
+			kubecontext = st.OverrideKubeContext
+		}
+		if st.OverrideNamespace != "" {
+			namespace = st.OverrideNamespace
+		}
+
+		releaseInstalledInfo[fmt.Sprintf("%s/%s/%s", kubecontext, namespace, r.Name)] = r.Desired()
 	}
 
 	// Since the representation differs between needs and id,
@@ -485,9 +513,6 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 		components := strings.Split(n, "/")
 
 		name = components[len(components)-1]
-		if !releaseInstalledInfo[name] {
-			st.logger.Warnf("WARNING: %s", fmt.Sprintf("release %s needs %s, but %s is not installed due to installed: false. Either mark %s as installed or remove %s from %s's needs", spec.Name, name, name, name, name, spec.Name))
-		}
 
 		if len(components) > 1 {
 			ns = components[len(components)-2]
@@ -501,6 +526,10 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 			kubecontext = strings.Join(components[:len(components)-2], "/")
 		} else {
 			kubecontext = spec.KubeContext
+		}
+
+		if spec.Desired() && !releaseInstalledInfo[fmt.Sprintf("%s/%s/%s", kubecontext, ns, name)] {
+			st.logger.Warnf("WARNING: %s", fmt.Sprintf("release %s needs %s, but %s is not installed due to installed: false. Either mark %s as installed or remove %s from %s's needs", spec.Name, name, name, name, name, spec.Name))
 		}
 
 		var componentsAfterOverride []string
@@ -571,7 +600,7 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 func gatherUsernamePassword(repoName string, username string, password string) (string, string) {
 	var user, pass string
 
-	replacedRepoName := strings.ToUpper(strings.Replace(repoName, "-", "_", -1))
+	replacedRepoName := strings.ToUpper(strings.ReplaceAll(repoName, "-", "_"))
 	if username != "" {
 		user = username
 	} else if u := os.Getenv(fmt.Sprintf("%s_USERNAME", replacedRepoName)); u != "" {
@@ -679,7 +708,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--skip-crds")
 				}
 
-				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues)
+				flags = st.appendValuesControlModeFlag(flags, opts.ReuseValues, opts.ResetValues, release)
 
 				if len(errs) > 0 {
 					results <- syncPrepareResult{errors: errs, files: files}
@@ -764,17 +793,21 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 }
 
 type SyncOpts struct {
-	Set              []string
-	SkipCleanup      bool
-	SkipCRDs         bool
-	Wait             bool
-	WaitForJobs      bool
-	ReuseValues      bool
-	ResetValues      bool
-	PostRenderer     string
-	PostRendererArgs []string
-	SyncArgs         string
-	HideNotes        bool
+	Set                  []string
+	SkipCleanup          bool
+	SkipCRDs             bool
+	Wait                 bool
+	WaitRetries          int
+	WaitForJobs          bool
+	SyncReleaseLabels    bool
+	ReuseValues          bool
+	ResetValues          bool
+	PostRenderer         string
+	SkipSchemaValidation bool
+	PostRendererArgs     []string
+	SyncArgs             string
+	HideNotes            bool
+	TakeOwnership        bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -873,13 +906,13 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					m.Lock()
 					start := time.Now()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
-						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
-						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
-						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else {
 						affectedReleases.Deleted = append(affectedReleases.Deleted, release)
@@ -1099,6 +1132,7 @@ type ChartPrepareOptions struct {
 	ForceDownload bool
 	SkipRepos     bool
 	SkipDeps      bool
+	SkipRefresh   bool
 	SkipResolve   bool
 	SkipCleanup   bool
 	// Validate is a helm-3-only option. When it is set to true, it configures chartify to pass --validate to helm-template run by it.
@@ -1106,6 +1140,7 @@ type ChartPrepareOptions struct {
 	Validate               bool
 	IncludeCRDs            *bool
 	Wait                   bool
+	WaitRetries            int
 	WaitForJobs            bool
 	OutputDir              string
 	OutputDirTemplate      string
@@ -1113,6 +1148,7 @@ type ChartPrepareOptions struct {
 	Concurrency            int
 	KubeVersion            string
 	Set                    []string
+	Values                 []string
 	// Delete wait
 	DeleteWait    bool
 	DeleteTimeout int
@@ -1280,6 +1316,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
 					chartifyOpts.ApiVersions = st.getApiVersions(release)
 
+					if opts.Values != nil {
+						chartifyOpts.ValuesFiles = append(opts.Values, chartifyOpts.ValuesFiles...)
+					}
+
 					// https://github.com/helmfile/helmfile/pull/867
 					// https://github.com/helmfile/helmfile/issues/895
 					var flags []string
@@ -1347,7 +1387,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 					// only fetch chart if it is not already fetched
 					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
-						fetchFlags := st.chartVersionFlags(release)
+						var fetchFlags []string
+						fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
 						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 						if err := helm.Fetch(chartName, fetchFlags...); err != nil {
 							results <- &chartPrepareResult{err: err}
@@ -1363,6 +1404,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						chartPath = filepath.Dir(fullChartPath)
 					}
 				}
+
 				results <- &chartPrepareResult{
 					releaseName:            release.Name,
 					chartName:              chartName,
@@ -1370,7 +1412,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					releaseContext:         release.KubeContext,
 					chartPath:              chartPath,
 					buildDeps:              buildDeps,
-					skipRefresh:            !isLocal,
+					skipRefresh:            !isLocal || opts.SkipRefresh,
 					chartFetchedByGoGetter: chartFetchedByGoGetter,
 				}
 			}
@@ -1425,6 +1467,7 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//    So we shouldn't use goroutines like we do for other helm operations here.
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
+
 	for _, r := range builds {
 		buildDepsFlags := getBuildDepsFlags(r)
 		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {
@@ -1456,11 +1499,14 @@ type TemplateOpts struct {
 	SkipCleanup       bool
 	OutputDirTemplate string
 	IncludeCRDs       bool
+	NoHooks           bool
 	SkipTests         bool
 	PostRenderer      string
 	PostRendererArgs  []string
 	KubeVersion       string
 	ShowOnly          []string
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
+	SkipSchemaValidation bool
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -1536,6 +1582,10 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 
 		if opts.IncludeCRDs {
 			flags = append(flags, "--include-crds")
+		}
+
+		if opts.NoHooks {
+			flags = append(flags, "--no-hooks")
 		}
 
 		if opts.SkipTests {
@@ -1753,7 +1803,7 @@ type diffPrepareResult struct {
 
 // commonDiffFlags returns common flags for helm diff, not in release-specific context
 func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool, includeTests bool, suppress []string, suppressSecrets bool, showSecrets bool, noHooks bool, opt *DiffOpts) []string {
-	var flags []string
+	var flags = []string{}
 
 	if detailedExitCode {
 		flags = append(flags, "--detailed-exitcode")
@@ -1796,8 +1846,6 @@ func (st *HelmState) commonDiffFlags(detailedExitCode bool, stripTrailingCR bool
 	if opt.Output != "" {
 		flags = append(flags, "--output", opt.Output)
 	}
-
-	flags = st.appendValuesControlModeFlag(flags, opt.ReuseValues, opt.ResetValues)
 
 	if opt.Set != nil {
 		for _, s := range opt.Set {
@@ -1912,6 +1960,8 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					flags = append(flags, "--values", valfile)
 				}
 
+				flags = st.appendValuesControlModeFlag(flags, opt.ReuseValues, opt.ResetValues, release)
+
 				flags = append(flags, commonDiffFlags...)
 
 				if len(errs) > 0 {
@@ -1928,7 +1978,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		func() {
 			for i := 0; i < numReleases; i++ {
 				res := <-results
-				if res.errors != nil && len(res.errors) > 0 {
+				if len(res.errors) > 0 {
 					for _, e := range res.errors {
 						errs = append(errs, e)
 					}
@@ -1989,6 +2039,7 @@ type DiffOpts struct {
 	PostRenderer            string
 	PostRendererArgs        []string
 	SuppressOutputLineRegex []string
+	SkipSchemaValidation    bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -2138,18 +2189,24 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 
 		start := time.Now()
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
-			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+			release.duration = time.Since(start)
+
+			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
 
 			return err
 		}
 
 		if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
-			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+			release.duration = time.Since(start)
+
+			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
 			return err
 		}
 
 		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete"); err != nil {
-			affectedReleases.Failed = append(affectedReleases.Failed, &release)
+			release.duration = time.Since(start)
+
+			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
 			return err
 		}
 		release.duration = time.Since(start)
@@ -2222,16 +2279,40 @@ func (st *HelmState) GetReleasesWithOverrides() ([]ReleaseSpec, error) {
 	return rs, nil
 }
 
+func (st *HelmState) GetReleasesWithLabels() []ReleaseSpec {
+	var rs []ReleaseSpec
+	for _, r := range st.Releases {
+		spec := r
+		labels := map[string]string{}
+		// apply common labels
+		for k, v := range st.CommonLabels {
+			labels[k] = v
+		}
+		for k, v := range spec.Labels {
+			labels[k] = v
+		}
+		// Let the release name, namespace, and chart be used as a tag
+		labels["name"] = r.Name
+		labels["namespace"] = r.Namespace
+		// Strip off just the last portion for the name stable/newrelic would give newrelic
+		chartSplit := strings.Split(r.Chart, "/")
+		labels["chart"] = chartSplit[len(chartSplit)-1]
+		spec.Labels = labels
+		rs = append(rs, spec)
+	}
+	return rs
+}
+
 func (st *HelmState) SelectReleases(includeTransitiveNeeds bool) ([]Release, error) {
 	values := st.Values()
-	rs, err := markExcludedReleases(st.Releases, st.Selectors, st.CommonLabels, values, includeTransitiveNeeds)
+	rs, err := markExcludedReleases(st.Releases, st.Selectors, values, includeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabels map[string]string, values map[string]any, includeTransitiveNeeds bool) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]any, includeTransitiveNeeds bool) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -2242,27 +2323,8 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		filters = append(filters, f)
 	}
 	for _, r := range releases {
-		// Do not add any label without any filter, see #276
-		if len(filters) > 0 {
-			if r.Labels == nil {
-				r.Labels = map[string]string{}
-			}
-			// Let the release name, namespace, and chart be used as a tag
-			r.Labels["name"] = r.Name
-			r.Labels["namespace"] = r.Namespace
-			// Strip off just the last portion for the name stable/newrelic would give newrelic
-			chartSplit := strings.Split(r.Chart, "/")
-			r.Labels["chart"] = chartSplit[len(chartSplit)-1]
-			// Merge CommonLabels into release labels
-			for k, v := range commonLabels {
-				r.Labels[k] = v
-			}
-		}
 		var filterMatch bool
 		for _, f := range filters {
-			if r.Labels == nil {
-				r.Labels = map[string]string{}
-			}
 			if f.Match(r) {
 				filterMatch = true
 				break
@@ -2273,6 +2335,7 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, commonLabe
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse condition in release %s: %w", r.Name, err)
 		}
+		// reset the labels to the original
 		res := Release{
 			ReleaseSpec: r,
 			Filtered:    (len(filters) > 0 && !filterMatch) || (!conditionMatch),
@@ -2627,24 +2690,44 @@ func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 }
 
 func (st *HelmState) appendChartDownloadFlags(flags []string, release *ReleaseSpec) []string {
-	var repoSkipTLSVerify, repoPlainHttp bool
 	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
-	if repo != nil {
-		repoPlainHttp = repo.PlainHttp
-		repoSkipTLSVerify = repo.SkipTLSVerify
-	}
-
-	if release.PlainHttp || st.HelmDefaults.PlainHttp || repoPlainHttp {
+	if st.needsPlainHttp(release, repo) {
 		flags = append(flags, "--plain-http")
 		// --insecure-skip-tls-verify nullifies --plain-http in helm, omit it if PlainHttp is specified
 		return flags
 	}
 
-	if release.InsecureSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify {
+	if st.needsInsecureSkipTLSVerify(release, repo) {
 		flags = append(flags, "--insecure-skip-tls-verify")
 	}
 
 	return flags
+}
+
+func (st *HelmState) needsPlainHttp(release *ReleaseSpec, repo *RepositorySpec) bool {
+	var repoPlainHttp, relPlainHttp bool
+	if repo != nil {
+		repoPlainHttp = repo.PlainHttp
+	}
+
+	if release != nil {
+		relPlainHttp = release.PlainHttp
+	}
+
+	return relPlainHttp || st.HelmDefaults.PlainHttp || repoPlainHttp
+}
+
+func (st *HelmState) needsInsecureSkipTLSVerify(release *ReleaseSpec, repo *RepositorySpec) bool {
+	var repoSkipTLSVerify, relSkipTLSVerify bool
+	if repo != nil {
+		repoSkipTLSVerify = repo.SkipTLSVerify
+	}
+
+	if release != nil {
+		relSkipTLSVerify = release.InsecureSkipTLSVerify
+	}
+
+	return relSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify
 }
 
 func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
@@ -2664,12 +2747,13 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 }
 
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
-	flags := st.chartVersionFlags(release)
+	var flags []string
+	flags = st.appendChartVersionFlags(flags, release)
 	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
 		flags = append(flags, "--enable-dns")
 	}
 
-	flags = st.appendWaitFlags(flags, release, opt)
+	flags = st.appendWaitFlags(flags, helm, release, opt)
 	flags = st.appendWaitForJobsFlags(flags, release, opt)
 
 	// non-OCI chart should be verified here
@@ -2711,15 +2795,20 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--disable-openapi-validation")
 	}
 
+	postRenderer := ""
+	syncReleaseLabels := false
+	if opt != nil {
+		postRenderer = opt.PostRenderer
+		syncReleaseLabels = opt.SyncReleaseLabels
+	}
+
 	flags = st.appendConnectionFlags(flags, release)
 	flags = st.appendChartDownloadFlags(flags, release)
 
 	flags = st.appendHelmXFlags(flags, release)
 
-	postRenderer := ""
-	if opt != nil {
-		postRenderer = opt.PostRenderer
-	}
+	flags = st.appendLabelsFlags(flags, helm, release, syncReleaseLabels)
+
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 
 	var postRendererArgs []string
@@ -2728,8 +2817,18 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 
+	skipSchemaValidation := false
+	if opt != nil {
+		skipSchemaValidation = opt.SkipSchemaValidation
+	}
+
+	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
+
 	// append hide-notes flag
 	flags = st.appendHideNotesFlags(flags, helm, opt)
+
+	// append take-ownership flag
+	flags = st.appendTakeOwnershipFlags(flags, helm, opt)
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
@@ -2742,26 +2841,27 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error) {
 	var flags []string
-
-	flags = st.chartVersionFlags(release)
-
+	flags = st.appendChartVersionFlags(flags, release)
 	flags = st.appendHelmXFlags(flags, release)
 
-	postRenderer := ""
 	var postRendererArgs []string
-	kubeVersion := ""
 	var showOnly []string
+	postRenderer := ""
+	kubeVersion := ""
+	skipSchemaValidation := false
 	if opt != nil {
 		postRenderer = opt.PostRenderer
 		postRendererArgs = opt.PostRendererArgs
 		kubeVersion = opt.KubeVersion
 		showOnly = opt.ShowOnly
+		skipSchemaValidation = opt.SkipSchemaValidation
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer)
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
+	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
@@ -2772,7 +2872,8 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
 	settings := cli.New()
-	flags := st.chartVersionFlags(release)
+	var flags []string
+	flags = st.appendChartVersionFlags(flags, release)
 
 	disableOpenAPIValidation := false
 	if release.DisableOpenAPIValidation != nil {
@@ -2800,10 +2901,20 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	// `helm template --validate` and `helm upgrade --dry-run` ignore `--kube-version` flag.
 	// For the moment, not specifying kubeVersion.
 	flags = st.appendApiVersionsFlags(flags, release, "")
-
 	flags = st.appendConnectionFlags(flags, release)
-
 	flags = st.appendChartDownloadFlags(flags, release)
+
+	// `helm diff` does not support the `--plain-http` flag, this needs to be removed
+	repo, _ := st.GetRepositoryAndNameFromChartName(release.Chart)
+	if st.needsPlainHttp(release, repo) {
+		var cleanFlags []string
+		for _, flag := range flags {
+			if flag != "--plain-http" {
+				cleanFlags = append(cleanFlags, flag)
+			}
+		}
+		flags = cleanFlags
+	}
 
 	for _, flag := range flags {
 		if flag == "--insecure-skip-tls-verify" {
@@ -2835,6 +2946,12 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 
+	skipSchemaValidation := false
+	if opt != nil {
+		skipSchemaValidation = opt.SkipSchemaValidation
+	}
+	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
+
 	suppressOutputLineRegex := []string{}
 	if opt != nil {
 		suppressOutputLineRegex = opt.SuppressOutputLineRegex
@@ -2860,9 +2977,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	return append(flags, common...), files, nil
 }
 
-func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
-	flags := []string{}
-
+func (st *HelmState) appendChartVersionFlags(flags []string, release *ReleaseSpec) []string {
 	if release.Version != "" {
 		flags = append(flags, "--version", release.Version)
 	}
@@ -2906,8 +3021,8 @@ func (st *HelmState) chartOCIFlags(r *ReleaseSpec) []string {
 	return flags
 }
 
-func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues bool, resetValues bool) []string {
-	if !resetValues && (st.HelmDefaults.ReuseValues || reuseValues) {
+func (st *HelmState) appendValuesControlModeFlag(flags []string, reuseValues bool, resetValues bool, release *ReleaseSpec) []string {
+	if !resetValues && ((release.ReuseValues != nil && *release.ReuseValues || release.ReuseValues == nil && st.HelmDefaults.ReuseValues) || reuseValues) {
 		flags = append(flags, "--reuse-values")
 	} else {
 		flags = append(flags, "--reset-values")
@@ -3292,6 +3407,15 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 		flags = append(flags, setFlags...)
 	}
 
+	if len(release.SetStringValues) > 0 {
+		setStringFlags, err := st.setStringFlags(release.SetStringValues)
+		if err != nil {
+			return nil, files, fmt.Errorf("Failed to render set string value entry in %s for release %s: %v", st.FilePath, release.Name, err)
+		}
+
+		flags = append(flags, setStringFlags...)
+	}
+
 	/***********
 	 * START 'env' section for backwards compatibility
 	 ***********/
@@ -3351,6 +3475,34 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 	return flags, nil
 }
 
+// setStringFlags is to generate the set-string flags for helm
+func (st *HelmState) setStringFlags(setValues []SetValue) ([]string, error) {
+	var flags []string
+
+	for _, set := range setValues {
+		if set.Value != "" {
+			renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
+			if err != nil {
+				return nil, err
+			}
+			flags = append(flags, "--set-string", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
+		} else if len(set.Values) > 0 {
+			renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
+			if err != nil {
+				return nil, err
+			}
+			items := make([]string, len(renderedValues))
+			for i, raw := range renderedValues {
+				items[i] = escape(raw)
+			}
+			v := strings.Join(items, ",")
+			flags = append(flags, "--set-string", fmt.Sprintf("%s={%s}", escape(set.Name), v))
+		}
+	}
+
+	return flags, nil
+}
+
 // renderValsSecrets helper function which renders 'ref+.*' secrets
 func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 	output := make([]string, len(input))
@@ -3386,7 +3538,7 @@ func hideChartCredentials(chartCredentials string) (string, error) {
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases
 func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
-	if ar.Upgraded != nil && len(ar.Upgraded) > 0 {
+	if len(ar.Upgraded) > 0 {
 		logger.Info("\nUPDATED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
@@ -3408,7 +3560,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		}
 		logger.Info(tbl.String())
 	}
-	if ar.Deleted != nil && len(ar.Deleted) > 0 {
+	if len(ar.Deleted) > 0 {
 		logger.Info("\nDELETED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
@@ -3423,7 +3575,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		}
 		logger.Info(tbl.String())
 	}
-	if ar.Failed != nil && len(ar.Failed) > 0 {
+	if len(ar.Failed) > 0 {
 		logger.Info("\nFAILED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
@@ -3434,6 +3586,21 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		tbl.Separator = "   "
 		for _, release := range ar.Failed {
 			err := tbl.AddRow(release.Name, release.Namespace, release.Chart, release.installedVersion, release.duration.Round(time.Second))
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
+		}
+		logger.Info(tbl.String())
+	}
+	if len(ar.DeleteFailed) > 0 {
+		logger.Info("\nFAILED TO DELETE RELEASES:")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
+		)
+		tbl.Separator = "   "
+		for _, release := range ar.DeleteFailed {
+			err := tbl.AddRow(release.Name, release.Namespace, release.duration.Round(time.Second))
 			if err != nil {
 				logger.Warn("Could not add row, %v", err)
 			}
@@ -3741,10 +3908,10 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		st.logger.Debugf("chart already exists at %s", chartPath)
 	} else {
 		flags := st.chartOCIFlags(release)
-
-		// apprnd flags about keyring and verify
 		flags = st.appendVerifyFlags(flags, release)
 		flags = st.appendKeyringFlags(flags, release)
+		flags = st.appendChartDownloadFlags(flags, release)
+		flags = st.appendChartVersionFlags(flags, release)
 
 		err := helm.ChartPull(qualifiedChartName, chartPath, flags...)
 		if err != nil {
@@ -3780,31 +3947,36 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 	return repo.OCI
 }
 
-func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (qualifiedChartName, chartName, chartVersion string, err error) {
-	chartVersion = "latest"
-	if release.Version != "" {
+func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (string, string, string, error) {
+	chartVersion := "latest"
+	if st.isDevelopment(release) && release.Version == "" {
+		// omit version, otherwise --devel flag is ignored by helm and helm-diff
+		chartVersion = ""
+	} else if release.Version != "" {
 		chartVersion = release.Version
 	}
 
+	if !st.IsOCIChart(release.Chart) {
+		return "", "", chartVersion, nil
+	}
+
+	var qualifiedChartName, chartName string
 	if strings.HasPrefix(release.Chart, "oci://") {
-		split := strings.Split(release.Chart, "/")
-		chartName = split[len(split)-1]
+		parts := strings.Split(release.Chart, "/")
+		chartName = parts[len(parts)-1]
 		qualifiedChartName = strings.Replace(fmt.Sprintf("%s:%s", release.Chart, chartVersion), "oci://", "", 1)
 	} else {
 		var repo *RepositorySpec
 		repo, chartName = st.GetRepositoryAndNameFromChartName(release.Chart)
-		if repo == nil {
-			return
-		}
-		if !repo.OCI {
-			return
-		}
 		qualifiedChartName = fmt.Sprintf("%s/%s:%s", repo.URL, chartName, chartVersion)
 	}
+	qualifiedChartName = strings.TrimSuffix(qualifiedChartName, ":")
+
 	if chartVersion == "latest" && helm.IsVersionAtLeast("3.8.0") {
 		return "", "", "", fmt.Errorf("the version for OCI charts should be semver compliant, the latest tag is not supported anymore for helm >= 3.8.0")
 	}
-	return
+
+	return qualifiedChartName, chartName, chartVersion, nil
 }
 
 func (st *HelmState) FullFilePath() (string, error) {

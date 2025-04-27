@@ -280,8 +280,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks", "--reset-values"}},
-				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks", "--reset-values"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values", "--no-hooks"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values", "--no-hooks"}},
 			},
 		})
 	})

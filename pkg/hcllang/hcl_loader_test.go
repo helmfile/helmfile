@@ -44,7 +44,7 @@ func TestHCL_localsTraversalsParser(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -79,7 +79,7 @@ func TestHCL_localsTraversalsAttrParser(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 func TestHCL_valuesTraversalsParser(t *testing.T) {
@@ -105,7 +105,7 @@ func TestHCL_valuesTraversalsParser(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -137,7 +137,7 @@ func TestHCL_valuesTraversalsAttrParser(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -158,6 +158,6 @@ func TestHCL_resultValidate(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }

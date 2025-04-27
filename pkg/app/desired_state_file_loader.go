@@ -15,7 +15,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/policy"
 	"github.com/helmfile/helmfile/pkg/remote"
-	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 )
 
@@ -162,21 +161,14 @@ func (a *desiredStateLoader) underlying() *state.StateCreator {
 func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
 	var st *state.HelmState
 	var err error
-	if runtime.V1Mode {
-		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, env, overrodeEnv)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		merged, err := env.Merge(overrodeEnv)
-		if err != nil {
-			return nil, err
-		}
+	merged, err := env.Merge(overrodeEnv)
+	if err != nil {
+		return nil, err
+	}
 
-		st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, merged, nil)
-		if err != nil {
-			return nil, err
-		}
+	st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, merged, nil)
+	if err != nil {
+		return nil, err
 	}
 	helmfiles, err := st.ExpandedHelmfiles()
 	if err != nil {
@@ -207,7 +199,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 
 		var rawContent []byte
 
-		if filepath.Ext(filename) == ".gotmpl" || !runtime.V1Mode {
+		if filepath.Ext(filename) == ".gotmpl" {
 			var yamlBuf *bytes.Buffer
 			var err error
 
@@ -249,6 +241,14 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			finalState.RenderedValues = currentState.RenderedValues
 		}
 
+		if len(finalState.HelmDefaults.PostRendererArgs) > 0 {
+			for i := range finalState.Releases {
+				if len(finalState.Releases[i].PostRendererArgs) == 0 {
+					finalState.Releases[i].PostRendererArgs = finalState.HelmDefaults.PostRendererArgs
+				}
+			}
+			finalState.HelmDefaults.PostRendererArgs = nil
+		}
 		env = &finalState.Env
 
 		ld.logger.Debugf("merged environment: %v", env)

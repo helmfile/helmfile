@@ -19,7 +19,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/maputil"
-	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
@@ -37,23 +36,10 @@ func (e DisableInsecureFeaturesError) Error() string {
 
 var (
 	disableInsecureFeatures bool
-
-	// TODO: Remove this function once Helmfile v0.x
-	skipInsecureTemplateFunctions bool
 )
 
 func init() {
 	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
-
-	// TODO: Remove this function once Helmfile v0.x
-	skipInsecureTemplateFunctions, _ = strconv.ParseBool(os.Getenv(envvar.SkipInsecureTemplateFunctions))
-	skipInsecureTemplateFunctions = func() bool {
-		if runtime.V1Mode {
-			return false
-		}
-		b, _ := strconv.ParseBool(os.Getenv(envvar.SkipInsecureTemplateFunctions))
-		return b
-	}()
 }
 
 func (c *Context) createFuncMap() template.FuncMap {
@@ -76,7 +62,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"fetchSecretValue": fetchSecretValue,
 		"expandSecretRefs": fetchSecretValues,
 	}
-	if c.preRender || skipInsecureTemplateFunctions {
+	if c.preRender {
 		// disable potential side-effect template calls
 		funcMap["exec"] = func(string, []any, ...string) (string, error) {
 			return "", nil
@@ -321,14 +307,14 @@ func ToYaml(v any) (string, error) {
 	return string(data), nil
 }
 
-func FromYaml(str string) (Values, error) {
-	m := map[string]any{}
+func FromYaml(str string) (any, error) {
+	var m any
 
 	if err := yaml.Unmarshal([]byte(str), &m); err != nil {
 		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
 	}
 
-	m, err := maputil.CastKeysToStrings(m)
+	m, err := maputil.RecursivelyStringifyMapKey(m)
 	if err != nil {
 		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
 	}
@@ -391,10 +377,10 @@ func RequiredEnv(name string) (string, error) {
 
 func Required(warn string, val any) (any, error) {
 	if val == nil {
-		return nil, fmt.Errorf(warn)
+		return nil, fmt.Errorf("%s", warn)
 	} else if _, ok := val.(string); ok {
 		if val == "" {
-			return nil, fmt.Errorf(warn)
+			return nil, fmt.Errorf("%s", warn)
 		}
 	}
 

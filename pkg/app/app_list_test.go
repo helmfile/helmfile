@@ -159,17 +159,17 @@ releases:
 	t.Run("default environment includes all releases", func(t *testing.T) {
 		check(t, testcase{
 			environment: "default",
-			expected: `NAME                       	NAMESPACE  	ENABLED	INSTALLED	LABELS  	CHART           	VERSION
-logging                    	kube-system	true   	true     	        	incubator/raw   	       
-kubernetes-external-secrets	kube-system	true   	true     	        	incubator/raw   	       
-external-secrets           	default    	true   	true     	app:test	incubator/raw   	       
-my-release                 	default    	true   	true     	app:test	incubator/raw   	       
-disabled                   	kube-system	true   	false    	        	incubator/raw   	       
-test2                      	           	true   	true     	        	incubator/raw   	       
-test3                      	           	true   	true     	        	incubator/raw   	       
-cache                      	my-app     	true   	true     	app:test	bitnami/redis   	17.0.7 
-database                   	my-app     	true   	true     	        	bitnami/postgres	11.6.22
-global                     	kube-system	true   	true     	        	incubator/raw   	       
+			expected: `NAME                       	NAMESPACE  	ENABLED	INSTALLED	LABELS                                                          	CHART           	VERSION
+logging                    	kube-system	true   	true     	chart:raw,name:logging,namespace:kube-system                    	incubator/raw   	       
+kubernetes-external-secrets	kube-system	true   	true     	chart:raw,name:kubernetes-external-secrets,namespace:kube-system	incubator/raw   	       
+external-secrets           	default    	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default      	incubator/raw   	       
+my-release                 	default    	true   	true     	app:test,chart:raw,name:my-release,namespace:default            	incubator/raw   	       
+disabled                   	kube-system	true   	false    	chart:raw,name:disabled,namespace:kube-system                   	incubator/raw   	       
+test2                      	           	true   	true     	chart:raw,name:test2,namespace:                                 	incubator/raw   	       
+test3                      	           	true   	true     	chart:raw,name:test3,namespace:                                 	incubator/raw   	       
+cache                      	my-app     	true   	true     	app:test,chart:redis,name:cache,namespace:my-app                	bitnami/redis   	17.0.7 
+database                   	my-app     	true   	true     	chart:postgres,name:database,namespace:my-app                   	bitnami/postgres	11.6.22
+global                     	kube-system	true   	true     	chart:raw,name:global,namespace:kube-system                     	incubator/raw   	       
 `,
 		}, cfg)
 	})
@@ -195,9 +195,9 @@ my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,
 	t.Run("filters releases for environment used in one file only", func(t *testing.T) {
 		check(t, testcase{
 			environment: "test",
-			expected: `NAME    	NAMESPACE	ENABLED	INSTALLED	LABELS  	CHART           	VERSION
-cache   	my-app   	true   	true     	app:test	bitnami/redis   	17.0.7 
-database	my-app   	true   	true     	        	bitnami/postgres	11.6.22
+			expected: `NAME    	NAMESPACE	ENABLED	INSTALLED	LABELS                                          	CHART           	VERSION
+cache   	my-app   	true   	true     	app:test,chart:redis,name:cache,namespace:my-app	bitnami/redis   	17.0.7 
+database	my-app   	true   	true     	chart:postgres,name:database,namespace:my-app   	bitnami/postgres	11.6.22
 `,
 		}, cfg)
 	})
@@ -206,16 +206,16 @@ database	my-app   	true   	true     	        	bitnami/postgres	11.6.22
 		check(t, testcase{
 			environment: "shared",
 			// 'global' release has no environments, so is still excluded
-			expected: `NAME                       	NAMESPACE  	ENABLED	INSTALLED	LABELS  	CHART           	VERSION
-logging                    	kube-system	true   	true     	        	incubator/raw   	       
-kubernetes-external-secrets	kube-system	true   	true     	        	incubator/raw   	       
-external-secrets           	default    	true   	true     	app:test	incubator/raw   	       
-my-release                 	default    	true   	true     	app:test	incubator/raw   	       
-disabled                   	kube-system	true   	false    	        	incubator/raw   	       
-test2                      	           	true   	true     	        	incubator/raw   	       
-test3                      	           	true   	true     	        	incubator/raw   	       
-cache                      	my-app     	true   	true     	app:test	bitnami/redis   	17.0.7 
-database                   	my-app     	true   	true     	        	bitnami/postgres	11.6.22
+			expected: `NAME                       	NAMESPACE  	ENABLED	INSTALLED	LABELS                                                          	CHART           	VERSION
+logging                    	kube-system	true   	true     	chart:raw,name:logging,namespace:kube-system                    	incubator/raw   	       
+kubernetes-external-secrets	kube-system	true   	true     	chart:raw,name:kubernetes-external-secrets,namespace:kube-system	incubator/raw   	       
+external-secrets           	default    	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default      	incubator/raw   	       
+my-release                 	default    	true   	true     	app:test,chart:raw,name:my-release,namespace:default            	incubator/raw   	       
+disabled                   	kube-system	true   	false    	chart:raw,name:disabled,namespace:kube-system                   	incubator/raw   	       
+test2                      	           	true   	true     	chart:raw,name:test2,namespace:                                 	incubator/raw   	       
+test3                      	           	true   	true     	chart:raw,name:test3,namespace:                                 	incubator/raw   	       
+cache                      	my-app     	true   	true     	app:test,chart:redis,name:cache,namespace:my-app                	bitnami/redis   	17.0.7 
+database                   	my-app     	true   	true     	chart:postgres,name:database,namespace:my-app                   	bitnami/postgres	11.6.22
 `,
 		}, cfg)
 	})
@@ -240,6 +240,7 @@ environments:
     values:
      - myrelease2:
          enabled: false
+---
 releases:
 - name: myrelease1
   chart: mychart1
@@ -284,7 +285,7 @@ releases:
 	})
 	assert.NoError(t, err)
 
-	expected := `[{"name":"myrelease1","namespace":"testNamespace","enabled":true,"installed":false,"labels":"id:myrelease1","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"testNamespace","enabled":false,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"testNamespace","enabled":true,"installed":true,"labels":"","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"testNamespace","enabled":true,"installed":true,"labels":"id:myrelease1","chart":"mychart1","version":""}]
+	expected := `[{"name":"myrelease1","namespace":"testNamespace","enabled":true,"installed":false,"labels":"chart:mychart1,id:myrelease1,name:myrelease1,namespace:testNamespace","chart":"mychart1","version":""},{"name":"myrelease2","namespace":"testNamespace","enabled":false,"installed":true,"labels":"chart:mychart1,name:myrelease2,namespace:testNamespace","chart":"mychart1","version":""},{"name":"myrelease3","namespace":"testNamespace","enabled":true,"installed":true,"labels":"chart:mychart1,name:myrelease3,namespace:testNamespace","chart":"mychart1","version":""},{"name":"myrelease4","namespace":"testNamespace","enabled":true,"installed":true,"labels":"chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace","chart":"mychart1","version":""}]
 `
 	assert.Equal(t, expected, out)
 }

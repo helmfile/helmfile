@@ -76,13 +76,16 @@ func TestAppendWaitFlags(t *testing.T) {
 		name     string
 		release  *ReleaseSpec
 		syncOpts *SyncOpts
+		helm     helmexec.Interface
 		helmSpec HelmSpec
 		expected []string
 	}{
+		// --wait
 		{
 			name:     "release wait",
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
 			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{},
 			expected: []string{"--wait"},
 		},
@@ -90,6 +93,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "cli flags wait",
 			release:  &ReleaseSpec{},
 			syncOpts: &SyncOpts{Wait: true},
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{},
 			expected: []string{"--wait"},
 		},
@@ -97,6 +101,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "helm defaults wait",
 			release:  &ReleaseSpec{},
 			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{Wait: true},
 			expected: []string{"--wait"},
 		},
@@ -104,6 +109,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "release wait false",
 			release:  &ReleaseSpec{Wait: &[]bool{false}[0]},
 			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{Wait: true},
 			expected: []string{},
 		},
@@ -111,6 +117,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "cli flags wait false",
 			release:  &ReleaseSpec{},
 			syncOpts: &SyncOpts{},
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{Wait: true},
 			expected: []string{"--wait"},
 		},
@@ -118,8 +125,66 @@ func TestAppendWaitFlags(t *testing.T) {
 			name:     "helm defaults wait false",
 			release:  &ReleaseSpec{},
 			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
 			helmSpec: HelmSpec{Wait: false},
 			expected: []string{},
+		},
+		// --wait-retries
+		{
+			name:     "release wait and retry unsupported",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], WaitRetries: &[]int{1}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.11.0"),
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "release wait and retry supported",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], WaitRetries: &[]int{1}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait", "--wait-retries", "1"},
+		},
+		{
+			name:     "no wait retry",
+			release:  &ReleaseSpec{WaitRetries: &[]int{1}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{},
+			expected: []string{},
+		},
+		{
+			name:     "cli flags wait and retry",
+			release:  &ReleaseSpec{},
+			syncOpts: &SyncOpts{Wait: true, WaitRetries: 2},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{},
+			expected: []string{"--wait", "--wait-retries", "2"},
+		},
+		{
+			name:     "helm defaults wait retry",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{Wait: true, WaitRetries: 3},
+			expected: []string{"--wait", "--wait-retries", "3"},
+		},
+		{
+			name:     "release wait default retries",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{WaitRetries: 4},
+			expected: []string{"--wait", "--wait-retries", "4"},
+		},
+		{
+			name:     "release retries default wait",
+			release:  &ReleaseSpec{WaitRetries: &[]int{5}[0]},
+			syncOpts: nil,
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			helmSpec: HelmSpec{Wait: true},
+			expected: []string{"--wait", "--wait-retries", "5"},
 		},
 	}
 
@@ -127,7 +192,7 @@ func TestAppendWaitFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{}
 			st.HelmDefaults = tt.helmSpec
-			got := st.appendWaitFlags([]string{}, tt.release, tt.syncOpts)
+			got := st.appendWaitFlags([]string{}, tt.helm, tt.release, tt.syncOpts)
 			require.Equalf(t, tt.expected, got, "appendWaitFlags() = %v, want %v", got, tt.expected)
 		})
 	}
@@ -318,6 +383,102 @@ func TestAppendHideNotesFlags(t *testing.T) {
 			st.HelmDefaults = tt.args.helmSpec
 			got := st.appendHideNotesFlags(tt.args.flags, tt.args.helm, tt.args.opt)
 			require.Equalf(t, tt.args.expected, got, "appendHideNotesFlags() = %v, want %v", got, tt.args.expected)
+		})
+	}
+}
+
+func TestAppendTakeOwnershipFlags(t *testing.T) {
+	type args struct {
+		flags    []string
+		helm     helmexec.Interface
+		helmSpec HelmSpec
+		opt      *SyncOpts
+		expected []string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "no take-ownership when helm less than 3.17.0",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.16.0"),
+				opt: &SyncOpts{
+					TakeOwnership: true,
+				},
+				expected: []string{},
+			},
+		},
+		{
+			name: "take-ownership from cmd flag",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.17.0"),
+				opt: &SyncOpts{
+					TakeOwnership: true,
+				},
+				expected: []string{"--take-ownership"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.args.helmSpec
+			got := st.appendTakeOwnershipFlags(tt.args.flags, tt.args.helm, tt.args.opt)
+			require.Equalf(t, tt.args.expected, got, "appendTakeOwnershipFlags() = %v, want %v", got, tt.args.expected)
+		})
+	}
+}
+
+func TestFormatLabels(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels map[string]string
+		want   string
+	}{
+		{
+			name:   "empty labels",
+			labels: map[string]string{},
+			want:   "",
+		},
+		{
+			name:   "single label",
+			labels: map[string]string{"foo": "bar"},
+			want:   "foo=bar",
+		},
+		{
+			name:   "multiple labels",
+			labels: map[string]string{"foo": "bar", "baz": "qux"},
+			want:   "baz=qux,foo=bar",
+		},
+		{
+			name:   "multiple labels with empty value",
+			labels: map[string]string{"foo": "bar", "baz": "qux", "quux": ""},
+			want:   "baz=qux,foo=bar,quux=",
+		},
+		{
+			name:   "multiple labels with empty key",
+			labels: map[string]string{"foo": "bar", "baz": "qux", "": "quux"},
+			want:   "baz=qux,foo=bar",
+		},
+		{
+			name:   "empty label value",
+			labels: map[string]string{"foo": ""},
+			want:   "foo=",
+		},
+		{
+			name:   "empty label key",
+			labels: map[string]string{"": "bar"},
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatLabels(tt.labels)
+			require.Equal(t, tt.want, got, "formatLabels() = %v, want %v", got, tt.want)
 		})
 	}
 }

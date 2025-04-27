@@ -58,13 +58,9 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	type fields struct {
 		BaseChartPath string
 		Context       string
-
-		// TODO: Remove this function once Helmfile v0.x
-		DeprecatedReleases []ReleaseSpec
-
-		Namespace    string
-		Repositories []RepositorySpec
-		Releases     []ReleaseSpec
+		Namespace     string
+		Repositories  []RepositorySpec
+		Releases      []ReleaseSpec
 	}
 	type args struct {
 		spec ReleaseSpec
@@ -89,12 +85,8 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 	fieldsWithNamespace := fields{
 		BaseChartPath: ".",
 		Context:       "test_context",
-
-		// TODO: Remove this function once Helmfile v0.x
-		DeprecatedReleases: nil,
-
-		Namespace:    specWithNamespaceFromFields.Namespace,
-		Repositories: nil,
+		Namespace:     specWithNamespaceFromFields.Namespace,
+		Repositories:  nil,
 		Releases: []ReleaseSpec{
 			specWithNamespace,
 		},
@@ -148,10 +140,6 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 			state := &HelmState{
 				basePath: tt.fields.BaseChartPath,
 				ReleaseSetSpec: ReleaseSetSpec{
-					// TODO: Remove this function once Helmfile v0.x
-					DeprecatedContext:  tt.fields.Context,
-					DeprecatedReleases: tt.fields.DeprecatedReleases,
-
 					OverrideNamespace: tt.fields.Namespace,
 					Repositories:      tt.fields.Repositories,
 					Releases:          tt.fields.Releases,
@@ -740,9 +728,6 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			state := &HelmState{
 				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
-					// TODO: Remove this function once Helmfile v0.x
-					DeprecatedContext: "default",
-
 					Releases:     []ReleaseSpec{*tt.release},
 					HelmDefaults: tt.defaults,
 				},
@@ -904,9 +889,8 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			state := &HelmState{
 				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
-					DeprecatedContext: "default",
-					Releases:          []ReleaseSpec{*tt.release},
-					HelmDefaults:      tt.defaults,
+					Releases:     []ReleaseSpec{*tt.release},
+					HelmDefaults: tt.defaults,
 				},
 				valsRuntime: valsRuntime,
 			}
@@ -1871,6 +1855,19 @@ func TestHelmState_DiffFlags(t *testing.T) {
 			helm:          &exectest.Helm{},
 			wantDiffFlags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "1.21"},
 		},
+		{
+			name: "release with kubeversion and plain http which is ignored",
+			releases: []ReleaseSpec{
+				{
+					Name:        "releaseName",
+					Chart:       "foo",
+					KubeVersion: "1.21",
+					PlainHttp:   true,
+				},
+			},
+			helm:          &exectest.Helm{},
+			wantDiffFlags: []string{"--kube-version", "1.21"},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -2808,7 +2805,7 @@ func TestHelmState_Delete(t *testing.T) {
 			affectedReleases := AffectedReleases{}
 			errs := state.DeleteReleases(&affectedReleases, helm, 1, tt.purge, "")
 			if errs != nil {
-				if !tt.wantErr || len(affectedReleases.Failed) != 1 || affectedReleases.Failed[0].Name != release.Name {
+				if !tt.wantErr || len(affectedReleases.DeleteFailed) != 1 || affectedReleases.DeleteFailed[0].Name != release.Name {
 					t.Errorf("DeleteReleases() for %s error = %v, wantErr %v", tt.name, errs, tt.wantErr)
 					return
 				}
@@ -3203,6 +3200,8 @@ func TestFullFilePath(t *testing.T) {
 }
 
 func TestGetOCIQualifiedChartName(t *testing.T) {
+	devel := true
+
 	tests := []struct {
 		state    HelmState
 		expected []struct {
@@ -3288,6 +3287,27 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 				chartVersion       string
 			}{
 				{"registry/chart-path/chart-name:0.1.2", "chart-name", "0.1.2"},
+			},
+		},
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://registry/chart-path/chart-name",
+							Devel: &devel,
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name", "chart-name", ""},
 			},
 		},
 	}
@@ -3438,14 +3458,11 @@ func TestCommonDiffFlags(t *testing.T) {
 			stripTrailingCR: true,
 			expected: []string{
 				"--strip-trailing-cr",
-				"--reset-values",
 			},
 		},
 		{
-			name: "stripTrailingCR disenabled",
-			expected: []string{
-				"--reset-values",
-			},
+			name:     "stripTrailingCR disenabled",
+			expected: []string{},
 		},
 	}
 	for _, tt := range tests {
@@ -3578,6 +3595,98 @@ func TestAppendChartDownloadFlags(t *testing.T) {
 			result := st.appendChartDownloadFlags([]string{}, &st.Releases[0])
 
 			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNeedsPlainHttp(t *testing.T) {
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		repo     *RepositorySpec
+		defaults HelmSpec
+		expected bool
+	}{
+		{
+			name: "PlainHttp in Release",
+			release: &ReleaseSpec{
+				PlainHttp: true,
+			},
+			expected: true,
+		},
+		{
+			name: "PlainHttp in Repository",
+			repo: &RepositorySpec{
+				PlainHttp: true,
+			},
+			expected: true,
+		},
+		{
+			name: "PlainHttp in HelmDefaults",
+			defaults: HelmSpec{
+				PlainHttp: true,
+			},
+			expected: true,
+		},
+		{
+			name:     "PlainHttp not set",
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: tt.defaults,
+				},
+			}
+			require.Equal(t, tt.expected, st.needsPlainHttp(tt.release, tt.repo))
+		})
+	}
+}
+
+func TestNeedsInsecureSkipTLSVerify(t *testing.T) {
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		repo     *RepositorySpec
+		defaults HelmSpec
+		expected bool
+	}{
+		{
+			name: "InsecureSkipTLSVerify in Release",
+			release: &ReleaseSpec{
+				InsecureSkipTLSVerify: true,
+			},
+			expected: true,
+		},
+		{
+			name: "SkipTLSVerify in Repository",
+			repo: &RepositorySpec{
+				SkipTLSVerify: true,
+			},
+			expected: true,
+		},
+		{
+			name: "InsecureSkipTLSVerify in HelmDefaults",
+			defaults: HelmSpec{
+				InsecureSkipTLSVerify: true,
+			},
+			expected: true,
+		},
+		{
+			name:     "InsecureSkipTLSVerify not set",
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: tt.defaults,
+				},
+			}
+			require.Equal(t, tt.expected, st.needsInsecureSkipTLSVerify(tt.release, tt.repo))
 		})
 	}
 }
@@ -4201,5 +4310,264 @@ func TestAppendVerifyFlags(t *testing.T) {
 			flags := st.appendVerifyFlags(nil, tt.release)
 			assert.Equal(t, tt.expected, flags)
 		})
+	}
+}
+
+// TestHelmState_setStringFlags tests the setStringFlags method
+func TestHelmState_setStringFlags(t *testing.T) {
+	tests := []struct {
+		name            string
+		setStringValues []SetValue
+		want            []string
+		wantErr         bool
+	}{
+		{
+			name: "single value",
+			setStringValues: []SetValue{
+				{
+					Name:  "key",
+					Value: "value",
+				},
+			},
+			want:    []string{"--set-string", "key=value"},
+			wantErr: false,
+		},
+		{
+			name: "multiple values",
+			setStringValues: []SetValue{
+				{
+					Name:   "key",
+					Values: []string{"value1", "value2"},
+				},
+			},
+			want:    []string{"--set-string", "key={value1,value2}"},
+			wantErr: false,
+		},
+		{
+			name: "rendered value error",
+			setStringValues: []SetValue{
+				{
+					Name:  "key",
+					Value: "ref+echo://value",
+				},
+			},
+			want:    []string{"--set-string", "key=value"},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				valsRuntime: valsRuntime,
+			}
+			got, err := st.setStringFlags(tt.setStringValues)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("setStringFlags() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("setStringFlags() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
+	tests := []struct {
+		flags        []string
+		diffOptions  *DiffOpts
+		helmDefaults *HelmSpec
+		release      *ReleaseSpec
+	}{
+		{
+			flags:        []string{"--reuse-values"},
+			diffOptions:  &DiffOpts{},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-from-release",
+				ReuseValues: boolValue(true),
+			},
+		},
+		{
+			flags: []string{"--reuse-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-from-cli",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags: []string{"--reuse-values"},
+			diffOptions: &DiffOpts{
+				ReuseValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-all",
+				ReuseValues: boolValue(true),
+			},
+		},
+		{
+			flags:       []string{"--reset-values"},
+			diffOptions: &DiffOpts{},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+			release: &ReleaseSpec{
+				Name:        "reset-values-from-helm-defaults",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags:        []string{"--reset-values"},
+			diffOptions:  &DiffOpts{},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reset-values-from-release",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags: []string{"--reset-values"},
+			diffOptions: &DiffOpts{
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reset-values-cli-overrides-release",
+				ReuseValues: boolValue(true),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		releases := []ReleaseSpec{
+			*tt.release,
+		}
+		state := &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				Releases:     releases,
+				HelmDefaults: *tt.helmDefaults,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+		helm := &exectest.Helm{
+			Lists: map[exectest.ListKey]string{},
+			Helm3: true,
+		}
+		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
+
+		require.Len(t, es, 0)
+		require.Len(t, results, 1)
+
+		r := results[0]
+
+		require.Equal(t, tt.flags, r.flags, "Wrong value control flag for release %s", r.release.Name)
+	}
+}
+
+func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
+	tests := []struct {
+		flags        []string
+		syncOptions  *SyncOpts
+		helmDefaults *HelmSpec
+		release      *ReleaseSpec
+	}{
+		{
+			flags:        []string{"--reuse-values"},
+			syncOptions:  &SyncOpts{},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-from-release",
+				ReuseValues: boolValue(true),
+			},
+		},
+		{
+			flags: []string{"--reuse-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-from-cli",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags: []string{"--reuse-values"},
+			syncOptions: &SyncOpts{
+				ReuseValues: true,
+			},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+			release: &ReleaseSpec{
+				Name:        "reuse-values-all",
+				ReuseValues: boolValue(true),
+			},
+		},
+		{
+			flags:       []string{"--reset-values"},
+			syncOptions: &SyncOpts{},
+			helmDefaults: &HelmSpec{
+				ReuseValues: true,
+			},
+			release: &ReleaseSpec{
+				Name:        "reset-values-from-helm-defaults",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags:        []string{"--reset-values"},
+			syncOptions:  &SyncOpts{},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reset-values-from-release",
+				ReuseValues: boolValue(false),
+			},
+		},
+		{
+			flags: []string{"--reset-values"},
+			syncOptions: &SyncOpts{
+				ResetValues: true,
+			},
+			helmDefaults: &HelmSpec{},
+			release: &ReleaseSpec{
+				Name:        "reset-values-cli-overrides-release",
+				ReuseValues: boolValue(true),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		releases := []ReleaseSpec{
+			*tt.release,
+		}
+		state := &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				Releases:     releases,
+				HelmDefaults: *tt.helmDefaults,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+		helm := &exectest.Helm{
+			Lists: map[exectest.ListKey]string{},
+			Helm3: true,
+		}
+		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
+
+		require.Len(t, es, 0)
+		require.Len(t, results, 1)
+
+		r := results[0]
+
+		require.Equal(t, tt.flags, r.flags, "Wrong value control flag for release %s", r.release.Name)
 	}
 }

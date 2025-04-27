@@ -20,6 +20,8 @@ type SyncOptions struct {
 	SkipCRDs bool
 	// Wait is the wait flag
 	Wait bool
+	// WaitRetries is the wait retries flag
+	WaitRetries int
 	// WaitForJobs is the wait for jobs flag
 	WaitForJobs bool
 	// ReuseValues is true if the helm command should reuse the values
@@ -30,12 +32,18 @@ type SyncOptions struct {
 	PostRenderer string
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
+	SkipSchemaValidation bool
 	// Cascade '--cascade' to helmv3 delete, available values: background, foreground, or orphan, default: background
 	Cascade string
 	// SyncArgs is the list of arguments to pass to the helm upgrade command.
 	SyncArgs string
 	// HideNotes is the hide notes flag
 	HideNotes bool
+	// TakeOwnership is the take ownership flag
+	TakeOwnership bool
+	// SyncReleaseLabels is the sync release labels flag
+	SyncReleaseLabels bool
 }
 
 // NewSyncOptions creates a new Apply
@@ -106,6 +114,11 @@ func (t *SyncImpl) Wait() bool {
 	return t.SyncOptions.Wait
 }
 
+// WaitRetries returns the wait retries
+func (t *SyncImpl) WaitRetries() int {
+	return t.SyncOptions.WaitRetries
+}
+
 // WaitForJobs returns the wait for jobs
 func (t *SyncImpl) WaitForJobs() bool {
 	return t.SyncOptions.WaitForJobs
@@ -132,6 +145,11 @@ func (t *SyncImpl) PostRendererArgs() []string {
 	return t.SyncOptions.PostRendererArgs
 }
 
+// SkipSchemaValidation returns the SkipSchemaValidation.
+func (t *SyncImpl) SkipSchemaValidation() bool {
+	return t.SyncOptions.SkipSchemaValidation
+}
+
 // Cascade returns cascade flag
 func (t *SyncImpl) Cascade() string {
 	return t.SyncOptions.Cascade
@@ -142,6 +160,16 @@ func (t *SyncImpl) SyncArgs() string {
 	return t.SyncOptions.SyncArgs
 }
 
+// HideNotes returns the hide notes
 func (t *SyncImpl) HideNotes() bool {
 	return t.SyncOptions.HideNotes
+}
+
+// TakeOwnership returns the take ownership
+func (t *SyncImpl) TakeOwnership() bool {
+	return t.SyncOptions.TakeOwnership
+}
+
+func (t *SyncImpl) SyncReleaseLabels() bool {
+	return t.SyncOptions.SyncReleaseLabels
 }

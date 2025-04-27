@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -30,7 +30,7 @@ ENV HELM_CONFIG_HOME="${HELM_CONFIG_HOME}"
 ARG HELM_DATA_HOME="${HOME}/.local/share/helm"
 ENV HELM_DATA_HOME="${HELM_DATA_HOME}"
 
-ARG HELM_VERSION="v3.16.1"
+ARG HELM_VERSION="v3.17.3"
 ENV HELM_VERSION="${HELM_VERSION}"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
@@ -38,8 +38,8 @@ RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "${HELM_LOCATION}/${HELM_FILENAME}" && \
     echo Verifying ${HELM_FILENAME}... && \
     case ${TARGETPLATFORM} in \
-        "linux/amd64")  HELM_SHA256="e57e826410269d72be3113333dbfaac0d8dfdd1b0cc4e9cb08bdf97722731ca9"  ;; \
-        "linux/arm64")  HELM_SHA256="780b5b86f0db5546769b3e9f0204713bbdd2f6696dfdaac122fbe7f2f31541d2"  ;; \
+    "linux/amd64")  HELM_SHA256="ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd"  ;; \
+    "linux/arm64")  HELM_SHA256="7944e3defd386c76fd92d9e6fec5c2d65a323f6fadc19bfb5e704e3eee10348e"  ;; \
     esac && \
     echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
     echo Extracting ${HELM_FILENAME}... && \
@@ -50,13 +50,12 @@ RUN set -x && \
 # using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
 # for now but in a future version of alpine (in the testing version at the time of writing)
 # we should be able to install using apk add.
-ENV KUBECTL_VERSION="v1.28.9"
+ENV KUBECTL_VERSION="v1.32.1"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
     case ${TARGETPLATFORM} in \
-        # checksums are available at https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl.sha256
-        "linux/amd64")  KUBECTL_SHA256="b4693d0b22f509250694b10c7727c42b427d570af04f2065fe23a55d6c0051f1"  ;; \
-        "linux/arm64")  KUBECTL_SHA256="e0341d3973213f8099e7fcbbf6d1d506967bc2b7a4faac3fb3b4340f226e9b2f"  ;; \
+    "linux/amd64")  KUBECTL_SHA256="e16c80f1a9f94db31063477eb9e61a2e24c1a4eee09ba776b029048f5369db0c"  ;; \
+    "linux/arm64")  KUBECTL_SHA256="98206fd83a4fd17f013f8c61c33d0ae8ec3a7c53ec59ef3d6a0a9400862dc5b2"  ;; \
     esac && \
     echo "${KUBECTL_SHA256}  kubectl" | sha256sum -c && \
     chmod +x kubectl && \
@@ -68,16 +67,16 @@ ARG KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_${TARGETOS}_${TARGETARCH}
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}" && \
     case ${TARGETPLATFORM} in \
-        # Checksums are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
-        "linux/amd64")  KUSTOMIZE_SHA256="3669470b454d865c8184d6bce78df05e977c9aea31c30df3c669317d43bcc7a7"  ;; \
-        "linux/arm64")  KUSTOMIZE_SHA256="1b515578b0af12c15d9856720066ce2fe66756d63785b2cbccaf2885beb2381c"  ;; \
+    # Checksums are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
+    "linux/amd64")  KUSTOMIZE_SHA256="3669470b454d865c8184d6bce78df05e977c9aea31c30df3c669317d43bcc7a7"  ;; \
+    "linux/arm64")  KUSTOMIZE_SHA256="1b515578b0af12c15d9856720066ce2fe66756d63785b2cbccaf2885beb2381c"  ;; \
     esac && \
     echo "${KUSTOMIZE_SHA256}  ${KUSTOMIZE_FILENAME}" | sha256sum -c && \
     tar xvf "${KUSTOMIZE_FILENAME}" -C /usr/local/bin && \
     rm "${KUSTOMIZE_FILENAME}" && \
     [ "$(kustomize version)" = "${KUSTOMIZE_VERSION}" ]
 
-ENV SOPS_VERSION="v3.9.0"
+ENV SOPS_VERSION="v3.9.3"
 ARG SOPS_FILENAME="sops-${SOPS_VERSION}.${TARGETOS}.${TARGETARCH}"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/${SOPS_FILENAME}" && \
@@ -85,7 +84,7 @@ RUN set -x && \
     mv "${SOPS_FILENAME}" /usr/local/bin/sops && \
     sops --version --disable-version-check | grep -E "^sops ${SOPS_VERSION#v}"
 
-ENV AGE_VERSION="v1.1.1"
+ENV AGE_VERSION="v1.2.0"
 ARG AGE_FILENAME="age-${AGE_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/${AGE_FILENAME}" && \
@@ -94,10 +93,10 @@ RUN set -x && \
     [ "$(age --version)" = "${AGE_VERSION}" ] && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.9.11 && \
-    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.0 && \
-    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.16.2 && \
-    helm plugin install https://github.com/aslafy-z/helm-git.git --version v0.16.0 && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.11.0 && \
+    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.3 && \
+    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.16.3 && \
+    helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.3.0 && \
     rm -rf ${HELM_CACHE_HOME}/plugins
 
 # Allow users other than root to use helm plugins located in root home

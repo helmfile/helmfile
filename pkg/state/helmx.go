@@ -4,8 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/helmfile/chartify"
+	"helm.sh/helm/v3/pkg/storage/driver"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
@@ -22,6 +27,39 @@ func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) []st
 		flags = append(flags, "--adopt", adopt)
 	}
 
+	return flags
+}
+
+func formatLabels(labels map[string]string) string {
+	var labelsList, keys []string
+	for k := range labels {
+		if k == "" || slices.Contains(driver.GetSystemLabels(), k) {
+			continue
+		}
+
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if len(keys) == 0 {
+		return ""
+	}
+
+	for _, k := range keys {
+		val := labels[k]
+		labelsList = append(labelsList, fmt.Sprintf("%s=%s", k, val))
+	}
+	return strings.Join(labelsList, ",")
+}
+
+// append labels flags to helm flags, starting from helm v3.13.0
+func (st *HelmState) appendLabelsFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, syncReleaseLabels bool) []string {
+	if helm.IsVersionAtLeast("3.13.0") && (syncReleaseLabels || release.SyncReleaseLabels) {
+		labels := formatLabels(release.Labels)
+		if labels != "" {
+			flags = append(flags, "--labels", labels)
+		}
+	}
 	return flags
 }
 
@@ -58,6 +96,22 @@ func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseS
 	return flags
 }
 
+// append skip-schema-validation flags to helm flags
+func (st *HelmState) appendSkipSchemaValidationFlags(flags []string, release *ReleaseSpec, skipSchemaValidation bool) []string {
+	switch {
+	// Check if SkipSchemaValidation is true in the release spec.
+	case release.SkipSchemaValidation != nil && *release.SkipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	// Check if skipSchemaValidation argument is true.
+	case skipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	// Check if SkipSchemaValidation is true in HelmDefaults.
+	case st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	}
+	return flags
+}
+
 // append suppress-output-line-regex flags to helm diff flags
 func (st *HelmState) appendSuppressOutputLineRegexFlags(flags []string, release *ReleaseSpec, suppressOutputLineRegex []string) []string {
 	suppressOutputLineRegexFlags := []string{}
@@ -89,14 +143,30 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 	return flags
 }
 
-func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
+func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, ops *SyncOpts) []string {
+	var hasWait bool
 	switch {
 	case release.Wait != nil && *release.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
 	case ops != nil && ops.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
 	case release.Wait == nil && st.HelmDefaults.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
+	}
+	// see https://github.com/helm/helm/releases/tag/v3.15.0
+	// https://github.com/helm/helm/commit/fc74964
+	if hasWait && helm.IsVersionAtLeast("3.15.0") {
+		switch {
+		case release.WaitRetries != nil && *release.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(*release.WaitRetries))
+		case ops != nil && ops.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(ops.WaitRetries))
+		case release.WaitRetries == nil && st.HelmDefaults.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(st.HelmDefaults.WaitRetries))
+		}
 	}
 	return flags
 }
@@ -128,6 +198,19 @@ func (st *HelmState) appendHideNotesFlags(flags []string, helm helmexec.Interfac
 	switch {
 	case ops.HideNotes:
 		flags = append(flags, "--hide-notes")
+	}
+	return flags
+}
+
+// append take-ownership flags to helm flags
+func (st *HelmState) appendTakeOwnershipFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string {
+	// see https://github.com/helm/helm/releases/tag/v3.17.0
+	if !helm.IsVersionAtLeast("3.17.0") {
+		return flags
+	}
+	switch {
+	case ops.TakeOwnership:
+		flags = append(flags, "--take-ownership")
 	}
 	return flags
 }

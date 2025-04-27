@@ -1,7 +1,7 @@
 ---
-#  Source: __workingdir__/testdata/snapshot/issue_2098_release_template_needs/input.yaml
+#  Source: __workingdir__/testdata/snapshot/issue_2098_release_template_needs/input.yaml.gotmpl
 
-filepath: input.yaml
+filepath: input.yaml.gotmpl
 helmBinary: helm
 kustomizeBinary: kustomize
 environments:
@@ -15,7 +15,11 @@ releases:
   name: default-shared-resources
   namespace: default
   labels:
+    chart: util
+    name: default-shared-resources
+    namespace: default
     service: shared-resources
+  syncReleaseLabels: false
 - chart: aservo/util
   version: 0.0.1
   needs:
@@ -23,9 +27,14 @@ releases:
   name: default-release-resources
   namespace: default
   labels:
+    chart: util
+    name: default-release-resources
+    namespace: default
     service: release-resources
+  syncReleaseLabels: false
 templates:
   defaults:
     name: default-{{ .Release.Labels.service }}
     namespace: default
+    syncReleaseLabels: false
 renderedvalues: {}
