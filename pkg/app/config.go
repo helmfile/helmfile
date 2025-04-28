@@ -157,6 +157,7 @@ type DiffConfigProvider interface {
 	NoColor() bool
 	Context() int
 	DiffOutput() string
+	TakeOwnership() bool
 
 	concurrencyConfig
 	valuesControlMode

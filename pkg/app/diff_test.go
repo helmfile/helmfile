@@ -46,6 +46,7 @@ type diffConfig struct {
 	skipSchemaValidation    bool
 	reuseValues             bool
 	logger                  *zap.SugaredLogger
+	takeOwnership           bool
 }
 
 func (a diffConfig) Args() string {
@@ -182,6 +183,9 @@ func (a diffConfig) SkipSchemaValidation() bool {
 
 func (a diffConfig) SuppressOutputLineRegex() []string {
 	return a.suppressOutputLineRegex
+}
+func (a diffConfig) TakeOwnership() bool {
+	return a.takeOwnership
 }
 
 func TestDiff(t *testing.T) {

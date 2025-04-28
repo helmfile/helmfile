@@ -1390,6 +1390,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		PostRendererArgs:        c.PostRendererArgs(),
 		SkipSchemaValidation:    c.SkipSchemaValidation(),
 		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
+		TakeOwnership:           c.TakeOwnership(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeReinstalled, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1643,6 +1644,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			PostRendererArgs:        c.PostRendererArgs(),
 			SkipSchemaValidation:    c.SkipSchemaValidation(),
 			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
+			TakeOwnership:           c.TakeOwnership(),
 		}
 
 		filtered := &Run{

@@ -200,7 +200,88 @@ func TestToYaml(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
-func testFromYaml(t *testing.T, goccyGoYaml bool, expected Values) {
+func testFromYamlObject(t *testing.T) {
+	raw := `foo:
+  bar: BAR
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		map[string]any{
+			"foo": map[string]any{
+				"bar": "BAR",
+			},
+		},
+		actual,
+	)
+}
+
+func testFromYamlArray(t *testing.T) {
+	raw := `- foo
+- bar: BAR
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		[]any{
+			"foo",
+			map[string]any{
+				"bar": "BAR",
+			},
+		},
+		actual,
+	)
+}
+
+func testFromYamlString(t *testing.T) {
+	raw := `foo
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(t, "foo", actual)
+}
+
+func testFromYamlNumber(t *testing.T) {
+	raw := `1234
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+
+	switch a := actual.(type) {
+	case int:
+		require.Equal(t, 1234, a)
+	case uint64:
+		require.Equal(t, uint64(1234), a)
+	default:
+		t.Errorf("unexpected type: %T", a)
+	}
+}
+
+func testFromYamlBoolean(t *testing.T) {
+	raw := `true
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(t, true, actual)
+}
+
+func testFromYamlNull(t *testing.T) {
+	raw := `null
+`
+
+	actual, err := FromYaml(raw)
+	require.NoError(t, err)
+	require.Equal(t, nil, actual)
+}
+
+func testFromYaml(t *testing.T, goccyGoYaml bool) {
 	t.Helper()
 
 	v := runtime.GoccyGoYaml
@@ -209,39 +290,26 @@ func testFromYaml(t *testing.T, goccyGoYaml bool, expected Values) {
 		runtime.GoccyGoYaml = v
 	})
 
-	raw := `foo:
-  bar: BAR
-`
-	actual, err := FromYaml(raw)
-	require.NoError(t, err)
-	require.Equal(t, expected, actual)
+	t.Run("test unmarshalling object", testFromYamlObject)
+
+	t.Run("test unmarshalling array", testFromYamlArray)
+
+	t.Run("test unmarshalling string", testFromYamlString)
+
+	t.Run("test unmarshalling number", testFromYamlNumber)
+
+	t.Run("test unmarshalling boolean", testFromYamlBoolean)
+
+	t.Run("test unmarshalling null", testFromYamlNull)
 }
 
 func TestFromYaml(t *testing.T) {
 	t.Run("with goccy/go-yaml", func(t *testing.T) {
-		testFromYaml(
-			t,
-			true,
-			// nolint: unconvert
-			Values(map[string]any{
-				"foo": map[string]any{
-					"bar": "BAR",
-				},
-			}),
-		)
+		testFromYaml(t, true)
 	})
 
 	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
-		testFromYaml(
-			t,
-			false,
-			// nolint: unconvert
-			Values(map[string]any{
-				"foo": map[string]any{
-					"bar": "BAR",
-				},
-			}),
-		)
+		testFromYaml(t, false)
 	})
 }
 

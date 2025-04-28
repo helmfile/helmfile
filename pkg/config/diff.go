@@ -49,6 +49,8 @@ type DiffOptions struct {
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string
 	SkipSchemaValidation    bool
+	// TakeOwnership is true if the ownership should be taken
+	TakeOwnership bool
 }
 
 // NewDiffOptions creates a new Apply
@@ -201,6 +203,12 @@ func (t *DiffImpl) SuppressOutputLineRegex() []string {
 	return t.DiffOptions.SuppressOutputLineRegex
 }
 
+// SkipSchemaValidation returns the SkipSchemaValidation.
 func (t *DiffImpl) SkipSchemaValidation() bool {
 	return t.DiffOptions.SkipSchemaValidation
+}
+
+// TakeOwnership returns the TakeOwnership.
+func (t *DiffImpl) TakeOwnership() bool {
+	return t.DiffOptions.TakeOwnership
 }
