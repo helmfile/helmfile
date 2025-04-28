@@ -329,7 +329,9 @@ releases:
     reuseValues: false
     # set `false` to uninstall this release on sync.  (default true)
     installed: true
-    # when set to "reinstall", an uninstall will be performed before the update
+    # Defines the strategy to use when updating. Possible values are:
+    # - "reinstall": Performs an uninstall before the update, ensuring a clean replacement.
+    # - "reinstallIfForbidden": Performs an uninstall before the update only if the update is forbidden (e.g., due to permission issues or conflicts).
     updateStrategy: ""
     # restores previous state in case of failed release (default false)
     atomic: true
