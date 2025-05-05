@@ -186,18 +186,66 @@ func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
 }
 
 func TestToYaml(t *testing.T) {
-	expected := `foo:
-  bar: BAR
-`
-	// nolint: unconvert
-	vals := Values(map[string]any{
-		"foo": map[string]any{
-			"bar": "BAR",
+	tests := []struct {
+		name     string
+		input    any
+		expected string
+		wantErr  bool
+	}{
+		{
+			// https://github.com/helmfile/helmfile/issues/2024
+			name:  "test unmarshalling issue 2024",
+			input: map[string]any{"thisShouldBeString": "01234567890123456789"},
+			expected: `thisShouldBeString: "01234567890123456789"
+`,
 		},
-	})
-	actual, err := ToYaml(vals)
-	require.NoError(t, err)
-	require.Equal(t, expected, actual)
+		{
+			name:  "test unmarshalling object",
+			input: map[string]any{"foo": map[string]any{"bar": "BAR"}},
+			expected: `foo:
+  bar: BAR
+`,
+		},
+		{
+			name:  "test unmarshalling array",
+			input: []any{"foo", map[string]any{"bar": "BAR"}},
+			expected: `- foo
+- bar: BAR
+`,
+		},
+		{
+			name:     "test unmarshalling string",
+			input:    "foo",
+			expected: "foo\n",
+		},
+		{
+			name:     "test unmarshalling number",
+			input:    1234,
+			expected: "1234\n",
+		},
+		{
+			name:     "test unmarshalling boolean",
+			input:    true,
+			expected: "true\n",
+		},
+		{
+			name:     "test unmarshalling null",
+			input:    nil,
+			expected: "null\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := ToYaml(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.expected, actual)
+		})
+	}
 }
 
 func testFromYamlObject(t *testing.T) {
