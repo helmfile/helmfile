@@ -32,7 +32,7 @@ func TestReadFromYaml(t *testing.T) {
 `)
 	state, err := createFromYaml(yamlContent, yamlFile, DefaultEnv, logger)
 	if err != nil {
-		t.Errorf("unxpected error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 
 	if state.Releases[0].Name != "myrelease" {
