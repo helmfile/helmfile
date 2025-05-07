@@ -3,6 +3,8 @@ package yaml
 import (
 	"bytes"
 	"io"
+	"strconv"
+	"strings"
 
 	"github.com/goccy/go-yaml"
 	v2 "gopkg.in/yaml.v2"
@@ -71,6 +73,15 @@ func Marshal(v any) ([]byte, error) {
 			yaml.Indent(2),
 			yaml.UseSingleQuote(true),
 			yaml.UseLiteralStyleIfMultiline(true),
+			yaml.CustomMarshaler(
+				func(v string) ([]byte, error) {
+					if strings.HasPrefix(v, "0") {
+						// check v is 0xxxx style number.
+						return []byte(strconv.Quote(v)), nil
+					}
+					return []byte(v), nil
+				},
+			),
 		)
 		err := yamlEncoder.Encode(v)
 		defer func() {
