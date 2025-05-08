@@ -574,6 +574,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
 * `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
 * `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
+* `HELMFILE_ENABLE_GOCCY_GOYAML_JSON_STYLE`: - enable JSON style for *goccy/go-yaml* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile. it will add quotes to string values.
 
 ## CLI Reference
 
