@@ -15,5 +15,5 @@ const (
 	GoccyGoYaml                = "HELMFILE_GOCCY_GOYAML"
 	CacheHome                  = "HELMFILE_CACHE_HOME"
 	Interactive                = "HELMFILE_INTERACTIVE"
-	EanbleGoccyGoYamlJsonStyle = "HELMFILE_ENABLE_GOCCY_GOYAML_JSON_STYLE"
+	EnableGoccyGoYamlJSONStyle = "HELMFILE_ENABLE_GOCCY_GOYAML_JSON_STYLE"
 )

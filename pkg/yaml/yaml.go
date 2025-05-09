@@ -74,7 +74,7 @@ func Marshal(v any) ([]byte, error) {
 			yaml.UseLiteralStyleIfMultiline(true),
 		}
 		// enable JSON style if the envvar is set
-		if os.Getenv(envvar.EanbleGoccyGoYamlJsonStyle) == "true" {
+		if os.Getenv(envvar.EnableGoccyGoYamlJSONStyle) == "true" {
 			yamlEncoderOpts = append(yamlEncoderOpts, yaml.JSON(), yaml.Flow(false))
 		}
 
