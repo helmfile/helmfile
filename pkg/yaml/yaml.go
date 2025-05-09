@@ -3,10 +3,12 @@ package yaml
 import (
 	"bytes"
 	"io"
+	"os"
 
 	"github.com/goccy/go-yaml"
 	v2 "gopkg.in/yaml.v2"
 
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
@@ -66,11 +68,19 @@ func NewDecoder(data []byte, strict bool) func(any) error {
 func Marshal(v any) ([]byte, error) {
 	if runtime.GoccyGoYaml {
 		var b bytes.Buffer
-		yamlEncoder := yaml.NewEncoder(
-			&b,
+		yamlEncoderOpts := []yaml.EncodeOption{
 			yaml.Indent(2),
 			yaml.UseSingleQuote(true),
 			yaml.UseLiteralStyleIfMultiline(true),
+		}
+		// enable JSON style if the envvar is set
+		if os.Getenv(envvar.EnableGoccyGoYamlJSONStyle) == "true" {
+			yamlEncoderOpts = append(yamlEncoderOpts, yaml.JSON(), yaml.Flow(false))
+		}
+
+		yamlEncoder := yaml.NewEncoder(
+			&b,
+			yamlEncoderOpts...,
 		)
 		err := yamlEncoder.Encode(v)
 		defer func() {
