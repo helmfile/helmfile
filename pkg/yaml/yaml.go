@@ -20,7 +20,12 @@ type Encoder interface {
 // NewEncoder creates and returns a function that is used to encode a Go object to a YAML document
 func NewEncoder(w io.Writer) Encoder {
 	if runtime.GoccyGoYaml {
-		return yaml.NewEncoder(w)
+		yamlEncoderOpts := []yaml.EncodeOption{}
+		// enable JSON style if the envvar is set
+		if os.Getenv(envvar.EnableGoccyGoYamlJSONStyle) == "true" {
+			yamlEncoderOpts = append(yamlEncoderOpts, yaml.JSON(), yaml.Flow(false))
+		}
+		return yaml.NewEncoder(w, yamlEncoderOpts...)
 	}
 
 	return v2.NewEncoder(w)
