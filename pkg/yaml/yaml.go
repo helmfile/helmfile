@@ -18,7 +18,16 @@ type Encoder interface {
 // NewEncoder creates and returns a function that is used to encode a Go object to a YAML document
 func NewEncoder(w io.Writer) Encoder {
 	if runtime.GoccyGoYaml {
-		return yaml.NewEncoder(w)
+		yamlEncoderOpts := []yaml.EncodeOption{
+			yaml.Indent(2),
+			yaml.UseSingleQuote(true),
+			yaml.UseLiteralStyleIfMultiline(true),
+		}
+		yamlEncoder := yaml.NewEncoder(
+			w,
+			yamlEncoderOpts...,
+		)
+		return yamlEncoder
 	}
 
 	v3Encoder := v3.NewEncoder(w)
@@ -28,28 +37,10 @@ func NewEncoder(w io.Writer) Encoder {
 
 func Marshal(v any) ([]byte, error) {
 	var b bytes.Buffer
-	if runtime.GoccyGoYaml {
-		yamlEncoderOpts := []yaml.EncodeOption{
-			yaml.Indent(2),
-			yaml.UseSingleQuote(true),
-			yaml.UseLiteralStyleIfMultiline(true),
-		}
-		yamlEncoder := yaml.NewEncoder(
-			&b,
-			yamlEncoderOpts...,
-		)
-		err := yamlEncoder.Encode(v)
-		defer func() {
-			_ = yamlEncoder.Close()
-		}()
-		return b.Bytes(), err
-	}
-
-	v3Encoder := v3.NewEncoder(&b)
-	v3Encoder.SetIndent(2)
-	err := v3Encoder.Encode(v)
+	yamlEncoder := NewEncoder(&b)
+	err := yamlEncoder.Encode(v)
 	defer func() {
-		_ = v3Encoder.Close()
+		_ = yamlEncoder.Close()
 	}()
 	return b.Bytes(), err
 }
