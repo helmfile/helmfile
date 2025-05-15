@@ -49,7 +49,7 @@ func testYamlMarshal(t *testing.T, GoYamlV3 bool) {
 				Annotation: "on",
 			}},
 			expected: map[string]string{
-				"gopkg.in/yaml.v2": "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: 'on'\n",
+				"gopkg.in/yaml.v2": "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: \"on\"\n",
 				"gopkg.in/yaml.v3": "name: John\ninfo:\n  - age: 20\n    address: New York\n    annotation: \"on\"\n",
 			},
 		},

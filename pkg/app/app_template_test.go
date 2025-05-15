@@ -414,16 +414,12 @@ releases:
 	t.Run("fail due to unknown field with gopkg.in/yaml.v3", func(t *testing.T) {
 		check(t, testcase{
 			GoYamlV3: true,
-			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: [4:3] unknown field "foobar"
-   2 | releases:
-   3 | - name: app1
->  4 |   foobar: FOOBAR
-         ^
-   5 |   chart: incubator/raw`,
+			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: yaml: unmarshal errors:
+  line 4: field foobar not found in type state.ReleaseSpec`,
 		})
 	})
 
-	t.Run("fail due to unknown field with gopkg.in/yaml.v3", func(t *testing.T) {
+	t.Run("fail due to unknown field with gopkg.in/yaml.v2", func(t *testing.T) {
 		check(t, testcase{
 			GoYamlV3: false,
 			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: yaml: unmarshal errors:
