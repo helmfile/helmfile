@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	goruntime "runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/runtime"
 )
@@ -189,17 +187,15 @@ func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
 
 func TestToYaml(t *testing.T) {
 	tests := []struct {
-		name            string
-		input           any
-		expected        string
-		wantErr         bool
-		enableJsonStyle bool
+		name     string
+		input    any
+		expected string
+		wantErr  bool
 	}{
 		{
 			// https://github.com/helmfile/helmfile/issues/2024
-			name:            "test unmarshalling issue 2024",
-			enableJsonStyle: true,
-			input:           map[string]any{"thisShouldBeString": "01234567890123456789"},
+			name:  "test unmarshalling issue 2024",
+			input: map[string]any{"thisShouldBeString": "01234567890123456789"},
 			expected: `'thisShouldBeString': '01234567890123456789'
 `,
 		},
@@ -247,12 +243,6 @@ func TestToYaml(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.enableJsonStyle {
-				_ = os.Setenv(envvar.EnableGoccyGoYamlJSONStyle, "true")
-			}
-			defer func() {
-				_ = os.Unsetenv(envvar.EnableGoccyGoYamlJSONStyle)
-			}()
 			actual, err := ToYaml(tt.input)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -372,7 +362,7 @@ func TestFromYaml(t *testing.T) {
 		testFromYaml(t, true)
 	})
 
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v3", func(t *testing.T) {
 		testFromYaml(t, false)
 	})
 }

@@ -3,12 +3,10 @@ package yaml
 import (
 	"bytes"
 	"io"
-	"os"
 
 	"github.com/goccy/go-yaml"
-	v2 "gopkg.in/yaml.v2"
+	v3 "gopkg.in/yaml.v3"
 
-	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/runtime"
 )
 
@@ -20,15 +18,10 @@ type Encoder interface {
 // NewEncoder creates and returns a function that is used to encode a Go object to a YAML document
 func NewEncoder(w io.Writer) Encoder {
 	if runtime.GoccyGoYaml {
-		yamlEncoderOpts := []yaml.EncodeOption{}
-		// enable JSON style if the envvar is set
-		if os.Getenv(envvar.EnableGoccyGoYamlJSONStyle) == "true" {
-			yamlEncoderOpts = append(yamlEncoderOpts, yaml.JSON(), yaml.Flow(false))
-		}
-		return yaml.NewEncoder(w, yamlEncoderOpts...)
+		return yaml.NewEncoder(w)
 	}
 
-	return v2.NewEncoder(w)
+	return v3.NewEncoder(w)
 }
 
 func Unmarshal(data []byte, v any) error {
@@ -36,7 +29,7 @@ func Unmarshal(data []byte, v any) error {
 		return yaml.Unmarshal(data, v)
 	}
 
-	return v2.Unmarshal(data, v)
+	return v3.Unmarshal(data, v)
 }
 
 // NewDecoder creates and returns a function that is used to decode a YAML document
@@ -62,8 +55,8 @@ func NewDecoder(data []byte, strict bool) func(any) error {
 		}
 	}
 
-	decoder := v2.NewDecoder(bytes.NewReader(data))
-	decoder.SetStrict(strict)
+	decoder := v3.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(strict)
 
 	return func(v any) error {
 		return decoder.Decode(v)
@@ -78,11 +71,6 @@ func Marshal(v any) ([]byte, error) {
 			yaml.UseSingleQuote(true),
 			yaml.UseLiteralStyleIfMultiline(true),
 		}
-		// enable JSON style if the envvar is set
-		if os.Getenv(envvar.EnableGoccyGoYamlJSONStyle) == "true" {
-			yamlEncoderOpts = append(yamlEncoderOpts, yaml.JSON(), yaml.Flow(false))
-		}
-
 		yamlEncoder := yaml.NewEncoder(
 			&b,
 			yamlEncoderOpts...,
@@ -94,5 +82,5 @@ func Marshal(v any) ([]byte, error) {
 		return b.Bytes(), err
 	}
 
-	return v2.Marshal(v)
+	return v3.Marshal(v)
 }

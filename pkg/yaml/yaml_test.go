@@ -15,7 +15,7 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 	if goccyGoYaml {
 		yamlLibraryName = "goccy/go-yaml"
 	} else {
-		yamlLibraryName = "gopkg.in/yaml.v2"
+		yamlLibraryName = "gopkg.in/yaml.v3"
 	}
 
 	v := runtime.GoccyGoYaml
@@ -50,7 +50,7 @@ func testYamlMarshal(t *testing.T, goccyGoYaml bool) {
 			}},
 			expected: map[string]string{
 				"goccy/go-yaml":    "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: 'on'\n",
-				"gopkg.in/yaml.v2": "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: \"on\"\n",
+				"gopkg.in/yaml.v3": "name: John\ninfo:\n- age: 20\n  address: New York\n  annotation: \"on\"\n",
 			},
 		},
 	}
@@ -67,7 +67,7 @@ func TestYamlMarshal(t *testing.T) {
 		testYamlMarshal(t, true)
 	})
 
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v3", func(t *testing.T) {
 		testYamlMarshal(t, false)
 	})
 }

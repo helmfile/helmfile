@@ -62,7 +62,7 @@ func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
 		testHelmfileTemplateWithBuildCommand(t, true)
 	})
 
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v3", func(t *testing.T) {
 		testHelmfileTemplateWithBuildCommand(t, false)
 	})
 }

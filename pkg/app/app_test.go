@@ -4165,7 +4165,7 @@ func TestSetValuesTemplate(t *testing.T) {
 		testSetValuesTemplate(t, true)
 	})
 
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v3", func(t *testing.T) {
 		testSetValuesTemplate(t, false)
 	})
 }
@@ -4175,7 +4175,7 @@ func TestSetStringValuesTemplate(t *testing.T) {
 		testSetStringValuesTemplate(t, true)
 	})
 
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v3", func(t *testing.T) {
 		testSetStringValuesTemplate(t, false)
 	})
 }
