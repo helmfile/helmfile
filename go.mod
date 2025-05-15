@@ -8,7 +8,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/go-test/deep v1.1.1
-	github.com/goccy/go-yaml v1.17.1
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
 	github.com/gosuri/uitable v0.0.4
@@ -29,6 +28,7 @@ require (
 	golang.org/x/sync v0.14.0
 	golang.org/x/term v0.32.0
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.17.3
 	k8s.io/apimachinery v0.33.0
 )
@@ -217,6 +217,7 @@ require (
 	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/goccy/go-yaml v1.17.1 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
@@ -307,7 +308,6 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/gookit/color.v1 v1.1.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.33.0 // indirect
 	k8s.io/apiextensions-apiserver v0.32.2 // indirect
 	k8s.io/cli-runtime v0.32.2 // indirect

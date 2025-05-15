@@ -4020,13 +4020,13 @@ myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myr
 
 	assert.Equal(t, expected, out)
 }
-func testSetStringValuesTemplate(t *testing.T, goccyGoYaml bool) {
+func testSetStringValuesTemplate(t *testing.T, GoYamlV3 bool) {
 	t.Helper()
 
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = goccyGoYaml
+	v := runtime.GoYamlV3
+	runtime.GoYamlV3 = GoYamlV3
 	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
+		runtime.GoYamlV3 = v
 	})
 
 	files := map[string]string{
@@ -4088,13 +4088,13 @@ releases:
 	}
 }
 
-func testSetValuesTemplate(t *testing.T, goccyGoYaml bool) {
+func testSetValuesTemplate(t *testing.T, GoYamlV3 bool) {
 	t.Helper()
 
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = goccyGoYaml
+	v := runtime.GoYamlV3
+	runtime.GoYamlV3 = GoYamlV3
 	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
+		runtime.GoYamlV3 = v
 	})
 
 	files := map[string]string{
@@ -4161,7 +4161,7 @@ releases:
 }
 
 func TestSetValuesTemplate(t *testing.T) {
-	t.Run("with goccy/go-yaml", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v3", func(t *testing.T) {
 		testSetValuesTemplate(t, true)
 	})
 
@@ -4171,7 +4171,7 @@ func TestSetValuesTemplate(t *testing.T) {
 }
 
 func TestSetStringValuesTemplate(t *testing.T) {
-	t.Run("with goccy/go-yaml", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v3", func(t *testing.T) {
 		testSetStringValuesTemplate(t, true)
 	})
 
