@@ -21,15 +21,37 @@ func NewEncoder(w io.Writer) Encoder {
 		return yaml.NewEncoder(w)
 	}
 
-	return v3.NewEncoder(w)
+	v3Encoder := v3.NewEncoder(w)
+	v3Encoder.SetIndent(2)
+	return v3Encoder
 }
 
-func Unmarshal(data []byte, v any) error {
+func Marshal(v any) ([]byte, error) {
+	var b bytes.Buffer
 	if runtime.GoccyGoYaml {
-		return yaml.Unmarshal(data, v)
+		yamlEncoderOpts := []yaml.EncodeOption{
+			yaml.Indent(2),
+			yaml.UseSingleQuote(true),
+			yaml.UseLiteralStyleIfMultiline(true),
+		}
+		yamlEncoder := yaml.NewEncoder(
+			&b,
+			yamlEncoderOpts...,
+		)
+		err := yamlEncoder.Encode(v)
+		defer func() {
+			_ = yamlEncoder.Close()
+		}()
+		return b.Bytes(), err
 	}
 
-	return v3.Unmarshal(data, v)
+	v3Encoder := v3.NewEncoder(&b)
+	v3Encoder.SetIndent(2)
+	err := v3Encoder.Encode(v)
+	defer func() {
+		_ = v3Encoder.Close()
+	}()
+	return b.Bytes(), err
 }
 
 // NewDecoder creates and returns a function that is used to decode a YAML document
@@ -63,24 +85,10 @@ func NewDecoder(data []byte, strict bool) func(any) error {
 	}
 }
 
-func Marshal(v any) ([]byte, error) {
+func Unmarshal(data []byte, v any) error {
 	if runtime.GoccyGoYaml {
-		var b bytes.Buffer
-		yamlEncoderOpts := []yaml.EncodeOption{
-			yaml.Indent(2),
-			yaml.UseSingleQuote(true),
-			yaml.UseLiteralStyleIfMultiline(true),
-		}
-		yamlEncoder := yaml.NewEncoder(
-			&b,
-			yamlEncoderOpts...,
-		)
-		err := yamlEncoder.Encode(v)
-		defer func() {
-			_ = yamlEncoder.Close()
-		}()
-		return b.Bytes(), err
+		return yaml.Unmarshal(data, v)
 	}
 
-	return v3.Marshal(v)
+	return v3.Unmarshal(data, v)
 }

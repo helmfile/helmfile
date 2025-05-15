@@ -196,7 +196,7 @@ func TestToYaml(t *testing.T) {
 			// https://github.com/helmfile/helmfile/issues/2024
 			name:  "test unmarshalling issue 2024",
 			input: map[string]any{"thisShouldBeString": "01234567890123456789"},
-			expected: `'thisShouldBeString': '01234567890123456789'
+			expected: `thisShouldBeString: "01234567890123456789"
 `,
 		},
 		{
