@@ -160,9 +160,9 @@ func TestReadFile_PassAbsPath(t *testing.T) {
 }
 
 func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
-	v := runtime.GoccyGoYaml
+	v := runtime.GoYamlV3
 	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
+		runtime.GoYamlV3 = v
 	})
 
 	// nolint: unconvert
@@ -172,13 +172,13 @@ func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
 		},
 	})
 
-	runtime.GoccyGoYaml = true
+	runtime.GoYamlV3 = true
 
 	actual, err := ToYaml(vals)
 	require.Equal(t, "foo:\n  bar: BAR\n", actual)
 	require.NoError(t, err, "expected nil, but got: %v, when type: map[interface {}]interface {}", err)
 
-	runtime.GoccyGoYaml = false
+	runtime.GoYamlV3 = false
 
 	actual, err = ToYaml(vals)
 	require.Equal(t, "foo:\n  bar: BAR\n", actual)
@@ -335,13 +335,13 @@ func testFromYamlNull(t *testing.T) {
 	require.Equal(t, nil, actual)
 }
 
-func testFromYaml(t *testing.T, goccyGoYaml bool) {
+func testFromYaml(t *testing.T, GoYamlV3 bool) {
 	t.Helper()
 
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = goccyGoYaml
+	v := runtime.GoYamlV3
+	runtime.GoYamlV3 = GoYamlV3
 	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
+		runtime.GoYamlV3 = v
 	})
 
 	t.Run("test unmarshalling object", testFromYamlObject)
@@ -358,7 +358,7 @@ func testFromYaml(t *testing.T, goccyGoYaml bool) {
 }
 
 func TestFromYaml(t *testing.T) {
-	t.Run("with goccy/go-yaml", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
 		testFromYaml(t, true)
 	})
 

@@ -338,18 +338,18 @@ releases:
 
 func TestTemplate_StrictParsing(t *testing.T) {
 	type testcase struct {
-		goccyGoYaml bool
-		ns          string
-		error       string
+		GoYamlV3 bool
+		ns       string
+		error    string
 	}
 
 	check := func(t *testing.T, tc testcase) {
 		t.Helper()
 
-		v := runtime.GoccyGoYaml
-		runtime.GoccyGoYaml = tc.goccyGoYaml
+		v := runtime.GoYamlV3
+		runtime.GoYamlV3 = tc.GoYamlV3
 		t.Cleanup(func() {
-			runtime.GoccyGoYaml = v
+			runtime.GoYamlV3 = v
 		})
 
 		var helm = &exectest.Helm{
@@ -411,9 +411,9 @@ releases:
 		})
 	}
 
-	t.Run("fail due to unknown field with goccy/go-yaml", func(t *testing.T) {
+	t.Run("fail due to unknown field with gopkg.in/yaml.v3", func(t *testing.T) {
 		check(t, testcase{
-			goccyGoYaml: true,
+			GoYamlV3: true,
 			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: [4:3] unknown field "foobar"
    2 | releases:
    3 | - name: app1
@@ -425,7 +425,7 @@ releases:
 
 	t.Run("fail due to unknown field with gopkg.in/yaml.v3", func(t *testing.T) {
 		check(t, testcase{
-			goccyGoYaml: false,
+			GoYamlV3: false,
 			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: yaml: unmarshal errors:
   line 4: field foobar not found in type state.ReleaseSpec`,
 		})

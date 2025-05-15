@@ -22,10 +22,10 @@ func TestExecuteTemplateExpressions(t *testing.T) {
 		},
 	})
 
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = true
+	v := runtime.GoYamlV3
+	runtime.GoYamlV3 = true
 	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
+		runtime.GoYamlV3 = v
 	})
 
 	rs := ReleaseSpec{
