@@ -2105,6 +2105,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	state := &HelmState{
 		basePath: basePath,
 		FilePath: "/src/helmfile.yaml",
+		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
 				{
@@ -2163,6 +2164,9 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	if resolved.Releases[4].Version != "1.4.0" {
 		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.4.0, got=%s", resolved.Releases[6].Version)
 	}
+	if state.Directory != "/src" {
+		t.Errorf("HelmState.Directory = %v, want %v", state.Directory, "/src")
+	}
 }
 
 func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
@@ -2170,6 +2174,7 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	state := &HelmState{
 		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",
+		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
 				{
@@ -2220,6 +2225,7 @@ func TestHelmState_ResolveDeps_NoLockFile_WithCustomLockFile(t *testing.T) {
 	state := &HelmState{
 		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",
+		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			LockFile: "custom-lock-file",
 			Releases: []ReleaseSpec{
