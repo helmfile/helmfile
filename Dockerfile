@@ -38,8 +38,8 @@ RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "${HELM_LOCATION}/${HELM_FILENAME}" && \
     echo Verifying ${HELM_FILENAME}... && \
     case ${TARGETPLATFORM} in \
-    "linux/amd64")  HELM_SHA256="ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd"  ;; \
-    "linux/arm64")  HELM_SHA256="7944e3defd386c76fd92d9e6fec5c2d65a323f6fadc19bfb5e704e3eee10348e"  ;; \
+    "linux/amd64")  HELM_SHA256="961e587fc2c03807f8a99ac25ef063fa9e6915f1894729399cbb95d2a79af931"  ;; \
+    "linux/arm64")  HELM_SHA256="489c9d2d3ea4e095331249d74b4407fb5ac1d338c28429d70cdedccfe6e2b029"  ;; \
     esac && \
     echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
     echo Extracting ${HELM_FILENAME}... && \
