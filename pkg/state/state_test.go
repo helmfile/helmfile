@@ -2103,8 +2103,8 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	basePath := "/src"
 	state := &HelmState{
-		basePath: basePath,
-		FilePath: "/src/helmfile.yaml",
+		basePath:  basePath,
+		FilePath:  "/src/helmfile.yaml",
 		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
@@ -2172,8 +2172,8 @@ generated: 2019-05-16T15:42:45.50486+09:00
 func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	state := &HelmState{
-		basePath: "/src",
-		FilePath: "/src/helmfile.yaml",
+		basePath:  "/src",
+		FilePath:  "/src/helmfile.yaml",
 		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
@@ -2223,8 +2223,8 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 func TestHelmState_ResolveDeps_NoLockFile_WithCustomLockFile(t *testing.T) {
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	state := &HelmState{
-		basePath: "/src",
-		FilePath: "/src/helmfile.yaml",
+		basePath:  "/src",
+		FilePath:  "/src/helmfile.yaml",
 		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			LockFile: "custom-lock-file",
