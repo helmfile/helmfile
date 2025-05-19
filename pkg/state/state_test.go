@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -4575,5 +4576,24 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 		r := results[0]
 
 		require.Equal(t, tt.flags, r.flags, "Wrong value control flag for release %s", r.release.Name)
+	}
+}
+
+func TestHelmState_DirectoryProperty(t *testing.T) {
+	baseDir := "/abs/path/to"
+	filePath := "helmfile.yaml"
+	state := &HelmState{
+		basePath:  baseDir,
+		FilePath:  filePath,
+		Directory: baseDir,
+	}
+
+	yamlOut, err := state.ToYaml()
+	if err != nil {
+		t.Fatalf("ToYaml failed: %v", err)
+	}
+
+	if !strings.Contains(yamlOut, "directory: "+baseDir) {
+		t.Errorf("YAML output does not contain expected directory property. Got:\n%s", yamlOut)
 	}
 }
