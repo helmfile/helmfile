@@ -49,8 +49,8 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 May 2025 Update
 
-* Helmfile v1.x has migrated its YAML processing library from goccy/go-yaml to gopkg.in/yaml.v3 as the default and only supported backend. This change simplifies YAML handling and improves compatibility with the broader Go ecosystem.
-* We are excited about the wide adoption for Helmfile v1 users! If you haven't already upgraded, please go over this v1 proposal [here](docs/proposals/towards-1.0.md) and the latest rc release in the [releases](https://github.com/helmfile/helmfile/releases) page. 
+* Helmfile v1.0 and v1.1 has been released. We recommend upgrading directly to v1.1 if you are still using v0.x.
+* If you haven't already upgraded, please go over this v1 proposal [here](docs/proposals/towards-1.0.md) to see a small list of breaking changes.
 
 ## Installation
 
