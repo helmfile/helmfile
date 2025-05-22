@@ -2175,13 +2175,6 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 		}
 	}
 
-	for id := range releasesWithNoChange {
-		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "sync"); err != nil {
-			a.Logger.Warnf("warn: %v\n", err)
-		}
-	}
-
 	names := []string{}
 	for _, r := range releasesToUpdate {
 		names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
@@ -2279,6 +2272,13 @@ Do you really want to sync?
 	}
 
 	affectedReleases.DisplayAffectedReleases(c.Logger())
+
+	for id := range releasesWithNoChange {
+		r := releasesWithNoChange[id]
+		if _, err := st.TriggerCleanupEvent(&r, "sync"); err != nil {
+			a.Logger.Warnf("warn: %v\n", err)
+		}
+	}
 
 	return true, errs
 }
