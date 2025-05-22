@@ -1614,29 +1614,24 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 	return selected, deduplicated, nil
 }
 
-func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
-	st := r.state
-	helm := r.helm
-
-	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
-
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+func (a *App) GetPlannedAndSelectedReleasesWithNeeds(r *Run, skipNeeds bool, includeNeeds bool, includeTransitiveNeeds bool) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, includeTransitiveNeeds)
 	if err != nil {
-		return false, false, []error{err}
+		return nil, nil, err
 	}
 	if len(selectedReleases) == 0 {
-		return false, false, nil
+		return nil, nil, nil
 	}
 
 	// This is required when you're trying to deduplicate releases by the selector.
 	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
 	// even if we provided `SelectedReleases: selectedReleases`.
 	// See https://github.com/roboll/helmfile/issues/1818 for more context.
-	st.Releases = selectedAndNeededReleases
+	r.state.Releases = selectedAndNeededReleases
 
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()})
+	batches, err := r.state.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: skipNeeds, IncludeNeeds: includeNeeds, IncludeTransitiveNeeds: includeTransitiveNeeds})
 	if err != nil {
-		return false, false, []error{err}
+		return nil, nil, err
 	}
 
 	var releasesWithNeeds []state.ReleaseSpec
@@ -1645,6 +1640,23 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		for _, r := range rs {
 			releasesWithNeeds = append(releasesWithNeeds, r.ReleaseSpec)
 		}
+	}
+
+	return releasesWithNeeds, selectedAndNeededReleases, nil
+}
+
+func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
+	st := r.state
+	helm := r.helm
+
+	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
+
+	releasesWithNeeds, selectedAndNeededReleases, err := a.GetPlannedAndSelectedReleasesWithNeeds(r, c.SkipNeeds(), c.IncludeNeeds(), c.IncludeTransitiveNeeds())
+	if err != nil {
+		return false, false, []error{err}
+	}
+	if len(releasesWithNeeds) == 0 {
+		return false, false, nil
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
@@ -2101,31 +2113,12 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	releasesWithNeeds, selectedAndNeededReleases, err := a.GetPlannedAndSelectedReleasesWithNeeds(r, c.SkipNeeds(), c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, []error{err}
 	}
-	if len(selectedReleases) == 0 {
+	if len(releasesWithNeeds) == 0 {
 		return false, nil
-	}
-
-	// This is required when you're trying to deduplicate releases by the selector.
-	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
-	// even if we provided `SelectedReleases: selectedReleases`.
-	// See https://github.com/roboll/helmfile/issues/1818 for more context.
-	st.Releases = selectedAndNeededReleases
-
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()})
-	if err != nil {
-		return false, []error{err}
-	}
-
-	var releasesWithNeeds []state.ReleaseSpec
-
-	for _, rs := range batches {
-		for _, r := range rs {
-			releasesWithNeeds = append(releasesWithNeeds, r.ReleaseSpec)
-		}
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
