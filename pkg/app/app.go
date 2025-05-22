@@ -1639,17 +1639,17 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		return false, false, []error{err}
 	}
 
-	var toApplyWithNeeds []state.ReleaseSpec
+	var releasesWithNeeds []state.ReleaseSpec
 
 	for _, rs := range plan {
 		for _, r := range rs {
-			toApplyWithNeeds = append(toApplyWithNeeds, r.ReleaseSpec)
+			releasesWithNeeds = append(releasesWithNeeds, r.ReleaseSpec)
 		}
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
-	st.Releases = toApplyWithNeeds
+	st.Releases = releasesWithNeeds
 
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
 	detailedExitCode := true
@@ -1675,27 +1675,27 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		DetectedKubeVersion:     detectedKubeVersion,
 	}
 
-	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
-	if len(errs) > 0 {
-		return false, false, errs
+	infoMsg, releasesToUpdate, releasesToDelete, diffErrs := r.diff(false, detailedExitCode, c, diffOpts)
+	if len(diffErrs) > 0 {
+		return false, false, diffErrs
 	}
 
 	var toDelete []state.ReleaseSpec
-	for _, r := range releasesToBeDeleted {
+	for _, r := range releasesToDelete {
 		toDelete = append(toDelete, r)
 	}
 
 	var toUpdate []state.ReleaseSpec
-	for _, r := range releasesToBeUpdated {
+	for _, r := range releasesToUpdate {
 		toUpdate = append(toUpdate, r)
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
-	for _, r := range toApplyWithNeeds {
+	for _, r := range releasesWithNeeds {
 		release := r
 		id := state.ReleaseToID(&release)
-		_, uninstalled := releasesToBeDeleted[id]
-		_, updated := releasesToBeUpdated[id]
+		_, uninstalled := releasesToDelete[id]
+		_, updated := releasesToUpdate[id]
 		if !uninstalled && !updated {
 			releasesWithNoChange[id] = release
 		}
@@ -1717,19 +1717,18 @@ Do you really want to apply?
 		a.Logger.Debug(infoMsgStr)
 	}
 
-	var applyErrs []error
-
-	affectedReleases := state.AffectedReleases{}
+	var errs []error
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
 
-	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
+	if len(releasesToUpdate) == 0 && len(releasesToDelete) == 0 {
 		return true, false, nil
 	}
+	affectedReleases := state.AffectedReleases{}
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
-		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: releasesWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			for _, r := range subst.Releases {
 				release := r
 				if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
@@ -1743,13 +1742,13 @@ Do you really want to apply?
 		}
 
 		// We deleted releases by traversing the DAG in reverse order
-		if len(releasesToBeDeleted) > 0 {
+		if len(releasesToDelete) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
 					release := r
-					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&release)]; ok {
+					if r2, ok := releasesToDelete[state.ReleaseToID(&release)]; ok {
 						rs = append(rs, r2)
 					}
 				}
@@ -1760,18 +1759,18 @@ Do you really want to apply?
 			}))
 
 			if len(deletionErrs) > 0 {
-				applyErrs = append(applyErrs, deletionErrs...)
+				errs = append(errs, deletionErrs...)
 			}
 		}
 
 		// We upgrade releases by traversing the DAG
-		if len(releasesToBeUpdated) > 0 {
-			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		if len(releasesToUpdate) > 0 {
+			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
 					release := r
-					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&release)]; ok {
+					if r2, ok := releasesToUpdate[state.ReleaseToID(&release)]; ok {
 						rs = append(rs, r2)
 					}
 				}
@@ -1804,7 +1803,7 @@ Do you really want to apply?
 			}))
 
 			if len(updateErrs) > 0 {
-				applyErrs = append(applyErrs, updateErrs...)
+				errs = append(errs, updateErrs...)
 			}
 		}
 	}
@@ -1817,11 +1816,11 @@ Do you really want to apply?
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
-	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
+	if releasesToDelete == nil && releasesToUpdate == nil {
 		return true, false, nil
 	}
 
-	return true, true, applyErrs
+	return true, true, errs
 }
 
 func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {
@@ -2113,24 +2112,24 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	// See https://github.com/roboll/helmfile/issues/1818 for more context.
 	st.Releases = selectedAndNeededReleases
 
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(), SkipNeeds: c.SkipNeeds()})
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()})
 	if err != nil {
 		return false, []error{err}
 	}
 
-	var toSyncWithNeeds []state.ReleaseSpec
+	var releasesWithNeeds []state.ReleaseSpec
 
 	for _, rs := range batches {
 		for _, r := range rs {
-			toSyncWithNeeds = append(toSyncWithNeeds, r.ReleaseSpec)
+			releasesWithNeeds = append(releasesWithNeeds, r.ReleaseSpec)
 		}
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
-	st.Releases = toSyncWithNeeds
+	st.Releases = releasesWithNeeds
 
-	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSyncWithNeeds)
+	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, releasesWithNeeds)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -2143,7 +2142,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	var toUpdate []state.ReleaseSpec
-	for _, r := range toSyncWithNeeds {
+	for _, r := range releasesWithNeeds {
 		release := r
 		if _, deleted := releasesToDelete[state.ReleaseToID(&release)]; !deleted {
 			if r.Desired() {
@@ -2163,7 +2162,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
-	for _, r := range toSyncWithNeeds {
+	for _, r := range releasesWithNeeds {
 		release := r
 		id := state.ReleaseToID(&release)
 		_, uninstalled := releasesToDelete[id]
@@ -2249,7 +2248,7 @@ Do you really want to sync?
 
 				subst.Releases = rs
 
-				opts := &state.SyncOpts{
+				syncOpts := &state.SyncOpts{
 					Set:                  c.Set(),
 					SkipCRDs:             c.SkipCRDs(),
 					Wait:                 c.Wait(),
@@ -2270,7 +2269,7 @@ Do you really want to sync?
 					TrackLogs:            c.TrackLogs(),
 					Description:          c.Description(),
 				}
-				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
+				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
 
 			if len(syncErrs) > 0 {
@@ -2278,7 +2277,9 @@ Do you really want to sync?
 			}
 		}
 	}
+
 	affectedReleases.DisplayAffectedReleases(c.Logger())
+
 	return true, errs
 }
 
