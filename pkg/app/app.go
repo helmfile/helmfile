@@ -1634,14 +1634,14 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	// See https://github.com/roboll/helmfile/issues/1818 for more context.
 	st.Releases = selectedAndNeededReleases
 
-	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()})
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()})
 	if err != nil {
 		return false, false, []error{err}
 	}
 
 	var releasesWithNeeds []state.ReleaseSpec
 
-	for _, rs := range plan {
+	for _, rs := range batches {
 		for _, r := range rs {
 			releasesWithNeeds = append(releasesWithNeeds, r.ReleaseSpec)
 		}
