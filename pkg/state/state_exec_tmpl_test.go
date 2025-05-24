@@ -9,6 +9,7 @@ import (
 	"github.com/go-test/deep"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
@@ -144,6 +145,41 @@ func TestHelmState_executeTemplates(t *testing.T) {
 					"--chart",
 					"test-chart",
 				},
+			},
+		},
+		{
+			name: "Has template expressions in hook args",
+			input: ReleaseSpec{
+				Name:    "test-name",
+				Chart:   "test-chart",
+				Version: "{{ .Release.Name }}-0.1.0",
+				Hooks: []event.Hook{{
+					Name:    "test-hook",
+					Command: "helm",
+					Args: []string{
+						"show",
+						"crds",
+						"{{ .Release.Chart }}",
+						"--version",
+						"{{ .Release.ChartVersion }}",
+					},
+				}},
+			},
+			want: ReleaseSpec{
+				Name:    "test-name",
+				Chart:   "test-chart",
+				Version: "test-name-0.1.0",
+				Hooks: []event.Hook{{
+					Name:    "test-hook",
+					Command: "helm",
+					Args: []string{
+						"show",
+						"crds",
+						"test-chart",
+						"--version",
+						"0.1.0",
+					},
+				}},
 			},
 		},
 	}
