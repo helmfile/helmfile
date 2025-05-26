@@ -57,7 +57,7 @@ func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurre
 	return releaseToChart, nil
 }
 
-func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func() []error) error {
+func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func() []error) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
 	}
@@ -237,4 +237,10 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 `, strings.Join(names, "\n"))
 
 	return &infoMsg, releasesToBeUpdated, releasesToBeDeleted, nil
+}
+
+// Hack to get access to helmfile’s API
+// -rluba, 2025-05-19
+func (r *Run) GetState() *state.HelmState {
+	return r.state
 }
