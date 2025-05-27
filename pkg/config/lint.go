@@ -14,6 +14,8 @@ type LintOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
+	// EnforceNeedsAreInstalled is the enforce needs are installed flag
+	EnforceNeedsAreInstalled bool
 	// SkipDeps is the skip deps flag
 }
 
@@ -64,6 +66,11 @@ func (l *LintImpl) IncludeNeeds() bool {
 // IncludeTransitiveNeeds returns the include transitive needs
 func (l *LintImpl) IncludeTransitiveNeeds() bool {
 	return l.LintOptions.IncludeTransitiveNeeds
+}
+
+// EnforceNeedsAreInstalled errors if the transitive dependencies are not installable
+func (l *LintImpl) EnforceNeedsAreInstalled() bool {
+	return l.LintOptions.EnforceNeedsAreInstalled
 }
 
 // SkipNeeds returns the skip needs
