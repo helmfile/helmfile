@@ -16,6 +16,8 @@ type SyncOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
+	// EnforceNeedsAreInstalled is true we should error if/when there are unmeetable dependencies
+	EnforceNeedsAreInstalled bool
 	// SkipCrds is the skip crds flag
 	SkipCRDs bool
 	// Wait is the wait flag
@@ -80,6 +82,11 @@ func (t *SyncImpl) IncludeNeeds() bool {
 // IncludeTransitiveNeeds returns the include transitive needs
 func (t *SyncImpl) IncludeTransitiveNeeds() bool {
 	return t.SyncOptions.IncludeTransitiveNeeds
+}
+
+// EnforceNeedsAreInstalled errors if the transitive dependencies are not installable
+func (t *SyncImpl) EnforceNeedsAreInstalled() bool {
+	return t.SyncOptions.EnforceNeedsAreInstalled
 }
 
 // Set returns the Set
