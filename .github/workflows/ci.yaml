@@ -56,8 +56,8 @@ jobs:
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
           - helm-version: v3.17.3
             kustomize-version: v5.2.1
-            plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.10.0
+            plugin-secrets-version: 4.5.1
+            plugin-diff-version: 3.11.0
             extra-helmfile-flags: ''
           - helm-version: v3.17.3
             kustomize-version: v5.4.3
@@ -67,24 +67,24 @@ jobs:
             # we will mark this combination as failable,
             # and instruct users to upgrade helm and helm-secrets at once.
             plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.12.1
+            extra-helmfile-flags: ''
+          - helm-version: v3.18.1
+            kustomize-version: v5.2.1
+            plugin-secrets-version: 4.5.1
             plugin-diff-version: 3.11.0
             extra-helmfile-flags: ''
-          - helm-version: v3.18.0
-            kustomize-version: v5.2.1
-            plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.10.0
-            extra-helmfile-flags: ''
-          - helm-version: v3.18.0
+          - helm-version: v3.18.1
             kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.11.0
+            plugin-diff-version: 3.12.1
             extra-helmfile-flags: ''
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
-          - helm-version: v3.18.0
+          - helm-version: v3.18.1
             kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.11.0
+            plugin-diff-version: 3.12.1
             extra-helmfile-flags: '--enable-live-output'
     steps:
       - uses: actions/checkout@v4
