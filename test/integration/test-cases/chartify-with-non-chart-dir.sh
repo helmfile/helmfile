@@ -17,6 +17,7 @@ test_start "$case_title"
 info "Comparing ${case_title} diff for output ${chartify_with_non_chart_dirt_reverse} with ${diff_out_file}"
 for i in $(seq 10); do
     info "Comparing chartify-with-non-chart-dir diff log #$i"
+    ${helmfile} -f ${chartify_with_non_chart_dirt_input_dir}/helmfiles/helmfile.yaml diff
     ${helmfile} -f ${chartify_with_non_chart_dirt_input_dir}/helmfiles/helmfile.yaml diff &> ${chartify_with_non_chart_dirt_reverse}.tmp || fail "\"helmfile diff\" shouldn't fail"
     cat ${chartify_with_non_chart_dirt_reverse}.tmp | grep -vE "^(Comparing release|Building dependency release)" > ${chartify_with_non_chart_dirt_reverse} 
 
