@@ -18,6 +18,8 @@ info "Comparing ${case_title} diff for output ${chartify_with_non_chart_dirt_rev
 for i in $(seq 10); do
     info "Comparing chartify-with-non-chart-dir diff log #$i"
     ${helmfile} -f ${chartify_with_non_chart_dirt_input_dir}/helmfiles/helmfile.yaml diff 2>&1 | grep -vE "^(Comparing release|Building dependency release)" > ${chartify_with_non_chart_dirt_reverse} || fail "\"helmfile diff\" shouldn't fail"
+    cat ${diff_out_file}
+    cat ${chartify_with_non_chart_dirt_reverse}
     diff -u ${diff_out_file} ${chartify_with_non_chart_dirt_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done
