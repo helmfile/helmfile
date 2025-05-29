@@ -1203,8 +1203,8 @@ github.com/hashicorp/jsonapi v1.3.1 h1:GtPvnmcWgYwCuDGvYT5VZBHcUyFdq9lSyCzDjn1Dd
 github.com/hashicorp/jsonapi v1.3.1/go.mod h1:kWfdn49yCjQvbpnvY1dxxAuAFzISwrrMDQOcu6NsFoM=
 github.com/hashicorp/vault/api v1.16.0 h1:nbEYGJiAPGzT9U4oWgaaB0g+Rj8E59QuHKyA5LhwQN4=
 github.com/hashicorp/vault/api v1.16.0/go.mod h1:KhuUhzOD8lDSk29AtzNjgAu2kxRA9jL9NAbkFlqvkBA=
-github.com/helmfile/chartify v0.24.1 h1:Ejif7pRkuOI8xf0wt8tVwZLR2FYVUrdw52+FfuS0ZUY=
-github.com/helmfile/chartify v0.24.1/go.mod h1:ry7KM6350oLff7GnjmskvRNsyMaOoci552c9z9voyLE=
+github.com/helmfile/chartify v0.24.2 h1:tEM+ohiQewQFVqdetHEKegK6Nyh08MuHs0TFB5ScC8k=
+github.com/helmfile/chartify v0.24.2/go.mod h1:zyckAr5KGQQiTTFPTLP2DzAJ4dvaUcE6/pfkY/6demU=
 github.com/helmfile/vals v0.41.1 h1:8vQQETrqaCjondpqsoVgOLT69Gy6r2BWttEOiOj3bnQ=
 github.com/helmfile/vals v0.41.1/go.mod h1:mmfj2R731IR0iuRt/owyt9yOUjHZqf7kx9OlWH9EYZo=
 github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec h1:qv2VnGeEQHchGaZ/u7lxST/RaJw+cv273q79D81Xbog=
@@ -2284,8 +2284,8 @@ gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.0-20200605160147-a5ece683394c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-helm.sh/helm/v3 v3.18.0 h1:ItOAm3Quo0dus3NUHjs+lluqWWEIO7xrSW+zKWCrvlw=
-helm.sh/helm/v3 v3.18.0/go.mod h1:43QHS1W97RcoFJRk36ZBhHdTfykqBlJdsWp3yhzdq8w=
+helm.sh/helm/v3 v3.18.1 h1:qLhXmtqXOHQb0Xv9HJolOLlah8RWbgyzt50xrtTWAlg=
+helm.sh/helm/v3 v3.18.1/go.mod h1:43QHS1W97RcoFJRk36ZBhHdTfykqBlJdsWp3yhzdq8w=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
