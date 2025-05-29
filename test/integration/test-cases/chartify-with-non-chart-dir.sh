@@ -13,6 +13,11 @@ if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
     diff_out_file=${chartify_with_non_chart_dirt_output_dir}/diff-result-live
 fi
 
+
+if [[ $(semver compare $HELM_DIFF_VERSION "3.11.0") == "1" ]]; then
+    diff_out_file=${diff_out_file}-after-helm-diff-3.11.0
+fi
+
 test_start "$case_title"
 info "Comparing ${case_title} diff for output ${chartify_with_non_chart_dirt_reverse} with ${diff_out_file}"
 for i in $(seq 10); do
