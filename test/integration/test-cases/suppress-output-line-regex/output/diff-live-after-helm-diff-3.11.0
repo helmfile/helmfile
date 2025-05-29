@@ -134,7 +134,7 @@ helmfile-tests, ingress-nginx, RoleBinding (rbac.authorization.k8s.io) has chang
       name: ingress-nginx
 -     namespace: "helmfile-tests"
 +     namespace: helmfile-tests
-helmfile-tests, ingress-nginx, ServiceAccount (v1) has changed:
+helmfile-tests, ingress-nginx, ServiceAccount (v1) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx-admission, ClusterRole (rbac.authorization.k8s.io) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx-admission, ClusterRoleBinding (rbac.authorization.k8s.io) has changed:
   # Source: ingress-nginx/templates/admission-webhooks/job-patch/clusterrolebinding.yaml

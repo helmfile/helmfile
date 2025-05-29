@@ -210,7 +210,7 @@ helmfile-tests, ingress-nginx-admission, RoleBinding (rbac.authorization.k8s.io)
       name: ingress-nginx-admission
 -     namespace: "helmfile-tests"
 +     namespace: helmfile-tests
-helmfile-tests, ingress-nginx-admission, ServiceAccount (v1) has changed:
+helmfile-tests, ingress-nginx-admission, ServiceAccount (v1) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx-admission, ValidatingWebhookConfiguration (admissionregistration.k8s.io) has changed:
   # Source: ingress-nginx/templates/admission-webhooks/validating-webhook.yaml
   # before changing this value, check the required kubernetes version
@@ -371,7 +371,7 @@ helmfile-tests, ingress-nginx-admission-patch, Job (batch) has changed:
 -         fsGroup: 2000
 -         runAsNonRoot: true
 -         runAsUser: 2000
-helmfile-tests, ingress-nginx-controller, ConfigMap (v1) has changed:
+helmfile-tests, ingress-nginx-controller, ConfigMap (v1) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx-controller, Deployment (apps) has changed:
   # Source: ingress-nginx/templates/controller-deployment.yaml
   apiVersion: apps/v1
