@@ -17,7 +17,7 @@ test_start "$case_title"
 info "Comparing ${case_title} diff for output ${chartify_with_non_chart_dirt_reverse} with ${diff_out_file}"
 for i in $(seq 10); do
     info "Comparing chartify-with-non-chart-dir diff log #$i"
-    ${helmfile} -f ${chartify_with_non_chart_dirt_input_dir}/helmfiles/helmfile.yaml diff | grep -v "^Comparing release" > ${chartify_with_non_chart_dirt_reverse} || fail "\"helmfile diff\" shouldn't fail"
+    ${helmfile} -f ${chartify_with_non_chart_dirt_input_dir}/helmfiles/helmfile.yaml diff 2>&1 | grep -v "^Comparing release" > ${chartify_with_non_chart_dirt_reverse} || fail "\"helmfile diff\" shouldn't fail"
     diff -u ${diff_out_file} ${chartify_with_non_chart_dirt_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done
