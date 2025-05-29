@@ -10,6 +10,10 @@ if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
     diff_out_file=${suppress_output_line_regex_output_dir}/diff-live
 fi
 
+if [[ $(semver compare $HELM_DIFF_VERSION "3.11.0") == "1" ]]; then
+    diff_out_file=${diff_out_file}-after-helm-diff-3.11.0
+fi
+
 if version_lt $HELM_DIFF_VERSION "3.9.0"; then
     echo "Skipping ${case_title} because helm-diff version is less than 3.9.0"
 else
