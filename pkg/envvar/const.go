@@ -15,4 +15,5 @@ const (
 	GoYamlV3              = "HELMFILE_GO_YAML_V3"
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
+	LayeredEnvValuesFlag  = "HELMFILE_LAYERED_ENV_VALUES"
 )
