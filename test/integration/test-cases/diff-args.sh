@@ -30,7 +30,8 @@ for i in $(seq 10); do
 done
 info "Comparing ${case_title} apply for output ${diff_args_reverse} with ${apply_out_file}"
 info "Comparing ${case_title} apply for stdout ${diff_args_reverse_stderr} with ${apply_out_stderr_file}"
-${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply 1> ${diff_args_reverse} 2> ${diff_args_reverse_stderr} || fail "\"helmfile apply\" shouldn't fail"
+${helmfile} -f ${diff_args_input_dir}/helmfile.yaml apply 1> ${diff_args_reverse}.tmp 2> ${diff_args_reverse_stderr} || fail "\"helmfile apply\" shouldn't fail"
+cat ${diff_args_reverse}.tmp | sed -E '/\*{20}/,/\*{20}/d' > ${diff_args_reverse}
 diff -u ${apply_out_file} <(grep -vE "^(LAST DEPLOYED|installed)" ${diff_args_reverse}) || fail "\"helmfile apply\" should be consistent"
 diff -u ${apply_out_stderr_file} <(grep -vE "^(LAST DEPLOYED|installed)" ${diff_args_reverse_stderr}) || fail "\"helmfile apply\" should be consistent (stderr)"
 echo "clean up diff args resources"
