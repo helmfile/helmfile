@@ -13,16 +13,12 @@ if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
     diff_out_file=${chartify_with_non_chart_dirt_output_dir}/diff-result-live
 fi
 
-
-if [[ $(semver compare $HELM_DIFF_VERSION "3.11.0") == "1" ]]; then
-    diff_out_file=${diff_out_file}-after-helm-diff-3.11.0
-fi
-
 test_start "$case_title"
 info "Comparing ${case_title} diff for output ${chartify_with_non_chart_dirt_reverse} with ${diff_out_file}"
 for i in $(seq 10); do
     info "Comparing chartify-with-non-chart-dir diff log #$i"
-    ${helmfile} -f ${chartify_with_non_chart_dirt_input_dir}/helmfiles/helmfile.yaml diff | grep -v "^Comparing release" > ${chartify_with_non_chart_dirt_reverse} || fail "\"helmfile diff\" shouldn't fail"
+    ${helmfile} -f ${chartify_with_non_chart_dirt_input_dir}/helmfiles/helmfile.yaml diff | grep -v "^Comparing release" > ${chartify_with_non_chart_dirt_reverse}.tmp || fail "\"helmfile diff\" shouldn't fail"
+    cat ${chartify_with_non_chart_dirt_reverse}.tmp | sed -E '/\*{20}/,/\*{20}/d' > ${chartify_with_non_chart_dirt_reverse}
     diff -u ${diff_out_file} ${chartify_with_non_chart_dirt_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done
