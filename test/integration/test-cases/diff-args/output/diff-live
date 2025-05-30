@@ -1,8 +1,3 @@
-********************
-
-	Release was not present in Helm.  Diff will show entire contents as new.
-
-********************
 helmfile-tests, installed-httpbin, Deployment (apps) has been added:
 - 
 + apiVersion: apps/v1

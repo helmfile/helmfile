@@ -13,7 +13,7 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.8
 	github.com/hashicorp/hcl/v2 v2.23.0
-	github.com/helmfile/chartify v0.24.1
+	github.com/helmfile/chartify v0.24.2
 	github.com/helmfile/vals v0.41.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
@@ -29,7 +29,7 @@ require (
 	golang.org/x/term v0.32.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.18.0
+	helm.sh/helm/v3 v3.18.1
 	k8s.io/apimachinery v0.33.1
 )
 
@@ -182,7 +182,7 @@ require (
 	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dylibso/observe-sdk/go v0.0.0-20240819160327-2d926c5d788a // indirect
-	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
+	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/envoyproxy/go-control-plane v0.13.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
 	github.com/evanphx/json-patch v5.9.11+incompatible // indirect

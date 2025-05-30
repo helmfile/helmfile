@@ -30,7 +30,7 @@ ENV HELM_CONFIG_HOME="${HELM_CONFIG_HOME}"
 ARG HELM_DATA_HOME="${HOME}/.local/share/helm"
 ENV HELM_DATA_HOME="${HELM_DATA_HOME}"
 
-ARG HELM_VERSION="v3.18.0"
+ARG HELM_VERSION="v3.18.1"
 ENV HELM_VERSION="${HELM_VERSION}"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
@@ -38,8 +38,8 @@ RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "${HELM_LOCATION}/${HELM_FILENAME}" && \
     echo Verifying ${HELM_FILENAME}... && \
     case ${TARGETPLATFORM} in \
-    "linux/amd64")  HELM_SHA256="961e587fc2c03807f8a99ac25ef063fa9e6915f1894729399cbb95d2a79af931"  ;; \
-    "linux/arm64")  HELM_SHA256="489c9d2d3ea4e095331249d74b4407fb5ac1d338c28429d70cdedccfe6e2b029"  ;; \
+    "linux/amd64")  HELM_SHA256="b1c7e8e261fd30f34c617282813ecafc63628fcd59a255a9fc51b1fe43394c05"  ;; \
+    "linux/arm64")  HELM_SHA256="5ddc8fbd4b17857754a95be799543ceafa5aa9532b05f738ee590a76bb049988"  ;; \
     esac && \
     echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
     echo Extracting ${HELM_FILENAME}... && \
@@ -93,7 +93,7 @@ RUN set -x && \
     [ "$(age --version)" = "${AGE_VERSION}" ] && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.11.0 && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.12.1 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.5 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.16.3 && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.3.0 && \
