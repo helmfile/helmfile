@@ -56,7 +56,7 @@ jobs:
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
           - helm-version: v3.17.3
             kustomize-version: v5.2.1
-            plugin-secrets-version: 4.5.1
+            plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.11.0
             extra-helmfile-flags: ''
           - helm-version: v3.17.3
