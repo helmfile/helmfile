@@ -2284,8 +2284,8 @@ gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.0-20200605160147-a5ece683394c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-helm.sh/helm/v3 v3.18.1 h1:qLhXmtqXOHQb0Xv9HJolOLlah8RWbgyzt50xrtTWAlg=
-helm.sh/helm/v3 v3.18.1/go.mod h1:43QHS1W97RcoFJRk36ZBhHdTfykqBlJdsWp3yhzdq8w=
+helm.sh/helm/v3 v3.18.2 h1:mPQP/HHYjNEDAztAK50dD6uxTCNV1zSVU38WwSVdw9M=
+helm.sh/helm/v3 v3.18.2/go.mod h1:43QHS1W97RcoFJRk36ZBhHdTfykqBlJdsWp3yhzdq8w=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
