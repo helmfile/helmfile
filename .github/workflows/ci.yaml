@@ -69,19 +69,19 @@ jobs:
             plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.12.1
             extra-helmfile-flags: ''
-          - helm-version: v3.18.1
+          - helm-version: v3.18.2
             kustomize-version: v5.2.1
             plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.11.0
             extra-helmfile-flags: ''
-          - helm-version: v3.18.1
+          - helm-version: v3.18.2
             kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.12.1
             extra-helmfile-flags: ''
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
-          - helm-version: v3.18.1
+          - helm-version: v3.18.2
             kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.12.1
