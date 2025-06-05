@@ -25,7 +25,7 @@ require (
 	github.com/zclconf/go-cty-yaml v1.1.0
 	go.szostok.io/version v1.2.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.14.0
+	golang.org/x/sync v0.15.0
 	golang.org/x/term v0.32.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
