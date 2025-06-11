@@ -162,8 +162,9 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
-		}, func() {
+		}, func() []error {
 			msg, matched, affected, errs = a.diff(run, c)
+			return errs
 		})
 
 		if msg != nil {
@@ -236,8 +237,9 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Set:                    c.Set(),
 			Values:                 c.Values(),
 			KubeVersion:            c.KubeVersion(),
-		}, func() {
+		}, func() []error {
 			ok, errs = a.template(run, c)
+			return errs
 		})
 
 		if prepErr != nil {
@@ -256,8 +258,9 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 			SkipDeps:    c.SkipDeps(),
 			SkipCleanup: c.SkipCleanup(),
 			Concurrency: c.Concurrency(),
-		}, func() {
+		}, func() []error {
 			ok, errs = a.writeValues(run, c)
+			return errs
 		})
 
 		if prepErr != nil {
@@ -309,8 +312,9 @@ func (a *App) Lint(c LintConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
-		}, func() {
+		}, func() []error {
 			ok, lintErrs, errs = a.lint(run, c)
+			return errs
 		})
 
 		if prepErr != nil {
@@ -345,7 +349,8 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			OutputDir:         c.OutputDir(),
 			OutputDirTemplate: c.OutputDirTemplate(),
 			Concurrency:       c.Concurrency(),
-		}, func() {
+		}, func() []error {
+			return nil
 		})
 
 		if prepErr != nil {
@@ -371,8 +376,9 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-		}, func() {
+		}, func() []error {
 			ok, errs = a.sync(run, c)
+			return errs
 		})
 
 		if prepErr != nil {
@@ -407,7 +413,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
-		}, func() {
+		}, func() []error {
 			matched, updated, es := a.apply(run, c)
 
 			mut.Lock()
@@ -415,6 +421,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			mut.Unlock()
 
 			ok, errs = matched, es
+			return errs
 		})
 
 		if prepErr != nil {
@@ -443,8 +450,9 @@ func (a *App) Status(c StatusesConfigProvider) error {
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: c.Concurrency(),
-		}, func() {
+		}, func() []error {
 			ok, errs = a.status(run, c)
+			return errs
 		})
 
 		if err != nil {
@@ -465,8 +473,9 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
 				DeleteTimeout: c.DeleteTimeout(),
-			}, func() {
+			}, func() []error {
 				ok, errs = a.delete(run, true, c)
+				return errs
 			})
 			if err != nil {
 				errs = append(errs, err)
@@ -491,8 +500,9 @@ func (a *App) Test(c TestConfigProvider) error {
 			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
 			Concurrency: c.Concurrency(),
-		}, func() {
+		}, func() []error {
 			errs = a.test(run, c)
+			return errs
 		})
 
 		if err != nil {
@@ -510,11 +520,12 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
-		}, func() {
+		}, func() []error {
 			err = a.dag(run)
 			if err != nil {
 				errs = append(errs, err)
 			}
+			return errs
 		})
 		return ok, errs
 	}, false, SetFilter(true))
@@ -526,7 +537,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
-		}, func() {
+		}, func() []error {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
 					r := run.state.Releases[i]
@@ -534,7 +545,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 					values, err := run.state.LoadYAMLForEmbedding(&r, r.Values, r.MissingFileHandler, r.ValuesPathPrefix)
 					if err != nil {
 						errs = []error{err}
-						return
+						return errs
 					}
 
 					run.state.Releases[i].Values = values
@@ -542,7 +553,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 					secrets, err := run.state.LoadYAMLForEmbedding(&r, r.Secrets, r.MissingFileHandler, r.ValuesPathPrefix)
 					if err != nil {
 						errs = []error{err}
-						return
+						return errs
 					}
 
 					run.state.Releases[i].Secrets = secrets
@@ -552,17 +563,18 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			stateYaml, err := run.state.ToYaml()
 			if err != nil {
 				errs = []error{err}
-				return
+				return errs
 			}
 
 			sourceFile, err := run.state.FullFilePath()
 			if err != nil {
 				errs = []error{err}
-				return
+				return errs
 			}
 			fmt.Printf("---\n#  Source: %s\n\n%+v", sourceFile, stateYaml)
 
 			errs = []error{}
+			return errs
 		})
 
 		if err != nil {
@@ -598,12 +610,13 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
-			}, func() {
+			}, func() []error {
 				rel, err := a.list(run)
 				if err != nil {
 					panic(err)
 				}
 				stateReleases = rel
+				return nil
 			})
 		} else {
 			stateReleases, err = a.list(run)
