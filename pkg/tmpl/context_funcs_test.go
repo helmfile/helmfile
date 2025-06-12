@@ -201,7 +201,7 @@ func TestToYaml(t *testing.T) {
 		},
 		{
 			name:  "test unmarshalling issue 2024 with int64",
-			input: map[string]any{"thisShouldBeString": 1234567890123456789},
+			input: map[string]any{"thisShouldBeString": int64(1234567890123456789)},
 			expected: `thisShouldBeString: 1234567890123456789
 `,
 		},
