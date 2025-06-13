@@ -33,6 +33,7 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 			Namespace:   release.Namespace,
 			Labels:      release.Labels,
 			KubeContext: release.KubeContext,
+			Version:     release.Version,
 		},
 	}
 	tmplData.StateValues = &tmplData.Values
