@@ -52,7 +52,7 @@ releases:
   - `Release.Labels`: The labels to be applied to the release
   - `Release.Chart`: The chart name of the release
   - `Release.KubeContext`: The kube context to be used for the release
-  - `Release.Version`: The version of the current chart
+  - `Release.ChartVersion`: The version of the current chart
 - `Values`: Values passed into the environment.
 - `StateValues`: alias for `Values`.
 - `Environment`: The information about the environment. This is set by the
