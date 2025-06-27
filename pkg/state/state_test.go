@@ -1942,7 +1942,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 				},
 			},
 			helm:                    &exectest.Helm{},
-			expectedNumRemovedFiles: 2,
+			expectedNumRemovedFiles: 1,
 		},
 	}
 	for i := range tests {
@@ -2029,7 +2029,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 				},
 			},
 			helm:                    &exectest.Helm{},
-			expectedNumRemovedFiles: 2,
+			expectedNumRemovedFiles: 1,
 		},
 	}
 	for i := range tests {
