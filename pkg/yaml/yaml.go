@@ -63,3 +63,76 @@ func Unmarshal(data []byte, v any) error {
 
 	return v2.Unmarshal(data, v)
 }
+
+// UnmarshalWithAppend unmarshals YAML data with support for key+ syntax
+// This function first unmarshals the YAML normally, then processes any key+ syntax
+func UnmarshalWithAppend(data []byte, v any) error {
+	var rawData map[string]any
+	if err := Unmarshal(data, &rawData); err != nil {
+		return err
+	}
+
+	processor := NewAppendProcessor()
+	processedData, err := processor.ProcessMap(rawData)
+	if err != nil {
+		return err
+	}
+
+	processedYAML, err := Marshal(processedData)
+	if err != nil {
+		return err
+	}
+
+	return Unmarshal(processedYAML, v)
+}
+
+// NewDecoderWithAppend creates and returns a function that is used to decode a YAML document
+// with support for key+ syntax for appending values to lists
+func NewDecoderWithAppend(data []byte, strict bool) func(any) error {
+	if runtime.GoYamlV3 {
+		decoder := v3.NewDecoder(bytes.NewReader(data))
+		decoder.KnownFields(strict)
+		return func(v any) error {
+			var rawData map[string]any
+			if err := decoder.Decode(&rawData); err != nil {
+				return err
+			}
+
+			processor := NewAppendProcessor()
+			processedData, err := processor.ProcessMap(rawData)
+			if err != nil {
+				return err
+			}
+
+			processedYAML, err := Marshal(processedData)
+			if err != nil {
+				return err
+			}
+
+			return v3.Unmarshal(processedYAML, v)
+		}
+	}
+
+	decoder := v2.NewDecoder(bytes.NewReader(data))
+	decoder.SetStrict(strict)
+
+	return func(v any) error {
+		var rawData map[string]any
+		if err := decoder.Decode(&rawData); err != nil {
+			return err
+		}
+
+		processor := NewAppendProcessor()
+		processedData, err := processor.ProcessMap(rawData)
+		if err != nil {
+			return err
+		}
+
+		processedYAML, err := Marshal(processedData)
+		if err != nil {
+			return err
+		}
+
+		return v2.Unmarshal(processedYAML, v)
+	}
+}

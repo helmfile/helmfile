@@ -19,7 +19,6 @@ import (
 	"text/template"
 	"time"
 
-	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
 	"github.com/helmfile/chartify"
 	"github.com/helmfile/vals"
@@ -1699,11 +1698,12 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 				return []error{fmt.Errorf("reading %s: %w", f, err)}
 			}
 
-			if err := yaml.Unmarshal(srcBytes, &src); err != nil {
+			if err := yaml.UnmarshalWithAppend(srcBytes, &src); err != nil {
 				return []error{fmt.Errorf("unmarshalling yaml %s: %w", f, err)}
 			}
 
-			if err := mergo.Merge(&merged, &src, mergo.WithOverride); err != nil {
+			processor := yaml.NewAppendProcessor()
+			if err := processor.MergeWithAppend(merged, src); err != nil {
 				return []error{fmt.Errorf("merging %s: %w", f, err)}
 			}
 		}
@@ -3298,94 +3298,137 @@ func (st *HelmState) getReleaseMissingFileHandler(release *ReleaseSpec) *string 
 	}
 }
 
-func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []any) ([]string, error) {
-	generatedFiles := []string{}
+func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []any, missingFileHandler *string) ([]string, error) {
+	var generatedFiles []string
+	var mergedRaw = make(map[string]any)
 
 	for _, value := range values {
+		var fileValues map[string]any
+
 		switch typedValue := value.(type) {
 		case string:
 			paths, skip, err := st.storage().resolveFile(st.getReleaseMissingFileHandler(release), "values", typedValue, st.getReleaseMissingFileHandlerConfig(release).resolveFileOptions()...)
 			if err != nil {
-				return generatedFiles, err
+				return nil, err
 			}
 			if skip {
 				continue
 			}
 
 			if len(paths) > 1 {
-				return generatedFiles, fmt.Errorf("glob patterns in release values and secrets is not supported yet. please submit a feature request if necessary")
+				return nil, fmt.Errorf("glob patterns in release values and secrets is not supported yet. please submit a feature request if necessary")
 			}
 			path := paths[0]
 
 			yamlBytes, err := st.RenderReleaseValuesFileToBytes(release, path)
 			if err != nil {
-				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
+				return nil, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
 
-			valfile, err := createTempValuesFile(release, yamlBytes)
-			if err != nil {
-				return generatedFiles, err
-			}
-			defer func() {
-				_ = valfile.Close()
-			}()
-
-			if _, err := valfile.Write(yamlBytes); err != nil {
-				return generatedFiles, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
+			if err := yaml.Unmarshal(yamlBytes, &fileValues); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal values file \"%s\": %v", typedValue, err)
 			}
 
-			st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
-
-			generatedFiles = append(generatedFiles, valfile.Name())
 		case map[any]any, map[string]any:
-			valfile, err := createTempValuesFile(release, typedValue)
-			if err != nil {
-				return generatedFiles, err
-			}
-			defer func() {
-				_ = valfile.Close()
-			}()
-
-			encoder := yaml.NewEncoder(valfile)
-			defer func() {
-				_ = encoder.Close()
-			}()
-
-			if err := encoder.Encode(typedValue); err != nil {
-				return generatedFiles, err
+			if m, ok := typedValue.(map[string]any); ok {
+				fileValues = m
+			} else {
+				fileValues = make(map[string]any)
+				for k, v := range typedValue.(map[any]any) {
+					if strKey, ok := k.(string); ok {
+						fileValues[strKey] = v
+					}
+				}
 			}
 
-			generatedFiles = append(generatedFiles, valfile.Name())
 		default:
-			return generatedFiles, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
+			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
+		}
+
+		for k, v := range fileValues {
+			mergedRaw[k] = mergeAppendValues(mergedRaw[k], v, k)
 		}
 	}
+
+	processor := yaml.NewAppendProcessor()
+	processed, err := processor.ProcessMap(mergedRaw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process key+ syntax: %w", err)
+	}
+
+	if len(processed) > 0 {
+		valfile, err := createTempValuesFile(release, processed)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			_ = valfile.Close()
+		}()
+
+		encoder := yaml.NewEncoder(valfile)
+		defer func() {
+			_ = encoder.Close()
+		}()
+
+		if err := encoder.Encode(processed); err != nil {
+			return nil, err
+		}
+
+		generatedFiles = append(generatedFiles, valfile.Name())
+	}
+
 	return generatedFiles, nil
+}
+
+// mergeAppendValues merges two values for the same key, preserving key+ keys for later processing
+func mergeAppendValues(existing, incoming any, key string) any {
+	if existing == nil {
+		return incoming
+	}
+	if em, ok := existing.(map[string]any); ok {
+		if im, ok := incoming.(map[string]any); ok {
+			for k, v := range im {
+				em[k] = mergeAppendValues(em[k], v, k)
+			}
+			return em
+		}
+	}
+	return incoming
 }
 
 func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string, error) {
 	values := []any{}
+	inlineValues := []any{}
+
 	for _, v := range release.Values {
 		switch typedValue := v.(type) {
 		case string:
 			path := st.storage().normalizePath(release.ValuesPathPrefix + typedValue)
 			values = append(values, path)
+		case map[any]any, map[string]any:
+			inlineValues = append(inlineValues, v)
 		default:
 			values = append(values, v)
 		}
 	}
 
-	valuesMapSecretsRendered, err := st.valsRuntime.Eval(map[string]any{"values": values})
-	if err != nil {
-		return nil, err
+	var valuesSecretsRendered []any
+	if len(values) > 0 {
+		valuesMapSecretsRendered, err := st.valsRuntime.Eval(map[string]any{"values": values})
+		if err != nil {
+			return nil, err
+		}
+
+		rendered, ok := valuesMapSecretsRendered["values"].([]any)
+		if !ok {
+			return nil, fmt.Errorf("Failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
+		}
+		valuesSecretsRendered = rendered
 	}
 
-	valuesSecretsRendered, ok := valuesMapSecretsRendered["values"].([]any)
-	if !ok {
-		return nil, fmt.Errorf("Failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
-	}
+	allValues := append(valuesSecretsRendered, inlineValues...)
 
-	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, valuesSecretsRendered)
+	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, allValues, release.MissingFileHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -3451,7 +3494,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 		generatedDecryptedFiles = append(generatedDecryptedFiles, valfile)
 	}
 
-	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, generatedDecryptedFiles)
+	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, generatedDecryptedFiles, release.MissingFileHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -3965,7 +4008,7 @@ func (st *HelmState) LoadYAMLForEmbedding(release *ReleaseSpec, entries []any, m
 				return nil, fmt.Errorf("failed to render values files \"%s\": %v", t, err)
 			}
 
-			if err := yaml.Unmarshal(yamlBytes, &values); err != nil {
+			if err := yaml.UnmarshalWithAppend(yamlBytes, &values); err != nil {
 				return nil, err
 			}
 
