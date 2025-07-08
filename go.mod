@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.7.8
-	github.com/hashicorp/hcl/v2 v2.23.0
+	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/helmfile/chartify v0.24.5
 	github.com/helmfile/vals v0.41.2
 	github.com/spf13/cobra v1.9.1
