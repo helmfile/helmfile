@@ -18,6 +18,8 @@ type DiffOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
+	// EnforceNeedsAreInstalled is the enforce needs are installed flag
+	EnforceNeedsAreInstalled bool
 	// SkipDiffOnInstall is the skip diff on install flag
 	SkipDiffOnInstall bool
 	// ShowSecrets is the show secrets flag
@@ -85,6 +87,11 @@ func (t *DiffImpl) IncludeNeeds() bool {
 // IncludeTransitiveNeeds returns the include transitive needs
 func (t *DiffImpl) IncludeTransitiveNeeds() bool {
 	return t.DiffOptions.IncludeTransitiveNeeds
+}
+
+// EnforceNeedsAreInstalled errors if the transitive dependencies are not installable
+func (t *DiffImpl) EnforceNeedsAreInstalled() bool {
+	return t.DiffOptions.EnforceNeedsAreInstalled
 }
 
 // Set returns the Set
