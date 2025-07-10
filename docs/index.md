@@ -27,7 +27,7 @@ Deploy Kubernetes Helm Charts
 May 2025 Update
 
 * Helmfile v1.0 and v1.1 has been released. We recommend upgrading directly to v1.1 if you are still using v0.x.
-* If you haven't already upgraded, please go over this v1 proposal [here](docs/proposals/towards-1.0.md) to see a small list of breaking changes.
+* If you haven't already upgraded, please go over this v1 proposal [here](https://github.com/helmfile/helmfile/blob/main/docs/proposals/towards-1.0.md) to see a small list of breaking changes.
 
 ## About
 
