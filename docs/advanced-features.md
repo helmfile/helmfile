@@ -4,6 +4,7 @@
 - [Deploy Kustomization with Helmfile](#deploy-kustomizations-with-helmfile)
 - [Adhoc Kustomization of Helm Charts](#adhoc-kustomization-of-helm-charts)
 - [Adding dependencies without forking the chart](#adding-dependencies-without-forking-the-chart)
+- [Appending Values to Lists](#appending-values-to-lists)
 
 ### Import Configuration Parameters into Helmfile
 
@@ -314,6 +315,39 @@ releases:
   dependencies:
   - chart: oci://my-oci-registry/helm-repo/envoy
     version: 1.5
+```
+
+### Appending Values to Lists
+
+Helmfile supports a special syntax using `key+` to append values to lists instead of replacing them. This is particularly useful when you want to add items to existing lists in your values files without overriding the entire list.
+
+#### Basic Usage
+
+When you use a key ending with `+` in your values files, Helmfile will append the values to the existing list rather than replacing it:
+
+```yaml
+# values.yaml
+myListValues:
+  - first
+  - second
+... # Rest of your values
+```
+
+```yaml
+# values-override.yaml
+myListValues+: # This will append to the existing list instead of replacing it
+  - third
+...
+```
+
+After processing, the final merged values will be:
+
+```yaml
+myListValues:
+  - first
+  - second
+  - third
+...
 ```
 
 ### Lockfile per environment
