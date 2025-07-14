@@ -3346,7 +3346,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 		}
 
 		for k, v := range fileValues {
-			mergedRaw[k] = mergeAppendValues(mergedRaw[k], v, k)
+			mergedRaw[k] = mergeAppendValues(mergedRaw[k], v)
 		}
 	}
 
@@ -3381,14 +3381,14 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 }
 
 // mergeAppendValues merges two values for the same key, preserving key+ keys for later processing
-func mergeAppendValues(existing, incoming any, key string) any {
+func mergeAppendValues(existing, incoming any) any {
 	if existing == nil {
 		return incoming
 	}
 	if em, ok := existing.(map[string]any); ok {
 		if im, ok := incoming.(map[string]any); ok {
 			for k, v := range im {
-				em[k] = mergeAppendValues(em[k], v, k)
+				em[k] = mergeAppendValues(em[k], v)
 			}
 			return em
 		}
