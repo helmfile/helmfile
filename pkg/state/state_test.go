@@ -4571,3 +4571,245 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 		require.Equal(t, tt.flags, r.flags, "Wrong value control flag for release %s", r.release.Name)
 	}
 }
+
+func TestMergeAppendValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing any
+		incoming any
+		expected any
+	}{
+		{
+			name:     "nil existing returns incoming",
+			existing: nil,
+			incoming: "test-value",
+			expected: "test-value",
+		},
+		{
+			name:     "nil existing with map incoming",
+			existing: nil,
+			incoming: map[string]any{"key": "value"},
+			expected: map[string]any{"key": "value"},
+		},
+		{
+			name:     "scalar existing with scalar incoming",
+			existing: "old-value",
+			incoming: "new-value",
+			expected: "new-value",
+		},
+		{
+			name:     "scalar existing with map incoming",
+			existing: "old-value",
+			incoming: map[string]any{"key": "value"},
+			expected: map[string]any{"key": "value"},
+		},
+		{
+			name:     "map existing with scalar incoming",
+			existing: map[string]any{"key": "value"},
+			incoming: "new-value",
+			expected: "new-value",
+		},
+		{
+			name: "map existing with map incoming - simple merge",
+			existing: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			incoming: map[string]any{
+				"key2": "new-value2",
+				"key3": "value3",
+			},
+			expected: map[string]any{
+				"key1": "value1",
+				"key2": "new-value2",
+				"key3": "value3",
+			},
+		},
+		{
+			name: "map existing with map incoming - nested merge",
+			existing: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"key1": "value1",
+						"key2": "value2",
+					},
+				},
+			},
+			incoming: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"key2": "new-value2",
+						"key3": "value3",
+					},
+				},
+			},
+			expected: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"key1": "value1",
+						"key2": "new-value2",
+						"key3": "value3",
+					},
+				},
+			},
+		},
+		{
+			name: "map existing with map incoming - deep nested merge",
+			existing: map[string]any{
+				"a": map[string]any{
+					"b": map[string]any{
+						"c": map[string]any{
+							"d": "value-d",
+							"e": "value-e",
+						},
+					},
+				},
+			},
+			incoming: map[string]any{
+				"a": map[string]any{
+					"b": map[string]any{
+						"c": map[string]any{
+							"e": "new-value-e",
+							"f": "value-f",
+						},
+					},
+				},
+			},
+			expected: map[string]any{
+				"a": map[string]any{
+					"b": map[string]any{
+						"c": map[string]any{
+							"d": "value-d",
+							"e": "new-value-e",
+							"f": "value-f",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "map existing with map incoming - mixed types",
+			existing: map[string]any{
+				"string": "old-string",
+				"int":    42,
+				"bool":   true,
+				"slice":  []any{"item1", "item2"},
+				"nested": map[string]any{
+					"key": "nested-value",
+				},
+			},
+			incoming: map[string]any{
+				"string": "new-string",
+				"int":    100,
+				"bool":   false,
+				"slice":  []any{"item3", "item4"},
+				"nested": map[string]any{
+					"new-key": "new-nested-value",
+				},
+			},
+			expected: map[string]any{
+				"string": "new-string",
+				"int":    100,
+				"bool":   false,
+				"slice":  []any{"item3", "item4"},
+				"nested": map[string]any{
+					"key":     "nested-value",
+					"new-key": "new-nested-value",
+				},
+			},
+		},
+		{
+			name:     "map existing with map incoming - empty maps",
+			existing: map[string]any{},
+			incoming: map[string]any{},
+			expected: map[string]any{},
+		},
+		{
+			name:     "map existing with map incoming - empty existing",
+			existing: map[string]any{},
+			incoming: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			expected: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			name: "map existing with map incoming - empty incoming",
+			existing: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			incoming: map[string]any{},
+			expected: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			name: "map existing with map incoming - complex nested structure",
+			existing: map[string]any{
+				"config": map[string]any{
+					"database": map[string]any{
+						"host": "localhost",
+						"port": 5432,
+						"credentials": map[string]any{
+							"username": "admin",
+							"password": "secret",
+						},
+					},
+					"cache": map[string]any{
+						"enabled": true,
+						"ttl":     300,
+					},
+				},
+			},
+			incoming: map[string]any{
+				"config": map[string]any{
+					"database": map[string]any{
+						"host": "production-db",
+						"credentials": map[string]any{
+							"password": "new-secret",
+							"ssl":      true,
+						},
+					},
+					"cache": map[string]any{
+						"ttl": 600,
+					},
+					"logging": map[string]any{
+						"level": "info",
+					},
+				},
+			},
+			expected: map[string]any{
+				"config": map[string]any{
+					"database": map[string]any{
+						"host": "production-db",
+						"port": 5432,
+						"credentials": map[string]any{
+							"username": "admin",
+							"password": "new-secret",
+							"ssl":      true,
+						},
+					},
+					"cache": map[string]any{
+						"enabled": true,
+						"ttl":     600,
+					},
+					"logging": map[string]any{
+						"level": "info",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := mergeAppendValues(tt.existing, tt.incoming)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
