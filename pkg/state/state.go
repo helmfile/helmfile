@@ -1682,7 +1682,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 				return []error{fmt.Errorf("reading %s: %w", f, err)}
 			}
 
-			if err := yaml.UnmarshalWithAppend(srcBytes, &src); err != nil {
+			if err := yaml.Unmarshal(srcBytes, &src); err != nil {
 				return []error{fmt.Errorf("unmarshalling yaml %s: %w", f, err)}
 			}
 
@@ -3294,19 +3294,16 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
 		}
 
+		processor := yaml.NewAppendProcessor()
 		for k, v := range fileValues {
-			mergedRaw[k] = mergeAppendValues(mergedRaw[k], v)
+			if err := processor.MergeWithAppend(mergedRaw, map[string]any{k: v}); err != nil {
+				return nil, fmt.Errorf("failed to process key+ syntax: %w", err)
+			}
 		}
 	}
 
-	processor := yaml.NewAppendProcessor()
-	processed, err := processor.ProcessMap(mergedRaw)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process key+ syntax: %w", err)
-	}
-
-	if len(processed) > 0 {
-		valfile, err := createTempValuesFile(release, processed)
+	if len(mergedRaw) > 0 {
+		valfile, err := createTempValuesFile(release, mergedRaw)
 		if err != nil {
 			return nil, err
 		}
@@ -3319,7 +3316,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 			_ = encoder.Close()
 		}()
 
-		if err := encoder.Encode(processed); err != nil {
+		if err := encoder.Encode(mergedRaw); err != nil {
 			return nil, err
 		}
 
@@ -3327,22 +3324,6 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 	}
 
 	return generatedFiles, nil
-}
-
-// mergeAppendValues merges two values for the same key, preserving key+ keys for later processing
-func mergeAppendValues(existing, incoming any) any {
-	if existing == nil {
-		return incoming
-	}
-	if em, ok := existing.(map[string]any); ok {
-		if im, ok := incoming.(map[string]any); ok {
-			for k, v := range im {
-				em[k] = mergeAppendValues(em[k], v)
-			}
-			return em
-		}
-	}
-	return incoming
 }
 
 func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string, error) {
@@ -3957,7 +3938,7 @@ func (st *HelmState) LoadYAMLForEmbedding(release *ReleaseSpec, entries []any, m
 				return nil, fmt.Errorf("failed to render values files \"%s\": %v", t, err)
 			}
 
-			if err := yaml.UnmarshalWithAppend(yamlBytes, &values); err != nil {
+			if err := yaml.Unmarshal(yamlBytes, &values); err != nil {
 				return nil, err
 			}
 

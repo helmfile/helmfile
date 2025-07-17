@@ -1,7 +1,6 @@
 package yaml
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -9,84 +8,6 @@ type AppendProcessor struct{}
 
 func NewAppendProcessor() *AppendProcessor {
 	return &AppendProcessor{}
-}
-
-func (ap *AppendProcessor) ProcessMap(data map[string]any) (map[string]any, error) {
-	result := make(map[string]any)
-
-	// First pass: collect all append keys and their base keys
-	appendKeys := make(map[string][]any)
-	baseKeys := make(map[string]any)
-
-	for key, value := range data {
-		if IsAppendKey(key) {
-			baseKey := GetBaseKey(key)
-			appendKeys[baseKey] = append(appendKeys[baseKey], value)
-		} else {
-			baseKeys[key] = value
-		}
-	}
-
-	// Second pass: process all values recursively
-	for key, value := range baseKeys {
-		processedValue, err := ap.processValue(value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to process value for key %s: %w", key, err)
-		}
-		result[key] = processedValue
-	}
-
-	// Third pass: merge append keys with their base keys
-	for baseKey, appendValues := range appendKeys {
-		for _, appendValue := range appendValues {
-			processedValue, err := ap.processValue(appendValue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to process append value for key %s: %w", baseKey, err)
-			}
-			if existingValue, exists := result[baseKey]; exists {
-				if isSlice(processedValue) && isSlice(existingValue) {
-					// Always append to the base key's slice
-					result[baseKey] = append(existingValue.([]any), processedValue.([]any)...)
-				} else {
-					// If not both slices, overwrite (fallback)
-					result[baseKey] = processedValue
-				}
-			} else {
-				result[baseKey] = processedValue
-			}
-		}
-	}
-
-	return result, nil
-}
-
-func (ap *AppendProcessor) processValue(value any) (any, error) {
-	switch v := value.(type) {
-	case map[string]any:
-		return ap.ProcessMap(v)
-	case map[any]any:
-		converted := make(map[string]any)
-		for k, val := range v {
-			if strKey, ok := k.(string); ok {
-				converted[strKey] = val
-			} else {
-				return nil, fmt.Errorf("non-string key in map: %v", k)
-			}
-		}
-		return ap.ProcessMap(converted)
-	case []any:
-		result := make([]any, len(v))
-		for i, elem := range v {
-			processed, err := ap.processValue(elem)
-			if err != nil {
-				return nil, fmt.Errorf("failed to process slice element %d: %w", i, err)
-			}
-			result[i] = processed
-		}
-		return result, nil
-	default:
-		return value, nil
-	}
 }
 
 func (ap *AppendProcessor) MergeWithAppend(dest, src map[string]any) error {
