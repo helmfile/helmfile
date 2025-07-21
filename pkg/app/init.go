@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	HelmRequiredVersion           = "v3.16.4"
-	HelmRecommendedVersion        = "v3.17.3"
-	HelmDiffRecommendedVersion    = "v3.11.0"
-	HelmSecretsRecommendedVersion = "v4.6.3"
+	HelmRequiredVersion           = "v3.17.4"
+	HelmDiffRecommendedVersion    = "v3.12.3"
+	HelmRecommendedVersion        = "v3.18.4"
+	HelmSecretsRecommendedVersion = "v4.6.5"
 	HelmGitRecommendedVersion     = "v1.3.0"
 	HelmS3RecommendedVersion      = "v0.16.3"
 	HelmInstallCommand            = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"

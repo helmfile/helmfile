@@ -13,6 +13,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 	"github.com/tj/assert"
 	"go.uber.org/zap"
 )
@@ -996,17 +997,14 @@ func Test_GetPluginVersion(t *testing.T) {
 	v4PluginDirPath := "../../test/plugins/secrets/4.0.0"
 
 	v3SecretPluginVersion, err := GetPluginVersion("secrets", v3PluginDirPath)
-	if err != nil {
-		t.Error(err.Error())
-	}
+	require.NoError(t, err)
+
 	if v3SecretPluginVersion.String() != v3ExpectedVersion {
 		t.Errorf("secrets v3 plugin version is %v, expected %v", v3SecretPluginVersion.String(), v3ExpectedVersion)
 	}
 
 	v4SecretPluginVersion, err := GetPluginVersion("secrets", v4PluginDirPath)
-	if err != nil {
-		t.Error(err.Error())
-	}
+	require.NoError(t, err)
 	if v4SecretPluginVersion.String() != v4ExpectedVersion {
 		t.Errorf("secrets v4 plugin version is %v, expected %v", v4SecretPluginVersion.String(), v4ExpectedVersion)
 	}

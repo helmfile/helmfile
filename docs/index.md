@@ -24,13 +24,10 @@ Deploy Kubernetes Helm Charts
 
 ## Status
 
-March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see [roboll/helmfile#1824](https://github.com/roboll/helmfile/issues/1824) for more information.
+May 2025 Update
 
-Even though Helmfile is used in production environments [across multiple organizations](users.md), it is still in its early stage of development, hence versioned 0.x.
-
-Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be backward-incompatible changes for every release.
-
-Note that we will try our best to document any backward incompatibility. And in reality, helmfile had no breaking change for a year or so.
+* Helmfile v1.0 and v1.1 has been released. We recommend upgrading directly to v1.1 if you are still using v0.x.
+* If you haven't already upgraded, please go over this v1 proposal [here](https://github.com/helmfile/helmfile/blob/main/docs/proposals/towards-1.0.md) to see a small list of breaking changes.
 
 ## About
 
@@ -574,7 +571,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](https://helmfile.readthedocs.io/en/latest/#environment), it has lower priority than CLI argument `--environment`
 * `HELMFILE_TEMPDIR` - specify directory to store temporary files
 * `HELMFILE_UPGRADE_NOTICE_DISABLED` - expecting any non-empty value to skip the check for the latest version of Helmfile in [helmfile version](https://helmfile.readthedocs.io/en/latest/#version)
-* `HELMFILE_GOCCY_GOYAML` - use *goccy/go-yaml* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile v0.x and `true` by default for Helmfile v1.x.
+* `HELMFILE_GO_YAML_V3` - use *gopkg.in/yaml.v3* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile v0.x, and `true` in Helmfile v1.x.
 * `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
 * `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
 * `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
@@ -584,7 +581,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 ```
 Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot
 V1 mode = false
-YAML library = gopkg.in/yaml.v2
+YAML library = gopkg.in/yaml.v3
 
 Usage:
   helmfile [command]

@@ -160,9 +160,9 @@ func TestReadFile_PassAbsPath(t *testing.T) {
 }
 
 func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
-	v := runtime.GoccyGoYaml
+	v := runtime.GoYamlV3
 	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
+		runtime.GoYamlV3 = v
 	})
 
 	// nolint: unconvert
@@ -172,13 +172,13 @@ func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
 		},
 	})
 
-	runtime.GoccyGoYaml = true
+	runtime.GoYamlV3 = true
 
 	actual, err := ToYaml(vals)
 	require.Equal(t, "foo:\n  bar: BAR\n", actual)
 	require.NoError(t, err, "expected nil, but got: %v, when type: map[interface {}]interface {}", err)
 
-	runtime.GoccyGoYaml = false
+	runtime.GoYamlV3 = false
 
 	actual, err = ToYaml(vals)
 	require.Equal(t, "foo:\n  bar: BAR\n", actual)
@@ -186,18 +186,72 @@ func TestToYaml_NestedMapInterfaceKey(t *testing.T) {
 }
 
 func TestToYaml(t *testing.T) {
-	expected := `foo:
-  bar: BAR
-`
-	// nolint: unconvert
-	vals := Values(map[string]any{
-		"foo": map[string]any{
-			"bar": "BAR",
+	tests := []struct {
+		name     string
+		input    any
+		expected string
+		wantErr  bool
+	}{
+		{
+			// https://github.com/helmfile/helmfile/issues/2024
+			name:  "test unmarshalling issue 2024",
+			input: map[string]any{"thisShouldBeString": "01234567890123456789"},
+			expected: `thisShouldBeString: "01234567890123456789"
+`,
 		},
-	})
-	actual, err := ToYaml(vals)
-	require.NoError(t, err)
-	require.Equal(t, expected, actual)
+		{
+			name:  "test unmarshalling issue 2024 with int64",
+			input: map[string]any{"thisShouldBeString": int64(1234567890123456789)},
+			expected: `thisShouldBeString: 1234567890123456789
+`,
+		},
+		{
+			name:  "test unmarshalling object",
+			input: map[string]any{"foo": map[string]any{"bar": "BAR"}},
+			expected: `foo:
+  bar: BAR
+`,
+		},
+		{
+			name:  "test unmarshalling array",
+			input: []any{"foo", map[string]any{"bar": "BAR"}},
+			expected: `- foo
+- bar: BAR
+`,
+		},
+		{
+			name:     "test unmarshalling string",
+			input:    "foo",
+			expected: "foo\n",
+		},
+		{
+			name:     "test unmarshalling number",
+			input:    1234,
+			expected: "1234\n",
+		},
+		{
+			name:     "test unmarshalling boolean",
+			input:    true,
+			expected: "true\n",
+		},
+		{
+			name:     "test unmarshalling null",
+			input:    nil,
+			expected: "null\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := ToYaml(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.expected, actual)
+		})
+	}
 }
 
 func testFromYamlObject(t *testing.T) {
@@ -281,13 +335,13 @@ func testFromYamlNull(t *testing.T) {
 	require.Equal(t, nil, actual)
 }
 
-func testFromYaml(t *testing.T, goccyGoYaml bool) {
+func testFromYaml(t *testing.T, GoYamlV3 bool) {
 	t.Helper()
 
-	v := runtime.GoccyGoYaml
-	runtime.GoccyGoYaml = goccyGoYaml
+	v := runtime.GoYamlV3
+	runtime.GoYamlV3 = GoYamlV3
 	t.Cleanup(func() {
-		runtime.GoccyGoYaml = v
+		runtime.GoYamlV3 = v
 	})
 
 	t.Run("test unmarshalling object", testFromYamlObject)
@@ -304,11 +358,11 @@ func testFromYaml(t *testing.T, goccyGoYaml bool) {
 }
 
 func TestFromYaml(t *testing.T) {
-	t.Run("with goccy/go-yaml", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
 		testFromYaml(t, true)
 	})
 
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+	t.Run("with gopkg.in/yaml.v3", func(t *testing.T) {
 		testFromYaml(t, false)
 	})
 }

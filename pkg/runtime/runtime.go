@@ -8,16 +8,16 @@ import (
 )
 
 var (
-	// GoccyGoYaml is set to true in order to let Helmfile use
-	// goccy/go-yaml instead of gopkg.in/yaml.v2.
-	// It's false by default in Helmfile v0.x and true by default for Helmfile v1.x.
-	GoccyGoYaml bool
+	// GoYamlV3 is set to true in order to let Helmfile use
+	// gopkg.in/yaml.v3 instead of gopkg.in/yaml.v2.
+	// It's false by default in Helmfile v0.x and true in Helmfile v1.x.
+	GoYamlV3 bool
 )
 
 func Info() string {
 	yamlLib := "gopkg.in/yaml.v2"
-	if GoccyGoYaml {
-		yamlLib = "goccy/go-yaml"
+	if GoYamlV3 {
+		yamlLib = "gopkg.in/yaml.v3"
 	}
 
 	return fmt.Sprintf("YAML library = %v", yamlLib)
@@ -25,12 +25,12 @@ func Info() string {
 
 func init() {
 	// You can switch the YAML library at runtime via an envvar:
-	switch os.Getenv(envvar.GoccyGoYaml) {
+	switch os.Getenv(envvar.GoYamlV3) {
 	case "true":
-		GoccyGoYaml = true
+		GoYamlV3 = true
 	case "false":
-		GoccyGoYaml = false
+		GoYamlV3 = false
 	default:
-		GoccyGoYaml = true
+		GoYamlV3 = true
 	}
 }

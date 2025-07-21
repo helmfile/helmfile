@@ -190,6 +190,11 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 		return "", err
 	}
 
+	// Block remote access if insecure features are disabled and the source is remote
+	if disableInsecureFeatures && IsRemote(path) {
+		return "", fmt.Errorf("remote sources are disabled due to 'HELMFILE_DISABLE_INSECURE_FEATURES'")
+	}
+
 	srcDir := fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, u.Dir)
 	file := u.File
 
@@ -532,9 +537,6 @@ func ParseS3Url(s3URL string) (string, string, error) {
 }
 
 func NewRemote(logger *zap.SugaredLogger, homeDir string, fs *filesystem.FileSystem) *Remote {
-	if disableInsecureFeatures {
-		panic("Remote sources are disabled due to 'DISABLE_INSECURE_FEATURES'")
-	}
 	remote := &Remote{
 		Logger:     logger,
 		Home:       homeDir,

@@ -12,7 +12,7 @@ const (
 	FilePath              = "HELMFILE_FILE_PATH"
 	TempDir               = "HELMFILE_TEMPDIR"
 	UpgradeNoticeDisabled = "HELMFILE_UPGRADE_NOTICE_DISABLED"
-	GoccyGoYaml           = "HELMFILE_GOCCY_GOYAML"
+	GoYamlV3              = "HELMFILE_GO_YAML_V3"
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
 )

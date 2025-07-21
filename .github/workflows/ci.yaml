@@ -18,9 +18,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - uses: golangci/golangci-lint-action@v7
+      - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.0.2
+          version: v2.1.6
 
   tests:
     runs-on: ubuntu-latest
@@ -54,37 +54,37 @@ jobs:
           # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
-          - helm-version: v3.16.4
+          - helm-version: v3.17.4
             kustomize-version: v5.2.1
-            plugin-secrets-version: 3.15.0
-            plugin-diff-version: 3.10.0
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.11.0
             extra-helmfile-flags: ''
-          - helm-version: v3.16.4
+          - helm-version: v3.17.4
             kustomize-version: v5.4.3
             # We assume that the helm-secrets plugin is supposed to
             # work with the two most recent helm minor versions.
             # Once it turned out to be not practically true,
             # we will mark this combination as failable,
             # and instruct users to upgrade helm and helm-secrets at once.
-            plugin-secrets-version: 4.6.3
-            plugin-diff-version: 3.11.0
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.12.3
             extra-helmfile-flags: ''
-          - helm-version: v3.17.3
+          - helm-version: v3.18.4
             kustomize-version: v5.2.1
-            plugin-secrets-version: 3.15.0
-            plugin-diff-version: 3.10.0
-            extra-helmfile-flags: ''
-          - helm-version: v3.17.3
-            kustomize-version: v5.4.3
-            plugin-secrets-version: 4.6.3
+            plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.11.0
+            extra-helmfile-flags: ''
+          - helm-version: v3.18.4
+            kustomize-version: v5.4.3
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.12.3
             extra-helmfile-flags: ''
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
-          - helm-version: v3.17.3
+          - helm-version: v3.18.4
             kustomize-version: v5.4.3
-            plugin-secrets-version: 4.6.3
-            plugin-diff-version: 3.11.0
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.12.3
             extra-helmfile-flags: '--enable-live-output'
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +95,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: built-binaries-${{ github.run_id }}
+      - name: install semver
+        run: go install github.com/ffurrer2/semver/v2/cmd/semver@latest
       - name: Extract tar to get built binaries
         run: tar -xvf built-binaries.tar
       - name: Display built binaries

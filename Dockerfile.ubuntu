@@ -35,7 +35,7 @@ ENV HELM_CONFIG_HOME="${HELM_CONFIG_HOME}"
 ARG HELM_DATA_HOME="${HOME}/.local/share/helm"
 ENV HELM_DATA_HOME="${HELM_DATA_HOME}"
 
-ARG HELM_VERSION="v3.17.3"
+ARG HELM_VERSION="v3.18.4"
 ENV HELM_VERSION="${HELM_VERSION}"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
@@ -43,8 +43,8 @@ RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "${HELM_LOCATION}/${HELM_FILENAME}" && \
     echo Verifying ${HELM_FILENAME}... && \
     case ${TARGETPLATFORM} in \
-    "linux/amd64")  HELM_SHA256="ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd"  ;; \
-    "linux/arm64")  HELM_SHA256="7944e3defd386c76fd92d9e6fec5c2d65a323f6fadc19bfb5e704e3eee10348e"  ;; \
+    "linux/amd64")  HELM_SHA256="f8180838c23d7c7d797b208861fecb591d9ce1690d8704ed1e4cb8e2add966c1"  ;; \
+    "linux/arm64")  HELM_SHA256="c0a45e67eef0c7416a8a8c9e9d5d2d30d70e4f4d3f7bea5de28241fffa8f3b89"  ;; \
     esac && \
     echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
     echo Extracting ${HELM_FILENAME}... && \
@@ -82,7 +82,7 @@ RUN set -x && \
     rm "${KUSTOMIZE_FILENAME}" && \
     [ "$(kustomize version)" = "${KUSTOMIZE_VERSION}" ]
 
-ENV SOPS_VERSION="v3.9.3"
+ENV SOPS_VERSION="v3.10.2"
 ARG SOPS_FILENAME="sops-${SOPS_VERSION}.${TARGETOS}.${TARGETARCH}"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/${SOPS_FILENAME}" && \
@@ -90,7 +90,7 @@ RUN set -x && \
     mv "${SOPS_FILENAME}" /usr/local/bin/sops && \
     sops --version --disable-version-check | grep -E "^sops ${SOPS_VERSION#v}"
 
-ENV AGE_VERSION="v1.2.0"
+ENV AGE_VERSION="v1.2.1"
 ARG AGE_FILENAME="age-${AGE_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/${AGE_FILENAME}" && \
@@ -99,8 +99,8 @@ RUN set -x && \
     [ "$(age --version)" = "${AGE_VERSION}" ] && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.11.0 && \
-    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.3 && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.12.3 && \
+    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.5 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.16.3 && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.3.0 && \
     rm -rf ${HELM_CACHE_HOME}/plugins
