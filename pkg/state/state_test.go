@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -2103,8 +2104,9 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	basePath := "/src"
 	state := &HelmState{
-		basePath: basePath,
-		FilePath: "/src/helmfile.yaml",
+		basePath:  basePath,
+		FilePath:  "/src/helmfile.yaml",
+		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
 				{
@@ -2163,13 +2165,17 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	if resolved.Releases[4].Version != "1.4.0" {
 		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.4.0, got=%s", resolved.Releases[6].Version)
 	}
+	if state.Directory != "/src" {
+		t.Errorf("HelmState.Directory = %v, want %v", state.Directory, "/src")
+	}
 }
 
 func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	state := &HelmState{
-		basePath: "/src",
-		FilePath: "/src/helmfile.yaml",
+		basePath:  "/src",
+		FilePath:  "/src/helmfile.yaml",
+		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
 				{
@@ -2218,8 +2224,9 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 func TestHelmState_ResolveDeps_NoLockFile_WithCustomLockFile(t *testing.T) {
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	state := &HelmState{
-		basePath: "/src",
-		FilePath: "/src/helmfile.yaml",
+		basePath:  "/src",
+		FilePath:  "/src/helmfile.yaml",
+		Directory: "/src",
 		ReleaseSetSpec: ReleaseSetSpec{
 			LockFile: "custom-lock-file",
 			Releases: []ReleaseSpec{
@@ -4569,5 +4576,24 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 		r := results[0]
 
 		require.Equal(t, tt.flags, r.flags, "Wrong value control flag for release %s", r.release.Name)
+	}
+}
+
+func TestHelmState_DirectoryProperty(t *testing.T) {
+	baseDir := "/abs/path/to"
+	filePath := "helmfile.yaml"
+	state := &HelmState{
+		basePath:  baseDir,
+		FilePath:  filePath,
+		Directory: baseDir,
+	}
+
+	yamlOut, err := state.ToYaml()
+	if err != nil {
+		t.Fatalf("ToYaml failed: %v", err)
+	}
+
+	if !strings.Contains(yamlOut, "directory: "+baseDir) {
+		t.Errorf("YAML output does not contain expected directory property. Got:\n%s", yamlOut)
 	}
 }

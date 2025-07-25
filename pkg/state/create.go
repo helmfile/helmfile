@@ -94,6 +94,12 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 	state.FilePath = file
 	state.basePath = baseDir
 
+	absDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return nil, err
+	}
+	state.Directory = absDir
+
 	state.LockFile = c.lockFile
 
 	decode := yaml.NewDecoder(content, c.Strict)

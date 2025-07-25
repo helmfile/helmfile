@@ -112,8 +112,9 @@ func (hs *HelmState) UnmarshalYAML(unmarshal func(any) error) error {
 
 // HelmState structure for the helmfile
 type HelmState struct {
-	basePath string
-	FilePath string
+	basePath  string
+	FilePath  string
+	Directory string `yaml:"directory,omitempty"`
 
 	ReleaseSetSpec `yaml:",inline"`
 
