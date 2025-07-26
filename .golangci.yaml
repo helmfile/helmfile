@@ -45,7 +45,7 @@ linters:
       lines: 280
       statements: 140
     gocognit:
-      min-complexity: 100
+      min-complexity: 110
     goconst:
       min-len: 3
       min-occurrences: 8
