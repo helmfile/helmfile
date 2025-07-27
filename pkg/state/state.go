@@ -1379,7 +1379,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 							results <- &chartPrepareResult{err: err}
 							return
 						}
-						if err := st.fs.CopyDir(normalizedChart, chartPath); err != nil {
+						if err := st.fs.CopyDir(normalizedChart, filepath.Clean(chartPath)); err != nil {
 							results <- &chartPrepareResult{err: err}
 							return
 						}
