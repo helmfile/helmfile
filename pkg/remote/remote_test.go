@@ -219,6 +219,73 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 	}
 }
 
+func TestRemote_SShGitHub_WithDisableCacheKey(t *testing.T) {
+	cleanfs := map[string]string{
+		CacheDir(): "",
+	}
+	cachefs := map[string]string{
+		filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=main/releases/kiam.yaml"): "foo: bar",
+	}
+
+	testcases := []struct {
+		name           string
+		files          map[string]string
+		expectCacheHit bool
+	}{
+		{name: "not expectCacheHit", files: cleanfs, expectCacheHit: false},
+		{name: "forceNoCacheHit", files: cachefs, expectCacheHit: false},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			testfs := testhelper.NewTestFs(tt.files)
+
+			hit := true
+
+			get := func(wd, src, dst string) error {
+				if wd != CacheDir() {
+					return fmt.Errorf("unexpected wd: %s", wd)
+				}
+				if src != "git::ssh://git@github.com/helmfile/helmfiles.git?ref=main" {
+					return fmt.Errorf("unexpected src: %s", src)
+				}
+
+				hit = false
+
+				return nil
+			}
+
+			getter := &testGetter{
+				get: get,
+			}
+			remote := &Remote{
+				Logger: helmexec.NewLogger(io.Discard, "debug"),
+				Home:   CacheDir(),
+				Getter: getter,
+				fs:     testfs.ToFileSystem(),
+			}
+
+			url := "git::ssh://git@github.com/helmfile/helmfiles.git@releases/kiam.yaml?ref=main&cache=false"
+			file, err := remote.Locate(url)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=main/releases/kiam.yaml")
+			if file != expectedFile {
+				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
+			}
+
+			if tt.expectCacheHit && !hit {
+				t.Errorf("unexpected result: unexpected cache miss")
+			}
+			if !tt.expectCacheHit && hit {
+				t.Errorf("unexpected result: unexpected cache hit")
+			}
+		})
+	}
+}
+
 func TestRemote_S3(t *testing.T) {
 	cleanfs := map[string]string{
 		CacheDir(): "",
