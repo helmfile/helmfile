@@ -345,8 +345,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			OutputDir:         c.OutputDir(),
 			OutputDirTemplate: c.OutputDirTemplate(),
 			Concurrency:       c.Concurrency(),
-		}, func() {
-		})
+		}, func() {})
 
 		if prepErr != nil {
 			errs = append(errs, prepErr)
