@@ -1373,8 +1373,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// a broken remote chart won't completely block their job.
 					chartPath = normalizedChart
 					if helmfileCommand == "pull" && isLocal {
-						// copy chart to a temporary directory
-						chartPath, err = generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
+						chartAbsPath := strings.TrimSuffix(filepath.Clean(normalizedChart), "/")
+						chartPath, err = generateChartPath(filepath.Base(chartAbsPath), dir, release, opts.OutputDirTemplate)
 						if err != nil {
 							results <- &chartPrepareResult{err: err}
 							return
