@@ -84,9 +84,9 @@ type ReleaseSetSpec struct {
 	// If set to "Error", return an error when a subhelmfile points to a
 	// non-existent path. The default behavior is to print a warning. Note the
 	// differing default compared to other MissingFileHandlers.
-	MissingFileHandler string `yaml:"missingFileHandler,omitempty"`
+	MissingFileHandler *string `yaml:"missingFileHandler,omitempty"`
 	// MissingFileHandlerConfig is composed of various settings for the MissingFileHandler
-	MissingFileHandlerConfig MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
+	MissingFileHandlerConfig *MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
 
 	LockFile string `yaml:"lockFilePath,omitempty"`
 }
@@ -309,6 +309,10 @@ type ReleaseSpec struct {
 	// MissingFileHandler is set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
 	// The default value for MissingFileHandler is "Error".
 	MissingFileHandler *string `yaml:"missingFileHandler,omitempty"`
+
+	// MissingFileHandlerConfig is composed of various settings for the MissingFileHandler
+	MissingFileHandlerConfig *MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
+
 	// Needs is the [KUBECONTEXT/][NS/]NAME representations of releases that this release depends on.
 	Needs []string `yaml:"needs,omitempty"`
 
@@ -1470,6 +1474,18 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					// for a remote chart, so that the user can notice/fix the issue in a local chart while
 					// a broken remote chart won't completely block their job.
 					chartPath = normalizedChart
+					if helmfileCommand == "pull" && isLocal {
+						chartAbsPath := strings.TrimSuffix(filepath.Clean(normalizedChart), "/")
+						chartPath, err = generateChartPath(filepath.Base(chartAbsPath), dir, release, opts.OutputDirTemplate)
+						if err != nil {
+							results <- &chartPrepareResult{err: err}
+							return
+						}
+						if err := st.fs.CopyDir(normalizedChart, filepath.Clean(chartPath)); err != nil {
+							results <- &chartPrepareResult{err: err}
+							return
+						}
+					}
 
 					buildDeps = !skipDeps
 				} else if !opts.ForceDownload {
@@ -3296,7 +3312,7 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 		}
 		if len(matches) == 0 {
 			err := fmt.Errorf("no matches for path: %s", hf.Path)
-			if st.MissingFileHandler == "Error" {
+			if *st.MissingFileHandler == "Error" {
 				return nil, err
 			}
 			st.logger.Warnf("no matches for path: %s", hf.Path)
@@ -3343,19 +3359,54 @@ func (st *HelmState) removeFiles(files []string) {
 	}
 }
 
-func (c MissingFileHandlerConfig) resolveFileOptions() []resolveFileOption {
+func (c *MissingFileHandlerConfig) resolveFileOptions() []resolveFileOption {
+	if c == nil {
+		return []resolveFileOption{
+			ignoreMissingGitBranch(false),
+		}
+	}
 	return []resolveFileOption{
 		ignoreMissingGitBranch(c.IgnoreMissingGitBranch),
 	}
 }
 
-func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []any, missingFileHandler *string) ([]string, error) {
+// getReleaseMissingFileHandlerConfig returns the first non-nil MissingFileHandlerConfig in the following order:
+// - release.MissingFileHandlerConfig
+// - st.MissingFileHandlerConfig
+func (st *HelmState) getReleaseMissingFileHandlerConfig(release *ReleaseSpec) *MissingFileHandlerConfig {
+	switch {
+	case release.MissingFileHandlerConfig != nil:
+		return release.MissingFileHandlerConfig
+	case st.MissingFileHandlerConfig != nil:
+		return st.MissingFileHandlerConfig
+	default:
+		return nil
+	}
+}
+
+// getReleaseMissingFileHandler returns the first non-nil MissingFileHandler in the following order:
+// - release.MissingFileHandler
+// - st.MissingFileHandler
+// - "Error"
+func (st *HelmState) getReleaseMissingFileHandler(release *ReleaseSpec) *string {
+	defaultMissingFileHandler := "Error"
+	switch {
+	case release.MissingFileHandler != nil:
+		return release.MissingFileHandler
+	case st.MissingFileHandler != nil:
+		return st.MissingFileHandler
+	default:
+		return &defaultMissingFileHandler
+	}
+}
+
+func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []any) ([]string, error) {
 	generatedFiles := []string{}
 
 	for _, value := range values {
 		switch typedValue := value.(type) {
 		case string:
-			paths, skip, err := st.storage().resolveFile(missingFileHandler, "values", typedValue, st.MissingFileHandlerConfig.resolveFileOptions()...)
+			paths, skip, err := st.storage().resolveFile(st.getReleaseMissingFileHandler(release), "values", typedValue, st.getReleaseMissingFileHandlerConfig(release).resolveFileOptions()...)
 			if err != nil {
 				return generatedFiles, err
 			}
@@ -3436,7 +3487,7 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 		return nil, fmt.Errorf("Failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
 	}
 
-	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, valuesSecretsRendered, release.MissingFileHandler)
+	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, valuesSecretsRendered)
 	if err != nil {
 		return nil, err
 	}
@@ -3502,7 +3553,7 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 		generatedDecryptedFiles = append(generatedDecryptedFiles, valfile)
 	}
 
-	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, generatedDecryptedFiles, release.MissingFileHandler)
+	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, generatedDecryptedFiles)
 	if err != nil {
 		return nil, err
 	}

@@ -416,6 +416,10 @@ helmfiles:
 # If set to "Error", return an error when a subhelmfile points to a
 # non-existent path. The default behavior is to print a warning and continue.
 missingFileHandler: Error
+missingFileHandlerConfig:
+  # Ignores missing git branch error so that the Debug/Info/Warn handler can treat a missing branch as non-error.
+  # See https://github.com/helmfile/helmfile/issues/392
+  ignoreMissingGitBranch: true
 
 #
 # Advanced Configuration: Environments

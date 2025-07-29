@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	copyDir "github.com/otiai10/copy"
 )
 
 type fileStat struct {
@@ -36,6 +38,7 @@ type FileSystem struct {
 	Chdir             func(string) error
 	Abs               func(string) (string, error)
 	EvalSymlinks      func(string) (string, error)
+	CopyDir           func(src, dst string) error
 }
 
 func DefaultFileSystem() *FileSystem {
@@ -55,6 +58,7 @@ func DefaultFileSystem() *FileSystem {
 	dfs.DirectoryExistsAt = dfs.directoryExistsDefault
 	dfs.FileExists = dfs.fileExistsDefault
 	dfs.Abs = dfs.absDefault
+	dfs.CopyDir = dfs.copyDirDefault
 	return &dfs
 }
 
@@ -99,6 +103,9 @@ func FromFileSystem(params FileSystem) *FileSystem {
 	}
 	if params.Dir != nil {
 		dfs.Dir = params.Dir
+	}
+	if params.CopyDir != nil {
+		dfs.CopyDir = params.CopyDir
 	}
 	return dfs
 }
@@ -179,4 +186,9 @@ func (filesystem *FileSystem) absDefault(path string) (string, error) {
 		return "", err
 	}
 	return filepath.Abs(path)
+}
+
+// copyDirDefault recursively copies a directory tree, preserving permissions.
+func (filesystem *FileSystem) copyDirDefault(src string, dst string) error {
+	return copyDir.Copy(src, dst, copyDir.Options{Sync: true})
 }
