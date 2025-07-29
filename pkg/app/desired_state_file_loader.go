@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"dario.cat/mergo"
 	"github.com/helmfile/vals"
@@ -282,6 +283,18 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		return nil, &state.StateLoadError{
 			Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
 			Cause: &state.UndefinedEnvError{Env: env.Name},
+		}
+	}
+
+	// Validate updateStrategy value if set in the releases
+	for i := range finalState.Releases {
+		if finalState.Releases[i].UpdateStrategy != "" {
+			if !slices.Contains(state.ValidUpdateStrategyValues, finalState.Releases[i].UpdateStrategy) {
+				return nil, &state.StateLoadError{
+					Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
+					Cause: &state.InvalidUpdateStrategyError{UpdateStrategy: finalState.Releases[i].UpdateStrategy},
+				}
+			}
 		}
 	}
 

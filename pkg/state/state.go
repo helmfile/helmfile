@@ -43,6 +43,10 @@ const (
 	// This is used by an interim solution to make the urfave/cli command report to the helmfile internal about that the
 	// --timeout flag is missingl
 	EmptyTimeout = -1
+
+	// Valid enum for updateStrategy values
+	UpdateStrategyReinstall            = "reinstall"
+	UpdateStrategyReinstallIfForbidden = "reinstallIfForbidden"
 )
 
 // ReleaseSetSpec is release set spec

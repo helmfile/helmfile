@@ -220,6 +220,97 @@ releases:
 	}
 }
 
+func TestUpdateStrategyParamValidation(t *testing.T) {
+	cases := []struct {
+		files          map[string]string
+		updateStrategy string
+		isValid        bool
+	}{
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: reinstall
+`},
+			"reinstall",
+			true},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: reinstallIfForbidden
+`},
+			"reinstallIfForbidden",
+			true},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy:
+`},
+			"",
+			true},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: foo
+`},
+			"foo",
+			false},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: reinstal
+`},
+			"reinstal",
+			false},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: reinstall1
+`},
+			"reinstall1",
+			false},
+	}
+
+	for idx, c := range cases {
+		fs := testhelper.NewTestFs(c.files)
+		app := &App{
+			OverrideHelmBinary:  DefaultHelmBinary,
+			OverrideKubeContext: "default",
+			Logger:              newAppTestLogger(),
+			Namespace:           "",
+			Env:                 "default",
+			FileOrDir:           "helmfile.yaml",
+		}
+
+		expectNoCallsToHelm(app)
+
+		app = injectFs(app, fs)
+
+		err := app.ForEachState(
+			Noop,
+			false,
+			SetFilter(true),
+		)
+
+		if c.isValid && err != nil {
+			t.Errorf("[case: %d] Unexpected error for valid case: %v", idx, err)
+		} else if !c.isValid {
+			var invalidUpdateStrategy state.InvalidUpdateStrategyError
+			invalidUpdateStrategy.UpdateStrategy = c.updateStrategy
+			if err == nil {
+				t.Errorf("[case: %d] Expected error for invalid case", idx)
+			} else if !strings.Contains(err.Error(), invalidUpdateStrategy.Error()) {
+				t.Errorf("[case: %d] Unexpected error returned for invalid case\ngot: %v\nexpected underlying error: %s", idx, err, invalidUpdateStrategy.Error())
+			}
+		}
+	}
+}
+
 func TestVisitDesiredStatesWithReleasesFiltered_Issue1008_MissingNonDefaultEnvInBase(t *testing.T) {
 	files := map[string]string{
 		"/path/to/base.yaml": `
