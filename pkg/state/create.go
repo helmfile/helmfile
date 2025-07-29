@@ -234,6 +234,31 @@ func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment
 	return layers[0], nil
 }
 
+// getEnvMissingFileHandlerConfig returns the first non-nil MissingFileHandlerConfig from the environment spec, state, or default.
+func (st *HelmState) getEnvMissingFileHandlerConfig(es EnvironmentSpec) *MissingFileHandlerConfig {
+	switch {
+	case es.MissingFileHandlerConfig != nil:
+		return es.MissingFileHandlerConfig
+	case st.MissingFileHandlerConfig != nil:
+		return st.MissingFileHandlerConfig
+	default:
+		return nil
+	}
+}
+
+// getEnvMissingFileHandler returns the first non-nil MissingFileHandler from the environment spec, state, or default.
+func (st *HelmState) getEnvMissingFileHandler(es EnvironmentSpec) *string {
+	defaultMissingFileHandler := "Error"
+	switch {
+	case es.MissingFileHandler != nil:
+		return es.MissingFileHandler
+	case st.MissingFileHandler != nil:
+		return st.MissingFileHandler
+	default:
+		return &defaultMissingFileHandler
+	}
+}
+
 // nolint: unparam
 func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEnv bool, ctxEnv, overrode *environment.Environment) (*environment.Environment, error) {
 	secretVals := map[string]any{}
@@ -250,7 +275,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		var envSecretFiles []string
 		if len(envSpec.Secrets) > 0 {
 			for _, urlOrPath := range envSpec.Secrets {
-				resolved, skipped, err := st.storage().resolveFile(envSpec.MissingFileHandler, "environment values", urlOrPath, envSpec.MissingFileHandlerConfig.resolveFileOptions()...)
+				resolved, skipped, err := st.storage().resolveFile(st.getEnvMissingFileHandler(envSpec), "environment values", urlOrPath, st.getEnvMissingFileHandlerConfig(envSpec).resolveFileOptions()...)
 				if err != nil {
 					return nil, err
 				}
