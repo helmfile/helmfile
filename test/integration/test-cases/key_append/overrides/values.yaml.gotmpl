@@ -1,0 +1,9 @@
+kube-state-metrics:
+  prometheus:
+    monitor:
+      metricRelabelings+:
+        - action: drop
+          regex: "container_network_.*"
+          sourceLabels:
+          - namespace
+          - __name__

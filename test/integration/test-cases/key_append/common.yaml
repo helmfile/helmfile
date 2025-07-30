@@ -1,0 +1,8 @@
+templates:
+  applications-default:
+    missingFileHandler: Warn
+    valuesTemplate:
+    - values.yaml
+    - values.yaml.gotmpl
+    - overrides/values.yaml
+    - overrides/values.yaml.gotmpl

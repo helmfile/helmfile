@@ -2,6 +2,8 @@ package yaml
 
 import (
 	"strings"
+
+	"dario.cat/mergo"
 )
 
 type AppendProcessor struct{}
@@ -14,40 +16,73 @@ func (ap *AppendProcessor) MergeWithAppend(dest, src map[string]any) error {
 	convertToStringMapInPlace(dest)
 	convertToStringMapInPlace(src)
 
-	for key, srcValue := range src {
+	appendMap := make(map[string]any)
+	regularMap := make(map[string]any)
+
+	for key, value := range src {
 		if IsAppendKey(key) {
 			baseKey := GetBaseKey(key)
-			destValue, exists := dest[baseKey]
-			if exists {
-				if isSlice(srcValue) && isSlice(destValue) {
-					destSlice := destValue.([]any)
-					srcSlice := srcValue.([]any)
-					dest[baseKey] = append(destSlice, srcSlice...)
-				} else {
-					dest[baseKey] = srcValue
-				}
-			} else {
-				dest[baseKey] = srcValue
-			}
-			delete(src, key)
+			appendMap[baseKey] = value
+		} else {
+			regularMap[key] = value
 		}
 	}
 
-	for key, srcValue := range src {
-		if isMap(srcValue) {
-			srcMap := srcValue.(map[string]any)
+	if len(appendMap) > 0 {
+		for baseKey, appendValue := range appendMap {
+			destValue, exists := dest[baseKey]
+			if exists {
+				if _, ok := destValue.([]any); !ok {
+					dest[baseKey] = appendValue
+					delete(appendMap, baseKey)
+				}
+			}
+		}
+
+		if len(appendMap) > 0 {
+			tempDest := make(map[string]any)
+			for k, v := range dest {
+				tempDest[k] = v
+			}
+
+			if err := mergo.Merge(&tempDest, appendMap, mergo.WithAppendSlice, mergo.WithSliceDeepCopy); err != nil {
+				return err
+			}
+
+			for k, v := range tempDest {
+				dest[k] = v
+			}
+		}
+	}
+
+	for key, value := range regularMap {
+		if srcMap, ok := value.(map[string]any); ok {
 			if destMap, ok := dest[key].(map[string]any); ok {
 				if err := ap.MergeWithAppend(destMap, srcMap); err != nil {
 					return err
 				}
 				dest[key] = destMap
 			} else {
-				dest[key] = srcMap
+				newDestMap := make(map[string]any)
+				if err := ap.MergeWithAppend(newDestMap, srcMap); err != nil {
+					return err
+				}
+				dest[key] = newDestMap
 			}
 		} else {
-			dest[key] = srcValue
+			tempDest := make(map[string]any)
+			tempDest[key] = dest[key]
+			tempSrc := make(map[string]any)
+			tempSrc[key] = value
+
+			if err := mergo.Merge(&tempDest, tempSrc, mergo.WithOverride); err != nil {
+				return err
+			}
+
+			dest[key] = tempDest[key]
 		}
 	}
+
 	return nil
 }
 
@@ -74,16 +109,6 @@ func convertToStringMapInPlace(v any) any {
 	default:
 		return v
 	}
-}
-
-func isSlice(value any) bool {
-	_, ok := value.([]any)
-	return ok
-}
-
-func isMap(value any) bool {
-	_, ok := value.(map[string]any)
-	return ok
 }
 
 func IsAppendKey(key string) bool {
