@@ -409,6 +409,9 @@ helmfiles:
   # The nested-state file is locally checked-out along with the remote directory containing it.
   # Therefore all the local paths in the file are resolved relative to the file
   path: git::https://github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=0.40.0
+- # By default git repositories aren't updated unless the ref is updated.
+  # Alternatively, refer to a named ref and disable the caching.
+  path: git::ssh://git@github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=main&cache=false
 # If set to "Error", return an error when a subhelmfile points to a
 # non-existent path. The default behavior is to print a warning and continue.
 missingFileHandler: Error
