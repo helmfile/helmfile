@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"io"
 
-	v2 "gopkg.in/yaml.v2"
-	v3 "gopkg.in/yaml.v3"
+	v2 "go.yaml.in/yaml/v2"
+	v3 "go.yaml.in/yaml/v3"
 
 	"github.com/helmfile/helmfile/pkg/runtime"
 )
