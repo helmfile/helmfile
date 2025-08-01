@@ -29,7 +29,7 @@ func newLoader() *EnvironmentValuesLoader {
 func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.5.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.5.yaml"}, nil, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.6.yaml.gotmpl"}, tt.env, tt.envName)
+			actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.6.yaml.gotmpl"}, tt.env, tt.envName, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,7 +103,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 func TestEnvValsLoad_MultiHCL(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.7.hcl", "testdata/values.8.hcl"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.7.hcl", "testdata/values.8.hcl"}, nil, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,13 +234,32 @@ func TestEnvValsLoad_EnvironmentValues(t *testing.T) {
 	env := environment.New("test")
 	env.Values["foo"] = "bar"
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.9.yaml.gotmpl"}, env, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.9.yaml.gotmpl"}, env, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	expected := map[string]any{
 		"foo": "bar",
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
+	}
+}
+
+func TestEnvValsLoad_LayeredValues(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/layered.1.yaml", "testdata/layered.2.yaml.gotmpl", "testdata/layered.3.yaml.gotmpl"}, nil, "", []string{FeatureLayeredEnvironmentValues})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"somevalue":      string("foo"),
+		"someothervalue": string("new foo"),
+		"greeting":       string("hello new foo"),
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
