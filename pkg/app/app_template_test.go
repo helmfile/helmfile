@@ -411,7 +411,7 @@ releases:
 		})
 	}
 
-	t.Run("fail due to unknown field with gopkg.in/yaml.v3", func(t *testing.T) {
+	t.Run("fail due to unknown field with go.yaml.in/yaml/v3", func(t *testing.T) {
 		check(t, testcase{
 			GoYamlV3: true,
 			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: yaml: unmarshal errors:
@@ -419,7 +419,7 @@ releases:
 		})
 	})
 
-	t.Run("fail due to unknown field with gopkg.in/yaml.v2", func(t *testing.T) {
+	t.Run("fail due to unknown field with go.yaml.in/yaml/v2", func(t *testing.T) {
 		check(t, testcase{
 			GoYamlV3: false,
 			error: `in ./helmfile.yaml: failed to read helmfile.yaml: reading document at index 1. Started seeing this since Helmfile v1? Add the .gotmpl file extension: yaml: unmarshal errors:

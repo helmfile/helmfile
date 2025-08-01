@@ -9,15 +9,15 @@ import (
 
 var (
 	// GoYamlV3 is set to true in order to let Helmfile use
-	// gopkg.in/yaml.v3 instead of gopkg.in/yaml.v2.
+	// go.yaml.in/yaml/v3 instead of go.yaml.in/yaml/v2.
 	// It's false by default in Helmfile v0.x and true in Helmfile v1.x.
 	GoYamlV3 bool
 )
 
 func Info() string {
-	yamlLib := "gopkg.in/yaml.v2"
+	yamlLib := "go.yaml.in/yaml/v2"
 	if GoYamlV3 {
-		yamlLib = "gopkg.in/yaml.v3"
+		yamlLib = "go.yaml.in/yaml/v3"
 	}
 
 	return fmt.Sprintf("YAML library = %v", yamlLib)
