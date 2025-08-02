@@ -3735,6 +3735,28 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		}
 		logger.Info(tbl.String())
 	}
+	if len(ar.Reinstalled) > 0 {
+		logger.Info("\nREINSTALLED RELEASES:")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
+			prettytable.Column{Header: "CHART", MinWidth: 6},
+			prettytable.Column{Header: "VERSION", MinWidth: 6},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
+		)
+		tbl.Separator = "   "
+		for _, release := range ar.Reinstalled {
+			modifiedChart, modErr := hideChartCredentials(release.Chart)
+			if modErr != nil {
+				logger.Warn("Could not modify chart credentials, %v", modErr)
+				continue
+			}
+			err := tbl.AddRow(release.Name, release.Namespace, modifiedChart, release.installedVersion, release.duration.Round(time.Second))
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
+		}
+		logger.Info(tbl.String())
+	}
 	if len(ar.Deleted) > 0 {
 		logger.Info("\nDELETED RELEASES:")
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
