@@ -1484,7 +1484,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	}
 
 	if len(builds) > 0 {
-		if err := st.runHelmDepBuilds(helm, concurrency, builds); err != nil {
+		if err := st.runHelmDepBuilds(helm, concurrency, builds, opts); err != nil {
 			return nil, []error{err}
 		}
 	}
@@ -1493,7 +1493,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 }
 
 // nolint: unparam
-func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult) error {
+func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult, opts ChartPrepareOptions) error {
 	// NOTES:
 	// 1. `helm dep build` fails when it was run concurrency on the same chart.
 	//    To avoid that, we run `helm dep build` only once per each local chart.
@@ -1504,7 +1504,20 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
 
+	// Perform an update of repos once before running `helm dep build` so that we
+	// can safely pass --skip-refresh to the command to avoid doing a repo update
+	// for every iteration of the loop where charts have external dependencies.
+	if len(builds) > 0 && !opts.SkipRefresh {
+		if err := helm.UpdateRepo(); err != nil {
+			return fmt.Errorf("updating repo: %w", err)
+		}
+	}
+
 	for _, r := range builds {
+		// Never update the local repository cache here, since we've already
+		// updated it before entering the loop
+		r.skipRefresh = true
+
 		buildDepsFlags := getBuildDepsFlags(r)
 		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {
 			if r.chartFetchedByGoGetter {
