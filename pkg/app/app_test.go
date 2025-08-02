@@ -230,9 +230,9 @@ func TestUpdateStrategyParamValidation(t *testing.T) {
 			"/path/to/helmfile.yaml": `releases:
 - name: zipkin
   chart: stable/zipkin
-  updateStrategy: reinstall
+  updateStrategy: reinstallIfForbidden
 `},
-			"reinstall",
+			"reinstallIfForbidden",
 			true},
 		{map[string]string{
 			"/path/to/helmfile.yaml": `releases:
@@ -3164,10 +3164,10 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 			concurrency: 1,
 		},
 		//
-		// install with upgrade with reinstall
+		// install with upgrade with reinstallIfForbidden
 		//
 		{
-			name: "install-with-upgrade-with-reinstall",
+			name: "install-with-upgrade-with-reinstallIfForbidden",
 			loc:  location(),
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
@@ -3175,7 +3175,7 @@ releases:
 - name: baz
   chart: stable/mychart3
   disableValidationOnInstall: true
-  updateStrategy: reinstall
+  updateStrategy: reinstallIfForbidden
 - name: foo
   chart: stable/mychart1
   disableValidationOnInstall: true
@@ -3184,7 +3184,7 @@ releases:
 - name: bar
   chart: stable/mychart2
   disableValidation: true
-  updateStrategy: reinstall
+  updateStrategy: reinstallIfForbidden
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
@@ -3206,18 +3206,14 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 				{Name: "bar", Flags: []string{"--kube-context", "default"}},
 				{Name: "foo", Flags: []string{"--kube-context", "default"}},
 			},
-			deleted: []exectest.Release{
-				// These releases have updateStrategy=reinstall which will be both uninstalled and installed
-				{Name: "baz", Flags: []string{}},
-				{Name: "bar", Flags: []string{}},
-			},
+			deleted:     []exectest.Release{},
 			concurrency: 1,
 		},
 		//
-		// install with upgrade and --skip-diff-on-install with reinstall
+		// install with upgrade and --skip-diff-on-install with reinstallIfForbidden
 		//
 		{
-			name:              "install-with-upgrade-with-skip-diff-on-install-with-reinstall",
+			name:              "install-with-upgrade-with-skip-diff-on-install-with-reinstallIfForbidden",
 			loc:               location(),
 			skipDiffOnInstall: true,
 			files: map[string]string{
@@ -3226,7 +3222,7 @@ releases:
 - name: baz
   chart: stable/mychart3
   disableValidationOnInstall: true
-  updateStrategy: reinstall
+  updateStrategy: reinstallIfForbidden
 - name: foo
   chart: stable/mychart1
   disableValidationOnInstall: true
@@ -3235,7 +3231,7 @@ releases:
 - name: bar
   chart: stable/mychart2
   disableValidation: true
-  updateStrategy: reinstall
+  updateStrategy: reinstallIfForbidden
 `,
 			},
 			diffs: map[exectest.DiffKey]error{
@@ -3255,11 +3251,6 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 				{Name: "baz", Flags: []string{"--kube-context", "default"}},
 				{Name: "bar", Flags: []string{"--kube-context", "default"}},
 				{Name: "foo", Flags: []string{"--kube-context", "default"}},
-			},
-			deleted: []exectest.Release{
-				// These releases have updateStrategy=reinstall which will be both uninstalled and installed
-				{Name: "baz", Flags: []string{}},
-				{Name: "bar", Flags: []string{}},
 			},
 			concurrency: 1,
 		},

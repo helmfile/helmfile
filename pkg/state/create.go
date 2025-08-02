@@ -26,7 +26,7 @@ const (
 	DefaultHCLFileExtension = ".hcl"
 )
 
-var ValidUpdateStrategyValues = []string{UpdateStrategyReinstall, UpdateStrategyReinstallIfForbidden}
+var ValidUpdateStrategyValues = []string{UpdateStrategyReinstallIfForbidden}
 
 type StateLoadError struct {
 	Msg   string

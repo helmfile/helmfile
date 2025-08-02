@@ -1392,7 +1392,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		TakeOwnership:           c.TakeOwnership(),
 	}
 
-	infoMsg, releasesToBeUpdated, releasesToBeReinstalled, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
+	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
 	if len(errs) > 0 {
 		return false, false, errs
 	}
@@ -1407,19 +1407,13 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		toUpdate = append(toUpdate, r)
 	}
 
-	for _, r := range releasesToBeReinstalled {
-		toDelete = append(toDelete, r)
-		toUpdate = append(toUpdate, r)
-	}
-
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
 	for _, r := range toApplyWithNeeds {
 		release := r
 		id := state.ReleaseToID(&release)
 		_, uninstalled := releasesToBeDeleted[id]
 		_, updated := releasesToBeUpdated[id]
-		_, reinstalled := releasesToBeReinstalled[id]
-		if !uninstalled && !updated && !reinstalled {
+		if !uninstalled && !updated {
 			releasesWithNoChange[id] = release
 		}
 	}
@@ -1484,16 +1478,13 @@ Do you really want to apply?
 		}
 
 		// We upgrade releases by traversing the DAG
-		if len(releasesToBeUpdated) > 0 || len(releasesToBeReinstalled) > 0 {
+		if len(releasesToBeUpdated) > 0 {
 			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
 					release := r
 					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&release)]; ok {
-						rs = append(rs, r2)
-					}
-					if r2, ok := releasesToBeReinstalled[state.ReleaseToID(&release)]; ok {
 						rs = append(rs, r2)
 					}
 				}
@@ -1534,7 +1525,7 @@ Do you really want to apply?
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
-	if releasesToBeDeleted == nil && releasesToBeUpdated == nil && releasesToBeReinstalled == nil {
+	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
 		return true, false, nil
 	}
 
@@ -1618,8 +1609,8 @@ Do you really want to delete?
 
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	var (
-		infoMsg                       *string
-		updated, reinstalled, deleted map[string]state.ReleaseSpec
+		infoMsg          *string
+		updated, deleted map[string]state.ReleaseSpec
 	)
 
 	ok, errs := a.withNeeds(r, c, true, func(st *state.HelmState) []error {
@@ -1652,12 +1643,12 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			ctx:   r.ctx,
 			Ask:   r.Ask,
 		}
-		infoMsg, updated, reinstalled, deleted, errs = filtered.diff(true, c.DetailedExitcode(), c, opts)
+		infoMsg, updated, deleted, errs = filtered.diff(true, c.DetailedExitcode(), c, opts)
 
 		return errs
 	})
 
-	return infoMsg, ok, len(deleted) > 0 || len(updated) > 0 || len(reinstalled) > 0, errs
+	return infoMsg, ok, len(deleted) > 0 || len(updated) > 0, errs
 }
 
 func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {

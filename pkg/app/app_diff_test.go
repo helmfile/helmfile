@@ -423,7 +423,7 @@ releases:
 - name: a
   chart: incubator/raw
   namespace: default
-  updateStrategy: reinstall
+  updateStrategy: reinstallIfForbidden
 - name: b
   chart: incubator/raw
   namespace: default

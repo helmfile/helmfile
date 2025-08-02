@@ -1618,6 +1618,112 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 	}
 }
 
+func TestHelmState_SyncReleasesAffectedReleasesWithReinstallIfForbidden(t *testing.T) {
+	no := false
+	tests := []struct {
+		name         string
+		releases     []ReleaseSpec
+		installed    []bool
+		wantAffected exectest.Affected
+	}{
+		{
+			name: "2 new",
+			releases: []ReleaseSpec{
+				{
+					Name:           "releaseNameFoo-forbidden",
+					Chart:          "foo",
+					UpdateStrategy: "reinstallIfForbidden",
+				},
+				{
+					Name:           "releaseNameBar-forbidden",
+					Chart:          "foo",
+					UpdateStrategy: "reinstallIfForbidden",
+				},
+			},
+			wantAffected: exectest.Affected{
+				Upgraded: []*exectest.Release{
+					{Name: "releaseNameFoo-forbidden", Flags: []string{}},
+					{Name: "releaseNameBar-forbidden", Flags: []string{}},
+				},
+				Reinstalled: nil,
+				Deleted:     nil,
+				Failed:      nil,
+			},
+		},
+		{
+			name: "1 removed, 1 new, 1 reinstalled first new",
+			releases: []ReleaseSpec{
+				{
+					Name:           "releaseNameFoo-forbidden",
+					Chart:          "foo",
+					UpdateStrategy: "reinstallIfForbidden",
+				},
+				{
+					Name:           "releaseNameBar",
+					Chart:          "foo",
+					UpdateStrategy: "reinstallIfForbidden",
+					Installed:      &no,
+				},
+				{
+					Name:           "releaseNameFoo-forbidden",
+					Chart:          "foo",
+					UpdateStrategy: "reinstallIfForbidden",
+				},
+			},
+			installed: []bool{true, true, true},
+			wantAffected: exectest.Affected{
+				Upgraded: []*exectest.Release{
+					{Name: "releaseNameFoo-forbidden", Flags: []string{}},
+				},
+				Reinstalled: []*exectest.Release{
+					{Name: "releaseNameFoo-forbidden", Flags: []string{}},
+				},
+				Deleted: []*exectest.Release{
+					{Name: "releaseNameBar", Flags: []string{}},
+				},
+				Failed: nil,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: tt.releases,
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]any{},
+			}
+			helm := &exectest.Helm{
+				Lists: map[exectest.ListKey]string{},
+			}
+			//simulate the release is already installed
+			for i, release := range tt.releases {
+				if tt.installed != nil && tt.installed[i] {
+					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling --deployed --failed --pending"}] = release.Name
+				}
+			}
+
+			affectedReleases := AffectedReleases{}
+			if err := state.SyncReleases(&affectedReleases, helm, []string{}, 1); err != nil {
+				if !testEq(affectedReleases.Failed, tt.wantAffected.Failed) {
+					t.Errorf("HelmState.SynchAffectedRelease() error failed for [%s] = %v, want %v", tt.name, affectedReleases.Failed, tt.wantAffected.Failed)
+				} //else expected error
+			}
+			if !testEq(affectedReleases.Upgraded, tt.wantAffected.Upgraded) {
+				t.Errorf("HelmState.SynchAffectedRelease() upgrade failed for [%s] = %v, want %v", tt.name, affectedReleases.Upgraded, tt.wantAffected.Upgraded)
+			}
+			if !testEq(affectedReleases.Reinstalled, tt.wantAffected.Reinstalled) {
+				t.Errorf("HelmState.SynchAffectedRelease() reinstalled failed for [%s] = %v, want %v", tt.name, affectedReleases.Reinstalled, tt.wantAffected.Reinstalled)
+			}
+			if !testEq(affectedReleases.Deleted, tt.wantAffected.Deleted) {
+				t.Errorf("HelmState.SynchAffectedRelease() deleted failed for [%s] = %v, want %v", tt.name, affectedReleases.Deleted, tt.wantAffected.Deleted)
+			}
+		})
+	}
+}
+
 func testEq(a []*ReleaseSpec, b []*exectest.Release) bool {
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
