@@ -1138,6 +1138,8 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 		if release.Namespace != "" {
 			args = append(args, "--namespace", release.Namespace)
 		}
+		deleteWaitFlag := true
+		release.DeleteWait = &deleteWaitFlag
 		args = st.appendDeleteWaitFlags(args, release)
 		deletionFlags := st.appendConnectionFlags(args, release)
 		m.Lock()
