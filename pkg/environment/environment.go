@@ -85,7 +85,8 @@ func (e *Environment) GetMergedValues() (map[string]any, error) {
 		return nil, err
 	}
 
-	if err := mergo.Merge(&vals, e.Values, mergo.WithOverride); err != nil {
+	processor := yaml.NewAppendProcessor()
+	if err := processor.MergeWithAppend(vals, e.Values); err != nil {
 		return nil, err
 	}
 
