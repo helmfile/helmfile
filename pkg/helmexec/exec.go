@@ -72,6 +72,23 @@ func parseHelmVersion(versionStr string) (*semver.Version, error) {
 	v, err := chartify.FindSemVerInfo(versionStr)
 
 	if err != nil {
+		// If chartify.FindSemVerInfo fails, try parsing the version string directly
+		// This handles cases where the version string doesn't have a "v" prefix
+		// or is in a simple format that semver can parse directly
+		ver, directErr := semver.NewVersion(versionStr)
+		if directErr == nil {
+			return ver, nil
+		}
+
+		// If direct parsing failed and the version doesn't start with "v", try adding "v" prefix
+		if len(versionStr) > 0 && versionStr[0] != 'v' {
+			vWithPrefix := "v" + versionStr
+			ver, prefixErr := semver.NewVersion(vWithPrefix)
+			if prefixErr == nil {
+				return ver, nil
+			}
+		}
+
 		return nil, fmt.Errorf("error find helm srmver version '%s': %w", versionStr, err)
 	}
 

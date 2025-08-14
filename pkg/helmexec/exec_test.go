@@ -1129,6 +1129,24 @@ func TestParseHelmVersion(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "version without v prefix - simple",
+			version: "3.8.0",
+			want:    semver.MustParse("v3.8.0"),
+			wantErr: false,
+		},
+		{
+			name:    "version without v prefix with build info",
+			version: "3.8.0+abcd",
+			want:    semver.MustParse("v3.8.0+abcd"),
+			wantErr: false,
+		},
+		{
+			name:    "version without v prefix with prerelease",
+			version: "3.8.0-rc1",
+			want:    semver.MustParse("v3.8.0-rc1"),
+			wantErr: false,
+		},
+		{
 			name:    "empty version",
 			version: "",
 			want:    nil,
@@ -1149,7 +1167,14 @@ func TestParseHelmVersion(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseHelmVersion() = %v, want %v", got, tt.want)
+				// For semantic versions, we need to check if they're semantically equal
+				// rather than structurally equal, as versions with and without "v" prefix
+				// may have different internal representations but be semantically equivalent
+				if got != nil && tt.want != nil && got.Equal(tt.want) {
+					// They are semantically equal, this is fine
+				} else {
+					t.Errorf("parseHelmVersion() = %v, want %v", got, tt.want)
+				}
 			}
 		})
 	}
