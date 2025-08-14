@@ -525,8 +525,32 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 	if helmVersionConstraint.Check(helm.version) {
 		// in the 3.7.0 version, the chart pull has been replaced with helm pull
 		// https://github.com/helm/helm/releases/tag/v3.7.0
-		ociChartURL, _ := resolveOciChart(chart)
-		helmArgs = []string{"pull", ociChartURL, "--destination", path, "--untar"}
+		
+		// Check if chart already contains digest info (always use full URL for digests)
+		hasDigest := strings.Contains(chart, "@")
+		
+		// For version tags, only use full URL if it looks like a proper OCI registry URL
+		// (contains registry hostname with dots, not just repo/chart:version format)
+		hasVersionTag := !hasDigest && strings.LastIndex(chart, ":") > strings.LastIndex(chart, "/")
+		isFullOCIURL := false
+		if hasVersionTag {
+			// Check if this looks like a proper OCI registry URL by looking for hostname with dots
+			parts := strings.Split(chart, "/")
+			if len(parts) > 0 {
+				firstPart := parts[0]
+				// If first part contains a dot (domain) or explicitly has oci:// prefix, treat as full OCI URL
+				isFullOCIURL = strings.Contains(firstPart, ".") || strings.HasPrefix(chart, "oci://")
+			}
+		}
+		
+		if hasDigest || (hasVersionTag && isFullOCIURL) {
+			// Chart already contains version/digest for proper OCI registry, use full URL without resolving
+			helmArgs = []string{"pull", fmt.Sprintf("oci://%s", chart), "--destination", path, "--untar"}
+		} else {
+			// Chart doesn't contain version/digest or is legacy format, use original resolution
+			ociChartURL, _ := resolveOciChart(chart)
+			helmArgs = []string{"pull", ociChartURL, "--destination", path, "--untar"}
+		}
 		helmArgs = append(helmArgs, flags...)
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
@@ -665,18 +689,37 @@ func (helm *execer) IsVersionAtLeast(versionStr string) bool {
 }
 
 func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
+	// Check for digest syntax (@sha256:...)
+	digestIndex := strings.Index(ociChart, "@")
+	hasDigest := digestIndex != -1
+	
 	var urlTagIndex int
-	// Get the last : index
-	// e.g.,
-	// 1. registry:443/helm-charts
-	// 2. registry/helm-charts:latest
-	// 3. registry:443/helm-charts:latest
-	if strings.LastIndex(ociChart, ":") <= strings.LastIndex(ociChart, "/") {
-		urlTagIndex = len(ociChart)
-		ociChartTag = ""
+	if hasDigest {
+		// For charts with digest, check for version before digest
+		beforeDigest := ociChart[:digestIndex]
+		if strings.LastIndex(beforeDigest, ":") <= strings.LastIndex(beforeDigest, "/") {
+			// No version tag before digest, just digest
+			urlTagIndex = len(ociChart)
+			ociChartTag = ""
+		} else {
+			// Version tag before digest (e.g., chart:1.0.0@sha256:...)
+			urlTagIndex = strings.LastIndex(beforeDigest, ":")
+			ociChartTag = beforeDigest[urlTagIndex+1:]
+		}
 	} else {
-		urlTagIndex = strings.LastIndex(ociChart, ":")
-		ociChartTag = ociChart[urlTagIndex+1:]
+		// Original logic for version tags
+		// Get the last : index
+		// e.g.,
+		// 1. registry:443/helm-charts
+		// 2. registry/helm-charts:latest
+		// 3. registry:443/helm-charts:latest
+		if strings.LastIndex(ociChart, ":") <= strings.LastIndex(ociChart, "/") {
+			urlTagIndex = len(ociChart)
+			ociChartTag = ""
+		} else {
+			urlTagIndex = strings.LastIndex(ociChart, ":")
+			ociChartTag = ociChart[urlTagIndex+1:]
+		}
 	}
 	ociChartURL = fmt.Sprintf("oci://%s", ociChart[:urlTagIndex])
 	return ociChartURL, ociChartTag
