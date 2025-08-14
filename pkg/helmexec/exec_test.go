@@ -1140,6 +1140,24 @@ func TestParseHelmVersion(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name:    "version without v prefix",
+			version: "3.2.4",
+			want:    semver.MustParse("v3.2.4"),
+			wantErr: false,
+		},
+		{
+			name:    "version without v prefix with build info",
+			version: "3.2.4+ge29ce2a",
+			want:    semver.MustParse("v3.2.4+ge29ce2a"),
+			wantErr: false,
+		},
+		{
+			name:    "version without v prefix with spaces",
+			version: "  3.2.4  ",
+			want:    semver.MustParse("v3.2.4"),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
