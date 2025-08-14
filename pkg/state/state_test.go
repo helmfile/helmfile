@@ -3310,6 +3310,87 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 				{"registry/chart-path/chart-name", "chart-name", ""},
 			},
 		},
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://ghcr.io/nginxinc/charts/nginx-ingress:2.0.0",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"ghcr.io/nginxinc/charts/nginx-ingress:2.0.0", "nginx-ingress", "2.0.0"},
+			},
+		},
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085", "nginx-ingress", "@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085"},
+			},
+		},
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://ghcr.io/nginxinc/charts/nginx-ingress:2.0.0@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"ghcr.io/nginxinc/charts/nginx-ingress:2.0.0@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085", "nginx-ingress", "2.0.0"},
+			},
+		},
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart:   "oci://ghcr.io/nginxinc/charts/nginx-ingress",
+							Version: "@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"ghcr.io/nginxinc/charts/nginx-ingress:@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085", "nginx-ingress", "@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
