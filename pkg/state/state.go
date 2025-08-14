@@ -3210,7 +3210,7 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 		}
 		if len(matches) == 0 {
 			err := fmt.Errorf("no matches for path: %s", hf.Path)
-			if *st.MissingFileHandler == "Error" {
+			if *st.getMissingFileHandler() == "Error" {
 				return nil, err
 			}
 			st.logger.Warnf("no matches for path: %s", hf.Path)
@@ -3291,6 +3291,19 @@ func (st *HelmState) getReleaseMissingFileHandler(release *ReleaseSpec) *string 
 	switch {
 	case release.MissingFileHandler != nil:
 		return release.MissingFileHandler
+	case st.MissingFileHandler != nil:
+		return st.MissingFileHandler
+	default:
+		return &defaultMissingFileHandler
+	}
+}
+
+// getMissingFileHandler returns the first non-nil MissingFileHandler in the following order:
+// - st.MissingFileHandler
+// - "Error"
+func (st *HelmState) getMissingFileHandler() *string {
+	defaultMissingFileHandler := "Error"
+	switch {
 	case st.MissingFileHandler != nil:
 		return st.MissingFileHandler
 	default:
