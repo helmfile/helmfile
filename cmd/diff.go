@@ -40,6 +40,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&diffOptions.SkipNeeds, "skip-needs", true, `do not automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when --selector/-l flag is not provided. Defaults to true when --include-needs or --include-transitive-needs is not provided`)
 	f.BoolVar(&diffOptions.IncludeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	f.BoolVar(&diffOptions.IncludeNeeds, "include-needs", false, `automatically include releases from the target release's "needs" when --selector/-l flag is provided. Does nothing when --selector/-l flag is not provided`)
+	f.BoolVar(&diffOptions.EnforceNeedsAreInstalled, "enforce-needs-are-installed", false, "enforce that all 'needs' dependencies are installable before applying changes")
 	f.BoolVar(&diffOptions.IncludeTransitiveNeeds, "include-transitive-needs", false, `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`)
 	f.BoolVar(&diffOptions.SkipDiffOnInstall, "skip-diff-on-install", false, "Skips running helm-diff on releases being newly installed on this apply. Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all")
 	f.BoolVar(&diffOptions.ShowSecrets, "show-secrets", false, "do not redact secret values in the output. should be used for debug purpose only")
