@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -34,8 +35,7 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 		case *app.Error:
 			return errors.NewExitError(e.Error(), e.Code())
 		default:
-			// Handle any other error type gracefully with exit code 1
-			return errors.NewExitError(e.Error(), 1)
+			panic(fmt.Errorf("BUG: please file an github issue for this unhandled error: %T: %v", e, e))
 		}
 	}
 	return err
