@@ -69,7 +69,17 @@ func parseHelmVersion(versionStr string) (*semver.Version, error) {
 		return nil, fmt.Errorf("empty helm version")
 	}
 
-	v, err := chartify.FindSemVerInfo(versionStr)
+	// Check if version string starts with "v", if not add it
+	processedVersion := versionStr
+	if !strings.HasPrefix(strings.TrimSpace(versionStr), "v") {
+		// Check if it looks like a semantic version (starts with a digit)
+		trimmed := strings.TrimSpace(versionStr)
+		if len(trimmed) > 0 && (trimmed[0] >= '0' && trimmed[0] <= '9') {
+			processedVersion = "v" + trimmed
+		}
+	}
+
+	v, err := chartify.FindSemVerInfo(processedVersion)
 
 	if err != nil {
 		return nil, fmt.Errorf("error find helm srmver version '%s': %w", versionStr, err)
