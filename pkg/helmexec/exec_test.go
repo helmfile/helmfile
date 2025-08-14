@@ -1158,6 +1158,18 @@ func TestParseHelmVersion(t *testing.T) {
 			want:    semver.MustParse("v3.2.4"),
 			wantErr: false,
 		},
+		{
+			name:    "kustomize version format - issue #2124",
+			version: "5.7.1",
+			want:    semver.MustParse("v5.7.1"),
+			wantErr: false,
+		},
+		{
+			name:    "kustomize structured output format",
+			version: "{v5.7.1  2025-07-23T12:45:29Z   }",
+			want:    semver.MustParse("v5.7.1"),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -7,12 +7,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/helmfile/chartify"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"helm.sh/helm/v3/pkg/chart"
@@ -64,21 +64,44 @@ func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
 	return zap.New(core).Sugar()
 }
 
+// findSemVerInfo extracts semantic version information from a version string.
+// Unlike chartify.FindSemVerInfo, this function handles versions with or without "v" prefix
+// and ensures the returned version always has the "v" prefix for consistency.
+func findSemVerInfo(version string) (string, error) {
+	// Trim whitespace and clean the version string
+	version = strings.TrimSpace(version)
+	
+	// Regex pattern that matches semantic versions with optional "v" prefix
+	// This is based on chartify's semVerRegex but made more flexible
+	semVerRegex := `v?([0-9]+)(\.[0-9]+)?(\.[0-9]+)?` +
+		`(-([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?` +
+		`(\+([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?`
+	
+	// Try to find a version match
+	re := regexp.MustCompile(semVerRegex)
+	matches := re.FindStringSubmatch(version)
+	
+	if len(matches) == 0 {
+		return "", fmt.Errorf("unable to find semver info in %s", version)
+	}
+	
+	// Reconstruct the version with "v" prefix for consistency
+	versionPart := matches[0]
+	if !strings.HasPrefix(versionPart, "v") {
+		versionPart = "v" + versionPart
+	}
+	
+	return versionPart, nil
+}
+
 func parseHelmVersion(versionStr string) (*semver.Version, error) {
 	if len(versionStr) == 0 {
 		return nil, fmt.Errorf("empty helm version")
 	}
 
-	// Check if version string starts with "v", if not add it
-	processedVersion := strings.TrimSpace(versionStr)
-	if !strings.HasPrefix(processedVersion, "v") {
-		processedVersion = "v" + processedVersion
-	}
-
-	v, err := chartify.FindSemVerInfo(processedVersion)
-
+	v, err := findSemVerInfo(versionStr)
 	if err != nil {
-		return nil, fmt.Errorf("error find helm srmver version '%s': %w", versionStr, err)
+		return nil, fmt.Errorf("error find helm semver version '%s': %w", versionStr, err)
 	}
 
 	ver, err := semver.NewVersion(v)
