@@ -2,7 +2,9 @@
 
 ## Repository Overview
 
-Helmfile is a declarative spec for deploying Helm charts that manages Kubernetes deployments as code. It provides templating, environment management, and GitOps workflows for Helm chart deployments.
+Helmfile is a tool for deploying Helm charts that manages Kubernetes deployments as code. It provides templating, environment management, and GitOps workflows for Helm chart deployments.
+
+Helmfile is a declarative tool. In Helmfile, all elements of the desired state for deployments must be included in the `helmfile.yaml` config file and any associated files. Only operational matters can be provided dynamically, via command-line flags and environment variables.
 
 **Key Details:**
 - **Language:** Go 1.24.2+
@@ -14,7 +16,7 @@ Helmfile is a declarative spec for deploying Helm charts that manages Kubernetes
 ## Build and Validation Commands
 
 ### Essential Setup
-Helmfile requires Helm 3.x as a runtime dependency:
+Helmfile requires Helm 3.x and Kustomize 5.x as runtime dependencies:
 ```bash
 # Check for Helm dependency (REQUIRED)
 helm version  # Must show version 3.x
@@ -209,6 +211,7 @@ make build          # Verify build works
 ## Working with the Codebase
 
 ### Making Changes
+- **Follow Helmfile design**: Helmfile is a declarative deployment tool. Anything that is part of the desired state of the deployments needs to be managed by Helmfile configs. Only operational knowledge that affects "how" to apply the desired state needs to be runtime options, like command-like flags and environment variables.
 - **Small, focused changes:** Each PR should address single concern
 - **Test coverage:** Add unit tests for new pkg/ functionality
 - **Integration tests:** Update test-cases/ for new CLI features
