@@ -1,0 +1,6 @@
+kube-state-metrics:
+  prometheus:
+    monitor:
+      metricRelabelings:
+        - action: labeldrop
+          regex: "info_.*"

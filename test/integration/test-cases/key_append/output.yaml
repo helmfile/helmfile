@@ -1,0 +1,7 @@
+- action: labeldrop
+  regex: info_.*
+- action: drop
+  regex: container_network_.*
+  sourceLabels:
+    - namespace
+    - __name__
