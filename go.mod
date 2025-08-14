@@ -30,7 +30,7 @@ require (
 	golang.org/x/sync v0.16.0
 	golang.org/x/term v0.34.0
 	helm.sh/helm/v3 v3.18.5
-	k8s.io/apimachinery v0.33.3
+	k8s.io/apimachinery v0.33.4
 )
 
 require (
