@@ -593,17 +593,29 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var err error
 
 		if !c.SkipCharts() {
-			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
-				SkipRepos:   true,
-				SkipDeps:    true,
-				Concurrency: 2,
-			}, func() {
-				rel, err := a.list(run)
-				if err != nil {
-					panic(err)
-				}
-				stateReleases = rel
-			})
+			// Even though we call withPreparedCharts, the list command is explicitly
+			// skipped in prepareChartsIfNeeded, so we need to resolve dependencies here
+			resolvedState, resolveErr := run.state.ResolveDeps()
+			if resolveErr != nil {
+				err = resolveErr
+			} else {
+				// Create a new run with the resolved state to get the correct versions
+				resolvedRun := *run
+				resolvedRun.state = resolvedState
+				
+				err = resolvedRun.withPreparedCharts("list", state.ChartPrepareOptions{
+					SkipRepos:   true,
+					SkipDeps:    true,
+					SkipResolve: false, // Explicitly enable dependency resolution
+					Concurrency: 2,
+				}, func() {
+					rel, err := a.list(&resolvedRun)
+					if err != nil {
+						panic(err)
+					}
+					stateReleases = rel
+				})
+			}
 		} else {
 			// Even when skipping charts, we should still resolve dependencies from the lock file
 			// to show the locked versions instead of the version constraints from helmfile.yaml
