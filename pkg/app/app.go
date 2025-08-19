@@ -605,7 +605,17 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 				stateReleases = rel
 			})
 		} else {
-			stateReleases, err = a.list(run)
+			// Even when skipping charts, we should still resolve dependencies from the lock file
+			// to show the locked versions instead of the version constraints from helmfile.yaml
+			resolvedState, resolveErr := run.state.ResolveDeps()
+			if resolveErr != nil {
+				err = resolveErr
+			} else {
+				// Create a new run with the resolved state to get the correct versions
+				resolvedRun := *run
+				resolvedRun.state = resolvedState
+				stateReleases, err = a.list(&resolvedRun)
+			}
 		}
 
 		if err != nil {
