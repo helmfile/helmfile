@@ -593,12 +593,10 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var err error
 
 		if !c.SkipCharts() {
-			// Even though we call withPreparedCharts, the list command is explicitly
-			// skipped in prepareChartsIfNeeded, so we need to resolve dependencies here
+			// Try to resolve dependencies from the lock file to show locked versions.
+			// If resolution fails, fall back to the original behavior.
 			resolvedState, resolveErr := run.state.ResolveDeps()
-			if resolveErr != nil {
-				err = resolveErr
-			} else {
+			if resolveErr == nil {
 				// Create a new run with the resolved state to get the correct versions
 				resolvedRun := *run
 				resolvedRun.state = resolvedState
@@ -606,7 +604,6 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 				err = resolvedRun.withPreparedCharts("list", state.ChartPrepareOptions{
 					SkipRepos:   true,
 					SkipDeps:    true,
-					SkipResolve: false, // Explicitly enable dependency resolution
 					Concurrency: 2,
 				}, func() {
 					rel, err := a.list(&resolvedRun)
@@ -615,18 +612,32 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 					}
 					stateReleases = rel
 				})
+			} else {
+				// Fall back to original behavior if dependency resolution fails
+				err = run.withPreparedCharts("list", state.ChartPrepareOptions{
+					SkipRepos:   true,
+					SkipDeps:    true,
+					Concurrency: 2,
+				}, func() {
+					rel, err := a.list(run)
+					if err != nil {
+						panic(err)
+					}
+					stateReleases = rel
+				})
 			}
 		} else {
-			// Even when skipping charts, we should still resolve dependencies from the lock file
-			// to show the locked versions instead of the version constraints from helmfile.yaml
+			// Try to resolve dependencies from the lock file to show locked versions.
+			// If resolution fails, fall back to the original behavior.
 			resolvedState, resolveErr := run.state.ResolveDeps()
-			if resolveErr != nil {
-				err = resolveErr
-			} else {
+			if resolveErr == nil {
 				// Create a new run with the resolved state to get the correct versions
 				resolvedRun := *run
 				resolvedRun.state = resolvedState
 				stateReleases, err = a.list(&resolvedRun)
+			} else {
+				// Fall back to original behavior if dependency resolution fails
+				stateReleases, err = a.list(run)
 			}
 		}
 

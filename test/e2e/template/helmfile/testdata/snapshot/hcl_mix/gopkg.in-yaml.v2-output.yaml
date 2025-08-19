@@ -1,0 +1,20 @@
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap
+data:
+  a: a
+  b: b
+  c: ab
+  crossfile: values2.hcl
+  expressionInText: "yes"
+  fromMap: ab
+  insideFor: b
+  list: "[b]"
+  filename: values1.hcl
+  multiBlock: block
+  simpleCompute: "4"
+  yamlOverride: yaml_overrode
+
