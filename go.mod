@@ -29,7 +29,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/sync v0.16.0
 	golang.org/x/term v0.34.0
-	helm.sh/helm/v3 v3.18.5
+	helm.sh/helm/v3 v3.18.6
 	k8s.io/apimachinery v0.33.4
 )
 
