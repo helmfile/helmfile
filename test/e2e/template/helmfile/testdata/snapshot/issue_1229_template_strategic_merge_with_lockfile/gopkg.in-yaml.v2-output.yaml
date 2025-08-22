@@ -1,0 +1,14 @@
+Adding repo myrepo http://localhost:18083/
+"myrepo" has been added to your repositories
+
+Templating release=raw, chart=$WD/temp1/raw/raw
+---
+# Source: raw/templates/patched_resources.yaml
+apiVersion: v1
+chartVersion: 0.0.1
+data:
+  foo: baz
+kind: ConfigMap
+metadata:
+  name: foo
+
