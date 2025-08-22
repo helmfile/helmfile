@@ -843,6 +843,39 @@ exec: helm --kubeconfig config --kube-context dev pull oci://repo/helm-charts --
 exec: helm --kubeconfig config --kube-context dev pull oci://repo/helm-charts --destination path1 --untar --untardir /tmp/dir --devel
 `,
 		},
+		{
+			name:        "oci chart with version in URL",
+			helmBin:     "helm",
+			helmVersion: "v3.10.0",
+			chartName:   "ghcr.io/nginxinc/charts/nginx-ingress:2.0.0",
+			chartPath:   "path1",
+			chartFlags:  []string{"--untardir", "/tmp/dir"},
+			listResult: `Pulling ghcr.io/nginxinc/charts/nginx-ingress:2.0.0
+exec: helm --kubeconfig config --kube-context dev pull oci://ghcr.io/nginxinc/charts/nginx-ingress:2.0.0 --destination path1 --untar --untardir /tmp/dir
+`,
+		},
+		{
+			name:        "oci chart with digest in URL",
+			helmBin:     "helm",
+			helmVersion: "v3.10.0",
+			chartName:   "ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			chartPath:   "path1",
+			chartFlags:  []string{"--untardir", "/tmp/dir"},
+			listResult: `Pulling ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085
+exec: helm --kubeconfig config --kube-context dev pull oci://ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085 --destination path1 --untar --untardir /tmp/dir
+`,
+		},
+		{
+			name:        "oci chart with version and digest in URL",
+			helmBin:     "helm",
+			helmVersion: "v3.10.0",
+			chartName:   "ghcr.io/nginxinc/charts/nginx-ingress:2.0.0@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			chartPath:   "path1",
+			chartFlags:  []string{"--untardir", "/tmp/dir"},
+			listResult: `Pulling ghcr.io/nginxinc/charts/nginx-ingress:2.0.0@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085
+exec: helm --kubeconfig config --kube-context dev pull oci://ghcr.io/nginxinc/charts/nginx-ingress:2.0.0@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085 --destination path1 --untar --untardir /tmp/dir
+`,
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -1067,6 +1100,24 @@ func Test_resolveOciChart(t *testing.T) {
 			ociChartURL: "oci://chart:5000/nginx",
 			ociChartTag: "",
 		},
+		{
+			name:        "digest only",
+			chartPath:   "ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			ociChartURL: "oci://ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			ociChartTag: "",
+		},
+		{
+			name:        "version and digest",
+			chartPath:   "ghcr.io/nginxinc/charts/nginx-ingress:2.0.0@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			ociChartURL: "oci://ghcr.io/nginxinc/charts/nginx-ingress",
+			ociChartTag: "2.0.0",
+		},
+		{
+			name:        "port with digest",
+			chartPath:   "registry:5000/chart@sha256:abc123",
+			ociChartURL: "oci://registry:5000/chart@sha256:abc123",
+			ociChartTag: "",
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -1075,7 +1126,7 @@ func Test_resolveOciChart(t *testing.T) {
 			if tt.ociChartURL != url || tt.ociChartTag != tag {
 				actual := fmt.Sprintf("ociChartURL->%s  ociChartTag->%s", url, tag)
 				expected := fmt.Sprintf("ociChartURL->%s ociChartTag->%s", tt.ociChartURL, tt.ociChartTag)
-				t.Errorf("resolveOciChart()\nactual = %v\nexpect = %v", actual, expected)
+				t.Errorf("resolveOciChart()\nactual = %v\nexpected = %v", actual, expected)
 			}
 		})
 	}

@@ -4071,9 +4071,60 @@ func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexe
 
 	var qualifiedChartName, chartName string
 	if strings.HasPrefix(release.Chart, "oci://") {
-		parts := strings.Split(release.Chart, "/")
-		chartName = parts[len(parts)-1]
-		qualifiedChartName = strings.Replace(fmt.Sprintf("%s:%s", release.Chart, chartVersion), "oci://", "", 1)
+		// Parse the chart URL to detect existing version/digest information
+		chartURL := release.Chart
+		urlWithoutProtocol := strings.TrimPrefix(chartURL, "oci://")
+		
+		// Check for digest (@sha256:...)
+		digestIndex := strings.Index(urlWithoutProtocol, "@")
+		hasDigest := digestIndex != -1
+		
+		// Check for version tag (:version)
+		var versionInURL string
+		if hasDigest {
+			// Check for version before digest (e.g., chart:1.0.0@sha256:...)
+			beforeDigest := urlWithoutProtocol[:digestIndex]
+			if colonIndex := strings.LastIndex(beforeDigest, ":"); colonIndex > strings.LastIndex(beforeDigest, "/") {
+				versionInURL = beforeDigest[colonIndex+1:]
+			}
+		} else {
+			// Check for version at end (e.g., chart:1.0.0)
+			if colonIndex := strings.LastIndex(urlWithoutProtocol, ":"); colonIndex > strings.LastIndex(urlWithoutProtocol, "/") {
+				versionInURL = urlWithoutProtocol[colonIndex+1:]
+			}
+		}
+		
+		// Determine effective chart version and build qualified name
+		if hasDigest || versionInURL != "" {
+			// Chart URL already contains version/digest, use as-is without adding version
+			qualifiedChartName = urlWithoutProtocol
+			
+			// Extract chart name from URL
+			parts := strings.Split(urlWithoutProtocol, "/")
+			chartNamePart := parts[len(parts)-1]
+			
+			// Remove version/digest from chart name for extraction
+			if hasDigest {
+				chartNamePart = strings.Split(chartNamePart, "@")[0]
+			}
+			if colonIndex := strings.LastIndex(chartNamePart, ":"); colonIndex > 0 {
+				chartNamePart = chartNamePart[:colonIndex]
+			}
+			chartName = chartNamePart
+			
+			// Set effective version for return (use version from URL if available, otherwise indicate digest)
+			if versionInURL != "" {
+				chartVersion = versionInURL
+			} else {
+				// For digest-only, extract digest as version for helm compatibility
+				chartVersion = urlWithoutProtocol[digestIndex:]
+			}
+		} else {
+			// No version/digest in URL, use explicit version
+			parts := strings.Split(urlWithoutProtocol, "/")
+			chartName = parts[len(parts)-1]
+			qualifiedChartName = fmt.Sprintf("%s:%s", urlWithoutProtocol, chartVersion)
+		}
 	} else {
 		var repo *RepositorySpec
 		repo, chartName = st.GetRepositoryAndNameFromChartName(release.Chart)
