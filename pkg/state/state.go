@@ -807,6 +807,7 @@ type SyncOpts struct {
 	Wait                 bool
 	WaitRetries          int
 	WaitForJobs          bool
+	Timeout              int
 	SyncReleaseLabels    bool
 	ReuseValues          bool
 	ResetValues          bool
@@ -2271,7 +2272,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 
 		if timeout == EmptyTimeout {
-			flags = append(flags, st.timeoutFlags(&release)...)
+			flags = append(flags, st.timeoutFlags(&release, nil)...)
 		} else {
 			duration := strconv.Itoa(timeout)
 			duration += "s"
@@ -2751,12 +2752,15 @@ func (st *HelmState) needsInsecureSkipTLSVerify(release *ReleaseSpec, repo *Repo
 	return relSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify
 }
 
-func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
+func (st *HelmState) timeoutFlags(release *ReleaseSpec, ops *SyncOpts) []string {
 	var flags []string
 
 	timeout := st.HelmDefaults.Timeout
 	if release.Timeout != nil {
 		timeout = *release.Timeout
+	}
+	if ops != nil && ops.Timeout > 0 {
+		timeout = ops.Timeout
 	}
 	if timeout != 0 {
 		duration := strconv.Itoa(timeout)
@@ -2783,7 +2787,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = st.appendKeyringFlags(flags, release)
 	}
 
-	flags = append(flags, st.timeoutFlags(release)...)
+	flags = append(flags, st.timeoutFlags(release, opt)...)
 
 	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
 		flags = append(flags, "--force")

@@ -646,6 +646,8 @@ Flags:
 Use "helmfile [command] --help" for more information about a command.
 ```
 
+**Note:** Each command has its own specific flags. Use `helmfile [command] --help` to see command-specific options. For example, `helmfile sync --help` shows operational flags like `--timeout`, `--wait`, and `--wait-for-jobs`.
+
 ### init
 
 The `helmfile init` sub-command checks the dependencies required for helmfile operation, such as `helm`, `helm diff plugin`, `helm secrets plugin`, `helm helm-git plugin`, `helm s3 plugin`. When it does not exist or the version is too low, it can be installed automatically.
@@ -660,6 +662,25 @@ The `helmfile sync` sub-command sync your cluster state as described in your `he
 
 Under the covers, Helmfile executes `helm upgrade --install` for each `release` declared in the manifest, by optionally decrypting [secrets](#secrets) to be consumed as helm chart values. It also updates specified chart repositories and updates the
 dependencies of any referenced local charts.
+
+#### Common sync flags
+
+* `--timeout SECONDS` - Override the default timeout for all releases in this sync operation. This takes precedence over `helmDefaults.timeout` and per-release `timeout` settings.
+* `--wait` - Override the default wait behavior for all releases
+* `--wait-for-jobs` - Override the default wait-for-jobs behavior for all releases
+
+Examples:
+
+```bash
+# Override timeout for all releases to 10 minutes
+helmfile sync --timeout 600
+
+# Combine timeout with wait flags
+helmfile sync --timeout 900 --wait --wait-for-jobs
+
+# Target specific releases with custom timeout
+helmfile sync --selector tier=backend --timeout 1200
+```
 
 For Helm 2.9+ you can use a username and password to authenticate to a remote repository.
 
