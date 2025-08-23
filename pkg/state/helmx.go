@@ -249,8 +249,9 @@ func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []st
 }
 
 type Chartify struct {
-	Opts  *chartify.ChartifyOpts
-	Clean func()
+	Opts         *chartify.ChartifyOpts
+	Clean        func()
+	AddToCleanup func(string) // Add function to track additional files/dirs for cleanup
 }
 
 func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
@@ -311,6 +312,13 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	clean := func() {
 		st.removeFiles(filesNeedCleaning)
 	}
+
+	// Add function to track additional files/directories for cleanup
+	c.AddToCleanup = func(path string) {
+		filesNeedCleaning = append(filesNeedCleaning, path)
+	}
+	
+	c.Clean = clean
 
 	var shouldRun bool
 

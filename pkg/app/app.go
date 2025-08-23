@@ -2270,3 +2270,37 @@ func GetArgs(args string, state *state.HelmState) []string {
 
 	return state.HelmDefaults.Args
 }
+
+// CleanupTempFiles removes leftover temporary files and directories from previous runs
+func CleanupTempFiles(logger *zap.SugaredLogger) error {
+	if logger == nil {
+		return nil
+	}
+	
+	tmpDir := os.TempDir()
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		return fmt.Errorf("reading temp directory %s: %v", tmpDir, err)
+	}
+	
+	var cleanupCount int
+	for _, entry := range entries {
+		name := entry.Name()
+		// Clean up old helmfile and chartify temporary files/directories
+		if strings.HasPrefix(name, "helmfile") || strings.HasPrefix(name, "chartify") {
+			fullPath := filepath.Join(tmpDir, name)
+			if err := os.RemoveAll(fullPath); err != nil {
+				logger.Warnf("Failed to remove temporary file/directory %s: %v", fullPath, err)
+			} else {
+				logger.Debugf("Cleaned up temporary file/directory: %s", fullPath)
+				cleanupCount++
+			}
+		}
+	}
+	
+	if cleanupCount > 0 {
+		logger.Debugf("Cleaned up %d temporary files/directories", cleanupCount)
+	}
+	
+	return nil
+}
