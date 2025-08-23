@@ -251,7 +251,7 @@ func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []st
 type Chartify struct {
 	Opts         *chartify.ChartifyOpts
 	Clean        func()
-	AddToCleanup func(string) // Add function to track additional files/dirs for cleanup
+	AddToCleanup func(string) // Add a path to be cleaned up
 }
 
 func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
@@ -297,6 +297,16 @@ func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (str
 }
 
 func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSpec, chart string, workerIndex int) (*Chartify, func(), error) {
+	var filesNeedCleaning []string
+
+	clean := func() {
+		st.removeFiles(filesNeedCleaning)
+	}
+
+	addToCleanup := func(path string) {
+		filesNeedCleaning = append(filesNeedCleaning, path)
+	}
+
 	c := &Chartify{
 		Opts: &chartify.ChartifyOpts{
 			WorkaroundOutputDirIssue:    true,
@@ -305,20 +315,8 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			Namespace:                   release.Namespace,
 			ID:                          ReleaseToID(release),
 		},
+		AddToCleanup: addToCleanup,
 	}
-
-	var filesNeedCleaning []string
-
-	clean := func() {
-		st.removeFiles(filesNeedCleaning)
-	}
-
-	// Add function to track additional files/directories for cleanup
-	c.AddToCleanup = func(path string) {
-		filesNeedCleaning = append(filesNeedCleaning, path)
-	}
-	
-	c.Clean = clean
 
 	var shouldRun bool
 
@@ -421,9 +419,11 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		c.Opts.SetFlags = setFlags
 		c.Opts.TemplateData = st.newReleaseTemplateData(release)
 		c.Opts.TemplateFuncs = st.newReleaseTemplateFuncMap(dir)
+		c.Clean = clean
 
 		return c, clean, nil
 	}
 
+	c.Clean = clean
 	return nil, clean, nil
 }

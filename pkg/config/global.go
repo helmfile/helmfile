@@ -70,8 +70,6 @@ type GlobalOptions struct {
 	Args string
 	// LogOutput is the writer to use for writing logs.
 	LogOutput io.Writer
-	// CleanupTempFiles enables cleanup of old temporary files on startup.
-	CleanupTempFiles bool
 }
 
 // Logger returns the logger to use.
