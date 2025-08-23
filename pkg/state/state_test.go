@@ -166,13 +166,13 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		version   *semver.Version
-		defaults  HelmSpec
-		release   *ReleaseSpec
-		syncOpts  *SyncOpts
-		want      []string
-		wantErr   string
+		name     string
+		version  *semver.Version
+		defaults HelmSpec
+		release  *ReleaseSpec
+		syncOpts *SyncOpts
+		want     []string
+		wantErr  string
 	}{
 		{
 			name: "no-options",
