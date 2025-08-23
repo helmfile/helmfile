@@ -1836,14 +1836,19 @@ func TestHelmState_DiffReleases(t *testing.T) {
 }
 
 func TestHelmState_DiffFlags(t *testing.T) {
+	enable := true
+	disable := false
+
 	tests := []struct {
 		name          string
+		defaults      HelmSpec
 		releases      []ReleaseSpec
 		helm          *exectest.Helm
 		wantDiffFlags []string
 	}{
 		{
-			name: "release with api version and kubeversion",
+			name:     "release with api version and kubeversion",
+			defaults: HelmSpec{},
 			releases: []ReleaseSpec{
 				{
 					Name:        "releaseName",
@@ -1856,7 +1861,8 @@ func TestHelmState_DiffFlags(t *testing.T) {
 			wantDiffFlags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "1.21"},
 		},
 		{
-			name: "release with kubeversion and plain http which is ignored",
+			name:     "release with kubeversion and plain http which is ignored",
+			defaults: HelmSpec{},
 			releases: []ReleaseSpec{
 				{
 					Name:        "releaseName",
@@ -1868,13 +1874,52 @@ func TestHelmState_DiffFlags(t *testing.T) {
 			helm:          &exectest.Helm{},
 			wantDiffFlags: []string{"--kube-version", "1.21"},
 		},
+		{
+			name:     "release with enable-dns",
+			defaults: HelmSpec{EnableDNS: false},
+			releases: []ReleaseSpec{
+				{
+					Name:      "releaseName",
+					Chart:     "foo",
+					EnableDNS: &enable,
+				},
+			},
+			helm:          &exectest.Helm{},
+			wantDiffFlags: []string{"--enable-dns"},
+		},
+		{
+			name:     "release with disable-dns override",
+			defaults: HelmSpec{EnableDNS: true},
+			releases: []ReleaseSpec{
+				{
+					Name:      "releaseName",
+					Chart:     "foo",
+					EnableDNS: &disable,
+				},
+			},
+			helm:          &exectest.Helm{},
+			wantDiffFlags: nil,
+		},
+		{
+			name:     "release with enable-dns from default",
+			defaults: HelmSpec{EnableDNS: true},
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+				},
+			},
+			helm:          &exectest.Helm{},
+			wantDiffFlags: []string{"--enable-dns"},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
+					Releases:     tt.releases,
+					HelmDefaults: tt.defaults,
 				},
 				logger:         logger,
 				valsRuntime:    valsRuntime,

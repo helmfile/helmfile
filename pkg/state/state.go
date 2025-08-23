@@ -2897,6 +2897,9 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	settings := cli.New()
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
+	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
+		flags = append(flags, "--enable-dns")
+	}
 
 	disableOpenAPIValidation := false
 	if release.DisableOpenAPIValidation != nil {
