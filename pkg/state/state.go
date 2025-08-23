@@ -1342,6 +1342,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 						return
 					} else {
 						chartPath = out
+						// Track the chartify output directory for cleanup
+						if chartification != nil && chartification.AddToCleanup != nil {
+							chartification.AddToCleanup(out)
+						}
 					}
 
 					// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
