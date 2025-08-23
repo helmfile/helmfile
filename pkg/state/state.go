@@ -2698,6 +2698,14 @@ func (st *HelmState) appendKeyringFlags(flags []string, release *ReleaseSpec) []
 	return flags
 }
 
+// appendEnableDNSFlags append the helm command-line flag for DNS resolution
+func (st *HelmState) appendEnableDNSFlags(flags []string, release *ReleaseSpec) []string {
+	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
+		flags = append(flags, "--enable-dns")
+	}
+	return flags
+}
+
 func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
 	if release.KubeContext != "" {
@@ -2770,9 +2778,7 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
-	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
-		flags = append(flags, "--enable-dns")
-	}
+	flags = st.appendEnableDNSFlags(flags, release)
 
 	flags = st.appendWaitFlags(flags, helm, release, opt)
 	flags = st.appendWaitForJobsFlags(flags, release, opt)
@@ -2897,9 +2903,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	settings := cli.New()
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
-	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
-		flags = append(flags, "--enable-dns")
-	}
+	flags = st.appendEnableDNSFlags(flags, release)
 
 	disableOpenAPIValidation := false
 	if release.DisableOpenAPIValidation != nil {
