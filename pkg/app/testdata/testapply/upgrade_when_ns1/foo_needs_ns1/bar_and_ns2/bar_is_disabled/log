@@ -1,0 +1,43 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+merged environment: &{default  map[] map[]}
+3 release(s) found in helmfile.yaml
+
+Affected releases are:
+  bar (stable/mychart2) DELETED
+  bar (stable/mychart2) UPDATED
+  foo (stable/mychart1) UPDATED
+
+invoking preapply hooks for 2 groups of releases in this order:
+GROUP RELEASES
+1     default/ns1/foo
+2     default/ns1/bar, default/ns2/bar
+
+invoking preapply hooks for releases in group 1/2: default/ns1/foo
+invoking preapply hooks for releases in group 2/2: default/ns1/bar, default/ns2/bar
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     default/ns2/bar
+
+processing releases in group 1/1: default/ns2/bar
+processing 2 groups of releases in this order:
+GROUP RELEASES
+1     default/ns1/bar
+2     default/ns1/foo
+
+processing releases in group 1/2: default/ns1/bar
+getting deployed release version failed: Failed to get the version for: mychart2
+processing releases in group 2/2: default/ns1/foo
+getting deployed release version failed: Failed to get the version for: mychart1
+
+UPDATED RELEASES:
+NAME   NAMESPACE   CHART             VERSION   DURATION
+bar    ns1         stable/mychart2                   0s
+foo    ns1         stable/mychart1                   0s
+
+
+DELETED RELEASES:
+NAME   NAMESPACE   DURATION
+bar    ns2               0s
+
+changing working directory back to "/path/to"

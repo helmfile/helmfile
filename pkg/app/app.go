@@ -20,7 +20,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/plugins"
 	"github.com/helmfile/helmfile/pkg/remote"
-	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
 )
 
@@ -139,25 +138,6 @@ func (a *App) Repos(c ReposConfigProvider) error {
 	}, c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
-// TODO: Remove this function once Helmfile v0.x
-func (a *App) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) error {
-	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("charts", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: 2,
-		}, func() {
-			errs = run.DeprecatedSyncCharts(c)
-		})
-
-		if err != nil {
-			errs = append(errs, err)
-		}
-
-		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
-}
-
 func (a *App) Diff(c DiffConfigProvider) error {
 	var allDiffDetectedErrs []error
 
@@ -175,7 +155,8 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
 			Validate:               c.Validate(),
@@ -239,8 +220,13 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// Live output should never be enabled for the "template" subcommand to avoid breaking `helmfile template | kubectl apply -f -`
 		run.helm.SetEnableLiveOutput(false)
 
+		// Reset helm extra args to not pollute BuildDeps() and AddRepo() on subsequent helmfiles
+		// https://github.com/helmfile/helmfile/issues/1749
+		run.helm.SetExtraArgs()
+
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			IncludeCRDs:            &includeCRDs,
 			SkipCleanup:            c.SkipCleanup(),
@@ -248,6 +234,8 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Set:                    c.Set(),
+			Values:                 c.Values(),
+			KubeVersion:            c.KubeVersion(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -263,7 +251,8 @@ func (a *App) Template(c TemplateConfigProvider) error {
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
+			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
 			SkipCleanup: c.SkipCleanup(),
 			Concurrency: c.Concurrency(),
@@ -314,7 +303,8 @@ func (a *App) Lint(c LintConfigProvider) error {
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
 		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload:          true,
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
@@ -349,13 +339,13 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
-			SkipRepos:         c.SkipDeps(),
+			SkipRefresh:       c.SkipRefresh(),
+			SkipRepos:         c.SkipRefresh() || c.SkipDeps(),
 			SkipDeps:          c.SkipDeps(),
 			OutputDir:         c.OutputDir(),
 			OutputDirTemplate: c.OutputDirTemplate(),
 			Concurrency:       c.Concurrency(),
-		}, func() {
-		})
+		}, func() {})
 
 		if prepErr != nil {
 			errs = append(errs, prepErr)
@@ -370,9 +360,11 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			Wait:                   c.Wait(),
+			WaitRetries:            c.WaitRetries(),
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
@@ -397,18 +389,20 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 	var opts []LoadOption
 
-	opts = append(opts, SetRetainValuesFiles(c.RetainValuesFiles() || c.SkipCleanup()))
+	opts = append(opts, SetRetainValuesFiles(c.SkipCleanup()))
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipDeps(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
 			Wait:                   c.Wait(),
+			WaitRetries:            c.WaitRetries(),
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
-			SkipCleanup:            c.RetainValuesFiles() || c.SkipCleanup(),
+			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
@@ -460,35 +454,12 @@ func (a *App) Status(c StatusesConfigProvider) error {
 	}, false, SetFilter(true))
 }
 
-// TODO: Remove this function once Helmfile v0.x
-func (a *App) Delete(c DeleteConfigProvider) error {
-	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		if !c.SkipCharts() {
-			err := run.withPreparedCharts("delete", state.ChartPrepareOptions{
-				SkipRepos:     c.SkipDeps(),
-				SkipDeps:      c.SkipDeps(),
-				Concurrency:   c.Concurrency(),
-				DeleteWait:    c.DeleteWait(),
-				DeleteTimeout: c.DeleteTimeout(),
-			}, func() {
-				ok, errs = a.delete(run, c.Purge(), c)
-			})
-
-			if err != nil {
-				errs = append(errs, err)
-			}
-		} else {
-			ok, errs = a.delete(run, c.Purge(), c)
-		}
-		return
-	}, false, SetReverse(true))
-}
-
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
 			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
-				SkipRepos:     c.SkipDeps(),
+				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
+				SkipRefresh:   c.SkipRefresh(),
 				SkipDeps:      c.SkipDeps(),
 				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
@@ -515,7 +486,8 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipDeps(),
+			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
 			Concurrency: c.Concurrency(),
 		}, func() {
@@ -527,6 +499,23 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		return
+	}, false, SetFilter(true))
+}
+
+func (a *App) PrintDAGState(c DAGConfigProvider) error {
+	var err error
+	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		err = run.withPreparedCharts("show-dag", state.ChartPrepareOptions{
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: 2,
+		}, func() {
+			err = a.dag(run)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		})
+		return ok, errs
 	}, false, SetFilter(true))
 }
 
@@ -581,6 +570,19 @@ func (a *App) PrintState(c StateConfigProvider) error {
 
 		return
 	}, false, SetFilter(true))
+}
+
+func (a *App) dag(r *Run) error {
+	st := r.state
+
+	batches, err := st.PlanReleases(state.PlanOptions{SelectedReleases: st.Releases, Reverse: false, SkipNeeds: false, IncludeNeeds: true, IncludeTransitiveNeeds: true})
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(printDAG(batches))
+
+	return nil
 }
 
 func (a *App) ListReleases(c ListConfigProvider) error {
@@ -975,14 +977,36 @@ func printBatches(batches [][]state.Release) string {
 
 	w.Init(buf, 0, 1, 1, ' ', 0)
 
-	fmt.Fprintln(w, "GROUP\tRELEASES")
+	_, _ = fmt.Fprintln(w, "GROUP\tRELEASES")
 
 	for i, batch := range batches {
 		ids := []string{}
 		for _, r := range batch {
 			ids = append(ids, state.ReleaseToID(&r.ReleaseSpec))
 		}
-		fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
+		_, _ = fmt.Fprintf(w, "%d\t%s\n", i+1, strings.Join(ids, ", "))
+	}
+
+	_ = w.Flush()
+
+	return buf.String()
+}
+
+func printDAG(batches [][]state.Release) string {
+	buf := &bytes.Buffer{}
+
+	w := new(tabwriter.Writer)
+
+	w.Init(buf, 0, 1, 1, ' ', 0)
+
+	_, _ = fmt.Fprintln(w, "GROUP\tRELEASE\tDEPENDENCIES")
+
+	for i, batch := range batches {
+		for _, r := range batch {
+			id := state.ReleaseToID(&r.ReleaseSpec)
+			needs := r.Needs
+			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\n", i+1, id, strings.Join(needs, ", "))
+		}
 	}
 
 	_ = w.Flush()
@@ -1081,13 +1105,17 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		}
 	}
 
-	// pre-overrides HelmState
+	// pre-handles HelmState
 	fHelmStatsWithOverrides := func(st *state.HelmState) (bool, []error) {
 		var err error
+		// override release settings
 		st.Releases, err = st.GetReleasesWithOverrides()
 		if err != nil {
 			return false, []error{err}
 		}
+
+		// override release labels
+		st.Releases = st.GetReleasesWithLabels()
 		return f(st)
 	}
 
@@ -1190,16 +1218,6 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 
 		case a.fs.FileExistsAt(DefaultGotmplHelmfile):
 			defaultFile = DefaultGotmplHelmfile
-
-		// TODO: Remove this block when we remove v0 code
-		case !runtime.V1Mode && a.fs.FileExistsAt(DeprecatedHelmfile):
-			a.Logger.Warnf(
-				"warn: %s is being loaded: %s is deprecated in favor of %s. See https://github.com/roboll/helmfile/issues/25 for more information",
-				DeprecatedHelmfile,
-				DeprecatedHelmfile,
-				DefaultHelmfile,
-			)
-			defaultFile = DeprecatedHelmfile
 		}
 
 		switch {
@@ -1254,7 +1272,6 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 	selectedIds := map[string]state.ReleaseSpec{}
 	selectedCounts := map[string]int{}
 	for _, r := range selected {
-		r := r
 		id := state.ReleaseToID(&r)
 		selectedIds[id] = r
 		selectedCounts[id]++
@@ -1268,7 +1285,6 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 
 	groupsByID := map[string][]*state.ReleaseSpec{}
 	for _, r := range allReleases {
-		r := r
 		groupsByID[state.ReleaseToID(&r)] = append(groupsByID[state.ReleaseToID(&r)], &r)
 	}
 
@@ -1364,14 +1380,16 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		Context:                 c.Context(),
 		Output:                  c.DiffOutput(),
 		Set:                     c.Set(),
-		SkipCleanup:             c.RetainValuesFiles() || c.SkipCleanup(),
+		SkipCleanup:             c.SkipCleanup(),
 		SkipDiffOnInstall:       c.SkipDiffOnInstall(),
 		ReuseValues:             c.ReuseValues(),
 		ResetValues:             c.ResetValues(),
 		DiffArgs:                c.DiffArgs(),
 		PostRenderer:            c.PostRenderer(),
 		PostRendererArgs:        c.PostRendererArgs(),
+		SkipSchemaValidation:    c.SkipSchemaValidation(),
 		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
+		TakeOwnership:           c.TakeOwnership(),
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1478,16 +1496,21 @@ Do you really want to apply?
 				subst.Releases = rs
 
 				syncOpts := &state.SyncOpts{
-					Set:              c.Set(),
-					SkipCleanup:      c.RetainValuesFiles() || c.SkipCleanup(),
-					SkipCRDs:         c.SkipCRDs(),
-					Wait:             c.Wait(),
-					WaitForJobs:      c.WaitForJobs(),
-					ReuseValues:      c.ReuseValues(),
-					ResetValues:      c.ResetValues(),
-					PostRenderer:     c.PostRenderer(),
-					PostRendererArgs: c.PostRendererArgs(),
-					SyncArgs:         c.SyncArgs(),
+					Set:                  c.Set(),
+					SkipCleanup:          c.SkipCleanup(),
+					SkipCRDs:             c.SkipCRDs(),
+					Wait:                 c.Wait(),
+					WaitRetries:          c.WaitRetries(),
+					WaitForJobs:          c.WaitForJobs(),
+					ReuseValues:          c.ReuseValues(),
+					ResetValues:          c.ResetValues(),
+					PostRenderer:         c.PostRenderer(),
+					PostRendererArgs:     c.PostRendererArgs(),
+					SkipSchemaValidation: c.SkipSchemaValidation(),
+					SyncArgs:             c.SyncArgs(),
+					HideNotes:            c.HideNotes(),
+					TakeOwnership:        c.TakeOwnership(),
+					SyncReleaseLabels:    c.SyncReleaseLabels(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -1613,7 +1636,9 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			ResetValues:             c.ResetValues(),
 			PostRenderer:            c.PostRenderer(),
 			PostRendererArgs:        c.PostRendererArgs(),
+			SkipSchemaValidation:    c.SkipSchemaValidation(),
 			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
+			TakeOwnership:           c.TakeOwnership(),
 		}
 
 		filtered := &Run{
@@ -1872,15 +1897,20 @@ Do you really want to sync?
 				subst.Releases = rs
 
 				opts := &state.SyncOpts{
-					Set:              c.Set(),
-					SkipCRDs:         c.SkipCRDs(),
-					Wait:             c.Wait(),
-					WaitForJobs:      c.WaitForJobs(),
-					ReuseValues:      c.ReuseValues(),
-					ResetValues:      c.ResetValues(),
-					PostRenderer:     c.PostRenderer(),
-					PostRendererArgs: c.PostRendererArgs(),
-					SyncArgs:         c.SyncArgs(),
+					Set:                  c.Set(),
+					SkipCRDs:             c.SkipCRDs(),
+					Wait:                 c.Wait(),
+					WaitRetries:          c.WaitRetries(),
+					WaitForJobs:          c.WaitForJobs(),
+					ReuseValues:          c.ReuseValues(),
+					ResetValues:          c.ResetValues(),
+					PostRenderer:         c.PostRenderer(),
+					PostRendererArgs:     c.PostRendererArgs(),
+					SyncArgs:             c.SyncArgs(),
+					HideNotes:            c.HideNotes(),
+					TakeOwnership:        c.TakeOwnership(),
+					SkipSchemaValidation: c.SkipSchemaValidation(),
+					SyncReleaseLabels:    c.SyncReleaseLabels(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))
@@ -1908,14 +1938,17 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 		}
 
 		opts := &state.TemplateOpts{
-			Set:               c.Set(),
-			IncludeCRDs:       c.IncludeCRDs(),
-			OutputDirTemplate: c.OutputDirTemplate(),
-			SkipCleanup:       c.SkipCleanup(),
-			SkipTests:         c.SkipTests(),
-			PostRenderer:      c.PostRenderer(),
-			PostRendererArgs:  c.PostRendererArgs(),
-			KubeVersion:       c.KubeVersion(),
+			Set:                  c.Set(),
+			IncludeCRDs:          c.IncludeCRDs(),
+			NoHooks:              c.NoHooks(),
+			OutputDirTemplate:    c.OutputDirTemplate(),
+			SkipCleanup:          c.SkipCleanup(),
+			SkipTests:            c.SkipTests(),
+			PostRenderer:         c.PostRenderer(),
+			PostRendererArgs:     c.PostRendererArgs(),
+			KubeVersion:          c.KubeVersion(),
+			ShowOnly:             c.ShowOnly(),
+			SkipSchemaValidation: c.SkipSchemaValidation(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

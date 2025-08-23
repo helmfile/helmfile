@@ -4,6 +4,22 @@ I'd like to make 3 breaking changes to Helmfile and mark it as 1.0, so that we c
 
 Note that every breaking change should have an easy alternative way to achieve the same goal achieved using the removed functionality.
 
+## Backward compatibility
+
+v1 is backward-compatible with v0.x, except for the following breaking changes.
+
+Each breaking change has an easy alternative way to achieve the same goal achieved using the removed functionality.
+
+We also provide the alternative way in the latest v0.x release before v1.0. That way you can start using the alternative way today and be ready for v1.0. Note that in v0.x, some of those alternative ways are enabled only when `HELMFILE_V1MODE=true` is set.
+
+> Context:
+>
+> Even though Helmfile had been used in production environments [across multiple organizations](USERS.md), it had been considered to be in its early stage of development, hence versioned 0.x.
+>
+> Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be backward-incompatible changes for every release. However, Helmfile has been very conservative about breaking changes, and we had no breaking change for a year or so before start thinking about v1.
+>
+> That said, you can expect Helmfile v1 to be backward-compatible as much as it was in v0.x.
+
 ## The changes in 1.0
 
 1. [Forbid the use of `environments` and `releases` within a single helmfile.yaml.gotmpl part](#forbid-the-use-of-environments-and-releases-within-a-single-helmfileyamlgotmpl-part)
@@ -11,6 +27,8 @@ Note that every breaking change should have an easy alternative way to achieve t
 3. [Remove the `--args` flag from the `helmfile` command](#remove-the---args-flag-from-the-helmfile-command)
 4. [Remove `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` in favor of `HELMFILE_DISABLE_INSECURE_FEATURES`](#remove-helmfile_skip_insecure_template_functions-in-favor-of-helmfile_disable_insecure_features)
 5. [The long deprecated `charts.yaml` has been finally removed](#the-long-deprecated-chartsyaml-has-been-finally-removed)
+6. [List experimental features](#list-experimental-features)
+7. [Remove charts and delete sub-commands](#remove-charts-and-delete-subcommands)
 
 ### Forbid the use of `environments` and `releases` within a single helmfile.yaml.gotmpl part
 
@@ -81,6 +99,20 @@ Note that every breaking change should have an easy alternative way to achieve t
 ### The long deprecated `charts.yaml` has been finally removed
 
 Helmfile used to load `helmfile.yaml` or `charts.yaml` when you omitted the `-f` flag. `charts.yaml` has been deprecated for a long time but never been removed. We take v1 as a chance to finally remove it.
+
+### List experimental features
+
+We have some experimental features that are not stable yet. We should list them in a list and mark them as experimental.
+
+In Helmfile v1.x, all features should be backward-compatible within v1.x as we follow semver. We can't fix features in a backward incompatible way by default. To do so, we need a list of experimental features and say "anything in the experimentals can be modified backward-incompatible ways", and include features that are consireded experimental into the list beforehand.
+
+Why now?
+
+In Helmfile v0.x, all features considered experimental as we follow semver. However, we "ended up" preserving backward-compatibility within v0 and between v0 and v1 "by chance". This doesn't mean anything
+introduced in v0 is stable. For example, we might have some features implemented in a very later stage of v0 that are not stable yet. We should mark them as experimental, or we can't fix them in a backward-incompatible way in v1.x. That's why we need to list experimental features now.
+
+### remove-charts-and-delete-subcommands
+Now we remove `helmfile charts` and `helmfile delete` subcommands. you can use `helmfile destroy` and `helmfile sync` instead.
 
 ## After 1.0
 

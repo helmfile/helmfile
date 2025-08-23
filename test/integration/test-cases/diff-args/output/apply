@@ -1,9 +1,4 @@
-Comparing release=installed, chart=../../../charts/httpbin
-********************
-
-	Release was not present in Helm.  Diff will show entire contents as new.
-
-********************
+Comparing release=installed, chart=../../../charts/httpbin, namespace=helmfile-tests
 helmfile-tests, installed-httpbin, Deployment (apps) has been added:
 - 
 + apiVersion: apps/v1
@@ -66,12 +61,4 @@ helmfile-tests, installed-httpbin, Service (v1) has been added:
 +     app: httpbin
 +     release: installed
 +   type: LoadBalancer
-
-Release "installed" does not exist. Installing it now.
-NAME: installed
-NAMESPACE: helmfile-tests
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
-
 

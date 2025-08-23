@@ -1,0 +1,9 @@
+repositories:
+  # Only required because helmfile deps doesn't execute without them
+  - name: ingress-nginx
+    url: https://kubernetes.github.io/ingress-nginx
+
+releases:
+  - name: test
+    chart: ./test
+

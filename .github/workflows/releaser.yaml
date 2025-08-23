@@ -16,20 +16,21 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  HELMFILE_V1MODE: ${{ startsWith(github.ref, 'refs/tags/v1') }}
   SNAPSHOT: ${{ !startsWith(github.ref, 'refs/tags/v') && '--snapshot' || '' }}
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: goreleaser/goreleaser-action@v5
+      - name: check disk usage
+        run: df -h
+      - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --clean ${{ env.SNAPSHOT }}

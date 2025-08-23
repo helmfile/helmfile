@@ -1,0 +1,37 @@
+---
+#  Source: __workingdir__/testdata/snapshot/issue_2098_release_template_needs/input.yaml.gotmpl
+
+filepath: input.yaml.gotmpl
+helmBinary: helm
+kustomizeBinary: kustomize
+environments:
+  default: {}
+repositories:
+  - name: aservo
+    url: https://aservo.github.io/charts
+releases:
+  - chart: aservo/util
+    version: 0.0.1
+    name: default-shared-resources
+    namespace: default
+    labels:
+      chart: util
+      name: default-shared-resources
+      namespace: default
+      service: shared-resources
+  - chart: aservo/util
+    version: 0.0.1
+    needs:
+      - default/default-shared-resources
+    name: default-release-resources
+    namespace: default
+    labels:
+      chart: util
+      name: default-release-resources
+      namespace: default
+      service: release-resources
+templates:
+  defaults:
+    name: default-{{ .Release.Labels.service }}
+    namespace: default
+renderedvalues: {}

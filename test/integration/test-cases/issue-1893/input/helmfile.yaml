@@ -1,0 +1,20 @@
+---
+repositories:
+- name: chartify-testdata
+  url: git+https://github.com/helmfile/chartify@testdata/charts/importvalues?ref=master
+
+releases:
+- name: importvalues
+  chart: chartify-testdata/importvalues
+  version: 0.1.0
+  transformers: 
+   - apiVersion: builtin
+     kind: ValueAddTransformer
+     metadata:
+       name: add-annotation-issue
+     targets:
+       - fieldPath: metadata/annotations/issue
+         selector:
+           kind: ConfigMap
+           name: importvalues-imported-values
+     value: "1893"

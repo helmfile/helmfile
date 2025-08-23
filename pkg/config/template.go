@@ -30,14 +30,20 @@ type TemplateOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
+	// No-Hooks is the no hooks flag
+	NoHooks bool
 	// SkipCleanup is the skip cleanup flag
 	SkipCleanup bool
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer string
 	// Propagate '--post-renderer-args' to helmv3 template and helm install
 	PostRendererArgs []string
+	// Propagate '--skip-schema-validation' to helmv3 template and helm install
+	SkipSchemaValidation bool
 	// KubeVersion is the kube-version flag
 	KubeVersion string
+	// Propagate '--show-only` to helm template
+	ShowOnly []string
 }
 
 // NewTemplateOptions creates a new Apply
@@ -67,6 +73,11 @@ func (t *TemplateImpl) Concurrency() int {
 // IncludeCRDs returns the include crds
 func (t *TemplateImpl) IncludeCRDs() bool {
 	return t.TemplateOptions.IncludeCRDs
+}
+
+// NoHooks returns the no hooks
+func (t *TemplateImpl) NoHooks() bool {
+	return t.TemplateOptions.NoHooks
 }
 
 // IncludeNeeds returns the include needs
@@ -133,7 +144,17 @@ func (t *TemplateImpl) PostRendererArgs() []string {
 	return t.TemplateOptions.PostRendererArgs
 }
 
+// SkipSchemaValidation returns the SkipSchemaValidation.
+func (t *TemplateImpl) SkipSchemaValidation() bool {
+	return t.TemplateOptions.SkipSchemaValidation
+}
+
 // KubeVersion returns the the KubeVersion.
 func (t *TemplateImpl) KubeVersion() string {
 	return t.TemplateOptions.KubeVersion
+}
+
+// ShowOnly returns the ShowOnly.
+func (t *TemplateImpl) ShowOnly() []string {
+	return t.TemplateOptions.ShowOnly
 }

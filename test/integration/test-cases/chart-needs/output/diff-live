@@ -1,14 +1,4 @@
 "azuredisk-csi-driver" has been added to your repositories
-********************
-
-	Release was not present in Helm.  Diff will show entire contents as new.
-
-********************
-********************
-
-	Release was not present in Helm.  Diff will show entire contents as new.
-
-********************
 helmfile-tests, managed-csi, StorageClass (storage.k8s.io) has been added:
 - 
 + # Source: azuredisk-csi-storageclass/templates/azuredisk-csi-storageclass.yaml
@@ -958,4 +948,4 @@ helmfile-tests, disk.csi.azure.com, CSIDriver (storage.k8s.io) has been added:
 +   attachRequired: true
 +   podInfoOnMount: false
 +   fsGroupPolicy: File
-Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver
+Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver, namespace=helmfile-tests

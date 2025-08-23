@@ -13,19 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: false
-      - uses: golangci/golangci-lint-action@v4
+      - uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.56.0 
+          version: v2.1.6
 
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v5
@@ -54,59 +54,49 @@ jobs:
           # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
-          - helm-version: v3.13.3
-            kustomize-version: v4.5.7
-            plugin-secrets-version: 3.15.0
-            plugin-diff-version: 3.8.1
-            extra-helmfile-flags: ''
-            v1mode: ''
-          - helm-version: v3.13.3
+          - helm-version: v3.17.4
             kustomize-version: v5.2.1
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.11.0
+            extra-helmfile-flags: ''
+          - helm-version: v3.17.4
+            kustomize-version: v5.4.3
             # We assume that the helm-secrets plugin is supposed to
             # work with the two most recent helm minor versions.
             # Once it turned out to be not practically true,
             # we will mark this combination as failable,
             # and instruct users to upgrade helm and helm-secrets at once.
-            plugin-secrets-version: 4.5.1
-            plugin-diff-version: 3.9.5
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.12.5
             extra-helmfile-flags: ''
-            v1mode: ''
-          - helm-version: v3.14.2
-            kustomize-version: v4.5.7
-            plugin-secrets-version: 3.15.0
-            plugin-diff-version: 3.8.1
-            extra-helmfile-flags: ''
-            v1mode: ''
-          - helm-version: v3.14.2
+          - helm-version: v3.18.6
             kustomize-version: v5.2.1
-            plugin-secrets-version: 4.5.1
-            plugin-diff-version: 3.9.5
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.11.0
             extra-helmfile-flags: ''
-            v1mode: ''
-          # Helmfile v1
-          - helm-version: v3.14.2
-            kustomize-version: v5.2.1
-            plugin-secrets-version: 4.5.1
-            plugin-diff-version: 3.9.5
+          - helm-version: v3.18.6
+            kustomize-version: v5.4.3
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.12.5
             extra-helmfile-flags: ''
-            v1mode: 'true'
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
-          - helm-version: v3.14.2
-            kustomize-version: v5.2.1
-            plugin-secrets-version: 4.5.1
-            plugin-diff-version: 3.9.5
+          - helm-version: v3.18.6
+            kustomize-version: v5.4.3
+            plugin-secrets-version: 4.6.5
+            plugin-diff-version: 3.12.5
             extra-helmfile-flags: '--enable-live-output'
-            v1mode: ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: built-binaries-${{ github.run_id }}
+      - name: install semver
+        run: go install github.com/ffurrer2/semver/v2/cmd/semver@latest
       - name: Extract tar to get built binaries
         run: tar -xvf built-binaries.tar
       - name: Display built binaries
@@ -127,16 +117,15 @@ jobs:
           HELMFILE_HELM3: 1
           TERM: xterm
           EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
-          HELMFILE_V1MODE: ${{ matrix.v1mode }}
 
   e2e_tests:
     needs: tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: built-binaries-${{ github.run_id }}
       - name: Extract tar to get built binaries

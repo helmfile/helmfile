@@ -12,6 +12,6 @@ hook[presync] logs | foo
 hook[presync] logs | 
 
 UPDATED RELEASES:
-NAME   CHART           VERSION   DURATION
-foo    incubator/raw   3.1.0           0s
+NAME   NAMESPACE   CHART           VERSION   DURATION
+foo    default     incubator/raw   3.1.0           0s
 

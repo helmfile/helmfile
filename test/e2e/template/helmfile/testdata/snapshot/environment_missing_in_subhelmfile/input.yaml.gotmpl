@@ -1,0 +1,16 @@
+environments:
+  test:
+    values:
+    - test.yaml.gotmpl
+---
+helmfiles:
+- path: helmfiles/test.yaml.gotmpl
+  values:
+  - envName: {{ .Values.envName }}
+- path: helmfiles/prod.yaml.gotmpl
+  values:
+  - envName: {{ .Values.envName }}
+- path: helmfiles/no-envs.yaml.gotmpl
+  values:
+  - envName: {{ .Values.envName }}
+- path: helmfiles/no-values.yaml.gotmpl

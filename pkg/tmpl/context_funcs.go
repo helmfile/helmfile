@@ -35,13 +35,11 @@ func (e DisableInsecureFeaturesError) Error() string {
 }
 
 var (
-	disableInsecureFeatures       bool
-	skipInsecureTemplateFunctions bool
+	disableInsecureFeatures bool
 )
 
 func init() {
 	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
-	skipInsecureTemplateFunctions, _ = strconv.ParseBool(os.Getenv(envvar.SkipInsecureTemplateFunctions))
 }
 
 func (c *Context) createFuncMap() template.FuncMap {
@@ -49,6 +47,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"envExec":          c.EnvExec,
 		"exec":             c.Exec,
 		"isFile":           c.IsFile,
+		"isDir":            c.IsDir,
 		"readFile":         c.ReadFile,
 		"readDir":          c.ReadDir,
 		"readDirEntries":   c.ReadDirEntries,
@@ -63,7 +62,7 @@ func (c *Context) createFuncMap() template.FuncMap {
 		"fetchSecretValue": fetchSecretValue,
 		"expandSecretRefs": fetchSecretValues,
 	}
-	if c.preRender || skipInsecureTemplateFunctions {
+	if c.preRender {
 		// disable potential side-effect template calls
 		funcMap["exec"] = func(string, []any, ...string) (string, error) {
 			return "", nil
@@ -84,6 +83,9 @@ func (c *Context) createFuncMap() template.FuncMap {
 	if disableInsecureFeatures {
 		// disable insecure functions
 		funcMap["exec"] = func(string, []any, ...string) (string, error) {
+			return "", DisableInsecureFeaturesErr
+		}
+		funcMap["envExec"] = func(map[string]any, string, []any, ...string) (string, error) {
 			return "", DisableInsecureFeaturesErr
 		}
 		funcMap["readFile"] = func(string) (string, error) {
@@ -214,6 +216,24 @@ func (c *Context) IsFile(filename string) (bool, error) {
 	return false, err
 }
 
+func (c *Context) IsDir(filename string) (bool, error) {
+	var path string
+	if filepath.IsAbs(filename) {
+		path = filename
+	} else {
+		path = filepath.Join(c.basePath, filename)
+	}
+
+	stat, err := os.Stat(path)
+	if err == nil {
+		return stat.IsDir(), nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
+}
+
 func (c *Context) ReadFile(filename string) (string, error) {
 	var path string
 	if filepath.IsAbs(filename) {
@@ -287,14 +307,14 @@ func ToYaml(v any) (string, error) {
 	return string(data), nil
 }
 
-func FromYaml(str string) (Values, error) {
-	m := map[string]any{}
+func FromYaml(str string) (any, error) {
+	var m any
 
 	if err := yaml.Unmarshal([]byte(str), &m); err != nil {
 		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
 	}
 
-	m, err := maputil.CastKeysToStrings(m)
+	m, err := maputil.RecursivelyStringifyMapKey(m)
 	if err != nil {
 		return nil, fmt.Errorf("%s, offending yaml: %s", err, str)
 	}
@@ -357,10 +377,10 @@ func RequiredEnv(name string) (string, error) {
 
 func Required(warn string, val any) (any, error) {
 	if val == nil {
-		return nil, fmt.Errorf(warn)
+		return nil, fmt.Errorf("%s", warn)
 	} else if _, ok := val.(string); ok {
 		if val == "" {
-			return nil, fmt.Errorf(warn)
+			return nil, fmt.Errorf("%s", warn)
 		}
 	}
 

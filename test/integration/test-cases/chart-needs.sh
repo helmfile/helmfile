@@ -1,14 +1,7 @@
 chart_need_case_input_dir="${cases_dir}/chart-needs/input"
 chart_need_case_output_dir="${cases_dir}/chart-needs/output"
 
-config_file="helmfile.yaml"
-if [[ ${HELMFILE_V1MODE} = true ]]; then
-  pushd "${chart_need_case_input_dir}"
-  mv "${config_file}" "${config_file}.gotmpl"
-  config_file="${config_file}.gotmpl"
-  popd
-fi
-
+config_file="helmfile.yaml.gotmpl"
 chart_needs_tmp=$(mktemp -d)
 chart_needs_template_reverse=${chart_needs_tmp}/chart.needs.template.log
 chart_needs_lint_reverse=${chart_needs_tmp}/chart.needs.lint.log
@@ -41,7 +34,8 @@ done
 
 for i in $(seq 10); do
     info "Comparing diff/chart-needs #$i"
-    ${helmfile} -f ${chart_need_case_input_dir}/${config_file} diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=/tmp/.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
+    ${helmfile} -f ${chart_need_case_input_dir}/${config_file} diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=/tmp/.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse}.tmp || fail "\"helmfile diff\" shouldn't fail"
+    cat ${chart_needs_diff_reverse}.tmp | sed -E '/\*{20}/,/\*{20}/d' > ${chart_needs_diff_reverse}
     diff -u ${diff_out_file} ${chart_needs_diff_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done

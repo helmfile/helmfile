@@ -14,5 +14,5 @@ type EnvironmentSpec struct {
 	// a message about the missing file at the log-level.
 	MissingFileHandler *string `yaml:"missingFileHandler,omitempty"`
 	// MissingFileHandlerConfig is composed of various settings for the MissingFileHandler
-	MissingFileHandlerConfig MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
+	MissingFileHandlerConfig *MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
 }

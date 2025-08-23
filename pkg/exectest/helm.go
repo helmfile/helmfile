@@ -94,6 +94,8 @@ func (helm *Helm) SetEnableLiveOutput(enableLiveOutput bool) {
 }
 func (helm *Helm) SetDisableForceUpdate(forceUpdate bool) {
 }
+func (helm *Helm) SkipSchemaValidation(skipSchemaValidation bool) {
+}
 func (helm *Helm) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {
 	helm.Repo = []string{name, repository, cafile, certfile, keyfile, username, password, managed, fmt.Sprintf("%v", passCredentials), fmt.Sprintf("%v", skipTLSVerify)}
 	return nil
@@ -104,7 +106,7 @@ func (helm *Helm) UpdateRepo() error {
 func (helm *Helm) RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
 	return nil
 }
-func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart, namespace string, flags ...string) error {
 	if strings.Contains(name, "error") {
 		return errors.New("error")
 	}
@@ -117,7 +119,7 @@ func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart string, 
 
 	return nil
 }
-func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
+func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {
 	if helm.DiffMutex != nil {
 		helm.DiffMutex.Lock()
 	}
@@ -138,6 +140,9 @@ func (helm *Helm) DiffRelease(context helmexec.HelmContext, name, chart string, 
 	return err
 }
 func (helm *Helm) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
+	if strings.Contains(release, "notFound") {
+		return errors.New("Error: release: not found")
+	}
 	if strings.Contains(release, "error") {
 		return errors.New("error")
 	}

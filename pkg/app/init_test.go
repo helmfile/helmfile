@@ -8,27 +8,28 @@ import (
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDownloadfile(t *testing.T) {
-	var ts *httptest.Server
 	cases := []struct {
 		name        string
 		handler     func(http.ResponseWriter, *http.Request)
-		url         string
 		filepath    string
 		wantContent string
 		wantError   string
 	}{
 		{
-			name: "download success",
+			name: "successful download of file content",
 			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
 				fmt.Fprint(w, "helmfile")
 			},
 			wantContent: "helmfile",
 		},
 		{
-			name: "download 404",
+			name: "404 error when file not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprint(w, "not found")
@@ -36,7 +37,7 @@ func TestDownloadfile(t *testing.T) {
 			wantError: "download .*? error, code: 404",
 		},
 		{
-			name: "download 500",
+			name: "500 error on server failure",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprint(w, "server error")
@@ -44,14 +45,16 @@ func TestDownloadfile(t *testing.T) {
 			wantError: "download .*? error, code: 500",
 		},
 		{
-			name: "download path error",
+			name: "error due to invalid file path",
 			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
 				fmt.Fprint(w, "helmfile")
 			},
 			filepath:  "abc/down.txt",
 			wantError: "open .*? no such file or directory",
 		},
 	}
+
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -60,30 +63,24 @@ func TestDownloadfile(t *testing.T) {
 				downfile = filepath.Join(dir, c.filepath)
 			}
 
-			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				c.handler(w, r)
-			}))
+			ts := httptest.NewServer(http.HandlerFunc(c.handler))
 			defer ts.Close()
-			url := ts.URL
-			if c.url != "" {
-				url = c.url
-			}
-			err := downloadfile(downfile, url)
+
+			err := downloadfile(downfile, ts.URL)
+
 			if c.wantError != "" {
-				if err == nil {
-					t.Errorf("download got no error, want error: %v", c.wantError)
-				} else if matched, regexErr := regexp.MatchString(c.wantError, err.Error()); regexErr != nil || !matched {
-					t.Errorf("download got error: %v, want error: %v", err, c.wantError)
+				assert.Error(t, err)
+				if err != nil {
+					matched, regexErr := regexp.MatchString(c.wantError, err.Error())
+					assert.NoError(t, regexErr)
+					assert.True(t, matched, "expected error message to match regex: %s", c.wantError)
 				}
 				return
 			}
+
 			content, err := os.ReadFile(downfile)
-			if err != nil {
-				t.Errorf("read download file error: %v", err)
-			}
-			if string(content) != c.wantContent {
-				t.Errorf("download file content got: %v, want content: %v", string(content), c.wantContent)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, c.wantContent, string(content), "unexpected content in downloaded file")
 		})
 	}
 }

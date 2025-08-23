@@ -1,0 +1,43 @@
+processing file "helmfile.yaml" in directory "."
+changing working directory to "/path/to"
+merged environment: &{default  map[] map[]}
+10 release(s) found in helmfile.yaml
+
+processing 5 groups of releases in this order:
+GROUP RELEASES
+1     frontend-v3, frontend-v2, frontend-v1
+2     backend-v2, backend-v1
+3     anotherbackend
+4     servicemesh, database
+5     front-proxy, logging
+
+processing releases in group 1/5: frontend-v3, frontend-v2, frontend-v1
+release "frontend-v3" processed
+release "frontend-v2" processed
+release "frontend-v1" processed
+processing releases in group 2/5: backend-v2, backend-v1
+release "backend-v2" processed
+release "backend-v1" processed
+processing releases in group 3/5: anotherbackend
+release "anotherbackend" processed
+processing releases in group 4/5: servicemesh, database
+release "servicemesh" processed
+release "database" processed
+processing releases in group 5/5: front-proxy, logging
+release "front-proxy" processed
+release "logging" processed
+
+DELETED RELEASES:
+NAME             NAMESPACE   DURATION
+frontend-v3                        0s
+frontend-v2                        0s
+frontend-v1                        0s
+backend-v2                         0s
+backend-v1                         0s
+anotherbackend                     0s
+servicemesh                        0s
+database                           0s
+front-proxy                        0s
+logging                            0s
+
+changing working directory back to "/path/to"

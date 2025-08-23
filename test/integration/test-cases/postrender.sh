@@ -1,14 +1,7 @@
 postrender_case_input_dir="${cases_dir}/postrender/input"
 postrender_case_output_dir="${cases_dir}/postrender/output"
 
-config_file="helmfile.yaml"
-if [[ ${HELMFILE_V1MODE} = true ]]; then
-  pushd "${postrender_case_input_dir}"
-  mv "${config_file}" "${config_file}.gotmpl"
-  config_file="${config_file}.gotmpl"
-  popd
-fi
-
+config_file="helmfile.yaml.gotmpl"
 postrender_diff_out_file=${postrender_case_output_dir}/diff-result
 if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
     postrender_diff_out_file=${postrender_case_output_dir}/diff-result-live
@@ -27,7 +20,8 @@ test_start "postrender diff"
 info "Comparing postrender diff output ${postrender_diff_reverse} with ${postrender_case_output_dir}/result.yaml"
 for i in $(seq 10); do
     info "Comparing build/postrender-diff #$i"
-    ${helmfile} -f ${postrender_case_input_dir}/${config_file} diff --concurrency 1 --post-renderer ./add-cm.bash --post-renderer-args cm1 &> ${postrender_diff_reverse} || fail "\"helmfile diff\" shouldn't fail"
+    ${helmfile} -f ${postrender_case_input_dir}/${config_file} diff --concurrency 1 --post-renderer ./add-cm.bash --post-renderer-args cm1 &> ${postrender_diff_reverse}.tmp || fail "\"helmfile diff\" shouldn't fail"
+    cat ${postrender_diff_reverse}.tmp | sed -E '/\*{20}/,/\*{20}/d' > ${postrender_diff_reverse}
     diff -u  ${postrender_diff_out_file} ${postrender_diff_reverse} || fail "\"helmfile diff\" should be consistent"
     echo code=$?
 done

@@ -1,38 +1,5 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-first-pass rendering starting for "helmfile.yaml.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
-first-pass uses: &{default  map[] map[]}
-first-pass rendering output of "helmfile.yaml.part.0":
- 0: 
- 1: helmDefaults:
- 2:   kubeContext: hello/world
- 3: releases:
- 4: - name: bar
- 5:   chart: mychart2
- 6: - name: foo
- 7:   chart: mychart1
- 8:   needs:
- 9:   - bar
-10: 
-
-first-pass produced: &{default  map[] map[]}
-first-pass rendering result of "helmfile.yaml.part.0": {default  map[] map[]}
-vals:
-map[]
-defaultVals:[]
-second-pass rendering result of "helmfile.yaml.part.0":
- 0: 
- 1: helmDefaults:
- 2:   kubeContext: hello/world
- 3: releases:
- 4: - name: bar
- 5:   chart: mychart2
- 6: - name: foo
- 7:   chart: mychart1
- 8:   needs:
- 9:   - bar
-10: 
-
 merged environment: &{default  map[] map[]}
 2 release(s) found in helmfile.yaml
 

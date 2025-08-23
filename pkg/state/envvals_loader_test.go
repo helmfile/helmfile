@@ -39,7 +39,7 @@ func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -93,7 +93,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(tt.expected, actual); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 		})
 	}
@@ -113,7 +113,7 @@ func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -158,7 +158,7 @@ func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -184,6 +184,66 @@ func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
+	}
+}
+
+func TestEnvValsLoad_MultiHCL(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.7.hcl", "testdata/values.8.hcl"}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"a": "a",
+		"b": "b",
+		"c": "ab",
+		"map": map[string]any{
+			"a": "a",
+		},
+		"list": []any{
+			"b",
+		},
+		"nestedmap": map[string]any{
+			"submap": map[string]any{
+				"subsubmap": map[string]any{
+					"hello": "ab",
+				},
+			},
+		},
+		"ternary":          true,
+		"fromMap":          "aab",
+		"expressionInText": "yes",
+		"insideFor":        "b",
+		"multi_block":      "block",
+		"block":            "block",
+		"crossfile":        "crossfile var",
+		"crossfile_var":    "crossfile var",
+		"localRef":         "localInValues7",
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
+	}
+}
+
+func TestEnvValsLoad_EnvironmentValues(t *testing.T) {
+	l := newLoader()
+	env := environment.New("test")
+	env.Values["foo"] = "bar"
+
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.9.yaml.gotmpl"}, env, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"foo": "bar",
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
 	}
 }

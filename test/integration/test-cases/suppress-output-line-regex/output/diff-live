@@ -527,4 +527,4 @@ helmfile-tests, ingress-nginx-admission, NetworkPolicy (networking.k8s.io) has b
 -   egress:
 -     - {}
 + 
-Comparing release=ingress-nginx, chart=ingress-nginx/ingress-nginx
+Comparing release=ingress-nginx, chart=ingress-nginx/ingress-nginx, namespace=helmfile-tests

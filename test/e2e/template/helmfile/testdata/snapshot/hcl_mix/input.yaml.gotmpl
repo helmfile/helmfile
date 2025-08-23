@@ -1,0 +1,38 @@
+environments:
+  default:
+    values:
+      - values1.hcl
+      - values1.yaml
+      - values2.hcl
+---
+
+helmDefaults:
+  kubeContext: minikube
+
+releases:
+
+  - name: hcl-demo
+    chart: ../../charts/raw-0.1.0
+    values:
+    - templates:
+      - |
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: configmap
+        data:
+          a: {{ .Values.a }}
+          b: {{ .Values.b }}
+          c: {{ .Values.c }}
+          crossfile: {{ .Values.crossfile }}
+          expressionInText: "{{ .Values.expressionInText }}"
+          fromMap: {{ .Values.fromMap }}
+          insideFor: {{ .Values.insideFor }}
+          list: "{{ .Values.list }}"
+          {{- .Values.locals | toYaml | nindent 10 -}}
+          multiBlock: {{ .Values.multiBlock }}
+          simpleCompute: "{{ .Values.simpleCompute }}"
+          yamlOverride: {{ .Values.yamlOverride }}
+
+
+

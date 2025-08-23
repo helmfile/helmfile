@@ -1,8 +1,3 @@
-********************
-
-	Release was not present in Helm.  Diff will show entire contents as new.
-
-********************
 helmfile-tests, managed-csi, StorageClass (storage.k8s.io) has been added:
 - 
 + # Source: azuredisk-csi-storageclass/templates/azuredisk-csi-storageclass.yaml
@@ -19,12 +14,7 @@ helmfile-tests, managed-csi, StorageClass (storage.k8s.io) has been added:
 + volumeBindingMode: Immediate
 + allowVolumeExpansion: true
 
-Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver
-********************
-
-	Release was not present in Helm.  Diff will show entire contents as new.
-
-********************
+Comparing release=azuredisk-csi-driver, chart=azuredisk-csi-driver/azuredisk-csi-driver, namespace=helmfile-tests
 helmfile-tests, azuredisk-csi-attacher-binding, ClusterRoleBinding (rbac.authorization.k8s.io) has been added:
 - 
 + # Source: azuredisk-csi-driver/templates/rbac-csi-azuredisk-controller.yaml

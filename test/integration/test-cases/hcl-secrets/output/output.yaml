@@ -1,0 +1,11 @@
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap
+data:
+  secretOveriddenByPrecedence: OverrodeHclVarByPrecedence
+  secretRef: MYSECRETVALUE
+  yamlOverride: yaml_overrode
+

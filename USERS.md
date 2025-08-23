@@ -38,4 +38,7 @@ information to this file.
 | [Dealhub](https://dealhub.io/) | production | Helmfile was an essential part of our k8s migration. Keep up the good work! | Holon, Israel | January 2023 |
 | [BlueLabs](https://bluelabs.eu/) | production | Helmfile is the cornerstone of our lightweight, auditable and centralized GKE deployments. | Europe | February 2021 |
 | [Zhihu](https://www.zhihu.com/) | production | helmfile is an important tool for the deployment of our basic components, which can achieve standardization and auditability. |China, Beijing | December 2023 |
+| [Tudock](https://tudock.de) | production | We have no public post about it, but we recently started using Helmfile to deploy developer applications and have been very happy with the results! | Hamburg, Germany | March 2024 |
+| [Incentive.me](https://incentive.me/) | production | We use helmfile as the main tool for deploying our Kubernetes workloads. | Rio de Janeiro, Brazil | November 2021 |
+| [RightCapital](https://www.rightcapital.com/) | production | We use helmfile as the main tool for deploying our Kubernetes workloads. | Shelton, CT, USA | May 2019 |
 <!-- TABLE_END -->

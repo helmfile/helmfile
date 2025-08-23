@@ -4,8 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/helmfile/chartify"
+	"helm.sh/helm/v3/pkg/storage/driver"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
@@ -22,6 +27,54 @@ func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) []st
 		flags = append(flags, "--adopt", adopt)
 	}
 
+	return flags
+}
+
+func formatLabels(labels map[string]string) string {
+	var labelsList, keys []string
+	for k := range labels {
+		if k == "" || slices.Contains(driver.GetSystemLabels(), k) {
+			continue
+		}
+
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if len(keys) == 0 {
+		return ""
+	}
+
+	for _, k := range keys {
+		val := labels[k]
+		labelsList = append(labelsList, fmt.Sprintf("%s=%s", k, val))
+	}
+	return strings.Join(labelsList, ",")
+}
+
+// append labels flags to helm flags, starting from helm v3.13.0
+func (st *HelmState) appendLabelsFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, syncReleaseLabels bool) []string {
+	if !helm.IsVersionAtLeast("3.13.0") {
+		return flags
+	}
+	isSyncReleaseLabels := false
+	switch {
+	// Check if SyncReleaseLabels is true in the release spec.
+	case release.SyncReleaseLabels != nil && *release.SyncReleaseLabels:
+		isSyncReleaseLabels = true
+	// Check if syncReleaseLabels argument is true.
+	case syncReleaseLabels:
+		isSyncReleaseLabels = true
+	// Check if SyncReleaseLabels is true in HelmDefaults.
+	case st.HelmDefaults.SyncReleaseLabels != nil && *st.HelmDefaults.SyncReleaseLabels:
+		isSyncReleaseLabels = true
+	}
+	if isSyncReleaseLabels {
+		labels := formatLabels(release.Labels)
+		if labels != "" {
+			flags = append(flags, "--labels", labels)
+		}
+	}
 	return flags
 }
 
@@ -58,6 +111,22 @@ func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseS
 	return flags
 }
 
+// append skip-schema-validation flags to helm flags
+func (st *HelmState) appendSkipSchemaValidationFlags(flags []string, release *ReleaseSpec, skipSchemaValidation bool) []string {
+	switch {
+	// Check if SkipSchemaValidation is true in the release spec.
+	case release.SkipSchemaValidation != nil && *release.SkipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	// Check if skipSchemaValidation argument is true.
+	case skipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	// Check if SkipSchemaValidation is true in HelmDefaults.
+	case st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation:
+		flags = append(flags, "--skip-schema-validation")
+	}
+	return flags
+}
+
 // append suppress-output-line-regex flags to helm diff flags
 func (st *HelmState) appendSuppressOutputLineRegexFlags(flags []string, release *ReleaseSpec, suppressOutputLineRegex []string) []string {
 	suppressOutputLineRegexFlags := []string{}
@@ -89,14 +158,30 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 	return flags
 }
 
-func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
+func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, ops *SyncOpts) []string {
+	var hasWait bool
 	switch {
 	case release.Wait != nil && *release.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
 	case ops != nil && ops.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
 	case release.Wait == nil && st.HelmDefaults.Wait:
+		hasWait = true
 		flags = append(flags, "--wait")
+	}
+	// see https://github.com/helm/helm/releases/tag/v3.15.0
+	// https://github.com/helm/helm/commit/fc74964
+	if hasWait && helm.IsVersionAtLeast("3.15.0") {
+		switch {
+		case release.WaitRetries != nil && *release.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(*release.WaitRetries))
+		case ops != nil && ops.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(ops.WaitRetries))
+		case release.WaitRetries == nil && st.HelmDefaults.WaitRetries > 0:
+			flags = append(flags, "--wait-retries", strconv.Itoa(st.HelmDefaults.WaitRetries))
+		}
 	}
 	return flags
 }
@@ -115,6 +200,50 @@ func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface,
 		flags = append(flags, "--cascade", cascade)
 	case st.HelmDefaults.Cascade != nil && *st.HelmDefaults.Cascade != "":
 		flags = append(flags, "--cascade", *st.HelmDefaults.Cascade)
+	}
+	return flags
+}
+
+// append hide-notes flags to helm flags
+func (st *HelmState) appendHideNotesFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string {
+	// see https://github.com/helm/helm/releases/tag/v3.16.0
+	if !helm.IsVersionAtLeast("3.16.0") {
+		return flags
+	}
+	switch {
+	case ops.HideNotes:
+		flags = append(flags, "--hide-notes")
+	}
+	return flags
+}
+
+// append take-ownership flags to helm flags
+func (st *HelmState) appendTakeOwnershipFlagsForUpgrade(flags []string, helm helmexec.Interface, release *ReleaseSpec, takeOwnership bool) []string {
+	// see https://github.com/helm/helm/releases/tag/v3.17.0
+	if !helm.IsVersionAtLeast("3.17.0") {
+		return flags
+	}
+	switch {
+	case release.TakeOwnership != nil && *release.TakeOwnership:
+		flags = append(flags, "--take-ownership")
+	case takeOwnership:
+		flags = append(flags, "--take-ownership")
+	case st.HelmDefaults.TakeOwnership != nil && *st.HelmDefaults.TakeOwnership:
+		flags = append(flags, "--take-ownership")
+	}
+	return flags
+}
+
+// append show-only flags to helm flags
+func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []string {
+	showOnlyFlags := []string{}
+	if len(showOnly) != 0 {
+		showOnlyFlags = showOnly
+	}
+	for _, arg := range showOnlyFlags {
+		if arg != "" {
+			flags = append(flags, "--show-only", arg)
+		}
 	}
 	return flags
 }
@@ -221,7 +350,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	jsonPatches := release.JSONPatches
 	if len(jsonPatches) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, jsonPatches, release.MissingFileHandler)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, jsonPatches)
 		if err != nil {
 			return nil, clean, err
 		}
@@ -235,7 +364,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	strategicMergePatches := release.StrategicMergePatches
 	if len(strategicMergePatches) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, strategicMergePatches, release.MissingFileHandler)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, strategicMergePatches)
 		if err != nil {
 			return nil, clean, err
 		}
@@ -249,7 +378,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	transformers := release.Transformers
 	if len(transformers) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, transformers, release.MissingFileHandler)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, transformers)
 		if err != nil {
 			return nil, clean, err
 		}

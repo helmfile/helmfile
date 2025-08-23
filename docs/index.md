@@ -12,7 +12,7 @@
 # Helmfile
 
 [![Tests](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/helmfile/helmfile/actions/workflows/ci.yaml?query=branch%3Amain)
-[![Container Image Repository on GHCR](https://ghcr-badge.deta.dev/helmfile/helmfile/latest_tag?trim=major&label=latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
+[![Container Image Repository on GHCR](https://ghcr-badge.egpl.dev/helmfile/helmfile/latest_tag?trim=major&label=latest "Docker Repository on ghcr")](https://github.com/helmfile/helmfile/pkgs/container/helmfile)
 [![Go Report Card](https://goreportcard.com/badge/github.com/helmfile/helmfile)](https://goreportcard.com/report/github.com/helmfile/helmfile)
 [![Slack Community #helmfile](https://slack.sweetops.com/badge.svg)](https://slack.sweetops.com)
 [![Documentation](https://readthedocs.org/projects/helmfile/badge/?version=latest&style=flat)](https://helmfile.readthedocs.io/en/latest/)
@@ -24,13 +24,10 @@ Deploy Kubernetes Helm Charts
 
 ## Status
 
-March 2022 Update - The helmfile project has been moved to [helmfile/helmfile](https://github.com/helmfile/helmfile) from the former home `roboll/helmfile`. Please see [roboll/helmfile#1824](https://github.com/roboll/helmfile/issues/1824) for more information.
+May 2025 Update
 
-Even though Helmfile is used in production environments [across multiple organizations](users.md), it is still in its early stage of development, hence versioned 0.x.
-
-Helmfile complies to Semantic Versioning 2.0.0 in which v0.x means that there could be backward-incompatible changes for every release.
-
-Note that we will try our best to document any backward incompatibility. And in reality, helmfile had no breaking change for a year or so.
+* Helmfile v1.0 and v1.1 has been released. We recommend upgrading directly to v1.1 if you are still using v0.x.
+* If you haven't already upgraded, please go over this v1 proposal [here](https://github.com/helmfile/helmfile/blob/main/docs/proposals/towards-1.0.md) to see a small list of breaking changes.
 
 ## About
 
@@ -144,9 +141,9 @@ repositories:
   url: roboll.io/charts
   certFile: optional_client_cert
   keyFile: optional_client_key
-  # username is retrieve from the environment with the format <registryNameUpperCase>_USERNAME for CI usage, here ROBOLL_USERNAME
+  # username is retrieved from the environment with the format <registryNameUpperCase>_USERNAME for CI usage, here ROBOLL_USERNAME
   username: optional_username
-  # username is retrieve from the environment with the format <registryNameUpperCase>_PASSWORD for CI usage, here ROBOLL_PASSWORD
+  # password is retrieved from the environment with the format <registryNameUpperCase>_PASSWORD for CI usage, here ROBOLL_PASSWORD
   password: optional_password
   oci: true
   passCredentials: true
@@ -161,6 +158,10 @@ repositories:
 - name: skipTLS
   url: https://ss.my-insecure-domain.com
   skipTLSVerify: true
+# Advanced configuration: Connect to a repo served over plain http
+- name: plainHTTP
+  url: http://just.http.domain.com
+  plainHttp: true
 
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
@@ -189,8 +190,12 @@ helmDefaults:
   # verify the chart before upgrading (only works with packaged charts not directories) (default false)
   verify: true
   keyring: path/to/keyring.gpg
+  #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
+  skipSchemaValidation: false
   # wait for k8s resources via --wait. (default false)
   wait: true
+  # if set and --wait enabled, will retry any failed check on resource state subject to the specified number of retries (default 0)
+  waitRetries: 3
   # if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout (default false, Implemented in Helm3.5)
   waitForJobs: true
   # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -223,13 +228,18 @@ helmDefaults:
   cascade: "background"
   # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
   insecureSkipTLSVerify: false
+  # plainHttp is true if fetching the remote chart should be done using HTTP
+  plainHttp: false
   # --wait flag for destroy/delete, if set to true, will wait until all resources are deleted before mark delete command as successful
   deleteWait: false
   # Timeout is the time in seconds to wait for helmfile destroy/delete (default 300)
   deleteTimeout: 300
-  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
+  # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
   suppressOutputLineRegex:
     - "version"
+  # syncReleaseLabels is a list of labels to be added to the release when syncing.
+  syncReleaseLabels: false
+
 
 # these labels will be applied to all releases in a Helmfile. Useful in templating if you have a helmfile per environment or customer and don't want to copy the same label to each release
 commonLabels:
@@ -276,6 +286,16 @@ releases:
           domain: {{ requiredEnv "PLATFORM_ID" }}.my-domain.com
           scheme: {{ env "SCHEME" | default "https" }}
     # Use `values` whenever possible!
+    # `setString` translates to helm's `--set-string key=val`
+    setString:
+    # set a single array value in an array, translates to --set-string bar[0]={1,2}
+    - name: bar[0]
+      values:
+      - 1
+      - 2
+    # set a templated value
+    - name: namespace
+      value: {{ .Namespace }}
     # `set` translates to helm's `--set key=val`, that is known to suffer from type issues like https://github.com/roboll/helmfile/issues/608
     set:
     # single value loaded from a local file, translates to --set-file foo.config=path/to/file
@@ -292,14 +312,18 @@ releases:
     # will attempt to decrypt it using helm-secrets plugin
     secrets:
       - vault_secret.yaml
-    # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods and force.
+    # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods, force and reuseValues.
     verify: true
     keyring: path/to/keyring.gpg
+    #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
+    skipSchemaValidation: false
     wait: true
+    waitRetries: 3
     waitForJobs: true
     timeout: 60
     recreatePods: true
     force: false
+    reuseValues: false
     # set `false` to uninstall this release on sync.  (default true)
     installed: true
     # restores previous state in case of failed release (default false)
@@ -339,11 +363,15 @@ releases:
     cascade: "background"
     # insecureSkipTLSVerify is true if the TLS verification should be skipped when fetching remote chart
     insecureSkipTLSVerify: false
+    # plainHttp is true if fetching the remote chart should be done using HTTP
+    plainHttp: false
     # suppressDiff skip the helm diff output. Useful for charts which produces large not helpful diff, default: false
     suppressDiff: false
-    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0 
+    # suppressOutputLineRegex is a list of regex patterns to suppress output lines from helm diff (default []), available in helmfile v0.162.0
     suppressOutputLineRegex:
       - "version"
+    # syncReleaseLabels is a list of labels to be added to the release when syncing.
+    syncReleaseLabels: false
 
 
   # Local chart example
@@ -381,9 +409,16 @@ helmfiles:
   # The nested-state file is locally checked-out along with the remote directory containing it.
   # Therefore all the local paths in the file are resolved relative to the file
   path: git::https://github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=0.40.0
+- # By default git repositories aren't updated unless the ref is updated.
+  # Alternatively, refer to a named ref and disable the caching.
+  path: git::ssh://git@github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=main&cache=false
 # If set to "Error", return an error when a subhelmfile points to a
 # non-existent path. The default behavior is to print a warning and continue.
 missingFileHandler: Error
+missingFileHandlerConfig:
+  # Ignores missing git branch error so that the Debug/Info/Warn handler can treat a missing branch as non-error.
+  # See https://github.com/helmfile/helmfile/issues/392
+  ignoreMissingGitBranch: true
 
 #
 # Advanced Configuration: Environments
@@ -403,6 +438,9 @@ environments:
     # `{{ .Values.foo.bar }}` is evaluated to `1`.
     values:
     - environments/default/values.yaml
+    # Everything from the values.hcl in the `values` block is available via `{{ .Values.KEY }}`.
+    # More details in its dedicated section
+    - environments/default/values.hcl
     # Each entry in values can be either a file path or inline values.
     # The below is an example of inline values, which is merged to the `.Values`
     - myChartVer: 1.0.0-dev
@@ -531,21 +569,22 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_DISABLE_INSECURE_FEATURES` - disable insecure features, expecting `true` lower case
 * `HELMFILE_DISABLE_RUNNER_UNIQUE_ID` - disable unique logging ID, expecting any non-empty value
 * `HELMFILE_SKIP_INSECURE_TEMPLATE_FUNCTIONS` - disable insecure template functions, expecting `true` lower case
+* `HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE` - expecting non-empty value to use `helm status` to check release existence, instead of `helm list` which is the default behaviour
 * `HELMFILE_EXPERIMENTAL` - enable experimental features, expecting `true` lower case
 * `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](https://helmfile.readthedocs.io/en/latest/#environment), it has lower priority than CLI argument `--environment`
 * `HELMFILE_TEMPDIR` - specify directory to store temporary files
 * `HELMFILE_UPGRADE_NOTICE_DISABLED` - expecting any non-empty value to skip the check for the latest version of Helmfile in [helmfile version](https://helmfile.readthedocs.io/en/latest/#version)
-* `HELMFILE_V1MODE` - Helmfile v0.x behaves like v1.x with `true`, Helmfile v1.x behaves like v0.x with `false` as value
-* `HELMFILE_GOCCY_GOYAML` - use *goccy/go-yaml* instead of *gopkg.in/yaml.v2*.  It's `false` by default in Helmfile v0.x and `true` by default for Helmfile v1.x.
+* `HELMFILE_GO_YAML_V3` - use *go.yaml.in/yaml/v3* instead of *go.yaml.in/yaml/v2*.  It's `false` by default in Helmfile v0.x, and `true` in Helmfile v1.x.
 * `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
-* `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file  
+* `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
+* `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
 
 ## CLI Reference
 
 ```
 Declaratively deploy your Kubernetes manifests, Kustomize configs, and Charts as Helm releases in one shot
 V1 mode = false
-YAML library = gopkg.in/yaml.v2
+YAML library = go.yaml.in/yaml/v3
 
 Usage:
   helmfile [command]
@@ -566,6 +605,7 @@ Available Commands:
   lint         Lint charts from state file (helm lint)
   list         List releases defined in state file
   repos        Add chart repositories defined in state file
+  show-dag     It prints a table with 3 columns, GROUP, RELEASE, and DEPENDENCIES. GROUP is the unsigned, monotonically increasing integer starting from 1. All the releases with the same GROUP are deployed concurrently. Everything in GROUP 2 starts being deployed only after everything in GROUP 1 got successfully deployed. RELEASE is the release that belongs to the GROUP. DEPENDENCIES is the list of releases that the RELEASE depends on. It should always be empty for releases in GROUP 1. DEPENDENCIES for a release in GROUP 2 should have some or all dependencies appeared in GROUP 1. It can be "some" because Helmfile simplifies the DAGs of releases into a DAG of groups, so that Helmfile always produce a single DAG for everything written in helmfile.yaml, even when there are technically two or more independent DAGs of releases in it.
   status       Retrieve status of releases in state file
   sync         Sync releases defined in state file
   template     Template releases defined in state file
@@ -661,7 +701,7 @@ The `helmfile destroy` sub-command uninstalls and purges all the releases define
 `helmfile --interactive destroy` instructs Helmfile to request your confirmation before actually deleting releases.
 
 `destroy` basically runs `helm uninstall --purge` on all the targeted releases. If you don't want purging, use `helmfile delete` instead.
-If `--skip-charts` flag is not set, destory would prepare all releases, by fetching charts and templating them.
+If `--skip-charts` flag is not set, destroy would prepare all releases, by fetching charts and templating them.
 
 ### delete (DEPRECATED)
 
@@ -670,7 +710,7 @@ The `helmfile delete` sub-command deletes all the releases defined in the manife
 `helmfile --interactive delete` instructs Helmfile to request your confirmation before actually deleting releases.
 
 Note that `delete` doesn't purge releases. So `helmfile delete && helmfile sync` results in sync failed due to that releases names are not deleted but preserved for future references. If you really want to remove releases for reuse, add `--purge` flag to run it like `helmfile delete --purge`.
-If `--skip-charts` flag is not set, destory would prepare all releases, by fetching charts and templating them.
+If `--skip-charts` flag is not set, destroy would prepare all releases, by fetching charts and templating them.
 
 ### secrets
 
@@ -707,6 +747,16 @@ The `helmfile version` sub-command prints the version of Helmfile.Optional `-o` 
 
 default it will check for the latest version of Helmfile and print a tip if the current version is not the latest. To disable this behavior, set environment variable `HELMFILE_UPGRADE_NOTICE_DISABLED` to any non-empty value.
 
+### show-dag
+
+It prints a table with 3 columns, GROUP, RELEASE, and DEPENDENCIES.
+
+GROUP is the unsigned, monotonically increasing integer starting from 1. All the releases with the same GROUP are deployed concurrently. Everything in GROUP 2 starts being deployed only after everything in GROUP 1 got successfully deployed.
+
+RELEASE is the release that belongs to the GROUP.
+
+DEPENDENCIES is the list of releases that the RELEASE depends on. It should always be empty for releases in GROUP 1. DEPENDENCIES for a release in GROUP 2 should have some or all dependencies appeared in GROUP 1. It can be "some" because Helmfile simplifies the DAGs of releases into a DAG of groups, so that Helmfile always produce a single DAG for everything written in helmfile.yaml, even when there are technically two or more independent DAGs of releases in it.
+
 ## Paths Overview
 
 Using manifest files in conjunction with command line argument can be a bit confusing.
@@ -724,7 +774,7 @@ For additional context, take a look at [paths examples](paths.md).
 
 A selector can be used to only target a subset of releases when running Helmfile. This is useful for large helmfiles with releases that are logically grouped together.
 
-Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=fronted` would only match releases with the `tier: frontend` label.
+Labels are simple key value pairs that are an optional field of the release spec. When selecting by label, the search can be inverted. `tier!=backend` would match all releases that do NOT have the `tier: backend` label. `tier=frontend` would only match releases with the `tier: frontend` label.
 
 Multiple labels can be specified using `,` as a separator. A release must match all selectors in order to be selected for the final helm command.
 
@@ -872,6 +922,7 @@ proxy:
 When you want to customize the contents of `helmfile.yaml` or `values.yaml` files per environment, use this feature.
 
 You can define as many environments as you want under `environments` in `helmfile.yaml`.
+`environments` section should be separated from `releases` with `---`.
 
 The environment name defaults to `default`, that is, `helmfile sync` implies the `default` environment.
 The selected environment name can be referenced from `helmfile.yaml` and `values.yaml.gotmpl` by `{{ .Environment.Name }}`.
@@ -895,9 +946,13 @@ releases:
   # snip
 ```
 
-## Environment Values
+### Environment Values
+Helmfile supports 3 values languages :
+- Straight yaml
+- Go templates to generate straight yaml
+- HCL
 
-Environment Values allows you to inject a set of values specific to the selected environment, into values.yaml templates.
+Environment Values allows you to inject a set of values specific to the selected environment, into `values.yaml` templates.
 Use it to inject common values from the environment to multiple values files, to make your configuration DRY.
 
 Suppose you have three files `helmfile.yaml`, `production.yaml` and `values.yaml.gotmpl`:
@@ -966,7 +1021,45 @@ releases:
   ...
 ```
 
-### Note on Environment.Values vs Values
+#### HCL specifications
+
+Since Helmfile v0.164.0, HCL language is supported for environment values only.
+HCL values supports interpolations and sharing values across files
+
+* Only `.hcl` suffixed files will be interpreted as is
+* Helmfile supports 2 differents blocks: `values` and `locals`
+* `values` block is a shared block where all values are accessible everywhere in all loaded files
+* `locals` block can't reference external values apart from the ones in the block itself, and where its defined values are only accessible in its local file
+* Only values in `values` blocks are made available to the final root `.Values` (e.g : ` values { myvar = "var" }` is accessed through `{{ .Values.myvar }}`)
+* There can only be 1 `locals` block per file
+* Helmfile hcl `values` are referenced using the `hv` accessor.
+* Helmfile hcl `locals` are referenced using the `local` accessor.
+* Duplicated variables across .hcl `values` blocks are forbidden (An error will pop up specifying where are the duplicates)
+* All cty [standard library functions](`https://pkg.go.dev/github.com/zclconf/go-cty@v1.14.3/cty/function/stdlib`) are available and custom functions could be created in the future
+
+Consider the following example :
+
+```terraform
+# values1.hcl
+locals {
+  hostname = "host1"
+}
+values {
+  domain = "DEV.EXAMPLE.COM"
+  hostnameV1 = "${local.hostname}.${lower(hv.domain)}" # "host1.dev.example.com"
+}
+```
+```terraform
+# values2.hcl
+locals {
+  hostname = "host2"
+}
+
+values {
+  hostnameV2 = "${local.hostname}.${hv.domain}" # "host2.DEV.EXAMPLE.COM"
+}
+```
+#### Note on Environment.Values vs Values
 
 The `{{ .Values.foo }}` syntax is the recommended way of using environment values.
 
@@ -975,46 +1068,7 @@ This is still working but is **deprecated** and the new `{{ .Values.foo }}` synt
 
 You can read more infos about the feature proposal [here](https://github.com/roboll/helmfile/issues/640).
 
-### Loading remote Environment values files
-
-Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
-
-```yaml
-environments:
-  cluster-azure-us-west:
-    values:
-      - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
-      - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
-      - git::https://gitlab.com/org/repository-name.git@/config/config.test.yaml?ref=main # Public Gilab Repo
-  cluster-gcp-europe-west:
-    values:
-      - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
-      - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
-      - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
-  staging:
-     values:
-      - git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
-      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
----
-
-releases:
-  - ...
-```
-
-Since Helmfile v0.158.0, support more protocols, such as: s3, https, http
-```
-values:
-  - s3::https://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
-  - s3://helm-s3-values-example/subdir/values.yaml
-  - https://john:doe@helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
-  - http://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
-```
-
-For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).
-
-This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
-
-## Environment Secrets
+### Environment Secrets
 
 Environment Secrets *(not to be confused with Kubernetes Secrets)* are encrypted versions of `Environment Values`.
 You can list any number of `secrets.yaml` files created using `helm secrets` or `sops`, so that
@@ -1055,7 +1109,7 @@ Then the environment secret `foo.bar` can be referenced by the below template ex
 {{ .Values.foo.bar }}
 ```
 
-### Loading remote Environment secrets files
+#### Loading remote Environment secrets files
 
 Since Helmfile v0.149.0, you can use `go-getter`-style URLs to refer to remote secrets files, the same way as in values files:
 ```yaml
@@ -1070,6 +1124,91 @@ environments:
       - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/production.secret.yaml
 ```
 
+### Loading remote Environment values files
+
+Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
+
+```yaml
+environments:
+  cluster-azure-us-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/azure.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/us-west.yaml?ref=master
+      - git::https://gitlab.com/org/repository-name.git@/config/config.test.yaml?ref=main # Public Gilab Repo
+  cluster-gcp-europe-west:
+    values:
+      - git::https://git.company.org/helmfiles/global/gcp.yaml?ref=master
+      - git::https://git.company.org/helmfiles/global/europe-west.yaml?ref=master
+      - git::https://ci:{{ env "CI_JOB_TOKEN" }}@gitlab.com/org/repository-name.git@/config.dev.yaml?ref={{ env "APP_COMMIT_SHA" }}  # Private Gitlab Repo
+  staging:
+     values:
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/[$GITHUB_ORGorGITHUB_USER]/repository-name.git@/values.dev.yaml?ref=main #Github Private repo
+      - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@values.yaml #Artifactory url
+---
+
+releases:
+  - ...
+```
+
+Since Helmfile v0.158.0, support more protocols, such as: s3, https, http
+```
+values:
+  - s3::https://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+  - s3://helm-s3-values-example/subdir/values.yaml
+  - https://john:doe@helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+  - http://helm-s3-values-example.s3.us-east-2.amazonaws.com/values.yaml
+```
+
+For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).
+
+This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
+
+### Environment values precedence
+With the introduction of HCL, a new value precedence was introduced over environment values.
+Here is the order of precedence from least to greatest (the last one overrides all others)
+1. `yaml` / `yaml.gotmpl`
+2. `hcl`
+3. `yaml` secrets
+
+Example:
+
+---
+
+```yaml
+# values1.yaml
+domain: "dev.example.com"
+```
+
+```terraform
+# values2.hcl
+values {
+  domain = "overdev.example.com"
+  willBeOverriden = "override_me"
+}
+```
+
+```yaml
+# secrets.yml (assuming this one has been encrypted)
+willBeOverriden: overrided
+```
+
+```
+# helmfile.yaml.gotmpl
+environments:
+  default:
+    values:
+    - value1.yaml
+    - value2.hcl
+    secrets:
+    - secrets.yml
+---
+releases:
+- name: random-release
+  [...]
+  values:
+    domain: "{{ .Values.domain }}" # == "overdev.example.com"
+    willBeOverriden: "{{ .Values.willBeOverriden }}" # == "overrided"
+```
 ## DAG-aware installation/deletion ordering with `needs`
 
 `needs` controls the order of the installation/deletion of the release:
@@ -1234,7 +1373,7 @@ helmfiles:
   - name=prometheus
   - tier=frontend
 - path: apps/b-helmfile.yaml # no selector, so all releases are used
-selectors: []
+  selectors: []
 - path: apps/c-helmfile.yaml # parent selector to be used or cli selector for the initial helmfile
   selectorsInherited: true
 ```
@@ -1544,6 +1683,9 @@ Please see #203 for more context.
 Use it when you're running `helmfile` manually on your local machine or a kind of secure administrative hosts.
 
 For your local use-case, aliasing it like `alias hi='helmfile --interactive'` would be convenient.
+
+Another way to use it is to set the environment variable `HELMFILE_INTERACTIVE=true` to enable the interactive mode by default.
+Anything other than `true` will disable the interactive mode. The precedence has the `--interactive` flag.
 
 ## Running Helmfile without an Internet connection
 

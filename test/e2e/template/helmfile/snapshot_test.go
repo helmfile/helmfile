@@ -58,17 +58,17 @@ func (f fakeInit) Force() bool {
 }
 
 func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
-	t.Run("with goccy/go-yaml", func(t *testing.T) {
+	t.Run("with go.yaml.in/yaml/v3", func(t *testing.T) {
 		testHelmfileTemplateWithBuildCommand(t, true)
 	})
 
-	t.Run("with gopkg.in/yaml.v2", func(t *testing.T) {
+	t.Run("with go.yaml.in/yaml/v2", func(t *testing.T) {
 		testHelmfileTemplateWithBuildCommand(t, false)
 	})
 }
 
-func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
-	t.Setenv(envvar.GoccyGoYaml, strconv.FormatBool(goccyGoYaml))
+func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
+	t.Setenv(envvar.GoYamlV3, strconv.FormatBool(GoYamlV3))
 
 	localChartPortSets := make(map[int]struct{})
 
@@ -223,8 +223,13 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, goccyGoYaml bool) {
 			helmConfigHome := filepath.Join(tmpDir, "helm_config")
 			t.Logf("Using HELM_CACHE_HOME=%s, HELMFILE_CACHE_HOME=%s, HELM_CONFIG_HOME=%s", helmCacheHome, helmfileCacheHome, helmConfigHome)
 
-			inputFile := filepath.Join(testdataDir, name, "input.yaml")
-			outputFile := filepath.Join(testdataDir, name, "output.yaml")
+			inputFile := filepath.Join(testdataDir, name, "input.yaml.gotmpl")
+			outputFile := ""
+			if GoYamlV3 {
+				outputFile = filepath.Join(testdataDir, name, "gopkg.in-yaml.v3-output.yaml")
+			} else {
+				outputFile = filepath.Join(testdataDir, name, "gopkg.in-yaml.v2-output.yaml")
+			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()

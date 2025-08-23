@@ -5,10 +5,10 @@
 if ! hash minikube 2>/dev/null; then
     fail "Minikube needs to be installed."
 fi
-if [ ! $(minikube status --format '{{.MinikubeStatus}}') == "Running" ]; then
+if [ ! "$(minikube status --format '{{.Host}}')" == "Running" ]; then
     fail "Minikube is not running."
 fi
-if [ ! $(minikube status --format '{{.ClusterStatus}}') == "Running" ]; then
+if [ ! "$(minikube status --format '{{.APIServer}}')" == "Running" ]; then
     fail "Minikube Cluster is not running."
 fi
 if ! kubectl version 1> /dev/null; then

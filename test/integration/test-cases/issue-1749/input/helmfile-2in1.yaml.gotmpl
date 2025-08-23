@@ -1,0 +1,23 @@
+releases:
+  - name: test1
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{`{{ .Release.Name }}`}}
+            data:
+              foo: {{`{{ (first (lookup "v1" "Namespace" "" "").items).metadata.name }}`}}
+  - name: test2
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{`{{ .Release.Name }}`}}
+            data:
+              foo: {{`{{ (first (lookup "v1" "Namespace" "" "").items).metadata.name }}`}}

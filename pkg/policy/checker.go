@@ -6,19 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
-
-	"github.com/helmfile/helmfile/pkg/runtime"
+	"unicode"
 )
 
 var (
-	EnvironmentsAndReleasesWithinSameYamlPartErr = errors.New("environments and releases cannot be defined within the same YAML part. Use --- to extract the environments into a dedicated part")
+	ErrEnvironmentsAndReleasesWithinSameYamlPart = errors.New("environments and releases cannot be defined within the same YAML part. Use --- to extract the environments into a dedicated part")
 	topConfigKeysRegex                           = regexp.MustCompile(`^[a-zA-Z]+:`)
 	separatorRegex                               = regexp.MustCompile(`^--- *$`)
 	topkeysPriority                              = map[string]int{
 		"bases":        0,
-		"environments": 1,
-		"releases":     2,
+		"environments": 0,
+		"releases":     1,
 	}
 )
 
@@ -34,7 +34,7 @@ func forbidEnvironmentsWithReleases(filePath string, content []byte) (bool, erro
 	result := []string{}
 	resultKeys := map[string]interface{}{}
 	for _, k := range topKeys {
-		if k == "environments" || k == "releases" || k == "---" {
+		if slices.Contains([]string{"environments", "releases", "---"}, k) {
 			if _, ok := resultKeys[k]; !ok {
 				result = append(result, k)
 				if k != "---" {
@@ -49,7 +49,7 @@ func forbidEnvironmentsWithReleases(filePath string, content []byte) (bool, erro
 	}
 	for i := 0; i < len(result)-1; i++ {
 		if result[i] != "---" && result[i+1] != "---" {
-			return runtime.V1Mode, EnvironmentsAndReleasesWithinSameYamlPartErr
+			return true, ErrEnvironmentsAndReleasesWithinSameYamlPart
 		}
 	}
 	return false, nil
@@ -82,12 +82,17 @@ func TopKeys(helmfileContent []byte, hasSeparator bool) []string {
 	clines := bytes.Split(helmfileContent, []byte("\n"))
 
 	for _, line := range clines {
-		if topConfigKeysRegex.Match(line) {
-			lineStr := strings.Split(string(line), ":")[0]
+		lineStr := strings.TrimRightFunc(string(line), unicode.IsSpace)
+		if lineStr == "" {
+			continue // Skip empty lines
+		}
+		if hasSeparator && separatorRegex.MatchString(lineStr) {
 			topKeys = append(topKeys, lineStr)
 		}
-		if hasSeparator && separatorRegex.Match(line) {
-			topKeys = append(topKeys, strings.TrimSpace(string(line)))
+
+		if topConfigKeysRegex.MatchString(lineStr) {
+			topKey := strings.SplitN(lineStr, ":", 2)[0]
+			topKeys = append(topKeys, topKey)
 		}
 	}
 	return topKeys
@@ -116,7 +121,7 @@ func TopConfigKeysVerifier(filePath string, helmfileContent []byte) (bool, error
 		preKey := orderKeys[i-1]
 		currentKey := orderKeys[i]
 		if topkeysPriority[preKey] > topkeysPriority[currentKey] {
-			return runtime.V1Mode, fmt.Errorf("top-level config key %s must be defined before %s in %s", currentKey, preKey, filePath)
+			return true, fmt.Errorf("top-level config key %s must be defined before %s in %s", currentKey, preKey, filePath)
 		}
 	}
 	return false, nil

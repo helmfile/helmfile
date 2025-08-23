@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
@@ -28,11 +28,12 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 		Chart:       st.OverrideChart,
 		Values:      vals,
 		Release: releaseTemplateDataRelease{
-			Name:        release.Name,
-			Chart:       release.Chart,
-			Namespace:   release.Namespace,
-			Labels:      release.Labels,
-			KubeContext: release.KubeContext,
+			Name:         release.Name,
+			Chart:        release.Chart,
+			Namespace:    release.Namespace,
+			Labels:       release.Labels,
+			KubeContext:  release.KubeContext,
+			ChartVersion: release.Version,
 		},
 	}
 	tmplData.StateValues = &tmplData.Values
@@ -199,6 +200,8 @@ func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePat
 				src.SetValuesTemplate = nil
 			case "set":
 				src.SetValues = nil
+			case "setString":
+				src.SetStringValues = nil
 			case "secrets":
 				src.Secrets = nil
 			default:

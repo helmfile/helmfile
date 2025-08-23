@@ -215,6 +215,10 @@ func TestMapUtil_MergeMaps(t *testing.T) {
 			"app1": 3,
 		},
 	}
+	map5 := map[string]interface{}{
+		"logLevel":     "error",
+		"replicaCount": nil,
+	}
 
 	testMap := MergeMaps(map2, map4)
 	equal := reflect.DeepEqual(testMap, map4)
@@ -246,5 +250,18 @@ func TestMapUtil_MergeMaps(t *testing.T) {
 	equal = reflect.DeepEqual(testMap, expectedMap)
 	if !equal {
 		t.Errorf("Expected a map with different keys to merge properly with another map. Expected: %v, got %v", expectedMap, testMap)
+	}
+
+	testMap = MergeMaps(map3, map5)
+	expectedMap = map[string]interface{}{
+		"logLevel": "error",
+		"replicaCount": map[string]any{
+			"app1":    3,
+			"awesome": 4,
+		},
+	}
+	equal = reflect.DeepEqual(testMap, expectedMap)
+	if !equal {
+		t.Errorf("Expected a map with empty value not to overwrite another map's value. Expected: %v, got %v", expectedMap, testMap)
 	}
 }

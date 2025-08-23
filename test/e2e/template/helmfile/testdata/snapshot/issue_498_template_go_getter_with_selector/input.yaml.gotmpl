@@ -1,0 +1,17 @@
+filepath: ""
+namespace: istio-system
+repositories:
+- name: istio
+  url: https://istio-release.storage.googleapis.com/charts
+releases:
+- chart: git::https://github.com/jenkins-x/acme.git@charts/acme?ref=main
+  name: acme-jx
+  labels:
+    values.jenkins-x.io: lock
+    version.jenkins-x.io: lock
+  skipDeps: true
+- chart: istio/base
+  version: 1.12.2
+  name: istio-base
+templates: {}
+renderedvalues: {}

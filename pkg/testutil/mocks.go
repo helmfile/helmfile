@@ -89,11 +89,11 @@ func (helm *noCallHelmExec) RegistryLogin(name, username, password, caFile, cert
 	helm.doPanic()
 	return nil
 }
-func (helm *noCallHelmExec) SyncRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+func (helm *noCallHelmExec) SyncRelease(context helmexec.HelmContext, name, chart, namespace string, flags ...string) error {
 	helm.doPanic()
 	return nil
 }
-func (helm *noCallHelmExec) DiffRelease(context helmexec.HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
+func (helm *noCallHelmExec) DiffRelease(context helmexec.HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {
 	helm.doPanic()
 	return nil
 }

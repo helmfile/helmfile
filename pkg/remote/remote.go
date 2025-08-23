@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	neturl "net/url"
 	"os"
@@ -190,6 +191,11 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 		return "", err
 	}
 
+	// Block remote access if insecure features are disabled and the source is remote
+	if disableInsecureFeatures && IsRemote(path) {
+		return "", fmt.Errorf("remote sources are disabled due to 'HELMFILE_DISABLE_INSECURE_FEATURES'")
+	}
+
 	srcDir := fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, u.Dir)
 	file := u.File
 
@@ -208,13 +214,16 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 		return "", fmt.Errorf("[bug] cacheDirOpt's length: want 0 or 1, got %d", len(cacheDirOpt))
 	}
 
-	query := u.RawQuery
+	query, _ := neturl.ParseQuery(u.RawQuery)
+
+	should_cache := query.Get("cache") != "false"
+	delete(query, "cache")
 
 	var cacheKey string
 	replacer := strings.NewReplacer(":", "", "//", "_", "/", "_", ".", "_")
 	dirKey := replacer.Replace(srcDir)
 	if len(query) > 0 {
-		q, _ := neturl.ParseQuery(query)
+		q := maps.Clone(query)
 		if q.Has("sshkey") {
 			q.Set("sshkey", "redacted")
 		}
@@ -257,7 +266,7 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 		}
 	}
 
-	if !cached {
+	if !cached || !should_cache {
 		var getterSrc string
 		if u.User != "" {
 			getterSrc = fmt.Sprintf("%s://%s@%s%s", u.Scheme, u.User, u.Host, u.Dir)
@@ -266,7 +275,7 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 		}
 
 		if len(query) > 0 {
-			getterSrc = strings.Join([]string{getterSrc, query}, "?")
+			getterSrc = strings.Join([]string{getterSrc, query.Encode()}, "?")
 		}
 
 		r.Logger.Debugf("remote> downloading %s to %s", getterSrc, getterDst)
@@ -532,9 +541,6 @@ func ParseS3Url(s3URL string) (string, string, error) {
 }
 
 func NewRemote(logger *zap.SugaredLogger, homeDir string, fs *filesystem.FileSystem) *Remote {
-	if disableInsecureFeatures {
-		panic("Remote sources are disabled due to 'DISABLE_INSECURE_FEATURES'")
-	}
 	remote := &Remote{
 		Logger:     logger,
 		Home:       homeDir,

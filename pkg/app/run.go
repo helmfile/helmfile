@@ -3,8 +3,11 @@ package app
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
+
+	"github.com/fatih/color"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/state"
@@ -39,6 +42,21 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
+func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
+	// Skip chart preparation for certain commands
+	skipCommands := []string{"write-values", "list"}
+	if slices.Contains(skipCommands, strings.ToLower(helmfileCommand)) {
+		return nil, nil
+	}
+
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("%v", errs)
+	}
+
+	return releaseToChart, nil
+}
+
 func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
 	if r.ReleaseToChart != nil {
 		panic("Run.PrepareCharts can be called only once")
@@ -71,12 +89,9 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		return err
 	}
 
-	concurrency := opts.Concurrency
-
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
-
-	if len(errs) > 0 {
-		return fmt.Errorf("%v", errs)
+	releaseToChart, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
+	if err != nil {
+		return err
 	}
 
 	for i := range r.state.Releases {
@@ -87,9 +102,11 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 			KubeContext: rel.KubeContext,
 		}
 		if chart := releaseToChart[key]; chart != rel.Chart {
-			// In this case we assume that the chart is downloaded and modified by Helmfile and chartify.
-			// So we take note of the local filesystem path to the modified version of the chart
-			// and use it later via the Release.ChartPathOrName() func.
+			// The chart has been downloaded and modified by Helmfile (and chartify under the hood).
+			// We let the later step use the modified version of the chart, located under the `chart` variable,
+			// instead of the original chart path.
+			// This way, the later step can use the modified chart without knowing
+			// if it has been modified or not.
 			rel.ChartPath = chart
 		}
 	}
@@ -98,8 +115,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 	f()
 
-	_, err := r.state.TriggerGlobalCleanupEvent(helmfileCommand)
-
+	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand)
 	return err
 }
 
@@ -119,17 +135,6 @@ func (r *Run) Repos(c ReposConfigProvider) error {
 	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	return r.ctx.SyncReposOnce(r.state, r.helm)
-}
-
-// TODO: Remove this function once Helmfile v0.x
-func (r *Run) DeprecatedSyncCharts(c DeprecatedChartsConfigProvider) []error {
-	st := r.state
-	helm := r.helm
-
-	affectedReleases := state.AffectedReleases{}
-	errs := st.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency())
-	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return errs
 }
 
 func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfigProvider, diffOpts *state.DiffOpts) (*string, map[string]state.ReleaseSpec, map[string]state.ReleaseSpec, []error) {
@@ -202,7 +207,11 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 		names = append(names, fmt.Sprintf("  %s (%s) UPDATED", r.Name, r.Chart))
 	}
 	for _, r := range releasesToBeDeleted {
-		names = append(names, fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart))
+		releaseToBeDeleted := fmt.Sprintf("  %s (%s) DELETED", r.Name, r.Chart)
+		if c.Color() {
+			releaseToBeDeleted = color.RedString(releaseToBeDeleted)
+		}
+		names = append(names, releaseToBeDeleted)
 	}
 	// Make the output deterministic for testing purpose
 	sort.Strings(names)

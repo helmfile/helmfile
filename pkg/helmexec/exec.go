@@ -69,7 +69,13 @@ func parseHelmVersion(versionStr string) (*semver.Version, error) {
 		return nil, fmt.Errorf("empty helm version")
 	}
 
-	v, err := chartify.FindSemVerInfo(versionStr)
+	// Check if version string starts with "v", if not add it
+	processedVersion := strings.TrimSpace(versionStr)
+	if !strings.HasPrefix(processedVersion, "v") {
+		processedVersion = "v" + processedVersion
+	}
+
+	v, err := chartify.FindSemVerInfo(processedVersion)
 
 	if err != nil {
 		return nil, fmt.Errorf("error find helm srmver version '%s': %w", versionStr, err)
@@ -160,10 +166,12 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 	var args []string
 	var out []byte
 	var err error
+
 	if name == "" && repository != "" {
 		helm.logger.Infof("empty field name\n")
 		return fmt.Errorf("empty field name")
 	}
+
 	switch managed {
 	case "acr":
 		helm.logger.Infof("Adding repo %v (acr)", name)
@@ -186,9 +194,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		if cafile != "" {
 			args = append(args, "--ca-file", cafile)
 		}
-		if username != "" && password != "" {
-			args = append(args, "--username", username, "--password", password)
-		}
+
 		if passCredentials {
 			args = append(args, "--pass-credentials")
 		}
@@ -196,12 +202,20 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 			args = append(args, "--insecure-skip-tls-verify")
 		}
 		helm.logger.Infof("Adding repo %v %v", name, repository)
-		out, err = helm.exec(args, map[string]string{}, nil)
+		if username != "" && password != "" {
+			args = append(args, "--username", username, "--password-stdin")
+			buffer := bytes.Buffer{}
+			buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+			out, err = helm.execStdIn(args, map[string]string{}, &buffer)
+		} else {
+			out, err = helm.exec(args, map[string]string{}, nil)
+		}
 	default:
 		helm.logger.Errorf("ERROR: unknown type '%v' for repository %v", managed, name)
 		out = nil
 		err = nil
 	}
+
 	helm.info(out)
 	return err
 }
@@ -271,15 +285,15 @@ func (helm *execer) UpdateDeps(chart string) error {
 	return err
 }
 
-func (helm *execer) SyncRelease(context HelmContext, name, chart string, flags ...string) error {
-	helm.logger.Infof("Upgrading release=%v, chart=%v", name, redactedURL(chart))
+func (helm *execer) SyncRelease(context HelmContext, name, chart, namespace string, flags ...string) error {
+	helm.logger.Infof("Upgrading release=%v, chart=%v, namespace=%v", name, redactedURL(chart), namespace)
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
 
 	flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
 
 	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
@@ -288,7 +302,7 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env, nil)
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
@@ -309,7 +323,7 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	lines := strings.Split(string(out), "\n")
 	lines = lines[1:]
 	out = []byte(strings.Join(lines, "\n"))
-	helm.write(nil, out)
+	helm.info(out)
 	return string(out), err
 }
 
@@ -352,6 +366,22 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		if err != nil {
 			secret.err = err
 			return "", err
+		}
+
+		// When the source encrypted file is not a yaml file AND helm secrets < 4
+		// secrets plugin returns a yaml file with all the content in a yaml `data` key
+		// which isn't parsable from an hcl perspective
+		if strings.HasSuffix(name, ".hcl") && pluginVersion.Major() < 4 {
+			type helmSecretDataV3 struct {
+				Data string `yaml:"data"`
+			}
+			var data helmSecretDataV3
+			err := yaml.Unmarshal(secretBytes, &data)
+			if err != nil {
+				return "", fmt.Errorf("Could not unmarshall helm secret plugin V3 decrypted file to a yaml string\n"+
+					"You may consider upgrading your helm secrets plugin to >4.0.\n %s", err.Error())
+			}
+			secretBytes = []byte(data.Data)
 		}
 
 		secret.bytes = secretBytes
@@ -434,11 +464,12 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	return err
 }
 
-func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppressDiff bool, flags ...string) error {
-	if context.Writer != nil {
-		fmt.Fprintf(context.Writer, "Comparing release=%v, chart=%v\n", name, redactedURL(chart))
+func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {
+	diffMsg := fmt.Sprintf("Comparing release=%v, chart=%v, namespace=%v\n", name, redactedURL(chart), namespace)
+	if context.Writer != nil && !suppressDiff {
+		_, _ = fmt.Fprint(context.Writer, diffMsg)
 	} else {
-		helm.logger.Infof("Comparing release=%v, chart=%v", name, redactedURL(chart))
+		helm.logger.Info(diffMsg)
 	}
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
@@ -475,6 +506,7 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart string, suppres
 func (helm *execer) Lint(name, chart string, flags ...string) error {
 	helm.logger.Infof("Linting release=%v, chart=%v", name, chart)
 	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{}, nil)
+	// Always write to stdout to write the linting result to eg. a file
 	helm.write(nil, out)
 	return err
 }
@@ -493,8 +525,8 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 	if helmVersionConstraint.Check(helm.version) {
 		// in the 3.7.0 version, the chart pull has been replaced with helm pull
 		// https://github.com/helm/helm/releases/tag/v3.7.0
-		ociChartURL, ociChartTag := resolveOciChart(chart)
-		helmArgs = []string{"pull", ociChartURL, "--version", ociChartTag, "--destination", path, "--untar"}
+		ociChartURL, _ := resolveOciChart(chart)
+		helmArgs = []string{"pull", ociChartURL, "--destination", path, "--untar"}
 		helmArgs = append(helmArgs, flags...)
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
@@ -525,7 +557,7 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
 	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env, nil)
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
@@ -535,7 +567,7 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	env := make(map[string]string)
 	args := []string{"test", name}
 	out, err := helm.exec(append(append(preArgs, args...), flags...), env, nil)
-	helm.write(nil, out)
+	helm.info(out)
 	return err
 }
 
@@ -611,7 +643,7 @@ func (helm *execer) write(w io.Writer, out []byte) {
 		if w == nil {
 			w = os.Stdout
 		}
-		fmt.Fprintf(w, "%s\n", out)
+		_, _ = fmt.Fprintf(w, "%s\n", out)
 	}
 }
 
