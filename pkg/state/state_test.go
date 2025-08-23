@@ -166,12 +166,13 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		version  *semver.Version
-		defaults HelmSpec
-		release  *ReleaseSpec
-		want     []string
-		wantErr  string
+		name      string
+		version   *semver.Version
+		defaults  HelmSpec
+		release   *ReleaseSpec
+		syncOpts  *SyncOpts
+		want      []string
+		wantErr   string
 	}{
 		{
 			name: "no-options",
@@ -452,6 +453,27 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			want: []string{
 				"--version", "0.1",
 				"--timeout", "123s",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "timeout-from-cli-flag",
+			defaults: HelmSpec{
+				Timeout: 123,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Timeout:   some(456),
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			syncOpts: &SyncOpts{
+				Timeout: 789,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--timeout", "789s",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -737,7 +759,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				Version: tt.version,
 			}
 
-			args, _, err := state.flagsForUpgrade(helm, tt.release, 0, nil)
+			args, _, err := state.flagsForUpgrade(helm, tt.release, 0, tt.syncOpts)
 			if err != nil && tt.wantErr == "" {
 				t.Errorf("unexpected error flagsForUpgrade: %v", err)
 			}
