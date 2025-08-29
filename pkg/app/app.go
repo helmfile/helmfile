@@ -593,19 +593,52 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var err error
 
 		if !c.SkipCharts() {
-			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
-				SkipRepos:   true,
-				SkipDeps:    true,
-				Concurrency: 2,
-			}, func() {
-				rel, err := a.list(run)
-				if err != nil {
-					panic(err)
-				}
-				stateReleases = rel
-			})
+			// Try to resolve dependencies from the lock file to show locked versions.
+			// If resolution fails, fall back to the original behavior.
+			resolvedState, resolveErr := run.state.ResolveDeps()
+			if resolveErr == nil {
+				// Create a new run with the resolved state to get the correct versions
+				resolvedRun := *run
+				resolvedRun.state = resolvedState
+				
+				err = resolvedRun.withPreparedCharts("list", state.ChartPrepareOptions{
+					SkipRepos:   true,
+					SkipDeps:    true,
+					Concurrency: 2,
+				}, func() {
+					rel, err := a.list(&resolvedRun)
+					if err != nil {
+						panic(err)
+					}
+					stateReleases = rel
+				})
+			} else {
+				// Fall back to original behavior if dependency resolution fails
+				err = run.withPreparedCharts("list", state.ChartPrepareOptions{
+					SkipRepos:   true,
+					SkipDeps:    true,
+					Concurrency: 2,
+				}, func() {
+					rel, err := a.list(run)
+					if err != nil {
+						panic(err)
+					}
+					stateReleases = rel
+				})
+			}
 		} else {
-			stateReleases, err = a.list(run)
+			// Try to resolve dependencies from the lock file to show locked versions.
+			// If resolution fails, fall back to the original behavior.
+			resolvedState, resolveErr := run.state.ResolveDeps()
+			if resolveErr == nil {
+				// Create a new run with the resolved state to get the correct versions
+				resolvedRun := *run
+				resolvedRun.state = resolvedState
+				stateReleases, err = a.list(&resolvedRun)
+			} else {
+				// Fall back to original behavior if dependency resolution fails
+				stateReleases, err = a.list(run)
+			}
 		}
 
 		if err != nil {

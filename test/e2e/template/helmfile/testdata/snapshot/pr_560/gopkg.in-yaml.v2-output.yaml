@@ -1,0 +1,12 @@
+Building dependency release=foo, chart=../../charts/raw-0.1.0
+Templating release=foo, chart=../../charts/raw-0.1.0
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-1
+  namespace: default
+data:
+  foo: FOO
+
