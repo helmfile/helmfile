@@ -2,6 +2,7 @@ package state
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
@@ -13,12 +14,12 @@ import (
 
 func TestIsReleaseInstalled_HandlesConnectionError(t *testing.T) {
 	logger := zap.NewNop().Sugar()
-	
+
 	state := &HelmState{
 		logger: logger,
 	}
 
-	// Create a custom helm mock that fails on List operations 
+	// Create a custom helm mock that fails on List operations
 	helm := &CustomFailingHelm{
 		Helm: &exectest.Helm{
 			DiffMutex:     &sync.Mutex{},
@@ -48,7 +49,7 @@ func TestIsReleaseInstalled_HandlesConnectionError(t *testing.T) {
 
 	// Check if the error contains the expected message
 	expectedMsg := "Kubernetes cluster unreachable"
-	if err.Error() != expectedMsg && !contains(err.Error(), "Kubernetes cluster unreachable") {
+	if err.Error() != expectedMsg && !strings.Contains(err.Error(), "Kubernetes cluster unreachable") {
 		t.Fatalf("expected error to contain 'Kubernetes cluster unreachable', but got: %v", err.Error())
 	}
 }
@@ -60,8 +61,4 @@ type CustomFailingHelm struct {
 
 func (h *CustomFailingHelm) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
 	return "", errors.New("Kubernetes cluster unreachable: Get \"http://localhost:8080/version\": dial tcp [::1]:8080: connect: connection refused")
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[:len(substr)] == substr || (len(s) > len(substr) && contains(s[1:], substr))
 }
