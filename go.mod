@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/helmfile/chartify v0.24.7
 	github.com/helmfile/vals v0.42.1
-	github.com/spf13/cobra v1.9.1
+	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.9
 	github.com/stretchr/testify v1.11.1
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
