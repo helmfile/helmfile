@@ -1887,7 +1887,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	mu := &sync.RWMutex{}
 	installedReleases := map[string]bool{}
 
-	isInstalled := func(r *ReleaseSpec) bool {
+	isInstalled := func(r *ReleaseSpec) (bool, error) {
 		id := ReleaseToID(r)
 
 		mu.RLock()
@@ -1895,19 +1895,19 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		mu.RUnlock()
 
 		if ok {
-			return v
+			return v, nil
 		}
 
 		v, err := st.isReleaseInstalled(st.createHelmContext(r, 0), helm, *r)
 		if err != nil {
-			st.logger.Warnf("confirming if the release is already installed or not: %v", err)
-		} else {
-			mu.Lock()
-			installedReleases[id] = v
-			mu.Unlock()
+			return false, err
 		}
 
-		return v
+		mu.Lock()
+		installedReleases[id] = v
+		mu.Unlock()
+
+		return v, nil
 	}
 
 	releases := []*ReleaseSpec{}
@@ -1952,12 +1952,25 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					suppressDiff = true
 				}
 
-				if opt.SkipDiffOnInstall && !isInstalled(release) {
-					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, suppressDiff: suppressDiff}
-					continue
+				if opt.SkipDiffOnInstall {
+					installed, err := isInstalled(release)
+					if err != nil {
+						errs = append(errs, err)
+					} else if !installed {
+						results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, suppressDiff: suppressDiff}
+						continue
+					}
 				}
 
-				disableValidation := release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall && !isInstalled(release)
+				var disableValidation bool
+				if release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall {
+					installed, err := isInstalled(release)
+					if err != nil {
+						errs = append(errs, err)
+					} else {
+						disableValidation = !installed
+					}
+				}
 
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
