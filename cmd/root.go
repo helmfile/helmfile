@@ -76,7 +76,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	// Set the global options for the root command.
 	setGlobalOptionsForRootCmd(flags, globalConfig)
 
-	flags.ParseErrorsWhitelist.UnknownFlags = true
+	flags.ParseErrorsAllowlist.UnknownFlags = true
 
 	globalImpl := config.NewGlobalImpl(globalConfig)
 
