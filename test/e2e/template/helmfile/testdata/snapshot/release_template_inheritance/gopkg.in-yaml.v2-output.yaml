@@ -1,0 +1,33 @@
+Adding repo myrepo http://localhost:18084/
+"myrepo" has been added to your repositories
+
+Building dependency release=foo1, chart=../../charts/raw-0.1.0
+Building dependency release=foo2, chart=../../charts/raw-0.1.0
+Templating release=foo1, chart=../../charts/raw-0.1.0
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo1-1
+  namespace: default
+data:
+   
+  base: base
+  template1: template1
+  template1Label: template1
+
+Templating release=foo2, chart=../../charts/raw-0.1.0
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo2-1
+  namespace: default
+data:
+   
+  inheritedBaseLabel: base
+  template2: template2
+  template2Label: template2
+
