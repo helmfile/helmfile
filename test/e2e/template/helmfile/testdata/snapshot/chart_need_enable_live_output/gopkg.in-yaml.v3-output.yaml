@@ -1,0 +1,32 @@
+Live output is enabled
+Adding repo myrepo http://localhost:18081/
+"myrepo" has been added to your repositories
+
+Building dependency release=foo, chart=$WD/temp1/foo
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "myrepo" chart repository
+Update Complete. ⎈Happy Helming!⎈
+Saving 1 charts
+Downloading raw from repo http://localhost:18081/
+Deleting outdated charts
+
+Templating release=foo, chart=$WD/temp1/foo
+---
+# Source: raw/charts/dep/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-2
+  namespace: default
+data:
+  bar: BAR
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo-1
+  namespace: default
+data:
+  foo: FOO
+

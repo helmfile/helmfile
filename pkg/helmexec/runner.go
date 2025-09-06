@@ -118,7 +118,7 @@ func Output(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, l
 			exitStatus := waitStatus.ExitStatus()
 			err = newExitError(c.Path, c.Args, exitStatus, ee, stderr.String(), combined.String(), stripArgsValuesOnExitError)
 		default:
-			panic(fmt.Sprintf("unexpected error: %v", err))
+			err = fmt.Errorf("unexpected error: %v", err)
 		}
 	}
 
