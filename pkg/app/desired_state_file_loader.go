@@ -34,7 +34,7 @@ type desiredStateLoader struct {
 	chart     string
 	fs        *filesystem.FileSystem
 
-	getHelm func(*state.HelmState) helmexec.Interface
+	getHelm func(*state.HelmState) (helmexec.Interface, error)
 
 	remote      *remote.Remote
 	logger      *zap.SugaredLogger

@@ -2492,9 +2492,12 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 	return []byte{}, nil
 }
 
-func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
-	execer := helmexec.New("helm", helmexec.HelmExecOptions{}, logger, "", kubeContext, &mockRunner{})
-	return execer
+func MockExecer(logger *zap.SugaredLogger, kubeContext string) (helmexec.Interface, error) {
+	execer, err := helmexec.New("helm", helmexec.HelmExecOptions{}, logger, "", kubeContext, &mockRunner{})
+	if err != nil {
+		return nil, err
+	}
+	return execer, nil
 }
 
 // mocking helmexec.Interface
@@ -4012,10 +4015,10 @@ releases:
 	assert.NoError(t, err)
 
 	expected := `NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                                                                           	CHART   	VERSION
-myrelease1	testNamespace	true   	false    	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace	mychart1	       
-myrelease2	testNamespace	false  	true     	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              	mychart1	       
-myrelease3	testNamespace	true   	true     	chart:mychart1,name:myrelease3,namespace:testNamespace                           	mychart1	       
-myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             	mychart1	       
+myrelease1	testNamespace	true   	false    	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace	mychart1
+myrelease2	testNamespace	false  	true     	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              	mychart1
+myrelease3	testNamespace	true   	true     	chart:mychart1,name:myrelease3,namespace:testNamespace                           	mychart1
+myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             	mychart1
 `
 
 	assert.Equal(t, expected, out)
