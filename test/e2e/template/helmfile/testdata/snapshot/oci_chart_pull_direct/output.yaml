@@ -1,0 +1,27 @@
+Pulling localhost:5001/myrepo/raw:0.1.0
+Templating release=foo, chart=$HELMFILE_CACHE_HOME/oci__localhost_5001/myrepo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo
+  namespace: default
+  annotations:
+    chart-version: 0.1.0
+data:
+  values: foo
+
+Templating release=bar, chart=$HELMFILE_CACHE_HOME/oci__localhost_5001/myrepo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bar
+  namespace: ns2
+  annotations:
+    chart-version: 0.1.0
+data:
+  values: bar
+

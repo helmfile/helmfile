@@ -1,0 +1,43 @@
+repositories:
+- name: myrepo
+  url: localhost:5001/myrepo
+  oci: true
+
+releases:
+- name: foo
+  chart: myrepo/raw
+  version: 0.1.0
+  values: &oci_chart_pull_once_values
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: {{`{{ .Release.Name }}`}}
+        namespace: {{`{{ .Release.Namespace }}`}}
+        annotations:
+          chart-version: {{`{{ .Chart.Version }}`}}
+      data:
+        values: {{`{{ .Release.Name }}`}}
+
+- name: bar
+  chart: myrepo/raw
+  version: 0.1.0
+  values: *oci_chart_pull_once_values
+
+- name: release-no-default-ns
+  chart: myrepo/raw
+  version: 0.1.0
+  namespace: no-default
+  values: *oci_chart_pull_once_values
+
+- name: second-version-of-chart
+  chart: myrepo/raw
+  version: 0.0.1
+  namespace: foobar
+  values: *oci_chart_pull_once_values
+
+- name: first-release-version-of-chart
+  chart: myrepo/raw
+  version: 0.1.0
+  values: *oci_chart_pull_once_values

@@ -1,0 +1,22 @@
+releases:
+- name: foo
+  chart: oci://localhost:5001/myrepo/raw
+  version: 0.1.0
+  values: &oci_chart_pull_direct
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: {{`{{ .Release.Name }}`}}
+        namespace: {{`{{ .Release.Namespace }}`}}
+        annotations:
+          chart-version: {{`{{ .Chart.Version }}`}}
+      data:
+        values: {{`{{ .Release.Name }}`}}
+
+- name: bar
+  chart: oci://localhost:5001/myrepo/raw
+  version: 0.1.0
+  namespace: ns2
+  values: *oci_chart_pull_direct

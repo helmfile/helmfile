@@ -1191,6 +1191,19 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 	return nil, chartName
 }
 
+var mutexMap sync.Map
+
+// retrieves or creates a sync.Mutex for a given name
+func (st *HelmState) getNamedMutex(name string) *sync.Mutex {
+	mu, ok := mutexMap.Load(name)
+	if ok {
+		return mu.(*sync.Mutex)
+	}
+	newMu := &sync.Mutex{}
+	actualMu, _ := mutexMap.LoadOrStore(name, newMu)
+	return actualMu.(*sync.Mutex)
+}
+
 type PrepareChartKey struct {
 	Namespace, Name, KubeContext string
 }
@@ -1269,7 +1282,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				chartFetchedByGoGetter := chartPath != chartName
 
 				if !chartFetchedByGoGetter {
-					ociChartPath, err := st.getOCIChart(release, dir, helm, opts.OutputDirTemplate)
+					ociChartPath, err := st.getOCIChart(release, dir, helm, opts)
 					if err != nil {
 						results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
 
@@ -4027,7 +4040,10 @@ func (st *HelmState) Reverse() {
 	}
 }
 
-func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, outputDirTemplate string) (*string, error) {
+var downloadedOCICharts = make(map[string]bool)
+var downloadedOCIMutex sync.RWMutex
+
+func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, opts ChartPrepareOptions) (*string, error) {
 	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release, helm)
 	if err != nil {
 		return nil, err
@@ -4037,7 +4053,34 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return nil, nil
 	}
 
-	chartPath, _ := st.getOCIChartPath(tempDir, release, chartName, chartVersion, outputDirTemplate)
+	if opts.OutputDirTemplate == "" {
+		tempDir = remote.CacheDir()
+	}
+
+	chartPath, _ := st.getOCIChartPath(tempDir, release, chartName, chartVersion, opts.OutputDirTemplate)
+
+	mu := st.getNamedMutex(chartPath)
+	mu.Lock()
+	defer mu.Unlock()
+
+	_, err = os.Stat(tempDir)
+	if err != nil {
+		err = os.MkdirAll(tempDir, 0755)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	downloadedOCIMutex.RLock()
+	alreadyDownloadedFlag := downloadedOCICharts[chartPath]
+	downloadedOCIMutex.RUnlock()
+
+	if !opts.SkipDeps && !opts.SkipRefresh && !alreadyDownloadedFlag {
+		err = os.RemoveAll(chartPath)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if st.fs.DirectoryExistsAt(chartPath) {
 		st.logger.Debugf("chart already exists at %s", chartPath)
@@ -4063,6 +4106,10 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	if err != nil {
 		return nil, err
 	}
+
+	downloadedOCIMutex.Lock()
+	downloadedOCICharts[chartPath] = true
+	downloadedOCIMutex.Unlock()
 
 	chartPath = filepath.Dir(fullChartPath)
 
@@ -4130,15 +4177,15 @@ func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chart
 
 	pathElems := []string{tempDir}
 
-	if release.Namespace != "" {
-		pathElems = append(pathElems, release.Namespace)
-	}
+	replacer := strings.NewReplacer(
+		":", "_",
+		"//", "_",
+		".", "_",
+		"&", "_",
+	)
+	qName := strings.Split(replacer.Replace(release.Chart), "/")
 
-	if release.KubeContext != "" {
-		pathElems = append(pathElems, release.KubeContext)
-	}
-
-	pathElems = append(pathElems, release.Name, chartName, safeVersionPath(chartVersion))
-
+	pathElems = append(pathElems, qName...)
+	pathElems = append(pathElems, safeVersionPath(chartVersion))
 	return filepath.Join(pathElems...), nil
 }
