@@ -122,11 +122,10 @@ func redactedURL(chart string) string {
 }
 
 // New for running helm commands
-func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, kubeconfig string, kubeContext string, runner Runner) *execer {
-	// TODO: proper error handling
+func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, kubeconfig string, kubeContext string, runner Runner) (*execer, error) {
 	version, err := GetHelmVersion(helmBinary, runner)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	if version.Prerelease() != "" {
@@ -143,7 +142,7 @@ func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, 
 		kubeContext:      kubeContext,
 		runner:           runner,
 		decryptedSecrets: make(map[string]*decryptedSecret),
-	}
+	}, nil
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {
