@@ -2492,9 +2492,12 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 	return []byte{}, nil
 }
 
-func MockExecer(logger *zap.SugaredLogger, kubeContext string) helmexec.Interface {
-	execer := helmexec.New("helm", helmexec.HelmExecOptions{}, logger, "", kubeContext, &mockRunner{})
-	return execer
+func MockExecer(logger *zap.SugaredLogger, kubeContext string) (helmexec.Interface, error) {
+	execer, err := helmexec.New("helm", helmexec.HelmExecOptions{}, logger, "", kubeContext, &mockRunner{})
+	if err != nil {
+		return nil, err
+	}
+	return execer, nil
 }
 
 // mocking helmexec.Interface
