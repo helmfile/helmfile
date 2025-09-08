@@ -27,7 +27,7 @@ require (
 	go.uber.org/zap v1.27.0
 	go.yaml.in/yaml/v2 v2.4.2
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.17.0
 	golang.org/x/term v0.35.0
 	helm.sh/helm/v3 v3.18.6
 	k8s.io/apimachinery v0.34.0
