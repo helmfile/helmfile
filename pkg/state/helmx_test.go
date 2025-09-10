@@ -129,7 +129,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			helmSpec: HelmSpec{Wait: false},
 			expected: []string{},
 		},
-		// --wait-retries
+		// --wait-retries flag has been removed from Helm
 		{
 			name:     "release wait and retry unsupported",
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0], WaitRetries: &[]int{1}[0]},
@@ -139,12 +139,12 @@ func TestAppendWaitFlags(t *testing.T) {
 			expected: []string{"--wait"},
 		},
 		{
-			name:     "release wait and retry supported",
+			name:     "release wait and retry - retries ignored",
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0], WaitRetries: &[]int{1}[0]},
 			syncOpts: nil,
 			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			helmSpec: HelmSpec{},
-			expected: []string{"--wait", "--wait-retries", "1"},
+			expected: []string{"--wait"},
 		},
 		{
 			name:     "no wait retry",
@@ -155,36 +155,36 @@ func TestAppendWaitFlags(t *testing.T) {
 			expected: []string{},
 		},
 		{
-			name:     "cli flags wait and retry",
+			name:     "cli flags wait and retry - retries ignored",
 			release:  &ReleaseSpec{},
 			syncOpts: &SyncOpts{Wait: true, WaitRetries: 2},
 			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			helmSpec: HelmSpec{},
-			expected: []string{"--wait", "--wait-retries", "2"},
+			expected: []string{"--wait"},
 		},
 		{
-			name:     "helm defaults wait retry",
+			name:     "helm defaults wait retry - retries ignored",
 			release:  &ReleaseSpec{},
 			syncOpts: nil,
 			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			helmSpec: HelmSpec{Wait: true, WaitRetries: 3},
-			expected: []string{"--wait", "--wait-retries", "3"},
+			expected: []string{"--wait"},
 		},
 		{
-			name:     "release wait default retries",
+			name:     "release wait default retries - retries ignored",
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
 			syncOpts: nil,
 			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			helmSpec: HelmSpec{WaitRetries: 4},
-			expected: []string{"--wait", "--wait-retries", "4"},
+			expected: []string{"--wait"},
 		},
 		{
-			name:     "release retries default wait",
+			name:     "release retries default wait - retries ignored",
 			release:  &ReleaseSpec{WaitRetries: &[]int{5}[0]},
 			syncOpts: nil,
 			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			helmSpec: HelmSpec{Wait: true},
-			expected: []string{"--wait", "--wait-retries", "5"},
+			expected: []string{"--wait"},
 		},
 	}
 
