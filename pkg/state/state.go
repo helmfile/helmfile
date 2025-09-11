@@ -2799,7 +2799,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	flags = st.appendChartVersionFlags(flags, release)
 	flags = st.appendEnableDNSFlags(flags, release)
 
-	flags = st.appendWaitFlags(flags, helm, release, opt)
+	flags = st.appendWaitFlags(flags, release, opt)
 	flags = st.appendWaitForJobsFlags(flags, release, opt)
 
 	// non-OCI chart should be verified here
