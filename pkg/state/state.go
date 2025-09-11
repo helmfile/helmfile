@@ -3167,11 +3167,14 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 	return st.appendHelmXFlags(flags, release), files, nil
 }
 
-func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplateData {
+func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) (releaseTemplateData, error) {
 	vals := st.Values()
-	templateData := st.createReleaseTemplateData(release, vals)
+	templateData, err := st.createReleaseTemplateData(release, vals)
+	if err != nil {
+		return releaseTemplateData{}, err
+	}
 
-	return templateData
+	return templateData, nil
 }
 
 func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
@@ -3181,7 +3184,10 @@ func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
 }
 
 func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
-	templateData := st.newReleaseTemplateData(release)
+	templateData, err := st.newReleaseTemplateData(release)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create template data for release %q: %v", release.Name, err)
+	}
 
 	r := tmpl.NewFileRenderer(st.fs, filepath.Dir(path), templateData)
 	rawBytes, err := r.RenderToBytes(path)

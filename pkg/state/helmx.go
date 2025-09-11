@@ -396,7 +396,11 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			return nil, clean, fmt.Errorf("rendering set value entry for release %s: %v", release.Name, err)
 		}
 		c.Opts.SetFlags = setFlags
-		c.Opts.TemplateData = st.newReleaseTemplateData(release)
+		templateData, err := st.newReleaseTemplateData(release)
+		if err != nil {
+			return nil, clean, fmt.Errorf("creating template data for release %s: %v", release.Name, err)
+		}
+		c.Opts.TemplateData = templateData
 		c.Opts.TemplateFuncs = st.newReleaseTemplateFuncMap(dir)
 
 		return c, clean, nil

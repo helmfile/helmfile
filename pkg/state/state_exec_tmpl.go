@@ -20,13 +20,39 @@ func (st *HelmState) Values() map[string]any {
 	return st.RenderedValues
 }
 
-func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]any) releaseTemplateData {
+// deepCopyValues creates a deep copy of a values map using YAML marshal/unmarshal.
+// This ensures that template operations don't mutate the original values.
+func deepCopyValues(vals map[string]any) (map[string]any, error) {
+	if vals == nil {
+		return nil, nil
+	}
+	
+	serialized, err := yaml.Marshal(vals)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deep copy values: %v", err)
+	}
+
+	var deserialized map[string]any
+	if err := yaml.Unmarshal(serialized, &deserialized); err != nil {
+		return nil, fmt.Errorf("failed to deep copy values: %v", err)
+	}
+
+	return deserialized, nil
+}
+
+func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[string]any) (releaseTemplateData, error) {
+	// Create a deep copy of values to prevent template mutations from affecting global state
+	valuesCopy, err := deepCopyValues(vals)
+	if err != nil {
+		return releaseTemplateData{}, fmt.Errorf("failed to copy values for release %q: %v", release.Name, err)
+	}
+	
 	tmplData := releaseTemplateData{
 		Environment: st.Env,
 		KubeContext: st.OverrideKubeContext,
 		Namespace:   st.OverrideNamespace,
 		Chart:       st.OverrideChart,
-		Values:      vals,
+		Values:      valuesCopy,
 		Release: releaseTemplateDataRelease{
 			Name:         release.Name,
 			Chart:        release.Chart,
@@ -37,7 +63,7 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 		},
 	}
 	tmplData.StateValues = &tmplData.Values
-	return tmplData
+	return tmplData, nil
 }
 
 func getBoolRefFromStringTemplate(templateRef string) (*bool, error) {
@@ -112,7 +138,10 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 
 		successFlag := false
 		for it, prev := 0, release; it < 6; it++ {
-			tmplData := st.createReleaseTemplateData(prev, vals)
+			tmplData, err := st.createReleaseTemplateData(prev, vals)
+			if err != nil {
+				return nil, fmt.Errorf("failed creating template data for release \"%s\".\"%s\": %v", st.FilePath, release.Name, err)
+			}
 			renderer := tmpl.NewFileRenderer(st.fs, st.basePath, tmplData)
 			r, err := release.ExecuteTemplateExpressions(renderer)
 			if err != nil {
