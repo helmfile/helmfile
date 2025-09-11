@@ -108,7 +108,10 @@ jobs:
           KUSTOMIZE_VERSION: ${{ matrix.kustomize-version }}
         run: make -C .github/workflows helm vault sops kustomize
       - name: Start minikube
-        uses: medyagh/setup-minikube@latest
+        uses: medyagh/setup-minikube@v0.0.20
+        with:
+          kubernetes-version: v1.33.1 
+          minikube-version: v1.36.0
       - name: Execute integration tests
         run: make integration
         env:
