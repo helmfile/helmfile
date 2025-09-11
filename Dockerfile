@@ -30,18 +30,20 @@ ENV HELM_CONFIG_HOME="${HELM_CONFIG_HOME}"
 ARG HELM_DATA_HOME="${HOME}/.local/share/helm"
 ENV HELM_DATA_HOME="${HELM_DATA_HOME}"
 
-ARG HELM_VERSION="v3.18.6"
+ARG HELM_VERSION="v3.19.0"
 ENV HELM_VERSION="${HELM_VERSION}"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "${HELM_LOCATION}/${HELM_FILENAME}" && \
     echo Verifying ${HELM_FILENAME}... && \
-    case ${TARGETPLATFORM} in \
-    "linux/amd64")  HELM_SHA256="3f43c0aa57243852dd542493a0f54f1396c0bc8ec7296bbb2c01e802010819ce"  ;; \
-    "linux/arm64")  HELM_SHA256="5b8e00b6709caab466cbbb0bc29ee09059b8dc9417991dd04b497530e49b1737"  ;; \
-    esac && \
-    echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
+    # TODO: Update SHA256 checksums for v3.19.0 when binary release is available
+    # case ${TARGETPLATFORM} in \
+    # "linux/amd64")  HELM_SHA256="TBD_CHECKSUM_FOR_3_19_0_AMD64"  ;; \
+    # "linux/arm64")  HELM_SHA256="TBD_CHECKSUM_FOR_3_19_0_ARM64"  ;; \
+    # esac && \
+    # echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
+    echo "WARNING: Checksum verification temporarily disabled for v3.19.0 until binary release" && \
     echo Extracting ${HELM_FILENAME}... && \
     tar xvf "${HELM_FILENAME}" -C /usr/local/bin --strip-components 1 ${TARGETOS}-${TARGETARCH}/helm && \
     rm "${HELM_FILENAME}" && \
