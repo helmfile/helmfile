@@ -194,8 +194,9 @@ helmDefaults:
   skipSchemaValidation: false
   # wait for k8s resources via --wait. (default false)
   wait: true
-  # if set and --wait enabled, will retry any failed check on resource state subject to the specified number of retries (default 0)
-  waitRetries: 3
+  # DEPRECATED: waitRetries is no longer supported as the --wait-retries flag was removed from Helm.
+  # This configuration is ignored and preserved only for backward compatibility.
+  # waitRetries: 3
   # if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout (default false, Implemented in Helm3.5)
   waitForJobs: true
   # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
@@ -318,7 +319,8 @@ releases:
     #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
     skipSchemaValidation: false
     wait: true
-    waitRetries: 3
+    # DEPRECATED: waitRetries is no longer supported - see documentation above
+    # waitRetries: 3
     waitForJobs: true
     timeout: 60
     recreatePods: true

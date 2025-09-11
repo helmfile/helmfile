@@ -163,6 +163,7 @@ type HelmSpec struct {
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait bool `yaml:"wait"`
 	// WaitRetries, if set and --wait enabled, will retry any failed check on resource state, except if HTTP status code < 500 is received, subject to the specified number of retries
+	// DEPRECATED: This field is ignored as the --wait-retries flag was removed from Helm. Preserved for backward compatibility.
 	WaitRetries int `yaml:"waitRetries"`
 	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
 	WaitForJobs bool `yaml:"waitForJobs"`
@@ -264,6 +265,7 @@ type ReleaseSpec struct {
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait *bool `yaml:"wait,omitempty"`
 	// WaitRetries, if set and --wait enabled, will retry any failed check on resource state, except if HTTP status code < 500 is received, subject to the specified number of retries
+	// DEPRECATED: This field is ignored as the --wait-retries flag was removed from Helm. Preserved for backward compatibility.
 	WaitRetries *int `yaml:"waitRetries,omitempty"`
 	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
 	WaitForJobs *bool `yaml:"waitForJobs,omitempty"`
@@ -2797,7 +2799,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	flags = st.appendChartVersionFlags(flags, release)
 	flags = st.appendEnableDNSFlags(flags, release)
 
-	flags = st.appendWaitFlags(flags, helm, release, opt)
+	flags = st.appendWaitFlags(flags, release, opt)
 	flags = st.appendWaitForJobsFlags(flags, release, opt)
 
 	// non-OCI chart should be verified here
