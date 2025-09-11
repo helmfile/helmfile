@@ -109,6 +109,8 @@ jobs:
         run: make -C .github/workflows helm vault sops kustomize
       - name: Start minikube
         uses: medyagh/setup-minikube@latest
+        with:
+          kubernetes-version: v1.33.1 
       - name: Execute integration tests
         run: make integration
         env:
