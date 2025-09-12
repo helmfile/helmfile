@@ -3,8 +3,9 @@ package state
 import (
 	"testing"
 
-	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/stretchr/testify/require"
+
+	"github.com/helmfile/helmfile/pkg/filesystem"
 )
 
 // TestValuesMutationFix reproduces and tests the fix for the issue described in
@@ -36,7 +37,7 @@ func TestValuesMutationFix(t *testing.T) {
 	}
 
 	release := &ReleaseSpec{
-		Name: "test-release",
+		Name:  "test-release",
 		Chart: "test/chart",
 	}
 
@@ -56,7 +57,7 @@ func TestValuesMutationFix(t *testing.T) {
 	// This should not affect the second template data after our fix
 	fooSection, ok := tmplData1.Values["foo"].(map[string]any)
 	require.True(t, ok, "foo section should be a map")
-	
+
 	// Manually perform what mergeOverwrite would do - add values from foo section to the root
 	for k, v := range fooSection {
 		tmplData1.Values[k] = v

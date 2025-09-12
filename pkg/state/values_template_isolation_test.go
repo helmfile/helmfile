@@ -3,9 +3,10 @@ package state
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/tmpl"
-	"github.com/stretchr/testify/require"
 )
 
 // TestValuesTemplateIsolation tests the fix for the helmfile values templating bug
@@ -59,7 +60,7 @@ func TestValuesTemplateIsolation(t *testing.T) {
 	vals1 := st.Values()
 	tmplData1, err := st.createReleaseTemplateData(fooRelease, vals1)
 	require.NoError(t, err)
-	
+
 	renderer1 := tmpl.NewFileRenderer(st.fs, st.basePath, tmplData1)
 	processedFooFirst, err := fooRelease.ExecuteTemplateExpressions(renderer1)
 	require.NoError(t, err)
@@ -67,7 +68,7 @@ func TestValuesTemplateIsolation(t *testing.T) {
 	vals2 := st.Values()
 	tmplData2, err := st.createReleaseTemplateData(barRelease, vals2)
 	require.NoError(t, err)
-	
+
 	renderer2 := tmpl.NewFileRenderer(st.fs, st.basePath, tmplData2)
 	processedBarSecond, err := barRelease.ExecuteTemplateExpressions(renderer2)
 	require.NoError(t, err)
@@ -76,7 +77,7 @@ func TestValuesTemplateIsolation(t *testing.T) {
 	vals3 := st.Values()
 	tmplData3, err := st.createReleaseTemplateData(barRelease, vals3)
 	require.NoError(t, err)
-	
+
 	renderer3 := tmpl.NewFileRenderer(st.fs, st.basePath, tmplData3)
 	processedBarFirst, err := barRelease.ExecuteTemplateExpressions(renderer3)
 	require.NoError(t, err)
@@ -84,19 +85,19 @@ func TestValuesTemplateIsolation(t *testing.T) {
 	vals4 := st.Values()
 	tmplData4, err := st.createReleaseTemplateData(fooRelease, vals4)
 	require.NoError(t, err)
-	
+
 	renderer4 := tmpl.NewFileRenderer(st.fs, st.basePath, tmplData4)
 	processedFooSecond, err := fooRelease.ExecuteTemplateExpressions(renderer4)
 	require.NoError(t, err)
 
 	// Verify that the order doesn't matter - results should be consistent
-	require.Equal(t, processedFooFirst.Values, processedFooSecond.Values, 
+	require.Equal(t, processedFooFirst.Values, processedFooSecond.Values,
 		"foo release should produce same values regardless of processing order")
 	require.Equal(t, processedBarSecond.Values, processedBarFirst.Values,
 		"bar release should produce same values regardless of processing order")
 
 	// Also verify that the original values are not modified
 	originalVals := st.Values()
-	require.Equal(t, envValues, originalVals, 
+	require.Equal(t, envValues, originalVals,
 		"original values should remain unchanged")
 }

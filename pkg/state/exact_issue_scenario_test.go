@@ -3,9 +3,10 @@ package state
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/yaml"
-	"github.com/stretchr/testify/require"
 )
 
 // TestExactIssueScenario tests the exact helmfile.yaml scenario described in issue #2182
@@ -19,7 +20,7 @@ func TestExactIssueScenario(t *testing.T) {
 	// ---
 	// releases:
 	//   - name: foo
-	//     chart: charts/foo  
+	//     chart: charts/foo
 	//     valuesTemplate:
 	//       - {{ .Values  | get "foo" (dict) | mergeOverwrite .Values | toYaml | nindent 8 }}
 	//   - name: bar
@@ -39,7 +40,7 @@ func TestExactIssueScenario(t *testing.T) {
 	// Simulate the values.yaml content from the issue
 	valuesYamlContent := map[string]any{
 		"commonSetting": "shared-value",
-		"environment":   "production", 
+		"environment":   "production",
 		"foo": map[string]any{
 			"image": "foo:1.2.3",
 			"port":  8080,
@@ -60,14 +61,14 @@ func TestExactIssueScenario(t *testing.T) {
 	// Test both orders: foo then bar, and bar then foo
 	orders := [][]string{
 		{"foo", "bar"}, // Original order
-		{"bar", "foo"}, // Reversed order 
+		{"bar", "foo"}, // Reversed order
 	}
 
 	var results [][][]byte
 
 	for _, order := range orders {
 		var releases []ReleaseSpec
-		
+
 		// Build releases in the specified order
 		for _, name := range order {
 			release := ReleaseSpec{
@@ -79,7 +80,7 @@ func TestExactIssueScenario(t *testing.T) {
 			}
 			releases = append(releases, release)
 		}
-		
+
 		st.Releases = releases
 		processedState, err := st.ExecuteTemplates()
 		require.NoError(t, err, "ExecuteTemplates should succeed for order %v", order)
@@ -98,17 +99,17 @@ func TestExactIssueScenario(t *testing.T) {
 
 	// Critical assertion: Both processing orders should yield identical results
 	require.Len(t, results, 2, "should have results for both orders")
-	require.Len(t, results[0], 2, "should have 2 releases in first order")  
+	require.Len(t, results[0], 2, "should have 2 releases in first order")
 	require.Len(t, results[1], 2, "should have 2 releases in second order")
 
 	// Since the order is different, we need to match by content, not position
-	// For order ["foo", "bar"]: results[0][0] is foo, results[0][1] is bar  
+	// For order ["foo", "bar"]: results[0][0] is foo, results[0][1] is bar
 	// For order ["bar", "foo"]: results[1][0] is bar, results[1][1] is foo
-	
-	fooFromFirstOrder := results[0][0]  // foo processed first
-	barFromFirstOrder := results[0][1]  // bar processed second
-	
-	barFromSecondOrder := results[1][0] // bar processed first  
+
+	fooFromFirstOrder := results[0][0] // foo processed first
+	barFromFirstOrder := results[0][1] // bar processed second
+
+	barFromSecondOrder := results[1][0] // bar processed first
 	fooFromSecondOrder := results[1][1] // foo processed second
 
 	require.Equal(t, fooFromFirstOrder, fooFromSecondOrder,

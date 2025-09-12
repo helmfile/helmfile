@@ -15,7 +15,7 @@ func BenchmarkDeepCopyValues(b *testing.B) {
 			"tag":      "v1.0.0",
 		},
 		"app1": map[string]any{
-			"enabled":     true,
+			"enabled":      true,
 			"replicaCount": 3,
 			"resources": map[string]any{
 				"requests": map[string]any{
@@ -23,13 +23,13 @@ func BenchmarkDeepCopyValues(b *testing.B) {
 					"memory": "128Mi",
 				},
 				"limits": map[string]any{
-					"cpu":    "500m", 
+					"cpu":    "500m",
 					"memory": "512Mi",
 				},
 			},
 		},
 		"app2": map[string]any{
-			"enabled":     true,
+			"enabled":      true,
 			"replicaCount": 2,
 			"config": map[string]any{
 				"database": map[string]any{
@@ -67,7 +67,7 @@ func BenchmarkCreateReleaseTemplateData(b *testing.B) {
 			"tag":      "v1.0.0",
 		},
 		"app1": map[string]any{
-			"enabled":     true,
+			"enabled":      true,
 			"replicaCount": 3,
 		},
 	}

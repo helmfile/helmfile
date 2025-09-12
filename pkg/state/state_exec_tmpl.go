@@ -26,7 +26,7 @@ func deepCopyValues(vals map[string]any) (map[string]any, error) {
 	if vals == nil {
 		return nil, nil
 	}
-	
+
 	serialized, err := yaml.Marshal(vals)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deep copy values: %v", err)
@@ -46,7 +46,7 @@ func (st *HelmState) createReleaseTemplateData(release *ReleaseSpec, vals map[st
 	if err != nil {
 		return releaseTemplateData{}, fmt.Errorf("failed to copy values for release %q: %v", release.Name, err)
 	}
-	
+
 	tmplData := releaseTemplateData{
 		Environment: st.Env,
 		KubeContext: st.OverrideKubeContext,
