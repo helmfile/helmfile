@@ -13,7 +13,7 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-getter v1.8.0
 	github.com/hashicorp/hcl/v2 v2.24.0
-	github.com/helmfile/chartify v0.24.7
+	github.com/helmfile/chartify v0.25.0
 	github.com/helmfile/vals v0.42.1
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
