@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
@@ -570,18 +569,18 @@ func TestRemote_Fetch(t *testing.T) {
 
 func TestRemote_HttpUrlWithQueryParams(t *testing.T) {
 	// Test what cache paths are actually generated for HTTP URLs with query parameters
-	
+
 	cleanfs := map[string]string{
 		CacheDir(): "",
 	}
-	
+
 	url1 := "https://gitlab.example.com/api/v4/projects/test/repository/files/values.yaml/raw?ref=commit1"
 	url2 := "https://gitlab.example.com/api/v4/projects/test/repository/files/values.yaml/raw?ref=commit2"
-	
+
 	for i, url := range []string{url1, url2} {
 		t.Run(fmt.Sprintf("url%d", i+1), func(t *testing.T) {
 			testfs := testhelper.NewTestFs(cleanfs)
-			
+
 			var capturedDst string
 			mockHttpGetter := &testGetter{
 				get: func(wd, src, dst string) error {
@@ -591,19 +590,19 @@ func TestRemote_HttpUrlWithQueryParams(t *testing.T) {
 					return nil
 				},
 			}
-			
+
 			remote := &Remote{
 				Logger:     helmexec.NewLogger(io.Discard, "debug"),
 				Home:       CacheDir(),
 				HttpGetter: mockHttpGetter,
 				fs:         testfs.ToFileSystem(),
 			}
-			
+
 			file, err := remote.Fetch(url)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			
+
 			t.Logf("Fetched file path: %s", file)
 			t.Logf("Cache destination: %s", capturedDst)
 		})
@@ -613,19 +612,19 @@ func TestRemote_HttpUrlWithQueryParams(t *testing.T) {
 func TestRemote_HttpUrlQueryParamsAvoidCacheCollision(t *testing.T) {
 	// Test that URLs with different query parameters use different cache locations
 	// and don't have cache collisions (this was the original bug)
-	
+
 	url1 := "https://gitlab.example.com/api/v4/projects/test/repository/files/values.yaml/raw?ref=commit1"
 	url2 := "https://gitlab.example.com/api/v4/projects/test/repository/files/values.yaml/raw?ref=commit2"
-	
+
 	// First, populate cache for url1
 	cachefs := map[string]string{
 		CacheDir(): "",
 		filepath.Join(CacheDir(), "https_gitlab_example_com.ref=commit1/api/v4/projects/test/repository/files/values.yaml/raw"): "content from commit1",
 	}
-	
+
 	t.Run("url2 with different query params should not hit cache for url1", func(t *testing.T) {
 		testfs := testhelper.NewTestFs(cachefs)
-		
+
 		httpGetCalled := false
 		mockHttpGetter := &testGetter{
 			get: func(wd, src, dst string) error {
@@ -634,29 +633,29 @@ func TestRemote_HttpUrlQueryParamsAvoidCacheCollision(t *testing.T) {
 				return nil
 			},
 		}
-		
+
 		remote := &Remote{
 			Logger:     helmexec.NewLogger(io.Discard, "debug"),
 			Home:       CacheDir(),
 			HttpGetter: mockHttpGetter,
 			fs:         testfs.ToFileSystem(),
 		}
-		
+
 		_, err := remote.Fetch(url2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		
+
 		// With the fix, HttpGetter.Get should be called because url2 has different
 		// query parameters than url1, so they should use different cache locations
 		if !httpGetCalled {
 			t.Error("HttpGetter.Get should have been called for URL with different query params")
 		}
 	})
-	
+
 	t.Run("same url should hit cache", func(t *testing.T) {
 		testfs := testhelper.NewTestFs(cachefs)
-		
+
 		httpGetCalled := false
 		mockHttpGetter := &testGetter{
 			get: func(wd, src, dst string) error {
@@ -664,19 +663,19 @@ func TestRemote_HttpUrlQueryParamsAvoidCacheCollision(t *testing.T) {
 				return nil
 			},
 		}
-		
+
 		remote := &Remote{
 			Logger:     helmexec.NewLogger(io.Discard, "debug"),
 			Home:       CacheDir(),
 			HttpGetter: mockHttpGetter,
 			fs:         testfs.ToFileSystem(),
 		}
-		
+
 		_, err := remote.Fetch(url1)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		
+
 		// url1 should hit the cache since we populated it with the same URL
 		if httpGetCalled {
 			t.Error("HttpGetter.Get should NOT have been called for cached URL")
