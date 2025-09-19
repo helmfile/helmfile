@@ -1,0 +1,9 @@
+# Templating two versions of the same chart with only one pulling of each version
+localDockerRegistry:
+  enabled: true
+  port: 5001
+chartifyTempDir: temp3
+helmfileArgs:
+# Prevent releases from racing and randomizing the log
+- --concurrency=1
+- template

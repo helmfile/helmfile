@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	HelmRequiredVersion           = "v3.17.4"
-	HelmDiffRecommendedVersion    = "v3.12.3"
-	HelmRecommendedVersion        = "v3.18.4"
+	HelmRequiredVersion           = "v3.18.6"
+	HelmDiffRecommendedVersion    = "v3.13.0"
+	HelmRecommendedVersion        = "v3.19.0"
 	HelmSecretsRecommendedVersion = "v4.6.5"
 	HelmGitRecommendedVersion     = "v1.3.0"
 	HelmS3RecommendedVersion      = "v0.16.3"
@@ -163,7 +163,10 @@ func (h *HelmfileInit) WhetherContinue(ask string) error {
 
 func (h *HelmfileInit) CheckHelmPlugins() error {
 	settings := cli.New()
-	helm := helmexec.New(h.helmBinary, helmexec.HelmExecOptions{}, h.logger, "", "", h.runner)
+	helm, err := helmexec.New(h.helmBinary, helmexec.HelmExecOptions{}, h.logger, "", "", h.runner)
+	if err != nil {
+		return err
+	}
 	for _, p := range helmPlugins {
 		pluginVersion, err := helmexec.GetPluginVersion(p.name, settings.PluginsDirectory)
 		if err != nil {

@@ -1,0 +1,7 @@
+# Templating few releases with the same chart\version and only one pulling
+localDockerRegistry:
+  enabled: true
+  port: 5001
+chartifyTempDir: temp3
+helmfileArgs:
+- template

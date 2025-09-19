@@ -166,6 +166,7 @@ type HelmSpec struct {
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait bool `yaml:"wait"`
 	// WaitRetries, if set and --wait enabled, will retry any failed check on resource state, except if HTTP status code < 500 is received, subject to the specified number of retries
+	// DEPRECATED: This field is ignored as the --wait-retries flag was removed from Helm. Preserved for backward compatibility.
 	WaitRetries int `yaml:"waitRetries"`
 	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
 	WaitForJobs bool `yaml:"waitForJobs"`
@@ -267,6 +268,7 @@ type ReleaseSpec struct {
 	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
 	Wait *bool `yaml:"wait,omitempty"`
 	// WaitRetries, if set and --wait enabled, will retry any failed check on resource state, except if HTTP status code < 500 is received, subject to the specified number of retries
+	// DEPRECATED: This field is ignored as the --wait-retries flag was removed from Helm. Preserved for backward compatibility.
 	WaitRetries *int `yaml:"waitRetries,omitempty"`
 	// WaitForJobs, if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout
 	WaitForJobs *bool `yaml:"waitForJobs,omitempty"`
@@ -813,6 +815,7 @@ type SyncOpts struct {
 	Wait                 bool
 	WaitRetries          int
 	WaitForJobs          bool
+	Timeout              int
 	SyncReleaseLabels    bool
 	ReuseValues          bool
 	ResetValues          bool
@@ -1269,6 +1272,19 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 	return nil, chartName
 }
 
+var mutexMap sync.Map
+
+// retrieves or creates a sync.Mutex for a given name
+func (st *HelmState) getNamedMutex(name string) *sync.Mutex {
+	mu, ok := mutexMap.Load(name)
+	if ok {
+		return mu.(*sync.Mutex)
+	}
+	newMu := &sync.Mutex{}
+	actualMu, _ := mutexMap.LoadOrStore(name, newMu)
+	return actualMu.(*sync.Mutex)
+}
+
 type PrepareChartKey struct {
 	Namespace, Name, KubeContext string
 }
@@ -1347,7 +1363,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				chartFetchedByGoGetter := chartPath != chartName
 
 				if !chartFetchedByGoGetter {
-					ociChartPath, err := st.getOCIChart(release, dir, helm, opts.OutputDirTemplate)
+					ociChartPath, err := st.getOCIChart(release, dir, helm, opts)
 					if err != nil {
 						results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
 
@@ -1967,7 +1983,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	mu := &sync.RWMutex{}
 	installedReleases := map[string]bool{}
 
-	isInstalled := func(r *ReleaseSpec) bool {
+	isInstalled := func(r *ReleaseSpec) (bool, error) {
 		id := ReleaseToID(r)
 
 		mu.RLock()
@@ -1975,19 +1991,19 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		mu.RUnlock()
 
 		if ok {
-			return v
+			return v, nil
 		}
 
 		v, err := st.isReleaseInstalled(st.createHelmContext(r, 0), helm, *r)
 		if err != nil {
-			st.logger.Warnf("confirming if the release is already installed or not: %v", err)
-		} else {
-			mu.Lock()
-			installedReleases[id] = v
-			mu.Unlock()
+			return false, err
 		}
 
-		return v
+		mu.Lock()
+		installedReleases[id] = v
+		mu.Unlock()
+
+		return v, nil
 	}
 
 	releases := []*ReleaseSpec{}
@@ -2032,12 +2048,25 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					suppressDiff = true
 				}
 
-				if opt.SkipDiffOnInstall && !isInstalled(release) {
-					results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, suppressDiff: suppressDiff}
-					continue
+				if opt.SkipDiffOnInstall {
+					installed, err := isInstalled(release)
+					if err != nil {
+						errs = append(errs, err)
+					} else if !installed {
+						results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, suppressDiff: suppressDiff}
+						continue
+					}
 				}
 
-				disableValidation := release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall && !isInstalled(release)
+				var disableValidation bool
+				if release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall {
+					installed, err := isInstalled(release)
+					if err != nil {
+						errs = append(errs, err)
+					} else {
+						disableValidation = !installed
+					}
+				}
 
 				// TODO We need a long-term fix for this :)
 				// See https://github.com/roboll/helmfile/issues/737
@@ -2352,7 +2381,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		}
 
 		if timeout == EmptyTimeout {
-			flags = append(flags, st.timeoutFlags(&release)...)
+			flags = append(flags, st.timeoutFlags(&release, nil)...)
 		} else {
 			duration := strconv.Itoa(timeout)
 			duration += "s"
@@ -2779,6 +2808,14 @@ func (st *HelmState) appendKeyringFlags(flags []string, release *ReleaseSpec) []
 	return flags
 }
 
+// appendEnableDNSFlags append the helm command-line flag for DNS resolution
+func (st *HelmState) appendEnableDNSFlags(flags []string, release *ReleaseSpec) []string {
+	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
+		flags = append(flags, "--enable-dns")
+	}
+	return flags
+}
+
 func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
 	if release.KubeContext != "" {
@@ -2832,12 +2869,15 @@ func (st *HelmState) needsInsecureSkipTLSVerify(release *ReleaseSpec, repo *Repo
 	return relSkipTLSVerify || st.HelmDefaults.InsecureSkipTLSVerify || repoSkipTLSVerify
 }
 
-func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
+func (st *HelmState) timeoutFlags(release *ReleaseSpec, ops *SyncOpts) []string {
 	var flags []string
 
 	timeout := st.HelmDefaults.Timeout
 	if release.Timeout != nil {
 		timeout = *release.Timeout
+	}
+	if ops != nil && ops.Timeout > 0 {
+		timeout = ops.Timeout
 	}
 	if timeout != 0 {
 		duration := strconv.Itoa(timeout)
@@ -2851,11 +2891,9 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec) []string {
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
-	if release.EnableDNS != nil && *release.EnableDNS || release.EnableDNS == nil && st.HelmDefaults.EnableDNS {
-		flags = append(flags, "--enable-dns")
-	}
+	flags = st.appendEnableDNSFlags(flags, release)
 
-	flags = st.appendWaitFlags(flags, helm, release, opt)
+	flags = st.appendWaitFlags(flags, release, opt)
 	flags = st.appendWaitForJobsFlags(flags, release, opt)
 
 	// non-OCI chart should be verified here
@@ -2864,7 +2902,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = st.appendKeyringFlags(flags, release)
 	}
 
-	flags = append(flags, st.timeoutFlags(release)...)
+	flags = append(flags, st.timeoutFlags(release, opt)...)
 
 	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
 		flags = append(flags, "--force")
@@ -2978,6 +3016,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	settings := cli.New()
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
+	flags = st.appendEnableDNSFlags(flags, release)
 
 	disableOpenAPIValidation := false
 	if release.DisableOpenAPIValidation != nil {
@@ -3291,7 +3330,7 @@ func (st *HelmState) ExpandedHelmfiles() ([]SubHelmfileSpec, error) {
 		}
 		if len(matches) == 0 {
 			err := fmt.Errorf("no matches for path: %s", hf.Path)
-			if *st.MissingFileHandler == "Error" {
+			if *st.getMissingFileHandler() == "Error" {
 				return nil, err
 			}
 			st.logger.Warnf("no matches for path: %s", hf.Path)
@@ -3372,6 +3411,19 @@ func (st *HelmState) getReleaseMissingFileHandler(release *ReleaseSpec) *string 
 	switch {
 	case release.MissingFileHandler != nil:
 		return release.MissingFileHandler
+	case st.MissingFileHandler != nil:
+		return st.MissingFileHandler
+	default:
+		return &defaultMissingFileHandler
+	}
+}
+
+// getMissingFileHandler returns the first non-nil MissingFileHandler in the following order:
+// - st.MissingFileHandler
+// - "Error"
+func (st *HelmState) getMissingFileHandler() *string {
+	defaultMissingFileHandler := "Error"
+	switch {
 	case st.MissingFileHandler != nil:
 		return st.MissingFileHandler
 	default:
@@ -4091,7 +4143,10 @@ func (st *HelmState) Reverse() {
 	}
 }
 
-func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, outputDirTemplate string) (*string, error) {
+var downloadedOCICharts = make(map[string]bool)
+var downloadedOCIMutex sync.RWMutex
+
+func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, opts ChartPrepareOptions) (*string, error) {
 	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release, helm)
 	if err != nil {
 		return nil, err
@@ -4101,7 +4156,34 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return nil, nil
 	}
 
-	chartPath, _ := st.getOCIChartPath(tempDir, release, chartName, chartVersion, outputDirTemplate)
+	if opts.OutputDirTemplate == "" {
+		tempDir = remote.CacheDir()
+	}
+
+	chartPath, _ := st.getOCIChartPath(tempDir, release, chartName, chartVersion, opts.OutputDirTemplate)
+
+	mu := st.getNamedMutex(chartPath)
+	mu.Lock()
+	defer mu.Unlock()
+
+	_, err = os.Stat(tempDir)
+	if err != nil {
+		err = os.MkdirAll(tempDir, 0755)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	downloadedOCIMutex.RLock()
+	alreadyDownloadedFlag := downloadedOCICharts[chartPath]
+	downloadedOCIMutex.RUnlock()
+
+	if !opts.SkipDeps && !opts.SkipRefresh && !alreadyDownloadedFlag {
+		err = os.RemoveAll(chartPath)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if st.fs.DirectoryExistsAt(chartPath) {
 		st.logger.Debugf("chart already exists at %s", chartPath)
@@ -4127,6 +4209,10 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	if err != nil {
 		return nil, err
 	}
+
+	downloadedOCIMutex.Lock()
+	downloadedOCICharts[chartPath] = true
+	downloadedOCIMutex.Unlock()
 
 	chartPath = filepath.Dir(fullChartPath)
 
@@ -4194,15 +4280,15 @@ func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chart
 
 	pathElems := []string{tempDir}
 
-	if release.Namespace != "" {
-		pathElems = append(pathElems, release.Namespace)
-	}
+	replacer := strings.NewReplacer(
+		":", "_",
+		"//", "_",
+		".", "_",
+		"&", "_",
+	)
+	qName := strings.Split(replacer.Replace(release.Chart), "/")
 
-	if release.KubeContext != "" {
-		pathElems = append(pathElems, release.KubeContext)
-	}
-
-	pathElems = append(pathElems, release.Name, chartName, safeVersionPath(chartVersion))
-
+	pathElems = append(pathElems, qName...)
+	pathElems = append(pathElems, safeVersionPath(chartVersion))
 	return filepath.Join(pathElems...), nil
 }

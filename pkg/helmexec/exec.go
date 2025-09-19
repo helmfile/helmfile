@@ -69,7 +69,13 @@ func parseHelmVersion(versionStr string) (*semver.Version, error) {
 		return nil, fmt.Errorf("empty helm version")
 	}
 
-	v, err := chartify.FindSemVerInfo(versionStr)
+	// Check if version string starts with "v", if not add it
+	processedVersion := strings.TrimSpace(versionStr)
+	if !strings.HasPrefix(processedVersion, "v") {
+		processedVersion = "v" + processedVersion
+	}
+
+	v, err := chartify.FindSemVerInfo(processedVersion)
 
 	if err != nil {
 		return nil, fmt.Errorf("error find helm srmver version '%s': %w", versionStr, err)
@@ -116,11 +122,10 @@ func redactedURL(chart string) string {
 }
 
 // New for running helm commands
-func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, kubeconfig string, kubeContext string, runner Runner) *execer {
-	// TODO: proper error handling
+func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, kubeconfig string, kubeContext string, runner Runner) (*execer, error) {
 	version, err := GetHelmVersion(helmBinary, runner)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	if version.Prerelease() != "" {
@@ -137,7 +142,7 @@ func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, 
 		kubeContext:      kubeContext,
 		runner:           runner,
 		decryptedSecrets: make(map[string]*decryptedSecret),
-	}
+	}, nil
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {

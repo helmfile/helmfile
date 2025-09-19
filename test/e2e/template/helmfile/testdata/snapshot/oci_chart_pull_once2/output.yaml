@@ -1,0 +1,66 @@
+Pulling localhost:5001/myrepo/raw:0.1.0
+Templating release=release-0, chart=$HELMFILE_CACHE_HOME/myrepo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-0
+  namespace: default
+  annotations:
+    chart-version: 0.1.0
+data:
+  values: release-0
+
+Templating release=release-1, chart=$HELMFILE_CACHE_HOME/myrepo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-1
+  namespace: default
+  annotations:
+    chart-version: 0.1.0
+data:
+  values: release-1
+
+Templating release=release-2, chart=$HELMFILE_CACHE_HOME/myrepo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-2
+  namespace: default
+  annotations:
+    chart-version: 0.1.0
+data:
+  values: release-2
+
+Templating release=release-3, chart=$HELMFILE_CACHE_HOME/myrepo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-3
+  namespace: default
+  annotations:
+    chart-version: 0.1.0
+data:
+  values: release-3
+
+Templating release=release-4, chart=$HELMFILE_CACHE_HOME/myrepo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-4
+  namespace: default
+  annotations:
+    chart-version: 0.1.0
+data:
+  values: release-4
+

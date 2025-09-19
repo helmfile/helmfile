@@ -64,7 +64,7 @@ type StateCreator struct {
 
 	LoadFile func(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
 
-	getHelm func(*HelmState) helmexec.Interface
+	getHelm func(*HelmState) (helmexec.Interface, error)
 
 	overrideHelmBinary string
 
@@ -77,7 +77,7 @@ type StateCreator struct {
 	lockFile string
 }
 
-func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) helmexec.Interface, overrideHelmBinary string, overrideKustomizeBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) (helmexec.Interface, error), overrideHelmBinary string, overrideKustomizeBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string) *StateCreator {
 	return &StateCreator{
 		logger: logger,
 
@@ -352,7 +352,10 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles []string, envVals map[string]any, keepFileExtensions []string) ([]string, error) {
 	var errs []error
 	var decryptedFilesKeeper []string
-	helm := c.getHelm(st)
+	helm, err := c.getHelm(st)
+	if err != nil {
+		return nil, err
+	}
 	inputs := envSecretFiles
 	inputsSize := len(inputs)
 
