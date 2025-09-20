@@ -1730,17 +1730,17 @@ func TestHelmState_SyncReleasesAffectedReleasesWithReinstallIfForbidden(t *testi
 			affectedReleases := AffectedReleases{}
 			if err := state.SyncReleases(&affectedReleases, helm, []string{}, 1); err != nil {
 				if !testEq(affectedReleases.Failed, tt.wantAffected.Failed) {
-					t.Errorf("HelmState.SynchAffectedRelease() error failed for [%s] = %v, want %v", tt.name, affectedReleases.Failed, tt.wantAffected.Failed)
+					t.Errorf("HelmState.SyncReleases() error failed for [%s] = %v, want %v", tt.name, affectedReleases.Failed, tt.wantAffected.Failed)
 				} //else expected error
 			}
 			if !testEq(affectedReleases.Upgraded, tt.wantAffected.Upgraded) {
-				t.Errorf("HelmState.SynchAffectedRelease() upgrade failed for [%s] = %v, want %v", tt.name, affectedReleases.Upgraded, tt.wantAffected.Upgraded)
+				t.Errorf("HelmState.SyncReleases() upgrade failed for [%s] = %v, want %v", tt.name, affectedReleases.Upgraded, tt.wantAffected.Upgraded)
 			}
 			if !testEq(affectedReleases.Reinstalled, tt.wantAffected.Reinstalled) {
-				t.Errorf("HelmState.SynchAffectedRelease() reinstalled failed for [%s] = %v, want %v", tt.name, affectedReleases.Reinstalled, tt.wantAffected.Reinstalled)
+				t.Errorf("HelmState.SyncReleases() reinstalled failed for [%s] = %v, want %v", tt.name, affectedReleases.Reinstalled, tt.wantAffected.Reinstalled)
 			}
 			if !testEq(affectedReleases.Deleted, tt.wantAffected.Deleted) {
-				t.Errorf("HelmState.SynchAffectedRelease() deleted failed for [%s] = %v, want %v", tt.name, affectedReleases.Deleted, tt.wantAffected.Deleted)
+				t.Errorf("HelmState.SyncReleases() deleted failed for [%s] = %v, want %v", tt.name, affectedReleases.Deleted, tt.wantAffected.Deleted)
 			}
 		})
 	}

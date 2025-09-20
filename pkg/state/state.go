@@ -1111,7 +1111,7 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 		st.logger.Debugf("update strategy - sync failed: %s", err.Error())
 		// Only fail if a different error than forbidden updates
 		if !strings.Contains(err.Error(), "Forbidden: updates") {
-			st.logger.Debugf("update strategy - sync failed not due to Fobidden updates")
+			st.logger.Debugf("update strategy - sync failed not due to Forbidden updates")
 			m.Lock()
 			affectedReleases.Failed = append(affectedReleases.Failed, release)
 			m.Unlock()
