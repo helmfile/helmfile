@@ -242,7 +242,17 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 	cacheDirPath := filepath.Join(r.Home, getterDst)
 	if u.Getter == "normal" {
 		srcDir = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
-		cacheKey = replacer.Replace(srcDir)
+		dirKey = replacer.Replace(srcDir)
+		if len(query) > 0 {
+			q := maps.Clone(query)
+			if q.Has("sshkey") {
+				q.Set("sshkey", "redacted")
+			}
+			paramsKey := strings.ReplaceAll(q.Encode(), "&", "_")
+			cacheKey = fmt.Sprintf("%s.%s", dirKey, paramsKey)
+		} else {
+			cacheKey = dirKey
+		}
 		cacheDirPath = filepath.Join(r.Home, cacheKey, u.Dir)
 	}
 
