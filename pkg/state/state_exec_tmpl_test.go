@@ -172,6 +172,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				fs: &filesystem.FileSystem{
 					Glob: func(s string) ([]string, error) { return nil, nil }},
 				basePath: ".",
+				FilePath: "helmfile.yaml.gotmpl", // Set to .gotmpl to enable template processing
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{
 						KubeContext: "test_context",
@@ -269,6 +270,7 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				basePath: ".",
+				FilePath: "helmfile.yaml.gotmpl", // Set to .gotmpl to enable template processing for error tests
 				fs: &filesystem.FileSystem{
 					Glob: func(s string) ([]string, error) { return nil, nil },
 				},
@@ -290,6 +292,100 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 			if err == nil {
 				t.Errorf("Expected error, got valid response: %v", r)
 				t.FailNow()
+			}
+		})
+	}
+}
+
+func TestHelmState_executeTemplates_yaml_vs_gotmpl(t *testing.T) {
+	tests := []struct {
+		name     string
+		filePath string
+		input    ReleaseSpec
+		want     ReleaseSpec
+	}{
+		{
+			name:     "YAML file should NOT process templates",
+			filePath: "helmfile.yaml",
+			input: ReleaseSpec{
+				Chart:     "test-charts/{{ .Release.Name }}",
+				Version:   "{{ .Release.Name }}-0.1",
+				Name:      "test-app",
+				Namespace: "test-namespace-{{ .Release.Name }}",
+				Labels:    map[string]string{"id": "{{ .Release.Name }}"},
+			},
+			want: ReleaseSpec{
+				Chart:     "test-charts/{{ .Release.Name }}", // Template NOT processed
+				Version:   "{{ .Release.Name }}-0.1",        // Template NOT processed
+				Name:      "test-app",
+				Namespace: "test-namespace-{{ .Release.Name }}", // Template NOT processed
+				Labels:    map[string]string{"id": "{{ .Release.Name }}"}, // Template NOT processed
+			},
+		},
+		{
+			name:     "GOTMPL file should process templates",
+			filePath: "helmfile.yaml.gotmpl",
+			input: ReleaseSpec{
+				Chart:     "test-charts/{{ .Release.Name }}",
+				Version:   "{{ .Release.Name }}-0.1",
+				Name:      "test-app",
+				Namespace: "test-namespace-{{ .Release.Name }}",
+				Labels:    map[string]string{"id": "{{ .Release.Name }}"},
+			},
+			want: ReleaseSpec{
+				Chart:     "test-charts/test-app",        // Template processed
+				Version:   "test-app-0.1",               // Template processed
+				Name:      "test-app",
+				Namespace: "test-namespace-test-app",    // Template processed
+				Labels:    map[string]string{"id": "test-app"}, // Template processed
+			},
+		},
+	}
+
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				fs: &filesystem.FileSystem{
+					Glob: func(s string) ([]string, error) { return nil, nil }},
+				basePath: ".",
+				FilePath: tt.filePath, // This is the key difference
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: HelmSpec{
+						KubeContext: "test_context",
+					},
+					Env:               environment.Environment{Name: "test_env"},
+					OverrideNamespace: "test-namespace_",
+					Repositories:      nil,
+					Releases: []ReleaseSpec{
+						tt.input,
+					},
+				},
+				RenderedValues: map[string]any{},
+			}
+
+			r, err := state.ExecuteTemplates()
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				t.FailNow()
+			}
+
+			actual := r.Releases[0]
+
+			if !reflect.DeepEqual(actual.Name, tt.want.Name) {
+				t.Errorf("expected Name %+v, got %+v", tt.want.Name, actual.Name)
+			}
+			if !reflect.DeepEqual(actual.Chart, tt.want.Chart) {
+				t.Errorf("expected Chart %+v, got %+v", tt.want.Chart, actual.Chart)
+			}
+			if !reflect.DeepEqual(actual.Namespace, tt.want.Namespace) {
+				t.Errorf("expected Namespace %+v, got %+v", tt.want.Namespace, actual.Namespace)
+			}
+			if !reflect.DeepEqual(actual.Version, tt.want.Version) {
+				t.Errorf("expected Version %+v, got %+v", tt.want.Version, actual.Version)
+			}
+			if diff := deep.Equal(actual.Labels, tt.want.Labels); diff != nil && len(actual.Labels) > 0 {
+				t.Errorf("Labels differs \n%+v", strings.Join(diff, "\n"))
 			}
 		})
 	}
