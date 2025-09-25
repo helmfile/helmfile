@@ -1415,29 +1415,39 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					//    For helm 2, we `helm fetch` with the version flags and call `helm template`
 					//    WITHOUT the version flags.
 				} else {
-					chartPath, err = generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
-					if err != nil {
-						results <- &chartPrepareResult{err: err}
-						return
-					}
-
-					// only fetch chart if it is not already fetched
-					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
-						var fetchFlags []string
-						fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
-						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
-						if err := helm.Fetch(chartName, fetchFlags...); err != nil {
+					// Check global chart cache first for non-OCI charts
+					cacheKey := st.getChartCacheKey(release)
+					if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
+						st.logger.Debugf("Chart %s:%s already downloaded, using cached version at %s", chartName, release.Version, cachedPath)
+						chartPath = cachedPath
+					} else {
+						chartPath, err = generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
+						if err != nil {
 							results <- &chartPrepareResult{err: err}
 							return
 						}
-					} else {
-						st.logger.Infof("\"%s\" has not been downloaded because the output directory \"%s\" already exists", chartName, chartPath)
-					}
 
-					// Set chartPath to be the path containing Chart.yaml, if found
-					fullChartPath, err := findChartDirectory(chartPath)
-					if err == nil {
-						chartPath = filepath.Dir(fullChartPath)
+						// only fetch chart if it is not already fetched
+						if _, err := os.Stat(chartPath); os.IsNotExist(err) {
+							var fetchFlags []string
+							fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
+							fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
+							if err := helm.Fetch(chartName, fetchFlags...); err != nil {
+								results <- &chartPrepareResult{err: err}
+								return
+							}
+						} else {
+							st.logger.Infof("\"%s\" has not been downloaded because the output directory \"%s\" already exists", chartName, chartPath)
+						}
+
+						// Set chartPath to be the path containing Chart.yaml, if found
+						fullChartPath, err := findChartDirectory(chartPath)
+						if err == nil {
+							chartPath = filepath.Dir(fullChartPath)
+						}
+
+						// Add to global chart cache
+						st.addToChartCache(cacheKey, chartPath)
 					}
 				}
 
@@ -4040,8 +4050,46 @@ func (st *HelmState) Reverse() {
 	}
 }
 
+// Chart cache for both OCI and non-OCI charts to avoid duplicate downloads
+type ChartCacheKey struct {
+	Chart   string
+	Version string
+}
+
+var downloadedCharts = make(map[ChartCacheKey]string) // key -> chart path
+var downloadedChartsMutex sync.RWMutex
+
+// Legacy OCI-specific cache (kept for backward compatibility)
 var downloadedOCICharts = make(map[string]bool)
 var downloadedOCIMutex sync.RWMutex
+
+// getChartCacheKey creates a cache key for a chart and version
+func (st *HelmState) getChartCacheKey(release *ReleaseSpec) ChartCacheKey {
+	version := release.Version
+	if version == "" {
+		// Use empty string for latest version
+		version = ""
+	}
+	return ChartCacheKey{
+		Chart:   release.Chart,
+		Version: version,
+	}
+}
+
+// checkChartCache checks if a chart is already downloaded and returns its path
+func (st *HelmState) checkChartCache(key ChartCacheKey) (string, bool) {
+	downloadedChartsMutex.RLock()
+	defer downloadedChartsMutex.RUnlock()
+	path, exists := downloadedCharts[key]
+	return path, exists
+}
+
+// addToChartCache adds a chart to the cache
+func (st *HelmState) addToChartCache(key ChartCacheKey, path string) {
+	downloadedChartsMutex.Lock()
+	defer downloadedChartsMutex.Unlock()
+	downloadedCharts[key] = path
+}
 
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, opts ChartPrepareOptions) (*string, error) {
 	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release, helm)
@@ -4051,6 +4099,13 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	if qualifiedChartName == "" {
 		return nil, nil
+	}
+
+	// Check global chart cache first
+	cacheKey := st.getChartCacheKey(release)
+	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
+		st.logger.Debugf("OCI chart %s:%s already downloaded, using cached version at %s", chartName, chartVersion, cachedPath)
+		return &cachedPath, nil
 	}
 
 	if opts.OutputDirTemplate == "" {
@@ -4085,6 +4140,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	if st.fs.DirectoryExistsAt(chartPath) {
 		st.logger.Debugf("chart already exists at %s", chartPath)
 	} else {
+		st.logger.Infof("Fetching %s", chartName)
 		flags := st.chartOCIFlags(release)
 		flags = st.appendVerifyFlags(flags, release)
 		flags = st.appendKeyringFlags(flags, release)
@@ -4112,6 +4168,9 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	downloadedOCIMutex.Unlock()
 
 	chartPath = filepath.Dir(fullChartPath)
+
+	// Add to global chart cache
+	st.addToChartCache(cacheKey, chartPath)
 
 	return &chartPath, nil
 }
