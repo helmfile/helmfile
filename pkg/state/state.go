@@ -4141,7 +4141,6 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	if st.fs.DirectoryExistsAt(chartPath) {
 		st.logger.Debugf("chart already exists at %s", chartPath)
 	} else {
-		st.logger.Infof("Fetching %s", chartName)
 		flags := st.chartOCIFlags(release)
 		flags = st.appendVerifyFlags(flags, release)
 		flags = st.appendKeyringFlags(flags, release)
