@@ -35,7 +35,6 @@ jobs:
             rm -rf /usr/share/dotnet
             rm -rf /opt/ghc
             rm -rf "/usr/local/share/boost"
-            rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
