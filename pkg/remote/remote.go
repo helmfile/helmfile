@@ -15,9 +15,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
 	"go.uber.org/zap"
@@ -368,22 +367,22 @@ func (g *S3Getter) Get(wd, src, dst string) error {
 		return err
 	}
 
-	// Create a new AWS session using the default AWS configuration
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-		Config: aws.Config{
-			Region: aws.String(region),
-		},
-	}))
+	// Create a new AWS config and S3 client using AWS SDK v2
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(region),
+	)
+	if err != nil {
+		return err
+	}
 
-	// Create an S3 client using the session
-	s3Client := s3.New(sess)
+	// Create an S3 client using the config
+	s3Client := s3.NewFromConfig(cfg)
 
 	getObjectInput := &s3.GetObjectInput{
 		Bucket: &bucket,
 		Key:    &key,
 	}
-	resp, err := s3Client.GetObject(getObjectInput)
+	resp, err := s3Client.GetObject(context.TODO(), getObjectInput)
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -467,48 +466,47 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 	}
 
 	// Region
-	g.Logger.Debugf("Creating session for determining S3 region %s", path)
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
+	g.Logger.Debugf("Creating config for determining S3 region %s", path)
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return "", err
+	}
 
 	g.Logger.Debugf("Getting bucket %s location %s", bucket, path)
-	s3Client := s3.New(sess)
+	s3Client := s3.NewFromConfig(cfg)
 	bucketRegion := "us-east-1"
 	getBucketLocationInput := &s3.GetBucketLocationInput{
-		Bucket: aws.String(bucket),
+		Bucket: &bucket,
 	}
-	resp, err := s3Client.GetBucketLocation(getBucketLocationInput)
+	resp, err := s3Client.GetBucketLocation(context.TODO(), getBucketLocationInput)
 	if err != nil {
 		return "", fmt.Errorf("Error: Failed to retrieve bucket location: %v\n", err)
 	}
-	if resp == nil || resp.LocationConstraint == nil {
+	if resp == nil || string(resp.LocationConstraint) == "" {
 		g.Logger.Debugf("Bucket has no location Assuming us-east-1")
 	} else {
-		bucketRegion = *resp.LocationConstraint
+		bucketRegion = string(resp.LocationConstraint)
 	}
 	g.Logger.Debugf("Got bucket location %s", bucketRegion)
 
 	// File existence
-	g.Logger.Debugf("Creating new session with region to see if file exists")
-	regionSession, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-		Config: aws.Config{
-			Region: aws.String(bucketRegion),
-		},
-	})
+	g.Logger.Debugf("Creating new config with region to see if file exists")
+	regionCfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(bucketRegion),
+	)
 	if err != nil {
 		g.Logger.Error(err)
+		return bucketRegion, err
 	}
 	g.Logger.Debugf("Creating new s3 client to check if object exists")
-	s3Client = s3.New(regionSession)
+	s3Client = s3.NewFromConfig(regionCfg)
 	headObjectInput := &s3.HeadObjectInput{
 		Bucket: &bucket,
 		Key:    &key,
 	}
 
 	g.Logger.Debugf("Fethcing head %s", path)
-	_, err = s3Client.HeadObject(headObjectInput)
+	_, err = s3Client.HeadObject(context.TODO(), headObjectInput)
 	return bucketRegion, err
 }
 
