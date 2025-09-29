@@ -480,7 +480,7 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 	}
 	resp, err := s3Client.GetBucketLocation(context.TODO(), getBucketLocationInput)
 	if err != nil {
-		return "", fmt.Errorf("Error: Failed to retrieve bucket location: %v\n", err)
+		return "", fmt.Errorf("failed to retrieve bucket location: %v", err)
 	}
 	if resp == nil || string(resp.LocationConstraint) == "" {
 		g.Logger.Debugf("Bucket has no location Assuming us-east-1")
