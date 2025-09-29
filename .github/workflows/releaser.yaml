@@ -30,6 +30,12 @@ jobs:
           go-version-file: go.mod
       - name: check disk usage
         run: df -h
+      - name: cleanup disk
+        run: |
+            rm -rf /usr/share/dotnet
+            rm -rf /opt/ghc
+            rm -rf "/usr/local/share/boost"
+            rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
