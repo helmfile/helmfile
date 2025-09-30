@@ -2109,7 +2109,6 @@ type configImpl struct {
 	includeTransitiveNeeds bool
 	skipCharts             bool
 	kubeVersion            string
-	templateArgs           string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2208,16 +2207,17 @@ func (c configImpl) KubeVersion() string {
 	return c.kubeVersion
 }
 
-func (c configImpl) TemplateArgs() string {
-	return c.templateArgs
-}
-
 func (c configImpl) SkipSchemaValidation() bool {
 	return c.skipSchemaValidation
 }
 
 func (c configImpl) ShowOnly() []string {
 	return nil
+}
+
+// TemplateArgs satisfies TemplateConfigProvider for template-specific extra flags
+func (c configImpl) TemplateArgs() string {
+	return ""
 }
 
 type applyConfig struct {
@@ -2251,7 +2251,6 @@ type applyConfig struct {
 	skipDiffOnInstall       bool
 	syncArgs                string
 	diffArgs                string
-	templateArgs            string
 	logger                  *zap.SugaredLogger
 	wait                    bool
 	waitRetries             int
@@ -2404,10 +2403,6 @@ func (a applyConfig) DiffArgs() string {
 	return a.diffArgs
 }
 
-func (a applyConfig) TemplateArgs() string {
-	return a.templateArgs
-}
-
 // helmfile-template-only flags
 func (a applyConfig) IncludeCRDs() bool {
 	return a.includeCRDs
@@ -2454,6 +2449,11 @@ func (a applyConfig) SkipSchemaValidation() bool {
 
 func (a applyConfig) ShowOnly() []string {
 	return a.showOnly
+}
+
+// TemplateArgs satisfies TemplateConfigProvider for template-specific extra flags
+func (a applyConfig) TemplateArgs() string {
+	return ""
 }
 
 func (a applyConfig) HideNotes() bool {

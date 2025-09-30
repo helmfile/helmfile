@@ -72,9 +72,6 @@ type ApplyOptions struct {
 	TakeOwnership bool
 
 	SyncReleaseLabels bool
-
-	// TemplateArgs is the list of arguments to pass to helm template
-	TemplateArgs string
 }
 
 // NewApply creates a new Apply
@@ -256,6 +253,11 @@ func (a *ApplyImpl) SuppressOutputLineRegex() []string {
 	return a.ApplyOptions.SuppressOutputLineRegex
 }
 
+// TemplateArgs returns extra args for helm template; not applicable to apply, return empty.
+func (a *ApplyImpl) TemplateArgs() string {
+	return ""
+}
+
 // SyncArgs returns the SyncArgs.
 func (a *ApplyImpl) SyncArgs() string {
 	return a.ApplyOptions.SyncArgs
@@ -274,9 +276,4 @@ func (a *ApplyImpl) TakeOwnership() bool {
 // SyncReleaseLabels returns the SyncReleaseLabels.
 func (a *ApplyImpl) SyncReleaseLabels() bool {
 	return a.ApplyOptions.SyncReleaseLabels
-}
-
-// TemplateArgs returns the TemplateArgs.
-func (a *ApplyImpl) TemplateArgs() string {
-	return a.ApplyOptions.TemplateArgs
 }

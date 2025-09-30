@@ -371,6 +371,8 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
+			// Ensure lookup during chartify pre-render connects to cluster
+			TemplateArgs: "--dry-run=server",
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -407,7 +409,8 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
-			TemplateArgs:           c.TemplateArgs(),
+			// Ensure lookup during chartify pre-render connects to cluster
+			TemplateArgs: "--dry-run=server",
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -1954,6 +1957,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			KubeVersion:          c.KubeVersion(),
 			ShowOnly:             c.ShowOnly(),
 			SkipSchemaValidation: c.SkipSchemaValidation(),
+			TemplateArgs:         c.TemplateArgs(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

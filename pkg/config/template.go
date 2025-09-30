@@ -44,7 +44,7 @@ type TemplateOptions struct {
 	KubeVersion string
 	// Propagate '--show-only` to helm template
 	ShowOnly []string
-	// TemplateArgs
+	// TemplateArgs are extra args appended to helm template (e.g., --dry-run=server)
 	TemplateArgs string
 }
 
@@ -161,7 +161,7 @@ func (t *TemplateImpl) ShowOnly() []string {
 	return t.TemplateOptions.ShowOnly
 }
 
-// TemplateArgs returns the TemplateArgs
+// TemplateArgs returns the extra args for helm template.
 func (t *TemplateImpl) TemplateArgs() string {
 	return t.TemplateOptions.TemplateArgs
 }
