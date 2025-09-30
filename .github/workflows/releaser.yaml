@@ -34,7 +34,11 @@ jobs:
         run: |
             rm -rf /usr/share/dotnet
             rm -rf /opt/ghc
-            rm -rf "/usr/local/share/boost"
+            rm -rf /usr/local/share/boost
+            rm -fr /usr/local/lib/android
+            rm -fr /opt/hostedtoolcache/CodeQL
+            docker image prune --all --force
+            docker builder prune -a
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
