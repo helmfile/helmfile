@@ -30,6 +30,17 @@ jobs:
           go-version-file: go.mod
       - name: check disk usage
         run: df -h
+      - name: cleanup disk
+        run: |
+            sudo rm -rf /usr/share/dotnet
+            sudo rm -rf /opt/ghc
+            sudo rm -rf /usr/local/share/boost
+            sudo rm -fr /usr/local/lib/android
+            sudo rm -fr /opt/hostedtoolcache/CodeQL
+            sudo docker image prune --all --force
+            sudo docker builder prune -a
+      - name: check disk usage
+        run: df -h
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
