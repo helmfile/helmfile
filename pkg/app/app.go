@@ -199,7 +199,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 	}
 
 	if c.DetailedExitcode() && (len(allDiffDetectedErrs) > 0 || affectedAny) {
-		// We take the first release error w/ exit status 2 (although all the defered errs should have exit status 2)
+		// We take the first release error w/ exit status 2 (although all the deferred errs should have exit status 2)
 		// to just let helmfile itself to exit with 2
 		// See https://github.com/roboll/helmfile/issues/749
 		code := 2
@@ -680,7 +680,7 @@ func (a *App) within(dir string, do func() error) error {
 
 	prev, err := a.fs.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed getting current working direcotyr: %v", err)
+		return fmt.Errorf("failed getting current working directory: %v", err)
 	}
 
 	absDir, err := a.fs.Abs(dir)
