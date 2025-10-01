@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -110,27 +111,33 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 			release.KubeVersion = st.KubeVersion
 		}
 
-		successFlag := false
-		for it, prev := 0, release; it < 6; it++ {
-			tmplData := st.createReleaseTemplateData(prev, vals)
-			renderer := tmpl.NewFileRenderer(st.fs, st.basePath, tmplData)
-			r, err := release.ExecuteTemplateExpressions(renderer)
-			if err != nil {
-				return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %v", st.FilePath, release.Name, err)
-			}
-			if reflect.DeepEqual(prev, r) {
-				successFlag = true
-				if err := updateBoolTemplatedValues(r); err != nil {
+		// Only process templates if the file has .gotmpl extension
+		if filepath.Ext(st.FilePath) == ".gotmpl" {
+			successFlag := false
+			for it, prev := 0, release; it < 6; it++ {
+				tmplData := st.createReleaseTemplateData(prev, vals)
+				renderer := tmpl.NewFileRenderer(st.fs, st.basePath, tmplData)
+				r, err := release.ExecuteTemplateExpressions(renderer)
+				if err != nil {
 					return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %v", st.FilePath, release.Name, err)
 				}
-				st.Releases[i] = *r
-				break
+				if reflect.DeepEqual(prev, r) {
+					successFlag = true
+					if err := updateBoolTemplatedValues(r); err != nil {
+						return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %v", st.FilePath, release.Name, err)
+					}
+					st.Releases[i] = *r
+					break
+				}
+				prev = r
 			}
-			prev = r
-		}
-		if !successFlag {
-			return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %s", st.FilePath, release.Name,
-				"recursive references can't be resolved")
+			if !successFlag {
+				return nil, fmt.Errorf("failed executing templates in release \"%s\".\"%s\": %s", st.FilePath, release.Name,
+					"recursive references can't be resolved")
+			}
+		} else {
+			// For non-.gotmpl files, skip template processing entirely
+			st.Releases[i] = *release
 		}
 
 		if st.Releases[i].Chart == "" {
