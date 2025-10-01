@@ -46,6 +46,9 @@ type SyncOptions struct {
 	TakeOwnership bool
 	// SyncReleaseLabels is the sync release labels flag
 	SyncReleaseLabels bool
+	// TemplateArgs are extra args appended to helm template during chartify pre-render for sync
+	// Defaults to "--dry-run=server" via flag.
+	TemplateArgs string
 }
 
 // NewSyncOptions creates a new Apply
@@ -179,4 +182,8 @@ func (t *SyncImpl) TakeOwnership() bool {
 
 func (t *SyncImpl) SyncReleaseLabels() bool {
 	return t.SyncOptions.SyncReleaseLabels
+}
+
+func (t *SyncImpl) TemplateArgs() string {
+	return t.SyncOptions.TemplateArgs
 }

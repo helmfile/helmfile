@@ -2215,6 +2215,11 @@ func (c configImpl) ShowOnly() []string {
 	return nil
 }
 
+// TemplateArgs satisfies TemplateConfigProvider for template-specific extra flags
+func (c configImpl) TemplateArgs() string {
+	return ""
+}
+
 type applyConfig struct {
 	args    string
 	cascade string
@@ -2444,6 +2449,11 @@ func (a applyConfig) SkipSchemaValidation() bool {
 
 func (a applyConfig) ShowOnly() []string {
 	return a.showOnly
+}
+
+// TemplateArgs satisfies TemplateConfigProvider for template-specific extra flags
+func (a applyConfig) TemplateArgs() string {
+	return ""
 }
 
 func (a applyConfig) HideNotes() bool {
