@@ -72,6 +72,8 @@ type ApplyOptions struct {
 	TakeOwnership bool
 
 	SyncReleaseLabels bool
+	// TemplateArgs for chartify pre-render (default provided by CLI flag)
+	TemplateArgs string
 }
 
 // NewApply creates a new Apply
@@ -253,9 +255,9 @@ func (a *ApplyImpl) SuppressOutputLineRegex() []string {
 	return a.ApplyOptions.SuppressOutputLineRegex
 }
 
-// TemplateArgs returns extra args for helm template; not applicable to apply, return empty.
+// TemplateArgs returns extra args for helm template
 func (a *ApplyImpl) TemplateArgs() string {
-	return ""
+	return a.ApplyOptions.TemplateArgs
 }
 
 // SyncArgs returns the SyncArgs.

@@ -117,6 +117,7 @@ type SyncConfigProvider interface {
 	IncludeTransitiveNeeds() bool
 
 	SyncReleaseLabels() bool
+	TemplateArgs() string
 
 	DAGConfig
 

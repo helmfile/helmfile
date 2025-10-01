@@ -371,8 +371,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			// Ensure lookup during chartify pre-render connects to cluster
-			TemplateArgs: "--dry-run=server",
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -409,8 +408,8 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
-			// Ensure lookup during chartify pre-render connects to cluster
-			TemplateArgs: "--dry-run=server",
+			// Use user-provided template args; default is set via flag ("--dry-run=server")
+			TemplateArgs: c.TemplateArgs(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 

@@ -67,6 +67,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.SkipSchemaValidation, "skip-schema-validation", false, `pass --skip-schema-validation to "helm template" or "helm upgrade --install"`)
 	f.StringVar(&applyOptions.Cascade, "cascade", "", "pass cascade to helm exec, default: background")
 	f.StringArrayVar(&applyOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from the diff output")
+	f.StringVar(&applyOptions.TemplateArgs, "template-args", "--dry-run=server", `pass extra args to helm template during chartify pre-render (default: --dry-run=server)`)
 
 	return cmd
 }
