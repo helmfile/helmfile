@@ -16,7 +16,7 @@ FROM alpine:3.22
 
 LABEL org.opencontainers.image.source=https://github.com/helmfile/helmfile
 
-RUN apk add --no-cache ca-certificates git bash curl jq openssh-client gnupg
+RUN apk add --no-cache ca-certificates git bash curl jq yq openssh-client gnupg
 
 ARG TARGETARCH TARGETOS TARGETPLATFORM
 
