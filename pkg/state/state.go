@@ -1139,6 +1139,16 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	return result
 }
 
+func filterReleasesForBuild(releases []ReleaseSpec) []ReleaseSpec {
+	var filteredReleases []ReleaseSpec
+	for _, r := range releases {
+		if len(r.JSONPatches) == 0 && len(r.StrategicMergePatches) == 0 && len(r.Transformers) == 0 {
+			filteredReleases = append(filteredReleases, r)
+		}
+	}
+	return filteredReleases
+}
+
 type ChartPrepareOptions struct {
 	ForceDownload bool
 	SkipRepos     bool
@@ -1236,6 +1246,12 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	}
 
 	releases := releasesNeedCharts(selected)
+
+	// For build command, skip releases that require chartify (jsonPatches, etc.)
+	// as we only need to output state, not actually template the charts
+	if helmfileCommand == "build" {
+		releases = filterReleasesForBuild(releases)
+	}
 
 	var prepareChartInfoMutex sync.Mutex
 
