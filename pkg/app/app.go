@@ -521,11 +521,52 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: 2,
-		}, func() {
+		var err error
+
+		if !c.SkipCharts() {
+			err = run.withPreparedCharts("build", state.ChartPrepareOptions{
+				SkipRepos:   true,
+				SkipDeps:    true,
+				Concurrency: 2,
+			}, func() {
+				if c.EmbedValues() {
+					for i := range run.state.Releases {
+						r := run.state.Releases[i]
+
+						values, err := run.state.LoadYAMLForEmbedding(&r, r.Values, r.MissingFileHandler, r.ValuesPathPrefix)
+						if err != nil {
+							errs = []error{err}
+							return
+						}
+
+						run.state.Releases[i].Values = values
+
+						secrets, err := run.state.LoadYAMLForEmbedding(&r, r.Secrets, r.MissingFileHandler, r.ValuesPathPrefix)
+						if err != nil {
+							errs = []error{err}
+							return
+						}
+
+						run.state.Releases[i].Secrets = secrets
+					}
+				}
+
+				stateYaml, err := run.state.ToYaml()
+				if err != nil {
+					errs = []error{err}
+					return
+				}
+
+				sourceFile, err := run.state.FullFilePath()
+				if err != nil {
+					errs = []error{err}
+					return
+				}
+				fmt.Printf("---\n#  Source: %s\n\n%+v", sourceFile, stateYaml)
+
+				errs = []error{}
+			})
+		} else {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
 					r := run.state.Releases[i]
@@ -533,7 +574,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 					values, err := run.state.LoadYAMLForEmbedding(&r, r.Values, r.MissingFileHandler, r.ValuesPathPrefix)
 					if err != nil {
 						errs = []error{err}
-						return
+						return false, errs
 					}
 
 					run.state.Releases[i].Values = values
@@ -541,7 +582,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 					secrets, err := run.state.LoadYAMLForEmbedding(&r, r.Secrets, r.MissingFileHandler, r.ValuesPathPrefix)
 					if err != nil {
 						errs = []error{err}
-						return
+						return false, errs
 					}
 
 					run.state.Releases[i].Secrets = secrets
@@ -551,24 +592,24 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			stateYaml, err := run.state.ToYaml()
 			if err != nil {
 				errs = []error{err}
-				return
+				return false, errs
 			}
 
 			sourceFile, err := run.state.FullFilePath()
 			if err != nil {
 				errs = []error{err}
-				return
+				return false, errs
 			}
 			fmt.Printf("---\n#  Source: %s\n\n%+v", sourceFile, stateYaml)
 
 			errs = []error{}
-		})
+		}
 
 		if err != nil {
 			errs = append(errs, err)
 		}
 
-		return
+		return false, errs
 	}, false, SetFilter(true))
 }
 
