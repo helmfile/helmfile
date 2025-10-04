@@ -32,6 +32,7 @@ func NewBuildCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 
 	f := cmd.Flags()
 	f.BoolVar(&buildOptions.EmbedValues, "embed-values", false, "Read all the values files for every release and embed into the output helmfile.yaml")
+	f.BoolVar(&buildOptions.SkipCharts, "skip-charts", false, "don't prepare charts when building releases")
 
 	return cmd
 }

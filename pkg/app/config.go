@@ -267,6 +267,7 @@ type StatusesConfigProvider interface {
 
 type StateConfigProvider interface {
 	EmbedValues() bool
+	SkipCharts() bool
 }
 
 type DAGConfigProvider any

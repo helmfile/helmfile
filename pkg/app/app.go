@@ -528,11 +528,7 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: 2,
-		}, func() {
+		printState := func() {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
 					r := run.state.Releases[i]
@@ -569,13 +565,22 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			fmt.Printf("---\n#  Source: %s\n\n%+v", sourceFile, stateYaml)
 
 			errs = []error{}
-		})
-
-		if err != nil {
-			errs = append(errs, err)
 		}
 
-		return
+		if !c.SkipCharts() {
+			err := run.withPreparedCharts("build", state.ChartPrepareOptions{
+				SkipRepos:   true,
+				SkipDeps:    true,
+				Concurrency: 2,
+			}, printState)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		} else {
+			printState()
+		}
+
+		return false, errs
 	}, false, SetFilter(true))
 }
 
@@ -599,20 +604,22 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var stateReleases []*HelmRelease
 		var err error
 
+		listReleases := func() {
+			rel, err := a.list(run)
+			if err != nil {
+				panic(err)
+			}
+			stateReleases = rel
+		}
+
 		if !c.SkipCharts() {
 			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
-			}, func() {
-				rel, err := a.list(run)
-				if err != nil {
-					panic(err)
-				}
-				stateReleases = rel
-			})
+			}, listReleases)
 		} else {
-			stateReleases, err = a.list(run)
+			listReleases()
 		}
 
 		if err != nil {
