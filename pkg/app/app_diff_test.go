@@ -415,4 +415,28 @@ releases:
 			},
 		})
 	})
+
+	t.Run("show diff on changed selected release with reinstall", func(t *testing.T) {
+		check(t, testcase{
+			helmfile: `
+releases:
+- name: a
+  chart: incubator/raw
+  namespace: default
+  updateStrategy: reinstallIfForbidden
+- name: b
+  chart: incubator/raw
+  namespace: default
+`,
+			selectors: []string{"name=a"},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^a$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
+			diffed: []exectest.Release{
+				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
+			},
+		})
+	})
 }
