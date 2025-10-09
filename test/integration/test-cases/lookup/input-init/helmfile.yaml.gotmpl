@@ -1,0 +1,14 @@
+releases:
+  - name: setup-init
+    chart: ../../../charts/raw
+    namespace: {{ .Namespace }}
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: my-secret
+            type: Opaque
+            stringData:
+              key: "init"

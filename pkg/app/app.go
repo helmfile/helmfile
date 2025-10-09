@@ -236,6 +236,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Set:                    c.Set(),
 			Values:                 c.Values(),
 			KubeVersion:            c.KubeVersion(),
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -370,6 +371,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() {
 			ok, errs = a.sync(run, c)
 		})
@@ -406,6 +408,8 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			// Use user-provided template args; default is set via flag ("--dry-run=server")
+			TemplateArgs: c.TemplateArgs(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -1952,6 +1956,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			KubeVersion:          c.KubeVersion(),
 			ShowOnly:             c.ShowOnly(),
 			SkipSchemaValidation: c.SkipSchemaValidation(),
+			TemplateArgs:         c.TemplateArgs(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

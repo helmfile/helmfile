@@ -1,0 +1,15 @@
+releases:
+  - name: lookup-test
+    chart: ../../../charts/raw
+    namespace: {{ .Namespace }}
+    forceNamespace: {{ .Namespace }}
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: lookup-result
+            type: Opaque
+            stringData:
+              key: {{`{{ index (index (lookup "v1" "Secret" .Release.Namespace "my-secret") "data") "key" | b64dec | default "overwritten" }}`}}

@@ -1170,6 +1170,7 @@ type ChartPrepareOptions struct {
 	KubeVersion            string
 	Set                    []string
 	Values                 []string
+	TemplateArgs           string
 	// Delete wait
 	DeleteWait    bool
 	DeleteTimeout int
@@ -1229,9 +1230,11 @@ type PrepareChartKey struct {
 // When running `helmfile template` on helm v2, or `helmfile lint` on both helm v2 and v3,
 // PrepareCharts will download and untar charts for linting and templating.
 //
-// Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
+// Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
+//
+//nolint:gocognit // High complexity due to orchestration; refactoring is out of scope here.
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
@@ -1352,6 +1355,25 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					chartifyOpts.IncludeCRDs = includeCRDs
 
 					chartifyOpts.Validate = opts.Validate
+
+					// Ensure chartify's internal helm template uses the correct kube context for lookup to work
+					if kc := st.kubeConnectionFlags(release); len(kc) > 0 {
+						if chartifyOpts.TemplateArgs != "" {
+							chartifyOpts.TemplateArgs = strings.TrimSpace(chartifyOpts.TemplateArgs + " " + strings.Join(kc, " "))
+						} else {
+							chartifyOpts.TemplateArgs = strings.Join(kc, " ")
+						}
+					}
+					// If the current command provided extra template args (e.g., --dry-run=server for `helmfile template`),
+					// pass them through to the chartify helm template as well to make lookup behavior consistent.
+					if opts.TemplateArgs != "" {
+						extra := strings.Join(argparser.CollectArgs(opts.TemplateArgs), " ")
+						if chartifyOpts.TemplateArgs != "" {
+							chartifyOpts.TemplateArgs = strings.TrimSpace(chartifyOpts.TemplateArgs + " " + extra)
+						} else {
+							chartifyOpts.TemplateArgs = extra
+						}
+					}
 
 					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
 					chartifyOpts.ApiVersions = st.getApiVersions(release)
@@ -1559,6 +1581,8 @@ type TemplateOpts struct {
 	ShowOnly          []string
 	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
+	// TemplateArgs are extra args appended to "helm template" (e.g., "--dry-run=server")
+	TemplateArgs string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -2939,6 +2963,9 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
 	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
+	if opt != nil && opt.TemplateArgs != "" {
+		flags = append(flags, argparser.CollectArgs(opt.TemplateArgs)...)
+	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {

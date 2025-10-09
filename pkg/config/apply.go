@@ -68,11 +68,12 @@ type ApplyOptions struct {
 	SyncArgs string
 	// HideNotes is the hide notes flag
 	HideNotes bool
-
 	// TakeOwnership is true if the ownership should be taken
 	TakeOwnership bool
 
 	SyncReleaseLabels bool
+	// TemplateArgs for chartify pre-render (default provided by CLI flag)
+	TemplateArgs string
 }
 
 // NewApply creates a new Apply
@@ -252,6 +253,11 @@ func (a *ApplyImpl) Cascade() string {
 // SuppressOutputLineRegex returns the SuppressOutputLineRegex.
 func (a *ApplyImpl) SuppressOutputLineRegex() []string {
 	return a.ApplyOptions.SuppressOutputLineRegex
+}
+
+// TemplateArgs returns extra args for helm template
+func (a *ApplyImpl) TemplateArgs() string {
+	return a.ApplyOptions.TemplateArgs
 }
 
 // SyncArgs returns the SyncArgs.
