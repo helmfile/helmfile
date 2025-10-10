@@ -1232,6 +1232,207 @@ type PrepareChartKey struct {
 // Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
+// processChartification handles the chartification process
+func (st *HelmState) processChartification(chartification *Chartify, release *ReleaseSpec, chartPath string, opts ChartPrepareOptions, skipDeps bool) (string, bool, error) {
+	c := chartify.New(
+		chartify.HelmBin(st.DefaultHelmBinary),
+		chartify.KustomizeBin(st.DefaultKustomizeBinary),
+		chartify.UseHelm3(true),
+		chartify.WithLogf(st.logger.Debugf),
+	)
+
+	chartifyOpts := chartification.Opts
+
+	if skipDeps {
+		chartifyOpts.SkipDeps = true
+	}
+
+	includeCRDs := true
+	if opts.IncludeCRDs != nil {
+		includeCRDs = *opts.IncludeCRDs
+	}
+	chartifyOpts.IncludeCRDs = includeCRDs
+
+	chartifyOpts.Validate = opts.Validate
+
+	chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
+	chartifyOpts.ApiVersions = st.getApiVersions(release)
+
+	if opts.Values != nil {
+		chartifyOpts.ValuesFiles = append(opts.Values, chartifyOpts.ValuesFiles...)
+	}
+
+	// https://github.com/helmfile/helmfile/pull/867
+	// https://github.com/helmfile/helmfile/issues/895
+	var flags []string
+	for _, s := range opts.Set {
+		flags = append(flags, "--set", s)
+	}
+	chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
+
+	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
+	if err != nil {
+		return "", false, err
+	}
+
+	chartPath = out
+	// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
+	// explicitly skipped.
+	buildDeps := !skipDeps
+	return chartPath, buildDeps, nil
+}
+
+// processLocalChart handles local chart processing
+func (st *HelmState) processLocalChart(normalizedChart, dir string, release *ReleaseSpec, helmfileCommand string, opts ChartPrepareOptions, isLocal bool) (string, error) {
+	chartPath := normalizedChart
+	if helmfileCommand == "pull" && isLocal {
+		chartAbsPath := strings.TrimSuffix(filepath.Clean(normalizedChart), "/")
+		var err error
+		chartPath, err = generateChartPath(filepath.Base(chartAbsPath), dir, release, opts.OutputDirTemplate)
+		if err != nil {
+			return "", err
+		}
+		if err := st.fs.CopyDir(normalizedChart, filepath.Clean(chartPath)); err != nil {
+			return "", err
+		}
+	}
+	return chartPath, nil
+}
+
+// forcedDownloadChart handles forced chart downloads
+func (st *HelmState) forcedDownloadChart(chartName, dir string, release *ReleaseSpec, helm helmexec.Interface, opts ChartPrepareOptions) (string, error) {
+	// Check global chart cache first for non-OCI charts
+	cacheKey := st.getChartCacheKey(release)
+	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
+		st.logger.Debugf("Chart %s:%s already downloaded, using cached version at %s", chartName, release.Version, cachedPath)
+		return cachedPath, nil
+	}
+
+	chartPath, err := generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	// only fetch chart if it is not already fetched
+	if _, err := os.Stat(chartPath); os.IsNotExist(err) {
+		var fetchFlags []string
+		fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
+		fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
+		if err := helm.Fetch(chartName, fetchFlags...); err != nil {
+			return "", err
+		}
+	} else {
+		st.logger.Infof("\"%s\" has not been downloaded because the output directory \"%s\" already exists", chartName, chartPath)
+	}
+
+	// Set chartPath to be the path containing Chart.yaml, if found
+	fullChartPath, err := findChartDirectory(chartPath)
+	if err == nil {
+		chartPath = filepath.Dir(fullChartPath)
+	}
+
+	// Add to global chart cache
+	st.addToChartCache(cacheKey, chartPath)
+
+	return chartPath, nil
+}
+
+// prepareChartForRelease processes a single release and prepares its chart
+func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.Interface, dir string, helmfileCommand string, opts ChartPrepareOptions, workerIndex int) *chartPrepareResult {
+	if st.OverrideChart != "" {
+		release.Chart = st.OverrideChart
+	}
+
+	// Call user-defined `prepare` hooks to create/modify local charts to be used by
+	// the later process.
+	//
+	// If it wasn't called here, Helmfile can end up an issue like
+	// https://github.com/roboll/helmfile/issues/1328
+	if _, err := st.triggerPrepareEvent(release, helmfileCommand); err != nil {
+		return &chartPrepareResult{err: err}
+	}
+
+	chartName := release.Chart
+
+	chartPath, err := st.downloadChartWithGoGetter(release)
+	if err != nil {
+		return &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
+	}
+	chartFetchedByGoGetter := chartPath != chartName
+
+	if !chartFetchedByGoGetter {
+		ociChartPath, err := st.getOCIChart(release, dir, helm, opts)
+		if err != nil {
+			return &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
+		}
+
+		if ociChartPath != nil {
+			chartPath = *ociChartPath
+		}
+	}
+
+	isLocal := st.fs.DirectoryExistsAt(normalizeChart(st.basePath, chartName))
+
+	chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
+
+	if !opts.SkipCleanup {
+		// nolint: staticcheck
+		defer clean()
+	}
+
+	if err != nil {
+		return &chartPrepareResult{err: err}
+	}
+
+	var buildDeps bool
+
+	skipDepsGlobal := opts.SkipDeps
+	skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
+	skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
+	skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
+
+	if chartification != nil && helmfileCommand != "pull" {
+		chartPath, buildDeps, err = st.processChartification(chartification, release, chartPath, opts, skipDeps)
+		if err != nil {
+			return &chartPrepareResult{err: err}
+		}
+	} else if normalizedChart := normalizeChart(st.basePath, chartPath); st.fs.DirectoryExistsAt(normalizedChart) {
+		chartPath, err = st.processLocalChart(normalizedChart, dir, release, helmfileCommand, opts, isLocal)
+		if err != nil {
+			return &chartPrepareResult{err: err}
+		}
+		buildDeps = !skipDeps
+	} else if !opts.ForceDownload {
+		// At this point, we are sure that either:
+		// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
+		//    without any modification, or
+		// 2. It is a remote chart which can be safely handed over to helm,
+		//    because the version of Helm used in this transaction (helm v3 or greater) support downloading
+		//    the chart instead, AND we don't need any modification to the chart
+		//
+		//    Also see HelmState.chartVersionFlags(). For `helmfile template`, it's called before `helm template`
+		//    only on helm v3.
+		//    For helm 2, we `helm fetch` with the version flags and call `helm template`
+		//    WITHOUT the version flags.
+	} else {
+		chartPath, err = st.forcedDownloadChart(chartName, dir, release, helm, opts)
+		if err != nil {
+			return &chartPrepareResult{err: err}
+		}
+	}
+
+	return &chartPrepareResult{
+		releaseName:            release.Name,
+		chartName:              chartName,
+		releaseNamespace:       release.Namespace,
+		releaseContext:         release.KubeContext,
+		chartPath:              chartPath,
+		buildDeps:              buildDeps,
+		skipRefresh:            !isLocal || opts.SkipRefresh,
+		chartFetchedByGoGetter: chartFetchedByGoGetter,
+	}
+}
+
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
@@ -1275,198 +1476,8 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		},
 		func(workerIndex int) {
 			for release := range jobQueue {
-				if st.OverrideChart != "" {
-					release.Chart = st.OverrideChart
-				}
-				// Call user-defined `prepare` hooks to create/modify local charts to be used by
-				// the later process.
-				//
-				// If it wasn't called here, Helmfile can end up an issue like
-				// https://github.com/roboll/helmfile/issues/1328
-				if _, err := st.triggerPrepareEvent(release, helmfileCommand); err != nil {
-					results <- &chartPrepareResult{err: err}
-					return
-				}
-
-				chartName := release.Chart
-
-				chartPath, err := st.downloadChartWithGoGetter(release)
-				if err != nil {
-					results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
-					return
-				}
-				chartFetchedByGoGetter := chartPath != chartName
-
-				if !chartFetchedByGoGetter {
-					ociChartPath, err := st.getOCIChart(release, dir, helm, opts)
-					if err != nil {
-						results <- &chartPrepareResult{err: fmt.Errorf("release %q: %w", release.Name, err)}
-
-						return
-					}
-
-					if ociChartPath != nil {
-						chartPath = *ociChartPath
-					}
-				}
-
-				isLocal := st.fs.DirectoryExistsAt(normalizeChart(st.basePath, chartName))
-
-				chartification, clean, err := st.PrepareChartify(helm, release, chartPath, workerIndex)
-
-				if !opts.SkipCleanup {
-					// nolint: staticcheck
-					defer clean()
-				}
-
-				if err != nil {
-					results <- &chartPrepareResult{err: err}
-					return
-				}
-
-				var buildDeps bool
-
-				skipDepsGlobal := opts.SkipDeps
-				skipDepsRelease := release.SkipDeps != nil && *release.SkipDeps
-				skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
-				skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
-
-				if chartification != nil && helmfileCommand != "pull" {
-					c := chartify.New(
-						chartify.HelmBin(st.DefaultHelmBinary),
-						chartify.KustomizeBin(st.DefaultKustomizeBinary),
-						chartify.UseHelm3(true),
-						chartify.WithLogf(st.logger.Debugf),
-					)
-
-					chartifyOpts := chartification.Opts
-
-					if skipDeps {
-						chartifyOpts.SkipDeps = true
-					}
-
-					includeCRDs := true
-					if opts.IncludeCRDs != nil {
-						includeCRDs = *opts.IncludeCRDs
-					}
-					chartifyOpts.IncludeCRDs = includeCRDs
-
-					chartifyOpts.Validate = opts.Validate
-
-					chartifyOpts.KubeVersion = st.getKubeVersion(release, opts.KubeVersion)
-					chartifyOpts.ApiVersions = st.getApiVersions(release)
-
-					if opts.Values != nil {
-						chartifyOpts.ValuesFiles = append(opts.Values, chartifyOpts.ValuesFiles...)
-					}
-
-					// https://github.com/helmfile/helmfile/pull/867
-					// https://github.com/helmfile/helmfile/issues/895
-					var flags []string
-					for _, s := range opts.Set {
-						flags = append(flags, "--set", s)
-					}
-					chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
-
-					out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
-					if err != nil {
-						results <- &chartPrepareResult{err: err}
-						return
-					} else {
-						chartPath = out
-					}
-
-					// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
-					// explicitly skipped.
-					buildDeps = !skipDeps
-				} else if normalizedChart := normalizeChart(st.basePath, chartPath); st.fs.DirectoryExistsAt(normalizedChart) {
-					// At this point, we are sure that chartPath is a local directory containing either:
-					// - A remote chart fetched by go-getter or
-					// - A local chart
-					//
-					// The chart may have Chart.yaml(and requirements.yaml for Helm 2), and optionally Chart.lock/requirements.lock,
-					// but no `charts/` directory populated at all, or a subet of chart dependencies are missing in the directory.
-					//
-					// In such situation, Helm fails with an error like:
-					//   Error: found in Chart.yaml, but missing in charts/ directory: cert-manager, prometheus, postgresql, gitlab-runner, grafana, redis
-					//
-					// (See also https://github.com/roboll/helmfile/issues/1401#issuecomment-670854495)
-					//
-					// To avoid it, we need to call a `helm dep build` command on the chart.
-					// But the command may consistently fail when an outdated Chart.lock exists.
-					//
-					// (I've mentioned about such case in https://github.com/roboll/helmfile/pull/1400.)
-					//
-					// Trying to run `helm dep build` on the chart regardless of if it's from local or remote is
-					// problematic, as usually the user would have no way to fix the remote chart on their own.
-					//
-					// Given that, we always run `helm dep build` on the chart here, but tolerate any error caused by it
-					// for a remote chart, so that the user can notice/fix the issue in a local chart while
-					// a broken remote chart won't completely block their job.
-					chartPath = normalizedChart
-					if helmfileCommand == "pull" && isLocal {
-						chartAbsPath := strings.TrimSuffix(filepath.Clean(normalizedChart), "/")
-						chartPath, err = generateChartPath(filepath.Base(chartAbsPath), dir, release, opts.OutputDirTemplate)
-						if err != nil {
-							results <- &chartPrepareResult{err: err}
-							return
-						}
-						if err := st.fs.CopyDir(normalizedChart, filepath.Clean(chartPath)); err != nil {
-							results <- &chartPrepareResult{err: err}
-							return
-						}
-					}
-
-					buildDeps = !skipDeps
-				} else if !opts.ForceDownload {
-					// At this point, we are sure that either:
-					// 1. It is a local chart and we can use it in later process (helm upgrade/template/lint/etc)
-					//    without any modification, or
-					// 2. It is a remote chart which can be safely handed over to helm,
-					//    because the version of Helm used in this transaction (helm v3 or greater) support downloading
-					//    the chart instead, AND we don't need any modification to the chart
-					//
-					//    Also see HelmState.chartVersionFlags(). For `helmfile template`, it's called before `helm template`
-					//    only on helm v3.
-					//    For helm 2, we `helm fetch` with the version flags and call `helm template`
-					//    WITHOUT the version flags.
-				} else {
-					chartPath, err = generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
-					if err != nil {
-						results <- &chartPrepareResult{err: err}
-						return
-					}
-
-					// only fetch chart if it is not already fetched
-					if _, err := os.Stat(chartPath); os.IsNotExist(err) {
-						var fetchFlags []string
-						fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
-						fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
-						if err := helm.Fetch(chartName, fetchFlags...); err != nil {
-							results <- &chartPrepareResult{err: err}
-							return
-						}
-					} else {
-						st.logger.Infof("\"%s\" has not been downloaded because the output directory \"%s\" already exists", chartName, chartPath)
-					}
-
-					// Set chartPath to be the path containing Chart.yaml, if found
-					fullChartPath, err := findChartDirectory(chartPath)
-					if err == nil {
-						chartPath = filepath.Dir(fullChartPath)
-					}
-				}
-
-				results <- &chartPrepareResult{
-					releaseName:            release.Name,
-					chartName:              chartName,
-					releaseNamespace:       release.Namespace,
-					releaseContext:         release.KubeContext,
-					chartPath:              chartPath,
-					buildDeps:              buildDeps,
-					skipRefresh:            !isLocal || opts.SkipRefresh,
-					chartFetchedByGoGetter: chartFetchedByGoGetter,
-				}
+				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, opts, workerIndex)
+				results <- result
 			}
 		},
 		func() {
@@ -4056,8 +4067,46 @@ func (st *HelmState) Reverse() {
 	}
 }
 
+// Chart cache for both OCI and non-OCI charts to avoid duplicate downloads
+type ChartCacheKey struct {
+	Chart   string
+	Version string
+}
+
+var downloadedCharts = make(map[ChartCacheKey]string) // key -> chart path
+var downloadedChartsMutex sync.RWMutex
+
+// Legacy OCI-specific cache (kept for backward compatibility)
 var downloadedOCICharts = make(map[string]bool)
 var downloadedOCIMutex sync.RWMutex
+
+// getChartCacheKey creates a cache key for a chart and version
+func (st *HelmState) getChartCacheKey(release *ReleaseSpec) ChartCacheKey {
+	version := release.Version
+	if version == "" {
+		// Use empty string for latest version
+		version = ""
+	}
+	return ChartCacheKey{
+		Chart:   release.Chart,
+		Version: version,
+	}
+}
+
+// checkChartCache checks if a chart is already downloaded and returns its path
+func (st *HelmState) checkChartCache(key ChartCacheKey) (string, bool) {
+	downloadedChartsMutex.RLock()
+	defer downloadedChartsMutex.RUnlock()
+	path, exists := downloadedCharts[key]
+	return path, exists
+}
+
+// addToChartCache adds a chart to the cache
+func (st *HelmState) addToChartCache(key ChartCacheKey, path string) {
+	downloadedChartsMutex.Lock()
+	defer downloadedChartsMutex.Unlock()
+	downloadedCharts[key] = path
+}
 
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, opts ChartPrepareOptions) (*string, error) {
 	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release, helm)
@@ -4067,6 +4116,13 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	if qualifiedChartName == "" {
 		return nil, nil
+	}
+
+	// Check global chart cache first
+	cacheKey := st.getChartCacheKey(release)
+	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
+		st.logger.Debugf("OCI chart %s:%s already downloaded, using cached version at %s", chartName, chartVersion, cachedPath)
+		return &cachedPath, nil
 	}
 
 	if opts.OutputDirTemplate == "" {
@@ -4128,6 +4184,9 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	downloadedOCIMutex.Unlock()
 
 	chartPath = filepath.Dir(fullChartPath)
+
+	// Add to global chart cache
+	st.addToChartCache(cacheKey, chartPath)
 
 	return &chartPath, nil
 }
