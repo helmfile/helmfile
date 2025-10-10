@@ -30,6 +30,8 @@ type TemplateOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
+	// EnforceNeedsAreInstalled is true we should error if/when there are unmeetable dependencies
+	EnforceNeedsAreInstalled bool
 	// No-Hooks is the no hooks flag
 	NoHooks bool
 	// SkipCleanup is the skip cleanup flag
@@ -157,4 +159,9 @@ func (t *TemplateImpl) KubeVersion() string {
 // ShowOnly returns the ShowOnly.
 func (t *TemplateImpl) ShowOnly() []string {
 	return t.TemplateOptions.ShowOnly
+}
+
+// EnforceNeedsAreInstalled errors if the transitive dependencies are not installable
+func (t *TemplateImpl) EnforceNeedsAreInstalled() bool {
+	return t.TemplateOptions.EnforceNeedsAreInstalled
 }
