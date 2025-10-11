@@ -1248,6 +1248,103 @@ func TestHelmState_SyncRepos(t *testing.T) {
 	}
 }
 
+func TestHelmState_SyncRepos_OCI(t *testing.T) {
+	tests := []struct {
+		name             string
+		repos            []RepositorySpec
+		envs             map[string]string
+		wantRegistryHost string
+	}{
+		{
+			name: "OCI registry with organization path",
+			repos: []RepositorySpec{
+				{
+					Name:     "ociregistry",
+					URL:      "quay.io/ORG_NAME",
+					OCI:      true,
+					Username: "testuser",
+					Password: "testpass",
+				},
+			},
+			wantRegistryHost: "quay.io",
+		},
+		{
+			name: "OCI registry with multiple path segments",
+			repos: []RepositorySpec{
+				{
+					Name:     "myregistry",
+					URL:      "registry.example.com/org/team/repo",
+					OCI:      true,
+					Username: "user",
+					Password: "pass",
+				},
+			},
+			wantRegistryHost: "registry.example.com",
+		},
+		{
+			name: "OCI registry without path",
+			repos: []RepositorySpec{
+				{
+					Name:     "simpleregistry",
+					URL:      "myregistry.azurecr.io",
+					OCI:      true,
+					Username: "azureuser",
+					Password: "azurepass",
+				},
+			},
+			wantRegistryHost: "myregistry.azurecr.io",
+		},
+		{
+			name: "OCI registry with port and path",
+			repos: []RepositorySpec{
+				{
+					Name:     "localregistry",
+					URL:      "localhost:5000/charts",
+					OCI:      true,
+					Username: "local",
+					Password: "local",
+				},
+			},
+			wantRegistryHost: "localhost:5000",
+		},
+		{
+			name: "OCI registry with environment credentials",
+			repos: []RepositorySpec{
+				{
+					Name: "envregistry",
+					URL:  "registry.io/org",
+					OCI:  true,
+				},
+			},
+			envs: map[string]string{
+				"ENVREGISTRY_USERNAME": "envuser",
+				"ENVREGISTRY_PASSWORD": "envpass",
+			},
+			wantRegistryHost: "registry.io",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.envs {
+				t.Setenv(k, v)
+			}
+			helm := &exectest.Helm{}
+			state := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: tt.repos,
+				},
+			}
+			_, err := state.SyncRepos(helm, map[string]bool{})
+			if err != nil {
+				t.Errorf("HelmState.SyncRepos() error = %v", err)
+			}
+			if helm.RegistryLoginHost != tt.wantRegistryHost {
+				t.Errorf("HelmState.SyncRepos() RegistryLoginHost = %q, want %q", helm.RegistryLoginHost, tt.wantRegistryHost)
+			}
+		})
+	}
+}
+
 func TestHelmState_SyncReleases(t *testing.T) {
 	postRenderer := "foo.sh"
 	tests := []struct {
@@ -3092,6 +3189,53 @@ func TestReverse(t *testing.T) {
 		if got := st.Releases[i].Name; got != want {
 			t.Errorf("release at %d has incorrect name: want %q, got %q", i, want, got)
 		}
+	}
+}
+
+func Test_extractRegistryHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		repoURL  string
+		expected string
+	}{
+		{
+			name:     "URL with organization and repository path",
+			repoURL:  "quay.io/ORG_NAME",
+			expected: "quay.io",
+		},
+		{
+			name:     "URL with registry port and path",
+			repoURL:  "registry:443/helm-charts",
+			expected: "registry:443",
+		},
+		{
+			name:     "URL with multiple path segments",
+			repoURL:  "registry.io/org/repo/subpath",
+			expected: "registry.io",
+		},
+		{
+			name:     "URL with registry only, no path",
+			repoURL:  "myregistry.azurecr.io",
+			expected: "myregistry.azurecr.io",
+		},
+		{
+			name:     "URL with registry and port only",
+			repoURL:  "localhost:5000",
+			expected: "localhost:5000",
+		},
+		{
+			name:     "Docker Hub style URL",
+			repoURL:  "registry-1.docker.io/library",
+			expected: "registry-1.docker.io",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractRegistryHost(tt.repoURL)
+			if got != tt.expected {
+				t.Errorf("extractRegistryHost(%q) = %q, want %q", tt.repoURL, got, tt.expected)
+			}
+		})
 	}
 }
 

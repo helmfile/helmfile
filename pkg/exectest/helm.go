@@ -30,6 +30,7 @@ type DiffKey struct {
 type Helm struct {
 	Charts               []string
 	Repo                 []string
+	RegistryLoginHost    string // Captures the registry host for OCI login
 	Releases             []Release
 	Deleted              []Release
 	Linted               []Release
@@ -104,6 +105,7 @@ func (helm *Helm) UpdateRepo() error {
 	return nil
 }
 func (helm *Helm) RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error {
+	helm.RegistryLoginHost = name
 	return nil
 }
 func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart, namespace string, flags ...string) error {
