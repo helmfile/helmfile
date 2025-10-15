@@ -647,7 +647,7 @@ func (helm *execer) write(w io.Writer, out []byte) {
 }
 
 func (helm *execer) IsHelm3() bool {
-	return helm.version.Major() == 3
+	return helm.version.Major() >= 3
 }
 
 func (helm *execer) GetVersion() Version {
