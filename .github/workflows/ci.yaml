@@ -86,12 +86,13 @@ jobs:
             plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.12.5
             extra-helmfile-flags: '--enable-live-output'
-          # Test with Helm v4 beta
+          # Test with Helm v4 beta (allowed to fail as it's in beta)
           - helm-version: v4.0.0-beta.1
             kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.12.5
             extra-helmfile-flags: ''
+            experimental: true
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -119,6 +120,7 @@ jobs:
           kubernetes-version: v1.33.1 
       - name: Execute integration tests
         run: make integration
+        continue-on-error: ${{ matrix.experimental == true }}
         env:
           HELM_SECRETS_VERSION: ${{ matrix.plugin-secrets-version }}
           HELM_DIFF_VERSION: ${{ matrix.plugin-diff-version }}
