@@ -210,7 +210,7 @@ func (helm *Helm) IsHelm3() bool {
 	if helm.Version == nil {
 		return helm.Helm3
 	}
-	return helm.Version.Major() == 3
+	return helm.Version.Major() >= 3
 }
 
 func (helm *Helm) GetVersion() helmexec.Version {
