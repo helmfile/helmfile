@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -524,4 +525,209 @@ releaseContext:
 	if !reflect.DeepEqual(expectedValues, actualValues) {
 		t.Errorf("unexpected values: expected=%v, actual=%v", expectedValues, actualValues)
 	}
+}
+
+// TestHelmBinaryInBases tests that helmBinary and kustomizeBinary settings
+// from bases are properly merged with later values overriding earlier ones
+
+// TestHelmBinaryInBases tests that helmBinary and kustomizeBinary settings
+// from bases are properly merged with later values overriding earlier ones
+func TestHelmBinaryInBases(t *testing.T) {
+tests := []struct {
+name                    string
+files                   map[string]string
+mainFile                string
+expectedHelmBinary      string
+expectedKustomizeBinary string
+}{
+{
+name: "helmBinary in second base should be used",
+files: map[string]string{
+"/path/to/helmfile.yaml": `bases:
+  - ./bases/env.yaml
+---
+bases:
+  - ./bases/repos.yaml
+---
+bases:
+  - ./bases/releases.yaml
+`,
+"/path/to/bases/env.yaml": `environments:
+  default:
+    values:
+    - key: value1
+`,
+"/path/to/bases/repos.yaml": `repositories:
+  - name: stable
+    url: https://charts.helm.sh/stable
+helmBinary: /path/to/custom/helm
+`,
+"/path/to/bases/releases.yaml": `releases:
+  - name: myapp
+    chart: stable/nginx
+`,
+},
+mainFile:                "/path/to/helmfile.yaml",
+expectedHelmBinary:      "/path/to/custom/helm",
+expectedKustomizeBinary: DefaultKustomizeBinary,
+},
+{
+name: "helmBinary in main file after bases should override",
+files: map[string]string{
+"/path/to/helmfile.yaml": `bases:
+  - ./bases/env.yaml
+---
+bases:
+  - ./bases/repos.yaml
+---
+bases:
+  - ./bases/releases.yaml
+helmBinary: /path/to/main/helm
+`,
+"/path/to/bases/env.yaml": `environments:
+  default:
+    values:
+    - key: value1
+`,
+"/path/to/bases/repos.yaml": `repositories:
+  - name: stable
+    url: https://charts.helm.sh/stable
+helmBinary: /path/to/base/helm
+`,
+"/path/to/bases/releases.yaml": `releases:
+  - name: myapp
+    chart: stable/nginx
+`,
+},
+mainFile:                "/path/to/helmfile.yaml",
+expectedHelmBinary:      "/path/to/main/helm",
+expectedKustomizeBinary: DefaultKustomizeBinary,
+},
+{
+name: "helmBinary in main file between bases should override earlier bases",
+files: map[string]string{
+"/path/to/helmfile.yaml": `bases:
+  - ./bases/env.yaml
+---
+bases:
+  - ./bases/repos.yaml
+helmBinary: /path/to/middle/helm
+---
+bases:
+  - ./bases/releases.yaml
+`,
+"/path/to/bases/env.yaml": `environments:
+  default:
+    values:
+    - key: value1
+`,
+"/path/to/bases/repos.yaml": `repositories:
+  - name: stable
+    url: https://charts.helm.sh/stable
+helmBinary: /path/to/base/helm
+`,
+"/path/to/bases/releases.yaml": `releases:
+  - name: myapp
+    chart: stable/nginx
+`,
+},
+mainFile:                "/path/to/helmfile.yaml",
+expectedHelmBinary:      "/path/to/middle/helm",
+expectedKustomizeBinary: DefaultKustomizeBinary,
+},
+{
+name: "kustomizeBinary in base should be used",
+files: map[string]string{
+"/path/to/helmfile.yaml": `bases:
+  - ./bases/base.yaml
+`,
+"/path/to/bases/base.yaml": `kustomizeBinary: /path/to/custom/kustomize
+releases:
+  - name: myapp
+    chart: mychart
+`,
+},
+mainFile:                "/path/to/helmfile.yaml",
+expectedHelmBinary:      DefaultHelmBinary,
+expectedKustomizeBinary: "/path/to/custom/kustomize",
+},
+{
+name: "both helmBinary and kustomizeBinary in different bases",
+files: map[string]string{
+"/path/to/helmfile.yaml": `bases:
+  - ./bases/helm.yaml
+---
+bases:
+  - ./bases/kustomize.yaml
+`,
+"/path/to/bases/helm.yaml": `helmBinary: /path/to/custom/helm
+`,
+"/path/to/bases/kustomize.yaml": `kustomizeBinary: /path/to/custom/kustomize
+`,
+},
+mainFile:                "/path/to/helmfile.yaml",
+expectedHelmBinary:      "/path/to/custom/helm",
+expectedKustomizeBinary: "/path/to/custom/kustomize",
+},
+{
+name: "later base overrides earlier base for helmBinary",
+files: map[string]string{
+"/path/to/helmfile.yaml": `bases:
+  - ./bases/first.yaml
+---
+bases:
+  - ./bases/second.yaml
+`,
+"/path/to/bases/first.yaml": `helmBinary: /path/to/first/helm
+`,
+"/path/to/bases/second.yaml": `helmBinary: /path/to/second/helm
+`,
+},
+mainFile:                "/path/to/helmfile.yaml",
+expectedHelmBinary:      "/path/to/second/helm",
+expectedKustomizeBinary: DefaultKustomizeBinary,
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+testFs := testhelper.NewTestFs(tt.files)
+if testFs.Cwd == "" {
+testFs.Cwd = "/"
+}
+
+r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+creator := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "")
+
+// Set up LoadFile for recursive base loading
+creator.LoadFile = func(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error) {
+path := filepath.Join(baseDir, file)
+content, ok := tt.files[path]
+if !ok {
+return nil, fmt.Errorf("file not found: %s", path)
+}
+return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, DefaultEnv, true, evaluateBases, inheritedEnv, overrodeEnv)
+}
+
+yamlContent, ok := tt.files[tt.mainFile]
+if !ok {
+t.Fatalf("no file named %q registered", tt.mainFile)
+}
+
+state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, DefaultEnv, true, true, nil, nil)
+if err != nil {
+t.Fatalf("unexpected error: %v", err)
+}
+
+if state.DefaultHelmBinary != tt.expectedHelmBinary {
+t.Errorf("helmBinary mismatch: expected=%s, actual=%s",
+tt.expectedHelmBinary, state.DefaultHelmBinary)
+}
+
+if state.DefaultKustomizeBinary != tt.expectedKustomizeBinary {
+t.Errorf("kustomizeBinary mismatch: expected=%s, actual=%s",
+tt.expectedKustomizeBinary, state.DefaultKustomizeBinary)
+}
+})
+}
 }
