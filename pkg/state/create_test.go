@@ -529,9 +529,6 @@ releaseContext:
 
 // TestHelmBinaryInBases tests that helmBinary and kustomizeBinary settings
 // from bases are properly merged with later values overriding earlier ones
-
-// TestHelmBinaryInBases tests that helmBinary and kustomizeBinary settings
-// from bases are properly merged with later values overriding earlier ones
 func TestHelmBinaryInBases(t *testing.T) {
 	tests := []struct {
 		name                    string
