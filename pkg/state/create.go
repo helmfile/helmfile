@@ -116,11 +116,19 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 			return nil, &StateLoadError{fmt.Sprintf("failed to read %s: reading document at index %d", file, i), err}
 		}
 
-		if err := mergo.Merge(&state, &intermediate, mergo.WithAppendSlice); err != nil {
+		if err := mergo.Merge(&state, &intermediate, mergo.WithAppendSlice, mergo.WithOverride); err != nil {
 			return nil, &StateLoadError{fmt.Sprintf("failed to read %s: merging document at index %d", file, i), err}
 		}
 	}
 
+	state.logger = c.logger
+	state.valsRuntime = c.valsRuntime
+
+	return &state, nil
+}
+
+// applyDefaultsAndOverrides applies default binary paths and command-line overrides
+func (c *StateCreator) applyDefaultsAndOverrides(state *HelmState) {
 	if c.overrideHelmBinary != "" && c.overrideHelmBinary != DefaultHelmBinary {
 		state.DefaultHelmBinary = c.overrideHelmBinary
 	} else if state.DefaultHelmBinary == "" {
@@ -134,11 +142,6 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 		// Let `helmfile --kustomize-binary ""` not break this helmfile run
 		state.DefaultKustomizeBinary = DefaultKustomizeBinary
 	}
-
-	state.logger = c.logger
-	state.valsRuntime = c.valsRuntime
-
-	return &state, nil
 }
 
 // LoadEnvValues loads environment values files relative to the `baseDir`
@@ -181,6 +184,11 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 		if err != nil {
 			return nil, err
 		}
+
+		// Apply default binaries and command-line overrides only for the main helmfile
+		// after loading and merging all bases. This ensures that values from bases are
+		// properly respected and that later bases/documents can override earlier ones.
+		c.applyDefaultsAndOverrides(state)
 	}
 
 	state, err = c.LoadEnvValues(state, envName, failOnMissingEnv, envValues, overrode)
@@ -216,7 +224,7 @@ func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment
 	layers = append(layers, st)
 
 	for i := 1; i < len(layers); i++ {
-		if err := mergo.Merge(layers[0], layers[i], mergo.WithAppendSlice); err != nil {
+		if err := mergo.Merge(layers[0], layers[i], mergo.WithAppendSlice, mergo.WithOverride); err != nil {
 			return nil, err
 		}
 	}
