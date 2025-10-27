@@ -2167,7 +2167,7 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 		for _, r := range toRender {
 			visited := make(map[string]bool)
 			if depErr := st.HasTransitiveDependencyWithInstalledFalse(r, visited); depErr != nil {
-				return false, []error{fmt.Errorf("Release %s has a transitive dependency %s marked as install=false", depErr.Release.Name, depErr.Dependency.Name)}
+				return false, []error{fmt.Errorf("Release %s has a transitive dependency %s marked as installed=false", depErr.Release.Name, depErr.Dependency.Name)}
 			}
 		}
 	}
