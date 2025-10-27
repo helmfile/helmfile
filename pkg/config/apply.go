@@ -28,7 +28,7 @@ type ApplyOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is true if the transitive needs should be included
 	IncludeTransitiveNeeds bool
-	// EnforceNeedsAreInstalled is true we should error if/when there are unmeetable dependencies
+	// EnforceNeedsAreInstalled is true if we should error if/when there are unmeetable dependencies
 	EnforceNeedsAreInstalled bool
 	// SkipDiffOnInstall is true if the diff should be skipped on install
 	SkipDiffOnInstall bool
