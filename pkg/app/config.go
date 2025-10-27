@@ -242,6 +242,7 @@ type DAGConfig interface {
 	SkipNeeds() bool
 	IncludeNeeds() bool
 	IncludeTransitiveNeeds() bool
+	EnforceNeedsAreInstalled() bool
 }
 
 type WriteValuesConfigProvider interface {

@@ -2104,11 +2104,12 @@ type configImpl struct {
 	skipSchemaValidation bool
 	skipRefresh          bool
 
-	skipNeeds              bool
-	includeNeeds           bool
-	includeTransitiveNeeds bool
-	skipCharts             bool
-	kubeVersion            string
+	skipNeeds                bool
+	includeNeeds             bool
+	includeTransitiveNeeds   bool
+	enforceNeedsAreInstalled bool
+	skipCharts               bool
+	kubeVersion              string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2316,6 +2317,10 @@ func (a applyConfig) SkipRefresh() bool {
 
 func (a applyConfig) SkipNeeds() bool {
 	return a.skipNeeds
+}
+
+func (a applyConfig) EnforceNeedsAreInstalled() bool {
+	return a.enforceNeedsAreInstalled
 }
 
 func (a applyConfig) IncludeNeeds() bool {

@@ -28,6 +28,8 @@ type ApplyOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is true if the transitive needs should be included
 	IncludeTransitiveNeeds bool
+	// EnforceNeedsAreInstalled is true if we should error if/when there are unmeetable dependencies
+	EnforceNeedsAreInstalled bool
 	// SkipDiffOnInstall is true if the diff should be skipped on install
 	SkipDiffOnInstall bool
 	// DiffArgs is the list of arguments to pass to the helm-diff.
@@ -137,6 +139,11 @@ func (a *ApplyImpl) IncludeTests() bool {
 // IncludeTransitiveNeeds returns the include transitive needs.
 func (a *ApplyImpl) IncludeTransitiveNeeds() bool {
 	return a.ApplyOptions.IncludeTransitiveNeeds
+}
+
+// EnforceNeedsAreInstalled is true we should error if/when there are unmeetable dependencies
+func (a *ApplyImpl) EnforceNeedsAreInstalled() bool {
+	return a.ApplyOptions.EnforceNeedsAreInstalled
 }
 
 // ShowSecrets returns the show secrets.
