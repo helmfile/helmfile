@@ -39,6 +39,7 @@ type destroyConfig struct {
 	interactive            bool
 	skipDeps               bool
 	skipRefresh            bool
+	allowPartialErrors     bool
 	logger                 *zap.SugaredLogger
 	includeTransitiveNeeds bool
 	skipCharts             bool
@@ -76,6 +77,10 @@ func (d destroyConfig) SkipDeps() bool {
 
 func (d destroyConfig) SkipRefresh() bool {
 	return d.skipRefresh
+}
+
+func (d destroyConfig) AllowPartialErrors() bool {
+	return d.allowPartialErrors
 }
 
 func (d destroyConfig) IncludeTransitiveNeeds() bool {

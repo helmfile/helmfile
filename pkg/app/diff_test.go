@@ -25,6 +25,7 @@ type diffConfig struct {
 	skipCRDs                 bool
 	skipDeps                 bool
 	skipRefresh              bool
+	allowPartialErrors       bool
 	includeTests             bool
 	skipNeeds                bool
 	includeNeeds             bool
@@ -80,6 +81,10 @@ func (a diffConfig) SkipDeps() bool {
 
 func (a diffConfig) SkipRefresh() bool {
 	return a.skipRefresh
+}
+
+func (a diffConfig) AllowPartialErrors() bool {
+	return a.allowPartialErrors
 }
 
 func (a diffConfig) IncludeTests() bool {
