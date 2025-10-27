@@ -51,7 +51,13 @@ func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurre
 
 	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("%v", errs)
+		if !opts.AllowFailedReleases {
+			// abort on first error
+			return nil, fmt.Errorf("%v", errs)
+		} else {
+			// return partial results with errors for the failed ones
+			return releaseToChart, fmt.Errorf("%v", errs)
+		}
 	}
 
 	return releaseToChart, nil
@@ -95,9 +101,12 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		return err
 	}
 
-	releaseToChart, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
-	if err != nil {
-		return err
+	releaseToChart, prepareErr := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
+	// IMPORTANT: on opts.AllowFailedReleases: do not abort on error here, just forward it to the caller in order to allow for partial results
+	if !opts.AllowFailedReleases {
+		if prepareErr != nil {
+			return prepareErr
+		}
 	}
 
 	for i := range r.state.Releases {
@@ -128,8 +137,23 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		}
 	}
 
-	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand, firstErr)
-	return err
+	_, cleanupErr := r.state.TriggerGlobalCleanupEvent(helmfileCommand, firstErr)
+	if !opts.AllowFailedReleases {
+		// return directly on first error
+		return cleanupErr
+	} else {
+		// merge the two errors into a single error output
+		switch {
+		case prepareErr != nil && cleanupErr != nil:
+			return fmt.Errorf("at least one error occurred; error preparing charts: %w; error cleaning up charts: %w", prepareErr, cleanupErr)
+		case prepareErr != nil:
+			return fmt.Errorf("error preparing charts: %w", prepareErr)
+		case cleanupErr != nil:
+			return fmt.Errorf("error cleaning up charts: %w", cleanupErr)
+		default:
+			return nil
+		}
+	}
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {
