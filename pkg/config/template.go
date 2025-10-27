@@ -30,7 +30,7 @@ type TemplateOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
-	// EnforceNeedsAreInstalled is true we should error if/when there are unmeetable dependencies
+	// EnforceNeedsAreInstalled indicates whether to error when there are unmeetable dependencies
 	EnforceNeedsAreInstalled bool
 	// No-Hooks is the no hooks flag
 	NoHooks bool
