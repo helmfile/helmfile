@@ -2152,8 +2152,11 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 		SkipNeeds:              c.SkipNeeds(),
 	})
 
-	var selectedReleasesWithNeeds []state.ReleaseSpec
+	if err != nil {
+		return false, []error{err}
+	}
 
+	var selectedReleasesWithNeeds []state.ReleaseSpec
 	for _, rs := range batches {
 		for _, r := range rs {
 			selectedReleasesWithNeeds = append(selectedReleasesWithNeeds, r.ReleaseSpec)
