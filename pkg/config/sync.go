@@ -16,7 +16,7 @@ type SyncOptions struct {
 	IncludeNeeds bool
 	// IncludeTransitiveNeeds is the include transitive needs flag
 	IncludeTransitiveNeeds bool
-	// EnforceNeedsAreInstalled is true we should error if/when there are unmeetable dependencies
+	// EnforceNeedsAreInstalled indicates whether to error when there are unmeetable dependencies
 	EnforceNeedsAreInstalled bool
 	// SkipCrds is the skip crds flag
 	SkipCRDs bool
