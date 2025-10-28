@@ -25,6 +25,9 @@ RUN apt update -qq && \
 
 ARG TARGETARCH TARGETOS TARGETPLATFORM
 
+RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_${TARGETOS}_${TARGETARCH} -O /usr/local/bin/yq &&\
+    chmod +x /usr/local/bin/yq
+
 # Set Helm home variables so that also non-root users can use plugins etc.
 ARG HOME="/helm"
 ENV HOME="${HOME}"
@@ -99,7 +102,7 @@ RUN set -x && \
     [ "$(age --version)" = "${AGE_VERSION}" ] && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.13.0 && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.13.1 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.5 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.16.3 && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.3.0 && \

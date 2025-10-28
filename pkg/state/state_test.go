@@ -4744,3 +4744,58 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 		require.Equal(t, tt.flags, r.flags, "Wrong value control flag for release %s", r.release.Name)
 	}
 }
+
+func TestChartCacheKey(t *testing.T) {
+	st := &HelmState{}
+
+	// Test case 1: release with version
+	release1 := &ReleaseSpec{
+		Chart:   "stable/nginx",
+		Version: "1.2.3",
+	}
+
+	key1 := st.getChartCacheKey(release1)
+	expected1 := ChartCacheKey{Chart: "stable/nginx", Version: "1.2.3"}
+
+	if key1 != expected1 {
+		t.Errorf("Expected %+v, got %+v", expected1, key1)
+	}
+
+	// Test case 2: release without version
+	release2 := &ReleaseSpec{
+		Chart: "stable/nginx",
+	}
+
+	key2 := st.getChartCacheKey(release2)
+	expected2 := ChartCacheKey{Chart: "stable/nginx", Version: ""}
+
+	if key2 != expected2 {
+		t.Errorf("Expected %+v, got %+v", expected2, key2)
+	}
+}
+
+func TestChartCache(t *testing.T) {
+	st := &HelmState{}
+
+	// Create a test key
+	key := ChartCacheKey{Chart: "stable/test", Version: "1.0.0"}
+	path := "/tmp/test-chart"
+
+	// Initially, chart should not be in cache
+	_, exists := st.checkChartCache(key)
+	if exists {
+		t.Error("Chart should not be in cache initially")
+	}
+
+	// Add to cache
+	st.addToChartCache(key, path)
+
+	// Now chart should be in cache
+	cachedPath, exists := st.checkChartCache(key)
+	if !exists {
+		t.Error("Chart should be in cache after adding")
+	}
+	if cachedPath != path {
+		t.Errorf("Expected path %s, got %s", path, cachedPath)
+	}
+}

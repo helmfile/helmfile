@@ -12,11 +12,11 @@ RUN make static-${TARGETOS}-${TARGETARCH}
 
 # -----------------------------------------------------------------------------
 
-FROM alpine:3.19
+FROM alpine:3.22
 
 LABEL org.opencontainers.image.source=https://github.com/helmfile/helmfile
 
-RUN apk add --no-cache ca-certificates git bash curl jq openssh-client gnupg
+RUN apk add --no-cache ca-certificates git bash curl jq yq openssh-client gnupg
 
 ARG TARGETARCH TARGETOS TARGETPLATFORM
 
@@ -93,7 +93,7 @@ RUN set -x && \
     [ "$(age --version)" = "${AGE_VERSION}" ] && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.13.0 && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.13.1 && \
     helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.5 && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.16.3 && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.3.0 && \
