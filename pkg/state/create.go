@@ -26,6 +26,8 @@ const (
 	DefaultHCLFileExtension = ".hcl"
 )
 
+var ValidUpdateStrategyValues = []string{UpdateStrategyReinstallIfForbidden}
+
 type StateLoadError struct {
 	Msg   string
 	Cause error
@@ -41,6 +43,14 @@ type UndefinedEnvError struct {
 
 func (e *UndefinedEnvError) Error() string {
 	return fmt.Sprintf("environment \"%s\" is not defined", e.Env)
+}
+
+type InvalidUpdateStrategyError struct {
+	UpdateStrategy string
+}
+
+func (e *InvalidUpdateStrategyError) Error() string {
+	return fmt.Sprintf("updateStrategy %q is invalid, valid values are: %s or not set", e.UpdateStrategy, strings.Join(ValidUpdateStrategyValues, ", "))
 }
 
 type StateCreator struct {

@@ -56,9 +56,10 @@ type Release struct {
 }
 
 type Affected struct {
-	Upgraded []*Release
-	Deleted  []*Release
-	Failed   []*Release
+	Upgraded    []*Release
+	Reinstalled []*Release
+	Deleted     []*Release
+	Failed      []*Release
 }
 
 func (helm *Helm) UpdateDeps(chart string) error {
@@ -107,7 +108,24 @@ func (helm *Helm) RegistryLogin(name, username, password, caFile, certFile, keyF
 	return nil
 }
 func (helm *Helm) SyncRelease(context helmexec.HelmContext, name, chart, namespace string, flags ...string) error {
-	if strings.Contains(name, "error") {
+	if strings.Contains(name, "forbidden") {
+		releaseExists := false
+		for _, release := range helm.Releases {
+			if release.Name == name {
+				releaseExists = true
+			}
+		}
+		releaseDeleted := false
+		for _, release := range helm.Deleted {
+			if release.Name == name {
+				releaseDeleted = true
+			}
+		}
+		// Only fail if the release is present in the helm.Releases to simulate a forbidden update if it exists
+		if releaseExists && !releaseDeleted {
+			return fmt.Errorf("cannot patch %q with kind StatefulSet: StatefulSet.apps %q is invalid: spec: Forbidden: updates to statefulset spec for fields other than 'replicas', 'ordinals', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds' are forbidden", name, name)
+		}
+	} else if strings.Contains(name, "error") {
 		return errors.New("error")
 	}
 	helm.sync(helm.ReleasesMutex, func() {
