@@ -793,6 +793,9 @@ func (a *App) getHelm(st *state.HelmState) (helmexec.Interface, error) {
 	}
 
 	bin := st.DefaultHelmBinary
+	if bin == "" {
+		bin = state.DefaultHelmBinary
+	}
 	kubeconfig := a.Kubeconfig
 	kubectx := st.HelmDefaults.KubeContext
 
