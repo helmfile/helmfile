@@ -2163,15 +2163,6 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 		}
 	}
 
-	if c.EnforceNeedsAreInstalled() {
-		for _, r := range toRender {
-			visited := make(map[string]bool)
-			if depErr := st.HasTransitiveDependencyWithInstalledFalse(r, visited); depErr != nil {
-				return false, []error{fmt.Errorf("Release %s has a transitive dependency %s marked as installed=false", depErr.Release.Name, depErr.Dependency.Name)}
-			}
-		}
-	}
-
 	var toRender []state.ReleaseSpec
 
 	releasesToUninstall := map[string]state.ReleaseSpec{}
@@ -2197,6 +2188,15 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 			return nil
 		})); len(errs) > 0 {
 			return false, errs
+		}
+	}
+
+	if c.EnforceNeedsAreInstalled() {
+		for _, r := range toRender {
+			visited := make(map[string]bool)
+			if depErr := st.HasTransitiveDependencyWithInstalledFalse(r, visited); depErr != nil {
+				return false, []error{fmt.Errorf("Release %s has a transitive dependency %s marked as installed=false", depErr.Release.Name, depErr.Dependency.Name)}
+			}
 		}
 	}
 
