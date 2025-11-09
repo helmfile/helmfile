@@ -28,7 +28,7 @@ func NewVersionHelmExec(version string) *VersionHelmExec {
 	return &VersionHelmExec{noCallHelmExec: &noCallHelmExec{}, version: version}
 }
 
-func (helm *V3HelmExec) IsHelm3() bool {
+func (helm *V3HelmExec) IsOverHelm3() bool {
 	return helm.isHelm3
 }
 
@@ -127,7 +127,7 @@ func (helm *noCallHelmExec) Lint(name, chart string, flags ...string) error {
 	helm.doPanic()
 	return nil
 }
-func (helm *noCallHelmExec) IsHelm3() bool {
+func (helm *noCallHelmExec) IsOverHelm3() bool {
 	helm.doPanic()
 	return false
 }

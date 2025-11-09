@@ -206,7 +206,7 @@ func (helm *Helm) ChartPull(chart string, path string, flags ...string) error {
 func (helm *Helm) ChartExport(chart string, path string) error {
 	return nil
 }
-func (helm *Helm) IsHelm3() bool {
+func (helm *Helm) IsOverHelm3() bool {
 	if helm.Version == nil {
 		return helm.Helm3
 	}

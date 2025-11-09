@@ -28,7 +28,7 @@ func NewRun(st *state.HelmState, helm helmexec.Interface, ctx Context) (*Run, er
 		return nil, fmt.Errorf("Assertion failed: helmexec.Interface must not be nil")
 	}
 
-	if !helm.IsHelm3() {
+	if !helm.IsOverHelm3() {
 		return nil, fmt.Errorf("helmfile has deprecated helm2 since v0.150.0")
 	}
 

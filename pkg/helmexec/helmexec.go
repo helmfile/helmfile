@@ -33,7 +33,7 @@ type Interface interface {
 	TestRelease(context HelmContext, name string, flags ...string) error
 	List(context HelmContext, filter string, flags ...string) (string, error)
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
-	IsHelm3() bool
+	IsOverHelm3() bool
 	GetVersion() Version
 	IsVersionAtLeast(versionStr string) bool
 	ShowChart(chart string) (chart.Metadata, error)
@@ -41,5 +41,5 @@ type Interface interface {
 
 type DependencyUpdater interface {
 	UpdateDeps(chart string) error
-	IsHelm3() bool
+	IsOverHelm3() bool
 }

@@ -576,7 +576,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 }
 
 type RepoUpdater interface {
-	IsHelm3() bool
+	IsOverHelm3() bool
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error
 	UpdateRepo() error
 	RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error
@@ -1640,7 +1640,11 @@ func (st *HelmState) TemplateReleases(helm helmexec.Interface, outputDir string,
 		}
 
 		if validate {
-			flags = append(flags, "--validate")
+			if helm.IsVersionAtLeast("4.0.0") {
+				flags = append(flags, "--dry-run=server")
+			} else {
+				flags = append(flags, "--validate")
+			}
 		}
 
 		if opts.IncludeCRDs {

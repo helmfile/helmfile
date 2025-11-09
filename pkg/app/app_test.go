@@ -2588,7 +2588,7 @@ func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
 func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
 	return nil
 }
-func (helm *mockHelmExec) IsHelm3() bool {
+func (helm *mockHelmExec) IsOverHelm3() bool {
 	return true
 }
 
