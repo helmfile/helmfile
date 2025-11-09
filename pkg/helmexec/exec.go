@@ -91,7 +91,7 @@ func parseHelmVersion(versionStr string) (*semver.Version, error) {
 
 func GetHelmVersion(helmBinary string, runner Runner) (*semver.Version, error) {
 	// Autodetect from `helm version`
-	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil, false)
+	outBytes, err := runner.Execute(helmBinary, []string{"version", "--short"}, nil, false)
 	if err != nil {
 		return nil, fmt.Errorf("error determining helm version: %w", err)
 	}

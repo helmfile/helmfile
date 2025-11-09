@@ -30,7 +30,7 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	if len(mock.output) == 0 && strings.Join(args, " ") == "version --client --short" {
+	if len(mock.output) == 0 && strings.Join(args, " ") == "version --short" {
 		return []byte("v3.2.4+ge29ce2a"), nil
 	}
 	return mock.output, mock.err
