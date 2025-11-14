@@ -86,7 +86,7 @@ jobs:
             plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.12.5
             extra-helmfile-flags: '--enable-live-output'
-          - helm-version: v4.0.0-beta.1
+          - helm-version: v4.0.0
             kustomize-version: v5.4.3
             plugin-secrets-version: 4.6.5
             plugin-diff-version: 3.12.5
