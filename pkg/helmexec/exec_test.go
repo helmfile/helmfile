@@ -431,6 +431,7 @@ exec: helm --kubeconfig config --kube-context dev dependency update ./chart/foo
 	buffer.Reset()
 	helm.SetExtraArgs("--verify")
 	err = helm.UpdateDeps("./chart/foo")
+	// --verify is a dependency-specific flag and should be preserved
 	expected = `Updating dependency ./chart/foo
 exec: helm --kubeconfig config --kube-context dev dependency update ./chart/foo --verify
 `
@@ -438,7 +439,7 @@ exec: helm --kubeconfig config --kube-context dev dependency update ./chart/foo 
 		t.Errorf("unexpected error: %v", err)
 	}
 	if buffer.String() != expected {
-		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
+		t.Errorf("helmexec.UpdateDeps()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 }
 
@@ -478,6 +479,7 @@ v3.2.4+ge29ce2a
 	buffer.Reset()
 	helm.SetExtraArgs("--verify")
 	err = helm.BuildDeps("foo", "./chart/foo", []string{"--skip-refresh"}...)
+	// --verify is a dependency-specific flag and should be preserved
 	expected = `Building dependency release=foo, chart=./chart/foo
 exec: helm --kubeconfig config --kube-context dev dependency build ./chart/foo --skip-refresh --verify
 v3.2.4+ge29ce2a
@@ -505,6 +507,47 @@ Client: v2.16.1+ge13bc94
 	}
 	if buffer.String() != expected {
 		t.Errorf("helmexec.BuildDeps()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	// Test that --dry-run flag is filtered out (not supported by helm dependency build)
+	buffer.Reset()
+	helm3Runner = mockRunner{output: []byte("v3.2.4+ge29ce2a")}
+	helm, err = New("helm", HelmExecOptions{}, logger, "config", "dev", &helm3Runner)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	helm.SetExtraArgs("--dry-run=server")
+	err = helm.BuildDeps("foo", "./chart/foo")
+	expected = `Building dependency release=foo, chart=./chart/foo
+exec: helm --kubeconfig config --kube-context dev dependency build ./chart/foo
+v3.2.4+ge29ce2a
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.BuildDeps() with --dry-run should filter it out\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+
+	// Test that global flags (--debug) and dependency flags (--verify) are preserved,
+	// while template-specific flags (--dry-run) are filtered out
+	buffer.Reset()
+	helm3Runner = mockRunner{output: []byte("v3.2.4+ge29ce2a")}
+	helm, err = New("helm", HelmExecOptions{}, logger, "config", "dev", &helm3Runner)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	helm.SetExtraArgs("--debug", "--dry-run=server", "--verify", "--wait")
+	err = helm.BuildDeps("foo", "./chart/foo")
+	expected = `Building dependency release=foo, chart=./chart/foo
+exec: helm --kubeconfig config --kube-context dev dependency build ./chart/foo --debug --verify
+v3.2.4+ge29ce2a
+`
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buffer.String() != expected {
+		t.Errorf("helmexec.BuildDeps() should preserve global and dependency flags\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
 }
 

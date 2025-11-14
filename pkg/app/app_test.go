@@ -2730,7 +2730,8 @@ releases:
 	}
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 	if err != nil {
@@ -2802,7 +2803,8 @@ releases:
 	}
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 	if err != nil {
@@ -4066,7 +4068,8 @@ releases:
 	defer func() { os.Stdout = stdout }()
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -4115,7 +4118,8 @@ releases:
 	defer func() { os.Stdout = stdout }()
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -4177,7 +4181,8 @@ releases:
 	defer func() { os.Stdout = stdout }()
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,

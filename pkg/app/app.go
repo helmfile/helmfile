@@ -586,7 +586,7 @@ func (a *App) dag(r *Run) error {
 }
 
 func (a *App) ListReleases(c ListConfigProvider) error {
-	var releases []*HelmRelease
+	releasesChan := make(chan []*HelmRelease, 100)
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		var stateReleases []*HelmRelease
@@ -612,14 +612,32 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 			errs = append(errs, err)
 		}
 
-		releases = append(releases, stateReleases...)
+		if len(stateReleases) > 0 {
+			releasesChan <- stateReleases
+		}
 
 		return
 	}, false, SetFilter(true))
 
+	close(releasesChan)
+
+	// Collect all releases from channel
+	var releases []*HelmRelease
+	for rels := range releasesChan {
+		releases = append(releases, rels...)
+	}
+
 	if err != nil {
 		return err
 	}
+
+	// Sort releases to ensure deterministic output order regardless of parallel execution
+	sort.Slice(releases, func(i, j int) bool {
+		if releases[i].Namespace != releases[j].Namespace {
+			return releases[i].Namespace < releases[j].Namespace
+		}
+		return releases[i].Name < releases[j].Name
+	})
 
 	if c.Output() == "json" {
 		err = FormatAsJson(releases)
@@ -743,6 +761,10 @@ func (a *App) visitStateFiles(fileOrDir string, opts LoadOpts, do func(string, s
 }
 
 func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.HelmState, error) {
+	return a.loadDesiredStateFromYamlWithBaseDir(file, "", opts...)
+}
+
+func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, opts ...LoadOpts) (*state.HelmState, error) {
 	var op LoadOpts
 	if len(opts) > 0 {
 		op = opts[0]
@@ -755,6 +777,7 @@ func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.He
 		chart:     a.Chart,
 		logger:    a.Logger,
 		remote:    a.remote,
+		baseDir:   baseDir,
 
 		overrideKubeContext:     a.OverrideKubeContext,
 		overrideHelmBinary:      a.OverrideHelmBinary,
@@ -817,117 +840,256 @@ func (a *App) getHelm(st *state.HelmState) (helmexec.Interface, error) {
 }
 
 func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error)) error {
-	noMatchInHelmfiles := true
+	return a.visitStatesWithContext(fileOrDir, defOpts, converge, nil)
+}
 
-	err := a.visitStateFiles(fileOrDir, defOpts, func(f, d string) (retErr error) {
-		opts := defOpts.DeepCopy()
+func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context, errChan chan error, matchChan chan bool) {
+	var file string
+	var dir string
+	if a.fs.DirectoryExistsAt(relPath) {
+		file = relPath
+		dir = relPath
+	} else {
+		file = filepath.Base(relPath)
+		dir = filepath.Dir(relPath)
+	}
 
-		if opts.CalleePath == "" {
-			opts.CalleePath = f
+	absd, errAbsDir := a.fs.Abs(dir)
+	if errAbsDir != nil {
+		errChan <- errAbsDir
+		return
+	}
+
+	opts := defOpts.DeepCopy()
+	if opts.CalleePath == "" {
+		opts.CalleePath = file
+	}
+
+	st, err := a.loadDesiredStateFromYamlWithBaseDir(file, absd, opts)
+	if err != nil {
+		switch stateLoadErr := err.(type) {
+		case *state.StateLoadError:
+			switch stateLoadErr.Cause.(type) {
+			case *state.UndefinedEnvError:
+				return
+			default:
+				errChan <- appError(fmt.Sprintf("in %s/%s", dir, file), err)
+				return
+			}
+		default:
+			errChan <- appError(fmt.Sprintf("in %s/%s", dir, file), err)
+			return
+		}
+	}
+
+	if st == nil {
+		return
+	}
+
+	st.Selectors = opts.Selectors
+
+	if len(st.Helmfiles) > 0 && !opts.Reverse {
+		if err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx); err != nil {
+			errChan <- err
+			return
+		}
+	}
+
+	templated, err := st.ExecuteTemplates()
+	if err != nil {
+		errChan <- appError(fmt.Sprintf("in %s/%s: failed executing release templates in \"%s\"", dir, file, file), err)
+		return
+	}
+
+	var errs []error
+	CleanWaitGroup.Add(1)
+	var cleanErr error
+	defer func() {
+		defer CleanWaitGroup.Done()
+		cleanErr = context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+	}()
+
+	processed, errs := converge(templated)
+
+	if len(errs) > 0 {
+		errChan <- errs[0]
+		return
+	}
+	if cleanErr != nil {
+		errChan <- cleanErr
+		return
+	}
+
+	// Report if this file had matching releases
+	if processed {
+		matchChan <- true
+	}
+
+	if opts.Reverse && len(st.Helmfiles) > 0 {
+		if err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx); err != nil {
+			errChan <- err
+		}
+	}
+}
+
+func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) error {
+	for i, m := range st.Helmfiles {
+		optsForNestedState := LoadOpts{
+			CalleePath:        filepath.Join(absd, file),
+			Environment:       m.Environment,
+			Reverse:           defOpts.Reverse,
+			RetainValuesFiles: defOpts.RetainValuesFiles,
+		}
+		if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
+			optsForNestedState.Selectors = opts.Selectors
+		} else {
+			optsForNestedState.Selectors = m.Selectors
 		}
 
-		st, err := a.loadDesiredStateFromYaml(f, opts)
+		if err := a.visitStatesWithContext(m.Path, optsForNestedState, converge, sharedCtx); err != nil {
+			switch err.(type) {
+			case *NoMatchingHelmfileError:
+			default:
+				return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+			}
+		}
+	}
+	return nil
+}
 
-		ctx := context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}
+func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) error {
+	noMatchInHelmfiles := true
 
-		if err != nil {
-			switch stateLoadErr := err.(type) {
-			// Addresses https://github.com/roboll/helmfile/issues/279
-			case *state.StateLoadError:
-				switch stateLoadErr.Cause.(type) {
-				case *state.UndefinedEnvError:
-					return nil
+	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir, defOpts)
+
+	if len(desiredStateFiles) > 1 {
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(desiredStateFiles))
+		matchChan := make(chan bool, len(desiredStateFiles))
+
+		for _, relPath := range desiredStateFiles {
+			wg.Add(1)
+			go func(relPath string) {
+				defer wg.Done()
+				a.processStateFileParallel(relPath, defOpts, converge, sharedCtx, errChan, matchChan)
+			}(relPath)
+		}
+
+		wg.Wait()
+		close(errChan)
+		close(matchChan)
+
+		for err := range errChan {
+			if err != nil {
+				return err
+			}
+		}
+
+		// Check if any files had matching releases
+		for range matchChan {
+			noMatchInHelmfiles = false
+		}
+	} else {
+		// Sequential processing for single file
+		err = a.visitStateFiles(fileOrDir, defOpts, func(f, d string) (retErr error) {
+			opts := defOpts.DeepCopy()
+
+			if opts.CalleePath == "" {
+				opts.CalleePath = f
+			}
+
+			st, err := a.loadDesiredStateFromYaml(f, opts)
+
+			ctx := context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}
+
+			if err != nil {
+				switch stateLoadErr := err.(type) {
+				case *state.StateLoadError:
+					switch stateLoadErr.Cause.(type) {
+					case *state.UndefinedEnvError:
+						return nil
+					default:
+						return ctx.wrapErrs(err)
+					}
 				default:
 					return ctx.wrapErrs(err)
 				}
-			default:
-				return ctx.wrapErrs(err)
 			}
-		}
-		st.Selectors = opts.Selectors
+			st.Selectors = opts.Selectors
 
-		visitSubHelmfiles := func() error {
-			if len(st.Helmfiles) > 0 {
-				noMatchInSubHelmfiles := true
-				for i, m := range st.Helmfiles {
-					optsForNestedState := LoadOpts{
-						CalleePath:        filepath.Join(d, f),
-						Environment:       m.Environment,
-						Reverse:           defOpts.Reverse,
-						RetainValuesFiles: defOpts.RetainValuesFiles,
-					}
-					// assign parent selector to sub helm selector in legacy mode or do not inherit in experimental mode
-					if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-						optsForNestedState.Selectors = opts.Selectors
-					} else {
-						optsForNestedState.Selectors = m.Selectors
-					}
-
-					if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
-						switch err.(type) {
-						case *NoMatchingHelmfileError:
-
-						default:
-							return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+			visitSubHelmfiles := func() error {
+				if len(st.Helmfiles) > 0 {
+					noMatchInSubHelmfiles := true
+					for i, m := range st.Helmfiles {
+						optsForNestedState := LoadOpts{
+							CalleePath:        filepath.Join(d, f),
+							Environment:       m.Environment,
+							Reverse:           defOpts.Reverse,
+							RetainValuesFiles: defOpts.RetainValuesFiles,
 						}
-					} else {
-						noMatchInSubHelmfiles = false
+						if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
+							optsForNestedState.Selectors = opts.Selectors
+						} else {
+							optsForNestedState.Selectors = m.Selectors
+						}
+
+						if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
+							switch err.(type) {
+							case *NoMatchingHelmfileError:
+							default:
+								return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+							}
+						} else {
+							noMatchInSubHelmfiles = false
+						}
 					}
+					noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
 				}
-				noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
+				return nil
 			}
+
+			if !opts.Reverse {
+				err = visitSubHelmfiles()
+				if err != nil {
+					return err
+				}
+			}
+
+			templated, tmplErr := st.ExecuteTemplates()
+			if tmplErr != nil {
+				return appError(fmt.Sprintf("failed executing release templates in \"%s\"", f), tmplErr)
+			}
+
+			var (
+				processed bool
+				errs      []error
+			)
+
+			CleanWaitGroup.Add(1)
+			defer func() {
+				defer CleanWaitGroup.Done()
+				cleanErr := context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+				if retErr == nil {
+					retErr = cleanErr
+				} else if cleanErr != nil {
+					a.Logger.Debugf("Failed to clean up temporary files generated while processing %q: %v", templated.FilePath, cleanErr)
+				}
+			}()
+
+			processed, errs = converge(templated)
+
+			noMatchInHelmfiles = noMatchInHelmfiles && !processed
+
+			if opts.Reverse {
+				err = visitSubHelmfiles()
+				if err != nil {
+					return err
+				}
+			}
+
 			return nil
-		}
-
-		if !opts.Reverse {
-			err = visitSubHelmfiles()
-			if err != nil {
-				return err
-			}
-		}
-
-		templated, tmplErr := st.ExecuteTemplates()
-		if tmplErr != nil {
-			return appError(fmt.Sprintf("failed executing release templates in \"%s\"", f), tmplErr)
-		}
-
-		var (
-			processed bool
-			errs      []error
-		)
-
-		// Ensure every temporary files and directories generated while running
-		// the converge function is clean up before exiting this function in all the three cases below:
-		// - This function returned nil
-		// - This function returned an err
-		// - Helmfile received SIGINT or SIGTERM while running this function
-		// For the last case you also need a signal handler in main.go.
-		// Ideally though, this CleanWaitGroup should gone and be replaced by a context cancellation propagation.
-		// See https://github.com/helmfile/helmfile/pull/418 for more details.
-		CleanWaitGroup.Add(1)
-		defer func() {
-			defer CleanWaitGroup.Done()
-			cleanErr := context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
-			if retErr == nil {
-				retErr = cleanErr
-			} else if cleanErr != nil {
-				a.Logger.Debugf("Failed to clean up temporary files generated while processing %q: %v", templated.FilePath, cleanErr)
-			}
-		}()
-
-		processed, errs = converge(templated)
-
-		noMatchInHelmfiles = noMatchInHelmfiles && !processed
-
-		if opts.Reverse {
-			err = visitSubHelmfiles()
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
+		})
+	}
 
 	if err != nil {
 		return err
@@ -964,18 +1126,18 @@ var (
 
 func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds bool, o ...LoadOption) error {
 	ctx := NewContext()
-	err := a.visitStatesWithSelectorsAndRemoteSupport(a.FileOrDir, func(st *state.HelmState) (bool, []error) {
+	err := a.visitStatesWithSelectorsAndRemoteSupportWithContext(a.FileOrDir, func(st *state.HelmState) (bool, []error) {
 		helm, err := a.getHelm(st)
 		if err != nil {
 			return false, []error{err}
 		}
 
-		run, err := NewRun(st, helm, ctx)
+		run, err := NewRun(st, helm, &ctx)
 		if err != nil {
 			return false, []error{err}
 		}
 		return do(run)
-	}, includeTransitiveNeeds, o...)
+	}, includeTransitiveNeeds, &ctx, o...)
 
 	return err
 }
@@ -1079,7 +1241,7 @@ type Opts struct {
 	DAGEnabled bool
 }
 
-func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converge func(*state.HelmState) (bool, []error), includeTransitiveNeeds bool, opt ...LoadOption) error {
+func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir string, converge func(*state.HelmState) (bool, []error), includeTransitiveNeeds bool, sharedCtx *Context, opt ...LoadOption) error {
 	opts := LoadOpts{
 		Selectors: a.Selectors,
 	}
@@ -1129,7 +1291,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupport(fileOrDir string, converg
 		return f(st)
 	}
 
-	return a.visitStates(fileOrDir, opts, fHelmStatsWithOverrides)
+	return a.visitStatesWithContext(fileOrDir, opts, fHelmStatsWithOverrides, sharedCtx)
 }
 
 func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
