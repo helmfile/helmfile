@@ -220,6 +220,97 @@ releases:
 	}
 }
 
+func TestUpdateStrategyParamValidation(t *testing.T) {
+	cases := []struct {
+		files          map[string]string
+		updateStrategy string
+		isValid        bool
+	}{
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: reinstallIfForbidden
+`},
+			"reinstallIfForbidden",
+			true},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: reinstallIfForbidden
+`},
+			"reinstallIfForbidden",
+			true},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy:
+`},
+			"",
+			true},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: foo
+`},
+			"foo",
+			false},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: reinstal
+`},
+			"reinstal",
+			false},
+		{map[string]string{
+			"/path/to/helmfile.yaml": `releases:
+- name: zipkin
+  chart: stable/zipkin
+  updateStrategy: reinstall1
+`},
+			"reinstall1",
+			false},
+	}
+
+	for idx, c := range cases {
+		fs := testhelper.NewTestFs(c.files)
+		app := &App{
+			OverrideHelmBinary:  DefaultHelmBinary,
+			OverrideKubeContext: "default",
+			Logger:              newAppTestLogger(),
+			Namespace:           "",
+			Env:                 "default",
+			FileOrDir:           "helmfile.yaml",
+		}
+
+		expectNoCallsToHelm(app)
+
+		app = injectFs(app, fs)
+
+		err := app.ForEachState(
+			Noop,
+			false,
+			SetFilter(true),
+		)
+
+		if c.isValid && err != nil {
+			t.Errorf("[case: %d] Unexpected error for valid case: %v", idx, err)
+		} else if !c.isValid {
+			var invalidUpdateStrategy state.InvalidUpdateStrategyError
+			invalidUpdateStrategy.UpdateStrategy = c.updateStrategy
+			if err == nil {
+				t.Errorf("[case: %d] Expected error for invalid case", idx)
+			} else if !strings.Contains(err.Error(), invalidUpdateStrategy.Error()) {
+				t.Errorf("[case: %d] Unexpected error returned for invalid case\ngot: %v\nexpected underlying error: %s", idx, err, invalidUpdateStrategy.Error())
+			}
+		}
+	}
+}
+
 func TestVisitDesiredStatesWithReleasesFiltered_Issue1008_MissingNonDefaultEnvInBase(t *testing.T) {
 	files := map[string]string{
 		"/path/to/base.yaml": `
@@ -2639,7 +2730,8 @@ releases:
 	}
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 	if err != nil {
@@ -2711,7 +2803,8 @@ releases:
 	}
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 	if err != nil {
@@ -3073,6 +3166,97 @@ baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	defau
 				{Name: "foo", Flags: []string{"--kube-context", "default"}},
 			},
 			deleted:     []exectest.Release{},
+			concurrency: 1,
+		},
+		//
+		// install with upgrade with reinstallIfForbidden
+		//
+		{
+			name: "install-with-upgrade-with-reinstallIfForbidden",
+			loc:  location(),
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: baz
+  chart: stable/mychart3
+  disableValidationOnInstall: true
+  updateStrategy: reinstallIfForbidden
+- name: foo
+  chart: stable/mychart1
+  disableValidationOnInstall: true
+  needs:
+  - bar
+- name: bar
+  chart: stable/mychart2
+  disableValidation: true
+  updateStrategy: reinstallIfForbidden
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-context default --reset-values --detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
+				{Name: "foo", Chart: "stable/mychart1", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: listFlags("", "default")}: ``,
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+				{Filter: "^baz$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "baz", Flags: []string{"--kube-context", "default"}},
+				{Name: "bar", Flags: []string{"--kube-context", "default"}},
+				{Name: "foo", Flags: []string{"--kube-context", "default"}},
+			},
+			deleted:     []exectest.Release{},
+			concurrency: 1,
+		},
+		//
+		// install with upgrade and --skip-diff-on-install with reinstallIfForbidden
+		//
+		{
+			name:              "install-with-upgrade-with-skip-diff-on-install-with-reinstallIfForbidden",
+			loc:               location(),
+			skipDiffOnInstall: true,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: baz
+  chart: stable/mychart3
+  disableValidationOnInstall: true
+  updateStrategy: reinstallIfForbidden
+- name: foo
+  chart: stable/mychart1
+  disableValidationOnInstall: true
+  needs:
+  - bar
+- name: bar
+  chart: stable/mychart2
+  disableValidation: true
+  updateStrategy: reinstallIfForbidden
+`,
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-context default --reset-values --detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
+				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^foo$", Flags: listFlags("", "default")}: ``,
+				{Filter: "^bar$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart2-3.1.0	3.1.0      	default
+`,
+				{Filter: "^baz$", Flags: listFlags("", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+baz 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mychart3-3.1.0	3.1.0      	default
+`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "baz", Flags: []string{"--kube-context", "default"}},
+				{Name: "bar", Flags: []string{"--kube-context", "default"}},
+				{Name: "foo", Flags: []string{"--kube-context", "default"}},
+			},
 			concurrency: 1,
 		},
 		//
@@ -3772,7 +3956,7 @@ releases:
 					}
 					for flagIdx := range wantDeletes[relIdx].Flags {
 						if wantDeletes[relIdx].Flags[flagIdx] != helm.Deleted[relIdx].Flags[flagIdx] {
-							t.Errorf("releaes[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Deleted[relIdx].Flags[flagIdx], wantDeletes[relIdx].Flags[flagIdx])
+							t.Errorf("releases[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Deleted[relIdx].Flags[flagIdx], wantDeletes[relIdx].Flags[flagIdx])
 						}
 					}
 				}
@@ -3884,7 +4068,8 @@ releases:
 	defer func() { os.Stdout = stdout }()
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -3933,7 +4118,8 @@ releases:
 	defer func() { os.Stdout = stdout }()
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,
@@ -3995,7 +4181,8 @@ releases:
 	defer func() { os.Stdout = stdout }()
 
 	var buffer bytes.Buffer
-	logger := helmexec.NewLogger(&buffer, "debug")
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:  DefaultHelmBinary,

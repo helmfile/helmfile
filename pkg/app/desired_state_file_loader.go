@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"dario.cat/mergo"
 	"github.com/helmfile/vals"
@@ -33,6 +34,7 @@ type desiredStateLoader struct {
 	namespace string
 	chart     string
 	fs        *filesystem.FileSystem
+	baseDir   string // Base directory for resolving relative paths, empty means use cwd
 
 	getHelm func(*state.HelmState) (helmexec.Interface, error)
 
@@ -66,7 +68,22 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		}
 	}
 
-	st, err := ld.loadFileWithOverrides(nil, overrodeEnv, filepath.Dir(f), filepath.Base(f), true)
+	// Resolve file path relative to baseDir if provided
+	var dir, file string
+	if ld.baseDir != "" {
+		// If baseDir is set, resolve all paths relative to it
+		if !filepath.IsAbs(f) {
+			f = filepath.Join(ld.baseDir, f)
+		}
+		dir = filepath.Dir(f)
+		file = filepath.Base(f)
+	} else {
+		// Use original behavior
+		dir = filepath.Dir(f)
+		file = filepath.Base(f)
+	}
+
+	st, err := ld.loadFileWithOverrides(nil, overrodeEnv, dir, file, true)
 	if err != nil {
 		return nil, err
 	}
@@ -282,6 +299,18 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		return nil, &state.StateLoadError{
 			Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
 			Cause: &state.UndefinedEnvError{Env: env.Name},
+		}
+	}
+
+	// Validate updateStrategy value if set in the releases
+	for i := range finalState.Releases {
+		if finalState.Releases[i].UpdateStrategy != "" {
+			if !slices.Contains(state.ValidUpdateStrategyValues, finalState.Releases[i].UpdateStrategy) {
+				return nil, &state.StateLoadError{
+					Msg:   fmt.Sprintf("failed to read %s", finalState.FilePath),
+					Cause: &state.InvalidUpdateStrategyError{UpdateStrategy: finalState.Releases[i].UpdateStrategy},
+				}
+			}
 		}
 	}
 

@@ -43,6 +43,9 @@ const (
 	// This is used by an interim solution to make the urfave/cli command report to the helmfile internal about that the
 	// --timeout flag is missingl
 	EmptyTimeout = -1
+
+	// Valid enum for updateStrategy values
+	UpdateStrategyReinstallIfForbidden = "reinstallIfForbidden"
 )
 
 // ReleaseSetSpec is release set spec
@@ -277,6 +280,8 @@ type ReleaseSpec struct {
 	Force *bool `yaml:"force,omitempty"`
 	// Installed, when set to true, `delete --purge` the release
 	Installed *bool `yaml:"installed,omitempty"`
+	// UpdateStrategy, when set, indicate the strategy to use to update the release
+	UpdateStrategy string `yaml:"updateStrategy,omitempty"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic *bool `yaml:"atomic,omitempty"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
@@ -467,6 +472,7 @@ type SetValue struct {
 // AffectedReleases hold the list of released that where updated, deleted, or in error
 type AffectedReleases struct {
 	Upgraded     []*ReleaseSpec
+	Reinstalled  []*ReleaseSpec
 	Deleted      []*ReleaseSpec
 	Failed       []*ReleaseSpec
 	DeleteFailed []*ReleaseSpec
@@ -1037,20 +1043,24 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						}
 						m.Unlock()
 					}
-				} else if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
-					m.Lock()
-					affectedReleases.Failed = append(affectedReleases.Failed, release)
-					m.Unlock()
-					relErr = newReleaseFailedError(release, err)
+				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
+					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
 				} else {
-					m.Lock()
-					affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
-					m.Unlock()
-					installedVersion, err := st.getDeployedVersion(context, helm, release)
-					if err != nil { // err is not really impacting so just log it
-						st.logger.Debugf("getting deployed release version failed: %v", err)
+					if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+						m.Lock()
+						affectedReleases.Failed = append(affectedReleases.Failed, release)
+						m.Unlock()
+						relErr = newReleaseFailedError(release, err)
 					} else {
-						release.installedVersion = installedVersion
+						m.Lock()
+						affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
+						m.Unlock()
+						installedVersion, err := st.getDeployedVersion(context, helm, release)
+						if err != nil { // err is not really impacting so just log it
+							st.logger.Debugf("getting deployed release version failed: %v", err)
+						} else {
+							release.installedVersion = installedVersion
+						}
 					}
 				}
 
@@ -1092,6 +1102,77 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 	)
 	if len(errs) > 0 {
 		return errs
+	}
+	return nil
+}
+
+func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedReleases, helm helmexec.Interface, context helmexec.HelmContext, release *ReleaseSpec, chart string, m *sync.Mutex, flags ...string) *ReleaseError {
+	if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+		st.logger.Debugf("update strategy - sync failed: %s", err.Error())
+		// Only fail if a different error than forbidden updates
+		if !strings.Contains(err.Error(), "Forbidden: updates") {
+			st.logger.Debugf("update strategy - sync failed not due to Forbidden updates")
+			m.Lock()
+			affectedReleases.Failed = append(affectedReleases.Failed, release)
+			m.Unlock()
+			return newReleaseFailedError(release, err)
+		}
+	} else {
+		st.logger.Debugf("update strategy - sync success")
+		m.Lock()
+		affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
+		m.Unlock()
+		installedVersion, err := st.getDeployedVersion(context, helm, release)
+		if err != nil { // err is not really impacting so just log it
+			st.logger.Debugf("update strategy - getting deployed release version failed: %v", err)
+		} else {
+			release.installedVersion = installedVersion
+		}
+		return nil
+	}
+
+	st.logger.Infof("Failed to sync due to forbidden updates, attempting to reinstall %q allowed by update strategy", release.Name)
+	installed, err := st.isReleaseInstalled(context, helm, *release)
+	if err != nil {
+		return newReleaseFailedError(release, err)
+	}
+	if installed {
+		var args []string
+		if release.Namespace != "" {
+			args = append(args, "--namespace", release.Namespace)
+		}
+		deleteWaitFlag := true
+		release.DeleteWait = &deleteWaitFlag
+		args = st.appendDeleteWaitFlags(args, release)
+		deletionFlags := st.appendConnectionFlags(args, release)
+		m.Lock()
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+			affectedReleases.Failed = append(affectedReleases.Failed, release)
+			return newReleaseFailedError(release, err)
+		} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+			affectedReleases.Failed = append(affectedReleases.Failed, release)
+			return newReleaseFailedError(release, err)
+		} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+			affectedReleases.Failed = append(affectedReleases.Failed, release)
+			return newReleaseFailedError(release, err)
+		}
+		m.Unlock()
+	}
+	if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+		m.Lock()
+		affectedReleases.Failed = append(affectedReleases.Failed, release)
+		m.Unlock()
+		return newReleaseFailedError(release, err)
+	} else {
+		m.Lock()
+		affectedReleases.Reinstalled = append(affectedReleases.Reinstalled, release)
+		m.Unlock()
+		installedVersion, err := st.getDeployedVersion(context, helm, release)
+		if err != nil { // err is not really impacting so just log it
+			st.logger.Debugf("update strategy - getting deployed release version failed: %v", err)
+		} else {
+			release.installedVersion = installedVersion
+		}
 	}
 	return nil
 }
@@ -3727,6 +3808,28 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		)
 		tbl.Separator = "   "
 		for _, release := range ar.Upgraded {
+			modifiedChart, modErr := hideChartCredentials(release.Chart)
+			if modErr != nil {
+				logger.Warn("Could not modify chart credentials, %v", modErr)
+				continue
+			}
+			err := tbl.AddRow(release.Name, release.Namespace, modifiedChart, release.installedVersion, release.duration.Round(time.Second))
+			if err != nil {
+				logger.Warn("Could not add row, %v", err)
+			}
+		}
+		logger.Info(tbl.String())
+	}
+	if len(ar.Reinstalled) > 0 {
+		logger.Info("\nREINSTALLED RELEASES:")
+		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
+			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
+			prettytable.Column{Header: "CHART", MinWidth: 6},
+			prettytable.Column{Header: "VERSION", MinWidth: 6},
+			prettytable.Column{Header: "DURATION", AlignRight: true},
+		)
+		tbl.Separator = "   "
+		for _, release := range ar.Reinstalled {
 			modifiedChart, modErr := hideChartCredentials(release.Chart)
 			if modErr != nil {
 				logger.Warn("Could not modify chart credentials, %v", modErr)

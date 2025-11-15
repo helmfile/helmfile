@@ -7,14 +7,17 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/helmfile/chartify"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/plugin"
@@ -262,8 +265,106 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 	return err
 }
 
+// toKebabCase converts a PascalCase or camelCase string to kebab-case.
+// e.g., "SkipRefresh" -> "skip-refresh", "KubeContext" -> "kube-context"
+func toKebabCase(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && unicode.IsUpper(r) {
+			result.WriteRune('-')
+		}
+		result.WriteRune(unicode.ToLower(r))
+	}
+	return result.String()
+}
+
+// getSupportedDependencyFlags returns a map of supported flags for helm dependency commands.
+// It uses reflection on helm's action.Dependency and cli.EnvSettings structs to
+// dynamically determine which flags are supported, avoiding hardcoded lists.
+func getSupportedDependencyFlags() map[string]bool {
+	supported := make(map[string]bool)
+
+	// Get global flags from cli.EnvSettings
+	envSettings := cli.New()
+	envType := reflect.TypeOf(*envSettings)
+	for i := 0; i < envType.NumField(); i++ {
+		field := envType.Field(i)
+		if field.IsExported() {
+			flagName := "--" + toKebabCase(field.Name)
+			supported[flagName] = true
+		}
+	}
+
+	// Add namespace short form
+	supported["-n"] = true
+
+	// Get dependency-specific flags from action.Dependency
+	dep := action.NewDependency()
+	depType := reflect.TypeOf(*dep)
+	for i := 0; i < depType.NumField(); i++ {
+		field := depType.Field(i)
+		if field.IsExported() {
+			flagName := "--" + toKebabCase(field.Name)
+			supported[flagName] = true
+		}
+	}
+
+	return supported
+}
+
+// Cache of supported flags, initialized once
+var (
+	supportedDependencyFlagsOnce sync.Once
+	supportedDependencyFlags     map[string]bool
+)
+
+// filterDependencyUnsupportedFlags filters flags to only those supported by helm dependency commands.
+// Uses reflection on helm's action.Dependency and cli.EnvSettings structs to dynamically
+// determine supported flags, avoiding hardcoded lists.
+func filterDependencyUnsupportedFlags(flags []string) []string {
+	if len(flags) == 0 {
+		return flags
+	}
+
+	// Initialize supported flags map once
+	supportedDependencyFlagsOnce.Do(func() {
+		supportedDependencyFlags = getSupportedDependencyFlags()
+	})
+
+	filtered := make([]string, 0, len(flags))
+	for _, flag := range flags {
+		// Extract flag name without value (e.g., "--dry-run=server" -> "--dry-run")
+		flagName := flag
+		if idx := strings.Index(flag, "="); idx != -1 {
+			flagName = flag[:idx]
+		}
+
+		// Check if this flag or any prefix of it is supported
+		supported := false
+		for supportedFlag := range supportedDependencyFlags {
+			if strings.HasPrefix(flagName, supportedFlag) {
+				supported = true
+				break
+			}
+		}
+
+		if supported {
+			filtered = append(filtered, flag)
+		}
+	}
+	return filtered
+}
+
 func (helm *execer) BuildDeps(name, chart string, flags ...string) error {
 	helm.logger.Infof("Building dependency release=%v, chart=%v", name, chart)
+
+	// Filter out template/install/upgrade-specific flags while preserving global flags
+	savedExtra := helm.extra
+	helm.extra = filterDependencyUnsupportedFlags(helm.extra)
+	defer func() {
+		helm.extra = savedExtra
+	}()
+
 	args := []string{
 		"dependency",
 		"build",
@@ -279,6 +380,14 @@ func (helm *execer) BuildDeps(name, chart string, flags ...string) error {
 
 func (helm *execer) UpdateDeps(chart string) error {
 	helm.logger.Infof("Updating dependency %v", chart)
+
+	// Filter out template/install/upgrade-specific flags while preserving global flags
+	savedExtra := helm.extra
+	helm.extra = filterDependencyUnsupportedFlags(helm.extra)
+	defer func() {
+		helm.extra = savedExtra
+	}()
+
 	out, err := helm.exec([]string{"dependency", "update", chart}, map[string]string{}, nil)
 	helm.info(out)
 	return err
