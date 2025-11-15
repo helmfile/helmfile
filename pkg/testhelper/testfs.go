@@ -2,9 +2,11 @@ package testhelper
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 )
@@ -17,6 +19,7 @@ type TestFs struct {
 	GlobFixtures map[string][]string
 	DeleteFile   func(string) error
 
+	mu              sync.Mutex
 	fileReaderCalls int
 	successfulReads []string
 }
@@ -92,18 +95,26 @@ func (f *TestFs) ReadFile(filename string) ([]byte, error) {
 		return []byte(nil), os.ErrNotExist
 	}
 
+	f.mu.Lock()
 	f.fileReaderCalls++
-
 	f.successfulReads = append(f.successfulReads, filename)
+	f.mu.Unlock()
 
 	return []byte(str), nil
 }
 
 func (f *TestFs) SuccessfulReads() []string {
-	return f.successfulReads
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	// Return a copy to avoid race conditions with callers
+	result := make([]string, len(f.successfulReads))
+	copy(result, f.successfulReads)
+	return result
 }
 
 func (f *TestFs) FileReaderCalls() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.fileReaderCalls
 }
 
@@ -154,4 +165,22 @@ func (f *TestFs) Chdir(dir string) error {
 		return nil
 	}
 	return fmt.Errorf("unexpected chdir \"%s\"", dir)
+}
+
+// SyncWriter wraps an io.Writer to make it safe for concurrent use.
+type SyncWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+// NewSyncWriter creates a new thread-safe writer.
+func NewSyncWriter(w io.Writer) *SyncWriter {
+	return &SyncWriter{w: w}
+}
+
+// Write implements io.Writer in a thread-safe manner.
+func (sw *SyncWriter) Write(p []byte) (n int, err error) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	return sw.w.Write(p)
 }

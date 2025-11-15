@@ -16,14 +16,14 @@ import (
 type Run struct {
 	state *state.HelmState
 	helm  helmexec.Interface
-	ctx   Context
+	ctx   *Context
 
 	ReleaseToChart map[state.PrepareChartKey]string
 
 	Ask func(string) bool
 }
 
-func NewRun(st *state.HelmState, helm helmexec.Interface, ctx Context) (*Run, error) {
+func NewRun(st *state.HelmState, helm helmexec.Interface, ctx *Context) (*Run, error) {
 	if helm == nil {
 		return nil, fmt.Errorf("Assertion failed: helmexec.Interface must not be nil")
 	}
