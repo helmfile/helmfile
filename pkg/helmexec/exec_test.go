@@ -1128,6 +1128,15 @@ func Test_IsHelm3(t *testing.T) {
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
+
+	helm4Runner := mockRunner{output: []byte("v4.0.0+ge29ce2a\n")}
+	helm, err = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm4Runner)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !helm.IsHelm3() {
+		t.Error("helmexec.IsHelm3() - Failed to detect Helm 4 (should return true for Helm 3+)")
+	}
 }
 
 func Test_GetPluginVersion(t *testing.T) {

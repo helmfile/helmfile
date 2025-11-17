@@ -761,7 +761,9 @@ func (helm *execer) write(w io.Writer, out []byte) {
 }
 
 func (helm *execer) IsHelm3() bool {
-	return helm.version.Major() == 3
+	// Return true for Helm 3 and later (including Helm 4+)
+	// This function really means "is not Helm 2"
+	return helm.version.Major() >= 3
 }
 
 func (helm *execer) GetVersion() Version {
