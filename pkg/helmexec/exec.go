@@ -94,9 +94,14 @@ func parseHelmVersion(versionStr string) (*semver.Version, error) {
 
 func GetHelmVersion(helmBinary string, runner Runner) (*semver.Version, error) {
 	// Autodetect from `helm version`
-	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil, false)
+	// Try Helm v4 format first (without --client flag)
+	outBytes, err := runner.Execute(helmBinary, []string{"version", "--short"}, nil, false)
 	if err != nil {
-		return nil, fmt.Errorf("error determining helm version: %w", err)
+		// Fall back to Helm v3 format (with --client flag) for backward compatibility
+		outBytes, err = runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil, false)
+		if err != nil {
+			return nil, fmt.Errorf("error determining helm version: %w", err)
+		}
 	}
 
 	return parseHelmVersion(string(outBytes))

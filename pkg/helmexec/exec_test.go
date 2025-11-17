@@ -30,8 +30,12 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	if len(mock.output) == 0 && strings.Join(args, " ") == "version --client --short" {
-		return []byte("v3.2.4+ge29ce2a"), nil
+	argsStr := strings.Join(args, " ")
+	if len(mock.output) == 0 {
+		// Support both Helm v4 (without --client) and Helm v3 (with --client) formats
+		if argsStr == "version --short" || argsStr == "version --client --short" {
+			return []byte("v3.2.4+ge29ce2a"), nil
+		}
 	}
 	return mock.output, mock.err
 }
