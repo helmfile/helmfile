@@ -20,6 +20,5 @@ for i in $(seq 10); do
     ${helmfile} -f ${chartify_with_non_chart_dirt_input_dir}/helmfiles/helmfile.yaml diff | grep -v "^Comparing release" > ${chartify_with_non_chart_dirt_reverse}.tmp || fail "\"helmfile diff\" shouldn't fail"
     cat ${chartify_with_non_chart_dirt_reverse}.tmp | sed -E '/\*{20}/,/\*{20}/d' > ${chartify_with_non_chart_dirt_reverse}
     diff -u ${diff_out_file} ${chartify_with_non_chart_dirt_reverse} || fail "\"helmfile diff\" should be consistent"
-    echo code=$?
 done
 test_pass "$case_title"

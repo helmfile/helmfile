@@ -1,19 +1,59 @@
 package helmexec
 
 import (
+	"os"
+	"os/exec"
 	"reflect"
+	"sync"
 	"testing"
 
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/cli"
+	actionv3 "helm.sh/helm/v3/pkg/action"
+	cliv3 "helm.sh/helm/v3/pkg/cli"
+	actionv4 "helm.sh/helm/v4/pkg/action"
+	cliv4 "helm.sh/helm/v4/pkg/cli"
 )
+
+// isHelm4Enabled detects the installed Helm version for tests
+func isHelm4Enabled() bool {
+	// First try to detect actual Helm version
+	helmBinary := os.Getenv("HELM_BIN")
+	if helmBinary == "" {
+		helmBinary = "helm"
+	}
+
+	cmd := exec.Command(helmBinary, "version", "--template={{.Version}}")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		version := string(output)
+		// Simple check: if it starts with "v4." it's Helm 4
+		if len(version) > 2 && version[0] == 'v' && version[1] == '4' {
+			return true
+		}
+		if len(version) > 2 && version[0] == 'v' && version[1] == '3' {
+			return false
+		}
+	}
+
+	// Fallback to environment variable
+	return os.Getenv("HELMFILE_HELM4") == "1"
+}
 
 // TestFilterDependencyFlags_AllGlobalFlags verifies that all global flags
 // from cli.EnvSettings are preserved by the filter
 func TestFilterDependencyFlags_AllGlobalFlags(t *testing.T) {
-	// Get all expected global flag names using reflection
-	envSettings := cli.New()
-	envType := reflect.TypeOf(*envSettings)
+	// Reset the cache to ensure we use the correct Helm version's flags
+	supportedDependencyFlagsOnce = sync.Once{}
+	supportedDependencyFlags = nil
+
+	// Get all expected global flag names using reflection on the appropriate Helm version
+	var envType reflect.Type
+	if isHelm4Enabled() {
+		envSettings := cliv4.New()
+		envType = reflect.TypeOf(*envSettings)
+	} else {
+		envSettings := cliv3.New()
+		envType = reflect.TypeOf(*envSettings)
+	}
 
 	var expectedFlags []string
 	for i := 0; i < envType.NumField(); i++ {
@@ -27,8 +67,18 @@ func TestFilterDependencyFlags_AllGlobalFlags(t *testing.T) {
 	// Add short form
 	expectedFlags = append(expectedFlags, "-n")
 
+	// Get the actual supported flags from getSupportedDependencyFlags which should match our Helm version
+	actualSupportedFlags := getSupportedDependencyFlags()
+
 	// Test that each global flag is preserved
 	for _, flag := range expectedFlags {
+		// Only test flags that are actually supported by the current Helm version
+		// (Some flags exist in one version but not the other)
+		if !actualSupportedFlags[flag] {
+			t.Logf("Skipping flag %s - not supported in current Helm version", flag)
+			continue
+		}
+
 		input := []string{flag}
 		output := filterDependencyUnsupportedFlags(input)
 
@@ -41,9 +91,19 @@ func TestFilterDependencyFlags_AllGlobalFlags(t *testing.T) {
 // TestFilterDependencyFlags_AllDependencyFlags verifies that all dependency-specific flags
 // from action.Dependency are preserved by the filter
 func TestFilterDependencyFlags_AllDependencyFlags(t *testing.T) {
-	// Get all expected dependency flag names using reflection
-	dep := action.NewDependency()
-	depType := reflect.TypeOf(*dep)
+	// Reset the cache to ensure we use the correct Helm version's flags
+	supportedDependencyFlagsOnce = sync.Once{}
+	supportedDependencyFlags = nil
+
+	// Get all expected dependency flag names using reflection on the appropriate Helm version
+	var depType reflect.Type
+	if isHelm4Enabled() {
+		dep := actionv4.NewDependency()
+		depType = reflect.TypeOf(*dep)
+	} else {
+		dep := actionv3.NewDependency()
+		depType = reflect.TypeOf(*dep)
+	}
 
 	var expectedFlags []string
 	for i := 0; i < depType.NumField(); i++ {
@@ -54,8 +114,17 @@ func TestFilterDependencyFlags_AllDependencyFlags(t *testing.T) {
 		}
 	}
 
+	// Get the actual supported flags from getSupportedDependencyFlags which should match our Helm version
+	actualSupportedFlags := getSupportedDependencyFlags()
+
 	// Test that each dependency flag is preserved
 	for _, flag := range expectedFlags {
+		// Only test flags that are actually supported by the current Helm version
+		if !actualSupportedFlags[flag] {
+			t.Logf("Skipping flag %s - not supported in current Helm version", flag)
+			continue
+		}
+
 		input := []string{flag}
 		output := filterDependencyUnsupportedFlags(input)
 

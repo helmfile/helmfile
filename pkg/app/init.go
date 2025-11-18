@@ -11,19 +11,20 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/cli"
+	cliv3 "helm.sh/helm/v3/pkg/cli"
+	cliv4 "helm.sh/helm/v4/pkg/cli"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 const (
-	HelmRequiredVersion           = "v3.18.6"
-	HelmDiffRecommendedVersion    = "v3.13.1"
-	HelmRecommendedVersion        = "v3.19.0"
-	HelmSecretsRecommendedVersion = "v4.6.5"
+	HelmRequiredVersion           = "v3.18.6" // Minimum required version (supports Helm 3.x and 4.x)
+	HelmDiffRecommendedVersion    = "v3.14.0"
+	HelmRecommendedVersion        = "v4.0.0" // Recommended to use latest Helm 4
+	HelmSecretsRecommendedVersion = "v4.7.0" // v4.7.0+ works with both Helm 3 (single plugin) and Helm 4 (split plugin architecture)
 	HelmGitRecommendedVersion     = "v1.3.0"
 	HelmS3RecommendedVersion      = "v0.16.3"
-	HelmInstallCommand            = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
+	HelmInstallCommand            = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3" // Default to Helm 3 script for compatibility
 )
 
 var (
@@ -126,7 +127,7 @@ func (h *HelmfileInit) InstallHelm() error {
 	if err != nil {
 		return err
 	}
-	getHelmScript, err := os.CreateTemp("", "get-helm-3.sh")
+	getHelmScript, err := os.CreateTemp("", "get-helm.sh")
 	defer func() {
 		_ = getHelmScript.Close()
 		_ = os.Remove(getHelmScript.Name())
@@ -162,13 +163,21 @@ func (h *HelmfileInit) WhetherContinue(ask string) error {
 }
 
 func (h *HelmfileInit) CheckHelmPlugins() error {
-	settings := cli.New()
 	helm, err := helmexec.New(h.helmBinary, helmexec.HelmExecOptions{}, h.logger, "", "", h.runner)
 	if err != nil {
 		return err
 	}
+
+	// Use version-specific cli based on detected Helm version
+	var pluginsDir string
+	if helm.IsHelm3() {
+		pluginsDir = cliv3.New().PluginsDirectory
+	} else {
+		pluginsDir = cliv4.New().PluginsDirectory
+	}
+
 	for _, p := range helmPlugins {
-		pluginVersion, err := helmexec.GetPluginVersion(p.name, settings.PluginsDirectory)
+		pluginVersion, err := helmexec.GetPluginVersion(p.name, pluginsDir)
 		if err != nil {
 			if !strings.Contains(err.Error(), "not installed") {
 				return err
@@ -183,7 +192,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 			if err != nil {
 				return err
 			}
-			pluginVersion, _ = helmexec.GetPluginVersion(p.name, settings.PluginsDirectory)
+			pluginVersion, _ = helmexec.GetPluginVersion(p.name, pluginsDir)
 		}
 		requiredVersion, _ := semver.NewVersion(p.version)
 		if pluginVersion.LessThan(requiredVersion) {

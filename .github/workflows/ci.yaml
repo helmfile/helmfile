@@ -2,47 +2,81 @@ name: Go
 
 on:
   push:
-    branches: [ main ]
-    paths-ignore: [ '**.md', '**/docs/**' ]
+    branches: [main]
+    paths-ignore: ['**.md', '**/docs/**']
   pull_request:
-    branches: [ main ]
-    paths-ignore: [ '**.md', '**/docs/**' ]
+    branches: [main]
+    paths-ignore: ['**.md', '**/docs/**']
 
 jobs:
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: false
+      - name: check disk usage
+        run: df -h
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.1.6
+          version: v2.6.2
 
   tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        helm-version: [v3.18.6, v3.19.2, v4.0.0]
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - name: check disk usage
+        run: df -h
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: ${{ matrix.helm-version }}
       - name: Build
         run: make build build-test-tools
       - name: Test
         run: make check test
+        env:
+          HELMFILE_HELM4: ${{ startsWith(matrix.helm-version, 'v4') && '1' || '0' }}
       - name: Archive built binaries
+        if: matrix.helm-version == 'v4.0.0'
         run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
       - uses: actions/upload-artifact@v5
+        if: matrix.helm-version == 'v4.0.0'
         with:
           name: built-binaries-${{ github.run_id }}
           path: built-binaries.tar
           retention-days: 1
       - name: Display built binaries
+        if: matrix.helm-version == 'v4.0.0'
         run: ls -l helmfile diff-yamls dyff
 
   integration_tests:
@@ -54,44 +88,61 @@ jobs:
           # Helm maintains the latest minor version only and therefore each Helmfile version supports 2 Helm minor versions.
           # That's why we cover only 2 Helm minor versions in this matrix.
           # See https://github.com/helmfile/helmfile/pull/286#issuecomment-1250161182 for more context.
+          # We assume that the helm-secrets plugin is supposed to
+          # work with the two most recent helm minor versions.
+          # Once it turned out to be not practically true,
+          # we will mark this combination as failable,
+          # and instruct users to upgrade helm and helm-secrets at once.
           - helm-version: v3.18.6
-            kustomize-version: v5.2.1
-            plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.11.0
-            extra-helmfile-flags: ''
-          - helm-version: v3.18.6
-            kustomize-version: v5.4.3
-            # We assume that the helm-secrets plugin is supposed to
-            # work with the two most recent helm minor versions.
-            # Once it turned out to be not practically true,
-            # we will mark this combination as failable,
-            # and instruct users to upgrade helm and helm-secrets at once.
-            plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.12.5
-            extra-helmfile-flags: ''
-          - helm-version: v3.19.0
-            kustomize-version: v5.2.1
-            plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.11.0
-            extra-helmfile-flags: ''
-          - helm-version: v3.19.0
-            kustomize-version: v5.4.3
-            plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.12.5
+            kustomize-version: v5.8.0
+            plugin-secrets-version: 4.7.0
+            plugin-diff-version: 3.14.0
             extra-helmfile-flags: ''
           # In case you need to test some optional helmfile features,
           # enable it via extra-helmfile-flags below.
-          - helm-version: v3.19.0
-            kustomize-version: v5.4.3
-            plugin-secrets-version: 4.6.5
-            plugin-diff-version: 3.12.5
+          - helm-version: v3.18.6
+            kustomize-version: v5.8.0
+            plugin-secrets-version: 4.7.0
+            plugin-diff-version: 3.14.0
+            extra-helmfile-flags: '--enable-live-output'
+          - helm-version: v3.19.2
+            kustomize-version: v5.8.0
+            plugin-secrets-version: 4.7.0
+            plugin-diff-version: 3.14.0
+            extra-helmfile-flags: ''
+          - helm-version: v3.19.2
+            kustomize-version: v5.8.0
+            plugin-secrets-version: 4.7.0
+            plugin-diff-version: 3.14.0
+            extra-helmfile-flags: '--enable-live-output'
+          # Helmfile now supports both Helm 3.x and Helm 4.x
+          - helm-version: v4.0.0
+            kustomize-version: v5.8.0
+            plugin-secrets-version: 4.7.0
+            plugin-diff-version: 3.14.0
+            extra-helmfile-flags: ''
+          - helm-version: v4.0.0
+            kustomize-version: v5.8.0
+            plugin-secrets-version: 4.7.0
+            plugin-diff-version: 3.14.0
             extra-helmfile-flags: '--enable-live-output'
     steps:
       - uses: actions/checkout@v5
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-
+      - name: check disk usage
+        run: df -h
       - uses: actions/download-artifact@v6
         with:
           name: built-binaries-${{ github.run_id }}
@@ -110,13 +161,13 @@ jobs:
       - name: Start minikube
         uses: medyagh/setup-minikube@latest
         with:
-          kubernetes-version: v1.33.1 
+          kubernetes-version: v1.34.0
       - name: Execute integration tests
         run: make integration
         env:
           HELM_SECRETS_VERSION: ${{ matrix.plugin-secrets-version }}
           HELM_DIFF_VERSION: ${{ matrix.plugin-diff-version }}
-          HELMFILE_HELM3: 1
+          HELMFILE_HELM4: ${{ startsWith(matrix.helm-version, 'v4') && '1' || '0' }}
           TERM: xterm
           EXTRA_HELMFILE_FLAGS: ${{ matrix.extra-helmfile-flags }}
 

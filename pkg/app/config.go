@@ -9,6 +9,8 @@ type ConfigProvider interface {
 	EnableLiveOutput() bool
 	StripArgsValuesOnExitError() bool
 	DisableForceUpdate() bool
+	EnforcePluginVerification() bool
+	HelmOCIPlainHTTP() bool
 	SkipDeps() bool
 	SkipRefresh() bool
 

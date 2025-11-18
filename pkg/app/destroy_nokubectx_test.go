@@ -36,7 +36,6 @@ func TestDestroy_2(t *testing.T) {
 		wantDeletes := tc.deleted
 
 		var helm = &exectest.Helm{
-			Helm3:                true,
 			FailOnUnexpectedList: true,
 			FailOnUnexpectedDiff: true,
 			Lists:                tc.lists,

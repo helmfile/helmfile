@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -206,7 +207,27 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 			helmfileCacheHome := filepath.Join(tmpDir, "helmfile_cache")
 			// HELM_CONFIG_HOME contains the registry auth file (registry.json) and the index of all the repos added via helm-repo-add (repositories.yaml).
 			helmConfigHome := filepath.Join(tmpDir, "helm_config")
+
 			t.Logf("Using HELM_CACHE_HOME=%s, HELMFILE_CACHE_HOME=%s, HELM_CONFIG_HOME=%s, WD=%s", helmCacheHome, helmfileCacheHome, helmConfigHome, wd)
+
+			// Install post-renderer plugins for Helm 4
+			if isHelm4(t) {
+				helmDataHome := filepath.Join(tmpDir, "helm_data")
+				helmPluginsDir := filepath.Join(helmDataHome, "plugins")
+				if name == "postrenderer" {
+					// Install the add-cm1 and add-cm2 plugins
+					installTestPlugin(t, helmPluginsDir, "add-cm1", filepath.Join(wd, "testdata", "helm-plugins", "add-cm1"))
+					installTestPlugin(t, helmPluginsDir, "add-cm2", filepath.Join(wd, "testdata", "helm-plugins", "add-cm2"))
+
+					// Debug: List installed plugins
+					if entries, err := os.ReadDir(helmPluginsDir); err == nil {
+						t.Logf("Installed plugins in %s:", helmPluginsDir)
+						for _, e := range entries {
+							t.Logf("  - %s (dir=%v)", e.Name(), e.IsDir())
+						}
+					}
+				}
+			}
 
 			inputFile := filepath.Join(testdataDir, name, "input.yaml.gotmpl")
 			outputFile := ""
@@ -221,15 +242,24 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 			defer cancel()
 
 			args := []string{"-f", inputFile}
+			// Add --oci-plain-http flag for tests using local Docker registry (Helm 4 requirement)
+			if config.LocalDockerRegistry.Enabled {
+				args = append(args, "--oci-plain-http")
+			}
 			args = append(args, helmfileArgs...)
 			cmd := exec.CommandContext(ctx, helmfileBin, args...)
 			cmd.Env = os.Environ()
+			// For Helm 4, we need to set HELM_DATA_HOME and plugins will be at $HELM_DATA_HOME/plugins
+			helmDataHome := filepath.Join(tmpDir, "helm_data")
+			helmPluginsDir := filepath.Join(helmDataHome, "plugins")
 			cmd.Env = append(
 				cmd.Env,
 				envvar.TempDir+"=/tmp/helmfile",
 				envvar.DisableRunnerUniqueID+"=1",
 				"HELM_CACHE_HOME="+helmCacheHome,
 				"HELM_CONFIG_HOME="+helmConfigHome,
+				"HELM_DATA_HOME="+helmDataHome,
+				"HELM_PLUGINS="+helmPluginsDir,
 				"HELMFILE_CACHE_HOME="+helmfileCacheHome,
 			)
 			got, err := cmd.CombinedOutput()
@@ -266,7 +296,30 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 			gotStr = strings.ReplaceAll(gotStr, helmfileCacheHome, "$HELMFILE_CACHE_HOME")
 			gotStr = strings.ReplaceAll(gotStr, wd, "__workingdir__")
 
-			if stat, _ := os.Stat(outputFile); stat != nil {
+			// Check for Helm 4 specific output file first if running with Helm 4
+			helm4OutputFile := filepath.Join(testdataDir, name, "output-helm4.yaml")
+
+			if isHelm4(t) {
+				if stat, _ := os.Stat(helm4OutputFile); stat != nil {
+					want, err := os.ReadFile(helm4OutputFile)
+					require.NoError(t, err)
+					require.Equal(t, string(want), gotStr)
+				} else if stat, _ := os.Stat(outputFile); stat != nil {
+					want, err := os.ReadFile(outputFile)
+					require.NoError(t, err)
+					require.Equal(t, string(want), gotStr)
+				} else if stat, _ := os.Stat(expectedOutputFile); stat != nil {
+					want, err := os.ReadFile(expectedOutputFile)
+					require.NoError(t, err)
+					require.Equal(t, string(want), gotStr)
+				} else {
+					// To update the test golden image(output-helm4.yaml), just remove it and rerun this test.
+					// We automatically capture the output to `output-helm4.yaml` in the test case directory
+					// when the output-helm4.yaml doesn't exist.
+					t.Log("generate output-helm4.yaml file and write captured output to it")
+					require.NoError(t, os.WriteFile(helm4OutputFile, []byte(gotStr), 0664))
+				}
+			} else if stat, _ := os.Stat(outputFile); stat != nil {
 				want, err := os.ReadFile(outputFile)
 				require.NoError(t, err)
 				require.Equal(t, string(want), gotStr)
@@ -305,12 +358,110 @@ func execHelmPackage(t *testing.T, localChart string) string {
 	return strings.TrimSpace(tgzAbsPath)
 }
 
+// isHelm4 detects if the current Helm binary is version 4
+func isHelm4(t *testing.T) bool {
+	t.Helper()
+
+	// First try to detect actual Helm version
+	helmBinary := os.Getenv("HELM_BIN")
+	if helmBinary == "" {
+		helmBinary = "helm"
+	}
+
+	cmd := exec.Command(helmBinary, "version", "--template={{.Version}}")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		version := string(output)
+		// Simple check: if it starts with "v4." it's Helm 4
+		if len(version) > 2 && version[0] == 'v' && version[1] == '4' {
+			return true
+		}
+		if len(version) > 2 && version[0] == 'v' && version[1] == '3' {
+			return false
+		}
+	}
+
+	// Fallback to environment variable
+	return os.Getenv("HELMFILE_HELM4") == "1"
+}
+
+// installTestPlugin copies a test plugin directory to the helm plugins directory
+func installTestPlugin(t *testing.T, helmPluginsDir, pluginName, sourcePath string) {
+	t.Helper()
+
+	targetPath := filepath.Join(helmPluginsDir, pluginName)
+
+	// Create plugins directory if it doesn't exist
+	if err := os.MkdirAll(helmPluginsDir, 0755); err != nil {
+		t.Fatalf("Failed to create plugins directory: %v", err)
+	}
+
+	// Copy the entire plugin directory
+	if err := copyDir(sourcePath, targetPath); err != nil {
+		t.Fatalf("Failed to install plugin %s: %v", pluginName, err)
+	}
+
+	t.Logf("Installed plugin %s from %s to %s", pluginName, sourcePath, targetPath)
+
+	// Verify the plugin was installed
+	pluginYaml := filepath.Join(targetPath, "plugin.yaml")
+	if _, err := os.Stat(pluginYaml); err != nil {
+		t.Fatalf("Plugin %s does not have plugin.yaml after installation: %v", pluginName, err)
+	}
+}
+
+// copyDir recursively copies a directory tree
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Calculate target path
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(dst, relPath)
+
+		if info.IsDir() {
+			// Create directory
+			return os.MkdirAll(targetPath, info.Mode())
+		}
+
+		// Copy file
+		sourceFile, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer sourceFile.Close()
+
+		targetFile, err := os.Create(targetPath)
+		if err != nil {
+			return err
+		}
+		defer targetFile.Close()
+
+		if _, err := io.Copy(targetFile, sourceFile); err != nil {
+			return err
+		}
+
+		// Copy file permissions
+		return os.Chmod(targetPath, info.Mode())
+	})
+}
+
 // execHelmPush pushes helm package to oci based helm repository,
 // then returns its digest.
 func execHelmPush(t *testing.T, tgzPath, remoteUrl string) (string, error) {
 	t.Helper()
 
-	out := execHelm(t, "push", tgzPath, remoteUrl)
+	// Helm 4 requires --plain-http for HTTP-only OCI registries (not HTTPS with self-signed certs)
+	args := []string{"push", tgzPath, remoteUrl}
+	if isHelm4(t) {
+		args = append(args, "--plain-http")
+	}
+	out := execHelm(t, args...)
 	sc := bufio.NewScanner(strings.NewReader(out))
 	for sc.Scan() {
 		if strings.HasPrefix(sc.Text(), "Digest:") {

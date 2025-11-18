@@ -20,7 +20,6 @@ for i in $(seq 10); do
     ${helmfile} -f ${skip_diff_output_input_dir}/helmfile.yaml.gotmpl diff > ${skip_diff_output_reverse}.tmp || fail "\"helmfile diff\" shouldn't fail"
     cat ${skip_diff_output_reverse}.tmp | sed -E '/\*{20}/,/\*{20}/d' > ${skip_diff_output_reverse}
     diff -u ${diff_out_file} ${skip_diff_output_reverse} || fail "\"helmfile diff\" should be consistent"
-    echo code=$?
 done
 
 info "Comparing ${case_title} template for output ${skip_diff_output_reverse} with ${template_out_file}"
@@ -28,6 +27,5 @@ for i in $(seq 10); do
     info "Comparing skip-diff-output template log #$i"
     ${helmfile} -f ${skip_diff_output_input_dir}/helmfile.yaml.gotmpl template > ${skip_diff_output_reverse} || fail "\"helmfile template\" shouldn't fail"
     diff -u ${template_out_file} ${skip_diff_output_reverse} || fail "\"helmfile template\" should be consistent"
-    echo code=$?
 done
 test_pass "$case_title"

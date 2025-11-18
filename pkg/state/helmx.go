@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/helmfile/chartify"
-	"helm.sh/helm/v3/pkg/storage/driver"
+	"helm.sh/helm/v4/pkg/storage/driver"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
@@ -78,15 +78,34 @@ func (st *HelmState) appendLabelsFlags(flags []string, helm helmexec.Interface, 
 }
 
 // append post-renderer flags to helm flags
-func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec, postRenderer string) []string {
+func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec, postRenderer string, helm helmexec.Interface) []string {
+	var rendererPath string
 	switch {
 	// postRenderer arg comes from cmd flag.
 	case release.PostRenderer != nil && *release.PostRenderer != "":
-		flags = append(flags, "--post-renderer", *release.PostRenderer)
+		rendererPath = *release.PostRenderer
 	case postRenderer != "":
-		flags = append(flags, "--post-renderer", postRenderer)
+		rendererPath = postRenderer
 	case st.HelmDefaults.PostRenderer != nil && *st.HelmDefaults.PostRenderer != "":
-		flags = append(flags, "--post-renderer", *st.HelmDefaults.PostRenderer)
+		rendererPath = *st.HelmDefaults.PostRenderer
+	}
+
+	if rendererPath != "" {
+		// For Helm 4, convert the bash script path to a plugin name
+		if helm != nil && !helm.IsHelm3() {
+			// Check if this is a bash script path that needs conversion
+			if strings.HasSuffix(rendererPath, ".bash") || strings.HasSuffix(rendererPath, ".sh") {
+				// Extract the base name (e.g., "add-cm1" from "../../postrenderers/add-cm1.bash")
+				baseName := filepath.Base(rendererPath)
+				baseName = strings.TrimSuffix(baseName, filepath.Ext(baseName))
+
+				// For Helm 4, use just the plugin name
+				// From: ../../postrenderers/add-cm1.bash
+				// To: add-cm1 (assuming the plugin is installed with this name)
+				rendererPath = baseName
+			}
+		}
+		flags = append(flags, "--post-renderer", rendererPath)
 	}
 	return flags
 }

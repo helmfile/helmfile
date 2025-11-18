@@ -1,6 +1,6 @@
 package helmexec
 
-import "helm.sh/helm/v3/pkg/chart"
+import chart "helm.sh/helm/v4/pkg/chart/v2"
 
 // Version represents the version of helm
 type Version struct {
@@ -34,6 +34,7 @@ type Interface interface {
 	List(context HelmContext, filter string, flags ...string) (string, error)
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
 	IsHelm3() bool
+	IsHelm4() bool
 	GetVersion() Version
 	IsVersionAtLeast(versionStr string) bool
 	ShowChart(chart string) (chart.Metadata, error)
@@ -42,4 +43,5 @@ type Interface interface {
 type DependencyUpdater interface {
 	UpdateDeps(chart string) error
 	IsHelm3() bool
+	IsHelm4() bool
 }

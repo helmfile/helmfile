@@ -17,10 +17,11 @@ import (
 	"github.com/helmfile/chartify"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/plugin"
+	actionv3 "helm.sh/helm/v3/pkg/action"
+	cliv3 "helm.sh/helm/v3/pkg/cli"
+	actionv4 "helm.sh/helm/v4/pkg/action"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	cliv4 "helm.sh/helm/v4/pkg/cli"
 
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
@@ -32,8 +33,10 @@ type decryptedSecret struct {
 }
 
 type HelmExecOptions struct {
-	EnableLiveOutput   bool
-	DisableForceUpdate bool
+	EnableLiveOutput          bool
+	DisableForceUpdate        bool // If true, do not force helm repos to update when executing "helm repo add" (Helm 3)
+	EnforcePluginVerification bool // If true, fail plugin installation if verification is not supported
+	HelmOCIPlainHTTP          bool // If true, use plain HTTP for OCI registries
 }
 
 type execer struct {
@@ -93,8 +96,8 @@ func parseHelmVersion(versionStr string) (*semver.Version, error) {
 }
 
 func GetHelmVersion(helmBinary string, runner Runner) (*semver.Version, error) {
-	// Autodetect from `helm version`
-	outBytes, err := runner.Execute(helmBinary, []string{"version", "--client", "--short"}, nil, false)
+	// Autodetect from `helm version` - just short works for both Helm 3 and Helm 4
+	outBytes, err := runner.Execute(helmBinary, []string{"version", "--short"}, nil, false)
 	if err != nil {
 		return nil, fmt.Errorf("error determining helm version: %w", err)
 	}
@@ -102,14 +105,41 @@ func GetHelmVersion(helmBinary string, runner Runner) (*semver.Version, error) {
 	return parseHelmVersion(string(outBytes))
 }
 
+// PluginMetadata represents the metadata of a Helm plugin
+type PluginMetadata struct {
+	Name    string `yaml:"name"`
+	Version string `yaml:"version"`
+}
+
 func GetPluginVersion(name, pluginsDir string) (*semver.Version, error) {
-	plugins, err := plugin.FindPlugins(pluginsDir)
+	// Scan pluginsDir for subdirectories containing plugin.yaml
+	entries, err := os.ReadDir(pluginsDir)
 	if err != nil {
+		// If directory doesn't exist, treat as plugin not installed
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("plugin %s not installed", name)
+		}
 		return nil, err
 	}
-	for _, plugin := range plugins {
-		if plugin.Metadata.Name == name {
-			return semver.NewVersion(plugin.Metadata.Version)
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		pluginFile := filepath.Join(pluginsDir, entry.Name(), "plugin.yaml")
+		data, err := os.ReadFile(pluginFile)
+		if err != nil {
+			continue // Skip if plugin.yaml doesn't exist in this directory
+		}
+
+		var metadata PluginMetadata
+		if err := yaml.Unmarshal(data, &metadata); err != nil {
+			continue // Skip if plugin.yaml is malformed
+		}
+
+		if metadata.Name == name {
+			return semver.NewVersion(metadata.Version)
 		}
 	}
 
@@ -181,13 +211,16 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 	case "":
 		args = append(args, "repo", "add", name, repository)
 
+		// --force-update is the default behavior in Helm 4, but needs to be explicit in Helm 3
 		// See https://github.com/helm/helm/pull/8777
-		if cons, err := semver.NewConstraint(">= 3.3.2"); err == nil {
-			if !helm.options.DisableForceUpdate && cons.Check(helm.version) {
-				args = append(args, "--force-update")
+		if helm.IsHelm3() {
+			if cons, err := semver.NewConstraint(">= 3.3.2"); err == nil {
+				if !helm.options.DisableForceUpdate && cons.Check(helm.version) {
+					args = append(args, "--force-update")
+				}
+			} else {
+				panic(err)
 			}
-		} else {
-			panic(err)
 		}
 
 		if certfile != "" && keyfile != "" {
@@ -281,31 +314,62 @@ func toKebabCase(s string) string {
 // getSupportedDependencyFlags returns a map of supported flags for helm dependency commands.
 // It uses reflection on helm's action.Dependency and cli.EnvSettings structs to
 // dynamically determine which flags are supported, avoiding hardcoded lists.
+// Uses version-specific packages based on whether Helm 3 or Helm 4 is detected.
 func getSupportedDependencyFlags() map[string]bool {
 	supported := make(map[string]bool)
 
-	// Get global flags from cli.EnvSettings
-	envSettings := cli.New()
-	envType := reflect.TypeOf(*envSettings)
-	for i := 0; i < envType.NumField(); i++ {
-		field := envType.Field(i)
-		if field.IsExported() {
-			flagName := "--" + toKebabCase(field.Name)
-			supported[flagName] = true
+	// Determine which Helm version's API to use based on environment or default to Helm 4
+	useHelm3 := os.Getenv("HELMFILE_HELM4") != "1"
+
+	if useHelm3 {
+		// Get global flags from Helm 3 cli.EnvSettings
+		envSettings := cliv3.New()
+		envType := reflect.TypeOf(*envSettings)
+		for i := 0; i < envType.NumField(); i++ {
+			field := envType.Field(i)
+			if field.IsExported() {
+				flagName := "--" + toKebabCase(field.Name)
+				supported[flagName] = true
+			}
 		}
-	}
 
-	// Add namespace short form
-	supported["-n"] = true
+		// Add namespace short form
+		supported["-n"] = true
 
-	// Get dependency-specific flags from action.Dependency
-	dep := action.NewDependency()
-	depType := reflect.TypeOf(*dep)
-	for i := 0; i < depType.NumField(); i++ {
-		field := depType.Field(i)
-		if field.IsExported() {
-			flagName := "--" + toKebabCase(field.Name)
-			supported[flagName] = true
+		// Get dependency-specific flags from Helm 3 action.Dependency
+		dep := actionv3.NewDependency()
+		depType := reflect.TypeOf(*dep)
+		for i := 0; i < depType.NumField(); i++ {
+			field := depType.Field(i)
+			if field.IsExported() {
+				flagName := "--" + toKebabCase(field.Name)
+				supported[flagName] = true
+			}
+		}
+	} else {
+		// Get global flags from Helm 4 cli.EnvSettings
+		envSettings := cliv4.New()
+		envType := reflect.TypeOf(*envSettings)
+		for i := 0; i < envType.NumField(); i++ {
+			field := envType.Field(i)
+			if field.IsExported() {
+				flagName := "--" + toKebabCase(field.Name)
+				supported[flagName] = true
+			}
+		}
+
+		// Add namespace short form
+		supported["-n"] = true
+
+		// Get dependency-specific flags from Helm 4 action.Dependency
+		dep := actionv4.NewDependency()
+		depType := reflect.TypeOf(*dep)
+		for i := 0; i < depType.NumField(); i++ {
+			field := depType.Field(i)
+			if field.IsExported() {
+				flagName := "--" + toKebabCase(field.Name)
+				supported[flagName] = true
+			}
 		}
 	}
 
@@ -373,6 +437,11 @@ func (helm *execer) BuildDeps(name, chart string, flags ...string) error {
 
 	args = append(args, flags...)
 
+	// Helm 4 requires --plain-http for HTTP-only OCI registries (not HTTPS with self-signed certs)
+	if helm.options.HelmOCIPlainHTTP && helm.IsHelm4() {
+		args = append(args, "--plain-http")
+	}
+
 	out, err := helm.exec(args, map[string]string{}, nil)
 	helm.info(out)
 	return err
@@ -388,7 +457,14 @@ func (helm *execer) UpdateDeps(chart string) error {
 		helm.extra = savedExtra
 	}()
 
-	out, err := helm.exec([]string{"dependency", "update", chart}, map[string]string{}, nil)
+	args := []string{"dependency", "update", chart}
+
+	// Helm 4 requires --plain-http for HTTP-only OCI registries (not HTTPS with self-signed certs)
+	if helm.options.HelmOCIPlainHTTP && helm.IsHelm4() {
+		args = append(args, "--plain-http")
+	}
+
+	out, err := helm.exec(args, map[string]string{}, nil)
 	helm.info(out)
 	return err
 }
@@ -458,8 +534,14 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 		helm.logger.Infof("Decrypting secret %v", absPath)
 		preArgs := make([]string, 0)
 		env := make(map[string]string)
-		settings := cli.New()
-		pluginVersion, err := GetPluginVersion("secrets", settings.PluginsDirectory)
+		// Use version-specific cli based on detected Helm version
+		var pluginsDir string
+		if helm.IsHelm3() {
+			pluginsDir = cliv3.New().PluginsDirectory
+		} else {
+			pluginsDir = cliv4.New().PluginsDirectory
+		}
+		pluginVersion, err := GetPluginVersion("secrets", pluginsDir)
 		if err != nil {
 			secret.err = err
 			return "", err
@@ -636,6 +718,10 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 		ociChartURL, _ := resolveOciChart(chart)
 		helmArgs = []string{"pull", ociChartURL, "--destination", path, "--untar"}
 		helmArgs = append(helmArgs, flags...)
+		// Add --plain-http for OCI registries if requested (Helm 4 requirement for insecure registries)
+		if helm.options.HelmOCIPlainHTTP && strings.HasPrefix(ociChartURL, "oci://") {
+			helmArgs = append(helmArgs, "--plain-http")
+		}
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
 	}
@@ -681,9 +767,55 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 
 func (helm *execer) AddPlugin(name, path, version string) error {
 	helm.logger.Infof("Install helm plugin %v", name)
+
+	// Special handling for helm-secrets 4.7.0+ with Helm 4 which uses split plugin architecture
+	if name == "secrets" && version >= "v4.7.0" && helm.IsHelm4() {
+		return helm.installHelmSecretsV4(version)
+	}
+
+	// Try with verification first
 	out, err := helm.exec([]string{"plugin", "install", path, "--version", version}, map[string]string{}, nil)
+
+	// If verification fails, retry without verification (unless enforced)
+	if err != nil && strings.Contains(err.Error(), "does not support verification") {
+		if helm.options.EnforcePluginVerification {
+			helm.logger.Errorf("Plugin %v does not support verification and plugin verification enforcement is enabled", name)
+			return fmt.Errorf("plugin %s does not support verification (remove --enforce-plugin-verification flag to allow unverified plugins)", name)
+		}
+		helm.logger.Debugf("Plugin %v does not support verification, retrying with --verify=false", name)
+		out, err = helm.exec([]string{"plugin", "install", path, "--version", version, "--verify=false"}, map[string]string{}, nil)
+	}
+
 	helm.info(out)
 	return err
+}
+
+func (helm *execer) installHelmSecretsV4(version string) error {
+	helm.logger.Infof("Installing helm-secrets %s (split plugin architecture for Helm 4)", version)
+
+	baseURL := fmt.Sprintf("https://github.com/jkroepke/helm-secrets/releases/download/%s", version)
+	plugins := []string{"helm-secrets.tgz", "helm-secrets-getter.tgz", "helm-secrets-post-renderer.tgz"}
+
+	verifyFlag := ""
+	if !helm.options.EnforcePluginVerification {
+		verifyFlag = "--verify=false"
+	}
+
+	for _, plugin := range plugins {
+		url := fmt.Sprintf("%s/%s", baseURL, plugin)
+		args := []string{"plugin", "install", url}
+		if verifyFlag != "" {
+			args = append(args, verifyFlag)
+		}
+
+		out, err := helm.exec(args, map[string]string{}, nil)
+		if err != nil {
+			return fmt.Errorf("failed to install %s: %w", plugin, err)
+		}
+		helm.info(out)
+	}
+
+	return nil
 }
 
 func (helm *execer) UpdatePlugin(name string) error {
@@ -736,7 +868,11 @@ func (helm *execer) azcli(name string) ([]byte, error) {
 	cmd := fmt.Sprintf("exec: az %s", strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
 	outBytes, err := helm.runner.Execute("az", cmdargs, map[string]string{}, false)
-	helm.logger.Debugf("%s: %s", cmd, outBytes)
+	if len(outBytes) > 0 {
+		helm.logger.Debugf("%s: %s", cmd, outBytes)
+	} else {
+		helm.logger.Debugf("%s:", cmd)
+	}
 	return outBytes, err
 }
 
@@ -757,6 +893,10 @@ func (helm *execer) write(w io.Writer, out []byte) {
 
 func (helm *execer) IsHelm3() bool {
 	return helm.version.Major() == 3
+}
+
+func (helm *execer) IsHelm4() bool {
+	return helm.version.Major() == 4
 }
 
 func (helm *execer) GetVersion() Version {

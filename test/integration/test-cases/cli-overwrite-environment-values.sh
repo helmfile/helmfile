@@ -12,6 +12,5 @@ for i in $(seq 10); do
     info "Comparing build/cli-overwrite-environment-values #$i"
     ${helmfile} -f ${cli_overwrite_environment_values_input_dir}/input.yaml.gotmpl template --state-values-set ns=test3 --state-values-set-string imageTag=1.23.3,zone="zone1,zone2" > ${cli_overwrite_environment_values_reverse} || fail "\"helmfile template\" shouldn't fail"
     diff -u ${cli_overwrite_environment_values_output_dir}/output.yaml ${cli_overwrite_environment_values_reverse} || fail "\"helmfile template\" should be consistent"
-    echo code=$?
 done
 test_pass "cli overwrite environment values for v1"

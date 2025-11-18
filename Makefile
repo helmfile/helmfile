@@ -58,7 +58,7 @@ integration/vagrant:
 	$(MAKE) build GOOS=linux GOARCH=amd64
 	$(MAKE) build-test-tools GOOS=linux GOARCH=amd64
 	vagrant up
-	vagrant ssh -c 'HELMFILE_HELM3=1 make -C /vagrant integration'
+	vagrant ssh -c 'HELMFILE_HELM4=1 make -C /vagrant integration'
 .PHONY: integration/vagrant
 
 cross:

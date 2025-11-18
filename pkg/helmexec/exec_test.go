@@ -30,8 +30,8 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	if len(mock.output) == 0 && strings.Join(args, " ") == "version --client --short" {
-		return []byte("v3.2.4+ge29ce2a"), nil
+	if len(mock.output) == 0 && strings.Join(args, " ") == "version --short" {
+		return []byte("v4.0.0+g99cd196"), nil
 	}
 	return mock.output, mock.err
 }
@@ -110,39 +110,45 @@ func Test_SetEnableLiveOutput(t *testing.T) {
 	}
 }
 
-func Test_SetDisableForceUpdate(t *testing.T) {
-	helm, err := MockExecer(NewLogger(os.Stdout, "info"), "config", "dev")
-	if err != nil {
-		t.Error(err)
-	}
-	if helm.options.DisableForceUpdate {
-		t.Error("helmexec.options.ForceUpdate should not be enabled by default")
-	}
-	helm.SetDisableForceUpdate(true)
-	if !helm.options.DisableForceUpdate {
-		t.Errorf("helmexec.SetDisableForceUpdate() - actual = %t expect = true", helm.options.DisableForceUpdate)
-	}
-}
-
 func Test_AddRepo_Helm_Version(t *testing.T) {
 	tests := []struct {
-		name          string
-		version       string
-		disableUpdate bool
-		expected      string
+		name               string
+		version            string
+		disableForceUpdate bool
+		expected           string
 	}{
 		{
-			name:          "Helm 3.3.2 with force update",
-			version:       "3.3.2",
-			disableUpdate: false,
+			name:    "Helm 3.2.0 (before force-update)",
+			version: "3.2.0",
+			expected: `Adding repo myRepo https://repo.example.com/
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
+`,
+		},
+		{
+			name:    "Helm 3.3.2 (force-update added)",
+			version: "3.3.2",
 			expected: `Adding repo myRepo https://repo.example.com/
 exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
 `,
 		},
 		{
-			name:          "Helm 3.3.2 without force update",
-			version:       "3.3.2",
-			disableUpdate: true,
+			name:    "Helm 3.19.2 (with force-update)",
+			version: "3.19.2",
+			expected: `Adding repo myRepo https://repo.example.com/
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
+`,
+		},
+		{
+			name:               "Helm 3.19.2 (force-update disabled)",
+			version:            "3.19.2",
+			disableForceUpdate: true,
+			expected: `Adding repo myRepo https://repo.example.com/
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
+`,
+		},
+		{
+			name:    "Helm 4.0.0 (force-update is default)",
+			version: "4.0.0",
 			expected: `Adding repo myRepo https://repo.example.com/
 exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `,
@@ -160,7 +166,7 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 				kubeconfig:  "config",
 				kubeContext: "dev",
 				runner:      &mockRunner{},
-				options:     HelmExecOptions{DisableForceUpdate: tt.disableUpdate},
+				options:     HelmExecOptions{DisableForceUpdate: tt.disableForceUpdate},
 			}
 			err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
 
@@ -225,7 +231,7 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 	err = helm.AddRepo("acrRepo", "", "", "", "", "", "", "acr", false, false)
 	expected = `Adding repo acrRepo (acr)
 exec: az acr helm repo add --name acrRepo
-exec: az acr helm repo add --name acrRepo: 
+exec: az acr helm repo add --name acrRepo:
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1107,22 +1113,42 @@ exec: helm --kubeconfig config --kube-context dev template release https://examp
 }
 
 func Test_IsHelm3(t *testing.T) {
-	helm2Runner := mockRunner{output: []byte("Client: v2.16.0+ge13bc94\n")}
-	helm, err := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm2Runner)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if helm.IsHelm3() {
-		t.Error("helmexec.IsHelm3() - Detected Helm 3 with Helm 2 version")
-	}
-
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
-	helm, err = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm3Runner)
+	helm, err := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm3Runner)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if !helm.IsHelm3() {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
+	}
+
+	helm4Runner := mockRunner{output: []byte("v4.0.0+ge29ce2a\n")}
+	helm, err = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm4Runner)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if helm.IsHelm3() {
+		t.Error("helmexec.IsHelm3() - Detected Helm 3 with Helm 4 version")
+	}
+}
+
+func Test_IsHelm4(t *testing.T) {
+	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
+	helm, err := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm3Runner)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if helm.IsHelm4() {
+		t.Error("helmexec.IsHelm4() - Detected Helm 4 with Helm 3 version")
+	}
+
+	helm4Runner := mockRunner{output: []byte("v4.0.0+ge29ce2a\n")}
+	helm, err = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm4Runner)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !helm.IsHelm4() {
+		t.Error("helmexec.IsHelm4() - Failed to detect Helm 4")
 	}
 }
 
@@ -1245,6 +1271,20 @@ func Test_ShowChart(t *testing.T) {
 	}
 	if metadata.Version != "3.2.0" {
 		t.Errorf("helmexec.ShowChart() - expected chart version was %s, received: %s", "3.2.0", metadata.Version)
+	}
+}
+
+func Test_SetDisableForceUpdate(t *testing.T) {
+	helm, err := MockExecer(NewLogger(os.Stdout, "info"), "config", "dev")
+	if err != nil {
+		t.Error(err)
+	}
+	if helm.options.DisableForceUpdate {
+		t.Error("helmexec.options.DisableForceUpdate should not be enabled by default")
+	}
+	helm.SetDisableForceUpdate(true)
+	if !helm.options.DisableForceUpdate {
+		t.Errorf("helmexec.SetDisableForceUpdate() - actual = %t expect = true", helm.options.DisableForceUpdate)
 	}
 }
 
