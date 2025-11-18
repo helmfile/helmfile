@@ -25,7 +25,8 @@ import (
 	"github.com/helmfile/vals"
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/cli"
+	cliv3 "helm.sh/helm/v3/pkg/cli"
+	cliv4 "helm.sh/helm/v4/pkg/cli"
 
 	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -182,7 +183,7 @@ type HelmSpec struct {
 	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
-	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install/upgrade (ignored for helm2)
+	// CreateNamespace, when set to true (default), --create-namespace is passed to helm on install/upgrade
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 	// SkipDeps disables running `helm dependency up` and `helm dependency build` on this release's chart.
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
@@ -290,7 +291,7 @@ type ReleaseSpec struct {
 	HistoryMax *int `yaml:"historyMax,omitempty"`
 	// Condition, when set, evaluate the mapping specified in this string to a boolean which decides whether or not to process the release
 	Condition string `yaml:"condition,omitempty"`
-	// CreateNamespace, when set to true (default), --create-namespace is passed to helm3 on install (ignored for helm2)
+	// CreateNamespace, when set to true (default), --create-namespace is passed to helm on install
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
 	// ReuseValues, on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues *bool `yaml:"reuseValues,omitempty"`
@@ -583,6 +584,7 @@ func (st *HelmState) ApplyOverrides(spec *ReleaseSpec) {
 
 type RepoUpdater interface {
 	IsHelm3() bool
+	IsHelm4() bool
 	AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error
 	UpdateRepo() error
 	RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error
@@ -1237,7 +1239,7 @@ type ChartPrepareOptions struct {
 	SkipRefresh   bool
 	SkipResolve   bool
 	SkipCleanup   bool
-	// Validate is a helm-3-only option. When it is set to true, it configures chartify to pass --validate to helm-template run by it.
+	// Validate configures chartify to pass --validate to helm-template run by it.
 	// It's required when one of your chart relies on Capabilities.APIVersions in a template
 	Validate               bool
 	IncludeCRDs            *bool
@@ -1254,6 +1256,8 @@ type ChartPrepareOptions struct {
 	// Delete wait
 	DeleteWait    bool
 	DeleteTimeout int
+	// HelmOCIPlainHTTP uses plain HTTP for OCI registries (required for local/insecure registries in Helm 4)
+	HelmOCIPlainHTTP bool
 }
 
 type chartPrepareResult struct {
@@ -1318,7 +1322,7 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	c := chartify.New(
 		chartify.HelmBin(st.DefaultHelmBinary),
 		chartify.KustomizeBin(st.DefaultKustomizeBinary),
-		chartify.UseHelm3(true),
+		// Auto-detect Helm version (works with both Helm 3 and Helm 4)
 		chartify.WithLogf(st.logger.Debugf),
 	)
 
@@ -1326,6 +1330,11 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 
 	if skipDeps {
 		chartifyOpts.SkipDeps = true
+	}
+
+	// Pass --oci-plain-http flag to chartify for Helm 4 OCI support
+	if opts.HelmOCIPlainHTTP {
+		chartifyOpts.OCIPlainHTTP = true
 	}
 
 	includeCRDs := true
@@ -3006,7 +3015,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendLabelsFlags(flags, helm, release, syncReleaseLabels)
 
-	flags = st.appendPostRenderFlags(flags, release, postRenderer)
+	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
 
 	var postRendererArgs []string
 	if opt != nil {
@@ -3053,7 +3062,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		showOnly = opt.ShowOnly
 		skipSchemaValidation = opt.SkipSchemaValidation
 	}
-	flags = st.appendPostRenderFlags(flags, release, postRenderer)
+	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 	flags = st.appendChartDownloadFlags(flags, release)
@@ -3068,7 +3077,13 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 }
 
 func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec, disableValidation bool, workerIndex int, opt *DiffOpts) ([]string, []string, error) {
-	settings := cli.New()
+	// Use version-specific cli based on detected Helm version
+	var pluginsDir string
+	if helm.IsHelm3() {
+		pluginsDir = cliv3.New().PluginsDirectory
+	} else {
+		pluginsDir = cliv4.New().PluginsDirectory
+	}
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
 	flags = st.appendEnableDNSFlags(flags, release)
@@ -3116,7 +3131,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 
 	for _, flag := range flags {
 		if flag == "--insecure-skip-tls-verify" {
-			diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+			diffVersion, err := helmexec.GetPluginVersion("diff", pluginsDir)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -3136,7 +3151,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if opt != nil {
 		postRenderer = opt.PostRenderer
 	}
-	flags = st.appendPostRenderFlags(flags, release, postRenderer)
+	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
 
 	postRendererArgs := []string{}
 	if opt != nil {
@@ -3155,7 +3170,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		suppressOutputLineRegex = opt.SuppressOutputLineRegex
 	}
 	if len(suppressOutputLineRegex) > 0 || len(st.HelmDefaults.SuppressOutputLineRegex) > 0 || len(release.SuppressOutputLineRegex) > 0 {
-		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+		diffVersion, err := helmexec.GetPluginVersion("diff", pluginsDir)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -3173,7 +3188,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 
 	var err error
-	flags, err = st.appendTakeOwnershipFlagsForDiff(flags, release, takeOwnership)
+	flags, err = st.appendTakeOwnershipFlagsForDiff(flags, release, takeOwnership, pluginsDir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -3186,8 +3201,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	return append(flags, common...), files, nil
 }
 
-func (st *HelmState) appendTakeOwnershipFlagsForDiff(flags []string, release *ReleaseSpec, takeOwnership bool) ([]string, error) {
-	settings := cli.New()
+func (st *HelmState) appendTakeOwnershipFlagsForDiff(flags []string, release *ReleaseSpec, takeOwnership bool, pluginsDir string) ([]string, error) {
 	isAppendTakeOwnership := false
 
 	switch {
@@ -3199,7 +3213,7 @@ func (st *HelmState) appendTakeOwnershipFlagsForDiff(flags []string, release *Re
 		isAppendTakeOwnership = true
 	}
 	if isAppendTakeOwnership {
-		diffVersion, err := helmexec.GetPluginVersion("diff", settings.PluginsDirectory)
+		diffVersion, err := helmexec.GetPluginVersion("diff", pluginsDir)
 		if err != nil {
 			return flags, err
 		}

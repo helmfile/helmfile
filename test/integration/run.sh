@@ -27,9 +27,9 @@ export HELM_DATA_HOME="${helm_dir}/data"
 export HELM_HOME="${HELM_DATA_HOME}"
 export HELM_PLUGINS="${HELM_DATA_HOME}/plugins"
 export HELM_CONFIG_HOME="${helm_dir}/config"
-HELM_DIFF_VERSION="${HELM_DIFF_VERSION:-3.12.5}"
-HELM_GIT_VERSION="${HELM_GIT_VERSION:-1.3.0}"
-HELM_SECRETS_VERSION="${HELM_SECRETS_VERSION:-3.15.0}"
+HELM_DIFF_VERSION="${HELM_DIFF_VERSION:-3.14.0}"
+HELM_GIT_VERSION="${HELM_GIT_VERSION:-1.4.1}"
+HELM_SECRETS_VERSION="${HELM_SECRETS_VERSION:-4.7.0}"
 export GNUPGHOME="${PWD}/${dir}/.gnupg"
 export SOPS_PGP_FP="B2D6D7BBEC03B2E66571C8C00AD18E16CFDEF700"
 
@@ -71,8 +71,19 @@ set -e
 trap cleanup EXIT
 info "Using namespace: ${test_ns}"
 info "Using Helm version:" $(${helm} version --short | grep -o 'v[0-9.]\+')
-${helm} plugin ls | grep "^diff" || ${helm} plugin install https://github.com/databus23/helm-diff --version v${HELM_DIFF_VERSION}
-${helm} plugin ls | grep "^helm-git" || ${helm} plugin install https://github.com/aslafy-z/helm-git --version v${HELM_GIT_VERSION}
+
+# Detect Helm 4 and add --verify=false flag if needed (Helm 4 requires this for plugins without signatures)
+PLUGIN_INSTALL_FLAGS=""
+if [ "${HELMFILE_HELM4}" = "1" ]; then
+    info "Detected Helm 4, adding --verify=false to plugin installations"
+    PLUGIN_INSTALL_FLAGS="--verify=false"
+    # Set HELM_BIN for helm-git plugin compatibility with Helm 4
+    export HELM_BIN=$(which helm)
+    info "Set HELM_BIN=${HELM_BIN} for Helm 4 plugin compatibility"
+fi
+
+${helm} plugin ls | grep "^diff" || ${helm} plugin install https://github.com/databus23/helm-diff --version v${HELM_DIFF_VERSION} ${PLUGIN_INSTALL_FLAGS}
+${helm} plugin ls | grep "^helm-git" || ${helm} plugin install https://github.com/aslafy-z/helm-git --version v${HELM_GIT_VERSION} ${PLUGIN_INSTALL_FLAGS}
 info "Using Kustomize version: $(kustomize version --short | grep -o 'v[0-9.]\+')"
 ${kubectl} get namespace ${test_ns} &> /dev/null && warn "Namespace ${test_ns} exists, from a previous test run?"
 ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${test_ns}"

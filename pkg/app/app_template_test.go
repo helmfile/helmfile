@@ -47,7 +47,6 @@ func TestTemplate(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
-			Helm3:                true,
 		}
 
 		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -358,7 +357,6 @@ func TestTemplate_StrictParsing(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
-			Helm3:                true,
 		}
 
 		_ = runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {

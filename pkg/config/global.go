@@ -36,8 +36,12 @@ type GlobalOptions struct {
 	SkipRefresh bool
 	// StripArgsValuesOnExitError is true if the ARGS output on exit error should be suppressed
 	StripArgsValuesOnExitError bool
-	// DisableForceUpdate is true if force updating repos is not desirable when executing "helm repo add"
+	// DisableForceUpdate is true if force updating repos is not desirable when executing "helm repo add" (Helm 3)
 	DisableForceUpdate bool
+	// EnforcePluginVerification is true if plugin installation should fail when verification is not supported
+	EnforcePluginVerification bool
+	// HelmOCIPlainHTTP is true if Helm should use plain HTTP for OCI registries
+	HelmOCIPlainHTTP bool
 	// Quiet is true if the output should be quiet.
 	Quiet bool
 	// Kubeconfig is the path to the kubeconfig file to use.
@@ -186,9 +190,19 @@ func (g *GlobalImpl) StripArgsValuesOnExitError() bool {
 	return g.GlobalOptions.StripArgsValuesOnExitError
 }
 
-// DisableForceUpdate return when to disable forcing updates to repos upon adding
+// DisableForceUpdate return when to disable forcing updates to repos upon adding (Helm 3)
 func (g *GlobalImpl) DisableForceUpdate() bool {
 	return g.GlobalOptions.DisableForceUpdate
+}
+
+// EnforcePluginVerification return when to enforce plugin verification
+func (g *GlobalImpl) EnforcePluginVerification() bool {
+	return g.GlobalOptions.EnforcePluginVerification
+}
+
+// HelmOCIPlainHTTP returns whether to use plain HTTP for OCI registries
+func (g *GlobalImpl) HelmOCIPlainHTTP() bool {
+	return g.GlobalOptions.HelmOCIPlainHTTP
 }
 
 // Logger returns the logger

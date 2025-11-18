@@ -3,11 +3,14 @@ package exectest
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
 	"strings"
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
-	"helm.sh/helm/v3/pkg/chart"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
@@ -48,6 +51,7 @@ type Helm struct {
 	ReleasesMutex *sync.Mutex
 
 	Helm3 bool
+	Helm4 bool
 }
 
 type Release struct {
@@ -225,10 +229,51 @@ func (helm *Helm) ChartExport(chart string, path string) error {
 	return nil
 }
 func (helm *Helm) IsHelm3() bool {
-	if helm.Version == nil {
-		return helm.Helm3
+	// Priority order:
+	// 1. If Version is explicitly set, use that
+	if helm.Version != nil {
+		return helm.Version.Major() == 3
 	}
-	return helm.Version.Major() == 3
+
+	// 2. Check explicit struct field settings (for unit tests)
+	if helm.Helm3 {
+		return true
+	}
+	if helm.Helm4 {
+		return false
+	}
+
+	// 3. Check environment variable (for CI matrix testing)
+	if IsHelm4Enabled() {
+		return false
+	}
+
+	// 4. Default to Helm 4 (newer version)
+	return false
+}
+
+func (helm *Helm) IsHelm4() bool {
+	// Priority order:
+	// 1. If Version is explicitly set, use that
+	if helm.Version != nil {
+		return helm.Version.Major() == 4
+	}
+
+	// 2. Check explicit struct field settings (for unit tests)
+	if helm.Helm4 {
+		return true
+	}
+	if helm.Helm3 {
+		return false
+	}
+
+	// 3. Check environment variable (for CI matrix testing)
+	if IsHelm4Enabled() {
+		return true
+	}
+
+	// 4. Default to Helm 4 (newer version)
+	return true
 }
 
 func (helm *Helm) GetVersion() helmexec.Version {
@@ -264,4 +309,53 @@ func (helm *Helm) ShowChart(chartPath string) (chart.Metadata, error) {
 	default:
 		return chart.Metadata{}, errors.New("fake test error")
 	}
+}
+
+// IsHelm4Enabled detects the installed Helm version by executing the helm binary.
+// It returns true if Helm 4.x is installed, false for Helm 3.x or earlier.
+// Falls back to environment variable HELMFILE_HELM4 if helm binary is not available.
+func IsHelm4Enabled() bool {
+	// First try to detect actual Helm version
+	helmBinary := os.Getenv("HELM_BIN")
+	if helmBinary == "" {
+		helmBinary = "helm"
+	}
+
+	// Create a simple runner for executing helm version
+	runner := &simpleRunner{}
+	version, err := helmexec.GetHelmVersion(helmBinary, runner)
+	if err == nil && version != nil {
+		return version.Major() == 4
+	}
+
+	// Fallback to environment variable for CI/testing scenarios where helm might not be available
+	return os.Getenv("HELMFILE_HELM4") == "1"
+}
+
+// simpleRunner is a minimal implementation of helmexec.Runner for version detection
+type simpleRunner struct{}
+
+func (r *simpleRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	command := exec.Command(cmd, args...)
+	if env != nil {
+		command.Env = append(os.Environ(), mapToEnv(env)...)
+	}
+	return command.CombinedOutput()
+}
+
+func (r *simpleRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	command := exec.Command(cmd, args...)
+	if env != nil {
+		command.Env = append(os.Environ(), mapToEnv(env)...)
+	}
+	command.Stdin = stdin
+	return command.CombinedOutput()
+}
+
+func mapToEnv(m map[string]string) []string {
+	var env []string
+	for k, v := range m {
+		env = append(env, k+"="+v)
+	}
+	return env
 }

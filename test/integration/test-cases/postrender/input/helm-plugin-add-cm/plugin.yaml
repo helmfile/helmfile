@@ -1,0 +1,11 @@
+apiVersion: v1
+type: postrenderer/v1
+name: add-cm
+version: 0.1.0
+source: test
+runtime: subprocess
+runtimeConfig:
+  platformCommand:
+    - command: ${HELM_PLUGIN_DIR}/add-cm.sh
+      args:
+        - ${HELM_POST_RENDERER_ARGS}

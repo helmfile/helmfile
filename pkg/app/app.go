@@ -34,6 +34,8 @@ type App struct {
 	EnableLiveOutput           bool
 	StripArgsValuesOnExitError bool
 	DisableForceUpdate         bool
+	EnforcePluginVerification  bool
+	HelmOCIPlainHTTP           bool
 
 	Logger      *zap.SugaredLogger
 	Kubeconfig  string
@@ -80,6 +82,8 @@ func New(conf ConfigProvider) *App {
 		EnableLiveOutput:           conf.EnableLiveOutput(),
 		StripArgsValuesOnExitError: conf.StripArgsValuesOnExitError(),
 		DisableForceUpdate:         conf.DisableForceUpdate(),
+		EnforcePluginVerification:  conf.EnforcePluginVerification(),
+		HelmOCIPlainHTTP:           conf.HelmOCIPlainHTTP(),
 		Logger:                     conf.Logger(),
 		Kubeconfig:                 conf.Kubeconfig(),
 		Env:                        conf.Env(),
@@ -236,6 +240,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Set:                    c.Set(),
 			Values:                 c.Values(),
 			KubeVersion:            c.KubeVersion(),
+			HelmOCIPlainHTTP:       a.HelmOCIPlainHTTP,
 		}, func() {
 			ok, errs = a.template(run, c)
 		})
@@ -825,7 +830,12 @@ func (a *App) getHelm(st *state.HelmState) (helmexec.Interface, error) {
 	key := createHelmKey(bin, kubectx)
 
 	if _, ok := a.helms[key]; !ok {
-		exec, err := helmexec.New(bin, helmexec.HelmExecOptions{EnableLiveOutput: a.EnableLiveOutput, DisableForceUpdate: a.DisableForceUpdate}, a.Logger, kubeconfig, kubectx, &helmexec.ShellRunner{
+		exec, err := helmexec.New(bin, helmexec.HelmExecOptions{
+			EnableLiveOutput:          a.EnableLiveOutput,
+			DisableForceUpdate:        a.DisableForceUpdate,
+			EnforcePluginVerification: a.EnforcePluginVerification,
+			HelmOCIPlainHTTP:          a.HelmOCIPlainHTTP,
+		}, a.Logger, kubeconfig, kubectx, &helmexec.ShellRunner{
 			Logger:                     a.Logger,
 			Ctx:                        a.ctx,
 			StripArgsValuesOnExitError: a.StripArgsValuesOnExitError,

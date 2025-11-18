@@ -1154,7 +1154,6 @@ releases:
 				DiffMutex:            &sync.Mutex{},
 				ChartsMutex:          &sync.Mutex{},
 				ReleasesMutex:        &sync.Mutex{},
-				Helm3:                true,
 			}
 
 			bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {

@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache make git
 WORKDIR /workspace/helmfile
@@ -30,7 +30,7 @@ ENV HELM_CONFIG_HOME="${HELM_CONFIG_HOME}"
 ARG HELM_DATA_HOME="${HOME}/.local/share/helm"
 ENV HELM_DATA_HOME="${HELM_DATA_HOME}"
 
-ARG HELM_VERSION="v3.19.0"
+ARG HELM_VERSION="v4.0.0"
 ENV HELM_VERSION="${HELM_VERSION}"
 ARG HELM_LOCATION="https://get.helm.sh"
 ARG HELM_FILENAME="helm-${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
@@ -38,8 +38,8 @@ RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "${HELM_LOCATION}/${HELM_FILENAME}" && \
     echo Verifying ${HELM_FILENAME}... && \
     case ${TARGETPLATFORM} in \
-    "linux/amd64")  HELM_SHA256="a7f81ce08007091b86d8bd696eb4d86b8d0f2e1b9f6c714be62f82f96a594496"  ;; \
-    "linux/arm64")  HELM_SHA256="440cf7add0aee27ebc93fada965523c1dc2e0ab340d4348da2215737fc0d76ad"  ;; \
+    "linux/amd64")  HELM_SHA256="c77e9e7c1cc96e066bd240d190d1beed9a6b08060b2043ef0862c4f865eca08f"  ;; \
+    "linux/arm64")  HELM_SHA256="8c5c77e20cc29509d640e208a6a7d2b7e9f99bb04e5b5fbe22707b72a5235245"  ;; \
     esac && \
     echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
     echo Extracting ${HELM_FILENAME}... && \
@@ -50,26 +50,26 @@ RUN set -x && \
 # using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
 # for now but in a future version of alpine (in the testing version at the time of writing)
 # we should be able to install using apk add.
-ENV KUBECTL_VERSION="v1.32.1"
+ENV KUBECTL_VERSION="v1.34.0"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
     case ${TARGETPLATFORM} in \
-    "linux/amd64")  KUBECTL_SHA256="e16c80f1a9f94db31063477eb9e61a2e24c1a4eee09ba776b029048f5369db0c"  ;; \
-    "linux/arm64")  KUBECTL_SHA256="98206fd83a4fd17f013f8c61c33d0ae8ec3a7c53ec59ef3d6a0a9400862dc5b2"  ;; \
+    "linux/amd64")  KUBECTL_SHA256="cfda68cba5848bc3b6c6135ae2f20ba2c78de20059f68789c090166d6abc3e2c"  ;; \
+    "linux/arm64")  KUBECTL_SHA256="00b182d103a8a73da7a4d11e7526d0543dcf352f06cc63a1fde25ce9243f49a0"  ;; \
     esac && \
     echo "${KUBECTL_SHA256}  kubectl" | sha256sum -c && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl && \
     [ "$(kubectl version -o json | jq -r '.clientVersion.gitVersion')" = "${KUBECTL_VERSION}" ]
 
-ENV KUSTOMIZE_VERSION="v5.4.3"
+ENV KUSTOMIZE_VERSION="v5.8.0"
 ARG KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz"
 RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}" && \
     case ${TARGETPLATFORM} in \
     # Checksums are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
-    "linux/amd64")  KUSTOMIZE_SHA256="3669470b454d865c8184d6bce78df05e977c9aea31c30df3c669317d43bcc7a7"  ;; \
-    "linux/arm64")  KUSTOMIZE_SHA256="1b515578b0af12c15d9856720066ce2fe66756d63785b2cbccaf2885beb2381c"  ;; \
+    "linux/amd64")  KUSTOMIZE_SHA256="4dfa8307358dd9284aa4d2b1d5596766a65b93433e8fa3f9f74498941f01c5ef"  ;; \
+    "linux/arm64")  KUSTOMIZE_SHA256="a4f48b4c3d4ca97d748943e19169de85a2e86e80bcc09558603e2aa66fb15ce1"  ;; \
     esac && \
     echo "${KUSTOMIZE_SHA256}  ${KUSTOMIZE_FILENAME}" | sha256sum -c && \
     tar xvf "${KUSTOMIZE_FILENAME}" -C /usr/local/bin && \
@@ -93,10 +93,12 @@ RUN set -x && \
     [ "$(age --version)" = "${AGE_VERSION}" ] && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.13.1 && \
-    helm plugin install https://github.com/jkroepke/helm-secrets --version v4.6.5 && \
-    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.16.3 && \
-    helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.3.0 && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.14.0 --verify=false && \
+    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v4.7.0/helm-secrets.tgz --verify=false && \
+    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v4.7.0/helm-secrets-getter.tgz --verify=false && \
+    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v4.7.0/helm-secrets-post-renderer.tgz --verify=false && \
+    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.17.0 --verify=false && \
+    helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.4.1 --verify=false && \
     rm -rf ${HELM_CACHE_HOME}/plugins
 
 # Allow users other than root to use helm plugins located in root home

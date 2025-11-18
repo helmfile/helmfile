@@ -1335,7 +1335,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}", "--reset-values"}}},
 		},
 		{
-			name: "post renderer",
+			name: "post renderer helm 3",
 			releases: []ReleaseSpec{
 				{
 					Name:         "releaseName",
@@ -1343,10 +1343,20 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					PostRenderer: &postRenderer,
 				},
 			},
-			helm: &exectest.Helm{
-				Helm3: true,
-			},
+			helm:         &exectest.Helm{Helm3: true}, // Helm 3 keeps script paths unchanged
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--post-renderer", postRenderer, "--reset-values"}}},
+		},
+		{
+			name: "post renderer helm 4",
+			releases: []ReleaseSpec{
+				{
+					Name:         "releaseName",
+					Chart:        "foo",
+					PostRenderer: &postRenderer,
+				},
+			},
+			helm:         &exectest.Helm{Helm4: true},                                                                            // Helm 4 converts script paths to plugin names
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--post-renderer", "foo", "--reset-values"}}}, // "foo.sh" -> "foo"
 		},
 	}
 	for i := range tests {
@@ -1471,7 +1481,6 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			state = injectFs(state, fs)
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]string{},
-				Helm3: true,
 			}
 			//simulate the helm.list call result
 			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$"}] = tt.listResult
@@ -2244,7 +2253,6 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 func TestHelmState_UpdateDeps(t *testing.T) {
 	helm := &exectest.Helm{
 		UpdateDepsCallbacks: map[string]func(string) error{},
-		Helm3:               true,
 	}
 
 	var generatedDir string
@@ -2970,7 +2978,6 @@ func TestHelmState_Delete(t *testing.T) {
 			helm := &exectest.Helm{
 				Lists:   map[exectest.ListKey]string{},
 				Deleted: []exectest.Release{},
-				Helm3:   true,
 			}
 			if tt.installed {
 				helm.Lists[exectest.ListKey{Filter: "^" + name + "$", Flags: tt.flags}] = name
@@ -3067,7 +3074,6 @@ func TestDiffpareSyncReleases(t *testing.T) {
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
-			Helm3: true,
 		}
 		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
 
@@ -3158,7 +3164,6 @@ func TestPrepareSyncReleases(t *testing.T) {
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
-			Helm3: true,
 		}
 		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
 
@@ -4632,7 +4637,6 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
-			Helm3: true,
 		}
 		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
 
@@ -4732,7 +4736,6 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
-			Helm3: true,
 		}
 		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
 

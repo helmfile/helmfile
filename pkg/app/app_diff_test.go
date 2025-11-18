@@ -42,7 +42,6 @@ func TestDiffWithNeeds(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
-			Helm3:                true,
 		}
 
 		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -317,7 +316,6 @@ func TestDiffWithInstalled(t *testing.T) {
 			DiffMutex:            &sync.Mutex{},
 			ChartsMutex:          &sync.Mutex{},
 			ReleasesMutex:        &sync.Mutex{},
-			Helm3:                true,
 		}
 
 		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {

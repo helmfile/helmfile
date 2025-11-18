@@ -1,0 +1,17 @@
+Building dependency release=installed, chart=../../../charts/httpbin
+Listing releases matching ^uninstalled$
+Upgrading release=installed, chart=../../../charts/httpbin, namespace=helmfile-tests
+Release "installed" does not exist. Installing it now.
+NAME: installed
+NAMESPACE: helmfile-tests
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+
+Listing releases matching ^installed$
+
+
+UPDATED RELEASES:
+NAME        NAMESPACE        CHART                     VERSION   DURATION
+

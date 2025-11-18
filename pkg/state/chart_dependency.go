@@ -289,11 +289,12 @@ func (m *chartDependencyManager) lockFileName() string {
 }
 
 func (m *chartDependencyManager) Update(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
-	return m.updateHelm3(shell, wd, unresolved)
+	return m.updateHelm(shell, wd, unresolved)
 }
 
-func (m *chartDependencyManager) updateHelm3(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
+func (m *chartDependencyManager) updateHelm(shell helmexec.DependencyUpdater, wd string, unresolved *UnresolvedDependencies) (*ResolvedDependencies, error) {
 	// Generate `Chart.yaml` of the temporary local chart
+	// Both Helm 3 and Helm 4 use apiVersion: v2 and Chart.lock
 	chartMetaContent := fmt.Sprintf("name: %s\nversion: 1.0.0\napiVersion: v2\n", m.Name)
 
 	// Generate `requirements.yaml` of the temporary local chart from the helmfile state

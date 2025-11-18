@@ -37,7 +37,19 @@ bash -c "${helmfile} -f ${happypath_case_input_dir}/${config_file} apply --detai
 info "Syncing ${happypath_case_input_dir}/${config_file}"
 ${helmfile} -f ${happypath_case_input_dir}/${config_file} sync
 wait_deploy_ready httpbin-httpbin
-retry 5 "curl --fail $(minikube service --url --namespace=${test_ns} httpbin-httpbin)/status/200"
+info "Testing httpbin service connectivity"
+n=0
+retry_result=1
+until [ ${n} -ge 5 ]; do
+    info "Testing httpbin (attempt $((n+1)))"
+    if ${kubectl} run curl-test-${n} --rm -i --restart=Never --image=curlimages/curl:latest --namespace=${test_ns} --command -- curl --fail http://httpbin-httpbin:8000/status/200; then
+        retry_result=0
+        break
+    fi
+    retry_result=$?
+    n=$[$n+1]
+    [ ${n} -lt 5 ] && sleep $((n ** 2))
+done
 [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
 
 info "Applying ${happypath_case_input_dir}/${config_file}"

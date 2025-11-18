@@ -28,7 +28,17 @@ test_pass "secretssops.1"
 test_start "secretssops.2 - should succeed with secrets plugin"
 
 info "Ensure helm-secrets is installed"
-${helm} plugin install https://github.com/jkroepke/helm-secrets --version v${HELM_SECRETS_VERSION}
+# helm-secrets 4.7.0+ with Helm 4 uses split plugin architecture
+# Helm 3 always uses single plugin installation regardless of helm-secrets version
+if [[ "${HELMFILE_HELM4}" == "1" ]] && [[ "$(printf '%s\n' "4.7.0" "${HELM_SECRETS_VERSION}" | sort -V | head -n1)" == "4.7.0" ]]; then
+    info "Installing helm-secrets v${HELM_SECRETS_VERSION} (split plugin architecture for Helm 4)"
+    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/helm-secrets.tgz ${PLUGIN_INSTALL_FLAGS}
+    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/helm-secrets-getter.tgz ${PLUGIN_INSTALL_FLAGS}
+    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/helm-secrets-post-renderer.tgz ${PLUGIN_INSTALL_FLAGS}
+else
+    info "Installing helm-secrets v${HELM_SECRETS_VERSION} (single plugin)"
+    ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v${HELM_SECRETS_VERSION} ${PLUGIN_INSTALL_FLAGS}
+fi
 
 info "Ensure helmfile succeed when helm-secrets is installed"
 ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct build || fail "\"helmfile build\" shouldn't fail"
@@ -48,7 +58,6 @@ for i in $(seq 10); do
     info "Comparing build/direct #$i"
     ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct template --skip-deps > ${direct} || fail "\"helmfile template\" shouldn't fail"
     ./dyff between -bs ${secretssops_case_output_dir}/direct.build.yaml ${direct} || fail "\"helmfile template\" should be consistent"
-    echo code=$?
 done
 
 info "Comparing build/reverse output ${direct} with ${secretssops_case_output_dir}"
@@ -56,7 +65,6 @@ for i in $(seq 10); do
     info "Comparing build/reverse #$i"
     ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e reverse template --skip-deps > ${reverse} || fail "\"helmfile template\" shouldn't fail"
     ./dyff between -bs ${secretssops_case_output_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
-    echo code=$?
 done
 
 test_pass "secretssops.3"

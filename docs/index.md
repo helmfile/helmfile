@@ -39,6 +39,8 @@ Helmfile is a declarative spec for deploying helm charts. It lets you...
 
 To avoid upgrades for each iteration of `helm`, the `helmfile` executable delegates to `helm` - as a result, `helm` must be installed.
 
+**NOTE**: Helmfile supports both Helm 3.x and Helm 4.x.
+
 ## Highlights
 
 **Declarative**: Write, version-control, apply the desired state file for visibility and reproducibility.
@@ -166,7 +168,8 @@ repositories:
 # context: kube-context # this directive is deprecated, please consider using helmDefaults.kubeContext
 
 # Path to alternative helm binary (--helm-binary)
-helmBinary: path/to/helm3
+# Supports both Helm 3.x and Helm 4.x
+helmBinary: path/to/helm
 
 # Path to alternative kustomize binary (--kustomize-binary)
 kustomizeBinary: path/to/kustomize
@@ -190,14 +193,14 @@ helmDefaults:
   # verify the chart before upgrading (only works with packaged charts not directories) (default false)
   verify: true
   keyring: path/to/keyring.gpg
-  #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
+  #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint' (default false)
   skipSchemaValidation: false
   # wait for k8s resources via --wait. (default false)
   wait: true
   # DEPRECATED: waitRetries is no longer supported as the --wait-retries flag was removed from Helm.
   # This configuration is ignored and preserved only for backward compatibility.
   # waitRetries: 3
-  # if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout (default false, Implemented in Helm3.5)
+  # if set and --wait enabled, will wait until all Jobs have been completed before marking the release as successful. It will wait for as long as --timeout (default false)
   waitForJobs: true
   # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
   timeout: 600
@@ -207,7 +210,7 @@ helmDefaults:
   force: false
   # limit the maximum number of revisions saved per release. Use 0 for no limit. (default 10)
   historyMax: 10
-  # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
+  # automatically create release namespaces if they do not exist (default true)
   createNamespace: true
   # if used with charts museum allows to pull unstable charts for deployment, for example: if 1.2.3 and 1.2.4-dev versions exist and set to true, 1.2.4-dev will be pulled (default false)
   devel: true
@@ -253,7 +256,7 @@ releases:
   # Published chart example
   - name: vault                            # name of this release
     namespace: vault                       # target namespace
-    createNamespace: true                  # helm 3.2+ automatically create release namespace (default true)
+    createNamespace: true                  # automatically create release namespace (default true)
     labels:                                # Arbitrary key value pairs for filtering releases
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
@@ -316,7 +319,7 @@ releases:
     # Override helmDefaults options for verify, wait, waitForJobs, timeout, recreatePods, force and reuseValues.
     verify: true
     keyring: path/to/keyring.gpg
-    #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint', starts with helm 3.16.0 (default false)
+    #  --skip-schema-validation flag to helm 'install', 'upgrade' and 'lint' (default false)
     skipSchemaValidation: false
     wait: true
     # DEPRECATED: waitRetries is no longer supported - see documentation above
@@ -339,15 +342,15 @@ releases:
     # See https://github.com/roboll/helmfile/issues/642
     # (default "", which means the standard kubeconfig, either ~/kubeconfig or the file pointed by $KUBECONFIG environment variable)
     kubeContext: kube-context
-    # passes --disable-validation to helm 3 diff plugin, this requires diff plugin >= 3.1.2
+    # passes --disable-validation to helm diff plugin, this requires diff plugin >= 3.1.2
     # It may be helpful to deploy charts with helm api v1 CRDS
     # https://github.com/roboll/helmfile/pull/1373
     disableValidation: false
-    # passes --disable-validation to helm 3 diff plugin, this requires diff plugin >= 3.1.2
+    # passes --disable-validation to helm diff plugin, this requires diff plugin >= 3.1.2
     # It is useful when any release contains custom resources for CRDs that is not yet installed onto the cluster.
     # https://github.com/roboll/helmfile/pull/1618
     disableValidationOnInstall: false
-    # passes --disable-openapi-validation to helm 3 diff plugin, this requires diff plugin >= 3.1.2
+    # passes --disable-openapi-validation to helm diff plugin, this requires diff plugin >= 3.1.2
     # It may be helpful to deploy charts with helm api v1 CRDS
     # https://github.com/roboll/helmfile/pull/1373
     disableOpenAPIValidation: false

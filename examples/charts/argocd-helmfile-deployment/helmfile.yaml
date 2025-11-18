@@ -22,7 +22,7 @@ commonLabels:
 releases:
   - name: argocd                           # name of this release
     namespace: argocd                      # target namespace
-    createNamespace: true                  # helm 3.2+ automatically create release namespace (default true)
+    createNamespace: true                  # automatically create release namespace (default true)
     labels:                                # Arbitrary key value pairs for filtering releases
       env: prod
     chart: "."                             # the chart being installed to create this release, referenced by `repository/chart` syntax

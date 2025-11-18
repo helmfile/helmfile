@@ -21,8 +21,8 @@ releases:
           namespace: {{`{{ .Release.Namespace }}`}}
         data:
           bar: BAR
-  postRenderer: ./add-cm.bash
-  postRendererArgs: 
+  postRenderer: {{ if eq (env "HELMFILE_HELM4") "1" }}add-cm{{ else }}./add-cm.bash{{ end }}
+  postRendererArgs:
     - cm2
 - name: baz
   chart: ../../../charts/raw

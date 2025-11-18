@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/chart"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -58,7 +58,7 @@ func expectNoCallsToHelmVersion(app *App) {
 	}
 
 	app.helms = map[helmKey]helmexec.Interface{
-		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): testutil.NewV3HelmExec(true),
+		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): testutil.NewHelmExec(exectest.IsHelm4Enabled()),
 	}
 }
 
@@ -1371,7 +1371,7 @@ releases:
 }
 
 // See https://github.com/roboll/helmfile/issues/1213
-func TestVisitDesiredStatesWithReleases_NoDuplicateReleasesHelm3(t *testing.T) {
+func TestVisitDesiredStatesWithReleases_NoDuplicateReleases(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 releases:
@@ -1413,7 +1413,7 @@ releases:
 }
 
 // See https://github.com/roboll/helmfile/issues/1213
-func TestVisitDesiredStatesWithReleases_DuplicateReleasesHelm3(t *testing.T) {
+func TestVisitDesiredStatesWithReleases_DuplicateReleases(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 releases:
@@ -1457,7 +1457,7 @@ releases:
 	}
 }
 
-func TestVisitDesiredStatesWithReleases_DuplicateReleasesInNsKubeContextHelm3(t *testing.T) {
+func TestVisitDesiredStatesWithReleases_DuplicateReleasesInNsKubeContext(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
 releases:
@@ -2690,7 +2690,11 @@ func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) IsHelm3() bool {
-	return true
+	return !exectest.IsHelm4Enabled()
+}
+
+func (helm *mockHelmExec) IsHelm4() bool {
+	return exectest.IsHelm4Enabled()
 }
 
 func (helm *mockHelmExec) GetVersion() helmexec.Version {
@@ -3894,7 +3898,6 @@ releases:
 				DiffMutex:            &sync.Mutex{},
 				ChartsMutex:          &sync.Mutex{},
 				ReleasesMutex:        &sync.Mutex{},
-				Helm3:                true,
 			}
 
 			bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
@@ -4019,7 +4022,6 @@ releases:
 				DiffMutex:     &sync.Mutex{},
 				ChartsMutex:   &sync.Mutex{},
 				ReleasesMutex: &sync.Mutex{},
-				Helm3:         true,
 			}
 
 			bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {

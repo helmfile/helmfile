@@ -17,6 +17,12 @@ if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
     apply_out_stderr_file=${diff_args_output_dir}/apply-live-stderr
 fi
 
+# Helm 4 has different output format than Helm 3
+if [ "${HELMFILE_HELM4}" = "1" ]; then
+    apply_out_file=${apply_out_file}-helm4
+    apply_out_stderr_file=${apply_out_stderr_file}-helm4
+fi
+
 test_start "$case_title"
 info "Comparing ${case_title} diff for output ${diff_args_reverse} with ${diff_out_file}"
 info "Comparing ${case_title} diff for output ${diff_args_reverse_stderr} with ${diff_out_stderr_file}"
@@ -26,7 +32,6 @@ for i in $(seq 10); do
     cat ${diff_args_reverse}.tmp | sed -E '/\*{20}/,/\*{20}/d' > ${diff_args_reverse}
     diff -u ${diff_out_file} ${diff_args_reverse} || fail "\"helmfile diff\" should be consistent"
     diff -u ${diff_out_stderr_file} ${diff_args_reverse_stderr} || fail "\"helmfile diff\" should be consistent (stderr)"
-    echo code=$?
 done
 info "Comparing ${case_title} apply for output ${diff_args_reverse} with ${apply_out_file}"
 info "Comparing ${case_title} apply for stdout ${diff_args_reverse_stderr} with ${apply_out_stderr_file}"
