@@ -16,37 +16,38 @@ import (
 )
 
 type diffConfig struct {
-	args                    string
-	diffArgs                string
-	values                  []string
-	retainValuesFiles       bool
-	set                     []string
-	validate                bool
-	skipCRDs                bool
-	skipDeps                bool
-	skipRefresh             bool
-	includeTests            bool
-	skipNeeds               bool
-	includeNeeds            bool
-	includeTransitiveNeeds  bool
-	suppress                []string
-	suppressSecrets         bool
-	showSecrets             bool
-	noHooks                 bool
-	suppressDiff            bool
-	suppressOutputLineRegex []string
-	noColor                 bool
-	context                 int
-	diffOutput              string
-	concurrency             int
-	detailedExitcode        bool
-	stripTrailingCR         bool
-	interactive             bool
-	skipDiffOnInstall       bool
-	skipSchemaValidation    bool
-	reuseValues             bool
-	logger                  *zap.SugaredLogger
-	takeOwnership           bool
+	args                     string
+	diffArgs                 string
+	values                   []string
+	retainValuesFiles        bool
+	set                      []string
+	validate                 bool
+	skipCRDs                 bool
+	skipDeps                 bool
+	skipRefresh              bool
+	includeTests             bool
+	skipNeeds                bool
+	includeNeeds             bool
+	includeTransitiveNeeds   bool
+	suppress                 []string
+	suppressSecrets          bool
+	showSecrets              bool
+	noHooks                  bool
+	suppressDiff             bool
+	suppressOutputLineRegex  []string
+	noColor                  bool
+	context                  int
+	diffOutput               string
+	concurrency              int
+	detailedExitcode         bool
+	stripTrailingCR          bool
+	interactive              bool
+	skipDiffOnInstall        bool
+	skipSchemaValidation     bool
+	reuseValues              bool
+	logger                   *zap.SugaredLogger
+	takeOwnership            bool
+	enforceNeedsAreInstalled bool
 }
 
 func (a diffConfig) Args() string {
@@ -186,6 +187,10 @@ func (a diffConfig) SuppressOutputLineRegex() []string {
 }
 func (a diffConfig) TakeOwnership() bool {
 	return a.takeOwnership
+}
+
+func (a diffConfig) EnforceNeedsAreInstalled() bool {
+	return a.enforceNeedsAreInstalled
 }
 
 func TestDiff(t *testing.T) {

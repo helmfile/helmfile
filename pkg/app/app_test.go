@@ -2195,11 +2195,12 @@ type configImpl struct {
 	skipSchemaValidation bool
 	skipRefresh          bool
 
-	skipNeeds              bool
-	includeNeeds           bool
-	includeTransitiveNeeds bool
-	skipCharts             bool
-	kubeVersion            string
+	skipNeeds                bool
+	includeNeeds             bool
+	includeTransitiveNeeds   bool
+	enforceNeedsAreInstalled bool
+	skipCharts               bool
+	kubeVersion              string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2306,51 +2307,56 @@ func (c configImpl) ShowOnly() []string {
 	return nil
 }
 
+func (c configImpl) EnforceNeedsAreInstalled() bool {
+	return c.enforceNeedsAreInstalled
+}
+
 type applyConfig struct {
 	args    string
 	cascade string
 	values  []string
 
-	set                     []string
-	validate                bool
-	skipCleanup             bool
-	skipCRDs                bool
-	skipDeps                bool
-	skipRefresh             bool
-	skipNeeds               bool
-	includeNeeds            bool
-	includeTransitiveNeeds  bool
-	includeTests            bool
-	suppress                []string
-	suppressSecrets         bool
-	showSecrets             bool
-	noHooks                 bool
-	suppressDiff            bool
-	noColor                 bool
-	color                   bool
-	context                 int
-	diffOutput              string
-	concurrency             int
-	detailedExitcode        bool
-	stripTrailingCR         bool
-	interactive             bool
-	skipDiffOnInstall       bool
-	syncArgs                string
-	diffArgs                string
-	logger                  *zap.SugaredLogger
-	wait                    bool
-	waitRetries             int
-	waitForJobs             bool
-	reuseValues             bool
-	postRenderer            string
-	postRendererArgs        []string
-	skipSchemaValidation    bool
-	kubeVersion             string
-	suppressOutputLineRegex []string
-	showOnly                []string
-	hideNotes               bool
-	takeOwnership           bool
-	syncReleaseLabels       bool
+	set                      []string
+	validate                 bool
+	skipCleanup              bool
+	skipCRDs                 bool
+	skipDeps                 bool
+	skipRefresh              bool
+	skipNeeds                bool
+	includeNeeds             bool
+	includeTransitiveNeeds   bool
+	includeTests             bool
+	suppress                 []string
+	suppressSecrets          bool
+	showSecrets              bool
+	noHooks                  bool
+	suppressDiff             bool
+	noColor                  bool
+	color                    bool
+	context                  int
+	diffOutput               string
+	concurrency              int
+	detailedExitcode         bool
+	stripTrailingCR          bool
+	interactive              bool
+	skipDiffOnInstall        bool
+	syncArgs                 string
+	diffArgs                 string
+	logger                   *zap.SugaredLogger
+	wait                     bool
+	waitRetries              int
+	waitForJobs              bool
+	reuseValues              bool
+	postRenderer             string
+	postRendererArgs         []string
+	skipSchemaValidation     bool
+	kubeVersion              string
+	suppressOutputLineRegex  []string
+	showOnly                 []string
+	hideNotes                bool
+	takeOwnership            bool
+	syncReleaseLabels        bool
+	enforceNeedsAreInstalled bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2407,6 +2413,10 @@ func (a applyConfig) SkipRefresh() bool {
 
 func (a applyConfig) SkipNeeds() bool {
 	return a.skipNeeds
+}
+
+func (a applyConfig) EnforceNeedsAreInstalled() bool {
+	return a.enforceNeedsAreInstalled
 }
 
 func (a applyConfig) IncludeNeeds() bool {
