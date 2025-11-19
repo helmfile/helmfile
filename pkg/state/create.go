@@ -221,6 +221,11 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 // Unlike mergo.WithOverride which replaces entire EnvironmentSpec values, this function
 // properly merges the Values slices from both environments.
 func mergeEnvironments(dst, src map[string]EnvironmentSpec) {
+	// If dst is nil, there's nothing to merge into
+	if dst == nil {
+		return
+	}
+
 	for envName, srcEnv := range src {
 		if dstEnv, exists := dst[envName]; exists {
 			// Environment exists in both - merge the Values slices
@@ -283,6 +288,11 @@ func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment
 	layers = append(layers, st)
 
 	for i := 1; i < len(layers); i++ {
+		// Initialize Environments map if nil to avoid panic in mergeEnvironments
+		if layers[0].Environments == nil {
+			layers[0].Environments = make(map[string]EnvironmentSpec)
+		}
+
 		// Manually merge environments to ensure deep merging of environment values
 		mergeEnvironments(layers[0].Environments, layers[i].Environments)
 
