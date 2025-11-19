@@ -1,0 +1,9 @@
+apiVersion: v2
+name: test-chart-issue-2275
+description: Test chart for issue #2275
+type: application
+version: 1.0.0
+appVersion: "1.0"
+# This chart requires Kubernetes 1.25 or higher
+# Without the fix, helm-diff uses v1.20.0 and fails
+kubeVersion: ">=1.25.0"
