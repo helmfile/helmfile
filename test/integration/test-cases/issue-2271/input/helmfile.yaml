@@ -1,0 +1,8 @@
+releases:
+  - name: test-release-2271
+    namespace: default
+    chart: ./test-chart
+    installed: true
+    # Using strategicMergePatches causes lookup function to not execute
+    strategicMergePatches:
+      - dns-patch.yaml

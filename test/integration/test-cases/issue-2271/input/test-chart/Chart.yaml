@@ -1,0 +1,6 @@
+apiVersion: v2
+name: test-chart-issue-2271
+description: Test chart for issue #2271 - lookup function with kustomize
+type: application
+version: 1.0.0
+appVersion: "1.0"

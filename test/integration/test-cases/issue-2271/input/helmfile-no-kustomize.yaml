@@ -1,0 +1,6 @@
+releases:
+  - name: test-release-2271
+    namespace: default
+    chart: ./test-chart
+    installed: true
+    # No strategicMergePatches - lookup function should work
