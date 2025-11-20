@@ -711,10 +711,16 @@ func (helm *execer) filterColorFlagsForHelm4(flags []string, env map[string]stri
 		switch flag {
 		case "--color":
 			// Use environment variable instead of flag for Helm 4
-			env["HELM_DIFF_COLOR"] = "true"
+			// Only set if not already present (defensive check)
+			if _, exists := env["HELM_DIFF_COLOR"]; !exists {
+				env["HELM_DIFF_COLOR"] = "true"
+			}
 		case "--no-color":
 			// Use environment variable instead of flag for Helm 4
-			env["HELM_DIFF_COLOR"] = "false"
+			// Only set if not already present (defensive check)
+			if _, exists := env["HELM_DIFF_COLOR"]; !exists {
+				env["HELM_DIFF_COLOR"] = "false"
+			}
 		default:
 			// Keep all other flags unchanged
 			filtered = append(filtered, flag)

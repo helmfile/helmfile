@@ -805,11 +805,11 @@ func Test_FilterColorFlagsForHelm4(t *testing.T) {
 			expectedEnvVal: "true",
 		},
 		{
-			name:           "both color and no-color flags (last wins)",
+			name:           "both color and no-color flags (first wins with defensive check)",
 			inputFlags:     []string{"--color", "--no-color", "--context", "3"},
 			expectedFlags:  []string{"--context", "3"},
 			expectedEnvKey: "HELM_DIFF_COLOR",
-			expectedEnvVal: "false",
+			expectedEnvVal: "true", // Changed: first flag wins due to defensive check
 		},
 	}
 

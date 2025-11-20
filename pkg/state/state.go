@@ -1385,11 +1385,12 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		requiresCluster = true
 	}
 
-	// Only enable --dry-run=server when patches are used to minimize cluster connections.
-	// While lookup() works without patches, the primary use case is with kustomize patches
-	// (e.g., Grafana chart with PVC volumeName preservation). This conservative approach
-	// avoids unnecessary cluster connections for non-patch releases.
-	if requiresCluster && (len(chartifyOpts.StrategicMergePatches) > 0 || len(chartifyOpts.JsonPatches) > 0) {
+	// Enable --dry-run=server for cluster-requiring commands to support lookup() function
+	// Issue #2271: helm template runs client-side by default, causing lookup() to return empty values
+	// The lookup() function can be used with or without patches, so we enable cluster access
+	// for all cluster-requiring operations (diff, apply, sync, etc.) but not for offline
+	// commands (template, lint, build, etc.)
+	if requiresCluster {
 		if chartifyOpts.TemplateArgs == "" {
 			chartifyOpts.TemplateArgs = "--dry-run=server"
 		} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
