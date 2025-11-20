@@ -294,6 +294,10 @@ type InitConfigProvider interface {
 	Force() bool
 }
 
+type PrintEnvConfigProvider interface {
+	Output() string
+}
+
 // reset/reuse values helm cli flags handling for apply/sync/diff
 type valuesControlMode interface {
 	ReuseValues() bool
