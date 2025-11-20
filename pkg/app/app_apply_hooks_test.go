@@ -61,10 +61,11 @@ func TestApply_hooks(t *testing.T) {
 			}
 
 			app := appWithFs(&App{
-				OverrideHelmBinary:  DefaultHelmBinary,
-				OverrideKubeContext: "default",
-				Env:                 "default",
-				Logger:              logger,
+				OverrideHelmBinary:              DefaultHelmBinary,
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
 				helms: map[helmKey]helmexec.Interface{
 					createHelmKey("helm", "default"): helm,
 				},

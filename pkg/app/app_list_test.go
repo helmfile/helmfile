@@ -44,17 +44,17 @@ environments:
 ---
 releases:
 - name: logging
-  chart: incubator/raw   	       
+  chart: incubator/raw
   namespace: kube-system
 
 - name: kubernetes-external-secrets
-  chart: incubator/raw   	       
+  chart: incubator/raw
   namespace: kube-system
   needs:
   - kube-system/logging
 
 - name: external-secrets
-  chart: incubator/raw   	       
+  chart: incubator/raw
   namespace: default
   labels:
     app: test
@@ -62,7 +62,7 @@ releases:
   - kube-system/kubernetes-external-secrets
 
 - name: my-release
-  chart: incubator/raw   	       
+  chart: incubator/raw
   namespace: default
   labels:
     app: test
@@ -72,17 +72,17 @@ releases:
 
 # Disabled releases are treated as missing
 - name: disabled
-  chart: incubator/raw   	       
+  chart: incubator/raw
   namespace: kube-system
   installed: false
 
 - name: test2
-  chart: incubator/raw   	       
+  chart: incubator/raw
   needs:
   - kube-system/disabled
 
 - name: test3
-  chart: incubator/raw   	       
+  chart: incubator/raw
   needs:
   - test2
 `,
@@ -111,18 +111,19 @@ releases:
 				"/path/to/helmfile.d/helmfile_3.yaml": `
 releases:
 - name: global
-  chart: incubator/raw   	       
+  chart: incubator/raw
   namespace: kube-system
 `,
 			}
 
 			app := appWithFs(&App{
-				OverrideHelmBinary:  DefaultHelmBinary,
-				fs:                  ffs.DefaultFileSystem(),
-				OverrideKubeContext: "default",
-				Env:                 tc.environment,
-				Logger:              logger,
-				valsRuntime:         valsRuntime,
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              ffs.DefaultFileSystem(),
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             tc.environment,
+				Logger:                          logger,
+				valsRuntime:                     valsRuntime,
 			}, files)
 
 			expectNoCallsToHelm(app)
@@ -160,15 +161,15 @@ releases:
 		check(t, testcase{
 			environment: "default",
 			expected: `NAME                       	NAMESPACE  	ENABLED	INSTALLED	LABELS                                                          	CHART           	VERSION
-test2                      	           	true   	true     	chart:raw,name:test2,namespace:                                 	incubator/raw   	       
-test3                      	           	true   	true     	chart:raw,name:test3,namespace:                                 	incubator/raw   	       
-external-secrets           	default    	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default      	incubator/raw   	       
-my-release                 	default    	true   	true     	app:test,chart:raw,name:my-release,namespace:default            	incubator/raw   	       
-disabled                   	kube-system	true   	false    	chart:raw,name:disabled,namespace:kube-system                   	incubator/raw   	       
-global                     	kube-system	true   	true     	chart:raw,name:global,namespace:kube-system                     	incubator/raw   	       
-kubernetes-external-secrets	kube-system	true   	true     	chart:raw,name:kubernetes-external-secrets,namespace:kube-system	incubator/raw   	       
-logging                    	kube-system	true   	true     	chart:raw,name:logging,namespace:kube-system                    	incubator/raw   	       
-cache                      	my-app     	true   	true     	app:test,chart:redis,name:cache,namespace:my-app                	bitnami/redis   	17.0.7 
+test2                      	           	true   	true     	chart:raw,name:test2,namespace:                                 	incubator/raw
+test3                      	           	true   	true     	chart:raw,name:test3,namespace:                                 	incubator/raw
+external-secrets           	default    	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default      	incubator/raw
+my-release                 	default    	true   	true     	app:test,chart:raw,name:my-release,namespace:default            	incubator/raw
+disabled                   	kube-system	true   	false    	chart:raw,name:disabled,namespace:kube-system                   	incubator/raw
+global                     	kube-system	true   	true     	chart:raw,name:global,namespace:kube-system                     	incubator/raw
+kubernetes-external-secrets	kube-system	true   	true     	chart:raw,name:kubernetes-external-secrets,namespace:kube-system	incubator/raw
+logging                    	kube-system	true   	true     	chart:raw,name:logging,namespace:kube-system                    	incubator/raw
+cache                      	my-app     	true   	true     	app:test,chart:redis,name:cache,namespace:my-app                	bitnami/redis   	17.0.7
 database                   	my-app     	true   	true     	chart:postgres,name:database,namespace:my-app                   	bitnami/postgres	11.6.22
 `,
 		}, cfg)
@@ -186,8 +187,8 @@ database                   	my-app     	true   	true     	chart:postgres,name:da
 			environment: "development",
 			selectors:   []string{"app=test"},
 			expected: `NAME            	NAMESPACE	ENABLED	INSTALLED	LABELS                                                    	CHART        	VERSION
-external-secrets	default  	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default	incubator/raw	       
-my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,namespace:default      	incubator/raw	       
+external-secrets	default  	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default	incubator/raw
+my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,namespace:default      	incubator/raw
 `,
 		}, cfg)
 	})
@@ -196,7 +197,7 @@ my-release      	default  	true   	true     	app:test,chart:raw,name:my-release,
 		check(t, testcase{
 			environment: "test",
 			expected: `NAME    	NAMESPACE	ENABLED	INSTALLED	LABELS                                          	CHART           	VERSION
-cache   	my-app   	true   	true     	app:test,chart:redis,name:cache,namespace:my-app	bitnami/redis   	17.0.7 
+cache   	my-app   	true   	true     	app:test,chart:redis,name:cache,namespace:my-app	bitnami/redis   	17.0.7
 database	my-app   	true   	true     	chart:postgres,name:database,namespace:my-app   	bitnami/postgres	11.6.22
 `,
 		}, cfg)
@@ -207,14 +208,14 @@ database	my-app   	true   	true     	chart:postgres,name:database,namespace:my-a
 			environment: "shared",
 			// 'global' release has no environments, so is still excluded
 			expected: `NAME                       	NAMESPACE  	ENABLED	INSTALLED	LABELS                                                          	CHART           	VERSION
-test2                      	           	true   	true     	chart:raw,name:test2,namespace:                                 	incubator/raw   	       
-test3                      	           	true   	true     	chart:raw,name:test3,namespace:                                 	incubator/raw   	       
-external-secrets           	default    	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default      	incubator/raw   	       
-my-release                 	default    	true   	true     	app:test,chart:raw,name:my-release,namespace:default            	incubator/raw   	       
-disabled                   	kube-system	true   	false    	chart:raw,name:disabled,namespace:kube-system                   	incubator/raw   	       
-kubernetes-external-secrets	kube-system	true   	true     	chart:raw,name:kubernetes-external-secrets,namespace:kube-system	incubator/raw   	       
-logging                    	kube-system	true   	true     	chart:raw,name:logging,namespace:kube-system                    	incubator/raw   	       
-cache                      	my-app     	true   	true     	app:test,chart:redis,name:cache,namespace:my-app                	bitnami/redis   	17.0.7 
+test2                      	           	true   	true     	chart:raw,name:test2,namespace:                                 	incubator/raw
+test3                      	           	true   	true     	chart:raw,name:test3,namespace:                                 	incubator/raw
+external-secrets           	default    	true   	true     	app:test,chart:raw,name:external-secrets,namespace:default      	incubator/raw
+my-release                 	default    	true   	true     	app:test,chart:raw,name:my-release,namespace:default            	incubator/raw
+disabled                   	kube-system	true   	false    	chart:raw,name:disabled,namespace:kube-system                   	incubator/raw
+kubernetes-external-secrets	kube-system	true   	true     	chart:raw,name:kubernetes-external-secrets,namespace:kube-system	incubator/raw
+logging                    	kube-system	true   	true     	chart:raw,name:logging,namespace:kube-system                    	incubator/raw
+cache                      	my-app     	true   	true     	app:test,chart:redis,name:cache,namespace:my-app                	bitnami/redis   	17.0.7
 database                   	my-app     	true   	true     	chart:postgres,name:database,namespace:my-app                   	bitnami/postgres	11.6.22
 `,
 		}, cfg)
@@ -270,12 +271,13 @@ releases:
 	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		fs:                  ffs.DefaultFileSystem(),
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
-		Namespace:           "testNamespace",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
 	}, files)
 
 	expectNoCallsToHelm(app)

@@ -29,14 +29,15 @@ var Cancel goContext.CancelFunc
 
 // App is the main application object.
 type App struct {
-	OverrideKubeContext        string
-	OverrideHelmBinary         string
-	OverrideKustomizeBinary    string
-	EnableLiveOutput           bool
-	StripArgsValuesOnExitError bool
-	DisableForceUpdate         bool
-	EnforcePluginVerification  bool
-	HelmOCIPlainHTTP           bool
+	OverrideKubeContext             string
+	OverrideHelmBinary              string
+	OverrideKustomizeBinary         string
+	EnableLiveOutput                bool
+	StripArgsValuesOnExitError      bool
+	DisableForceUpdate              bool
+	EnforcePluginVerification       bool
+	HelmOCIPlainHTTP                bool
+	DisableKubeVersionAutoDetection bool
 
 	Logger      *zap.SugaredLogger
 	Kubeconfig  string
@@ -1798,6 +1799,11 @@ Do you really want to delete?
 // Returns empty string if detection fails or if kubeVersion is already set in helmfile.yaml.
 func (a *App) detectKubeVersion(st *state.HelmState) string {
 	if st.KubeVersion != "" {
+		return ""
+	}
+
+	// Allow tests to disable auto-detection to avoid connecting to real clusters
+	if a.DisableKubeVersionAutoDetection {
 		return ""
 	}
 

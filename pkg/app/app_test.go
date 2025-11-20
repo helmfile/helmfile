@@ -92,12 +92,13 @@ releases:
 	fs := testhelper.NewTestFs(files)
 	fs.GlobFixtures["/path/to/helmfile.d/a*.yaml"] = []string{"/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/a1.yaml"}
 	app := &App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "default",
+		FileOrDir:                       "helmfile.yaml",
 	}
 
 	expectNoCallsToHelm(app)
@@ -150,12 +151,13 @@ BAZ: 4
 	fs := testhelper.NewTestFs(files)
 	fs.GlobFixtures["/path/to/env.*.yaml"] = []string{"/path/to/env.2.yaml", "/path/to/env.1.yaml"}
 	app := &App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "default",
+		FileOrDir:                       "helmfile.yaml",
 	}
 
 	expectNoCallsToHelm(app)
@@ -193,12 +195,13 @@ releases:
 	}
 	fs := testhelper.NewTestFs(files)
 	app := &App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "default",
+		FileOrDir:                       "helmfile.yaml",
 	}
 
 	expectNoCallsToHelm(app)
@@ -279,12 +282,13 @@ func TestUpdateStrategyParamValidation(t *testing.T) {
 	for idx, c := range cases {
 		fs := testhelper.NewTestFs(c.files)
 		app := &App{
-			OverrideHelmBinary:  DefaultHelmBinary,
-			OverrideKubeContext: "default",
-			Logger:              newAppTestLogger(),
-			Namespace:           "",
-			Env:                 "default",
-			FileOrDir:           "helmfile.yaml",
+			OverrideHelmBinary:              DefaultHelmBinary,
+			OverrideKubeContext:             "default",
+			DisableKubeVersionAutoDetection: true,
+			Logger:                          newAppTestLogger(),
+			Namespace:                       "",
+			Env:                             "default",
+			FileOrDir:                       "helmfile.yaml",
 		}
 
 		expectNoCallsToHelm(app)
@@ -331,11 +335,12 @@ releases:
 	}
 	fs := testhelper.NewTestFs(files)
 	app := &App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "test",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "test",
 	}
 
 	expectNoCallsToHelm(app)
@@ -383,12 +388,13 @@ releases:
 			}
 			fs := testhelper.NewTestFs(files)
 			app := &App{
-				OverrideHelmBinary:  DefaultHelmBinary,
-				OverrideKubeContext: "default",
-				Logger:              newAppTestLogger(),
-				Namespace:           "",
-				Env:                 "default",
-				FileOrDir:           "helmfile.yaml",
+				OverrideHelmBinary:              DefaultHelmBinary,
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Logger:                          newAppTestLogger(),
+				Namespace:                       "",
+				Env:                             "default",
+				FileOrDir:                       "helmfile.yaml",
 			}
 
 			expectNoCallsToHelm(app)
@@ -449,13 +455,14 @@ releases:
 		fs := testhelper.NewTestFs(files)
 		fs.GlobFixtures["/path/to/helmfile.d/a*.yaml"] = []string{"/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/a1.yaml"}
 		app := &App{
-			OverrideHelmBinary:  DefaultHelmBinary,
-			OverrideKubeContext: "default",
-			Logger:              newAppTestLogger(),
-			Selectors:           []string{fmt.Sprintf("name=%s", testcase.name)},
-			Namespace:           "",
-			Env:                 "default",
-			FileOrDir:           "helmfile.yaml",
+			OverrideHelmBinary:              DefaultHelmBinary,
+			OverrideKubeContext:             "default",
+			DisableKubeVersionAutoDetection: true,
+			Logger:                          newAppTestLogger(),
+			Selectors:                       []string{fmt.Sprintf("name=%s", testcase.name)},
+			Namespace:                       "",
+			Env:                             "default",
+			FileOrDir:                       "helmfile.yaml",
 		}
 
 		expectNoCallsToHelm(app)
@@ -506,13 +513,14 @@ releases:
 
 	for _, testcase := range testcases {
 		app := appWithFs(&App{
-			OverrideHelmBinary:  DefaultHelmBinary,
-			OverrideKubeContext: "default",
-			Logger:              newAppTestLogger(),
-			Namespace:           "",
-			Selectors:           []string{},
-			Env:                 testcase.name,
-			FileOrDir:           "helmfile.yaml",
+			OverrideHelmBinary:              DefaultHelmBinary,
+			OverrideKubeContext:             "default",
+			DisableKubeVersionAutoDetection: true,
+			Logger:                          newAppTestLogger(),
+			Namespace:                       "",
+			Selectors:                       []string{},
+			Env:                             testcase.name,
+			FileOrDir:                       "helmfile.yaml",
 		}, files)
 
 		expectNoCallsToHelm(app)
@@ -620,13 +628,14 @@ releases:
 			}
 
 			app := appWithFs(&App{
-				OverrideHelmBinary:  DefaultHelmBinary,
-				OverrideKubeContext: "default",
-				Logger:              helmexec.NewLogger(&ctxLogger{label: testcase.label}, "debug"),
-				Namespace:           "",
-				Selectors:           []string{testcase.label},
-				Env:                 "default",
-				FileOrDir:           "helmfile.yaml",
+				OverrideHelmBinary:              DefaultHelmBinary,
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Logger:                          helmexec.NewLogger(&ctxLogger{label: testcase.label}, "debug"),
+				Namespace:                       "",
+				Selectors:                       []string{testcase.label},
+				Env:                             "default",
+				FileOrDir:                       "helmfile.yaml",
 			}, files)
 
 			expectNoCallsToHelm(app)
@@ -861,13 +870,14 @@ func runFilterSubHelmFilesTests(testcases []struct {
 		}
 
 		app := appWithFs(&App{
-			OverrideHelmBinary:  DefaultHelmBinary,
-			OverrideKubeContext: "default",
-			Logger:              newAppTestLogger(),
-			Namespace:           "",
-			Selectors:           []string{testcase.label},
-			Env:                 "default",
-			FileOrDir:           "helmfile.yaml",
+			OverrideHelmBinary:              DefaultHelmBinary,
+			OverrideKubeContext:             "default",
+			DisableKubeVersionAutoDetection: true,
+			Logger:                          newAppTestLogger(),
+			Namespace:                       "",
+			Selectors:                       []string{testcase.label},
+			Env:                             "default",
+			FileOrDir:                       "helmfile.yaml",
 		}, files)
 
 		expectNoCallsToHelm(app)
@@ -943,13 +953,14 @@ ns: INLINE_NS
 	}
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Selectors:           []string{},
-		Env:                 "default",
-		FileOrDir:           "/path/to/helmfile.yaml.gotmpl",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Selectors:                       []string{},
+		Env:                             "default",
+		FileOrDir:                       "/path/to/helmfile.yaml.gotmpl",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -1047,13 +1058,14 @@ releases:
 			return false, []error{}
 		}
 		app := appWithFs(&App{
-			OverrideHelmBinary:  DefaultHelmBinary,
-			OverrideKubeContext: "default",
-			Logger:              newAppTestLogger(),
-			Namespace:           "",
-			Selectors:           []string{},
-			Env:                 "default",
-			FileOrDir:           "helmfile.yaml",
+			OverrideHelmBinary:              DefaultHelmBinary,
+			OverrideKubeContext:             "default",
+			DisableKubeVersionAutoDetection: true,
+			Logger:                          newAppTestLogger(),
+			Namespace:                       "",
+			Selectors:                       []string{},
+			Env:                             "default",
+			FileOrDir:                       "helmfile.yaml",
 		}, files)
 
 		expectNoCallsToHelm(app)
@@ -1111,15 +1123,16 @@ bar: "bar1"
 			return false, []error{}
 		}
 		app := appWithFs(&App{
-			OverrideHelmBinary:  DefaultHelmBinary,
-			OverrideKubeContext: "default",
-			Logger:              newAppTestLogger(),
-			Namespace:           "",
-			Selectors:           []string{},
-			Env:                 "default",
-			ValuesFiles:         []string{"overrides.yaml"},
-			Set:                 map[string]any{"bar": "bar2", "baz": "baz1"},
-			FileOrDir:           "helmfile.yaml.gotmpl",
+			OverrideHelmBinary:              DefaultHelmBinary,
+			OverrideKubeContext:             "default",
+			DisableKubeVersionAutoDetection: true,
+			Logger:                          newAppTestLogger(),
+			Namespace:                       "",
+			Selectors:                       []string{},
+			Env:                             "default",
+			ValuesFiles:                     []string{"overrides.yaml"},
+			Set:                             map[string]any{"bar": "bar2", "baz": "baz1"},
+			FileOrDir:                       "helmfile.yaml.gotmpl",
 		}, files)
 
 		expectNoCallsToHelm(app)
@@ -1232,15 +1245,16 @@ x:
 				return false, []error{}
 			}
 			app := appWithFs(&App{
-				OverrideHelmBinary:  DefaultHelmBinary,
-				OverrideKubeContext: "default",
-				Logger:              newAppTestLogger(),
-				Namespace:           "",
-				Selectors:           []string{},
-				Env:                 testcase.env,
-				ValuesFiles:         []string{"overrides.yaml"},
-				Set:                 map[string]any{"x": map[string]any{"hoge": "hoge_set", "fuga": "fuga_set"}},
-				FileOrDir:           "helmfile.yaml.gotmpl",
+				OverrideHelmBinary:              DefaultHelmBinary,
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Logger:                          newAppTestLogger(),
+				Namespace:                       "",
+				Selectors:                       []string{},
+				Env:                             testcase.env,
+				ValuesFiles:                     []string{"overrides.yaml"},
+				Set:                             map[string]any{"x": map[string]any{"hoge": "hoge_set", "fuga": "fuga_set"}},
+				FileOrDir:                       "helmfile.yaml.gotmpl",
 			}, files)
 
 			expectNoCallsToHelm(app)
@@ -1285,13 +1299,14 @@ releases:
 		return false, []error{}
 	}
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		Selectors:           []string{},
-		FileOrDir:           "helmfile.yaml",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "default",
+		Selectors:                       []string{},
+		FileOrDir:                       "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -1341,13 +1356,14 @@ releases:
 				return false, []error{}
 			}
 			app := appWithFs(&App{
-				OverrideHelmBinary:  DefaultHelmBinary,
-				OverrideKubeContext: "default",
-				Logger:              newAppTestLogger(),
-				Namespace:           "",
-				Selectors:           []string{},
-				Env:                 "default",
-				FileOrDir:           "helmfile.yaml",
+				OverrideHelmBinary:              DefaultHelmBinary,
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Logger:                          newAppTestLogger(),
+				Namespace:                       "",
+				Selectors:                       []string{},
+				Env:                             "default",
+				FileOrDir:                       "helmfile.yaml",
 			}, files)
 
 			expectNoCallsToHelm(app)
@@ -1391,12 +1407,13 @@ releases:
 		return false, []error{}
 	}
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "default",
+		FileOrDir:                       "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelmVersion(app)
@@ -1433,12 +1450,13 @@ releases:
 		return false, []error{}
 	}
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "default",
+		FileOrDir:                       "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelmVersion(app)
@@ -1479,12 +1497,13 @@ releases:
 		return false, []error{}
 	}
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Namespace:           "",
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "default",
+		FileOrDir:                       "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelmVersion(app)
@@ -1524,11 +1543,12 @@ func TestLoadDesiredStateFromYaml_DuplicateReleaseName(t *testing.T) {
 	}
 	fs := ffs.FromFileSystem(ffs.FileSystem{ReadFile: readFile})
 	app := &App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		fs:                  fs,
-		Env:                 "default",
-		Logger:              newAppTestLogger(),
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		fs:                              fs,
+		Env:                             "default",
+		Logger:                          newAppTestLogger(),
 	}
 
 	expectNoCallsToHelm(app)
@@ -1582,11 +1602,12 @@ helmDefaults:
 `,
 	})
 	app := &App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		fs:                  testFs.ToFileSystem(),
-		Env:                 "default",
-		Logger:              newAppTestLogger(),
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		fs:                              testFs.ToFileSystem(),
+		Env:                             "default",
+		Logger:                          newAppTestLogger(),
 	}
 	app.remote = remote.NewRemote(app.Logger, "", app.fs)
 
@@ -2753,11 +2774,12 @@ releases:
 	}
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		fs:                  ffs.DefaultFileSystem(),
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
 		helms: map[helmKey]helmexec.Interface{
 			createHelmKey("helm", "default"): helm,
 		},
@@ -2826,10 +2848,11 @@ releases:
 	}
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
 		helms: map[helmKey]helmexec.Interface{
 			createHelmKey("helm", "default"): helm,
 		},
@@ -3909,11 +3932,12 @@ releases:
 				}
 
 				app := appWithFs(&App{
-					OverrideHelmBinary:  DefaultHelmBinary,
-					fs:                  ffs.DefaultFileSystem(),
-					OverrideKubeContext: "default",
-					Env:                 "default",
-					Logger:              logger,
+					OverrideHelmBinary:              DefaultHelmBinary,
+					fs:                              ffs.DefaultFileSystem(),
+					OverrideKubeContext:             "default",
+					DisableKubeVersionAutoDetection: true,
+					Env:                             "default",
+					Logger:                          logger,
 					helms: map[helmKey]helmexec.Interface{
 						createHelmKey("helm", "default"): helm,
 					},
@@ -4028,11 +4052,12 @@ releases:
 				t.Helper()
 
 				app := appWithFs(&App{
-					OverrideHelmBinary:  DefaultHelmBinary,
-					fs:                  ffs.DefaultFileSystem(),
-					OverrideKubeContext: "default",
-					Env:                 "default",
-					Logger:              logger,
+					OverrideHelmBinary:              DefaultHelmBinary,
+					fs:                              ffs.DefaultFileSystem(),
+					OverrideKubeContext:             "default",
+					DisableKubeVersionAutoDetection: true,
+					Env:                             "default",
+					Logger:                          logger,
 					helms: map[helmKey]helmexec.Interface{
 						createHelmKey("helm", "default"): helm,
 					},
@@ -4084,12 +4109,13 @@ releases:
 	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		fs:                  ffs.DefaultFileSystem(),
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
-		Namespace:           "testNamespace",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -4134,12 +4160,13 @@ releases:
 	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		fs:                  ffs.DefaultFileSystem(),
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
-		Namespace:           "testNamespace",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -4197,12 +4224,13 @@ releases:
 	logger := helmexec.NewLogger(syncWriter, "debug")
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		fs:                  ffs.DefaultFileSystem(),
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
-		Namespace:           "testNamespace",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -4214,10 +4242,10 @@ releases:
 	assert.NoError(t, err)
 
 	expected := `NAME      	NAMESPACE    	ENABLED	INSTALLED	LABELS                                                                           	CHART   	VERSION
-myrelease1	testNamespace	true   	false    	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace	mychart1	       
-myrelease2	testNamespace	false  	true     	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              	mychart1	       
-myrelease3	testNamespace	true   	true     	chart:mychart1,name:myrelease3,namespace:testNamespace                           	mychart1	       
-myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             	mychart1	       
+myrelease1	testNamespace	true   	false    	chart:mychart1,common:label,id:myrelease1,name:myrelease1,namespace:testNamespace	mychart1
+myrelease2	testNamespace	false  	true     	chart:mychart1,common:label,name:myrelease2,namespace:testNamespace              	mychart1
+myrelease3	testNamespace	true   	true     	chart:mychart1,name:myrelease3,namespace:testNamespace                           	mychart1
+myrelease4	testNamespace	true   	true     	chart:mychart1,id:myrelease1,name:myrelease4,namespace:testNamespace             	mychart1
 `
 
 	assert.Equal(t, expected, out)
@@ -4252,11 +4280,12 @@ releases:
 		{Name: "name", Value: "val"}}
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml.gotmpl",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Env:                             "default",
+		FileOrDir:                       "helmfile.yaml.gotmpl",
 	}, files)
 
 	expectNoCallsToHelm(app)
@@ -4324,11 +4353,12 @@ releases:
 		{Name: "name", Value: "val"}}
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		OverrideKubeContext: "default",
-		Logger:              newAppTestLogger(),
-		Env:                 "default",
-		FileOrDir:           "helmfile.yaml.gotmpl",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Env:                             "default",
+		FileOrDir:                       "helmfile.yaml.gotmpl",
 	}, files)
 
 	expectNoCallsToHelm(app)
