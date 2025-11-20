@@ -669,10 +669,10 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace stri
 		overrideEnableLiveOutput = &enableLiveOutput
 	}
 
-	// Issue #2280: In Helm 4, the --color flag expects a value (never/auto/always),
-	// not a boolean flag. Convert --color to --color=always and --no-color to --color=never.
+	// Issue #2280: In Helm 4, the --color flag is parsed by Helm before reaching the plugin,
+	// causing it to consume the next argument. Remove color flags and use HELM_DIFF_COLOR env var.
 	if helm.IsHelm4() {
-		flags = helm.convertColorFlagsForHelm4(flags)
+		flags = helm.filterColorFlagsForHelm4(flags, env)
 	}
 
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
@@ -699,28 +699,29 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace stri
 	return err
 }
 
-// convertColorFlagsForHelm4 converts boolean --color and --no-color flags to the format
-// Helm 4 expects: --color=always and --color=never respectively.
-// In Helm 4, the --color flag expects a value (never/auto/always), not a boolean.
-// Without this conversion, --color would consume the next argument as its value (issue #2280).
-func (helm *execer) convertColorFlagsForHelm4(flags []string) []string {
-	converted := make([]string, 0, len(flags))
+// filterColorFlagsForHelm4 removes --color and --no-color flags from the flags slice
+// and sets the HELM_DIFF_COLOR environment variable instead.
+// In Helm 4, the --color flag is parsed by Helm itself before reaching the helm-diff plugin,
+// causing Helm to consume the next argument as the color value (issue #2280).
+// The helm-diff plugin supports HELM_DIFF_COLOR=[true|false] env var as an alternative.
+func (helm *execer) filterColorFlagsForHelm4(flags []string, env map[string]string) []string {
+	filtered := make([]string, 0, len(flags))
 
 	for _, flag := range flags {
 		switch flag {
 		case "--color":
-			// Convert --color to --color=always for Helm 4
-			converted = append(converted, "--color=always")
+			// Use environment variable instead of flag for Helm 4
+			env["HELM_DIFF_COLOR"] = "true"
 		case "--no-color":
-			// Convert --no-color to --color=never for Helm 4
-			converted = append(converted, "--color=never")
+			// Use environment variable instead of flag for Helm 4
+			env["HELM_DIFF_COLOR"] = "false"
 		default:
 			// Keep all other flags unchanged
-			converted = append(converted, flag)
+			filtered = append(filtered, flag)
 		}
 	}
 
-	return converted
+	return filtered
 }
 
 func (helm *execer) Lint(name, chart string, flags ...string) error {

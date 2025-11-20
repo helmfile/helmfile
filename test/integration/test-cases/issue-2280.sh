@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # Test for issue #2280: --color flag conflict with Helm 4
-# In Helm 4, --color expects a value (never/auto/always), not a boolean flag
-# The fix converts --color to --color=always and --no-color to --color=never for Helm 4
+# In Helm 4, the --color flag is parsed by Helm before reaching the helm-diff plugin
+# The fix removes --color/--no-color flags and uses HELM_DIFF_COLOR env var instead
 
 # Only run this test on Helm 4
 if [ "${HELMFILE_HELM4}" != "1" ]; then
@@ -32,9 +32,9 @@ info "Chart installed successfully"
 
 # Test 2: Run diff with --color and --context flags
 # This is the exact scenario from issue #2280
-# Before the fix, --color (boolean flag) would be parsed by Helm 4 as expecting a value,
+# Before the fix, --color flag would be parsed by Helm 4 before reaching helm-diff plugin,
 # consuming --context as its value, resulting in error: invalid color mode "--context"
-# After the fix, --color is converted to --color=always, preventing the conflict
+# After the fix, --color is removed and HELM_DIFF_COLOR env var is set instead
 info "Running diff with --color and --context flags"
 
 ${helmfile} -f helmfile.yaml diff --color --context 3 > "${issue_2280_tmp_dir}/diff-color.txt" 2>&1

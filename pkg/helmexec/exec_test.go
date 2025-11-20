@@ -701,7 +701,7 @@ exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unrelease
 }
 
 func Test_DiffRelease_ColorFlagHelm4(t *testing.T) {
-	// Test that --color and --no-color flags are converted to --color=always/never for Helm 4
+	// Test that --color and --no-color flags are removed and HELM_DIFF_COLOR env var is set for Helm 4
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 
@@ -723,19 +723,19 @@ func Test_DiffRelease_ColorFlagHelm4(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	// The --color flag should be converted to --color=always
+	// The --color flag should be removed and --context should remain
 	expected := `Comparing release=release, chart=chart, namespace=default
 
-exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart --color=always --context 3
+exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart --context 3
 `
 	actual := buffer.String()
 	if actual != expected {
 		t.Errorf("helmexec.DiffRelease() with --color\nactual = %v\nexpect = %v", actual, expected)
 	}
 
-	// Verify --color was converted to --color=always
-	if !strings.Contains(actual, "--color=always") {
-		t.Errorf("--color should have been converted to --color=always, but got: %v", actual)
+	// Verify --color flag was removed
+	if strings.Contains(actual, "--color") {
+		t.Errorf("--color flag should have been removed, but got: %v", actual)
 	}
 
 	// Test with --no-color flag
@@ -745,23 +745,23 @@ exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unrelease
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	// The --no-color flag should be converted to --color=never
+	// The --no-color flag should be removed and --context should remain
 	expected = `Comparing release=release, chart=chart, namespace=default
 
-exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart --color=never --context 3
+exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart --context 3
 `
 	actual = buffer.String()
 	if actual != expected {
 		t.Errorf("helmexec.DiffRelease() with --no-color\nactual = %v\nexpect = %v", actual, expected)
 	}
 
-	// Verify --no-color was converted to --color=never
-	if !strings.Contains(actual, "--color=never") {
-		t.Errorf("--no-color should have been converted to --color=never, but got: %v", actual)
+	// Verify --no-color flag was removed
+	if strings.Contains(actual, "--no-color") {
+		t.Errorf("--no-color flag should have been removed, but got: %v", actual)
 	}
 }
 
-func Test_ConvertColorFlagsForHelm4(t *testing.T) {
+func Test_FilterColorFlagsForHelm4(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 	helm, err := MockExecer(logger, "config", "dev")
@@ -770,43 +770,65 @@ func Test_ConvertColorFlagsForHelm4(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		inputFlags    []string
-		expectedFlags []string
+		name           string
+		inputFlags     []string
+		expectedFlags  []string
+		expectedEnvKey string
+		expectedEnvVal string
 	}{
 		{
-			name:          "color flag",
-			inputFlags:    []string{"--color", "--context", "3"},
-			expectedFlags: []string{"--color=always", "--context", "3"},
+			name:           "color flag",
+			inputFlags:     []string{"--color", "--context", "3"},
+			expectedFlags:  []string{"--context", "3"},
+			expectedEnvKey: "HELM_DIFF_COLOR",
+			expectedEnvVal: "true",
 		},
 		{
-			name:          "no-color flag",
-			inputFlags:    []string{"--no-color", "--context", "3"},
-			expectedFlags: []string{"--color=never", "--context", "3"},
+			name:           "no-color flag",
+			inputFlags:     []string{"--no-color", "--context", "3"},
+			expectedFlags:  []string{"--context", "3"},
+			expectedEnvKey: "HELM_DIFF_COLOR",
+			expectedEnvVal: "false",
 		},
 		{
-			name:          "no color flags",
-			inputFlags:    []string{"--context", "3", "--detailed-exitcode"},
-			expectedFlags: []string{"--context", "3", "--detailed-exitcode"},
+			name:           "no color flags",
+			inputFlags:     []string{"--context", "3", "--detailed-exitcode"},
+			expectedFlags:  []string{"--context", "3", "--detailed-exitcode"},
+			expectedEnvKey: "",
+			expectedEnvVal: "",
 		},
 		{
-			name:          "color flag with other flags",
-			inputFlags:    []string{"--detailed-exitcode", "--color", "--suppress", "secret"},
-			expectedFlags: []string{"--detailed-exitcode", "--color=always", "--suppress", "secret"},
+			name:           "color flag with other flags",
+			inputFlags:     []string{"--detailed-exitcode", "--color", "--suppress", "secret"},
+			expectedFlags:  []string{"--detailed-exitcode", "--suppress", "secret"},
+			expectedEnvKey: "HELM_DIFF_COLOR",
+			expectedEnvVal: "true",
 		},
 		{
-			name:          "both color and no-color flags",
-			inputFlags:    []string{"--color", "--no-color", "--context", "3"},
-			expectedFlags: []string{"--color=always", "--color=never", "--context", "3"},
+			name:           "both color and no-color flags (last wins)",
+			inputFlags:     []string{"--color", "--no-color", "--context", "3"},
+			expectedFlags:  []string{"--context", "3"},
+			expectedEnvKey: "HELM_DIFF_COLOR",
+			expectedEnvVal: "false",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualFlags := helm.convertColorFlagsForHelm4(tt.inputFlags)
+			env := make(map[string]string)
+			actualFlags := helm.filterColorFlagsForHelm4(tt.inputFlags, env)
 
 			if !reflect.DeepEqual(actualFlags, tt.expectedFlags) {
-				t.Errorf("convertColorFlagsForHelm4() flags\nactual = %v\nexpect = %v", actualFlags, tt.expectedFlags)
+				t.Errorf("filterColorFlagsForHelm4() flags\nactual = %v\nexpect = %v", actualFlags, tt.expectedFlags)
+			}
+
+			if tt.expectedEnvKey != "" {
+				if env[tt.expectedEnvKey] != tt.expectedEnvVal {
+					t.Errorf("filterColorFlagsForHelm4() env[%v]\nactual = %v\nexpect = %v",
+						tt.expectedEnvKey, env[tt.expectedEnvKey], tt.expectedEnvVal)
+				}
+			} else if len(env) > 0 {
+				t.Errorf("filterColorFlagsForHelm4() expected no env vars, but got: %v", env)
 			}
 		})
 	}
