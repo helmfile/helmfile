@@ -93,7 +93,7 @@ func waitForRegistry(t *testing.T, port int, timeout time.Duration) error {
 // with the actual allocated port for Docker registry tests. It also converts
 // relative chart paths to absolute paths since the input file is copied to a
 // temp directory.
-func prepareInputFile(t *testing.T, originalFile, tmpDir string, hostPort int, chartsDir string) string {
+func prepareInputFile(t *testing.T, originalFile, tmpDir string, hostPort int, chartsDir, postrenderersDir string) string {
 	t.Helper()
 
 	inputContent, err := os.ReadFile(originalFile)
@@ -108,9 +108,13 @@ func prepareInputFile(t *testing.T, originalFile, tmpDir string, hostPort int, c
 	// breaking relative paths like ../../charts/raw-0.1.0
 	inputStr = strings.ReplaceAll(inputStr, "../../charts/", chartsDir+"/")
 
-	// Note: postrenderer paths are left as relative paths because they are resolved
-	// relative to the working directory, not the helmfile file location.
-	// Helm 3 uses the file path directly, Helm 4 extracts the plugin name from the path.
+	// Convert relative postrenderer paths to absolute paths for Helm 3 only
+	// Helm 3 resolves postrenderer paths relative to the helmfile location.
+	// When the input file is copied to a temp directory, relative paths break.
+	// Helm 4 extracts the plugin name from the path, so it works with relative paths.
+	if !isHelm4(t) && postrenderersDir != "" {
+		inputStr = strings.ReplaceAll(inputStr, "../../postrenderers/", postrenderersDir+"/")
+	}
 
 	// Write to temporary file
 	tmpInputFile := filepath.Join(tmpDir, "input.yaml.gotmpl")
@@ -308,7 +312,8 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 			// If using dynamic Docker registry port, substitute $REGISTRY_PORT in input file
 			if config.LocalDockerRegistry.Enabled {
 				chartsDir := filepath.Join(wd, defaultChartsDir)
-				inputFile = prepareInputFile(t, inputFile, tmpDir, hostPort, chartsDir)
+				postrenderersDir := filepath.Join(wd, "testdata/postrenderers")
+				inputFile = prepareInputFile(t, inputFile, tmpDir, hostPort, chartsDir, postrenderersDir)
 			}
 
 			outputFile := ""
