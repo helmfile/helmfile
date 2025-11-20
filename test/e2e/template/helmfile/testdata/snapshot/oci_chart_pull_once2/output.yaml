@@ -1,4 +1,4 @@
-Pulling localhost:5001/myrepo/raw:0.1.0
+Pulling localhost:$REGISTRY_PORT/myrepo/raw:0.1.0
 Templating release=release-0, chart=$HELMFILE_CACHE_HOME/myrepo/raw/0.1.0/raw
 ---
 # Source: raw/templates/resources.yaml

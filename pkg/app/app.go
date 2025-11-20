@@ -1195,7 +1195,7 @@ func printDAG(batches [][]state.Release) string {
 
 	_ = w.Flush()
 
-	return buf.String()
+	return trimTrailingWhitespace(buf.String())
 }
 
 // nolint: unparam
