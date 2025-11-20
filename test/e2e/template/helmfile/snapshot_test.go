@@ -49,6 +49,7 @@ type Config struct {
 // getFreePort asks the kernel for a free open port that is ready to use.
 // This has a small race condition between the time we get the port and when we use it,
 // but it's the standard approach for dynamic port allocation in tests.
+// Callers should implement retry logic to handle this race condition - see setupLocalDockerRegistry().
 func getFreePort() (int, error) {
 	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {

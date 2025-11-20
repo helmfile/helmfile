@@ -1796,7 +1796,8 @@ Do you really want to delete?
 
 // detectKubeVersion auto-detects the Kubernetes cluster version if not specified in helmfile.yaml.
 // This prevents helm-diff from falling back to v1.20.0 (issue #2275).
-// Returns empty string if detection fails or if kubeVersion is already set in helmfile.yaml.
+// Returns empty string when kubeVersion is already set in helmfile.yaml (not needed),
+// when auto-detection is disabled, or if detection fails.
 func (a *App) detectKubeVersion(st *state.HelmState) string {
 	if st.KubeVersion != "" {
 		return ""

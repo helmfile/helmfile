@@ -1385,6 +1385,10 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		requiresCluster = true
 	}
 
+	// Only enable --dry-run=server when patches are used to minimize cluster connections.
+	// While lookup() works without patches, the primary use case is with kustomize patches
+	// (e.g., Grafana chart with PVC volumeName preservation). This conservative approach
+	// avoids unnecessary cluster connections for non-patch releases.
 	if requiresCluster && (len(chartifyOpts.StrategicMergePatches) > 0 || len(chartifyOpts.JsonPatches) > 0) {
 		if chartifyOpts.TemplateArgs == "" {
 			chartifyOpts.TemplateArgs = "--dry-run=server"
