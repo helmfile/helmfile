@@ -19,7 +19,7 @@ import (
 
 const (
 	HelmRequiredVersion           = "v3.18.6" // Minimum required version (supports Helm 3.x and 4.x)
-	HelmDiffRecommendedVersion    = "v3.14.0"
+	HelmDiffRecommendedVersion    = "v3.14.1"
 	HelmRecommendedVersion        = "v4.0.0" // Recommended to use latest Helm 4
 	HelmSecretsRecommendedVersion = "v4.7.0" // v4.7.0+ works with both Helm 3 (single plugin) and Helm 4 (split plugin architecture)
 	HelmGitRecommendedVersion     = "v1.3.0"
