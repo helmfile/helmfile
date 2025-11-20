@@ -14,7 +14,10 @@ import (
 func trimTrailingWhitespace(s string) string {
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
-		lines[i] = strings.TrimRight(line, " \t")
+		// Only modify lines that actually have trailing whitespace
+		if trimmed := strings.TrimRight(line, " \t"); trimmed != line {
+			lines[i] = trimmed
+		}
 	}
 	return strings.Join(lines, "\n")
 }

@@ -52,12 +52,12 @@ type Config struct {
 func getFreePort() (int, error) {
 	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to resolve TCP address: %w", err)
 	}
 
 	l, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to listen on TCP port: %w", err)
 	}
 	defer l.Close()
 
@@ -116,9 +116,9 @@ func prepareInputFile(t *testing.T, originalFile, tmpDir string, hostPort int, c
 		inputStr = strings.ReplaceAll(inputStr, "../../postrenderers/", postrenderersDir+"/")
 	}
 
-	// Write to temporary file
+	// Write to temporary file with restrictive permissions (owner read/write only)
 	tmpInputFile := filepath.Join(tmpDir, "input.yaml.gotmpl")
-	err = os.WriteFile(tmpInputFile, []byte(inputStr), 0644)
+	err = os.WriteFile(tmpInputFile, []byte(inputStr), 0600)
 	require.NoError(t, err, "Failed to write temporary input file")
 
 	return tmpInputFile
@@ -135,16 +135,45 @@ func setupLocalDockerRegistry(t *testing.T, config Config, name, defaultChartsDi
 	hostPort := config.LocalDockerRegistry.Port
 	if hostPort <= 0 {
 		// Dynamically allocate an unused port to avoid conflicts
+		// Retry up to 3 times in case of race condition where port gets taken
+		// between getFreePort() and docker run
+		const maxRetries = 3
 		var err error
-		hostPort, err = getFreePort()
-		require.NoError(t, err, "Failed to get free port for Docker registry")
-		t.Logf("Allocated dynamic port %d for Docker registry in test %s", hostPort, name)
-	}
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			hostPort, err = getFreePort()
+			require.NoError(t, err, "Failed to get free port for Docker registry")
+			t.Logf("Attempt %d: Allocated dynamic port %d for Docker registry in test %s", attempt, hostPort, name)
 
-	execDocker(t, "run", "--rm", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--name", containerName, "registry:2")
-	t.Cleanup(func() {
-		execDocker(t, "stop", containerName)
-	})
+			// Try to start Docker with this port
+			cmd := exec.Command("docker", "run", "--rm", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--name", containerName, "registry:2")
+			output, err := cmd.CombinedOutput()
+			if err == nil {
+				// Success! Docker started successfully
+				t.Cleanup(func() {
+					execDocker(t, "stop", containerName)
+				})
+				break
+			}
+
+			// Check if error is due to port conflict
+			if strings.Contains(string(output), "address already in use") {
+				if attempt < maxRetries {
+					t.Logf("Port %d was taken (race condition), retrying with new port...", hostPort)
+					continue
+				}
+				t.Fatalf("Failed to start Docker registry after %d attempts due to port conflicts", maxRetries)
+			}
+
+			// Other error - fail immediately
+			t.Fatalf("Failed to start Docker registry: %s\nOutput: %s", err, string(output))
+		}
+	} else {
+		// Use configured port
+		execDocker(t, "run", "--rm", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--name", containerName, "registry:2")
+		t.Cleanup(func() {
+			execDocker(t, "stop", containerName)
+		})
+	}
 
 	// Wait for registry to be ready by polling its health endpoint
 	err := waitForRegistry(t, hostPort, 30*time.Second)
