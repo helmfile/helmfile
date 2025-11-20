@@ -8,8 +8,8 @@ import (
 )
 
 // DetectServerVersion detects the Kubernetes server version by connecting to the cluster.
-// It returns the version in the format "major.minor.patch" (e.g., "1.34.0").
-// Returns empty string if detection fails.
+// It returns the version in the format "major.minor.patch" (e.g., "1.34.1").
+// Returns an error if detection fails.
 func DetectServerVersion(kubeconfig, context string) (string, error) {
 	// Build the kubeconfig
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
@@ -42,9 +42,8 @@ func DetectServerVersion(kubeconfig, context string) (string, error) {
 		return "", fmt.Errorf("failed to get server version: %w", err)
 	}
 
-	// Format as "major.minor.0" to match Helm's expected format
 	// ServerVersion.GitVersion includes "v" prefix (e.g., "v1.34.1")
-	// We return without the "v" prefix to match Helm's --kube-version format
+	// Strip the "v" prefix to match Helm's --kube-version format (e.g., "1.34.1")
 	version := serverVersion.GitVersion
 	if len(version) > 0 && version[0] == 'v' {
 		version = version[1:]

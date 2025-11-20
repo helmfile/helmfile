@@ -1375,8 +1375,10 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	var requiresCluster bool
 	switch helmfileCommand {
 	case "diff", "apply", "sync", "destroy", "delete", "test", "status":
+		// Commands that interact with the cluster
 		requiresCluster = true
-	case "template", "lint", "build", "pull":
+	case "template", "lint", "build", "pull", "fetch", "write-values", "list", "show-dag", "deps", "repos", "cache", "init", "completion", "help", "version":
+		// Commands that work locally without cluster access
 		requiresCluster = false
 	default:
 		// For unknown commands, assume cluster access (safer default)

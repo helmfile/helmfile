@@ -700,6 +700,118 @@ exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unrelease
 	}
 }
 
+func Test_DiffRelease_ColorFlagHelm4(t *testing.T) {
+	// Test that --color and --no-color flags are converted to --color=always/never for Helm 4
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+
+	// MockExecer creates a Helm 4 execer by default (returns v4.0.0)
+	helm, err := MockExecer(logger, "config", "dev")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Verify it's Helm 4
+	if !helm.IsHelm4() {
+		t.Errorf("expected Helm 4, got version: %v", helm.GetVersion())
+	}
+
+	// Test with --color flag
+	buffer.Reset()
+	err = helm.DiffRelease(HelmContext{}, "release", "chart", "default", false, "--color", "--context", "3")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// The --color flag should be converted to --color=always
+	expected := `Comparing release=release, chart=chart, namespace=default
+
+exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart --color=always --context 3
+`
+	actual := buffer.String()
+	if actual != expected {
+		t.Errorf("helmexec.DiffRelease() with --color\nactual = %v\nexpect = %v", actual, expected)
+	}
+
+	// Verify --color was converted to --color=always
+	if !strings.Contains(actual, "--color=always") {
+		t.Errorf("--color should have been converted to --color=always, but got: %v", actual)
+	}
+
+	// Test with --no-color flag
+	buffer.Reset()
+	err = helm.DiffRelease(HelmContext{}, "release", "chart", "default", false, "--no-color", "--context", "3")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// The --no-color flag should be converted to --color=never
+	expected = `Comparing release=release, chart=chart, namespace=default
+
+exec: helm --kubeconfig config --kube-context dev diff upgrade --allow-unreleased release chart --color=never --context 3
+`
+	actual = buffer.String()
+	if actual != expected {
+		t.Errorf("helmexec.DiffRelease() with --no-color\nactual = %v\nexpect = %v", actual, expected)
+	}
+
+	// Verify --no-color was converted to --color=never
+	if !strings.Contains(actual, "--color=never") {
+		t.Errorf("--no-color should have been converted to --color=never, but got: %v", actual)
+	}
+}
+
+func Test_ConvertColorFlagsForHelm4(t *testing.T) {
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm, err := MockExecer(logger, "config", "dev")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		inputFlags    []string
+		expectedFlags []string
+	}{
+		{
+			name:          "color flag",
+			inputFlags:    []string{"--color", "--context", "3"},
+			expectedFlags: []string{"--color=always", "--context", "3"},
+		},
+		{
+			name:          "no-color flag",
+			inputFlags:    []string{"--no-color", "--context", "3"},
+			expectedFlags: []string{"--color=never", "--context", "3"},
+		},
+		{
+			name:          "no color flags",
+			inputFlags:    []string{"--context", "3", "--detailed-exitcode"},
+			expectedFlags: []string{"--context", "3", "--detailed-exitcode"},
+		},
+		{
+			name:          "color flag with other flags",
+			inputFlags:    []string{"--detailed-exitcode", "--color", "--suppress", "secret"},
+			expectedFlags: []string{"--detailed-exitcode", "--color=always", "--suppress", "secret"},
+		},
+		{
+			name:          "both color and no-color flags",
+			inputFlags:    []string{"--color", "--no-color", "--context", "3"},
+			expectedFlags: []string{"--color=always", "--color=never", "--context", "3"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualFlags := helm.convertColorFlagsForHelm4(tt.inputFlags)
+
+			if !reflect.DeepEqual(actualFlags, tt.expectedFlags) {
+				t.Errorf("convertColorFlagsForHelm4() flags\nactual = %v\nexpect = %v", actualFlags, tt.expectedFlags)
+			}
+		})
+	}
+}
+
 func Test_DeleteRelease(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")

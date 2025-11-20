@@ -1,0 +1,5 @@
+apiVersion: v2
+name: test-chart-2280
+description: Test chart for issue #2280
+version: 0.1.0
+appVersion: "1.0"

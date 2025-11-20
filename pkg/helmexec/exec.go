@@ -669,6 +669,12 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace stri
 		overrideEnableLiveOutput = &enableLiveOutput
 	}
 
+	// Issue #2280: In Helm 4, the --color flag expects a value (never/auto/always),
+	// not a boolean flag. Convert --color to --color=always and --no-color to --color=never.
+	if helm.IsHelm4() {
+		flags = helm.convertColorFlagsForHelm4(flags)
+	}
+
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
 	// Do our best to write STDOUT only when diff existed
 	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
@@ -691,6 +697,30 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace stri
 		helm.write(context.Writer, out)
 	}
 	return err
+}
+
+// convertColorFlagsForHelm4 converts boolean --color and --no-color flags to the format
+// Helm 4 expects: --color=always and --color=never respectively.
+// In Helm 4, the --color flag expects a value (never/auto/always), not a boolean.
+// Without this conversion, --color would consume the next argument as its value (issue #2280).
+func (helm *execer) convertColorFlagsForHelm4(flags []string) []string {
+	converted := make([]string, 0, len(flags))
+
+	for _, flag := range flags {
+		switch flag {
+		case "--color":
+			// Convert --color to --color=always for Helm 4
+			converted = append(converted, "--color=always")
+		case "--no-color":
+			// Convert --no-color to --color=never for Helm 4
+			converted = append(converted, "--color=never")
+		default:
+			// Keep all other flags unchanged
+			converted = append(converted, flag)
+		}
+	}
+
+	return converted
 }
 
 func (helm *execer) Lint(name, chart string, flags ...string) error {
