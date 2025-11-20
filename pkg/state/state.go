@@ -201,6 +201,11 @@ type HelmSpec struct {
 	Cascade *string `yaml:"cascade,omitempty"`
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string `yaml:"suppressOutputLineRegex,omitempty"`
+	// DisableAutoDetectedKubeVersionForDiff controls whether auto-detected kubeVersion should be passed
+	// to helm diff. When false (default), auto-detected kubeVersion is passed to fix issue #2275.
+	// Set to true to only pass explicit kubeVersion from helmfile.yaml, preventing helm-diff from
+	// normalizing server-side defaults which could hide real changes (e.g., ipFamilyPolicy, ipFamilies).
+	DisableAutoDetectedKubeVersionForDiff *bool `yaml:"disableAutoDetectedKubeVersionForDiff,omitempty"`
 
 	DisableValidation        *bool `yaml:"disableValidation,omitempty"`
 	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
@@ -414,6 +419,9 @@ type ReleaseSpec struct {
 
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string `yaml:"suppressOutputLineRegex,omitempty"`
+	// DisableAutoDetectedKubeVersionForDiff controls whether auto-detected kubeVersion should be passed
+	// to helm diff for this release. See HelmSpec.DisableAutoDetectedKubeVersionForDiff for details.
+	DisableAutoDetectedKubeVersionForDiff *bool `yaml:"disableAutoDetectedKubeVersionForDiff,omitempty"`
 
 	// Inherit is used to inherit a release template from a release or another release template
 	Inherit Inherits `yaml:"inherit,omitempty"`
@@ -3135,14 +3143,38 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-validation")
 	}
 
-	// Pass kubeVersion to helm diff. Modern versions of helm-diff (v3.5.0+) support --kube-version flag.
-	// Priority: 1) state.KubeVersion (helmfile.yaml), 2) opt.DetectedKubeVersion (auto-detected from cluster)
-	// This prevents helm-diff from falling back to v1.20.0 (issue #2275)
-	kubeVersion := ""
-	if opt != nil && opt.DetectedKubeVersion != "" {
-		kubeVersion = opt.DetectedKubeVersion
+	// Determine which kubeVersion to pass to helm diff based on configuration.
+	// By default (disableAutoDetectedKubeVersionForDiff=false), pass auto-detected kubeVersion
+	// to helm-diff. This fixes issue #2275 where charts requiring newer Kubernetes versions
+	// would fail because helm-diff defaults to v1.20.0.
+	//
+	// If disableAutoDetectedKubeVersionForDiff=true, only pass explicit kubeVersion from
+	// helmfile.yaml. This prevents helm-diff from normalizing server-side defaults which
+	// could hide real changes (e.g., ipFamilyPolicy, ipFamilies). Use this when server-side
+	// normalization causes issues with diff output.
+	disableAutoDetected := false
+	if release.DisableAutoDetectedKubeVersionForDiff != nil {
+		disableAutoDetected = *release.DisableAutoDetectedKubeVersionForDiff
+	} else if st.HelmDefaults.DisableAutoDetectedKubeVersionForDiff != nil {
+		disableAutoDetected = *st.HelmDefaults.DisableAutoDetectedKubeVersionForDiff
 	}
-	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
+
+	kubeVersionForDiff := ""
+	if disableAutoDetected {
+		// Only pass explicit kubeVersion from helmfile.yaml
+		if release.KubeVersion != "" {
+			kubeVersionForDiff = release.KubeVersion
+		} else if st.KubeVersion != "" {
+			kubeVersionForDiff = st.KubeVersion
+		}
+	} else {
+		// Pass auto-detected version (default behavior)
+		kubeVersionForDiff = ""
+		if opt != nil && opt.DetectedKubeVersion != "" {
+			kubeVersionForDiff = opt.DetectedKubeVersion
+		}
+	}
+	flags = st.appendApiVersionsFlags(flags, release, kubeVersionForDiff)
 	flags = st.appendConnectionFlags(flags, release)
 	flags = st.appendChartDownloadFlags(flags, release)
 
