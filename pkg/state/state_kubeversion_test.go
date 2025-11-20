@@ -8,7 +8,7 @@ import (
 
 // TestAppendApiVersionsFlags_KubeVersion tests that kubeVersion is properly
 // passed to helm diff. This is a regression test for issue #2275.
-// Priority: 1) state.KubeVersion (helmfile.yaml), 2) paramKubeVersion (auto-detected)
+// Priority: 1) paramKubeVersion (auto-detected), 2) release.KubeVersion, 3) state.KubeVersion (helmfile.yaml)
 func TestAppendApiVersionsFlags_KubeVersion(t *testing.T) {
 	tests := []struct {
 		name             string
