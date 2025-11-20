@@ -1,6 +1,6 @@
 releases:
 - name: foo
-  chart: oci://localhost:5001/myrepo/raw
+  chart: oci://localhost:$REGISTRY_PORT/myrepo/raw
   version: 0.1.0
   values: &oci_chart_pull_direct
   - templates:
@@ -16,7 +16,7 @@ releases:
         values: {{`{{ .Release.Name }}`}}
 
 - name: bar
-  chart: oci://localhost:5001/myrepo/raw
+  chart: oci://localhost:$REGISTRY_PORT/myrepo/raw
   version: 0.1.0
   namespace: ns2
   values: *oci_chart_pull_direct

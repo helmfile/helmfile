@@ -1,7 +1,7 @@
 # Templating few releases with the same chart\version and only one pulling
 localDockerRegistry:
   enabled: true
-  port: 5001
+  # Port is not specified, will be dynamically allocated to avoid conflicts
 chartifyTempDir: temp3
 helmfileArgs:
 - template
