@@ -13,11 +13,13 @@ releases:
   - name: test
     chart: ../../../charts/raw
     values:
-      - templates:
+      - top:
+{{ toYaml .Values.top | indent 10 }}
+        templates:
           - |
             apiVersion: v1
             kind: ConfigMap
             metadata:
               name: TestConfig
             data:
-{{ toYaml .Values.top | indent 12 }}
+{{ toYaml .Values.top | indent 14 }}
