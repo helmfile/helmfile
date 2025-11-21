@@ -35,10 +35,12 @@ func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 
 		// Prepare output structure - include file path to identify source
 		output := map[string]any{
-			"filePath":    filePath,
-			"name":        st.Env.Name,
-			"kubeContext": st.Env.KubeContext,
-			"values":      values,
+			"filePath": filePath,
+			"name":     st.Env.Name,
+			"values":   values,
+		}
+		if st.Env.KubeContext != "" {
+			output["kubeContext"] = st.Env.KubeContext
 		}
 
 		// Marshal based on output format
