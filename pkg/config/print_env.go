@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 // PrintEnvOptions is the options for the print-env command
 type PrintEnvOptions struct {
 	// Output is the output format (yaml or json)
@@ -30,4 +32,12 @@ func NewPrintEnvImpl(g *GlobalImpl, p *PrintEnvOptions) *PrintEnvImpl {
 // Output returns the output format
 func (c *PrintEnvImpl) Output() string {
 	return c.PrintEnvOptions.Output
+}
+
+// ValidateConfig validates the print-env configuration
+func (c *PrintEnvImpl) ValidateConfig() error {
+	if c.PrintEnvOptions.Output != "yaml" && c.PrintEnvOptions.Output != "json" {
+		return fmt.Errorf("invalid output format %q: must be 'yaml' or 'json'", c.PrintEnvOptions.Output)
+	}
+	return nil
 }
