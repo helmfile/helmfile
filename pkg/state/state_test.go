@@ -3438,6 +3438,7 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 				},
 			},
 			helmVersion: "3.7.0",
+			wantErr:     true, // Now rejects "latest" for all Helm versions
 		},
 		{
 			state: HelmState{
