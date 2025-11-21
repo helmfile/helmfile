@@ -4,9 +4,13 @@
 # This test combines validation tests (fast) with registry tests (comprehensive)
 
 # Skip on Helm < 3.8.0 since the validation only applies to Helm >= 3.8.0
-HELM_VERSION=$(${helm} version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+' | sed 's/v//')
+HELM_VERSION=$(${helm} version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+' | sed 's/v//' || echo "3.8")
 HELM_MAJOR=$(echo "${HELM_VERSION}" | cut -d. -f1)
 HELM_MINOR=$(echo "${HELM_VERSION}" | cut -d. -f2)
+
+# Default to 0 if parsing fails
+HELM_MAJOR=${HELM_MAJOR:-0}
+HELM_MINOR=${HELM_MINOR:-0}
 
 if [ "${HELM_MAJOR}" -lt 3 ] || ([ "${HELM_MAJOR}" -eq 3 ] && [ "${HELM_MINOR}" -lt 8 ]); then
   info "Skipping issue-2247 test (requires Helm >= 3.8.0, found ${HELM_VERSION})"
