@@ -31,7 +31,7 @@ func NewPrintEnvCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&printEnvOptions.Output, "output", "yaml", "output format: yaml or json")
+	f.StringVar(&printEnvOptions.OutputFormat, "output", "yaml", "output format: yaml or json")
 
 	return cmd
 }
