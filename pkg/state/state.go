@@ -4436,10 +4436,11 @@ func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexe
 		return "", "", chartVersion, nil
 	}
 
-	// Reject explicit "latest" for OCI charts with Helm >= 3.8.0 (issue #1047)
+	// Reject explicit "latest" for OCI charts (issue #1047, #2247)
 	// This only applies if user explicitly specified "latest", not when version is omitted
-	if release.Version == "latest" && helm.IsVersionAtLeast("3.8.0") {
-		return "", "", "", fmt.Errorf("the version for OCI charts should be semver compliant, the latest tag is not supported anymore for helm >= 3.8.0")
+	// We reject for all Helm versions to ensure consistent behavior
+	if release.Version == "latest" {
+		return "", "", "", fmt.Errorf("the version for OCI charts should be semver compliant, the latest tag is not supported")
 	}
 
 	var qualifiedChartName, chartName string

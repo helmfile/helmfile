@@ -50,7 +50,7 @@ func TestOCIChartVersionHandling(t *testing.T) {
 			expectedQualifiedChart: "registry.example.com/my-chart",
 		},
 		{
-			name:                   "OCI chart with explicit 'latest' should fail on helm >= 3.8.0",
+			name:                   "OCI chart with explicit 'latest' should fail (any Helm version)",
 			chart:                  "oci://registry.example.com/my-chart",
 			version:                "latest",
 			helmVersion:            "3.18.0",
@@ -59,13 +59,13 @@ func TestOCIChartVersionHandling(t *testing.T) {
 			expectedQualifiedChart: "",
 		},
 		{
-			name:                   "OCI chart with explicit 'latest' works on helm < 3.8.0",
+			name:                   "OCI chart with explicit 'latest' should also fail on older Helm",
 			chart:                  "oci://registry.example.com/my-chart",
 			version:                "latest",
 			helmVersion:            "3.7.0",
-			expectedVersion:        "latest",
-			expectedError:          false,
-			expectedQualifiedChart: "registry.example.com/my-chart:latest",
+			expectedVersion:        "",
+			expectedError:          true,
+			expectedQualifiedChart: "",
 		},
 		{
 			name:                   "OCI chart without version in devel mode",
