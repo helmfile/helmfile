@@ -1,0 +1,1 @@
+--state-values-set top.array[0]=cmdlinething1 --state-values-set top.complexArray[1].anotherThing=cmdline

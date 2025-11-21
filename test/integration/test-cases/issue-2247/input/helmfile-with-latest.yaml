@@ -1,0 +1,5 @@
+releases:
+  - name: test-oci-latest
+    namespace: default
+    chart: oci://registry.example.com/my-chart
+    version: "latest"  # This should trigger the validation error

@@ -1,0 +1,23 @@
+values:
+  - top:
+      array:
+        - thing1
+        - thing2
+      complexArray:
+        - thing: a thing
+          anotherThing: another thing
+        - thing: second thing
+          anotherThing: a second other thing
+---
+releases:
+  - name: test
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: TestConfig
+            data:
+{{ toYaml .Values.top | indent 12 }}
