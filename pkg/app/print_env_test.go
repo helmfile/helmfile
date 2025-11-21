@@ -343,10 +343,9 @@ releases: []
 	require.NoError(t, err)
 
 	assert.Equal(t, "local", result["name"])
-	// kubeContext should be present but empty
-	kubeContext, exists := result["kubeContext"]
-	assert.True(t, exists)
-	assert.Equal(t, "", kubeContext)
+	// kubeContext should NOT be present when empty (omitted from output)
+	_, exists := result["kubeContext"]
+	assert.False(t, exists)
 }
 
 func TestPrintEnv_DefaultOutput(t *testing.T) {
