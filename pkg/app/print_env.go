@@ -11,6 +11,11 @@ import (
 func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 	docCount := 0
 
+	// Open JSON array if needed
+	if c.Output() == "json" {
+		fmt.Println("[")
+	}
+
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		st := run.state
 
@@ -43,8 +48,6 @@ func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 			// For JSON, print array of documents
 			if docCount > 0 {
 				fmt.Println(",")
-			} else {
-				fmt.Println("[")
 			}
 			outputBytes, err = json.MarshalIndent(output, "  ", "  ")
 			if err != nil {
@@ -71,7 +74,7 @@ func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 	}, false)
 
 	// Close JSON array
-	if c.Output() == "json" && docCount > 0 {
+	if c.Output() == "json" {
 		fmt.Println()
 		fmt.Println("]")
 	}
