@@ -9,7 +9,7 @@ import (
 
 // PrintEnv prints the parsed environment configuration
 func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
-	docCount := 0
+	firstDoc := true
 
 	// Open JSON array if needed
 	if c.Output() == "json" {
@@ -46,7 +46,7 @@ func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 		switch c.Output() {
 		case "json":
 			// For JSON, print array of documents
-			if docCount > 0 {
+			if !firstDoc {
 				fmt.Println(",")
 			}
 			outputBytes, err = json.MarshalIndent(output, "  ", "  ")
@@ -57,7 +57,7 @@ func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 			fmt.Print(string(outputBytes))
 		case "yaml", "":
 			// For YAML, use multi-document format with --- separator
-			if docCount > 0 {
+			if !firstDoc {
 				fmt.Println("---")
 			}
 			outputBytes, err = yaml.Marshal(output)
@@ -69,7 +69,7 @@ func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 			return false, []error{fmt.Errorf("unsupported output format: %s (supported: yaml, json)", c.Output())}
 		}
 
-		docCount++
+		firstDoc = false
 		return false, nil
 	}, false)
 
