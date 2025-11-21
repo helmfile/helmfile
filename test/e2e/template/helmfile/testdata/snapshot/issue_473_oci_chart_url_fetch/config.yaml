@@ -1,6 +1,6 @@
 localDockerRegistry:
   enabled: true
-  port: 5000
+  # Port is not specified, will be dynamically allocated to avoid conflicts
 chartifyTempDir: temp2
 helmfileArgs:
 - fetch

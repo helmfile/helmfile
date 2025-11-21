@@ -29,11 +29,12 @@ func TestGetHelmWithEmptyDefaultHelmBinary(t *testing.T) {
 
 	logger := newAppTestLogger()
 	app := &App{
-		OverrideHelmBinary:  "",
-		OverrideKubeContext: "",
-		Logger:              logger,
-		Env:                 "default",
-		ctx:                 goContext.Background(),
+		OverrideHelmBinary:              "",
+		OverrideKubeContext:             "",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          logger,
+		Env:                             "default",
+		ctx:                             goContext.Background(),
 	}
 
 	// This should NOT fail because app.getHelm() defaults empty DefaultHelmBinary to "helm"

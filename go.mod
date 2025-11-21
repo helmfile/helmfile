@@ -34,6 +34,7 @@ require (
 	helm.sh/helm/v3 v3.19.2
 	helm.sh/helm/v4 v4.0.0
 	k8s.io/apimachinery v0.34.2
+	k8s.io/client-go v0.34.1
 )
 
 require (
@@ -326,7 +327,6 @@ require (
 	k8s.io/apiextensions-apiserver v0.34.1 // indirect
 	k8s.io/apiserver v0.34.1 // indirect
 	k8s.io/cli-runtime v0.34.1 // indirect
-	k8s.io/client-go v0.34.1 // indirect
 	k8s.io/component-base v0.34.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect

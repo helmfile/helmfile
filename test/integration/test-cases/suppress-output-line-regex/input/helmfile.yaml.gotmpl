@@ -2,6 +2,9 @@ helmDefaults:
   suppressOutputLineRegex:
     - "helm.sh/chart"
     - "app.kubernetes.io/version"
+  # Disable auto-detected kubeVersion to prevent helm-diff from normalizing server-side defaults
+  # which would hide changes like ipFamilyPolicy and ipFamilies being removed
+  disableAutoDetectedKubeVersionForDiff: true
 
 repositories:
 - name: ingress-nginx 

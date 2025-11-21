@@ -201,6 +201,11 @@ type HelmSpec struct {
 	Cascade *string `yaml:"cascade,omitempty"`
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string `yaml:"suppressOutputLineRegex,omitempty"`
+	// DisableAutoDetectedKubeVersionForDiff controls whether auto-detected kubeVersion should be passed
+	// to helm diff. When false (default), auto-detected kubeVersion is passed to fix issue #2275.
+	// Set to true to only pass explicit kubeVersion from helmfile.yaml, preventing helm-diff from
+	// normalizing server-side defaults which could hide real changes (e.g., ipFamilyPolicy, ipFamilies).
+	DisableAutoDetectedKubeVersionForDiff *bool `yaml:"disableAutoDetectedKubeVersionForDiff,omitempty"`
 
 	DisableValidation        *bool `yaml:"disableValidation,omitempty"`
 	DisableOpenAPIValidation *bool `yaml:"disableOpenAPIValidation,omitempty"`
@@ -414,6 +419,9 @@ type ReleaseSpec struct {
 
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string `yaml:"suppressOutputLineRegex,omitempty"`
+	// DisableAutoDetectedKubeVersionForDiff controls whether auto-detected kubeVersion should be passed
+	// to helm diff for this release. See HelmSpec.DisableAutoDetectedKubeVersionForDiff for details.
+	DisableAutoDetectedKubeVersionForDiff *bool `yaml:"disableAutoDetectedKubeVersionForDiff,omitempty"`
 
 	// Inherit is used to inherit a release template from a release or another release template
 	Inherit Inherits `yaml:"inherit,omitempty"`
@@ -1318,7 +1326,7 @@ type PrepareChartKey struct {
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
 // processChartification handles the chartification process
-func (st *HelmState) processChartification(chartification *Chartify, release *ReleaseSpec, chartPath string, opts ChartPrepareOptions, skipDeps bool) (string, bool, error) {
+func (st *HelmState) processChartification(chartification *Chartify, release *ReleaseSpec, chartPath string, opts ChartPrepareOptions, skipDeps bool, helmfileCommand string) (string, bool, error) {
 	c := chartify.New(
 		chartify.HelmBin(st.DefaultHelmBinary),
 		chartify.KustomizeBin(st.DefaultKustomizeBinary),
@@ -1359,6 +1367,36 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		flags = append(flags, "--set", s)
 	}
 	chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
+
+	// Enable cluster connectivity for lookup functions when using kustomize patches
+	// Issue #2271: helm template runs client-side by default, causing lookup() to return empty values
+	// Pass --dry-run=server to enable cluster access for lookup while still using client-side rendering
+	// Only do this for operations that already require cluster access
+	var requiresCluster bool
+	switch helmfileCommand {
+	case "diff", "apply", "sync", "destroy", "delete", "test", "status":
+		// Commands that interact with the cluster
+		requiresCluster = true
+	case "template", "lint", "build", "pull", "fetch", "write-values", "list", "show-dag", "deps", "repos", "cache", "init", "completion", "help", "version":
+		// Commands that work locally without cluster access
+		requiresCluster = false
+	default:
+		// For unknown commands, assume cluster access (safer default)
+		requiresCluster = true
+	}
+
+	// Enable --dry-run=server for cluster-requiring commands to support lookup() function
+	// Issue #2271: helm template runs client-side by default, causing lookup() to return empty values
+	// The lookup() function can be used with or without patches, so we enable cluster access
+	// for all cluster-requiring operations (diff, apply, sync, etc.) but not for offline
+	// commands (template, lint, build, etc.)
+	if requiresCluster {
+		if chartifyOpts.TemplateArgs == "" {
+			chartifyOpts.TemplateArgs = "--dry-run=server"
+		} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
+			chartifyOpts.TemplateArgs += " --dry-run=server"
+		}
+	}
 
 	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 	if err != nil {
@@ -1482,7 +1520,7 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 	skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
 
 	if chartification != nil && helmfileCommand != "pull" {
-		chartPath, buildDeps, err = st.processChartification(chartification, release, chartPath, opts, skipDeps)
+		chartPath, buildDeps, err = st.processChartification(chartification, release, chartPath, opts, skipDeps, helmfileCommand)
 		if err != nil {
 			return &chartPrepareResult{err: err}
 		}
@@ -2207,6 +2245,9 @@ type DiffOpts struct {
 	SuppressOutputLineRegex []string
 	SkipSchemaValidation    bool
 	TakeOwnership           bool
+	// DetectedKubeVersion is the Kubernetes version detected from the cluster.
+	// This is used when kubeVersion is not specified in helmfile.yaml
+	DetectedKubeVersion string
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -3109,11 +3150,38 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		flags = append(flags, "--disable-validation")
 	}
 
-	// TODO:
-	// `helm diff` has `--kube-version` flag from v3.5.0, but only respected when `helm diff upgrade --disable-validation`.
-	// `helm template --validate` and `helm upgrade --dry-run` ignore `--kube-version` flag.
-	// For the moment, not specifying kubeVersion.
-	flags = st.appendApiVersionsFlags(flags, release, "")
+	// Determine which kubeVersion to pass to helm diff based on configuration.
+	// By default (disableAutoDetectedKubeVersionForDiff=false), pass auto-detected kubeVersion
+	// to helm-diff. This fixes issue #2275 where charts requiring newer Kubernetes versions
+	// would fail because helm-diff defaults to v1.20.0.
+	//
+	// If disableAutoDetectedKubeVersionForDiff=true, only pass explicit kubeVersion from
+	// helmfile.yaml. This prevents helm-diff from normalizing server-side defaults which
+	// could hide real changes (e.g., ipFamilyPolicy, ipFamilies). Use this when server-side
+	// normalization causes issues with diff output.
+	disableAutoDetected := false
+	if release.DisableAutoDetectedKubeVersionForDiff != nil {
+		disableAutoDetected = *release.DisableAutoDetectedKubeVersionForDiff
+	} else if st.HelmDefaults.DisableAutoDetectedKubeVersionForDiff != nil {
+		disableAutoDetected = *st.HelmDefaults.DisableAutoDetectedKubeVersionForDiff
+	}
+
+	kubeVersionForDiff := ""
+	if disableAutoDetected {
+		// Only pass explicit kubeVersion from helmfile.yaml
+		if release.KubeVersion != "" {
+			kubeVersionForDiff = release.KubeVersion
+		} else if st.KubeVersion != "" {
+			kubeVersionForDiff = st.KubeVersion
+		}
+	} else {
+		// Pass auto-detected version (default behavior)
+		kubeVersionForDiff = ""
+		if opt != nil && opt.DetectedKubeVersion != "" {
+			kubeVersionForDiff = opt.DetectedKubeVersion
+		}
+	}
+	flags = st.appendApiVersionsFlags(flags, release, kubeVersionForDiff)
 	flags = st.appendConnectionFlags(flags, release)
 	flags = st.appendChartDownloadFlags(flags, release)
 

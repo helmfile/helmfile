@@ -1,1 +1,1 @@
-Pulling localhost:5000/myrepo/raw:0.1.0
+Pulling localhost:$REGISTRY_PORT/myrepo/raw:0.1.0

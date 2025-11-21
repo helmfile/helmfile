@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  namespace: {{ .Release.Namespace }}
+data:
+  # Use lookup to preserve existing value if ConfigMap already exists
+  # This simulates the Grafana PVC volumeName preservation use case
+  {{- $existing := lookup "v1" "ConfigMap" .Release.Namespace (printf "%s-config" .Release.Name) }}
+  {{- if $existing }}
+  preserved-value: {{ index $existing.data "preserved-value" | default "initial-value" | quote }}
+  {{- else }}
+  preserved-value: "initial-value"
+  {{- end }}
+  # This value can change on upgrades
+  current-version: {{ .Chart.Version | quote }}

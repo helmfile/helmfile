@@ -669,6 +669,12 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace stri
 		overrideEnableLiveOutput = &enableLiveOutput
 	}
 
+	// Issue #2280: In Helm 4, the --color flag is parsed by Helm before reaching the plugin,
+	// causing it to consume the next argument. Remove color flags and use HELM_DIFF_COLOR env var.
+	if helm.IsHelm4() {
+		flags = helm.filterColorFlagsForHelm4(flags, env)
+	}
+
 	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
 	// Do our best to write STDOUT only when diff existed
 	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
@@ -691,6 +697,37 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace stri
 		helm.write(context.Writer, out)
 	}
 	return err
+}
+
+// filterColorFlagsForHelm4 removes --color and --no-color flags from the flags slice
+// and sets the HELM_DIFF_COLOR environment variable instead.
+// In Helm 4, the --color flag is parsed by Helm itself before reaching the helm-diff plugin,
+// causing Helm to consume the next argument as the color value (issue #2280).
+// The helm-diff plugin supports HELM_DIFF_COLOR=[true|false] env var as an alternative.
+func (helm *execer) filterColorFlagsForHelm4(flags []string, env map[string]string) []string {
+	filtered := make([]string, 0, len(flags))
+
+	for _, flag := range flags {
+		switch flag {
+		case "--color":
+			// Use environment variable instead of flag for Helm 4
+			// Only set if not already present (defensive check)
+			if _, exists := env["HELM_DIFF_COLOR"]; !exists {
+				env["HELM_DIFF_COLOR"] = "true"
+			}
+		case "--no-color":
+			// Use environment variable instead of flag for Helm 4
+			// Only set if not already present (defensive check)
+			if _, exists := env["HELM_DIFF_COLOR"]; !exists {
+				env["HELM_DIFF_COLOR"] = "false"
+			}
+		default:
+			// Keep all other flags unchanged
+			filtered = append(filtered, flag)
+		}
+	}
+
+	return filtered
 }
 
 func (helm *execer) Lint(name, chart string, flags ...string) error {

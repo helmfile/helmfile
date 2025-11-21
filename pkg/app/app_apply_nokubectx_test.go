@@ -61,11 +61,12 @@ func TestApply_3(t *testing.T) {
 			}
 
 			app := appWithFs(&App{
-				OverrideHelmBinary:  DefaultHelmBinary,
-				fs:                  filesystem.DefaultFileSystem(),
-				OverrideKubeContext: "",
-				Env:                 "default",
-				Logger:              logger,
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              filesystem.DefaultFileSystem(),
+				OverrideKubeContext:             "",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
 				helms: map[helmKey]helmexec.Interface{
 					createHelmKey("helm", ""): helm,
 				},

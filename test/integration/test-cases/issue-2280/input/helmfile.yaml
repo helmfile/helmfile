@@ -1,0 +1,6 @@
+releases:
+  - name: test-release-2280
+    namespace: default
+    chart: ./chart
+    values:
+      - message: "test message"

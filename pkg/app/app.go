@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/argparser"
+	"github.com/helmfile/helmfile/pkg/cluster"
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -28,14 +29,15 @@ var Cancel goContext.CancelFunc
 
 // App is the main application object.
 type App struct {
-	OverrideKubeContext        string
-	OverrideHelmBinary         string
-	OverrideKustomizeBinary    string
-	EnableLiveOutput           bool
-	StripArgsValuesOnExitError bool
-	DisableForceUpdate         bool
-	EnforcePluginVerification  bool
-	HelmOCIPlainHTTP           bool
+	OverrideKubeContext             string
+	OverrideHelmBinary              string
+	OverrideKustomizeBinary         string
+	EnableLiveOutput                bool
+	StripArgsValuesOnExitError      bool
+	DisableForceUpdate              bool
+	EnforcePluginVerification       bool
+	HelmOCIPlainHTTP                bool
+	DisableKubeVersionAutoDetection bool
 
 	Logger      *zap.SugaredLogger
 	Kubeconfig  string
@@ -1193,7 +1195,7 @@ func printDAG(batches [][]state.Release) string {
 
 	_ = w.Flush()
 
-	return buf.String()
+	return trimTrailingWhitespace(buf.String())
 }
 
 // nolint: unparam
@@ -1556,6 +1558,8 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
 	detailedExitCode := true
 
+	detectedKubeVersion := a.detectKubeVersion(st)
+
 	diffOpts := &state.DiffOpts{
 		Color:                   c.Color(),
 		NoColor:                 c.NoColor(),
@@ -1572,6 +1576,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipSchemaValidation:    c.SkipSchemaValidation(),
 		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
 		TakeOwnership:           c.TakeOwnership(),
+		DetectedKubeVersion:     detectedKubeVersion,
 	}
 
 	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -1789,6 +1794,29 @@ Do you really want to delete?
 	return true, errs
 }
 
+// detectKubeVersion auto-detects the Kubernetes cluster version if not specified in helmfile.yaml.
+// This prevents helm-diff from falling back to v1.20.0 (issue #2275).
+// Returns empty string when kubeVersion is already set in helmfile.yaml (not needed),
+// when auto-detection is disabled, or if detection fails.
+func (a *App) detectKubeVersion(st *state.HelmState) string {
+	if st.KubeVersion != "" {
+		return ""
+	}
+
+	// Allow tests to disable auto-detection to avoid connecting to real clusters
+	if a.DisableKubeVersionAutoDetection {
+		return ""
+	}
+
+	version, err := cluster.DetectServerVersion(a.Kubeconfig, a.OverrideKubeContext)
+	if err != nil {
+		// If detection fails, we silently continue - helm-diff will handle it
+		return ""
+	}
+
+	return version
+}
+
 func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) {
 	var (
 		infoMsg          *string
@@ -1801,6 +1829,8 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		var errs []error
 
 		helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
+
+		detectedKubeVersion := a.detectKubeVersion(st)
 
 		opts := &state.DiffOpts{
 			Context:                 c.Context(),
@@ -1817,6 +1847,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			SkipSchemaValidation:    c.SkipSchemaValidation(),
 			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
 			TakeOwnership:           c.TakeOwnership(),
+			DetectedKubeVersion:     detectedKubeVersion,
 		}
 
 		filtered := &Run{
