@@ -131,31 +131,39 @@ fi
 
 # Test 2.2: Package and push the test chart
 info "Test 2.2: Packaging and pushing test charts"
+set +e  # Disable exit on error to handle failures gracefully
 ${helm} package "${issue_2247_chart_dir}" -d "${issue_2247_tmp_dir}" > "${issue_2247_tmp_dir}/package.log" 2>&1
 if [ $? -ne 0 ]; then
+  set -e  # Re-enable before cleanup
   cat "${issue_2247_tmp_dir}/package.log"
   warn "Failed to package chart - skipping registry tests"
   cleanup_registry
   test_pass "issue-2247: OCI charts without version (validation tests only)"
   return 0
 fi
+set -e  # Re-enable exit on error after successful package
 
 info "Pushing chart version 1.0.0 to local registry"
+set +e  # Disable exit on error to handle failures gracefully
 ${helm} push "${issue_2247_tmp_dir}/test-chart-2247-1.0.0.tgz" oci://localhost:${registry_port} > "${issue_2247_tmp_dir}/push.log" 2>&1
 if [ $? -ne 0 ]; then
+  set -e  # Re-enable before cleanup
   cat "${issue_2247_tmp_dir}/push.log"
   warn "Failed to push chart to registry - skipping registry tests"
   cleanup_registry
   test_pass "issue-2247: OCI charts without version (validation tests only)"
   return 0
 fi
+set -e  # Re-enable exit on error after successful push
 
 # Create version 2.0.0 as well to test "latest" behavior
 info "Creating and pushing version 2.0.0"
 cp -r "${issue_2247_chart_dir}" "${issue_2247_tmp_dir}/chart-v2"
 sed -i.bak 's/version: 1.0.0/version: 2.0.0/' "${issue_2247_tmp_dir}/chart-v2/Chart.yaml"
+set +e  # Disable exit on error for package/push operations
 ${helm} package "${issue_2247_tmp_dir}/chart-v2" -d "${issue_2247_tmp_dir}" > "${issue_2247_tmp_dir}/package-v2.log" 2>&1
 ${helm} push "${issue_2247_tmp_dir}/test-chart-2247-2.0.0.tgz" oci://localhost:${registry_port} > "${issue_2247_tmp_dir}/push-v2.log" 2>&1
+set -e  # Re-enable exit on error
 
 info "Successfully pushed chart versions 1.0.0 and 2.0.0"
 
