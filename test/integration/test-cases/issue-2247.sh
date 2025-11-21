@@ -17,8 +17,10 @@ info "Part 1: Validation tests (no registry required)"
 
 # Test 1.1: Explicit "latest" should error (issue #1047 behavior)
 info "Test 1.1: Verifying explicit 'latest' version triggers validation error"
+set +e  # Disable exit on error since we expect this command to fail
 ${helmfile} -f "${issue_2247_input_dir}/helmfile-with-latest.yaml" template > "${issue_2247_tmp_dir}/latest.txt" 2>&1
 code=$?
+set -e  # Re-enable exit on error
 
 # Debug: show output if command succeeded
 if [ $code -eq 0 ]; then
@@ -40,8 +42,10 @@ info "SUCCESS: Explicit 'latest' version correctly triggers validation error"
 
 # Test 1.2: No version should NOT error (issue #2247 fix)
 info "Test 1.2: Verifying OCI charts without version do NOT trigger validation error"
+set +e  # Disable exit on error since this command may fail (registry doesn't exist)
 ${helmfile} -f "${issue_2247_input_dir}/helmfile-no-version.yaml" template > "${issue_2247_tmp_dir}/no-version.txt" 2>&1
 code=$?
+set -e  # Re-enable exit on error
 
 # Note: The command will fail because the OCI registry doesn't exist,
 # but it should NOT fail with the "semver compliant" validation error
@@ -165,8 +169,10 @@ releases:
     # No version specified - should pull latest (issue #2247 fix)
 EOF
 
+set +e  # Disable exit on error to check result
 ${helmfile} -f "${issue_2247_tmp_dir}/helmfile-oci-registry.yaml" template --skip-deps > "${issue_2247_tmp_dir}/template-no-version.yaml" 2>&1
 code=$?
+set -e  # Re-enable exit on error
 
 # Should NOT have the semver validation error
 if grep -q "semver compliant" "${issue_2247_tmp_dir}/template-no-version.yaml"; then
@@ -205,8 +211,10 @@ releases:
     version: "latest"  # Should trigger validation error
 EOF
 
+set +e  # Disable exit on error since we expect this command to fail
 ${helmfile} -f "${issue_2247_tmp_dir}/helmfile-explicit-latest.yaml" template --skip-deps > "${issue_2247_tmp_dir}/template-latest.yaml" 2>&1
 code=$?
+set -e  # Re-enable exit on error
 
 # Should have the validation error
 if ! grep -q "semver compliant" "${issue_2247_tmp_dir}/template-latest.yaml"; then
@@ -233,8 +241,10 @@ releases:
     version: "1.0.0"
 EOF
 
+set +e  # Disable exit on error to check result
 ${helmfile} -f "${issue_2247_tmp_dir}/helmfile-specific-version.yaml" template --skip-deps > "${issue_2247_tmp_dir}/template-specific.yaml" 2>&1
 code=$?
+set -e  # Re-enable exit on error
 
 if grep -q "semver compliant" "${issue_2247_tmp_dir}/template-specific.yaml"; then
   cat "${issue_2247_tmp_dir}/template-specific.yaml"
