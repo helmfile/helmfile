@@ -34,8 +34,12 @@ info "Test 1.1: Verifying explicit 'latest' version triggers validation error"
 ${helmfile} -f "${issue_2247_input_dir}/helmfile-with-latest.yaml" template > "${issue_2247_tmp_dir}/latest.txt" 2>&1
 code=$?
 
+# Debug: show output if command succeeded
 if [ $code -eq 0 ]; then
+  info "helmfile command succeeded when it should have failed. Output:"
   cat "${issue_2247_tmp_dir}/latest.txt"
+  info "Helm version:"
+  ${helm} version --short 2>&1 || echo "helm version command failed"
   rm -rf "${issue_2247_tmp_dir}"
   fail "Expected error for explicit 'latest' version but command succeeded"
 fi
