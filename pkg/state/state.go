@@ -4327,7 +4327,7 @@ func (st *HelmState) addToChartCache(key ChartCacheKey, path string) {
 }
 
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, opts ChartPrepareOptions) (*string, error) {
-	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release, helm)
+	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release)
 	if err != nil {
 		return nil, err
 	}
@@ -4422,7 +4422,7 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 	return repo.OCI
 }
 
-func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (string, string, string, error) {
+func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec) (string, string, string, error) {
 	// For issue #2247: Don't default to "latest" - use empty string to let Helm pull the latest version
 	// Only use the version explicitly provided by the user
 	chartVersion := release.Version
