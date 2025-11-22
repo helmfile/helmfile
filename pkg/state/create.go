@@ -412,9 +412,9 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	if overrode != nil {
 		intOverrodeEnv := *newEnv
 
-		if err := mergo.Merge(&intOverrodeEnv, overrode, mergo.WithOverride); err != nil {
-			return nil, fmt.Errorf("error while merging environment overrode values for \"%s\": %v", name, err)
-		}
+		// Use MergeMaps instead of mergo.Merge to properly handle array merging element-by-element
+		// This fixes issue #2281 where arrays were being replaced entirely instead of merged
+		intOverrodeEnv.Values = maputil.MergeMaps(intOverrodeEnv.Values, overrode.Values)
 
 		newEnv = &intOverrodeEnv
 	}

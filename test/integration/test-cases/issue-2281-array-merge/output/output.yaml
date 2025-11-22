@@ -1,0 +1,15 @@
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: TestConfig
+data:
+  array:
+  - cmdlinething1
+  - thing2
+  complexArray:
+  - anotherThing: another thing
+    thing: a thing
+  - anotherThing: cmdline
+    thing: second thing

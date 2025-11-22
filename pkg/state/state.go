@@ -1519,6 +1519,11 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 	skipDepsDefault := release.SkipDeps == nil && st.HelmDefaults.SkipDeps
 	skipDeps := (!isLocal && !chartFetchedByGoGetter) || skipDepsGlobal || skipDepsRelease || skipDepsDefault
 
+	skipRefreshGlobal := opts.SkipRefresh
+	skipRefreshRelease := release.SkipRefresh != nil && *release.SkipRefresh
+	skipRefreshDefault := release.SkipRefresh == nil && st.HelmDefaults.SkipRefresh
+	skipRefresh := !isLocal || skipRefreshGlobal || skipRefreshRelease || skipRefreshDefault
+
 	if chartification != nil && helmfileCommand != "pull" {
 		chartPath, buildDeps, err = st.processChartification(chartification, release, chartPath, opts, skipDeps, helmfileCommand)
 		if err != nil {
@@ -1556,7 +1561,7 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 		releaseContext:         release.KubeContext,
 		chartPath:              chartPath,
 		buildDeps:              buildDeps,
-		skipRefresh:            !isLocal || opts.SkipRefresh,
+		skipRefresh:            skipRefresh,
 		chartFetchedByGoGetter: chartFetchedByGoGetter,
 	}
 }
@@ -4322,7 +4327,7 @@ func (st *HelmState) addToChartCache(key ChartCacheKey, path string) {
 }
 
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, opts ChartPrepareOptions) (*string, error) {
-	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release, helm)
+	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release)
 	if err != nil {
 		return nil, err
 	}
@@ -4417,17 +4422,25 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 	return repo.OCI
 }
 
-func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexec.Interface) (string, string, string, error) {
-	chartVersion := "latest"
+func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec) (string, string, string, error) {
+	// For issue #2247: Don't default to "latest" - use empty string to let Helm pull the latest version
+	// Only use the version explicitly provided by the user
+	chartVersion := release.Version
+
+	// In development mode with no version, omit version flag so --devel works correctly
 	if st.isDevelopment(release) && release.Version == "" {
-		// omit version, otherwise --devel flag is ignored by helm and helm-diff
 		chartVersion = ""
-	} else if release.Version != "" {
-		chartVersion = release.Version
 	}
 
 	if !st.IsOCIChart(release.Chart) {
 		return "", "", chartVersion, nil
+	}
+
+	// Reject explicit "latest" for OCI charts (issue #1047, #2247)
+	// This only applies if user explicitly specified "latest", not when version is omitted
+	// We reject for all Helm versions to ensure consistent behavior
+	if release.Version == "latest" {
+		return "", "", "", fmt.Errorf("the version for OCI charts should be semver compliant, the latest tag is not supported")
 	}
 
 	var qualifiedChartName, chartName string
@@ -4441,10 +4454,6 @@ func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec, helm helmexe
 		qualifiedChartName = fmt.Sprintf("%s/%s:%s", repo.URL, chartName, chartVersion)
 	}
 	qualifiedChartName = strings.TrimSuffix(qualifiedChartName, ":")
-
-	if chartVersion == "latest" && helm.IsVersionAtLeast("3.8.0") {
-		return "", "", "", fmt.Errorf("the version for OCI charts should be semver compliant, the latest tag is not supported anymore for helm >= 3.8.0")
-	}
 
 	return qualifiedChartName, chartName, chartVersion, nil
 }

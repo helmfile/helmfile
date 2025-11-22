@@ -81,13 +81,10 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 func (e *Environment) GetMergedValues() (map[string]any, error) {
 	vals := map[string]any{}
 
-	if err := mergo.Merge(&vals, e.Defaults, mergo.WithOverride); err != nil {
-		return nil, err
-	}
-
-	if err := mergo.Merge(&vals, e.Values, mergo.WithOverride); err != nil {
-		return nil, err
-	}
+	// Use MergeMaps instead of mergo.Merge to properly handle array merging element-by-element
+	// This fixes issue #2281 where arrays were being replaced entirely instead of merged
+	vals = maputil.MergeMaps(vals, e.Defaults)
+	vals = maputil.MergeMaps(vals, e.Values)
 
 	vals, err := maputil.CastKeysToStrings(vals)
 	if err != nil {
