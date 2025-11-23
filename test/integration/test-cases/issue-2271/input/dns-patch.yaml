@@ -1,0 +1,14 @@
+# Kustomize strategic merge patch to set DNS ndots
+# This simulates the grafana-dns-ndots.yaml.gotmpl from the issue
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-release-2271-app
+  namespace: default
+spec:
+  template:
+    spec:
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"

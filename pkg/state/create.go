@@ -217,6 +217,60 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 	return state, nil
 }
 
+// mergeEnvironments deeply merges environment specifications from src into dst.
+// Unlike mergo.WithOverride which replaces entire EnvironmentSpec values, this function
+// properly merges the Values slices from both environments.
+func mergeEnvironments(dst, src map[string]EnvironmentSpec) {
+	// If dst is nil, there's nothing to merge into
+	if dst == nil {
+		return
+	}
+
+	for envName, srcEnv := range src {
+		if dstEnv, exists := dst[envName]; exists {
+			// Environment exists in both - merge the Values slices
+			mergedValues := append([]any{}, dstEnv.Values...)
+			mergedValues = append(mergedValues, srcEnv.Values...)
+
+			// Merge Secrets slices
+			mergedSecrets := append([]string{}, dstEnv.Secrets...)
+			mergedSecrets = append(mergedSecrets, srcEnv.Secrets...)
+
+			// Create merged environment
+			merged := EnvironmentSpec{
+				Values:  mergedValues,
+				Secrets: mergedSecrets,
+			}
+
+			// Override KubeContext if src has it
+			if srcEnv.KubeContext != "" {
+				merged.KubeContext = srcEnv.KubeContext
+			} else {
+				merged.KubeContext = dstEnv.KubeContext
+			}
+
+			// Override MissingFileHandler if src has it
+			if srcEnv.MissingFileHandler != nil {
+				merged.MissingFileHandler = srcEnv.MissingFileHandler
+			} else {
+				merged.MissingFileHandler = dstEnv.MissingFileHandler
+			}
+
+			// Override MissingFileHandlerConfig if src has it
+			if srcEnv.MissingFileHandlerConfig != nil {
+				merged.MissingFileHandlerConfig = srcEnv.MissingFileHandlerConfig
+			} else {
+				merged.MissingFileHandlerConfig = dstEnv.MissingFileHandlerConfig
+			}
+
+			dst[envName] = merged
+		} else {
+			// Environment only exists in src - just copy it
+			dst[envName] = srcEnv
+		}
+	}
+}
+
 func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment, st *HelmState, baseDir string) (*HelmState, error) {
 	var newOverrodeEnv *environment.Environment
 	if overrodeEnv != nil {
@@ -234,9 +288,25 @@ func (c *StateCreator) loadBases(envValues, overrodeEnv *environment.Environment
 	layers = append(layers, st)
 
 	for i := 1; i < len(layers); i++ {
+		// Initialize Environments map if nil to avoid panic in mergeEnvironments
+		if layers[0].Environments == nil {
+			layers[0].Environments = make(map[string]EnvironmentSpec)
+		}
+
+		// Manually merge environments to ensure deep merging of environment values
+		mergeEnvironments(layers[0].Environments, layers[i].Environments)
+
+		// Clear the Environments from the source before mergo to avoid override
+		tmpEnvs := layers[i].Environments
+		layers[i].Environments = nil
+
+		// Now merge the rest of the fields
 		if err := mergo.Merge(layers[0], layers[i], mergo.WithAppendSlice, mergo.WithOverride); err != nil {
 			return nil, err
 		}
+
+		// Restore the Environments back to the source layer (in case it's used later)
+		layers[i].Environments = tmpEnvs
 	}
 
 	return layers[0], nil
@@ -342,9 +412,9 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	if overrode != nil {
 		intOverrodeEnv := *newEnv
 
-		if err := mergo.Merge(&intOverrodeEnv, overrode, mergo.WithOverride); err != nil {
-			return nil, fmt.Errorf("error while merging environment overrode values for \"%s\": %v", name, err)
-		}
+		// Use MergeMaps instead of mergo.Merge to properly handle array merging element-by-element
+		// This fixes issue #2281 where arrays were being replaced entirely instead of merged
+		intOverrodeEnv.Values = maputil.MergeMaps(intOverrodeEnv.Values, overrode.Values)
 
 		newEnv = &intOverrodeEnv
 	}

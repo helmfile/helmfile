@@ -1,0 +1,3 @@
+# Default values for test-chart-2247
+# This is a minimal chart for testing OCI version handling
+replicaCount: 1

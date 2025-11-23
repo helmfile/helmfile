@@ -1,0 +1,5 @@
+releases:
+  - name: test-oci-no-version
+    namespace: default
+    chart: oci://registry.example.com/my-chart
+    # No version specified - this should NOT error (issue #2247 fix)

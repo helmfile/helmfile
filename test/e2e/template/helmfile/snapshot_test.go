@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,9 +20,7 @@ import (
 	"github.com/helmfile/chartify/helmtesting"
 	"github.com/stretchr/testify/require"
 
-	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/envvar"
-	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
@@ -46,10 +46,160 @@ type Config struct {
 	HelmfileArgs    []string `yaml:"helmfileArgs"`
 }
 
-type fakeInit struct{}
+// getFreePort asks the kernel for a free open port that is ready to use.
+// This has a small race condition between the time we get the port and when we use it,
+// but it's the standard approach for dynamic port allocation in tests.
+// Callers should implement retry logic to handle this race condition - see setupLocalDockerRegistry().
+func getFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, fmt.Errorf("failed to resolve TCP address: %w", err)
+	}
 
-func (f fakeInit) Force() bool {
-	return true
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to listen on TCP port: %w", err)
+	}
+	defer l.Close()
+
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// waitForRegistry polls the Docker registry health endpoint until it's ready
+// or the timeout is reached. Docker Registry v2 exposes /v2/ which returns
+// 200 OK when the registry is healthy and ready to accept requests.
+func waitForRegistry(t *testing.T, port int, timeout time.Duration) error {
+	t.Helper()
+
+	endpoint := fmt.Sprintf("http://localhost:%d/v2/", port)
+	client := &http.Client{Timeout: 2 * time.Second}
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(endpoint)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				t.Logf("Registry at port %d is ready", port)
+				return nil
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return fmt.Errorf("registry at port %d did not become ready within %v", port, timeout)
+}
+
+// prepareInputFile substitutes $REGISTRY_PORT placeholder in the input file
+// with the actual allocated port for Docker registry tests. It also converts
+// relative chart paths to absolute paths since the input file is copied to a
+// temp directory.
+func prepareInputFile(t *testing.T, originalFile, tmpDir string, hostPort int, chartsDir, postrenderersDir string) string {
+	t.Helper()
+
+	inputContent, err := os.ReadFile(originalFile)
+	require.NoError(t, err, "Failed to read input file")
+
+	// Replace $REGISTRY_PORT placeholder with actual port
+	inputStr := string(inputContent)
+	inputStr = strings.ReplaceAll(inputStr, "$REGISTRY_PORT", fmt.Sprintf("%d", hostPort))
+
+	// Convert relative chart paths to absolute paths
+	// This is necessary because the input file is copied to a temp directory,
+	// breaking relative paths like ../../charts/raw-0.1.0
+	inputStr = strings.ReplaceAll(inputStr, "../../charts/", chartsDir+"/")
+
+	// Convert relative postrenderer paths to absolute paths for Helm 3 only
+	// Helm 3 resolves postrenderer paths relative to the helmfile location.
+	// When the input file is copied to a temp directory, relative paths break.
+	// Helm 4 extracts the plugin name from the path, so it works with relative paths.
+	if !isHelm4(t) && postrenderersDir != "" {
+		inputStr = strings.ReplaceAll(inputStr, "../../postrenderers/", postrenderersDir+"/")
+	}
+
+	// Write to temporary file with restrictive permissions (owner read/write only)
+	tmpInputFile := filepath.Join(tmpDir, "input.yaml.gotmpl")
+	err = os.WriteFile(tmpInputFile, []byte(inputStr), 0600)
+	require.NoError(t, err, "Failed to write temporary input file")
+
+	return tmpInputFile
+}
+
+// setupLocalDockerRegistry sets up a local Docker registry for OCI chart testing.
+// It dynamically allocates a port if not configured, starts the registry container,
+// and pushes test charts to it. Returns the allocated port.
+func setupLocalDockerRegistry(t *testing.T, config Config, name, defaultChartsDir string) int {
+	t.Helper()
+
+	containerName := strings.Join([]string{"helmfile_docker_registry", name}, "_")
+
+	hostPort := config.LocalDockerRegistry.Port
+	if hostPort <= 0 {
+		// Dynamically allocate an unused port to avoid conflicts
+		// Retry up to 3 times in case of race condition where port gets taken
+		// between getFreePort() and docker run
+		const maxRetries = 3
+		var err error
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			hostPort, err = getFreePort()
+			require.NoError(t, err, "Failed to get free port for Docker registry")
+			t.Logf("Attempt %d: Allocated dynamic port %d for Docker registry in test %s", attempt, hostPort, name)
+
+			// Try to start Docker with this port
+			cmd := exec.Command("docker", "run", "--rm", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--name", containerName, "registry:2")
+			output, err := cmd.CombinedOutput()
+			if err == nil {
+				// Success! Docker started successfully
+				t.Cleanup(func() {
+					execDocker(t, "stop", containerName)
+				})
+				break
+			}
+
+			// Check if error is due to port conflict
+			if strings.Contains(string(output), "address already in use") {
+				if attempt < maxRetries {
+					t.Logf("Port %d was taken (race condition), retrying with new port...", hostPort)
+					continue
+				}
+				t.Fatalf("Failed to start Docker registry after %d attempts due to port conflicts", maxRetries)
+			}
+
+			// Other error - fail immediately
+			t.Fatalf("Failed to start Docker registry: %s\nOutput: %s", err, string(output))
+		}
+	} else {
+		// Use configured port
+		execDocker(t, "run", "--rm", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--name", containerName, "registry:2")
+		t.Cleanup(func() {
+			execDocker(t, "stop", containerName)
+		})
+	}
+
+	// Wait for registry to be ready by polling its health endpoint
+	err := waitForRegistry(t, hostPort, 30*time.Second)
+	require.NoError(t, err, "Registry failed to become ready")
+
+	// We helm-package and helm-push every test chart saved in the ./testdata/charts directory
+	// to the local registry, so that they can be accessed by helmfile and helm invoked while testing.
+	chartDir := config.LocalDockerRegistry.ChartDir
+	if chartDir == "" {
+		chartDir = defaultChartsDir
+	}
+	charts, err := os.ReadDir(chartDir)
+	require.NoError(t, err)
+
+	for _, c := range charts {
+		chartPath := filepath.Join(chartDir, c.Name())
+		if !c.IsDir() {
+			t.Fatalf("%s is not a directory", c)
+		}
+		tgzFile := execHelmPackage(t, chartPath)
+		_, err := execHelmPush(t, tgzFile, fmt.Sprintf("oci://localhost:%d/myrepo", hostPort))
+		require.NoError(t, err, "Unable to run helm push to local registry: %v", err)
+	}
+
+	return hostPort
 }
 
 func TestHelmfileTemplateWithBuildCommand(t *testing.T) {
@@ -66,17 +216,6 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 	t.Setenv(envvar.GoYamlV3, strconv.FormatBool(GoYamlV3))
 
 	localChartPortSets := make(map[int]struct{})
-
-	logger := helmexec.NewLogger(os.Stderr, "info")
-	runner := &helmexec.ShellRunner{
-		Logger: logger,
-		Ctx:    context.TODO(),
-	}
-
-	c := fakeInit{}
-	helmfileInit := app.NewHelmfileInit("helm", c, logger, runner)
-	err := helmfileInit.CheckHelmPlugins()
-	require.NoError(t, err)
 
 	_, filename, _, _ := goruntime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(filename), "..", "..", "..", "..")
@@ -164,40 +303,9 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 			// If localDockerRegistry.enabled is set to `true`,
 			// run the docker registry v2 and push the test charts to the registry
 			// so that it can be accessed by helm and helmfile as a oci registry based chart repository.
+			var hostPort int
 			if config.LocalDockerRegistry.Enabled {
-				containerName := strings.Join([]string{"helmfile_docker_registry", name}, "_")
-
-				hostPort := config.LocalDockerRegistry.Port
-				if hostPort <= 0 {
-					hostPort = 5000
-				}
-
-				execDocker(t, "run", "--rm", "-d", "-p", fmt.Sprintf("%d:5000", hostPort), "--name", containerName, "registry:2")
-				t.Cleanup(func() {
-					execDocker(t, "stop", containerName)
-				})
-
-				// FIXME: this is a hack to wait for registry to be up and running
-				// please replace with proper wait for registry
-				time.Sleep(5 * time.Second)
-
-				// We helm-package and helm-push every test chart saved in the ./testdata/charts directory
-				// to the local registry, so that they can be accessed by helmfile and helm invoked while testing.
-				if config.LocalDockerRegistry.ChartDir == "" {
-					config.LocalDockerRegistry.ChartDir = defaultChartsDir
-				}
-				charts, err := os.ReadDir(config.LocalDockerRegistry.ChartDir)
-				require.NoError(t, err)
-
-				for _, c := range charts {
-					chartPath := filepath.Join(config.LocalDockerRegistry.ChartDir, c.Name())
-					if !c.IsDir() {
-						t.Fatalf("%s is not a directory", c)
-					}
-					tgzFile := execHelmPackage(t, chartPath)
-					_, err := execHelmPush(t, tgzFile, fmt.Sprintf("oci://localhost:%d/myrepo", hostPort))
-					require.NoError(t, err, "Unable to run helm push to local registry: %v", err)
-				}
+				hostPort = setupLocalDockerRegistry(t, config, name, defaultChartsDir)
 			}
 
 			tmpDir := t.TempDir()
@@ -230,6 +338,14 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 			}
 
 			inputFile := filepath.Join(testdataDir, name, "input.yaml.gotmpl")
+
+			// If using dynamic Docker registry port, substitute $REGISTRY_PORT in input file
+			if config.LocalDockerRegistry.Enabled {
+				chartsDir := filepath.Join(wd, defaultChartsDir)
+				postrenderersDir := filepath.Join(wd, "testdata/postrenderers")
+				inputFile = prepareInputFile(t, inputFile, tmpDir, hostPort, chartsDir, postrenderersDir)
+			}
+
 			outputFile := ""
 			if GoYamlV3 {
 				outputFile = filepath.Join(testdataDir, name, "gopkg.in-yaml.v3-output.yaml")
@@ -280,6 +396,10 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 			gotStr = helmShortVersionRegex.ReplaceAllString(gotStr, `$$HelmVersion`)
 
 			if config.LocalDockerRegistry.Enabled {
+				// Normalize the dynamic port to $REGISTRY_PORT placeholder for test comparison
+				gotStr = strings.ReplaceAll(gotStr, fmt.Sprintf("localhost:%d", hostPort), "localhost:$REGISTRY_PORT")
+				gotStr = strings.ReplaceAll(gotStr, fmt.Sprintf("oci__localhost_%d", hostPort), "oci__localhost_$REGISTRY_PORT")
+
 				sc := bufio.NewScanner(strings.NewReader(gotStr))
 				for sc.Scan() {
 					if !strings.HasPrefix(sc.Text(), "Templating ") {

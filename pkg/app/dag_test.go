@@ -84,12 +84,13 @@ releases:
 			}
 
 			app := appWithFs(&App{
-				OverrideHelmBinary:  DefaultHelmBinary,
-				fs:                  ffs.DefaultFileSystem(),
-				OverrideKubeContext: "default",
-				Env:                 tc.environment,
-				Logger:              logger,
-				valsRuntime:         valsRuntime,
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              ffs.DefaultFileSystem(),
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             tc.environment,
+				Logger:                          logger,
+				valsRuntime:                     valsRuntime,
 			}, files)
 
 			expectNoCallsToHelm(app)
@@ -127,8 +128,8 @@ releases:
 		check(t, testcase{
 			environment: "default",
 			expected: `GROUP RELEASE                                         DEPENDENCIES
-1     default/kube-system/logging                     
-1     default/kube-system/disabled                    
+1     default/kube-system/logging
+1     default/kube-system/disabled
 2     default/kube-system/kubernetes-external-secrets default/kube-system/logging
 2     default//test2                                  default/kube-system/disabled
 3     default/default/external-secrets                default/kube-system/kubernetes-external-secrets

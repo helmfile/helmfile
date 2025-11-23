@@ -1,6 +1,6 @@
 releases:
 - name: foo
-  chart: oci://localhost:5000/myrepo/raw
+  chart: oci://localhost:$REGISTRY_PORT/myrepo/raw
   version: 0.1.0
   values:
   - templates:

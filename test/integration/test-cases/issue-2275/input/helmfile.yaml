@@ -1,0 +1,5 @@
+releases:
+  - name: test-release-2275
+    namespace: default
+    chart: ./test-chart
+    installed: true

@@ -49,13 +49,14 @@ releases:
 		}
 
 		app := appWithFs(&App{
-			OverrideHelmBinary:  DefaultHelmBinary,
-			fs:                  ffs.DefaultFileSystem(),
-			OverrideKubeContext: "default",
-			Env:                 "default",
-			Logger:              logger,
-			valsRuntime:         valsRuntime,
-			FileOrDir:           "/path/to/helmfile.d",
+			OverrideHelmBinary:              DefaultHelmBinary,
+			fs:                              ffs.DefaultFileSystem(),
+			OverrideKubeContext:             "default",
+			DisableKubeVersionAutoDetection: true,
+			Env:                             "default",
+			Logger:                          logger,
+			valsRuntime:                     valsRuntime,
+			FileOrDir:                       "/path/to/helmfile.d",
 		}, files)
 
 		expectNoCallsToHelm(app)
@@ -116,13 +117,14 @@ releases:
 	}
 
 	app := appWithFs(&App{
-		OverrideHelmBinary:  DefaultHelmBinary,
-		fs:                  ffs.DefaultFileSystem(),
-		OverrideKubeContext: "default",
-		Env:                 "default",
-		Logger:              logger,
-		valsRuntime:         valsRuntime,
-		FileOrDir:           "/path/to/helmfile.d",
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		valsRuntime:                     valsRuntime,
+		FileOrDir:                       "/path/to/helmfile.d",
 	}, files)
 
 	expectNoCallsToHelm(app)

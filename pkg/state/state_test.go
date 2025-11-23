@@ -18,7 +18,6 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
-	"github.com/helmfile/helmfile/pkg/testutil"
 )
 
 var logger = helmexec.NewLogger(io.Discard, "warn")
@@ -3439,6 +3438,7 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 				},
 			},
 			helmVersion: "3.7.0",
+			wantErr:     true, // Now rejects "latest" for all Helm versions
 		},
 		{
 			state: HelmState{
@@ -3492,9 +3492,8 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%+v", tt.expected), func(t *testing.T) {
-			helm := testutil.NewVersionHelmExec(tt.helmVersion)
 			for i, r := range tt.state.Releases {
-				qualifiedChartName, chartName, chartVersion, err := tt.state.getOCIQualifiedChartName(&r, helm)
+				qualifiedChartName, chartName, chartVersion, err := tt.state.getOCIQualifiedChartName(&r)
 				if tt.wantErr {
 					require.Error(t, err, "getOCIQualifiedChartName() error = nil, want error")
 					return

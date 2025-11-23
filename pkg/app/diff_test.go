@@ -1170,11 +1170,12 @@ releases:
 				}
 
 				app := appWithFs(&App{
-					OverrideHelmBinary:  DefaultHelmBinary,
-					fs:                  ffs.DefaultFileSystem(),
-					OverrideKubeContext: overrideKubeContext,
-					Env:                 "default",
-					Logger:              logger,
+					OverrideHelmBinary:              DefaultHelmBinary,
+					fs:                              ffs.DefaultFileSystem(),
+					OverrideKubeContext:             overrideKubeContext,
+					DisableKubeVersionAutoDetection: true,
+					Env:                             "default",
+					Logger:                          logger,
 					helms: map[helmKey]helmexec.Interface{
 						createHelmKey("helm", overrideKubeContext): helm,
 					},

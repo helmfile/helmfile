@@ -27,7 +27,7 @@ export HELM_DATA_HOME="${helm_dir}/data"
 export HELM_HOME="${HELM_DATA_HOME}"
 export HELM_PLUGINS="${HELM_DATA_HOME}/plugins"
 export HELM_CONFIG_HOME="${helm_dir}/config"
-HELM_DIFF_VERSION="${HELM_DIFF_VERSION:-3.14.0}"
+HELM_DIFF_VERSION="${HELM_DIFF_VERSION:-3.14.1}"
 HELM_GIT_VERSION="${HELM_GIT_VERSION:-1.4.1}"
 HELM_SECRETS_VERSION="${HELM_SECRETS_VERSION:-4.7.0}"
 export GNUPGHOME="${PWD}/${dir}/.gnupg"
@@ -114,6 +114,8 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-1749.sh
 . ${dir}/test-cases/issue-1893.sh
 . ${dir}/test-cases/state-values-set-cli-args-in-environments.sh
+. ${dir}/test-cases/issue-2281-array-merge.sh
+. ${dir}/test-cases/issue-2247.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 

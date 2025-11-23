@@ -728,3 +728,154 @@ bases:
 		})
 	}
 }
+
+// TestEnvironmentMergingWithBases tests that environment values from multiple bases
+// are properly merged rather than replaced. This is a regression test for issue #2273.
+func TestEnvironmentMergingWithBases(t *testing.T) {
+	tests := []struct {
+		name          string
+		files         map[string]string
+		mainFile      string
+		environment   string
+		expectedError bool
+		checkValues   func(t *testing.T, state *HelmState)
+	}{
+		{
+			name: "environment values should merge from multiple bases",
+			files: map[string]string{
+				"/path/one.yaml": `environments:
+  sandbox:
+    values:
+      - example:
+          enabled: true
+`,
+				"/path/two.yaml": `environments:
+  sandbox: {}
+`,
+				"/path/helmfile.yaml": `bases:
+- one.yaml
+- two.yaml
+---
+repositories:
+  - name: examples
+    url: https://helm.github.io/examples
+releases:
+  - name: example
+    chart: examples/hello-world
+`,
+			},
+			mainFile:    "/path/helmfile.yaml",
+			environment: "sandbox",
+			checkValues: func(t *testing.T, state *HelmState) {
+				// Check that the environment has the values from the first base
+				envSpec, ok := state.Environments["sandbox"]
+				require.True(t, ok, "sandbox environment should exist")
+				require.NotNil(t, envSpec.Values, "environment values should not be nil")
+				require.Greater(t, len(envSpec.Values), 0, "environment should have values from first base")
+
+				// Check that RenderedValues has the example.enabled value
+				require.NotNil(t, state.RenderedValues, "rendered values should not be nil")
+				exampleVal, ok := state.RenderedValues["example"]
+				require.True(t, ok, "example key should exist in rendered values")
+				exampleMap, ok := exampleVal.(map[string]any)
+				require.True(t, ok, "example should be a map")
+				enabled, ok := exampleMap["enabled"]
+				require.True(t, ok, "enabled key should exist")
+				require.Equal(t, true, enabled, "enabled should be true")
+			},
+		},
+		{
+			name: "environment values should merge when second base adds values",
+			files: map[string]string{
+				"/path/one.yaml": `environments:
+  sandbox:
+    values:
+      - example:
+          enabled: true
+`,
+				"/path/two.yaml": `environments:
+  sandbox:
+    values:
+      - another:
+          setting: value
+`,
+				"/path/helmfile.yaml": `bases:
+- one.yaml
+- two.yaml
+---
+repositories:
+  - name: examples
+    url: https://helm.github.io/examples
+releases:
+  - name: example
+    chart: examples/hello-world
+`,
+			},
+			mainFile:    "/path/helmfile.yaml",
+			environment: "sandbox",
+			checkValues: func(t *testing.T, state *HelmState) {
+				// Check that both values from both bases are present
+				require.NotNil(t, state.RenderedValues, "rendered values should not be nil")
+
+				exampleVal, ok := state.RenderedValues["example"]
+				require.True(t, ok, "example key should exist in rendered values")
+				exampleMap, ok := exampleVal.(map[string]any)
+				require.True(t, ok, "example should be a map")
+				enabled, ok := exampleMap["enabled"]
+				require.True(t, ok, "enabled key should exist")
+				require.Equal(t, true, enabled, "enabled should be true")
+
+				anotherVal, ok := state.RenderedValues["another"]
+				require.True(t, ok, "another key should exist in rendered values")
+				anotherMap, ok := anotherVal.(map[string]any)
+				require.True(t, ok, "another should be a map")
+				setting, ok := anotherMap["setting"]
+				require.True(t, ok, "setting key should exist")
+				require.Equal(t, "value", setting, "setting should be 'value'")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			creator := &StateCreator{
+				logger: logger,
+				fs: &filesystem.FileSystem{
+					ReadFile: func(filename string) ([]byte, error) {
+						content, ok := tt.files[filename]
+						if !ok {
+							return nil, fmt.Errorf("file not found: %s", filename)
+						}
+						return []byte(content), nil
+					},
+				},
+				valsRuntime: valsRuntime,
+				Strict:      true,
+			}
+			creator.LoadFile = func(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error) {
+				path := filepath.Join(baseDir, file)
+				content, ok := tt.files[path]
+				if !ok {
+					return nil, fmt.Errorf("file not found: %s", path)
+				}
+				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, tt.environment, true, evaluateBases, inheritedEnv, overrodeEnv)
+			}
+
+			yamlContent, ok := tt.files[tt.mainFile]
+			if !ok {
+				t.Fatalf("no file named %q registered", tt.mainFile)
+			}
+
+			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, tt.environment, true, true, nil, nil)
+			if tt.expectedError {
+				require.Error(t, err, "expected an error but got none")
+				return
+			}
+			require.NoError(t, err, "unexpected error: %v", err)
+
+			if tt.checkValues != nil {
+				tt.checkValues(t, state)
+			}
+		})
+	}
+}
