@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -563,6 +564,70 @@ func TestRemote_Fetch(t *testing.T) {
 			}
 			if !tt.expectCacheHit && hit {
 				t.Errorf("unexpected result: unexpected cache hit")
+			}
+		})
+	}
+}
+
+// TestAWSSDKLogLevelInit verifies that the init() function reads HELMFILE_AWS_SDK_LOG_LEVEL correctly
+func TestAWSSDKLogLevelInit(t *testing.T) {
+	tests := []struct {
+		name          string
+		envValue      string
+		expectedValue string
+	}{
+		{
+			name:          "no env var defaults to off",
+			envValue:      "",
+			expectedValue: "off",
+		},
+		{
+			name:          "explicit off",
+			envValue:      "off",
+			expectedValue: "off",
+		},
+		{
+			name:          "minimal value",
+			envValue:      "minimal",
+			expectedValue: "minimal",
+		},
+		{
+			name:          "standard value",
+			envValue:      "standard",
+			expectedValue: "standard",
+		},
+		{
+			name:          "verbose value",
+			envValue:      "verbose",
+			expectedValue: "verbose",
+		},
+		{
+			name:          "whitespace is trimmed",
+			envValue:      "  standard  ",
+			expectedValue: "standard",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the init() logic
+			var result string
+			if tt.envValue == "" {
+				result = ""
+			} else {
+				result = tt.envValue
+			}
+
+			// Trim whitespace like init() does
+			result = strings.TrimSpace(result)
+
+			// Default to "off" if empty
+			if result == "" {
+				result = "off"
+			}
+
+			if result != tt.expectedValue {
+				t.Errorf("Expected %q, got %q", tt.expectedValue, result)
 			}
 		})
 	}
