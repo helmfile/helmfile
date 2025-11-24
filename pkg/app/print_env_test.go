@@ -431,6 +431,7 @@ func createTestApp(t *testing.T, files map[string]string, environment string) *A
 		Env:                 environment,
 		Logger:              logger,
 		valsRuntime:         valsRuntime,
+		FileOrDir:           "helmfile.yaml",
 	}, files)
 
 	expectNoCallsToHelm(app)

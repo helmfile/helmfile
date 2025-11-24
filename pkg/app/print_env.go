@@ -51,7 +51,7 @@ func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 			if !firstDoc {
 				fmt.Println(",")
 			}
-			outputBytes, err = json.MarshalIndent(output, "  ", "  ")
+			outputBytes, err = json.MarshalIndent(output, "", "  ")
 			if err != nil {
 				return false, []error{fmt.Errorf("failed to marshal to JSON: %w", err)}
 			}

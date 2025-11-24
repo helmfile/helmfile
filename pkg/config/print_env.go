@@ -36,7 +36,7 @@ func NewPrintEnvImpl(g *GlobalImpl, p *PrintEnvOptions) *PrintEnvImpl {
 
 // ValidateConfig validates the print-env configuration
 func (c *PrintEnvImpl) ValidateConfig() error {
-	if c.OutputFormat != "yaml" && c.OutputFormat != "json" {
+	if c.OutputFormat != "" && c.OutputFormat != "yaml" && c.OutputFormat != "json" {
 		return fmt.Errorf("invalid output format %q: must be 'yaml' or 'json'", c.OutputFormat)
 	}
 	return nil
