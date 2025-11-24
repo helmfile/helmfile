@@ -122,6 +122,8 @@ github.com/ProtonMail/go-crypto v1.3.0 h1:ILq8+Sf5If5DCpHQp4PbZdS1J7HDFRXz/+xKBi
 github.com/ProtonMail/go-crypto v1.3.0/go.mod h1:9whxjD8Rbs29b4XWbB8irEcE8KHMqaR2e7GWU1R+/PE=
 github.com/a8m/envsubst v1.4.3 h1:kDF7paGK8QACWYaQo6KtyYBozY2jhQrTuNNuUxQkhJY=
 github.com/a8m/envsubst v1.4.3/go.mod h1:4jjHWQlZoaXPoLQUb7H2qT4iLkZDdmEQiOUogdUmqVU=
+github.com/aditmeno/vals v0.0.0-20251124024426-019660e696dd h1:Ba9/4/CnhJgUByegYV9nWdROIBe9NWv7QYdOXwE8FEs=
+github.com/aditmeno/vals v0.0.0-20251124024426-019660e696dd/go.mod h1:rS59/KXlsWijVZbYxuCER1H+tFeBjGSC831wobwmMTU=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antchfx/jsonquery v1.3.6 h1:TaSfeAh7n6T11I74bsZ1FswreIfrbJ0X+OyLflx6mx4=
@@ -483,8 +485,6 @@ github.com/hashicorp/vault/api v1.22.0 h1:+HYFquE35/B74fHoIeXlZIP2YADVboaPjaSicH
 github.com/hashicorp/vault/api v1.22.0/go.mod h1:IUZA2cDvr4Ok3+NtK2Oq/r+lJeXkeCrHRmqdyWfpmGM=
 github.com/helmfile/chartify v0.26.0 h1:uG1sThH7MGhyuevTqnwi70+7SHh+IpLSd2SnBVGYmZo=
 github.com/helmfile/chartify v0.26.0/go.mod h1:e4Ym+XfSIPdqG3KL8lwkSrvQzrRKTEQKyF1/8BoFpVA=
-github.com/helmfile/vals v0.42.5 h1:JOK1RnmemF14G7UeBFsmacVEAJdoGmQQt9WxT6JEz4M=
-github.com/helmfile/vals v0.42.5/go.mod h1:tcYnsvuknPGbfqyCQozvGc2xAr9CKMiM7KEUQNKuuJU=
 github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec h1:qv2VnGeEQHchGaZ/u7lxST/RaJw+cv273q79D81Xbog=
 github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec/go.mod h1:Q48J4R4DvxnHolD5P8pOtXigYlRuPLGl6moFx3ulM68=
 github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f h1:7LYC+Yfkj3CTRcShK0KOL/w6iTiKyqqBA9a41Wnggw8=

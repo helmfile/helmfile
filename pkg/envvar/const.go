@@ -15,4 +15,16 @@ const (
 	GoYamlV3              = "HELMFILE_GO_YAML_V3"
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
+
+	// AWSSDKLogLevel controls AWS SDK logging level
+	// Valid values: "off" (default), "minimal", "standard", "verbose", or custom (e.g., "request,response")
+	// - "off": No AWS SDK logging (secure default, prevents credential leakage)
+	// - "minimal": Log retries only
+	// - "standard": Log retries and requests (previous default behavior)
+	// - "verbose": Log everything (requests, responses, bodies, signing)
+	// - Custom: Comma-separated AWS SDK log modes
+	// This is passed to vals Options.AWSLogLevel
+	// Can be overridden by AWS_SDK_GO_LOG_LEVEL environment variable
+	// See issue #2270 and vals PR #893
+	AWSSDKLogLevel = "HELMFILE_AWS_SDK_LOG_LEVEL"
 )

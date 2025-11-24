@@ -28,10 +28,17 @@ import (
 var (
 	protocols               = []string{"s3", "http", "https"}
 	disableInsecureFeatures bool
+	awsSDKLogLevel          string
 )
 
 func init() {
 	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
+	// Read AWS SDK log level configuration
+	// Default to "off" for security if not specified
+	awsSDKLogLevel = strings.TrimSpace(os.Getenv(envvar.AWSSDKLogLevel))
+	if awsSDKLogLevel == "" {
+		awsSDKLogLevel = "off"
+	}
 }
 
 func CacheDir() string {
@@ -368,9 +375,19 @@ func (g *S3Getter) Get(wd, src, dst string) error {
 	}
 
 	// Create a new AWS config and S3 client using AWS SDK v2
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
+	// Suppress AWS SDK debug logging by default to prevent sensitive information from being logged
+	// Can be configured via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
+	// See issue #2270
+	configOpts := []func(*config.LoadOptions) error{
 		config.WithRegion(region),
-	)
+	}
+	// Only add log suppression if set to "off" (default)
+	// For other values (minimal, standard, verbose), AWS SDK will respect AWS_SDK_GO_LOG_LEVEL env var
+	if awsSDKLogLevel == "off" {
+		// ClientLogMode(0) disables all AWS SDK logging (no LogRequest, LogResponse, etc.)
+		configOpts = append(configOpts, config.WithClientLogMode(0))
+	}
+	cfg, err := config.LoadDefaultConfig(context.TODO(), configOpts...)
 	if err != nil {
 		return err
 	}
@@ -467,7 +484,15 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 
 	// Region
 	g.Logger.Debugf("Creating config for determining S3 region %s", path)
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	// Suppress AWS SDK debug logging by default to prevent sensitive information from being logged
+	// Can be configured via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
+	// See issue #2270
+	var configOpts []func(*config.LoadOptions) error
+	if awsSDKLogLevel == "off" {
+		// ClientLogMode(0) disables all AWS SDK logging (no LogRequest, LogResponse, etc.)
+		configOpts = append(configOpts, config.WithClientLogMode(0))
+	}
+	cfg, err := config.LoadDefaultConfig(context.TODO(), configOpts...)
 	if err != nil {
 		return "", err
 	}
@@ -491,9 +516,17 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 
 	// File existence
 	g.Logger.Debugf("Creating new config with region to see if file exists")
-	regionCfg, err := config.LoadDefaultConfig(context.TODO(),
+	// Suppress AWS SDK debug logging by default to prevent sensitive information from being logged
+	// Can be configured via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
+	// See issue #2270
+	regionConfigOpts := []func(*config.LoadOptions) error{
 		config.WithRegion(bucketRegion),
-	)
+	}
+	if awsSDKLogLevel == "off" {
+		// ClientLogMode(0) disables all AWS SDK logging (no LogRequest, LogResponse, etc.)
+		regionConfigOpts = append(regionConfigOpts, config.WithClientLogMode(0))
+	}
+	regionCfg, err := config.LoadDefaultConfig(context.TODO(), regionConfigOpts...)
 	if err != nil {
 		g.Logger.Error(err)
 		return bucketRegion, err

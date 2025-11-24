@@ -340,3 +340,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
+
+replace github.com/helmfile/vals v0.42.5 => github.com/aditmeno/vals v0.0.0-20251124024426-019660e696dd
