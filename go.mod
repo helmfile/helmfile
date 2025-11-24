@@ -340,3 +340,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
+
+replace github.com/helmfile/chartify v0.26.0 => github.com/aditmeno/chartify v0.0.0-20251124033559-4f1b5cc2a37b

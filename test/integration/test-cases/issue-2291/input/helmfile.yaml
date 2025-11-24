@@ -1,0 +1,8 @@
+releases:
+  - name: test-release-2291
+    chart: ./test-chart
+    installed: true
+    # Strategic merge patches should NOT cause CRDs to be removed
+    # Issue: https://github.com/helmfile/helmfile/issues/2291
+    strategicMergePatches:
+      - dns-patch.yaml

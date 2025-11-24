@@ -1,0 +1,6 @@
+crds:
+  install: true
+
+deployment:
+  name: test-app
+  replicas: 1

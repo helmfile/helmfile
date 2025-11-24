@@ -1,0 +1,14 @@
+# Strategic merge patch to modify Deployment
+# This patch should NOT cause CRDs to be removed
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app
+spec:
+  template:
+    spec:
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
