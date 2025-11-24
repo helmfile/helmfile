@@ -608,7 +608,10 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		username, password := gatherUsernamePassword(repo.Name, repo.Username, repo.Password)
 		var err error
 		if repo.OCI {
-			err = helm.RegistryLogin(repo.URL, username, password, repo.CaFile, repo.CertFile, repo.KeyFile, repo.SkipTLSVerify)
+			// For OCI registries, extract just the registry host for login
+			// helm registry login expects "registry.io" not "registry.io/org/path"
+			registryHost := extractRegistryHost(repo.URL)
+			err = helm.RegistryLogin(registryHost, username, password, repo.CaFile, repo.CertFile, repo.KeyFile, repo.SkipTLSVerify)
 		} else {
 			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, username, password, repo.Managed, repo.PassCredentials, repo.SkipTLSVerify)
 		}
@@ -621,6 +624,23 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 	}
 
 	return updated, nil
+}
+
+// extractRegistryHost extracts the registry hostname (and optional port) from a URL.
+// For OCI registries, helm registry login requires just the host, not the full path.
+// Examples:
+//   - "quay.io/org/repo" -> "quay.io"
+//   - "registry:443/helm-charts" -> "registry:443"
+//   - "myregistry.azurecr.io" -> "myregistry.azurecr.io"
+func extractRegistryHost(repoURL string) string {
+	// Find the first slash after the initial part
+	slashIndex := strings.Index(repoURL, "/")
+	if slashIndex == -1 {
+		// No slash, return the whole URL
+		return repoURL
+	}
+	// Return everything before the first slash
+	return repoURL[:slashIndex]
 }
 
 func gatherUsernamePassword(repoName string, username string, password string) (string, string) {

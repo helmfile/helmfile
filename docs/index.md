@@ -1825,7 +1825,16 @@ repositories:
     oci: true
 ```
 
-It is important not to include a scheme for the URL as helm requires that these are not present for OCI registries
+It is important not to include a scheme for the URL as helm requires that these are not present for OCI registries.
+
+The URL can optionally include an organization or repository path. Helmfile will automatically extract the registry hostname for authentication:
+
+```yaml
+repositories:
+  - name: myOCIRegistry
+    url: quay.io/my-organization
+    oci: true
+```
 
 Secondly the credentials for the OCI registry can either be specified within `helmfile.yaml` similar to
 
