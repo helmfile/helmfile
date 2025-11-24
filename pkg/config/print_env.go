@@ -10,14 +10,7 @@ type PrintEnvOptions struct {
 
 // NewPrintEnvOptions creates a new PrintEnvOptions
 func NewPrintEnvOptions() *PrintEnvOptions {
-	return &PrintEnvOptions{
-		OutputFormat: "yaml", // default to yaml
-	}
-}
-
-// Output returns the output format
-func (p *PrintEnvOptions) Output() string {
-	return p.OutputFormat
+	return &PrintEnvOptions{}
 }
 
 // PrintEnvImpl is impl for PrintEnvOptions
@@ -32,6 +25,11 @@ func NewPrintEnvImpl(g *GlobalImpl, p *PrintEnvOptions) *PrintEnvImpl {
 		GlobalImpl:      g,
 		PrintEnvOptions: p,
 	}
+}
+
+// Output returns the output format
+func (c *PrintEnvImpl) Output() string {
+	return c.OutputFormat
 }
 
 // ValidateConfig validates the print-env configuration
