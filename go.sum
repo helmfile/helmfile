@@ -122,8 +122,8 @@ github.com/ProtonMail/go-crypto v1.3.0 h1:ILq8+Sf5If5DCpHQp4PbZdS1J7HDFRXz/+xKBi
 github.com/ProtonMail/go-crypto v1.3.0/go.mod h1:9whxjD8Rbs29b4XWbB8irEcE8KHMqaR2e7GWU1R+/PE=
 github.com/a8m/envsubst v1.4.3 h1:kDF7paGK8QACWYaQo6KtyYBozY2jhQrTuNNuUxQkhJY=
 github.com/a8m/envsubst v1.4.3/go.mod h1:4jjHWQlZoaXPoLQUb7H2qT4iLkZDdmEQiOUogdUmqVU=
-github.com/aditmeno/vals v0.0.0-20251124024426-019660e696dd h1:Ba9/4/CnhJgUByegYV9nWdROIBe9NWv7QYdOXwE8FEs=
-github.com/aditmeno/vals v0.0.0-20251124024426-019660e696dd/go.mod h1:rS59/KXlsWijVZbYxuCER1H+tFeBjGSC831wobwmMTU=
+github.com/aditmeno/vals v0.0.0-20251124042713-06d7cd29bea4 h1:pRMFQiP96yf1nSACNtUha5xCk42KmH69M5S0uzqEkpk=
+github.com/aditmeno/vals v0.0.0-20251124042713-06d7cd29bea4/go.mod h1:rS59/KXlsWijVZbYxuCER1H+tFeBjGSC831wobwmMTU=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antchfx/jsonquery v1.3.6 h1:TaSfeAh7n6T11I74bsZ1FswreIfrbJ0X+OyLflx6mx4=
