@@ -65,6 +65,7 @@ info "SUCCESS: OCI charts without version do not trigger validation error"
 if ! command -v docker &> /dev/null; then
   info "Skipping registry tests (Docker not available)"
   rm -rf "${issue_2247_tmp_dir}"
+  trap - EXIT
   test_pass "issue-2247: OCI charts without version (validation tests only)"
   return 0
 fi
@@ -73,6 +74,7 @@ fi
 if ! docker info &> /dev/null; then
   info "Skipping registry tests (Docker daemon not running)"
   rm -rf "${issue_2247_tmp_dir}"
+  trap - EXIT
   test_pass "issue-2247: OCI charts without version (validation tests only)"
   return 0
 fi
@@ -105,6 +107,7 @@ if [ $? -ne 0 ]; then
   cat "${issue_2247_tmp_dir}/registry-start.log"
   warn "Failed to start Docker registry - skipping registry tests"
   rm -rf "${issue_2247_tmp_dir}"
+  trap - EXIT
   test_pass "issue-2247: OCI charts without version (validation tests only)"
   return 0
 fi
@@ -125,6 +128,7 @@ done
 if [ $attempt -eq $max_attempts ]; then
   warn "Registry did not become ready in time - skipping registry tests"
   cleanup_registry
+  trap - EXIT
   test_pass "issue-2247: OCI charts without version (validation tests only)"
   return 0
 fi
@@ -138,6 +142,7 @@ if [ $? -ne 0 ]; then
   cat "${issue_2247_tmp_dir}/package.log"
   warn "Failed to package chart - skipping registry tests"
   cleanup_registry
+  trap - EXIT
   test_pass "issue-2247: OCI charts without version (validation tests only)"
   return 0
 fi
@@ -145,12 +150,14 @@ set -e  # Re-enable exit on error after successful package
 
 info "Pushing chart version 1.0.0 to local registry"
 set +e  # Disable exit on error to handle failures gracefully
-${helm} push "${issue_2247_tmp_dir}/test-chart-2247-1.0.0.tgz" oci://localhost:${registry_port} > "${issue_2247_tmp_dir}/push.log" 2>&1
+# Use --plain-http for localhost registry (HTTP instead of HTTPS)
+${helm} push "${issue_2247_tmp_dir}/test-chart-2247-1.0.0.tgz" oci://localhost:${registry_port} --plain-http > "${issue_2247_tmp_dir}/push.log" 2>&1
 if [ $? -ne 0 ]; then
   set -e  # Re-enable before cleanup
   cat "${issue_2247_tmp_dir}/push.log"
   warn "Failed to push chart to registry - skipping registry tests"
   cleanup_registry
+  trap - EXIT
   test_pass "issue-2247: OCI charts without version (validation tests only)"
   return 0
 fi
@@ -162,7 +169,7 @@ cp -r "${issue_2247_chart_dir}" "${issue_2247_tmp_dir}/chart-v2"
 sed -i.bak 's/version: 1.0.0/version: 2.0.0/' "${issue_2247_tmp_dir}/chart-v2/Chart.yaml"
 set +e  # Disable exit on error for package/push operations
 ${helm} package "${issue_2247_tmp_dir}/chart-v2" -d "${issue_2247_tmp_dir}" > "${issue_2247_tmp_dir}/package-v2.log" 2>&1
-${helm} push "${issue_2247_tmp_dir}/test-chart-2247-2.0.0.tgz" oci://localhost:${registry_port} > "${issue_2247_tmp_dir}/push-v2.log" 2>&1
+${helm} push "${issue_2247_tmp_dir}/test-chart-2247-2.0.0.tgz" oci://localhost:${registry_port} --plain-http > "${issue_2247_tmp_dir}/push-v2.log" 2>&1
 set -e  # Re-enable exit on error
 
 info "Successfully pushed chart versions 1.0.0 and 2.0.0"
@@ -270,4 +277,6 @@ else
 fi
 
 # All tests passed!
+# Remove the EXIT trap to avoid interfering with subsequent tests
+trap - EXIT
 test_pass "issue-2247: OCI charts without version (all tests including registry)"
