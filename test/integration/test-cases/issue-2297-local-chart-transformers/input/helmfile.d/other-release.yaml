@@ -1,0 +1,6 @@
+# Issue #2297: Another release file in helmfile.d
+# The bug manifests when there are MULTIPLE release files in helmfile.d
+# This file represents another release that doesn't use transformers
+releases:
+  - name: simple-release
+    chart: ../chart

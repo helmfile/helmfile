@@ -117,6 +117,8 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-2281-array-merge.sh
 . ${dir}/test-cases/issue-2247.sh
 . ${dir}/test-cases/issue-2291.sh
+. ${dir}/test-cases/oci-parallel-pull.sh
+. ${dir}/test-cases/issue-2297-local-chart-transformers.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 

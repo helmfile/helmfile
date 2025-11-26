@@ -3274,6 +3274,118 @@ func Test_gatherUsernamePassword(t *testing.T) {
 	}
 }
 
+func Test_extractRegistryHost(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "ECR with chart path",
+			url:  "123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-charts",
+			want: "123456789012.dkr.ecr.us-east-1.amazonaws.com",
+		},
+		{
+			name: "GHCR with nested path",
+			url:  "ghcr.io/deliveryhero/helm-charts",
+			want: "ghcr.io",
+		},
+		{
+			name: "registry with port and path",
+			url:  "registry.example.com:5000/helm-charts",
+			want: "registry.example.com:5000",
+		},
+		{
+			name: "registry without path",
+			url:  "registry.example.com",
+			want: "registry.example.com",
+		},
+		{
+			name: "with oci:// prefix and path",
+			url:  "oci://ghcr.io/charts/nginx",
+			want: "ghcr.io",
+		},
+		{
+			name: "with https:// prefix and path",
+			url:  "https://registry.example.com/helm-charts",
+			want: "registry.example.com",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := extractRegistryHost(tt.url); got != tt.want {
+				t.Errorf("extractRegistryHost() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHelmState_SyncRepos_OCI(t *testing.T) {
+	tests := []struct {
+		name                  string
+		repos                 []RepositorySpec
+		wantRegistryLoginHost string
+	}{
+		{
+			name: "OCI registry with chart path should extract host only",
+			repos: []RepositorySpec{
+				{
+					Name:     "ecr",
+					URL:      "123456789012.dkr.ecr.us-east-1.amazonaws.com/helm-charts",
+					OCI:      true,
+					Username: "AWS",
+					Password: "token",
+				},
+			},
+			wantRegistryLoginHost: "123456789012.dkr.ecr.us-east-1.amazonaws.com",
+		},
+		{
+			name: "OCI registry without path should pass URL as-is",
+			repos: []RepositorySpec{
+				{
+					Name:     "ghcr",
+					URL:      "ghcr.io",
+					OCI:      true,
+					Username: "user",
+					Password: "pass",
+				},
+			},
+			wantRegistryLoginHost: "ghcr.io",
+		},
+		{
+			name: "OCI registry with nested path",
+			repos: []RepositorySpec{
+				{
+					Name:     "docker",
+					URL:      "registry-1.docker.io/bitnamicharts",
+					OCI:      true,
+					Username: "user",
+					Password: "pass",
+				},
+			},
+			wantRegistryLoginHost: "registry-1.docker.io",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			helm := &exectest.Helm{}
+			state := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: tt.repos,
+				},
+			}
+			_, err := state.SyncRepos(helm, map[string]bool{})
+			if err != nil {
+				t.Errorf("SyncRepos() error = %v", err)
+				return
+			}
+			if helm.RegistryLoginHost != tt.wantRegistryLoginHost {
+				t.Errorf("RegistryLogin was called with host = %q, want %q", helm.RegistryLoginHost, tt.wantRegistryLoginHost)
+			}
+		})
+	}
+}
+
 func TestGenerateOutputFilePath(t *testing.T) {
 	tests := []struct {
 		envName            string
