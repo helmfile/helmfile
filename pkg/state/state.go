@@ -1466,19 +1466,13 @@ func (st *HelmState) processLocalChart(normalizedChart, dir string, release *Rel
 // The lock ensures the chart won't be deleted while helm is using it.
 func (st *HelmState) forcedDownloadChart(chartName, dir string, release *ReleaseSpec, helm helmexec.Interface, opts ChartPrepareOptions) (string, *chartLockResult, error) {
 	// Check global chart cache first for non-OCI charts
+	// If found, another worker in this process already downloaded and holds the lock.
+	// We don't need to acquire another lock - the tempDir won't be deleted until
+	// after helm operations complete (cleanup is deferred in withPreparedCharts).
 	cacheKey := st.getChartCacheKey(release)
 	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
 		st.logger.Debugf("Chart %s:%s already downloaded, using cached version at %s", chartName, release.Version, cachedPath)
-		// Still need to acquire a shared lock to prevent deletion while using
-		chartPath, err := generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
-		if err != nil {
-			return "", nil, err
-		}
-		lockResult, lockErr := st.acquireChartLock(chartPath, opts)
-		if lockErr != nil {
-			return "", nil, lockErr
-		}
-		return cachedPath, lockResult, nil
+		return cachedPath, nil, nil
 	}
 
 	chartPath, err := generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
@@ -4609,17 +4603,14 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return nil, nil, nil
 	}
 
-	// Check global chart cache first (in-memory cache, no lock needed)
+	// Check global chart cache first (in-memory cache)
+	// If found, another worker in this process already downloaded and holds the lock.
+	// We don't need to acquire another lock - the tempDir won't be deleted until
+	// after helm operations complete (cleanup is deferred in withPreparedCharts).
 	cacheKey := st.getChartCacheKey(release)
 	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
 		st.logger.Debugf("OCI chart %s:%s already downloaded, using cached version at %s", chartName, chartVersion, cachedPath)
-		// Still need to acquire a shared lock to prevent deletion while using
-		chartPath, _ := st.getOCIChartPath(tempDir, release, chartName, chartVersion, opts.OutputDirTemplate)
-		lockResult, lockErr := st.acquireChartLock(chartPath, opts)
-		if lockErr != nil {
-			return nil, nil, lockErr
-		}
-		return &cachedPath, lockResult, nil
+		return &cachedPath, nil, nil
 	}
 
 	if opts.OutputDirTemplate == "" {
