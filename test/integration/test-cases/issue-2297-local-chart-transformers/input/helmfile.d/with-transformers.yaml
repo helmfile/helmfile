@@ -1,0 +1,17 @@
+# Issue #2297: Local chart with transformers
+# The bug manifests when there are MULTIPLE release files in helmfile.d
+# and one of them uses a local chart with transformers.
+# The chart path should be normalized before being passed to chartify.
+releases:
+  - name: test-with-transformers
+    chart: ../chart
+    transformers:
+      - apiVersion: builtin
+        kind: AnnotationsTransformer
+        metadata:
+          name: add-annotations
+        annotations:
+          test-annotation: "added-by-transformer"
+        fieldSpecs:
+          - path: metadata/annotations
+            create: true

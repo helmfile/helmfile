@@ -1,0 +1,14 @@
+# Test helmfile for issue #2295: Parallel OCI chart pulls
+# This helmfile uses an OCI chart to test that parallel pulls
+# don't cause race conditions with the file locking mechanism.
+repositories:
+  - name: docker
+    url: registry-1.docker.io
+    oci: true
+
+releases:
+  # Using a chart that can be templated (not a library chart).
+  # Library charts cannot be templated by Helm and would skip the file locking logic being tested.
+  - name: test-parallel-pull
+    chart: docker/bitnamicharts/nginx
+    version: "18.2.5"

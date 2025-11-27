@@ -62,7 +62,13 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		panic("Run.PrepareCharts can be called only once")
 	}
 
-	if !opts.SkipRepos {
+	// Check both CLI options and helmDefaults for skipping repos (issue #2296)
+	// Both skipDeps and skipRefresh cause repo sync to be skipped because:
+	// - skipRefresh explicitly means "don't update repos"
+	// - skipDeps implies "I have all dependencies locally" which means repo data isn't needed
+	// This matches the CLI behavior where --skip-deps and --skip-refresh both skip repo operations.
+	skipRepos := opts.SkipRepos || r.state.HelmDefaults.SkipDeps || r.state.HelmDefaults.SkipRefresh
+	if !skipRepos {
 		ctx := r.ctx
 		if err := ctx.SyncReposOnce(r.state, r.helm); err != nil {
 			return err
@@ -120,7 +126,10 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {
-	if !c.SkipRepos() {
+	// Check both CLI options and helmDefaults for skipping repos (issue #2296)
+	// Both skipDeps and skipRefresh cause repo sync to be skipped (see withPreparedCharts for rationale)
+	skipRepos := c.SkipRepos() || r.state.HelmDefaults.SkipDeps || r.state.HelmDefaults.SkipRefresh
+	if !skipRepos {
 		if err := r.ctx.SyncReposOnce(r.state, r.helm); err != nil {
 			return []error{err}
 		}

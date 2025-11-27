@@ -2,6 +2,7 @@ package state
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
@@ -21,6 +22,7 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
+	"github.com/gofrs/flock"
 	"github.com/helmfile/chartify"
 	"github.com/helmfile/vals"
 	"github.com/tatsushid/go-prettytable"
@@ -608,7 +610,10 @@ func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]
 		username, password := gatherUsernamePassword(repo.Name, repo.Username, repo.Password)
 		var err error
 		if repo.OCI {
-			err = helm.RegistryLogin(repo.URL, username, password, repo.CaFile, repo.CertFile, repo.KeyFile, repo.SkipTLSVerify)
+			// For OCI registries, we only need the registry host for login, not the full URL with chart path.
+			// e.g., "123456789012.dkr.ecr.us-east-1.amazonaws.com/charts" -> "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+			registryHost := extractRegistryHost(repo.URL)
+			err = helm.RegistryLogin(registryHost, username, password, repo.CaFile, repo.CertFile, repo.KeyFile, repo.SkipTLSVerify)
 		} else {
 			err = helm.AddRepo(repo.Name, repo.URL, repo.CaFile, repo.CertFile, repo.KeyFile, username, password, repo.Managed, repo.PassCredentials, repo.SkipTLSVerify)
 		}
@@ -640,6 +645,29 @@ func gatherUsernamePassword(repoName string, username string, password string) (
 	}
 
 	return user, pass
+}
+
+// extractRegistryHost extracts just the registry host from an OCI repository URL.
+// For "helm registry login", we only need the registry host, not the full path including chart location.
+// Examples:
+//   - "123456789012.dkr.ecr.us-west-2.amazonaws.com/charts" -> "123456789012.dkr.ecr.us-west-2.amazonaws.com"
+//   - "ghcr.io/deliveryhero/helm-charts" -> "ghcr.io"
+//   - "registry.example.com:5000/charts" -> "registry.example.com:5000"
+//
+// Note: This function does not handle URLs with query parameters or fragments, as these
+// are not typically used in OCI registry URLs.
+func extractRegistryHost(url string) string {
+	// Remove any protocol prefix if present
+	url = strings.TrimPrefix(url, "oci://")
+	url = strings.TrimPrefix(url, "https://")
+	url = strings.TrimPrefix(url, "http://")
+
+	// Find the first slash that separates the host from the path
+	if idx := strings.Index(url, "/"); idx != -1 {
+		return url[:idx]
+	}
+	// No path, return as-is
+	return url
 }
 
 type syncResult struct {
@@ -1294,17 +1322,19 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 	return nil, chartName
 }
 
-var mutexMap sync.Map
+var rwMutexMap sync.Map
 
-// retrieves or creates a sync.Mutex for a given name
-func (st *HelmState) getNamedMutex(name string) *sync.Mutex {
-	mu, ok := mutexMap.Load(name)
+// getNamedRWMutex retrieves or creates a sync.RWMutex for a given name.
+// This is used for reader-writer locking where multiple readers can access
+// the resource simultaneously, but writers need exclusive access.
+func (st *HelmState) getNamedRWMutex(name string) *sync.RWMutex {
+	mu, ok := rwMutexMap.Load(name)
 	if ok {
-		return mu.(*sync.Mutex)
+		return mu.(*sync.RWMutex)
 	}
-	newMu := &sync.Mutex{}
-	actualMu, _ := mutexMap.LoadOrStore(name, newMu)
-	return actualMu.(*sync.Mutex)
+	newMu := &sync.RWMutex{}
+	actualMu, _ := rwMutexMap.LoadOrStore(name, newMu)
+	return actualMu.(*sync.RWMutex)
 }
 
 type PrepareChartKey struct {
@@ -1427,9 +1457,13 @@ func (st *HelmState) processLocalChart(normalizedChart, dir string, release *Rel
 	return chartPath, nil
 }
 
-// forcedDownloadChart handles forced chart downloads
+// forcedDownloadChart handles forced chart downloads.
+// Locks are acquired during download and released immediately after.
 func (st *HelmState) forcedDownloadChart(chartName, dir string, release *ReleaseSpec, helm helmexec.Interface, opts ChartPrepareOptions) (string, error) {
 	// Check global chart cache first for non-OCI charts
+	// If found, another worker in this process already downloaded the chart.
+	// We don't need to acquire a lock - the tempDir won't be deleted until
+	// after helm operations complete (cleanup is deferred in withPreparedCharts).
 	cacheKey := st.getChartCacheKey(release)
 	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
 		st.logger.Debugf("Chart %s:%s already downloaded, using cached version at %s", chartName, release.Version, cachedPath)
@@ -1441,16 +1475,31 @@ func (st *HelmState) forcedDownloadChart(chartName, dir string, release *Release
 		return "", err
 	}
 
-	// only fetch chart if it is not already fetched
-	if _, err := os.Stat(chartPath); os.IsNotExist(err) {
-		var fetchFlags []string
-		fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
-		fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
-		if err := helm.Fetch(chartName, fetchFlags...); err != nil {
-			return "", err
-		}
-	} else {
-		st.logger.Infof("\"%s\" has not been downloaded because the output directory \"%s\" already exists", chartName, chartPath)
+	// Acquire locks and determine action
+	// Pass a callback that checks if another worker in this process has already cached the chart.
+	// This prevents deleting and re-downloading a chart that was just downloaded by another worker.
+	lockResult, err := st.acquireChartLock(chartPath, opts, func() bool {
+		_, exists := st.checkChartCache(cacheKey)
+		return exists
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// If cached on filesystem, release lock and return
+	if lockResult.action == chartActionUseCached {
+		st.addToChartCache(cacheKey, lockResult.cachedPath)
+		lockResult.Release(st.logger)
+		return lockResult.cachedPath, nil
+	}
+
+	// Download the chart
+	var fetchFlags []string
+	fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
+	fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
+	if err := helm.Fetch(chartName, fetchFlags...); err != nil {
+		lockResult.Release(st.logger)
+		return "", err
 	}
 
 	// Set chartPath to be the path containing Chart.yaml, if found
@@ -1461,6 +1510,10 @@ func (st *HelmState) forcedDownloadChart(chartName, dir string, release *Release
 
 	// Add to global chart cache
 	st.addToChartCache(cacheKey, chartPath)
+
+	// Release lock immediately after download - the tempDir cleanup is deferred
+	// until after helm operations complete, so the chart won't be deleted mid-use.
+	lockResult.Release(st.logger)
 
 	return chartPath, nil
 }
@@ -1525,6 +1578,12 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 	skipRefresh := !isLocal || skipRefreshGlobal || skipRefreshRelease || skipRefreshDefault
 
 	if chartification != nil && helmfileCommand != "pull" {
+		// Issue #2297: Normalize local chart paths before chartification
+		// When using transformers with local charts like "../chart", the chartify process
+		// needs an absolute path, otherwise it tries "helm pull ../chart" which fails
+		if isLocal {
+			chartPath = normalizeChart(st.basePath, chartPath)
+		}
 		chartPath, buildDeps, err = st.processChartification(chartification, release, chartPath, opts, skipDeps, helmfileCommand)
 		if err != nil {
 			return &chartPrepareResult{err: err}
@@ -1566,6 +1625,12 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 	}
 }
 
+// PrepareCharts downloads and prepares all charts for the selected releases.
+// Returns the chart paths and any errors encountered.
+//
+// Note: OCI chart locks are acquired and released during chart download within this function.
+// The tempDir cleanup is deferred until after helm operations complete in the caller,
+// so charts remain available during helm commands even though locks are released.
 func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
@@ -1619,17 +1684,17 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				if downloadRes.err != nil {
 					errs = append(errs, downloadRes.err)
-
 					return
 				}
 				func() {
 					prepareChartInfoMutex.Lock()
 					defer prepareChartInfoMutex.Unlock()
-					prepareChartInfo[PrepareChartKey{
+					key := PrepareChartKey{
 						Namespace:   downloadRes.releaseNamespace,
 						KubeContext: downloadRes.releaseContext,
 						Name:        downloadRes.releaseName,
-					}] = downloadRes.chartPath
+					}
+					prepareChartInfo[key] = downloadRes.chartPath
 				}()
 
 				if downloadRes.buildDeps {
@@ -4294,10 +4359,6 @@ type ChartCacheKey struct {
 var downloadedCharts = make(map[ChartCacheKey]string) // key -> chart path
 var downloadedChartsMutex sync.RWMutex
 
-// Legacy OCI-specific cache (kept for backward compatibility)
-var downloadedOCICharts = make(map[string]bool)
-var downloadedOCIMutex sync.RWMutex
-
 // getChartCacheKey creates a cache key for a chart and version
 func (st *HelmState) getChartCacheKey(release *ReleaseSpec) ChartCacheKey {
 	version := release.Version
@@ -4326,6 +4387,222 @@ func (st *HelmState) addToChartCache(key ChartCacheKey, path string) {
 	downloadedCharts[key] = path
 }
 
+// chartDownloadAction represents what action should be taken after acquiring locks
+type chartDownloadAction int
+
+const (
+	chartActionUseCached chartDownloadAction = iota // Use the cached chart
+	chartActionDownload                             // Download the chart
+	chartActionRefresh                              // Delete and re-download (refresh)
+)
+
+// chartLockResult contains the result of acquiring locks and checking cache.
+// It supports both shared (read) and exclusive (write) locks using reader-writer semantics.
+// Multiple processes can hold shared locks simultaneously, but exclusive locks block all others.
+type chartLockResult struct {
+	action         chartDownloadAction
+	cachedPath     string        // Path to use if action is chartActionUseCached
+	fileLock       *flock.Flock  // File lock for cross-process synchronization
+	inProcessMutex *sync.RWMutex // In-process RWMutex for goroutine coordination
+	isExclusive    bool          // True if holding exclusive lock, false if shared
+	chartPath      string        // The chart path this lock is for (used for logging)
+}
+
+// Release releases all acquired locks (both file and in-process).
+// This method is safe to call even if locks were not acquired.
+func (r *chartLockResult) Release(logger *zap.SugaredLogger) {
+	if r == nil {
+		return
+	}
+	if r.inProcessMutex != nil {
+		if r.isExclusive {
+			r.inProcessMutex.Unlock()
+		} else {
+			r.inProcessMutex.RUnlock()
+		}
+	}
+	if r.fileLock != nil {
+		if err := r.fileLock.Unlock(); err != nil && logger != nil {
+			logger.Warnf("Failed to release file lock for %s: %v", r.chartPath, err)
+		}
+	}
+}
+
+// acquireChartLock acquires file and in-process locks for chart download coordination.
+// - Shared (read) lock: Used when chart already exists in cache
+// - Exclusive (write) lock: Used when downloading or refreshing a chart
+//
+// The optional skipRefreshCheck callback, if provided, is called before deleting an existing
+// chart for refresh. If it returns true, the existing chart is used instead of being deleted.
+// This allows callers to check in-memory caches to prevent redundant re-downloads within a process.
+// NOTE: The callback is executed while holding an exclusive lock, so it should be fast and non-blocking.
+//
+// IMPORTANT: Locks are released immediately after download completes.
+// The tempDir cleanup is deferred until after helm operations, so charts won't be deleted mid-use.
+func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions, skipRefreshCheck func() bool) (*chartLockResult, error) {
+	result := &chartLockResult{
+		chartPath: chartPath,
+	}
+
+	// Ensure lock directory exists
+	lockFilePath := chartPath + ".lock"
+	lockFileDir := filepath.Dir(lockFilePath)
+	if err := os.MkdirAll(lockFileDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create lock directory %s: %w", lockFileDir, err)
+	}
+	result.fileLock = flock.New(lockFilePath)
+
+	needsRefresh := !opts.SkipDeps && !opts.SkipRefresh
+
+	// Optimistic path: Try shared lock first if cache likely exists and no refresh needed
+	if st.fs.DirectoryExistsAt(chartPath) && !needsRefresh {
+		if err := st.acquireSharedLock(result, chartPath); err != nil {
+			// Failed to acquire shared lock, will try exclusive below
+			st.logger.Debugf("Failed to acquire shared lock for %s: %v, trying exclusive", chartPath, err)
+		} else {
+			// Got shared lock, validate cache
+			if fullChartPath, err := findChartDirectory(chartPath); err == nil {
+				result.action = chartActionUseCached
+				result.cachedPath = filepath.Dir(fullChartPath)
+				st.logger.Debugf("Using cached chart at %s (shared lock)", result.cachedPath)
+				return result, nil
+			}
+			// Invalid cache - release shared lock and acquire exclusive
+			st.logger.Debugf("Chart cache at %s is invalid, upgrading to exclusive lock", chartPath)
+			result.Release(st.logger)
+			// Reinitialize fileLock after releasing shared lock for exclusive lock acquisition
+			result.fileLock = flock.New(lockFilePath)
+		}
+	}
+
+	// Need exclusive lock for: download, refresh, or cache validation failure
+	if err := st.acquireExclusiveLock(result, chartPath); err != nil {
+		return nil, err
+	}
+
+	// Double-check after acquiring exclusive lock (another process may have populated cache)
+	if st.fs.DirectoryExistsAt(chartPath) {
+		fullChartPath, err := findChartDirectory(chartPath)
+		if err == nil {
+			// Valid cache exists now
+			if !needsRefresh {
+				// Another process populated the cache while we waited for lock
+				result.action = chartActionUseCached
+				result.cachedPath = filepath.Dir(fullChartPath)
+				st.logger.Debugf("Using cached chart at %s (populated by another process)", result.cachedPath)
+				return result, nil
+			}
+			// Refresh mode requested - check if we should skip (e.g., in-memory cache populated by another worker)
+			if skipRefreshCheck != nil && skipRefreshCheck() {
+				result.action = chartActionUseCached
+				result.cachedPath = filepath.Dir(fullChartPath)
+				st.logger.Debugf("Skipping refresh for chart at %s (another worker already cached)", result.cachedPath)
+				return result, nil
+			}
+			// Proceed with refresh: delete and re-download
+			st.logger.Debugf("Refreshing chart at %s (exclusive lock)", chartPath)
+			if err := os.RemoveAll(chartPath); err != nil {
+				result.Release(st.logger)
+				return nil, fmt.Errorf("failed to remove chart directory for refresh: %w", err)
+			}
+			result.action = chartActionRefresh
+		} else {
+			// Directory exists but invalid (no Chart.yaml) - corrupted cache
+			st.logger.Debugf("Chart directory at %s is corrupted: %v, will re-download", chartPath, err)
+			if err := os.RemoveAll(chartPath); err != nil {
+				result.Release(st.logger)
+				return nil, fmt.Errorf("failed to remove corrupted chart directory: %w", err)
+			}
+			result.action = chartActionDownload
+		}
+	} else {
+		result.action = chartActionDownload
+	}
+
+	return result, nil
+}
+
+// acquireSharedLock acquires a shared (read) lock for concurrent read access.
+// Multiple processes can hold shared locks simultaneously, but shared locks
+// block exclusive lock acquisition.
+// Lock order: in-process mutex first, then file lock (to prevent deadlock).
+func (st *HelmState) acquireSharedLock(result *chartLockResult, chartPath string) error {
+	const lockTimeout = 30 * time.Second
+
+	// Acquire in-process RLock FIRST (consistent ordering prevents deadlock)
+	result.inProcessMutex = st.getNamedRWMutex(chartPath)
+	result.inProcessMutex.RLock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+	defer cancel()
+
+	locked, err := result.fileLock.TryRLockContext(ctx, 500*time.Millisecond)
+	if err != nil {
+		result.inProcessMutex.RUnlock()
+		return fmt.Errorf("failed to acquire shared file lock for chart %s: %w", chartPath, err)
+	}
+	if !locked {
+		result.inProcessMutex.RUnlock()
+		return fmt.Errorf("timeout waiting for shared file lock on chart %s", chartPath)
+	}
+
+	result.isExclusive = false
+	return nil
+}
+
+// acquireExclusiveLock acquires an exclusive (write) lock with retry logic.
+// Exclusive locks block all other locks (both shared and exclusive).
+// Lock order: in-process mutex first, then file lock (to prevent deadlock).
+func (st *HelmState) acquireExclusiveLock(result *chartLockResult, chartPath string) error {
+	const (
+		lockTimeout  = 30 * time.Second
+		maxRetries   = 3
+		retryBackoff = 1 * time.Second
+	)
+
+	// Acquire in-process Lock FIRST (consistent ordering prevents deadlock)
+	result.inProcessMutex = st.getNamedRWMutex(chartPath)
+	result.inProcessMutex.Lock()
+
+	var locked bool
+	var lockErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+		locked, lockErr = result.fileLock.TryLockContext(ctx, 500*time.Millisecond)
+		cancel()
+
+		if locked {
+			break
+		}
+		if lockErr != nil {
+			// Actual file system error (not timeout) - worth retrying
+			st.logger.Warnf("Failed to acquire exclusive file lock (attempt %d/%d): %v", attempt, maxRetries, lockErr)
+			if attempt < maxRetries {
+				// Release in-process mutex during backoff to avoid blocking other goroutines
+				result.inProcessMutex.Unlock()
+				time.Sleep(retryBackoff)
+				result.inProcessMutex.Lock()
+			}
+		} else {
+			// Timeout (flock returns false, nil when context deadline exceeded)
+			// Don't retry on timeout - 30s is already a long wait, another process likely holds the lock
+			result.inProcessMutex.Unlock()
+			return fmt.Errorf("timeout waiting for exclusive file lock on chart %s after %v", chartPath, lockTimeout)
+		}
+	}
+
+	if !locked {
+		result.inProcessMutex.Unlock()
+		return fmt.Errorf("failed to acquire exclusive file lock for chart %s after %d attempts: %w", chartPath, maxRetries, lockErr)
+	}
+
+	result.isExclusive = true
+	return nil
+}
+
+// getOCIChart downloads or retrieves an OCI chart from cache.
+// Locks are acquired during download and released immediately after.
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, opts ChartPrepareOptions) (*string, error) {
 	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release)
 	if err != nil {
@@ -4336,7 +4613,10 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return nil, nil
 	}
 
-	// Check global chart cache first
+	// Check global chart cache first (in-memory cache)
+	// If found, another worker in this process already downloaded the chart.
+	// We don't need to acquire a lock - the tempDir won't be deleted until
+	// after helm operations complete (cleanup is deferred in withPreparedCharts).
 	cacheKey := st.getChartCacheKey(release)
 	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
 		st.logger.Debugf("OCI chart %s:%s already downloaded, using cached version at %s", chartName, chartVersion, cachedPath)
@@ -4349,62 +4629,63 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 
 	chartPath, _ := st.getOCIChartPath(tempDir, release, chartName, chartVersion, opts.OutputDirTemplate)
 
-	mu := st.getNamedMutex(chartPath)
-	mu.Lock()
-	defer mu.Unlock()
-
-	_, err = os.Stat(tempDir)
-	if err != nil {
-		err = os.MkdirAll(tempDir, 0755)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	downloadedOCIMutex.RLock()
-	alreadyDownloadedFlag := downloadedOCICharts[chartPath]
-	downloadedOCIMutex.RUnlock()
-
-	if !opts.SkipDeps && !opts.SkipRefresh && !alreadyDownloadedFlag {
-		err = os.RemoveAll(chartPath)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if st.fs.DirectoryExistsAt(chartPath) {
-		st.logger.Debugf("chart already exists at %s", chartPath)
-	} else {
-		flags := st.chartOCIFlags(release)
-		flags = st.appendVerifyFlags(flags, release)
-		flags = st.appendKeyringFlags(flags, release)
-		flags = st.appendChartDownloadFlags(flags, release)
-		flags = st.appendChartVersionFlags(flags, release)
-
-		err := helm.ChartPull(qualifiedChartName, chartPath, flags...)
-		if err != nil {
-			return nil, err
-		}
-
-		err = helm.ChartExport(qualifiedChartName, chartPath)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	fullChartPath, err := findChartDirectory(chartPath)
+	// Acquire locks and determine action
+	// Pass a callback that checks if another worker in this process has already cached the chart.
+	// This prevents deleting and re-downloading a chart that was just downloaded by another worker.
+	lockResult, err := st.acquireChartLock(chartPath, opts, func() bool {
+		_, exists := st.checkChartCache(cacheKey)
+		return exists
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	downloadedOCIMutex.Lock()
-	downloadedOCICharts[chartPath] = true
-	downloadedOCIMutex.Unlock()
+	// If cached on filesystem, release lock and return
+	if lockResult.action == chartActionUseCached {
+		st.addToChartCache(cacheKey, lockResult.cachedPath)
+		lockResult.Release(st.logger)
+		return &lockResult.cachedPath, nil
+	}
+
+	// Ensure temp directory exists
+	if _, err := os.Stat(tempDir); err != nil {
+		if err := os.MkdirAll(tempDir, 0755); err != nil {
+			lockResult.Release(st.logger)
+			return nil, err
+		}
+	}
+
+	// Download the chart
+	flags := st.chartOCIFlags(release)
+	flags = st.appendVerifyFlags(flags, release)
+	flags = st.appendKeyringFlags(flags, release)
+	flags = st.appendChartDownloadFlags(flags, release)
+	flags = st.appendChartVersionFlags(flags, release)
+
+	if err := helm.ChartPull(qualifiedChartName, chartPath, flags...); err != nil {
+		lockResult.Release(st.logger)
+		return nil, err
+	}
+
+	if err := helm.ChartExport(qualifiedChartName, chartPath); err != nil {
+		lockResult.Release(st.logger)
+		return nil, err
+	}
+
+	fullChartPath, err := findChartDirectory(chartPath)
+	if err != nil {
+		lockResult.Release(st.logger)
+		return nil, err
+	}
 
 	chartPath = filepath.Dir(fullChartPath)
 
 	// Add to global chart cache
 	st.addToChartCache(cacheKey, chartPath)
+
+	// Release lock immediately after download - the tempDir cleanup is deferred
+	// until after helm operations complete, so the chart won't be deleted mid-use.
+	lockResult.Release(st.logger)
 
 	return &chartPath, nil
 }
