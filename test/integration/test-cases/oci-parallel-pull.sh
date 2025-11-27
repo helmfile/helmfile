@@ -5,11 +5,15 @@
 oci_parallel_pull_case_input_dir="${cases_dir}/oci-parallel-pull/input"
 config_file="helmfile.yaml"
 oci_parallel_pull_cache_dir=""
+oci_parallel_pull_output_dir=""
 
 # Cleanup function for this test
 cleanup_oci_parallel_pull() {
   if [ -n "${oci_parallel_pull_cache_dir}" ] && [ -d "${oci_parallel_pull_cache_dir}" ]; then
     rm -rf "${oci_parallel_pull_cache_dir}"
+  fi
+  if [ -n "${oci_parallel_pull_output_dir}" ] && [ -d "${oci_parallel_pull_output_dir}" ]; then
+    rm -rf "${oci_parallel_pull_output_dir}"
   fi
 }
 trap cleanup_oci_parallel_pull EXIT
@@ -20,20 +24,24 @@ test_start "oci-parallel-pull: verify file locking prevents race conditions (iss
 oci_parallel_pull_cache_dir=$(mktemp -d)
 export HELMFILE_CACHE_HOME="${oci_parallel_pull_cache_dir}"
 
+# Create a temporary output directory for test outputs
+oci_parallel_pull_output_dir=$(mktemp -d)
+
 info "Using temporary cache directory: ${HELMFILE_CACHE_HOME}"
+info "Using temporary output directory: ${oci_parallel_pull_output_dir}"
 
 # Run multiple helmfile template commands in parallel using the same chart
 # This simulates the scenario described in issue #2295
 info "Running 3 parallel helmfile template commands..."
 
 # Start all processes in background
-${helmfile} -f ${oci_parallel_pull_case_input_dir}/${config_file} template > /tmp/oci-parallel-1.out 2>&1 &
+${helmfile} -f ${oci_parallel_pull_case_input_dir}/${config_file} template > "${oci_parallel_pull_output_dir}/oci-parallel-1.out" 2>&1 &
 pid1=$!
 
-${helmfile} -f ${oci_parallel_pull_case_input_dir}/${config_file} template > /tmp/oci-parallel-2.out 2>&1 &
+${helmfile} -f ${oci_parallel_pull_case_input_dir}/${config_file} template > "${oci_parallel_pull_output_dir}/oci-parallel-2.out" 2>&1 &
 pid2=$!
 
-${helmfile} -f ${oci_parallel_pull_case_input_dir}/${config_file} template > /tmp/oci-parallel-3.out 2>&1 &
+${helmfile} -f ${oci_parallel_pull_case_input_dir}/${config_file} template > "${oci_parallel_pull_output_dir}/oci-parallel-3.out" 2>&1 &
 pid3=$!
 
 # Wait for all processes and capture exit codes
@@ -54,24 +62,24 @@ info "Process 3 exit code: ${exit3}"
 failed=0
 if [ $exit1 -ne 0 ]; then
     warn "Process 1 failed:"
-    cat /tmp/oci-parallel-1.out
+    cat "${oci_parallel_pull_output_dir}/oci-parallel-1.out"
     failed=1
 fi
 
 if [ $exit2 -ne 0 ]; then
     warn "Process 2 failed:"
-    cat /tmp/oci-parallel-2.out
+    cat "${oci_parallel_pull_output_dir}/oci-parallel-2.out"
     failed=1
 fi
 
 if [ $exit3 -ne 0 ]; then
     warn "Process 3 failed:"
-    cat /tmp/oci-parallel-3.out
+    cat "${oci_parallel_pull_output_dir}/oci-parallel-3.out"
     failed=1
 fi
 
 # Check for the specific error from issue #2295
-if grep -q "failed to untar: a file or directory with the name.*already exists" /tmp/oci-parallel-*.out 2>/dev/null; then
+if grep -q "failed to untar: a file or directory with the name.*already exists" "${oci_parallel_pull_output_dir}"/oci-parallel-*.out 2>/dev/null; then
     warn "Race condition detected! Found 'file already exists' error in output"
     failed=1
 fi

@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Note: boolPtr helper is already defined in skip_test.go and shared across test files in this package.
+
 // TestHelmDefaultsSkipDepsAndSkipRefreshIntegration tests that helmDefaults.skipDeps
 // and helmDefaults.skipRefresh are properly respected when preparing charts.
 // This is a regression test for issue #2296.

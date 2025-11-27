@@ -8,6 +8,16 @@
 # the path wasn't normalized.
 
 issue_2297_input_dir="${cases_dir}/issue-2297-local-chart-transformers/input"
+issue_2297_tmp=""
+
+# Cleanup function for this test
+cleanup_issue_2297() {
+  if [ -n "${issue_2297_tmp}" ] && [ -d "${issue_2297_tmp}" ]; then
+    rm -rf "${issue_2297_tmp}"
+  fi
+}
+trap cleanup_issue_2297 EXIT
+
 issue_2297_tmp=$(mktemp -d)
 # Convert helmfile to absolute path before cd (otherwise ./helmfile won't be found)
 helmfile_real="$(pwd)/${helmfile}"
@@ -38,5 +48,9 @@ if ! grep -q "test-annotation" "${issue_2297_tmp}/output.yaml"; then
 fi
 
 info "Local chart with transformers works correctly"
+
+# Cleanup and restore the original trap
+cleanup_issue_2297
+trap - EXIT
 
 test_pass "issue #2297: local chart with transformers"

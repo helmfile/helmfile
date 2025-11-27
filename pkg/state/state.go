@@ -136,7 +136,7 @@ type HelmState struct {
 }
 
 // Logger returns the logger instance for this HelmState.
-// This is used by external callers that need to pass the logger to lock release functions.
+// This is used by the app package to pass the logger to lock release functions.
 func (st *HelmState) Logger() *zap.SugaredLogger {
 	return st.logger
 }
@@ -1629,19 +1629,22 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 }
 
 // PrepareCharts downloads and prepares all charts for the selected releases.
-// Returns the chart paths, any chart locks (for backward compatibility, always empty since locks
-// are released immediately after download), and any errors encountered.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, map[PrepareChartKey]*chartLockResult, []error) {
+// Returns the chart paths and any errors encountered.
+//
+// Note: OCI chart locks are acquired and released during chart download within this function.
+// The tempDir cleanup is deferred until after helm operations complete in the caller,
+// so charts remain available during helm commands even though locks are released.
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
 		if err != nil {
-			return nil, nil, []error{err}
+			return nil, []error{err}
 		}
 		*st = *updated
 	}
 	selected, err := st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
 	if err != nil {
-		return nil, nil, []error{err}
+		return nil, []error{err}
 	}
 
 	releases := releasesNeedCharts(selected)
@@ -1655,7 +1658,6 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	var prepareChartInfoMutex sync.Mutex
 
 	prepareChartInfo := make(map[PrepareChartKey]string, len(releases))
-	chartLocks := make(map[PrepareChartKey]*chartLockResult, len(releases))
 
 	errs := []error{}
 
@@ -1706,16 +1708,16 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	)
 
 	if len(errs) > 0 {
-		return nil, nil, errs
+		return nil, errs
 	}
 
 	if len(builds) > 0 {
 		if err := st.runHelmDepBuilds(helm, concurrency, builds); err != nil {
-			return nil, nil, []error{err}
+			return nil, []error{err}
 		}
 	}
 
-	return prepareChartInfo, chartLocks, nil
+	return prepareChartInfo, nil
 }
 
 // nolint: unparam
@@ -4423,7 +4425,7 @@ func (r *chartLockResult) Release(logger *zap.SugaredLogger) {
 		}
 	}
 	if r.fileLock != nil {
-		if err := r.fileLock.Unlock(); err != nil {
+		if err := r.fileLock.Unlock(); err != nil && logger != nil {
 			logger.Warnf("Failed to release file lock for %s: %v", r.chartPath, err)
 		}
 	}

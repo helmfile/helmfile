@@ -42,30 +42,19 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-// chartLockReleaser is a function that releases all chart locks.
-// It should be called after helm operations complete.
-type chartLockReleaser func()
-
-func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, chartLockReleaser, error) {
+func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
 	// Skip chart preparation for certain commands
 	skipCommands := []string{"write-values", "list"}
 	if slices.Contains(skipCommands, strings.ToLower(helmfileCommand)) {
-		return nil, func() {}, nil
+		return nil, nil
 	}
 
-	releaseToChart, chartLocks, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
 	if len(errs) > 0 {
-		return nil, func() {}, fmt.Errorf("%v", errs)
+		return nil, fmt.Errorf("%v", errs)
 	}
 
-	// Return a releaser function that releases all acquired locks
-	releaser := func() {
-		for _, lock := range chartLocks {
-			lock.Release(r.state.Logger())
-		}
-	}
-
-	return releaseToChart, releaser, nil
+	return releaseToChart, nil
 }
 
 func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
@@ -104,13 +93,10 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		return err
 	}
 
-	releaseToChart, releaseLocks, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
+	releaseToChart, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
 	if err != nil {
 		return err
 	}
-	// Release all chart locks after helm operations complete.
-	// This ensures charts are not deleted while helm is using them.
-	defer releaseLocks()
 
 	for i := range r.state.Releases {
 		rel := &r.state.Releases[i]
