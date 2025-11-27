@@ -70,7 +70,8 @@ info "Process 2 exit code: ${exit2}"
 info "Process 3 exit code: ${exit3}"
 
 # Check for the specific error from issue #2295 (race condition bug)
-if grep -q "failed to untar: a file or directory with the name.*already exists" "${oci_parallel_pull_output_dir}"/oci-parallel-*.out 2>/dev/null; then
+# Use case-insensitive extended regex to catch variations from different tar/helm versions
+if grep -iqE "(failed to untar.*already exists|file or directory.*already exists|a file.*already exists)" "${oci_parallel_pull_output_dir}"/oci-parallel-*.out 2>/dev/null; then
     warn "Race condition detected! Found 'file already exists' error in output"
     cat "${oci_parallel_pull_output_dir}"/oci-parallel-*.out
     fail "oci-parallel-pull test failed due to race condition (issue #2295)"

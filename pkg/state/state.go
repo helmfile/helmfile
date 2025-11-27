@@ -135,12 +135,6 @@ type HelmState struct {
 	RenderedValues map[string]any
 }
 
-// Logger returns the logger instance for this HelmState.
-// This is used by the app package to pass the logger to lock release functions.
-func (st *HelmState) Logger() *zap.SugaredLogger {
-	return st.logger
-}
-
 // SubHelmfileSpec defines the subhelmfile path and options
 type SubHelmfileSpec struct {
 	//path or glob pattern for the sub helmfiles
@@ -4582,6 +4576,7 @@ func (st *HelmState) acquireExclusiveLock(result *chartLockResult, chartPath str
 			break
 		}
 		if lockErr != nil {
+			// Actual file system error (not timeout) - worth retrying
 			st.logger.Warnf("Failed to acquire exclusive file lock (attempt %d/%d): %v", attempt, maxRetries, lockErr)
 			if attempt < maxRetries {
 				// Release in-process mutex during backoff to avoid blocking other goroutines
@@ -4590,6 +4585,8 @@ func (st *HelmState) acquireExclusiveLock(result *chartLockResult, chartPath str
 				result.inProcessMutex.Lock()
 			}
 		} else {
+			// Timeout (flock returns false, nil when context deadline exceeded)
+			// Don't retry on timeout - 30s is already a long wait, another process likely holds the lock
 			result.inProcessMutex.Unlock()
 			return fmt.Errorf("timeout waiting for exclusive file lock on chart %s after %v", chartPath, lockTimeout)
 		}
