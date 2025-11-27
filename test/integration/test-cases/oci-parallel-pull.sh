@@ -30,6 +30,16 @@ oci_parallel_pull_output_dir=$(mktemp -d)
 info "Using temporary cache directory: ${HELMFILE_CACHE_HOME}"
 info "Using temporary output directory: ${oci_parallel_pull_output_dir}"
 
+# Function to check if failure is due to registry issues (not a race condition bug)
+is_registry_error() {
+    local output_dir="$1"
+    # Check for common registry-related errors that are not race condition bugs
+    if grep -qE "(rate limit|too many requests|unauthorized|connection refused|timeout|no such host|i/o timeout)" "${output_dir}"/oci-parallel-*.out 2>/dev/null; then
+        return 0  # true - it's a registry error
+    fi
+    return 1  # false - not a registry error
+}
+
 # Run multiple helmfile template commands in parallel using the same chart
 # This simulates the scenario described in issue #2295
 info "Running 3 parallel helmfile template commands..."
@@ -58,6 +68,13 @@ info "Process 1 exit code: ${exit1}"
 info "Process 2 exit code: ${exit2}"
 info "Process 3 exit code: ${exit3}"
 
+# Check for the specific error from issue #2295 (race condition bug)
+if grep -q "failed to untar: a file or directory with the name.*already exists" "${oci_parallel_pull_output_dir}"/oci-parallel-*.out 2>/dev/null; then
+    warn "Race condition detected! Found 'file already exists' error in output"
+    cat "${oci_parallel_pull_output_dir}"/oci-parallel-*.out
+    fail "oci-parallel-pull test failed due to race condition (issue #2295)"
+fi
+
 # Check for failures
 failed=0
 if [ $exit1 -ne 0 ]; then
@@ -78,13 +95,18 @@ if [ $exit3 -ne 0 ]; then
     failed=1
 fi
 
-# Check for the specific error from issue #2295
-if grep -q "failed to untar: a file or directory with the name.*already exists" "${oci_parallel_pull_output_dir}"/oci-parallel-*.out 2>/dev/null; then
-    warn "Race condition detected! Found 'file already exists' error in output"
-    failed=1
-fi
-
 if [ $failed -eq 1 ]; then
+    # Check if this is a registry error (rate limit, network issue, etc.)
+    # These are not bugs in helmfile, so we should skip the test rather than fail
+    if is_registry_error "${oci_parallel_pull_output_dir}"; then
+        warn "Test skipped due to external registry issues (rate limit, network, etc.)"
+        warn "This is not a helmfile bug - the file locking mechanism cannot be tested"
+        # Clean up and exit successfully to not fail CI on external issues
+        cleanup_oci_parallel_pull
+        trap - EXIT
+        test_pass "oci-parallel-pull: skipped due to external registry issues"
+        return 0 2>/dev/null || exit 0
+    fi
     fail "oci-parallel-pull test failed"
 fi
 
