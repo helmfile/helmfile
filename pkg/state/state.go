@@ -1479,17 +1479,14 @@ func (st *HelmState) forcedDownloadChart(chartName, dir string, release *Release
 	}
 
 	// Acquire locks and determine action
-	lockResult, err := st.acquireChartLock(chartPath, opts)
+	// Pass a callback that checks if another worker in this process has already cached the chart.
+	// This prevents deleting and re-downloading a chart that was just downloaded by another worker.
+	lockResult, err := st.acquireChartLock(chartPath, opts, func() bool {
+		_, exists := st.checkChartCache(cacheKey)
+		return exists
+	})
 	if err != nil {
 		return "", err
-	}
-
-	// Double-check in-memory cache after acquiring lock
-	// Another worker in this process might have populated the cache while we waited
-	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
-		st.logger.Debugf("Chart %s:%s found in cache after acquiring lock, using cached version at %s", chartName, release.Version, cachedPath)
-		lockResult.Release(st.logger)
-		return cachedPath, nil
 	}
 
 	// If cached on filesystem, release lock and return
@@ -4436,9 +4433,13 @@ func (r *chartLockResult) Release(logger *zap.SugaredLogger) {
 // - Shared (read) lock: Used when chart already exists in cache
 // - Exclusive (write) lock: Used when downloading or refreshing a chart
 //
+// The optional skipRefreshCheck callback, if provided, is called before deleting an existing
+// chart for refresh. If it returns true, the existing chart is used instead of being deleted.
+// This allows callers to check in-memory caches to prevent redundant re-downloads within a process.
+//
 // IMPORTANT: Locks are released immediately after download completes.
 // The tempDir cleanup is deferred until after helm operations, so charts won't be deleted mid-use.
-func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions) (*chartLockResult, error) {
+func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions, skipRefreshCheck func() bool) (*chartLockResult, error) {
 	result := &chartLockResult{
 		chartPath: chartPath,
 	}
@@ -4489,7 +4490,14 @@ func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions
 				st.logger.Debugf("Using cached chart at %s (populated by another process)", result.cachedPath)
 				return result, nil
 			}
-			// Refresh mode: delete and re-download
+			// Refresh mode requested - check if we should skip (e.g., in-memory cache populated by another worker)
+			if skipRefreshCheck != nil && skipRefreshCheck() {
+				result.action = chartActionUseCached
+				result.cachedPath = filepath.Dir(fullChartPath)
+				st.logger.Debugf("Skipping refresh for chart at %s (another worker already cached)", result.cachedPath)
+				return result, nil
+			}
+			// Proceed with refresh: delete and re-download
 			st.logger.Debugf("Refreshing chart at %s (exclusive lock)", chartPath)
 			if err := os.RemoveAll(chartPath); err != nil {
 				result.Release(st.logger)
@@ -4614,17 +4622,14 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	chartPath, _ := st.getOCIChartPath(tempDir, release, chartName, chartVersion, opts.OutputDirTemplate)
 
 	// Acquire locks and determine action
-	lockResult, err := st.acquireChartLock(chartPath, opts)
+	// Pass a callback that checks if another worker in this process has already cached the chart.
+	// This prevents deleting and re-downloading a chart that was just downloaded by another worker.
+	lockResult, err := st.acquireChartLock(chartPath, opts, func() bool {
+		_, exists := st.checkChartCache(cacheKey)
+		return exists
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	// Double-check in-memory cache after acquiring lock
-	// Another worker in this process might have populated the cache while we waited
-	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
-		st.logger.Debugf("OCI chart %s:%s found in cache after acquiring lock, using cached version at %s", chartName, chartVersion, cachedPath)
-		lockResult.Release(st.logger)
-		return &cachedPath, nil
 	}
 
 	// If cached on filesystem, release lock and return
