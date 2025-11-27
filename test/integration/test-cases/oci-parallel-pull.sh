@@ -119,6 +119,9 @@ fi
 # Check that lock files were created (indicates locking was used)
 lock_files=$(find "${HELMFILE_CACHE_HOME}" -name "*.lock" 2>/dev/null | wc -l)
 info "Found ${lock_files} lock file(s) in cache directory"
+if [ "${lock_files}" -lt 1 ]; then
+    warn "No lock files found - locking may not have been used"
+fi
 
 # Cleanup and restore the original trap
 cleanup_oci_parallel_pull

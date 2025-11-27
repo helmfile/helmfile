@@ -4472,6 +4472,8 @@ func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions
 			// Invalid cache - release shared lock and acquire exclusive
 			st.logger.Debugf("Chart cache at %s is invalid, upgrading to exclusive lock", chartPath)
 			result.Release(st.logger)
+			// Reinitialize fileLock after releasing shared lock for exclusive lock acquisition
+			result.fileLock = flock.New(lockFilePath)
 		}
 	}
 
