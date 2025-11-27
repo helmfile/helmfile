@@ -659,6 +659,9 @@ func gatherUsernamePassword(repoName string, username string, password string) (
 //   - "123456789012.dkr.ecr.us-west-2.amazonaws.com/charts" -> "123456789012.dkr.ecr.us-west-2.amazonaws.com"
 //   - "ghcr.io/deliveryhero/helm-charts" -> "ghcr.io"
 //   - "registry.example.com:5000/charts" -> "registry.example.com:5000"
+//
+// Note: This function does not handle URLs with query parameters or fragments, as these
+// are not typically used in OCI registry URLs.
 func extractRegistryHost(url string) string {
 	// Remove any protocol prefix if present
 	url = strings.TrimPrefix(url, "oci://")
@@ -4438,6 +4441,7 @@ func (r *chartLockResult) Release(logger *zap.SugaredLogger) {
 // The optional skipRefreshCheck callback, if provided, is called before deleting an existing
 // chart for refresh. If it returns true, the existing chart is used instead of being deleted.
 // This allows callers to check in-memory caches to prevent redundant re-downloads within a process.
+// NOTE: The callback is executed while holding an exclusive lock, so it should be fast and non-blocking.
 //
 // IMPORTANT: Locks are released immediately after download completes.
 // The tempDir cleanup is deferred until after helm operations, so charts won't be deleted mid-use.
@@ -4541,7 +4545,7 @@ func (st *HelmState) acquireSharedLock(result *chartLockResult, chartPath string
 	locked, err := result.fileLock.TryRLockContext(ctx, 500*time.Millisecond)
 	if err != nil {
 		result.inProcessMutex.RUnlock()
-		return fmt.Errorf("failed to acquire shared file lock: %w", err)
+		return fmt.Errorf("failed to acquire shared file lock for chart %s: %w", chartPath, err)
 	}
 	if !locked {
 		result.inProcessMutex.RUnlock()
@@ -4580,7 +4584,10 @@ func (st *HelmState) acquireExclusiveLock(result *chartLockResult, chartPath str
 		if lockErr != nil {
 			st.logger.Warnf("Failed to acquire exclusive file lock (attempt %d/%d): %v", attempt, maxRetries, lockErr)
 			if attempt < maxRetries {
+				// Release in-process mutex during backoff to avoid blocking other goroutines
+				result.inProcessMutex.Unlock()
 				time.Sleep(retryBackoff)
+				result.inProcessMutex.Lock()
 			}
 		} else {
 			result.inProcessMutex.Unlock()

@@ -34,7 +34,7 @@ info "Using temporary output directory: ${oci_parallel_pull_output_dir}"
 is_registry_error() {
     local output_dir="$1"
     # Check for common registry-related errors that are not race condition bugs
-    if grep -qE "(rate limit|too many requests|unauthorized|connection refused|timeout|no such host|i/o timeout)" "${output_dir}"/oci-parallel-*.out 2>/dev/null; then
+    if grep -iqE "(rate limit|too many requests|unauthorized|connection refused|timeout|no such host|i/o timeout)" "${output_dir}"/oci-parallel-*.out 2>/dev/null; then
         return 0  # true - it's a registry error
     fi
     return 1  # false - not a registry error

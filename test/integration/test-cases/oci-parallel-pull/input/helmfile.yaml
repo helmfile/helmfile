@@ -7,7 +7,8 @@ repositories:
     oci: true
 
 releases:
-  # Using a chart that can be templated (not a library chart)
+  # Using a chart that can be templated (not a library chart).
+  # Library charts cannot be templated by Helm and would skip the file locking logic being tested.
   - name: test-parallel-pull
     chart: docker/bitnamicharts/nginx
     version: "18.2.5"
