@@ -7,7 +7,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/config"
 )
 
-// NewPrintEnvCmd returns print-env subcmd
+// NewPrintEnvCmd returns the print-env subcommand
 func NewPrintEnvCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	printEnvOptions := config.NewPrintEnvOptions()
 
