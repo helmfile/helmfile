@@ -14,9 +14,9 @@ info "Ensure helm-secrets is installed"
 # Helm 3 always uses single plugin installation regardless of helm-secrets version
 if [[ "${HELMFILE_HELM4}" == "1" ]] && [[ "$(printf '%s\n' "4.7.0" "${HELM_SECRETS_VERSION}" | sort -V | head -n1)" == "4.7.0" ]]; then
     info "Installing helm-secrets v${HELM_SECRETS_VERSION} (split plugin architecture for Helm 4)"
-    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/helm-secrets.tgz ${PLUGIN_INSTALL_FLAGS} || true
-    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/helm-secrets-getter.tgz ${PLUGIN_INSTALL_FLAGS} || true
-    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/helm-secrets-post-renderer.tgz ${PLUGIN_INSTALL_FLAGS} || true
+    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-${HELM_SECRETS_VERSION}.tgz ${PLUGIN_INSTALL_FLAGS} || true
+    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-getter-${HELM_SECRETS_VERSION}.tgz ${PLUGIN_INSTALL_FLAGS} || true
+    ${helm} plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-post-renderer-${HELM_SECRETS_VERSION}.tgz ${PLUGIN_INSTALL_FLAGS} || true
 else
     info "Installing helm-secrets v${HELM_SECRETS_VERSION} (single plugin)"
     ${helm} plugin install https://github.com/jkroepke/helm-secrets --version v${HELM_SECRETS_VERSION} ${PLUGIN_INSTALL_FLAGS} || true

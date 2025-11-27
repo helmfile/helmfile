@@ -94,10 +94,11 @@ RUN set -x && \
     [ "$(age --version)" = "${AGE_VERSION}" ] && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
+ARG HELM_SECRETS_VERSION="4.7.4"
 RUN helm plugin install https://github.com/databus23/helm-diff --version v3.14.1 --verify=false && \
-    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v4.7.0/helm-secrets.tgz --verify=false && \
-    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v4.7.0/helm-secrets-getter.tgz --verify=false && \
-    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v4.7.0/helm-secrets-post-renderer.tgz --verify=false && \
+    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-${HELM_SECRETS_VERSION}.tgz --verify=false && \
+    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-getter-${HELM_SECRETS_VERSION}.tgz --verify=false && \
+    helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-post-renderer-${HELM_SECRETS_VERSION}.tgz --verify=false && \
     helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.17.0 --verify=false && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.4.1 --verify=false && \
     rm -rf ${HELM_CACHE_HOME}/plugins

@@ -558,8 +558,8 @@ v3.2.4+ge29ce2a
 }
 
 func Test_DecryptSecret(t *testing.T) {
-	// Set secrets plugin version to 4.0.0
-	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.0.0"); err != nil {
+	// Set secrets plugin version to 4.7.4
+	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.7.4"); err != nil {
 		t.Errorf("failed to set environment HELM_PLUGINS error: %s", err)
 	}
 	defer func() {
@@ -610,8 +610,8 @@ Decrypted %s/secretName into %s
 }
 
 func Test_DecryptSecretWithGotmpl(t *testing.T) {
-	// Set secrets plugin version to 4.0.0
-	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.0.0"); err != nil {
+	// Set secrets plugin version to 4.7.4
+	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.7.4"); err != nil {
 		t.Errorf("failed to set environment HELM_PLUGINS error: %s", err)
 	}
 	defer func() {
@@ -1288,9 +1288,9 @@ func Test_IsHelm4(t *testing.T) {
 
 func Test_GetPluginVersion(t *testing.T) {
 	v3ExpectedVersion := "3.15.0"
-	v4ExpectedVersion := "4.0.0"
+	v4ExpectedVersion := "4.7.4"
 	v3PluginDirPath := "../../test/plugins/secrets/3.15.0"
-	v4PluginDirPath := "../../test/plugins/secrets/4.0.0"
+	v4PluginDirPath := "../../test/plugins/secrets/4.7.4"
 
 	v3SecretPluginVersion, err := GetPluginVersion("secrets", v3PluginDirPath)
 	require.NoError(t, err)
