@@ -31,7 +31,7 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	if len(mock.output) == 0 && strings.Join(args, " ") == "version --short" {
-		return []byte("v4.0.0+g99cd196"), nil
+		return []byte("v4.0.1+g12500dd"), nil
 	}
 	return mock.output, mock.err
 }
@@ -147,8 +147,8 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 `,
 		},
 		{
-			name:    "Helm 4.0.0 (force-update is default)",
-			version: "4.0.0",
+			name:    "Helm 4.0.1 (force-update is default)",
+			version: "4.0.1",
 			expected: `Adding repo myRepo https://repo.example.com/
 exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `,
@@ -705,7 +705,7 @@ func Test_DiffRelease_ColorFlagHelm4(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 
-	// MockExecer creates a Helm 4 execer by default (returns v4.0.0)
+	// MockExecer creates a Helm 4 execer by default (returns v4.0.1)
 	helm, err := MockExecer(logger, "config", "dev")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1256,7 +1256,7 @@ func Test_IsHelm3(t *testing.T) {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
 
-	helm4Runner := mockRunner{output: []byte("v4.0.0+ge29ce2a\n")}
+	helm4Runner := mockRunner{output: []byte("v4.0.1+g12500dd\n")}
 	helm, err = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm4Runner)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1276,7 +1276,7 @@ func Test_IsHelm4(t *testing.T) {
 		t.Error("helmexec.IsHelm4() - Detected Helm 4 with Helm 3 version")
 	}
 
-	helm4Runner := mockRunner{output: []byte("v4.0.0+ge29ce2a\n")}
+	helm4Runner := mockRunner{output: []byte("v4.0.1+g12500dd\n")}
 	helm, err = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm4Runner)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
