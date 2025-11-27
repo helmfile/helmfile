@@ -16,6 +16,7 @@ func NewPrintEnvCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Short: "Print parsed environment configuration",
 		Long:  "Print parsed environment configuration including merged values (with decrypted secrets). This command outputs the effective environment configuration after merging values and decrypting secrets, in either YAML or JSON format.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			printEnvImpl := config.NewPrintEnvImpl(globalCfg, printEnvOptions)
 			err := config.NewCLIConfigImpl(printEnvImpl.GlobalImpl)
 			if err != nil {
 				return err
