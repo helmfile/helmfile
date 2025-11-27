@@ -117,11 +117,13 @@ if [ ! -d "${HELMFILE_CACHE_HOME}" ]; then
     fail "Cache directory was not created"
 fi
 
-# Check that lock files were created (indicates locking was used)
+# Check for lock files in the cache directory.
+# NOTE: Lock files are ephemeral and may be cleaned up immediately after helmfile processes complete.
+# Their absence does NOT mean locking was not used; this check is informational only.
 lock_files=$(find "${HELMFILE_CACHE_HOME}" -name "*.lock" 2>/dev/null | wc -l)
 info "Found ${lock_files} lock file(s) in cache directory"
 if [ "${lock_files}" -lt 1 ]; then
-    warn "No lock files found - locking may not have been used"
+    warn "No lock files found - this does NOT mean locking was not used (lock files are ephemeral)"
 fi
 
 # Cleanup and restore the original trap
