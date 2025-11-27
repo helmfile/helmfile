@@ -1484,7 +1484,15 @@ func (st *HelmState) forcedDownloadChart(chartName, dir string, release *Release
 		return "", err
 	}
 
-	// If cached, release lock and return
+	// Double-check in-memory cache after acquiring lock
+	// Another worker in this process might have populated the cache while we waited
+	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
+		st.logger.Debugf("Chart %s:%s found in cache after acquiring lock, using cached version at %s", chartName, release.Version, cachedPath)
+		lockResult.Release(st.logger)
+		return cachedPath, nil
+	}
+
+	// If cached on filesystem, release lock and return
 	if lockResult.action == chartActionUseCached {
 		st.addToChartCache(cacheKey, lockResult.cachedPath)
 		lockResult.Release(st.logger)
@@ -4611,7 +4619,15 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return nil, err
 	}
 
-	// If cached, release lock and return
+	// Double-check in-memory cache after acquiring lock
+	// Another worker in this process might have populated the cache while we waited
+	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
+		st.logger.Debugf("OCI chart %s:%s found in cache after acquiring lock, using cached version at %s", chartName, chartVersion, cachedPath)
+		lockResult.Release(st.logger)
+		return &cachedPath, nil
+	}
+
+	// If cached on filesystem, release lock and return
 	if lockResult.action == chartActionUseCached {
 		st.addToChartCache(cacheKey, lockResult.cachedPath)
 		lockResult.Release(st.logger)
