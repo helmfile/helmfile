@@ -55,14 +55,15 @@ ${helmfile} -f ${oci_parallel_pull_case_input_dir}/${config_file} template > "${
 pid3=$!
 
 # Wait for all processes and capture exit codes
-wait $pid1
-exit1=$?
+# Note: We capture exit codes using "|| exit1=$?" pattern to prevent set -e from exiting
+# the script when wait returns non-zero (which happens when the process fails)
+exit1=0
+exit2=0
+exit3=0
 
-wait $pid2
-exit2=$?
-
-wait $pid3
-exit3=$?
+wait $pid1 || exit1=$?
+wait $pid2 || exit2=$?
+wait $pid3 || exit3=$?
 
 info "Process 1 exit code: ${exit1}"
 info "Process 2 exit code: ${exit2}"

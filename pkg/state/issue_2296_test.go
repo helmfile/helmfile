@@ -15,8 +15,16 @@ import (
 // and helmDefaults.skipRefresh are properly respected when preparing charts.
 // This is a regression test for issue #2296.
 //
-// The existing skip_test.go tests the boolean logic, but this test verifies
-// that the values actually flow through to the chartPrepareResult correctly.
+// This test verifies the skipDeps/skipRefresh calculation in state.go that affects:
+// 1. buildDeps - whether to run `helm dep build` for local charts
+// 2. skipRefresh - whether to skip chart refresh operations
+//
+// Note: The skipRepos logic in pkg/app/run.go uses both helmDefaults.skipDeps and
+// helmDefaults.skipRefresh to determine whether to sync repos. Both flags cause
+// repo sync to be skipped because:
+// - skipRefresh explicitly means "don't update repos"
+// - skipDeps implies "I have all dependencies locally" which means repo data isn't needed
+// The skipRepos behavior is documented in run.go comments and tested via integration tests.
 func TestHelmDefaultsSkipDepsAndSkipRefreshIntegration(t *testing.T) {
 	// Create a temporary directory with a local chart
 	tempDir := t.TempDir()
@@ -121,6 +129,68 @@ version: 0.1.0
 				"buildDeps mismatch: expected %v, got %v (skipDeps=%v)", tt.expectedBuildDeps, buildDeps, skipDeps)
 			assert.Equal(t, tt.expectedSkipRefresh, skipRefresh,
 				"skipRefresh mismatch: expected %v, got %v", tt.expectedSkipRefresh, skipRefresh)
+		})
+	}
+}
+
+// TestSkipReposLogic tests the skipRepos calculation used in pkg/app/run.go.
+// This documents and verifies the expected behavior: both helmDefaults.skipDeps
+// and helmDefaults.skipRefresh should cause repo sync to be skipped.
+//
+// The actual skipRepos logic is in run.go:
+//
+//	skipRepos := opts.SkipRepos || r.state.HelmDefaults.SkipDeps || r.state.HelmDefaults.SkipRefresh
+func TestSkipReposLogic(t *testing.T) {
+	tests := []struct {
+		name             string
+		optsSkipRepos    bool
+		skipDeps         bool
+		skipRefresh      bool
+		expectedSkipRepo bool
+	}{
+		{
+			name:             "all false - repos should sync",
+			optsSkipRepos:    false,
+			skipDeps:         false,
+			skipRefresh:      false,
+			expectedSkipRepo: false,
+		},
+		{
+			name:             "opts.SkipRepos=true - repos should be skipped",
+			optsSkipRepos:    true,
+			skipDeps:         false,
+			skipRefresh:      false,
+			expectedSkipRepo: true,
+		},
+		{
+			name:             "helmDefaults.skipDeps=true - repos should be skipped",
+			optsSkipRepos:    false,
+			skipDeps:         true,
+			skipRefresh:      false,
+			expectedSkipRepo: true,
+		},
+		{
+			name:             "helmDefaults.skipRefresh=true - repos should be skipped",
+			optsSkipRepos:    false,
+			skipDeps:         false,
+			skipRefresh:      true,
+			expectedSkipRepo: true,
+		},
+		{
+			name:             "both helmDefaults set - repos should be skipped",
+			optsSkipRepos:    false,
+			skipDeps:         true,
+			skipRefresh:      true,
+			expectedSkipRepo: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This mirrors the logic in pkg/app/run.go withPreparedCharts and Deps
+			skipRepos := tt.optsSkipRepos || tt.skipDeps || tt.skipRefresh
+			assert.Equal(t, tt.expectedSkipRepo, skipRepos,
+				"skipRepos mismatch: expected %v, got %v", tt.expectedSkipRepo, skipRepos)
 		})
 	}
 }
