@@ -31,7 +31,7 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	if len(mock.output) == 0 && strings.Join(args, " ") == "version --short" {
-		return []byte("v4.0.0+g99cd196"), nil
+		return []byte("v4.0.1+g12500dd"), nil
 	}
 	return mock.output, mock.err
 }
@@ -147,8 +147,8 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 `,
 		},
 		{
-			name:    "Helm 4.0.0 (force-update is default)",
-			version: "4.0.0",
+			name:    "Helm 4.0.1 (force-update is default)",
+			version: "4.0.1",
 			expected: `Adding repo myRepo https://repo.example.com/
 exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `,
@@ -558,8 +558,8 @@ v3.2.4+ge29ce2a
 }
 
 func Test_DecryptSecret(t *testing.T) {
-	// Set secrets plugin version to 4.0.0
-	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.0.0"); err != nil {
+	// Set secrets plugin version to 4.7.4
+	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.7.4"); err != nil {
 		t.Errorf("failed to set environment HELM_PLUGINS error: %s", err)
 	}
 	defer func() {
@@ -610,8 +610,8 @@ Decrypted %s/secretName into %s
 }
 
 func Test_DecryptSecretWithGotmpl(t *testing.T) {
-	// Set secrets plugin version to 4.0.0
-	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.0.0"); err != nil {
+	// Set secrets plugin version to 4.7.4
+	if err := os.Setenv("HELM_PLUGINS", "../../test/plugins/secrets/4.7.4"); err != nil {
 		t.Errorf("failed to set environment HELM_PLUGINS error: %s", err)
 	}
 	defer func() {
@@ -705,7 +705,7 @@ func Test_DiffRelease_ColorFlagHelm4(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 
-	// MockExecer creates a Helm 4 execer by default (returns v4.0.0)
+	// MockExecer creates a Helm 4 execer by default (returns v4.0.1)
 	helm, err := MockExecer(logger, "config", "dev")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1256,7 +1256,7 @@ func Test_IsHelm3(t *testing.T) {
 		t.Error("helmexec.IsHelm3() - Failed to detect Helm 3")
 	}
 
-	helm4Runner := mockRunner{output: []byte("v4.0.0+ge29ce2a\n")}
+	helm4Runner := mockRunner{output: []byte("v4.0.1+g12500dd\n")}
 	helm, err = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm4Runner)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1276,7 +1276,7 @@ func Test_IsHelm4(t *testing.T) {
 		t.Error("helmexec.IsHelm4() - Detected Helm 4 with Helm 3 version")
 	}
 
-	helm4Runner := mockRunner{output: []byte("v4.0.0+ge29ce2a\n")}
+	helm4Runner := mockRunner{output: []byte("v4.0.1+g12500dd\n")}
 	helm, err = New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm4Runner)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1288,9 +1288,9 @@ func Test_IsHelm4(t *testing.T) {
 
 func Test_GetPluginVersion(t *testing.T) {
 	v3ExpectedVersion := "3.15.0"
-	v4ExpectedVersion := "4.0.0"
+	v4ExpectedVersion := "4.7.4"
 	v3PluginDirPath := "../../test/plugins/secrets/3.15.0"
-	v4PluginDirPath := "../../test/plugins/secrets/4.0.0"
+	v4PluginDirPath := "../../test/plugins/secrets/4.7.4"
 
 	v3SecretPluginVersion, err := GetPluginVersion("secrets", v3PluginDirPath)
 	require.NoError(t, err)

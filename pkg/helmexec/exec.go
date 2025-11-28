@@ -831,7 +831,13 @@ func (helm *execer) installHelmSecretsV4(version string) error {
 	helm.logger.Infof("Installing helm-secrets %s (split plugin architecture for Helm 4)", version)
 
 	baseURL := fmt.Sprintf("https://github.com/jkroepke/helm-secrets/releases/download/%s", version)
-	plugins := []string{"helm-secrets.tgz", "helm-secrets-getter.tgz", "helm-secrets-post-renderer.tgz"}
+	// Strip "v" prefix for filename (e.g., "v4.7.4" -> "4.7.4")
+	versionNum := strings.TrimPrefix(version, "v")
+	plugins := []string{
+		fmt.Sprintf("secrets-%s.tgz", versionNum),
+		fmt.Sprintf("secrets-getter-%s.tgz", versionNum),
+		fmt.Sprintf("secrets-post-renderer-%s.tgz", versionNum),
+	}
 
 	verifyFlag := ""
 	if !helm.options.EnforcePluginVerification {
