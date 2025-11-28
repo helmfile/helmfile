@@ -95,6 +95,8 @@ type ReleaseSetSpec struct {
 	MissingFileHandlerConfig *MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
 
 	LockFile string `yaml:"lockFilePath,omitempty"`
+
+	Features []string `yaml:"features,omitempty"`
 }
 
 type MissingFileHandlerConfig struct {
