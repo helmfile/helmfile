@@ -139,9 +139,15 @@ func (ld *EnvironmentValuesLoader) renderInBasePath(value any, r tmpl.TextRender
 		return nil, fmt.Errorf("failed to get current working directory: %v", err)
 	}
 
+	// If basePath is "." or already the current directory, no need to change
+	basePath := ld.storage.basePath
+	if basePath == "." || basePath == cwd {
+		return ld.renderTemplateExpressions(value, r)
+	}
+
 	// Change to basePath for rendering using the filesystem abstraction
-	if err := ld.fs.Chdir(ld.storage.basePath); err != nil {
-		return nil, fmt.Errorf("failed to change to base directory %q: %v", ld.storage.basePath, err)
+	if err := ld.fs.Chdir(basePath); err != nil {
+		return nil, fmt.Errorf("failed to change to base directory %q: %v", basePath, err)
 	}
 
 	// Ensure we change back to the original directory
