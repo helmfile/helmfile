@@ -80,7 +80,26 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				}
 			}
 		case map[any]any, map[string]any:
-			maps = append(maps, strOrMap)
+			// Render template expressions in inline map values
+			// This allows users to use template functions like {{ env "VAR" }} or {{ readFile "file" }}
+			// in inline values passed to sub-helmfiles
+			var env environment.Environment
+			if ctxEnv == nil {
+				env = *environment.New(envName)
+			} else {
+				env = *ctxEnv
+			}
+			tmplData := NewEnvironmentTemplateData(env, "", env.Values)
+			r := tmpl.NewTextRenderer(ld.fs, ld.storage.basePath, tmplData)
+
+			// Change working directory to basePath for template rendering
+			// This is needed because some template functions like fetchSecretValue
+			// resolve relative paths based on the current working directory
+			renderedMap, err := ld.renderInBasePath(strOrMap, r)
+			if err != nil {
+				return nil, fmt.Errorf("failed to render inline values: %v", err)
+			}
+			maps = append(maps, renderedMap)
 		default:
 			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", strOrMap, strOrMap)
 		}
@@ -103,6 +122,87 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 		return nil, err
 	}
 	return result, nil
+}
+
+// renderInBasePath temporarily changes the working directory to basePath before rendering
+// template expressions. This is needed because some template functions like fetchSecretValue
+// resolve relative paths based on the current working directory.
+func (ld *EnvironmentValuesLoader) renderInBasePath(value any, r tmpl.TextRenderer) (any, error) {
+	// If filesystem doesn't support Getwd/Chdir (e.g., in tests), just render without changing directory
+	if ld.fs.Getwd == nil || ld.fs.Chdir == nil {
+		return ld.renderTemplateExpressions(value, r)
+	}
+
+	// Save current working directory using the filesystem abstraction
+	cwd, err := ld.fs.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current working directory: %v", err)
+	}
+
+	// Change to basePath for rendering using the filesystem abstraction
+	if err := ld.fs.Chdir(ld.storage.basePath); err != nil {
+		return nil, fmt.Errorf("failed to change to base directory %q: %v", ld.storage.basePath, err)
+	}
+
+	// Ensure we change back to the original directory
+	defer func() {
+		if err := ld.fs.Chdir(cwd); err != nil {
+			ld.logger.Warnf("failed to change back to original directory %q: %v", cwd, err)
+		}
+	}()
+
+	return ld.renderTemplateExpressions(value, r)
+}
+
+// renderTemplateExpressions recursively renders template expressions in map values.
+// This allows users to use template functions like {{ env "VAR" }}, {{ readFile "file" }},
+// {{ fetchSecretValue "ref+..." }}, etc. in inline values passed to sub-helmfiles.
+func (ld *EnvironmentValuesLoader) renderTemplateExpressions(value any, r tmpl.TextRenderer) (any, error) {
+	switch v := value.(type) {
+	case string:
+		// Check if the string contains template expressions (has {{ and }})
+		if strings.Contains(v, "{{") && strings.Contains(v, "}}") {
+			rendered, err := r.RenderTemplateText(v)
+			if err != nil {
+				return nil, fmt.Errorf("failed to render template expression %q: %v", v, err)
+			}
+			return rendered, nil
+		}
+		return v, nil
+	case map[string]any:
+		result := make(map[string]any, len(v))
+		for key, val := range v {
+			renderedVal, err := ld.renderTemplateExpressions(val, r)
+			if err != nil {
+				return nil, err
+			}
+			result[key] = renderedVal
+		}
+		return result, nil
+	case map[any]any:
+		result := make(map[any]any, len(v))
+		for key, val := range v {
+			renderedVal, err := ld.renderTemplateExpressions(val, r)
+			if err != nil {
+				return nil, err
+			}
+			result[key] = renderedVal
+		}
+		return result, nil
+	case []any:
+		result := make([]any, len(v))
+		for i, item := range v {
+			renderedItem, err := ld.renderTemplateExpressions(item, r)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = renderedItem
+		}
+		return result, nil
+	default:
+		// For other types (int, bool, etc.), return as-is
+		return v, nil
+	}
 }
 
 func mapMerge(dest map[string]any, maps []any) (map[string]any, error) {

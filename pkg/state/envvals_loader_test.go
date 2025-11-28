@@ -247,3 +247,73 @@ func TestEnvValsLoad_EnvironmentValues(t *testing.T) {
 		t.Error(diff)
 	}
 }
+
+// TestEnvValsLoad_InlineMapWithTemplateExpressions tests that template expressions
+// in inline map values are rendered correctly.
+// This is a regression test for https://github.com/helmfile/helmfile/issues/2290
+func TestEnvValsLoad_InlineMapWithTemplateExpressions(t *testing.T) {
+	l := newLoader()
+
+	// Set an environment variable for testing
+	t.Setenv("TEST_VAR", "test-value")
+
+	// Test inline map with template expression
+	actual, err := l.LoadEnvironmentValues(nil, []any{
+		map[string]any{
+			"simple_key":   "simple-value",
+			"template_key": `{{ env "TEST_VAR" }}`,
+			"nested": map[string]any{
+				"nested_template": `{{ env "TEST_VAR" }}-nested`,
+			},
+		},
+	}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"simple_key":   "simple-value",
+		"template_key": "test-value",
+		"nested": map[string]any{
+			"nested_template": "test-value-nested",
+		},
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
+	}
+}
+
+// TestEnvValsLoad_InlineMapWithNoTemplateExpressions tests that inline map values
+// without template expressions are passed through unchanged.
+func TestEnvValsLoad_InlineMapWithNoTemplateExpressions(t *testing.T) {
+	l := newLoader()
+
+	// Test inline map without template expressions
+	actual, err := l.LoadEnvironmentValues(nil, []any{
+		map[string]any{
+			"key1": "value1",
+			"key2": true,
+			"key3": 123,
+			"nested": map[string]any{
+				"nested_key": "nested_value",
+			},
+		},
+	}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"key1": "value1",
+		"key2": true,
+		"key3": 123,
+		"nested": map[string]any{
+			"nested_key": "nested_value",
+		},
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
+	}
+}
