@@ -1430,6 +1430,14 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 
 	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 	if err != nil {
+		// Work around chartify failing when the rendered chart output is empty but
+		// jsonPatches / strategicMergePatches / transformers are configured.
+		// See https://github.com/helmfile/helmfile/issues/1757
+		if strings.Contains(err.Error(), `unexpected dir entry "" it must be the abs path to the output directory`) {
+			st.logger.Debugf("Chartify returned empty output for release %s, treating as no-op chartification", release.Name)
+			return chartPath, false, nil
+		}
+
 		return "", false, err
 	}
 
