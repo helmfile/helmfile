@@ -15,6 +15,7 @@ const (
 	GoYamlV3              = "HELMFILE_GO_YAML_V3"
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
+	RenderYaml            = "HELMFILE_RENDER_YAML" // force helmfile.yaml to be rendered as template regardless of extension
 
 	// AWSSDKLogLevel controls AWS SDK logging level
 	// Valid values: "off" (default), "minimal", "standard", "verbose", or custom (e.g., "request,response")

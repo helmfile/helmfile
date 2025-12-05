@@ -586,6 +586,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_CACHE_HOME` - specify directory to store cached files for remote operations
 * `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
 * `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
+* `HELMFILE_RENDER_YAML` - force helmfile.yaml to be rendered as a Go template regardless of file extension, expecting `true` lower case. Useful for migrating from v0 to v1 without renaming files to `.gotmpl`
 
 ## CLI Reference
 
