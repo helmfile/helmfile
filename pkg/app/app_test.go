@@ -4455,3 +4455,149 @@ func TestGetArgs(t *testing.T) {
 		require.Equalf(t, test.expected, strings.Join(receivedArgs, " "), "expected args %s, received args %s", test.expected, strings.Join(receivedArgs, " "))
 	}
 }
+
+func TestRenderYamlEnvVar(t *testing.T) {
+	testCases := []struct {
+		name           string
+		envValue       string
+		filename       string
+		content        string
+		shouldRender   bool
+		expectErr      bool
+		expectedOutput string
+	}{
+		{
+			name:           "default behavior - helmfile.yaml without .gotmpl is NOT rendered",
+			envValue:       "",
+			filename:       "helmfile.yaml",
+			content:        "releases:\n- name: {{ .Environment.Name }}-app\n  chart: test/chart\n",
+			shouldRender:   false,
+			expectErr:      false,
+			expectedOutput: "",
+		},
+		{
+			name:           "default behavior - helmfile.yaml.gotmpl IS rendered",
+			envValue:       "",
+			filename:       "helmfile.yaml.gotmpl",
+			content:        "releases:\n- name: {{ .Environment.Name }}-app\n  chart: test/chart\n",
+			shouldRender:   true,
+			expectErr:      false,
+			expectedOutput: "default-app",
+		},
+		{
+			name:           "HELMFILE_RENDER_YAML=true - helmfile.yaml IS rendered",
+			envValue:       "true",
+			filename:       "helmfile.yaml",
+			content:        "releases:\n- name: {{ .Environment.Name }}-app\n  chart: test/chart\n",
+			shouldRender:   true,
+			expectErr:      false,
+			expectedOutput: "default-app",
+		},
+		{
+			name:           "HELMFILE_RENDER_YAML=true - helmfile.yaml.gotmpl IS rendered",
+			envValue:       "true",
+			filename:       "helmfile.yaml.gotmpl",
+			content:        "releases:\n- name: {{ .Environment.Name }}-app\n  chart: test/chart\n",
+			shouldRender:   true,
+			expectErr:      false,
+			expectedOutput: "default-app",
+		},
+		{
+			name:           "HELMFILE_RENDER_YAML=false - helmfile.yaml is NOT rendered",
+			envValue:       "false",
+			filename:       "helmfile.yaml",
+			content:        "releases:\n- name: {{ .Environment.Name }}-app\n  chart: test/chart\n",
+			shouldRender:   false,
+			expectErr:      false,
+			expectedOutput: "",
+		},
+		{
+			name:           "HELMFILE_RENDER_YAML=false - helmfile.yaml.gotmpl IS rendered (extension takes precedence)",
+			envValue:       "false",
+			filename:       "helmfile.yaml.gotmpl",
+			content:        "releases:\n- name: {{ .Environment.Name }}-app\n  chart: test/chart\n",
+			shouldRender:   true,
+			expectErr:      false,
+			expectedOutput: "default-app",
+		},
+		{
+			name:           "HELMFILE_RENDER_YAML=TRUE (uppercase) - should NOT render (strict comparison)",
+			envValue:       "TRUE",
+			filename:       "helmfile.yaml",
+			content:        "releases:\n- name: {{ .Environment.Name }}-app\n  chart: test/chart\n",
+			shouldRender:   false,
+			expectErr:      false,
+			expectedOutput: "",
+		},
+		{
+			name:           "HELMFILE_RENDER_YAML=1 - should NOT render (strict comparison)",
+			envValue:       "1",
+			filename:       "helmfile.yaml",
+			content:        "releases:\n- name: {{ .Environment.Name }}-app\n  chart: test/chart\n",
+			shouldRender:   false,
+			expectErr:      false,
+			expectedOutput: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envValue != "" {
+				t.Setenv(envvar.RenderYaml, tc.envValue)
+			}
+
+			files := map[string]string{
+				fmt.Sprintf("/path/to/%s", tc.filename): tc.content,
+			}
+
+			app := &App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Logger:                          newAppTestLogger(),
+				Namespace:                       "",
+				Env:                             "default",
+				FileOrDir:                       tc.filename,
+			}
+
+			expectNoCallsToHelm(app)
+			app = appWithFs(app, files)
+
+			err := app.ForEachState(
+				func(run *Run) (bool, []error) {
+					if tc.shouldRender {
+						// If rendering is expected, check that the template was rendered
+						require.NotNil(t, run.state)
+						require.NotEmpty(t, run.state.Releases)
+						// The rendered name should be "default-app" not "{{ .Environment.Name }}-app"
+						actualName := run.state.Releases[0].Name
+						require.Equal(t, tc.expectedOutput, actualName, "expected release name to be rendered as %s, got %s", tc.expectedOutput, actualName)
+					} else {
+						// If rendering is NOT expected, check that the template was NOT rendered
+						// In this case, the YAML parser will likely fail or the template syntax will remain
+						// We just verify that if there are releases, they contain the unrendered template
+						if run.state != nil && len(run.state.Releases) > 0 {
+							actualName := run.state.Releases[0].Name
+							require.Contains(t, actualName, "{{", "expected template syntax to remain unrendered, got %s", actualName)
+						}
+					}
+					return false, nil
+				},
+				false,
+				SetFilter(true),
+			)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				if err != nil && !tc.shouldRender {
+					// It's OK if there's an error when we don't expect rendering
+					// because the template syntax might cause YAML parsing issues
+					t.Logf("Expected error when not rendering template: %v", err)
+				} else if tc.shouldRender {
+					require.NoError(t, err, "unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}

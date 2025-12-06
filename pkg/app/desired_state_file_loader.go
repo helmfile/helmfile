@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 
@@ -12,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/policy"
@@ -216,7 +218,9 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 
 		var rawContent []byte
 
-		if filepath.Ext(filename) == ".gotmpl" {
+		shouldRender := filepath.Ext(filename) == ".gotmpl" || os.Getenv(envvar.RenderYaml) == "true"
+
+		if shouldRender {
 			var yamlBuf *bytes.Buffer
 			var err error
 
