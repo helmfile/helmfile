@@ -1441,18 +1441,26 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 				chartifyOpts.TemplateArgs = fmt.Sprintf("--kube-context %s --dry-run=server", quotedContext)
 			} else {
 				// Only add --kube-context if not already present
-				if !strings.Contains(chartifyOpts.TemplateArgs, "--kube-context") {
+				// Check for the flag at word boundaries to avoid false matches
+				if !strings.Contains(chartifyOpts.TemplateArgs, "--kube-context ") &&
+					!strings.HasPrefix(chartifyOpts.TemplateArgs, "--kube-context=") &&
+					!strings.Contains(chartifyOpts.TemplateArgs, " --kube-context=") {
 					chartifyOpts.TemplateArgs = fmt.Sprintf("--kube-context %s %s", quotedContext, chartifyOpts.TemplateArgs)
 				}
 				// Add --dry-run if not already present
-				if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
+				// Check for the flag at word boundaries to avoid false matches
+				if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run ") &&
+					!strings.HasPrefix(chartifyOpts.TemplateArgs, "--dry-run=") &&
+					!strings.Contains(chartifyOpts.TemplateArgs, " --dry-run=") {
 					chartifyOpts.TemplateArgs += " --dry-run=server"
 				}
 			}
 		} else {
 			if chartifyOpts.TemplateArgs == "" {
 				chartifyOpts.TemplateArgs = "--dry-run=server"
-			} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
+			} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run ") &&
+				!strings.HasPrefix(chartifyOpts.TemplateArgs, "--dry-run=") &&
+				!strings.Contains(chartifyOpts.TemplateArgs, " --dry-run=") {
 				chartifyOpts.TemplateArgs += " --dry-run=server"
 			}
 		}
