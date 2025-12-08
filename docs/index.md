@@ -1721,6 +1721,12 @@ Anything other than `true` will disable the interactive mode. The precedence has
 Once you download all required charts into your machine, you can run `helmfile sync --skip-deps` to deploy your apps.
 With the `--skip-deps` option, you can skip running "helm repo update" and "helm dependency build".
 
+When `--skip-deps` is specified, helmfile will also force the download of remote charts upfront (or use them from Helm's cache if already present), rather than relying on Helm to download them during template rendering. This enables offline operation for commands like `template`, `diff`, `sync`, and `apply`.
+
+**Typical workflow for offline usage:**
+1. First, run commands with network access to cache charts: `helmfile fetch` or `helmfile template`
+2. Then, run commands offline using the cached charts: `helmfile template --skip-deps` or `helmfile diff --skip-deps`
+
 ## Experimental Features
 
 Some experimental features may be available for testing in perspective of being (or not) included in a future release.
