@@ -161,6 +161,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
+			ForceDownload:          c.SkipDeps(),
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -231,6 +232,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		run.helm.SetExtraArgs()
 
 		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
+			ForceDownload:          c.SkipDeps(),
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -367,6 +369,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
+			ForceDownload:          c.SkipDeps(),
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -402,6 +405,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
+			ForceDownload:          c.SkipDeps(),
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -465,6 +469,7 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
 			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
+				ForceDownload: c.SkipDeps(),
 				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
 				SkipRefresh:   c.SkipRefresh(),
 				SkipDeps:      c.SkipDeps(),
@@ -493,10 +498,11 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh: c.SkipRefresh(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
+			ForceDownload: c.SkipDeps(),
+			SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:   c.SkipRefresh(),
+			SkipDeps:      c.SkipDeps(),
+			Concurrency:   c.Concurrency(),
 		}, func() {
 			errs = a.test(run, c)
 		})
