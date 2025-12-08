@@ -20,6 +20,7 @@ import (
 	"text/template"
 	"time"
 
+	shellescape "al.essio.dev/pkg/shellescape"
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
 	"github.com/gofrs/flock"
@@ -1433,12 +1434,17 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		}
 
 		if kubeContext != "" {
+			// Build the template args with proper quoting for the kubeContext value
+			// Use shellescape to safely quote the context name in case it contains special characters
+			quotedContext := shellescape.Quote(kubeContext)
 			if chartifyOpts.TemplateArgs == "" {
-				chartifyOpts.TemplateArgs = fmt.Sprintf("--kube-context %s --dry-run=server", kubeContext)
+				chartifyOpts.TemplateArgs = fmt.Sprintf("--kube-context %s --dry-run=server", quotedContext)
 			} else {
+				// Only add --kube-context if not already present
 				if !strings.Contains(chartifyOpts.TemplateArgs, "--kube-context") {
-					chartifyOpts.TemplateArgs = fmt.Sprintf("--kube-context %s %s", kubeContext, chartifyOpts.TemplateArgs)
+					chartifyOpts.TemplateArgs = fmt.Sprintf("--kube-context %s %s", quotedContext, chartifyOpts.TemplateArgs)
 				}
+				// Add --dry-run if not already present
 				if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
 					chartifyOpts.TemplateArgs += " --dry-run=server"
 				}
