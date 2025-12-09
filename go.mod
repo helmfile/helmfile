@@ -30,7 +30,7 @@ require (
 	go.uber.org/zap v1.27.1
 	go.yaml.in/yaml/v2 v2.4.3
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/sync v0.18.0
+	golang.org/x/sync v0.19.0
 	golang.org/x/term v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.19.2
