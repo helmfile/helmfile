@@ -74,6 +74,9 @@ type GlobalOptions struct {
 	Args string
 	// LogOutput is the writer to use for writing logs.
 	LogOutput io.Writer
+	// EnvFile is the path to a dotenv file to load environment variables from.
+	// Variables already set in the environment will NOT be overridden.
+	EnvFile string
 }
 
 // Logger returns the logger to use.
@@ -276,4 +279,13 @@ func (g *GlobalImpl) Args() string {
 	}
 
 	return args
+}
+
+// EnvFile returns the path to the env file to load.
+// Priority: --env-file flag > HELMFILE_ENV_FILE env var > empty (no loading)
+func (g *GlobalImpl) EnvFile() string {
+	if g.GlobalOptions.EnvFile != "" {
+		return g.GlobalOptions.EnvFile
+	}
+	return os.Getenv(envvar.EnvFile)
 }

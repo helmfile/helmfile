@@ -12,6 +12,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/app"
 	"github.com/helmfile/helmfile/pkg/app/version"
 	"github.com/helmfile/helmfile/pkg/config"
+	"github.com/helmfile/helmfile/pkg/envfile"
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -51,6 +52,16 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
+			// Load environment file first (before any other initialization)
+			// This must happen early so env vars are available for subsequent operations
+			envFilePath := globalConfig.EnvFile
+			if envFilePath == "" {
+				envFilePath = os.Getenv(envvar.EnvFile)
+			}
+			if err := envfile.Load(envFilePath); err != nil {
+				return fmt.Errorf("failed to load env file %s: %w", envFilePath, err)
+			}
+
 			// Valid levels:
 			// https://github.com/uber-go/zap/blob/7e7e266a8dbce911a49554b945538c5b950196b8/zapcore/level.go#L126
 			logLevel := globalConfig.LogLevel
@@ -144,6 +155,10 @@ The name of a release can be used as a label: "--selector name=myrelease"`)
 	fs.BoolVar(&globalOptions.EnableLiveOutput, "enable-live-output", globalOptions.EnableLiveOutput, `Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
 It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.`)
 	fs.BoolVarP(&globalOptions.Interactive, "interactive", "i", false, "Request confirmation before attempting to modify clusters")
+	fs.StringVar(&globalOptions.EnvFile, "env-file", "", `Load environment variables from a dotenv file before running commands. `+
+		`Variables already set in the environment are NOT overridden. `+
+		`If the file doesn't exist, execution continues silently. `+
+		`Can also be set via HELMFILE_ENV_FILE environment variable.`)
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")
 }

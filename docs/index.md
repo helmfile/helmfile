@@ -587,6 +587,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
 * `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
 * `HELMFILE_RENDER_YAML` - force helmfile.yaml to be rendered as a Go template regardless of file extension, expecting `true` lower case. Useful for migrating from v0 to v1 without renaming files to `.gotmpl`
+* `HELMFILE_ENV_FILE` - specify path to a dotenv file to load environment variables from. Variables already set in the environment are not overridden. The same as `--env-file` CLI flag
 
 ## CLI Reference
 
@@ -1698,13 +1699,37 @@ Or join our friendly slack community in the [`#helmfile`](https://slack.sweetops
 
 ## Using .env files
 
-Helmfile itself doesn't have an ability to load .env files. But you can write some bash script to achieve the goal:
+Helmfile can automatically load environment variables from a dotenv file before running commands.
+
+### Using the `--env-file` flag
+
+```console
+helmfile --env-file .env sync
+```
+
+### Using the `HELMFILE_ENV_FILE` environment variable
+
+Set the `HELMFILE_ENV_FILE` environment variable to automatically load a dotenv file:
+
+```console
+export HELMFILE_ENV_FILE=.env
+helmfile sync
+```
+
+### Behavior
+
+- If the specified file doesn't exist, helmfile continues silently (no error)
+- Existing environment variables are **not** overridden by values in the file
+- The `--env-file` flag takes precedence over `HELMFILE_ENV_FILE`
+- Standard dotenv format is supported: `KEY=VALUE`, comments with `#`, quoted values
+
+### Legacy approach
+
+If you prefer not to use the built-in support, you can still use a bash script:
 
 ```console
 set -a; . .env; set +a; helmfile sync
 ```
-
-Please see #203 for more context.
 
 ## Running Helmfile interactively
 
