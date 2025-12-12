@@ -46,7 +46,7 @@ UNQUOTED=hello`,
 			},
 		},
 		{
-			name: "single quoted values",
+			name:    "single quoted values",
 			content: `SINGLE='hello world'`,
 			expectedEnv: map[string]string{
 				"SINGLE": "hello world",
@@ -79,7 +79,7 @@ NEW=fromfile`,
 			},
 		},
 		{
-			name: "whitespace handling",
+			name:    "whitespace handling",
 			content: `  SPACED  =  value  `,
 			expectedEnv: map[string]string{
 				"SPACED": "value",
@@ -160,6 +160,41 @@ func TestParseEnvLine(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLoad_PermissionDenied(t *testing.T) {
+	// Create a file with no read permissions
+	tmpDir := t.TempDir()
+	envPath := filepath.Join(tmpDir, ".env")
+	err := os.WriteFile(envPath, []byte("FOO=bar"), 0o000)
+	require.NoError(t, err)
+
+	// Should return an error (not silently ignore like file-not-found)
+	err = Load(envPath)
+	require.Error(t, err)
+}
+
+func TestLoad_CRLFLineEndings(t *testing.T) {
+	// Clean up env vars after test
+	defer func() {
+		os.Unsetenv("CRLF_FOO")
+		os.Unsetenv("CRLF_BAR")
+	}()
+
+	// Create temp file with Windows-style line endings
+	tmpDir := t.TempDir()
+	envPath := filepath.Join(tmpDir, ".env")
+	content := "CRLF_FOO=bar\r\nCRLF_BAR=baz\r\n"
+	err := os.WriteFile(envPath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	// Load env file
+	err = Load(envPath)
+	require.NoError(t, err)
+
+	// Check values don't have \r in them
+	require.Equal(t, "bar", os.Getenv("CRLF_FOO"))
+	require.Equal(t, "baz", os.Getenv("CRLF_BAR"))
 }
 
 func TestTrimQuotes(t *testing.T) {

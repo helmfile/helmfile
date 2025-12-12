@@ -54,10 +54,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// Load environment file first (before any other initialization)
 			// This must happen early so env vars are available for subsequent operations
-			envFilePath := globalConfig.EnvFile
-			if envFilePath == "" {
-				envFilePath = os.Getenv(envvar.EnvFile)
-			}
+			envFilePath := config.NewGlobalImpl(globalConfig).EnvFile()
 			if err := envfile.Load(envFilePath); err != nil {
 				return fmt.Errorf("failed to load env file %s: %w", envFilePath, err)
 			}

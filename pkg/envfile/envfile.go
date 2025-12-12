@@ -3,17 +3,22 @@ package envfile
 import (
 	"bufio"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 // Load reads a dotenv file and sets environment variables.
 // It does NOT override existing environment variables.
 // If the file doesn't exist, it silently returns nil (no error).
+// Lines that cannot be parsed (e.g., missing '=' sign, empty key) are silently skipped.
 // This follows docker-compose behavior for optional env files.
 func Load(path string) error {
 	if path == "" {
 		return nil
 	}
+
+	// Clean the path to normalize it
+	path = filepath.Clean(path)
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -23,7 +28,7 @@ func Load(path string) error {
 		}
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -45,7 +50,7 @@ func Load(path string) error {
 			continue
 		}
 
-		os.Setenv(key, value)
+		_ = os.Setenv(key, value)
 	}
 
 	return scanner.Err()
