@@ -4,6 +4,8 @@ package config
 type BuildOptions struct {
 	// EmbedValues is true if the values should be embedded
 	EmbedValues bool
+	// SkipCharts makes Build skip `withPreparedCharts`
+	SkipCharts bool
 }
 
 // NewBuildOptions creates a new Apply
@@ -28,4 +30,9 @@ func NewBuildImpl(g *GlobalImpl, b *BuildOptions) *BuildImpl {
 // EmbedValues returns the embed values.
 func (b *BuildImpl) EmbedValues() bool {
 	return b.BuildOptions.EmbedValues
+}
+
+// SkipCharts returns skipCharts flag
+func (b *BuildImpl) SkipCharts() bool {
+	return b.BuildOptions.SkipCharts
 }
