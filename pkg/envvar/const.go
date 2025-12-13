@@ -28,4 +28,9 @@ const (
 	// Can be overridden by AWS_SDK_GO_LOG_LEVEL environment variable
 	// See issue #2270 and vals PR #893
 	AWSSDKLogLevel = "HELMFILE_AWS_SDK_LOG_LEVEL"
+
+	// EnvFile specifies the path to a dotenv file to load environment variables from.
+	// Variables already set in the environment will NOT be overridden.
+	// If the file doesn't exist, execution continues silently.
+	EnvFile = "HELMFILE_ENV_FILE"
 )
