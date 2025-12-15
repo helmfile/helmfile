@@ -69,7 +69,7 @@ jobs:
       - name: Archive built binaries
         if: matrix.helm-version == 'v4.0.1'
         run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: matrix.helm-version == 'v4.0.1'
         with:
           name: built-binaries-${{ github.run_id }}
