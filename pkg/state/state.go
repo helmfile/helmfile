@@ -1352,11 +1352,102 @@ type PrepareChartKey struct {
 // When running `helmfile template` on helm v2, or `helmfile lint` on both helm v2 and v3,
 // PrepareCharts will download and untar charts for linting and templating.
 //
-// Otheriwse, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
+// rewriteChartDependencies rewrites relative file:// dependencies in Chart.yaml to absolute paths
+// to ensure they can be resolved from chartify's temporary directory
+func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) {
+	chartYamlPath := filepath.Join(chartPath, "Chart.yaml")
+
+	// Check if Chart.yaml exists
+	if _, err := os.Stat(chartYamlPath); os.IsNotExist(err) {
+		return func() {}, nil
+	}
+
+	// Read Chart.yaml
+	data, err := os.ReadFile(chartYamlPath)
+	if err != nil {
+		return func() {}, err
+	}
+
+	originalContent := data
+	cleanup := func() {
+		// Restore original Chart.yaml
+		if err := os.WriteFile(chartYamlPath, originalContent, 0644); err != nil {
+			st.logger.Warnf("Failed to restore original Chart.yaml at %s: %v", chartYamlPath, err)
+		}
+	}
+
+	// Parse Chart.yaml
+	type ChartDependency struct {
+		Name       string `yaml:"name"`
+		Repository string `yaml:"repository"`
+		Version    string `yaml:"version"`
+	}
+	type ChartMeta struct {
+		Dependencies []ChartDependency      `yaml:"dependencies,omitempty"`
+		Data         map[string]interface{} `yaml:",inline"`
+	}
+
+	var chartMeta ChartMeta
+	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
+		return cleanup, err
+	}
+
+	// Rewrite relative file:// dependencies to absolute paths
+	modified := false
+	for i := range chartMeta.Dependencies {
+		dep := &chartMeta.Dependencies[i]
+		if strings.HasPrefix(dep.Repository, "file://") {
+			relPath := strings.TrimPrefix(dep.Repository, "file://")
+
+			// Check if it's a relative path
+			if !filepath.IsAbs(relPath) {
+				// Convert to absolute path relative to the chart directory
+				absPath := filepath.Join(chartPath, relPath)
+				absPath, err = filepath.Abs(absPath)
+				if err != nil {
+					return cleanup, fmt.Errorf("failed to resolve absolute path for dependency %s: %w", dep.Name, err)
+				}
+
+				st.logger.Debugf("Rewriting Chart dependency %s from %s to file://%s", dep.Name, dep.Repository, absPath)
+				dep.Repository = "file://" + absPath
+				modified = true
+			}
+		}
+	}
+
+	// Write back if modified
+	if modified {
+		updatedData, err := yaml.Marshal(&chartMeta)
+		if err != nil {
+			return cleanup, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
+		}
+
+		if err := os.WriteFile(chartYamlPath, updatedData, 0644); err != nil {
+			return cleanup, fmt.Errorf("failed to write Chart.yaml: %w", err)
+		}
+
+		st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", chartYamlPath)
+	}
+
+	return cleanup, nil
+}
+
+// Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
 // processChartification handles the chartification process
 func (st *HelmState) processChartification(chartification *Chartify, release *ReleaseSpec, chartPath string, opts ChartPrepareOptions, skipDeps bool, helmfileCommand string) (string, bool, error) {
+	// Rewrite relative file:// dependencies in Chart.yaml to absolute paths before chartify processes them
+	// This prevents errors like "Error: directory /tmp/chartify.../argocd-application not found"
+	// when Chart.yaml contains dependencies like "file://../argocd-application"
+	if st.fs.DirectoryExistsAt(chartPath) {
+		restoreChart, err := st.rewriteChartDependencies(chartPath)
+		if err != nil {
+			return "", false, fmt.Errorf("failed to rewrite chart dependencies: %w", err)
+		}
+		defer restoreChart()
+	}
+
 	c := chartify.New(
 		chartify.HelmBin(st.DefaultHelmBinary),
 		chartify.KustomizeBin(st.DefaultKustomizeBinary),
