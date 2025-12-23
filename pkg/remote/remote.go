@@ -17,8 +17,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/hashicorp/go-getter"
-	"github.com/hashicorp/go-getter/helper/url"
+	"github.com/hashicorp/go-getter/v2"
+	"github.com/hashicorp/go-getter/v2/helper/url"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
@@ -333,18 +333,17 @@ type HttpGetter struct {
 func (g *GoGetter) Get(wd, src, dst string) error {
 	ctx := context.Background()
 
-	get := &getter.Client{
-		Ctx:     ctx,
+	req := &getter.Request{
 		Src:     src,
 		Dst:     dst,
 		Pwd:     wd,
-		Mode:    getter.ClientModeDir,
-		Options: []getter.ClientOption{},
+		GetMode: getter.ModeDir,
 	}
 
-	g.Logger.Debugf("client: %+v", *get)
+	g.Logger.Debugf("request: %+v", *req)
 
-	if err := get.Get(); err != nil {
+	client := &getter.Client{}
+	if _, err := client.Get(ctx, req); err != nil {
 		return fmt.Errorf("get: %v", err)
 	}
 
