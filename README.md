@@ -67,6 +67,7 @@ download one of [releases](https://github.com/helmfile/helmfile/releases)
 * openSUSE: install via `zypper in helmfile` assuming you are on Tumbleweed; if you are on Leap you must add the [kubic](https://download.opensuse.org/repositories/devel:/kubic/) repo for your distribution version once before that command, e.g. `zypper ar https://download.opensuse.org/repositories/devel:/kubic/openSUSE_Leap_\$releasever kubic`
 * Windows (using [scoop](https://scoop.sh/)): `scoop install helmfile`
 * macOS (using [homebrew](https://brew.sh/)): `brew install helmfile`
+* Linux/macOS/Windows (using [mise](https://mise.jdx.dev)): `mise use -g helmfile@latest`
 
 **3: Container**
 
