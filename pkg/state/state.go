@@ -20,6 +20,7 @@ import (
 	"text/template"
 	"time"
 
+	shellescape "al.essio.dev/pkg/shellescape"
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
 	"github.com/gofrs/flock"
@@ -1512,10 +1513,47 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// for all cluster-requiring operations (diff, apply, sync, etc.) but not for offline
 	// commands (template, lint, build, etc.)
 	if requiresCluster {
-		if chartifyOpts.TemplateArgs == "" {
-			chartifyOpts.TemplateArgs = "--dry-run=server"
-		} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
-			chartifyOpts.TemplateArgs += " --dry-run=server"
+		// Add --kube-context when a kube context is configured
+		// This ensures chartify's helm template command uses the correct cluster
+		var kubeContext string
+		if release.KubeContext != "" {
+			kubeContext = release.KubeContext
+		} else if st.Environments[st.Env.Name].KubeContext != "" {
+			kubeContext = st.Environments[st.Env.Name].KubeContext
+		} else if st.HelmDefaults.KubeContext != "" {
+			kubeContext = st.HelmDefaults.KubeContext
+		}
+
+		if kubeContext != "" {
+			// Build the template args with proper quoting for the kubeContext value
+			// Use shellescape to safely quote the context name in case it contains special characters
+			quotedContext := shellescape.Quote(kubeContext)
+			if chartifyOpts.TemplateArgs == "" {
+				chartifyOpts.TemplateArgs = fmt.Sprintf("--kube-context %s --dry-run=server", quotedContext)
+			} else {
+				// Only add --kube-context if not already present
+				// Check for the flag at word boundaries to avoid false matches
+				if !strings.Contains(chartifyOpts.TemplateArgs, "--kube-context ") &&
+					!strings.HasPrefix(chartifyOpts.TemplateArgs, "--kube-context=") &&
+					!strings.Contains(chartifyOpts.TemplateArgs, " --kube-context=") {
+					chartifyOpts.TemplateArgs = fmt.Sprintf("--kube-context %s %s", quotedContext, chartifyOpts.TemplateArgs)
+				}
+				// Add --dry-run if not already present
+				// Check for the flag at word boundaries to avoid false matches
+				if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run ") &&
+					!strings.HasPrefix(chartifyOpts.TemplateArgs, "--dry-run=") &&
+					!strings.Contains(chartifyOpts.TemplateArgs, " --dry-run=") {
+					chartifyOpts.TemplateArgs += " --dry-run=server"
+				}
+			}
+		} else {
+			if chartifyOpts.TemplateArgs == "" {
+				chartifyOpts.TemplateArgs = "--dry-run=server"
+			} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run ") &&
+				!strings.HasPrefix(chartifyOpts.TemplateArgs, "--dry-run=") &&
+				!strings.Contains(chartifyOpts.TemplateArgs, " --dry-run=") {
+				chartifyOpts.TemplateArgs += " --dry-run=server"
+			}
 		}
 	}
 
