@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -4911,5 +4912,91 @@ func TestChartCache(t *testing.T) {
 	}
 	if cachedPath != path {
 		t.Errorf("Expected path %s, got %s", path, cachedPath)
+	}
+}
+
+func TestGenerateSecretValuesFiles_SkipSecrets(t *testing.T) {
+	tests := []struct {
+		name              string
+		skipSecrets       bool
+		secrets           []any
+		expectDecryptCall bool
+	}{
+		{
+			name:              "skipSecrets=true skips decryption",
+			skipSecrets:       true,
+			secrets:           []any{"secrets.yaml"},
+			expectDecryptCall: false,
+		},
+		{
+			name:              "skipSecrets=false calls decryption",
+			skipSecrets:       false,
+			secrets:           []any{"secrets.yaml"},
+			expectDecryptCall: true,
+		},
+		{
+			name:              "no secrets means no decryption regardless of skipSecrets",
+			skipSecrets:       false,
+			secrets:           []any{},
+			expectDecryptCall: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Use ENC[...] format to simulate SOPS encrypted content
+			encryptedContent := "my_secret: ENC[AES256_GCM,data:encrypted_data,type:str]"
+			testFs := testhelper.NewTestFs(map[string]string{
+				"/path/to/secrets.yaml": encryptedContent,
+			})
+			testFs.Cwd = "/path/to"
+
+			release := &ReleaseSpec{
+				Chart:   "test/chart",
+				Name:    "test-release",
+				Secrets: tt.secrets,
+			}
+
+			state := &HelmState{
+				basePath: "/path/to",
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: []ReleaseSpec{*release},
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]any{},
+			}
+			state = injectFs(state, testFs)
+
+			helm := &exectest.Helm{
+				Version: semver.MustParse("3.10.0"),
+			}
+
+			_, flags, err := state.namespaceAndValuesFlags(helm, release, 0, tt.skipSecrets)
+			require.NoError(t, err)
+
+			if tt.expectDecryptCall {
+				assert.NotEmpty(t, helm.DecryptedSecrets, "DecryptSecret should have been called")
+			} else {
+				assert.Empty(t, helm.DecryptedSecrets, "DecryptSecret should not have been called")
+			}
+
+			// When skipSecrets=true and secrets are configured, the encrypted content
+			// should be used as-is (rendered to a temp file for helm values)
+			if tt.skipSecrets && len(tt.secrets) > 0 {
+				// Verify that flags contain a rendered values file (temp file)
+				assert.NotEmpty(t, flags, "Flags should contain rendered values file when secrets are configured")
+
+				// Read the rendered temp file and verify it contains the original encrypted content
+				for _, flag := range flags {
+					if strings.HasPrefix(flag, "--values=") {
+						valuesFile := strings.TrimPrefix(flag, "--values=")
+						content, err := os.ReadFile(valuesFile)
+						require.NoError(t, err)
+						assert.Contains(t, string(content), "ENC[AES256_GCM", "Rendered values should contain encrypted content when skipSecrets=true")
+					}
+				}
+			}
+		})
 	}
 }

@@ -25,7 +25,25 @@ echo Code: "${code}"
 
 test_pass "secretssops.1"
 
-test_start "secretssops.2 - should succeed with secrets plugin"
+test_start "secretssops.2 - should succeed with --skip-secrets flag without secrets plugin"
+
+info "Ensure helmfile succeeds with --skip-secrets when no helm-secrets is installed"
+${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct --skip-secrets build || fail "\"helmfile build --skip-secrets\" should succeed without secrets plugin"
+
+info "Testing template with --skip-secrets flag"
+skip_secrets_tmp=$(mktemp -d)
+skip_secrets_output=${skip_secrets_tmp}/skip-secrets.template.yaml
+${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct --skip-secrets template --skip-deps > ${skip_secrets_output} || fail "\"helmfile template --skip-secrets\" should succeed"
+
+info "Verifying encrypted values are preserved (not decrypted) in template output"
+grep -q "ENC\[AES256_GCM" ${skip_secrets_output} || fail "Template output should contain encrypted values (ENC[AES256_GCM) when --skip-secrets is used"
+
+info "Testing with HELMFILE_SKIP_SECRETS env var"
+HELMFILE_SKIP_SECRETS=true ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct build || fail "\"HELMFILE_SKIP_SECRETS=true helmfile build\" should succeed"
+
+test_pass "secretssops.2"
+
+test_start "secretssops.3 - should succeed with secrets plugin"
 
 info "Ensure helm-secrets is installed"
 # helm-secrets 4.7.0+ with Helm 4 uses split plugin architecture
@@ -43,9 +61,9 @@ fi
 info "Ensure helmfile succeed when helm-secrets is installed"
 ${helmfile} -f ${secretssops_case_input_dir}/${config_file} -e direct build || fail "\"helmfile build\" shouldn't fail"
 
-test_pass "secretssops.2"
+test_pass "secretssops.3"
 
-test_start "secretssops.3 - should order secrets correctly"
+test_start "secretssops.4 - should order secrets correctly"
 
 secretssops_tmp=$(mktemp -d)
 direct=${secretssops_tmp}/direct.build.yaml
@@ -67,4 +85,4 @@ for i in $(seq 10); do
     ./dyff between -bs ${secretssops_case_output_dir}/reverse.build.yaml ${reverse} || fail "\"helmfile template\" should be consistent"
 done
 
-test_pass "secretssops.3"
+test_pass "secretssops.4"

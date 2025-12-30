@@ -41,6 +41,7 @@ type Helm struct {
 	Lists                map[ListKey]string
 	Diffs                map[DiffKey]error
 	Diffed               []Release
+	DecryptedSecrets     []string // Captures secret file paths passed to DecryptSecret
 	FailOnUnexpectedDiff bool
 	FailOnUnexpectedList bool
 	Version              *semver.Version
@@ -198,7 +199,8 @@ func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...str
 	return res, nil
 }
 func (helm *Helm) DecryptSecret(context helmexec.HelmContext, name string, flags ...string) (string, error) {
-	return "", nil
+	helm.DecryptedSecrets = append(helm.DecryptedSecrets, name)
+	return name, nil
 }
 func (helm *Helm) TestRelease(context helmexec.HelmContext, name string, flags ...string) error {
 	if strings.Contains(name, "error") {
