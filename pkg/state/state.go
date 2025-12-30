@@ -849,6 +849,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 type SyncOpts struct {
 	Set                  []string
 	SkipCleanup          bool
+	SkipSecrets          bool
 	SkipCRDs             bool
 	Wait                 bool
 	WaitRetries          int
@@ -1849,6 +1850,7 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 type TemplateOpts struct {
 	Set               []string
 	SkipCleanup       bool
+	SkipSecrets       bool
 	OutputDirTemplate string
 	IncludeCRDs       bool
 	NoHooks           bool
@@ -1990,7 +1992,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 
 		st.ApplyOverrides(release)
 
-		generatedFiles, err := st.generateValuesFiles(helm, release, i)
+		generatedFiles, err := st.generateValuesFiles(helm, release, i, false)
 		if err != nil {
 			return []error{err}
 		}
@@ -2062,6 +2064,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 type LintOpts struct {
 	Set         []string
 	SkipCleanup bool
+	SkipSecrets bool
 }
 
 type LintOpt interface{ Apply(*LintOpts) }
@@ -2093,7 +2096,7 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 			continue
 		}
 
-		flags, files, err := st.flagsForLint(helm, &release, 0)
+		flags, files, err := st.flagsForLint(helm, &release, 0, opts)
 
 		if !opts.SkipCleanup {
 			defer st.removeFiles(files)
@@ -2397,6 +2400,7 @@ type DiffOpts struct {
 	NoColor                 bool
 	Set                     []string
 	SkipCleanup             bool
+	SkipSecrets             bool
 	SkipDiffOnInstall       bool
 	DiffArgs                string
 	ReuseValues             bool
@@ -3240,7 +3244,12 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
-	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	skipSecrets := false
+	if opt != nil {
+		skipSecrets = opt.SkipSecrets
+	}
+
+	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex, skipSecrets)
 	if err != nil {
 		return nil, clean, err
 	}
@@ -3257,12 +3266,14 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	postRenderer := ""
 	kubeVersion := ""
 	skipSchemaValidation := false
+	skipSecrets := false
 	if opt != nil {
 		postRenderer = opt.PostRenderer
 		postRendererArgs = opt.PostRendererArgs
 		kubeVersion = opt.KubeVersion
 		showOnly = opt.ShowOnly
 		skipSchemaValidation = opt.SkipSchemaValidation
+		skipSecrets = opt.SkipSecrets
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
 	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
@@ -3271,7 +3282,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendShowOnlyFlags(flags, showOnly)
 	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
 
-	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex, skipSecrets)
 	if err != nil {
 		return nil, files, err
 	}
@@ -3412,8 +3423,10 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 
 	takeOwnership := false
+	skipSecrets := false
 	if opt != nil {
 		takeOwnership = opt.TakeOwnership
+		skipSecrets = opt.SkipSecrets
 	}
 
 	var err error
@@ -3422,7 +3435,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, nil, err
 	}
 
-	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex, skipSecrets)
 	if err != nil {
 		return nil, files, err
 	}
@@ -3550,8 +3563,13 @@ func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
 	return result
 }
 
-func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *LintOpts) ([]string, []string, error) {
+	skipSecrets := false
+	if opt != nil {
+		skipSecrets = opt.SkipSecrets
+	}
+
+	flags, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex, skipSecrets)
 	if err != nil {
 		return nil, files, err
 	}
@@ -3824,7 +3842,7 @@ func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string,
 	return generatedFiles, nil
 }
 
-func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, skipSecrets bool) ([]string, error) {
 	var generatedDecryptedFiles []any
 
 	for _, v := range release.Secrets {
@@ -3871,13 +3889,20 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 		}
 		path := paths[0]
 
-		valfile, err := helm.DecryptSecret(st.createHelmContext(release, workerIndex), path)
-		if err != nil {
-			return nil, err
+		var valfile string
+		if skipSecrets {
+			// When skipping secrets, use the encrypted file directly without decryption
+			st.logger.Warnf("Skipping decryption of secret %s (--skip-secrets enabled)", path)
+			valfile = path
+		} else {
+			valfile, err = helm.DecryptSecret(st.createHelmContext(release, workerIndex), path)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				_ = os.Remove(valfile)
+			}()
 		}
-		defer func() {
-			_ = os.Remove(valfile)
-		}()
 
 		generatedDecryptedFiles = append(generatedDecryptedFiles, valfile)
 	}
@@ -3890,13 +3915,13 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 	return generatedFiles, nil
 }
 
-func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
+func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, skipSecrets bool) ([]string, error) {
 	valuesFiles, err := st.generateVanillaValuesFiles(release)
 	if err != nil {
 		return nil, err
 	}
 
-	secretValuesFiles, err := st.generateSecretValuesFiles(helm, release, workerIndex)
+	secretValuesFiles, err := st.generateSecretValuesFiles(helm, release, workerIndex, skipSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -3906,7 +3931,7 @@ func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *Relea
 	return files, nil
 }
 
-func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, skipSecrets bool) ([]string, []string, error) {
 	flags := []string{}
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
@@ -3914,7 +3939,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 
 	var files []string
 
-	generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
+	generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex, skipSecrets)
 	if err != nil {
 		return nil, files, err
 	}

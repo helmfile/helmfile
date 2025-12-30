@@ -34,6 +34,8 @@ type GlobalOptions struct {
 	SkipDeps bool
 	// SkipRefresh is true if the running "helm repo update" should be skipped
 	SkipRefresh bool
+	// SkipSecrets is true if decryption of secrets files should be skipped (encrypted files are used as-is)
+	SkipSecrets bool
 	// StripArgsValuesOnExitError is true if the ARGS output on exit error should be suppressed
 	StripArgsValuesOnExitError bool
 	// DisableForceUpdate is true if force updating repos is not desirable when executing "helm repo add" (Helm 3)
@@ -183,6 +185,14 @@ func (g *GlobalImpl) SkipDeps() bool {
 // SkipRefresh return if running "helm repo update"
 func (g *GlobalImpl) SkipRefresh() bool {
 	return g.GlobalOptions.SkipRefresh
+}
+
+// SkipSecrets returns true if decryption of secrets files should be skipped
+func (g *GlobalImpl) SkipSecrets() bool {
+	if g.GlobalOptions.SkipSecrets {
+		return true
+	}
+	return os.Getenv(envvar.SkipSecrets) == "true"
 }
 
 // StripArgsValuesOnExitError return if the ARGS output on exit error should be suppressed

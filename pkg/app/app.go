@@ -38,6 +38,7 @@ type App struct {
 	EnforcePluginVerification       bool
 	HelmOCIPlainHTTP                bool
 	DisableKubeVersionAutoDetection bool
+	SkipSecrets                     bool
 
 	Logger      *zap.SugaredLogger
 	Kubeconfig  string
@@ -86,6 +87,7 @@ func New(conf ConfigProvider) *App {
 		DisableForceUpdate:         conf.DisableForceUpdate(),
 		EnforcePluginVerification:  conf.EnforcePluginVerification(),
 		HelmOCIPlainHTTP:           conf.HelmOCIPlainHTTP(),
+		SkipSecrets:                conf.SkipSecrets(),
 		Logger:                     conf.Logger(),
 		Kubeconfig:                 conf.Kubeconfig(),
 		Env:                        conf.Env(),
@@ -790,6 +792,7 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 		overrideHelmBinary:      a.OverrideHelmBinary,
 		overrideKustomizeBinary: a.OverrideKustomizeBinary,
 		enableLiveOutput:        a.EnableLiveOutput,
+		skipSecrets:             a.SkipSecrets,
 		getHelm:                 a.getHelm,
 		valsRuntime:             a.valsRuntime,
 	}
@@ -1567,6 +1570,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		Output:                  c.DiffOutput(),
 		Set:                     c.Set(),
 		SkipCleanup:             c.SkipCleanup(),
+		SkipSecrets:             c.SkipSecrets(),
 		SkipDiffOnInstall:       c.SkipDiffOnInstall(),
 		ReuseValues:             c.ReuseValues(),
 		ResetValues:             c.ResetValues(),
@@ -1681,6 +1685,7 @@ Do you really want to apply?
 				syncOpts := &state.SyncOpts{
 					Set:                  c.Set(),
 					SkipCleanup:          c.SkipCleanup(),
+					SkipSecrets:          c.SkipSecrets(),
 					SkipCRDs:             c.SkipCRDs(),
 					Wait:                 c.Wait(),
 					WaitRetries:          c.WaitRetries(),
@@ -1838,6 +1843,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			Color:                   c.Color(),
 			NoColor:                 c.NoColor(),
 			Set:                     c.Set(),
+			SkipSecrets:             c.SkipSecrets(),
 			DiffArgs:                c.DiffArgs(),
 			SkipDiffOnInstall:       c.SkipDiffOnInstall(),
 			ReuseValues:             c.ReuseValues(),
@@ -1882,6 +1888,7 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
 		opts := &state.LintOpts{
 			Set:         c.Set(),
 			SkipCleanup: c.SkipCleanup(),
+			SkipSecrets: c.SkipSecrets(),
 		}
 		lintErrs := st.LintReleases(helm, c.Values(), args, c.Concurrency(), opts)
 		if len(lintErrs) == 1 {
@@ -2107,6 +2114,7 @@ Do you really want to sync?
 
 				opts := &state.SyncOpts{
 					Set:                  c.Set(),
+					SkipSecrets:          c.SkipSecrets(),
 					SkipCRDs:             c.SkipCRDs(),
 					Wait:                 c.Wait(),
 					WaitRetries:          c.WaitRetries(),
@@ -2158,6 +2166,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			KubeVersion:          c.KubeVersion(),
 			ShowOnly:             c.ShowOnly(),
 			SkipSchemaValidation: c.SkipSchemaValidation(),
+			SkipSecrets:          c.SkipSecrets(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

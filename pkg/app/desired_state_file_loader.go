@@ -31,6 +31,7 @@ type desiredStateLoader struct {
 	overrideHelmBinary      string
 	overrideKustomizeBinary string
 	enableLiveOutput        bool
+	skipSecrets             bool
 
 	env       string
 	namespace string
@@ -172,7 +173,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 }
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
-	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.overrideKustomizeBinary, a.remote, a.enableLiveOutput, a.lockFilePath)
+	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.overrideKustomizeBinary, a.remote, a.enableLiveOutput, a.skipSecrets, a.lockFilePath)
 	c.LoadFile = a.loadFile
 	return c
 }

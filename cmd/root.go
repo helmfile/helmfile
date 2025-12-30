@@ -123,6 +123,7 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.StringArrayVar(&globalOptions.StateValuesFile, "state-values-file", nil, "specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).")
 	fs.BoolVar(&globalOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	fs.BoolVar(&globalOptions.SkipRefresh, "skip-refresh", false, `skip running "helm repo update"`)
+	fs.BoolVar(&globalOptions.SkipSecrets, "skip-secrets", false, `skip decryption of secrets files (encrypted files are used as-is). Useful for CI linting or when helm-secrets plugin is not available.`)
 	fs.BoolVar(&globalOptions.StripArgsValuesOnExitError, "strip-args-values-on-exit-error", true, `Strip the potential secret values of the helm command args contained in a helmfile error message`)
 	fs.BoolVar(&globalOptions.DisableForceUpdate, "disable-force-update", false, `do not force helm repos to update when executing "helm repo add" (Helm 3 only)`)
 	fs.BoolVar(&globalOptions.EnforcePluginVerification, "enforce-plugin-verification", false, `fail plugin installation if verification is not supported (for security purposes)`)

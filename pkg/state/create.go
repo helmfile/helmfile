@@ -72,12 +72,14 @@ type StateCreator struct {
 
 	enableLiveOutput bool
 
+	skipSecrets bool
+
 	remote *remote.Remote
 
 	lockFile string
 }
 
-func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) (helmexec.Interface, error), overrideHelmBinary string, overrideKustomizeBinary string, remote *remote.Remote, enableLiveOutput bool, lockFile string) *StateCreator {
+func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntime vals.Evaluator, getHelm func(*HelmState) (helmexec.Interface, error), overrideHelmBinary string, overrideKustomizeBinary string, remote *remote.Remote, enableLiveOutput bool, skipSecrets bool, lockFile string) *StateCreator {
 	return &StateCreator{
 		logger: logger,
 
@@ -89,6 +91,7 @@ func NewCreator(logger *zap.SugaredLogger, fs *filesystem.FileSystem, valsRuntim
 		overrideHelmBinary:      overrideHelmBinary,
 		overrideKustomizeBinary: overrideKustomizeBinary,
 		enableLiveOutput:        enableLiveOutput,
+		skipSecrets:             skipSecrets,
 
 		remote: remote,
 
@@ -461,12 +464,22 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		},
 		func(id int) {
 			for secret := range secrets {
-				release := &ReleaseSpec{}
-				decFile, err := helm.DecryptSecret(st.createHelmContext(release, 0), secret.path)
-				if err != nil {
-					results <- secretResult{secret.id, nil, err, secret.path}
-					continue
+				var decFile string
+				var err error
+
+				if c.skipSecrets {
+					// Skip decryption, use the encrypted file directly
+					st.logger.Warnf("Skipping decryption of environment secret %s (--skip-secrets enabled)", secret.path)
+					decFile = secret.path
+				} else {
+					release := &ReleaseSpec{}
+					decFile, err = helm.DecryptSecret(st.createHelmContext(release, 0), secret.path)
+					if err != nil {
+						results <- secretResult{secret.id, nil, err, secret.path}
+						continue
+					}
 				}
+
 				for _, ext := range keepFileExtensions {
 					if strings.HasSuffix(secret.path, ext) {
 						decryptedFilesKeeper = append(decryptedFilesKeeper, decFile)
@@ -474,7 +487,8 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 				}
 				// nolint: staticcheck
 				defer func() {
-					if !slices.Contains(decryptedFilesKeeper, decFile) {
+					// Only clean up if we actually decrypted the file
+					if !c.skipSecrets && !slices.Contains(decryptedFilesKeeper, decFile) {
 						if err := c.fs.DeleteFile(decFile); err != nil {
 							c.logger.Warnf("removing decrypted file %s: %w", decFile, err)
 						}

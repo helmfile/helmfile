@@ -13,6 +13,7 @@ type ConfigProvider interface {
 	HelmOCIPlainHTTP() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	SkipSecrets() bool
 
 	FileOrDir() string
 	KubeContext() string
@@ -55,6 +56,7 @@ type ApplyConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	SkipSecrets() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
@@ -106,6 +108,7 @@ type SyncConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	SkipSecrets() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
@@ -140,6 +143,7 @@ type DiffConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	SkipSecrets() bool
 
 	IncludeTests() bool
 
@@ -185,6 +189,7 @@ type TestConfigProvider interface {
 
 	SkipDeps() bool
 	SkipRefresh() bool
+	SkipSecrets() bool
 	Timeout() int
 	Cleanup() bool
 	Logs() bool
@@ -199,6 +204,7 @@ type LintConfigProvider interface {
 	Set() []string
 	SkipDeps() bool
 	SkipRefresh() bool
+	SkipSecrets() bool
 	SkipCleanup() bool
 
 	DAGConfig
@@ -227,6 +233,7 @@ type TemplateConfigProvider interface {
 	Validate() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	SkipSecrets() bool
 	SkipCleanup() bool
 	SkipTests() bool
 	OutputDir() string

@@ -2215,6 +2215,7 @@ type configImpl struct {
 	skipTests            bool
 	skipSchemaValidation bool
 	skipRefresh          bool
+	skipSecrets          bool
 
 	skipNeeds                bool
 	includeNeeds             bool
@@ -2258,6 +2259,10 @@ func (c configImpl) SkipDeps() bool {
 
 func (c configImpl) SkipRefresh() bool {
 	return c.skipRefresh
+}
+
+func (c configImpl) SkipSecrets() bool {
+	return c.skipSecrets
 }
 
 func (c configImpl) SkipNeeds() bool {
@@ -2343,6 +2348,7 @@ type applyConfig struct {
 	skipCRDs                 bool
 	skipDeps                 bool
 	skipRefresh              bool
+	skipSecrets              bool
 	skipNeeds                bool
 	includeNeeds             bool
 	includeTransitiveNeeds   bool
@@ -2430,6 +2436,10 @@ func (a applyConfig) SkipDeps() bool {
 
 func (a applyConfig) SkipRefresh() bool {
 	return a.skipRefresh
+}
+
+func (a applyConfig) SkipSecrets() bool {
+	return a.skipSecrets
 }
 
 func (a applyConfig) SkipNeeds() bool {

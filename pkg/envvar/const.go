@@ -16,6 +16,7 @@ const (
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
 	RenderYaml            = "HELMFILE_RENDER_YAML" // force helmfile.yaml to be rendered as template regardless of extension, expecting "true" lower case
+	SkipSecrets           = "HELMFILE_SKIP_SECRETS" // skip decryption of secrets files, encrypted files are used as-is
 
 	// AWSSDKLogLevel controls AWS SDK logging level
 	// Valid values: "off" (default), "minimal", "standard", "verbose", or custom (e.g., "request,response")
