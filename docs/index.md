@@ -1338,12 +1338,19 @@ And there are two ways to organize your files.
 The default helmfile directory is `helmfile.d`, that is,
 in case helmfile is unable to locate `helmfile.yaml`, it tries to locate `helmfile.d/*.yaml`.
 
-All the yaml files under the specified directory are processed in the alphabetical order. For example, you can use a `<two digit number>-<microservice>.yaml` naming convention to control the sync order.
+By default, multiple files in `helmfile.d` are processed in **parallel** for better performance. If you need files to be processed **sequentially in alphabetical order** (e.g., for dependency ordering where databases must be deployed before applications), use the `--sequential-helmfiles` flag.
+
+For example, you can use a `<two digit number>-<microservice>.yaml` naming convention to control the sync order when using `--sequential-helmfiles`:
 
 * `helmfile.d`/
   * `00-database.yaml`
-  * `00-backend.yaml`
-  * `01-frontend.yaml`
+  * `01-backend.yaml`
+  * `02-frontend.yaml`
+
+```bash
+# Process files sequentially in alphabetical order
+helmfile --sequential-helmfiles sync
+```
 
 ### Glob patterns
 

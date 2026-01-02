@@ -74,6 +74,8 @@ type GlobalOptions struct {
 	Args string
 	// LogOutput is the writer to use for writing logs.
 	LogOutput io.Writer
+	// SequentialHelmfiles is true if helmfile.d files should be processed sequentially instead of in parallel.
+	SequentialHelmfiles bool
 }
 
 // Logger returns the logger to use.
@@ -203,6 +205,11 @@ func (g *GlobalImpl) EnforcePluginVerification() bool {
 // HelmOCIPlainHTTP returns whether to use plain HTTP for OCI registries
 func (g *GlobalImpl) HelmOCIPlainHTTP() bool {
 	return g.GlobalOptions.HelmOCIPlainHTTP
+}
+
+// SequentialHelmfiles returns whether to process helmfile.d files sequentially
+func (g *GlobalImpl) SequentialHelmfiles() bool {
+	return g.GlobalOptions.SequentialHelmfiles
 }
 
 // Logger returns the logger

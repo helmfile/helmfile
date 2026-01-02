@@ -38,6 +38,7 @@ type App struct {
 	EnforcePluginVerification       bool
 	HelmOCIPlainHTTP                bool
 	DisableKubeVersionAutoDetection bool
+	SequentialHelmfiles             bool
 
 	Logger      *zap.SugaredLogger
 	Kubeconfig  string
@@ -86,6 +87,7 @@ func New(conf ConfigProvider) *App {
 		DisableForceUpdate:         conf.DisableForceUpdate(),
 		EnforcePluginVerification:  conf.EnforcePluginVerification(),
 		HelmOCIPlainHTTP:           conf.HelmOCIPlainHTTP(),
+		SequentialHelmfiles:        conf.SequentialHelmfiles(),
 		Logger:                     conf.Logger(),
 		Kubeconfig:                 conf.Kubeconfig(),
 		Env:                        conf.Env(),
@@ -855,6 +857,9 @@ func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*sta
 	return a.visitStatesWithContext(fileOrDir, defOpts, converge, nil)
 }
 
+// processStateFileParallel processes a single helmfile state file in a goroutine.
+// It is used for parallel processing of multiple helmfile.d files.
+// Results are communicated via errChan (errors) and matchChan (whether file had matching releases).
 func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context, errChan chan error, matchChan chan bool) {
 	var file string
 	var dir string
@@ -974,7 +979,11 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 
 	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir, defOpts)
 
-	if len(desiredStateFiles) > 1 {
+	// Process files in parallel if we have multiple files and parallel mode is enabled
+	shouldProcessInParallel := len(desiredStateFiles) > 1 && !a.SequentialHelmfiles
+
+	if shouldProcessInParallel {
+		// Parallel processing for multiple files (default behavior)
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(desiredStateFiles))
 		matchChan := make(chan bool, len(desiredStateFiles))
@@ -1002,7 +1011,7 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 			noMatchInHelmfiles = false
 		}
 	} else {
-		// Sequential processing for single file
+		// Sequential processing for single file or when --sequential-helmfiles is set
 		err = a.visitStateFiles(fileOrDir, defOpts, func(f, d string) (retErr error) {
 			opts := defOpts.DeepCopy()
 

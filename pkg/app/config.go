@@ -13,6 +13,7 @@ type ConfigProvider interface {
 	HelmOCIPlainHTTP() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	SequentialHelmfiles() bool
 
 	FileOrDir() string
 	KubeContext() string
