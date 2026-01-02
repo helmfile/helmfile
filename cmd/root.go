@@ -144,6 +144,7 @@ The name of a release can be used as a label: "--selector name=myrelease"`)
 	fs.BoolVar(&globalOptions.EnableLiveOutput, "enable-live-output", globalOptions.EnableLiveOutput, `Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
 It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.`)
 	fs.BoolVarP(&globalOptions.Interactive, "interactive", "i", false, "Request confirmation before attempting to modify clusters")
+	fs.BoolVar(&globalOptions.SequentialHelmfiles, "sequential-helmfiles", false, "Process helmfile.d files sequentially in alphabetical order instead of in parallel. Useful when file order matters for dependencies.")
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")
 }
