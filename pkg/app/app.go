@@ -981,7 +981,7 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 
 	// Process files in parallel if we have multiple files and parallel mode is enabled
 	shouldProcessInParallel := len(desiredStateFiles) > 1 && !a.SequentialHelmfiles
-	
+
 	if shouldProcessInParallel {
 		// Parallel processing for multiple files (default behavior)
 		var wg sync.WaitGroup
