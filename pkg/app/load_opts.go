@@ -29,6 +29,9 @@ func (o LoadOpts) DeepCopy() LoadOpts {
 	if err := yaml.Unmarshal(bytes, &new); err != nil {
 		panic(err)
 	}
+	
+	// Preserve CLISet which has yaml:"-" tag
+	new.Environment.CLISet = o.Environment.CLISet
 
 	return new
 }

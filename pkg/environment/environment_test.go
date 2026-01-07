@@ -141,3 +141,58 @@ func TestEnvironment_GetMergedValues(t *testing.T) {
 
 	assert.Equal(t, expected, mergedValues)
 }
+
+func TestEnvironment_GetMergedValues_CLIOverride(t *testing.T) {
+	t.Run("CLI overrides should merge arrays element-by-element", func(t *testing.T) {
+		env := &Environment{
+			Name: "test",
+			Defaults: map[string]any{
+				"top": map[string]any{
+					"array": []any{"thing1", "thing2"},
+				},
+			},
+			Values: map[string]any{
+				"top": map[string]any{
+					"array": []any{"cmdlinething1"},
+				},
+			},
+			IsCLIOverride: true,
+		}
+
+		mergedValues, err := env.GetMergedValues()
+		require.NoError(t, err)
+
+		top := mergedValues["top"].(map[string]any)
+		array := top["array"].([]any)
+		
+		expected := []any{"cmdlinething1", "thing2"}
+		assert.Equal(t, expected, array, "Array should be merged element-by-element")
+	})
+
+	t.Run("helmfile composition should replace arrays", func(t *testing.T) {
+		env := &Environment{
+			Name: "test",
+			Defaults: map[string]any{
+				"list": []any{
+					map[string]any{"name": "dummy", "values": []any{1, 2}},
+				},
+			},
+			Values: map[string]any{
+				"list": []any{
+					map[string]any{"name": "a"},
+				},
+			},
+			IsCLIOverride: false,
+		}
+
+		mergedValues, err := env.GetMergedValues()
+		require.NoError(t, err)
+
+		list := mergedValues["list"].([]any)
+		
+		assert.Equal(t, 1, len(list), "List should have 1 element")
+		elem := list[0].(map[string]any)
+		assert.Equal(t, "a", elem["name"])
+		assert.NotContains(t, elem, "values", "values field should not be present (array replaced, not merged)")
+	})
+}

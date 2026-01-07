@@ -401,10 +401,15 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 
 	if ctxEnv != nil {
 		intCtxEnv := *ctxEnv
+		// Preserve the IsCLIOverride flag before merging
+		wasCLIOverride := intCtxEnv.IsCLIOverride
 
 		if err := mergo.Merge(&intCtxEnv, newEnv, mergo.WithOverride); err != nil {
 			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
 		}
+		
+		// Restore the IsCLIOverride flag
+		intCtxEnv.IsCLIOverride = wasCLIOverride
 
 		newEnv = &intCtxEnv
 	}
