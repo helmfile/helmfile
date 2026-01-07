@@ -102,7 +102,7 @@ func NewGlobalImpl(opts *GlobalOptions) *GlobalImpl {
 
 // Setset sets the set
 func (g *GlobalImpl) SetSet(set map[string]any) {
-	g.set = maputil.MergeMaps(g.set, set)
+	g.set = maputil.MergeMapsWithArrayMerge(g.set, set)
 }
 
 // HelmBinary returns the path to the Helm binary.

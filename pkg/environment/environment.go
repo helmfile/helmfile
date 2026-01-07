@@ -12,6 +12,9 @@ type Environment struct {
 	KubeContext string
 	Values      map[string]any
 	Defaults    map[string]any
+	// IsCLIOverride indicates if this environment contains CLI overrides from --state-values-set
+	// When true, arrays are merged element-by-element. When false, arrays are replaced.
+	IsCLIOverride bool
 }
 
 var EmptyEnvironment Environment
@@ -54,10 +57,11 @@ func (e Environment) DeepCopy() Environment {
 	}
 
 	return Environment{
-		Name:        e.Name,
-		KubeContext: e.KubeContext,
-		Values:      values,
-		Defaults:    defaults,
+		Name:          e.Name,
+		KubeContext:   e.KubeContext,
+		Values:        values,
+		Defaults:      defaults,
+		IsCLIOverride: e.IsCLIOverride,
 	}
 }
 
@@ -74,6 +78,10 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 		if err := mergo.Merge(&copy, other, mergo.WithOverride); err != nil {
 			return nil, err
 		}
+		// Preserve the IsCLIOverride flag from other
+		if other.IsCLIOverride {
+			copy.IsCLIOverride = true
+		}
 	}
 	return &copy, nil
 }
@@ -81,10 +89,15 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 func (e *Environment) GetMergedValues() (map[string]any, error) {
 	vals := map[string]any{}
 
-	// Use MergeMaps instead of mergo.Merge to properly handle array merging element-by-element
-	// This fixes issue #2281 where arrays were being replaced entirely instead of merged
-	vals = maputil.MergeMaps(vals, e.Defaults)
-	vals = maputil.MergeMaps(vals, e.Values)
+	// For CLI overrides (--state-values-set), use MergeMapsWithArrayMerge to handle array indices
+	// For helmfile composition, use regular MergeMaps which replaces arrays (documented behavior)
+	if e.IsCLIOverride {
+		vals = maputil.MergeMapsWithArrayMerge(vals, e.Defaults)
+		vals = maputil.MergeMapsWithArrayMerge(vals, e.Values)
+	} else {
+		vals = maputil.MergeMaps(vals, e.Defaults)
+		vals = maputil.MergeMaps(vals, e.Values)
+	}
 
 	vals, err := maputil.CastKeysToStrings(vals)
 	if err != nil {

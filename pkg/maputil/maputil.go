@@ -243,6 +243,35 @@ func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
 				}
 			}
 		}
+		// Arrays are replaced, not merged (documented behavior)
+		out[k] = v
+	}
+	return out
+}
+
+// MergeMapsWithArrayMerge merges two maps, merging arrays element-by-element.
+// This is used specifically for CLI overrides (--state-values-set) where sparse arrays
+// with specific indices set should merge with base arrays element-by-element.
+// For general helmfile composition, use MergeMaps which replaces arrays.
+func MergeMapsWithArrayMerge(a, b map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(a))
+	// fill the out map with the first map
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		if v == nil {
+			continue
+		}
+		if v, ok := v.(map[string]interface{}); ok {
+			if bv, ok := out[k]; ok {
+				if bv, ok := bv.(map[string]interface{}); ok {
+					// if b and out map has a map value, merge it too
+					out[k] = MergeMapsWithArrayMerge(bv, v)
+					continue
+				}
+			}
+		}
 		// Handle array merging element-by-element
 		vSlice := toInterfaceSlice(v)
 		if vSlice != nil {
@@ -292,11 +321,11 @@ func mergeSlices(base, override []any) []any {
 			continue
 		}
 
-		// If both are maps, merge them recursively
+		// If both are maps, merge them recursively with array merging
 		if overrideMap, ok := overrideVal.(map[string]any); ok {
 			if i < len(base) {
 				if baseMap, ok := base[i].(map[string]any); ok {
-					result[i] = MergeMaps(baseMap, overrideMap)
+					result[i] = MergeMapsWithArrayMerge(baseMap, overrideMap)
 					continue
 				}
 			}

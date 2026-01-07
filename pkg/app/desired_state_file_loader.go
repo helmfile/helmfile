@@ -64,9 +64,14 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, err
 		}
 
+		// CLI overrides (--state-values-set) should use element-by-element array merging
+		// CLISet is set when there are CLI overrides
+		isCLIOverride := len(opts.Environment.CLISet) > 0
+
 		overrodeEnv = &environment.Environment{
-			Name:   ld.env,
-			Values: vals,
+			Name:          ld.env,
+			Values:        vals,
+			IsCLIOverride: isCLIOverride,
 		}
 	}
 

@@ -474,7 +474,9 @@ func TestMapUtil_Issue2281_EmptyMapScenario(t *testing.T) {
 	})
 }
 
-// TestMapUtil_Issue2281_MergeArrays tests that MergeMaps should merge arrays element-by-element
+// TestMapUtil_Issue2281_MergeArrays tests that MergeMapsWithArrayMerge should merge arrays element-by-element
+// This is used for CLI overrides (--state-values-set) where sparse arrays should merge with base arrays.
+// For general helmfile composition, MergeMaps replaces arrays entirely (documented behavior).
 func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 	t.Run("merging arrays should preserve elements from base that aren't in override", func(t *testing.T) {
 		// Base values from helmfile
@@ -491,7 +493,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 			},
 		}
 
-		result := MergeMaps(base, override)
+		result := MergeMapsWithArrayMerge(base, override)
 
 		// Expected: array should be ["cmdlinething1", "thing2"]
 		// array[0] is overridden, array[1] is preserved from base
@@ -532,7 +534,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 			},
 		}
 
-		result := MergeMaps(base, override)
+		result := MergeMapsWithArrayMerge(base, override)
 
 		// Expected: complexArray[0] should be unchanged, complexArray[1] should have merged fields
 		resultArray := result["top"].(map[string]any)["complexArray"].([]any)
@@ -558,7 +560,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 		}
 	})
 
-	t.Run("complete issue #2281 scenario with MergeMaps", func(t *testing.T) {
+	t.Run("complete issue #2281 scenario with MergeMapsWithArrayMerge", func(t *testing.T) {
 		// Base values from helmfile
 		base := map[string]interface{}{
 			"top": map[string]any{
@@ -591,7 +593,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 			},
 		}
 
-		result := MergeMaps(base, override)
+		result := MergeMapsWithArrayMerge(base, override)
 
 		// Check array
 		resultArray := result["top"].(map[string]any)["array"].([]any)
@@ -614,6 +616,93 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 		elem1 := resultComplexArray[1].(map[string]any)
 		if elem1["thing"] != "second thing" || elem1["anotherThing"] != "cmdline" {
 			t.Errorf("complexArray[1] merge failed:\nExpected: {thing: second thing, anotherThing: cmdline}\nGot: %+v", elem1)
+		}
+	})
+}
+
+// TestMapUtil_MergeMaps_ArrayReplacement tests that MergeMaps replaces arrays
+// This is the documented behavior for helmfile composition and layer merging
+func TestMapUtil_MergeMaps_ArrayReplacement(t *testing.T) {
+	t.Run("arrays should be replaced not merged", func(t *testing.T) {
+		base := map[string]interface{}{
+			"list": []any{
+				map[string]any{"name": "dummy", "values": []any{1, 2}},
+			},
+		}
+
+		override := map[string]interface{}{
+			"list": []any{
+				map[string]any{"name": "a"},
+			},
+		}
+
+		result := MergeMaps(base, override)
+
+		// Expected: list should be completely replaced
+		resultList := result["list"].([]any)
+		if len(resultList) != 1 {
+			t.Fatalf("Expected list length 1, got %d", len(resultList))
+		}
+
+		elem := resultList[0].(map[string]any)
+		if elem["name"] != "a" {
+			t.Errorf("Expected name 'a', got %v", elem["name"])
+		}
+		// values field should not exist since it was not in override
+		if _, exists := elem["values"]; exists {
+			t.Errorf("values field should not exist in result, but got: %v", elem["values"])
+		}
+	})
+
+	t.Run("empty array should replace non-empty array", func(t *testing.T) {
+		base := map[string]interface{}{
+			"list": []any{
+				map[string]any{"name": "dummy", "values": []any{1, 2}},
+			},
+		}
+
+		override := map[string]interface{}{
+			"list": []any{},
+		}
+
+		result := MergeMaps(base, override)
+
+		// Expected: list should be empty
+		resultList := result["list"].([]any)
+		if len(resultList) != 0 {
+			t.Errorf("Expected empty list, got length %d: %+v", len(resultList), resultList)
+		}
+	})
+
+	t.Run("nested empty array should replace non-empty nested array", func(t *testing.T) {
+		base := map[string]interface{}{
+			"list": []any{
+				map[string]any{"name": "dummy", "values": []any{1, 2}},
+			},
+		}
+
+		override := map[string]interface{}{
+			"list": []any{
+				map[string]any{"name": "a", "values": []any{}},
+			},
+		}
+
+		result := MergeMaps(base, override)
+
+		// Expected: list should be replaced with one element that has empty values
+		resultList := result["list"].([]any)
+		if len(resultList) != 1 {
+			t.Fatalf("Expected list length 1, got %d", len(resultList))
+		}
+
+		elem := resultList[0].(map[string]any)
+		if elem["name"] != "a" {
+			t.Errorf("Expected name 'a', got %v", elem["name"])
+		}
+		
+		values := elem["values"].([]any)
+		if len(values) != 0 {
+			t.Errorf("Expected empty values array, got length %d: %+v", len(values), values)
 		}
 	})
 }

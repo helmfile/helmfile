@@ -150,6 +150,9 @@ type SubHelmfileSpec struct {
 // SubhelmfileEnvironmentSpec is the environment spec for a subhelmfile
 type SubhelmfileEnvironmentSpec struct {
 	OverrideValues []any `yaml:"values,omitempty"`
+	// CLISet is set internally to pass CLI overrides from --state-values-set
+	// This is not part of the YAML spec
+	CLISet map[string]any `yaml:"-"`
 }
 
 // HelmSpec to defines helmDefault values

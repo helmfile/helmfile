@@ -1268,8 +1268,10 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir stri
 		envvals = append(envvals, v)
 	}
 
+	// Append CLI set to envvals for loading, and also pass it separately to mark it as CLI override
 	if len(a.Set) > 0 {
 		envvals = append(envvals, a.Set)
+		opts.Environment.CLISet = a.Set
 	}
 
 	if len(envvals) > 0 {
