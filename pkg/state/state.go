@@ -187,6 +187,9 @@ type HelmSpec struct {
 	HistoryMax *int `yaml:"historyMax,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm on install/upgrade
 	CreateNamespace *bool `yaml:"createNamespace,omitempty"`
+	// SkipCRDs passes the --skip-crds flag to helm upgrade --install to ensure any CRDs contained in the crds/
+	// subdirectory of a helm chart are not automatically applied with every helmfile sync or apply
+	SkipCRDs bool `yaml:"skipCRDs,omitempty"`
 	// SkipDeps disables running `helm dependency up` and `helm dependency build` on this release's chart.
 	// This is relevant only when your release uses a local chart or a directory containing K8s manifests or a Kustomization
 	// as a Helm chart.
@@ -758,7 +761,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					}
 				}
 
-				if opts.SkipCRDs {
+				if st.HelmDefaults.SkipCRDs != nil && st.HelmDefault.SkipCRDs || opts.SkipCRDs {
 					flags = append(flags, "--skip-crds")
 				}
 
