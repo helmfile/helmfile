@@ -761,7 +761,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 					}
 				}
 
-				if st.HelmDefaults.SkipCRDs != nil && st.HelmDefault.SkipCRDs || opts.SkipCRDs {
+				if st.HelmDefault.SkipCRDs || opts.SkipCRDs {
 					flags = append(flags, "--skip-crds")
 				}
 
