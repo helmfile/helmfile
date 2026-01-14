@@ -1517,6 +1517,17 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
 			chartifyOpts.TemplateArgs += " --dry-run=server"
 		}
+		// When using --dry-run=server, we need to include --kube-context to ensure
+		// Helm connects to the correct cluster (helmDefaults.kubeContext)
+		// See: https://github.com/helmfile/helmfile/issues/XXXX
+		kubeContextFlags := st.kubeConnectionFlags(release)
+		for i := 0; i < len(kubeContextFlags); i += 2 {
+			flag := kubeContextFlags[i]
+			value := kubeContextFlags[i+1]
+			if !strings.Contains(chartifyOpts.TemplateArgs, flag) {
+				chartifyOpts.TemplateArgs += fmt.Sprintf(" %s %s", flag, value)
+			}
+		}
 	}
 
 	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
