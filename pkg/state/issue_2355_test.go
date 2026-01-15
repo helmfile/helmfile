@@ -124,7 +124,7 @@ func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 // This helper function encapsulates the logic from processChartification for testing.
 //
 // NOTE ON DUPLICATION: This function intentionally duplicates the command classification
-// logic from processChartification() in state.go (lines 1497-1523). While extracting this
+// logic from processChartification() in state.go (lines 1497-1524). While extracting this
 // into a shared function would reduce duplication, it would require:
 //  1. Exposing internal implementation details in the public API
 //  2. Complex refactoring of processChartification which has many dependencies (chartify
