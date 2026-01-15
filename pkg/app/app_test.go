@@ -2754,9 +2754,10 @@ releases:
 	}
 
 	var helm = &mockHelmExec{}
+	// Issue #2309: --kube-context is now added to template flags
 	var wantReleases = []mockTemplates{
-		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
-		{name: "myrelease2", chart: "stable/mychart2", flags: []string{"--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
+		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--kube-context", "default", "--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{name: "myrelease2", chart: "stable/mychart2", flags: []string{"--kube-context", "default", "--namespace", "testNamespace", "--set", "foo=a", "--set", "bar=b", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease2"}},
 	}
 
 	var wantRepos = []mockRepo{
@@ -2806,7 +2807,8 @@ releases:
 			t.Errorf("chart = [%v], want %v", helm.templated[i].chart, wantReleases[i].chart)
 		}
 		for j := range wantReleases[i].flags {
-			if j == 7 {
+			// Issue #2309: regex index changed from 7 to 9 due to added --kube-context flag
+			if j == 9 {
 				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
 				if !matched {
 					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
@@ -2834,8 +2836,9 @@ releases:
 	}
 
 	var helm = &mockHelmExec{}
+	// Issue #2309: --kube-context is now added to template flags
 	var wantReleases = []mockTemplates{
-		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "v1.21", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
+		{name: "myrelease1", chart: "stable/mychart1", flags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "v1.21", "--kube-context", "default", "--namespace", "testNamespace", "--output-dir", "output/subdir/helmfile-[a-z0-9]{8}-myrelease1"}},
 	}
 
 	var buffer bytes.Buffer
@@ -2874,7 +2877,8 @@ releases:
 			t.Errorf("chart = [%v], want %v", helm.templated[i].chart, wantReleases[i].chart)
 		}
 		for j := range wantReleases[i].flags {
-			if j == 9 {
+			// Issue #2309: regex index changed from 9 to 11 due to added --kube-context flag
+			if j == 11 {
 				matched, _ := regexp.Match(wantReleases[i].flags[j], []byte(helm.templated[i].flags[j]))
 				if !matched {
 					t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
