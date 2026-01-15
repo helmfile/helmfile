@@ -1511,7 +1511,11 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// The lookup() function can be used with or without patches, so we enable cluster access
 	// for all cluster-requiring operations (diff, apply, sync, etc.) but not for offline
 	// commands (template, lint, build, etc.)
-	if requiresCluster {
+	//
+	// Issue #2355: In Helm 4, --validate and --dry-run are mutually exclusive flags.
+	// When --validate is set, we skip adding --dry-run=server since --validate already
+	// provides server-side validation.
+	if requiresCluster && !opts.Validate {
 		if chartifyOpts.TemplateArgs == "" {
 			chartifyOpts.TemplateArgs = "--dry-run=server"
 		} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
