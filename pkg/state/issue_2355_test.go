@@ -123,9 +123,21 @@ func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 // shouldAddDryRunServer determines whether to add --dry-run=server to template args.
 // This helper function encapsulates the logic from processChartification for testing.
 //
-// IMPORTANT: This function duplicates the command classification logic from
-// processChartification() in state.go (lines 1497-1507). If new commands are added
-// or the classification changes in state.go, this function must be updated to match.
+// NOTE ON DUPLICATION: This function intentionally duplicates the command classification
+// logic from processChartification() in state.go (lines 1497-1523). While extracting this
+// into a shared function would reduce duplication, it would require:
+// 1. Exposing internal implementation details in the public API
+// 2. Complex refactoring of processChartification which has many dependencies (chartify
+//    library, filesystem, HelmState)
+//
+// For this focused bug fix, the duplication is acceptable because:
+// - The integration test (test/integration/test-cases/issue-2355.sh) exercises the actual
+//   processChartification code path end-to-end
+// - This unit test documents the expected behavior and catches regressions quickly
+// - The logic being tested is simple and unlikely to change frequently
+//
+// SYNC WARNING: If the command classification in processChartification() changes
+// (state.go lines 1497-1507), this function must be updated to match.
 //
 // Parameters:
 // - helmfileCommand: the helmfile command being run (diff, apply, template, etc.)
@@ -135,7 +147,7 @@ func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 // Returns the updated template args string.
 func shouldAddDryRunServer(helmfileCommand string, validate bool, existingTemplateArgs string) string {
 	// Determine if the command requires cluster access
-	// NOTE: This must be kept in sync with processChartification() in state.go
+	// SYNC: Keep in sync with processChartification() in state.go lines 1497-1507
 	var requiresCluster bool
 	switch helmfileCommand {
 	case "diff", "apply", "sync", "destroy", "delete", "test", "status":
