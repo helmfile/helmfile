@@ -126,15 +126,15 @@ func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 // NOTE ON DUPLICATION: This function intentionally duplicates the command classification
 // logic from processChartification() in state.go (lines 1497-1523). While extracting this
 // into a shared function would reduce duplication, it would require:
-// 1. Exposing internal implementation details in the public API
-// 2. Complex refactoring of processChartification which has many dependencies (chartify
-//    library, filesystem, HelmState)
+//  1. Exposing internal implementation details in the public API
+//  2. Complex refactoring of processChartification which has many dependencies (chartify
+//     library, filesystem, HelmState)
 //
 // For this focused bug fix, the duplication is acceptable because:
-// - The integration test (test/integration/test-cases/issue-2355.sh) exercises the actual
-//   processChartification code path end-to-end
-// - This unit test documents the expected behavior and catches regressions quickly
-// - The logic being tested is simple and unlikely to change frequently
+//   - The integration test (test/integration/test-cases/issue-2355.sh) exercises the actual
+//     processChartification code path end-to-end
+//   - This unit test documents the expected behavior and catches regressions quickly
+//   - The logic being tested is simple and unlikely to change frequently
 //
 // SYNC WARNING: If the command classification in processChartification() changes
 // (state.go lines 1497-1507), this function must be updated to match.
