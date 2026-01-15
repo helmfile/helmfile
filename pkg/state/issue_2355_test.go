@@ -36,6 +36,10 @@ func TestValidateAndDryRunMutualExclusion(t *testing.T) {
 		{"diff with validate", "diff", true, false},
 		{"apply with validate", "apply", true, false},
 		{"sync with validate", "sync", true, false},
+		{"destroy with validate", "destroy", true, false},
+		{"delete with validate", "delete", true, false},
+		{"test with validate", "test", true, false},
+		{"status with validate", "status", true, false},
 
 		// Non-cluster commands should never get --dry-run=server
 		{"template without validate", "template", false, false},
@@ -118,6 +122,10 @@ func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 // shouldAddDryRunServer determines whether to add --dry-run=server to template args.
 // This helper function encapsulates the logic from processChartification for testing.
 //
+// IMPORTANT: This function duplicates the command classification logic from
+// processChartification() in state.go (lines 1497-1507). If new commands are added
+// or the classification changes in state.go, this function must be updated to match.
+//
 // Parameters:
 // - helmfileCommand: the helmfile command being run (diff, apply, template, etc.)
 // - validate: whether the --validate flag was passed
@@ -126,6 +134,7 @@ func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 // Returns the updated template args string.
 func shouldAddDryRunServer(helmfileCommand string, validate bool, existingTemplateArgs string) string {
 	// Determine if the command requires cluster access
+	// NOTE: This must be kept in sync with processChartification() in state.go
 	var requiresCluster bool
 	switch helmfileCommand {
 	case "diff", "apply", "sync", "destroy", "delete", "test", "status":

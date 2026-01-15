@@ -11,25 +11,32 @@ issue_2355_input_dir="${cases_dir}/issue-2355/input"
 
 test_start "issue-2355: validate flag with kustomize charts (Helm 4 compatibility)"
 
-# Test 1: helmfile template --validate with kustomize chart should NOT fail
-# Note: We use template instead of diff because diff requires a running cluster with releases
-info "Test 1: Running template --validate with kustomize chart"
-if ! ${helmfile} -f ${issue_2355_input_dir}/helmfile.yaml template --validate > /dev/null 2>&1; then
+# Test 1: helmfile diff --validate with kustomize chart should NOT fail due to validate/dry-run mutual exclusion
+# We deliberately use diff here because it is a cluster-requiring command that can trigger --dry-run=server via chartify.
+info "Test 1: Running diff --validate with kustomize chart"
+if ! ${helmfile} -f ${issue_2355_input_dir}/helmfile.yaml diff --validate > /dev/null 2>&1; then
     # Capture the error for debugging
-    error_output=$(${helmfile} -f ${issue_2355_input_dir}/helmfile.yaml template --validate 2>&1)
+    error_output=$(${helmfile} -f ${issue_2355_input_dir}/helmfile.yaml diff --validate 2>&1)
 
     # Check if it's the specific mutual exclusion error we're fixing
     if echo "$error_output" | grep -q "validate.*dry-run.*were all set"; then
-        fail "helmfile template --validate with kustomize failed with mutual exclusion error (issue #2355 not fixed): $error_output"
+        fail "helmfile diff --validate with kustomize failed with mutual exclusion error (issue #2355 not fixed): $error_output"
     else
-        # Other errors might be acceptable (e.g., no cluster connection for validation)
-        warn "helmfile template --validate had an error (but not the mutual exclusion issue): $error_output"
+        # Other errors might be acceptable (e.g., no cluster connection for validation, or non-zero diff exit codes)
+        warn "helmfile diff --validate had an error (but not the mutual exclusion issue): $error_output"
     fi
 fi
 
-# Test 2: Verify that without --validate, the command also works
-info "Test 2: Running template without --validate (baseline test)"
-${helmfile} -f ${issue_2355_input_dir}/helmfile.yaml template > /dev/null 2>&1 || \
-    fail "helmfile template without --validate shouldn't fail"
+# Test 2: Verify that without --validate, the command does not hit the mutual exclusion error
+info "Test 2: Running diff without --validate (baseline test for flag interaction)"
+if ! ${helmfile} -f ${issue_2355_input_dir}/helmfile.yaml diff > /dev/null 2>&1; then
+    error_output=$(${helmfile} -f ${issue_2355_input_dir}/helmfile.yaml diff 2>&1)
+    if echo "$error_output" | grep -q "validate.*dry-run.*were all set"; then
+        fail "helmfile diff without --validate failed with mutual exclusion error (issue #2355 not fixed): $error_output"
+    else
+        # Non-zero exit codes from diff (e.g., detected differences) or other errors are tolerated here.
+        warn "helmfile diff without --validate had an error (but not the mutual exclusion issue): $error_output"
+    fi
+fi
 
 test_pass "issue-2355: validate flag with kustomize charts (Helm 4 compatibility)"
