@@ -47,6 +47,7 @@ func TestValidateAndDryRunMutualExclusion(t *testing.T) {
 		{"lint without validate", "lint", false, false},
 		{"lint with validate", "lint", true, false},
 		{"build without validate", "build", false, false},
+		{"build with validate", "build", true, false},
 	}
 
 	for _, tt := range tests {
