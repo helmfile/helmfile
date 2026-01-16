@@ -1,0 +1,15 @@
+---
+# Source: raw/templates/patched_resources.yaml
+apiVersion: v1
+data:
+  key: value
+  patched: "true"
+kind: ConfigMap
+metadata:
+  labels:
+    app: raw
+    chart: raw-0.2.5
+    heritage: Helm
+    release: test-release
+  name: test-configmap
+
