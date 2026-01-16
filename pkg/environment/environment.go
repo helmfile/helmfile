@@ -80,10 +80,9 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 
 func (e *Environment) GetMergedValues() (map[string]any, error) {
 	vals := map[string]any{}
-
-	// Use MergeMaps instead of mergo.Merge to properly handle array merging element-by-element
-	// This fixes issue #2281 where arrays were being replaced entirely instead of merged
 	vals = maputil.MergeMaps(vals, e.Defaults)
+	// Arrays in e.Values without nils (from YAML layers) replace e.Defaults arrays entirely.
+	// Sparse arrays with nils (from CLI --state-values-set) merge element-by-element.
 	vals = maputil.MergeMaps(vals, e.Values)
 
 	vals, err := maputil.CastKeysToStrings(vals)

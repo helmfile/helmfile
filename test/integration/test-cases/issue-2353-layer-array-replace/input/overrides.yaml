@@ -1,0 +1,12 @@
+# These values should REPLACE the defaults entirely for arrays
+# Before the fix: myList would be [override1, override2, default3] (merged element-by-element)
+# After the fix: myList should be [override1, override2] (replaced entirely)
+
+myList:
+  - override1
+  - override2
+
+nested:
+  innerArray:
+    - outerX
+    - outerY

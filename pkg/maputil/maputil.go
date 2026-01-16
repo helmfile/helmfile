@@ -224,9 +224,14 @@ func typedVal(val string, st bool) any {
 	return val
 }
 
-func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
+// MergeMaps merges two maps with special handling for nested maps and arrays.
+func MergeMaps(a, b map[string]interface{}, opts ...MergeOptions) map[string]interface{} {
+	arrayStrategy := ArrayMergeStrategySparse
+	if len(opts) > 0 {
+		arrayStrategy = opts[0].ArrayStrategy
+	}
+
 	out := make(map[string]interface{}, len(a))
-	// fill the out map with the first map
 	for k, v := range a {
 		out[k] = v
 	}
@@ -237,20 +242,17 @@ func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {
-					// if b and out map has a map value, merge it too
-					out[k] = MergeMaps(bv, v)
+					out[k] = MergeMaps(bv, v, opts...)
 					continue
 				}
 			}
 		}
-		// Handle array merging element-by-element
 		vSlice := toInterfaceSlice(v)
 		if vSlice != nil {
 			if outVal, exists := out[k]; exists {
 				outSlice := toInterfaceSlice(outVal)
 				if outSlice != nil {
-					// Both are slices - merge element by element
-					out[k] = mergeSlices(outSlice, vSlice)
+					out[k] = mergeSlices(outSlice, vSlice, arrayStrategy)
 					continue
 				}
 			}
@@ -260,7 +262,6 @@ func MergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-// toInterfaceSlice converts various slice types to []interface{}
 func toInterfaceSlice(v any) []any {
 	if slice, ok := v.([]any); ok {
 		return slice
@@ -268,41 +269,69 @@ func toInterfaceSlice(v any) []any {
 	return nil
 }
 
-// mergeSlices merges two slices element by element
-// Elements from override (b) take precedence, but we preserve elements from base (a)
-// that don't exist in override
-func mergeSlices(base, override []any) []any {
-	// Determine the maximum length
+type ArrayMergeStrategy int
+
+const (
+	// ArrayMergeStrategySparse uses auto-detection: sparse arrays (with nils) merge
+	// element-by-element, complete arrays (no nils) replace entirely.
+	ArrayMergeStrategySparse ArrayMergeStrategy = iota
+	// ArrayMergeStrategyReplace always replaces arrays entirely.
+	ArrayMergeStrategyReplace
+	// ArrayMergeStrategyMerge always merges arrays element-by-element (for CLI overrides).
+	ArrayMergeStrategyMerge
+)
+
+type MergeOptions struct {
+	ArrayStrategy ArrayMergeStrategy
+}
+
+// mergeSlices merges two slices based on the strategy.
+func mergeSlices(base, override []any, strategy ArrayMergeStrategy) []any {
+	if strategy == ArrayMergeStrategyReplace {
+		return override
+	}
+
+	// For Sparse strategy, auto-detect based on nil values.
+	// Assumption: CLI --state-values-set creates sparse arrays with nils at unset indices,
+	// while YAML layer arrays have no nils. Edge case: explicit "array: [null, value]" in
+	// YAML would be treated as sparse, but this is rare and arguably correct behavior.
+	if strategy == ArrayMergeStrategySparse {
+		isSparse := false
+		for _, v := range override {
+			if v == nil {
+				isSparse = true
+				break
+			}
+		}
+		if !isSparse {
+			return override
+		}
+	}
+
+	// Merge element-by-element (for ArrayMergeStrategyMerge or sparse arrays)
 	maxLen := len(base)
 	if len(override) > maxLen {
 		maxLen = len(override)
 	}
 
 	result := make([]interface{}, maxLen)
-
-	// First copy all elements from base
 	copy(result, base)
 
-	// Then merge/override with elements from override
 	for i := 0; i < len(override); i++ {
 		overrideVal := override[i]
-
-		// Skip nil values in override - they represent unset indices
 		if overrideVal == nil {
 			continue
 		}
 
-		// If both are maps, merge them recursively
 		if overrideMap, ok := overrideVal.(map[string]any); ok {
 			if i < len(base) {
 				if baseMap, ok := base[i].(map[string]any); ok {
-					result[i] = MergeMaps(baseMap, overrideMap)
+					result[i] = MergeMaps(baseMap, overrideMap, MergeOptions{ArrayStrategy: strategy})
 					continue
 				}
 			}
 		}
 
-		// Otherwise, override completely
 		result[i] = overrideVal
 	}
 

@@ -1,0 +1,10 @@
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: TestConfig
+data:
+  # Arrays should be REPLACED (2 elements each), not merged (3 elements)
+  myList: ["override1","override2"]
+  innerArray: ["outerX","outerY"]
