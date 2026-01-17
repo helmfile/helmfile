@@ -79,6 +79,9 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 	if e == nil {
 		if other != nil {
 			copy := other.DeepCopy()
+			// Also merge CLIOverrides into Values for template access via .Environment.Values
+			copy.Values = maputil.MergeMaps(copy.Values, copy.CLIOverrides,
+				maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
 			return &copy, nil
 		}
 		return nil, nil
@@ -97,6 +100,9 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 		copy.Defaults = maputil.MergeMaps(copy.Defaults, other.Defaults)
 		// Merge CLIOverrides using element-by-element array merging
 		copy.CLIOverrides = maputil.MergeMaps(copy.CLIOverrides, other.CLIOverrides,
+			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
+		// Also merge CLIOverrides into Values for template access via .Environment.Values
+		copy.Values = maputil.MergeMaps(copy.Values, copy.CLIOverrides,
 			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
 	}
 	return &copy, nil

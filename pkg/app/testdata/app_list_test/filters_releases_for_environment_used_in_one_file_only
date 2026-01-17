@@ -1,5 +1,5 @@
 found 3 helmfile state files in helmfile.d: /path/to/helmfile.d/helmfile_1.yaml, /path/to/helmfile.d/helmfile_2.yaml, /path/to/helmfile.d/helmfile_3.yaml
-merged environment: &{test  map[] map[]}
-merged environment: &{test  map[] map[]}
-merged environment: &{test  map[] map[]}
-merged environment: &{test  map[] map[]}
+merged environment: &{test  map[] map[] map[]}
+merged environment: &{test  map[] map[] map[]}
+merged environment: &{test  map[] map[] map[]}
+merged environment: &{test  map[] map[] map[]}

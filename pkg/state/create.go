@@ -397,11 +397,14 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		return nil, &UndefinedEnvError{Env: name}
 	}
 
-	newEnv := &environment.Environment{Name: name, Values: valuesVals, KubeContext: envSpec.KubeContext, CLIOverrides: map[string]any{}}
+	newEnv := &environment.Environment{Name: name, Values: valuesVals, KubeContext: envSpec.KubeContext, Defaults: map[string]any{}, CLIOverrides: map[string]any{}}
 
 	if ctxEnv != nil {
-		// Merge layer values (arrays replace)
-		newEnv.Values = maputil.MergeMaps(newEnv.Values, ctxEnv.Values)
+		// Merge base defaults (from top-level values:) - needed for multi-part helmfiles
+		// ctxEnv.Defaults is the base, newEnv.Defaults overrides (later parts win)
+		newEnv.Defaults = maputil.MergeMaps(ctxEnv.Defaults, newEnv.Defaults)
+		// Merge layer values - ctxEnv is base, newEnv (current part) overrides
+		newEnv.Values = maputil.MergeMaps(ctxEnv.Values, newEnv.Values)
 		// Copy CLI overrides to be merged at GetMergedValues time
 		newEnv.CLIOverrides = maputil.MergeMaps(newEnv.CLIOverrides, ctxEnv.CLIOverrides,
 			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
@@ -414,6 +417,8 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 	}
 
 	if overrode != nil {
+		// Merge base defaults from overrode
+		newEnv.Defaults = maputil.MergeMaps(newEnv.Defaults, overrode.Defaults)
 		// Merge layer values from overrode (arrays replace)
 		newEnv.Values = maputil.MergeMaps(newEnv.Values, overrode.Values)
 		// Merge CLI overrides (arrays merge element-by-element)

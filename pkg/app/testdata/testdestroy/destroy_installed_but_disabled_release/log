@@ -1,6 +1,6 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-merged environment: &{default  map[] map[]}
+merged environment: &{default  map[] map[] map[]}
 WARNING: release frontend-v1 needs backend-v1, but backend-v1 is not installed due to installed: false. Either mark backend-v1 as installed or remove backend-v1 from frontend-v1's needs
 2 release(s) found in helmfile.yaml
 
