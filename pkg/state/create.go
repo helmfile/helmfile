@@ -397,24 +397,28 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		return nil, &UndefinedEnvError{Env: name}
 	}
 
-	newEnv := &environment.Environment{Name: name, Values: valuesVals, KubeContext: envSpec.KubeContext}
+	newEnv := &environment.Environment{Name: name, Values: valuesVals, KubeContext: envSpec.KubeContext, CLIOverrides: map[string]any{}}
 
 	if ctxEnv != nil {
-		intCtxEnv := *ctxEnv
-
-		if err := mergo.Merge(&intCtxEnv, newEnv, mergo.WithOverride); err != nil {
-			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
+		// Merge layer values (arrays replace)
+		newEnv.Values = maputil.MergeMaps(newEnv.Values, ctxEnv.Values)
+		// Copy CLI overrides to be merged at GetMergedValues time
+		newEnv.CLIOverrides = maputil.MergeMaps(newEnv.CLIOverrides, ctxEnv.CLIOverrides,
+			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
+		if ctxEnv.Name != "" {
+			newEnv.Name = ctxEnv.Name
 		}
-
-		newEnv = &intCtxEnv
+		if ctxEnv.KubeContext != "" {
+			newEnv.KubeContext = ctxEnv.KubeContext
+		}
 	}
 
 	if overrode != nil {
-		intOverrodeEnv := *newEnv
-		// CLI overrides always merge arrays element-by-element (ArrayMergeStrategyMerge)
-		intOverrodeEnv.Values = maputil.MergeMaps(intOverrodeEnv.Values, overrode.Values,
+		// Merge layer values from overrode (arrays replace)
+		newEnv.Values = maputil.MergeMaps(newEnv.Values, overrode.Values)
+		// Merge CLI overrides (arrays merge element-by-element)
+		newEnv.CLIOverrides = maputil.MergeMaps(newEnv.CLIOverrides, overrode.CLIOverrides,
 			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
-		newEnv = &intOverrodeEnv
 	}
 
 	return newEnv, nil

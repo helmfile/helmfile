@@ -237,6 +237,11 @@ func MergeMaps(a, b map[string]interface{}, opts ...MergeOptions) map[string]int
 	}
 	for k, v := range b {
 		if v == nil {
+			// If key doesn't exist in base, add nil (issue #1154).
+			// If key exists in base, don't overwrite with nil.
+			if _, exists := out[k]; !exists {
+				out[k] = nil
+			}
 			continue
 		}
 		if v, ok := v.(map[string]interface{}); ok {

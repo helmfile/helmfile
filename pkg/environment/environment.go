@@ -1,17 +1,16 @@
 package environment
 
 import (
-	"dario.cat/mergo"
-
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 type Environment struct {
-	Name        string
-	KubeContext string
-	Values      map[string]any
-	Defaults    map[string]any
+	Name         string
+	KubeContext  string
+	Values       map[string]any
+	Defaults     map[string]any
+	CLIOverrides map[string]any // CLI --state-values-set values, merged element-by-element
 }
 
 var EmptyEnvironment Environment
@@ -19,10 +18,11 @@ var EmptyEnvironment Environment
 // New return Environment with default name and values
 func New(name string) *Environment {
 	return &Environment{
-		Name:        name,
-		KubeContext: "",
-		Values:      map[string]any{},
-		Defaults:    map[string]any{},
+		Name:         name,
+		KubeContext:  "",
+		Values:       map[string]any{},
+		Defaults:     map[string]any{},
+		CLIOverrides: map[string]any{},
 	}
 }
 
@@ -53,11 +53,25 @@ func (e Environment) DeepCopy() Environment {
 		panic(err)
 	}
 
+	cliOverridesBytes, err := yaml.Marshal(e.CLIOverrides)
+	if err != nil {
+		panic(err)
+	}
+	var cliOverrides map[string]any
+	if err := yaml.Unmarshal(cliOverridesBytes, &cliOverrides); err != nil {
+		panic(err)
+	}
+	cliOverrides, err = maputil.CastKeysToStrings(cliOverrides)
+	if err != nil {
+		panic(err)
+	}
+
 	return Environment{
-		Name:        e.Name,
-		KubeContext: e.KubeContext,
-		Values:      values,
-		Defaults:    defaults,
+		Name:         e.Name,
+		KubeContext:  e.KubeContext,
+		Values:       values,
+		Defaults:     defaults,
+		CLIOverrides: cliOverrides,
 	}
 }
 
@@ -71,9 +85,19 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 	}
 	copy := e.DeepCopy()
 	if other != nil {
-		if err := mergo.Merge(&copy, other, mergo.WithOverride); err != nil {
-			return nil, err
+		// Merge scalar fields
+		if other.Name != "" {
+			copy.Name = other.Name
 		}
+		if other.KubeContext != "" {
+			copy.KubeContext = other.KubeContext
+		}
+		// Merge Values - layer values replace arrays
+		copy.Values = maputil.MergeMaps(copy.Values, other.Values)
+		copy.Defaults = maputil.MergeMaps(copy.Defaults, other.Defaults)
+		// Merge CLIOverrides using element-by-element array merging
+		copy.CLIOverrides = maputil.MergeMaps(copy.CLIOverrides, other.CLIOverrides,
+			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
 	}
 	return &copy, nil
 }
@@ -81,9 +105,11 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 func (e *Environment) GetMergedValues() (map[string]any, error) {
 	vals := map[string]any{}
 	vals = maputil.MergeMaps(vals, e.Defaults)
-	// Arrays in e.Values without nils (from YAML layers) replace e.Defaults arrays entirely.
-	// Sparse arrays with nils (from CLI --state-values-set) merge element-by-element.
 	vals = maputil.MergeMaps(vals, e.Values)
+	// CLI overrides are merged last using element-by-element array merging.
+	// This ensures --state-values-set array[0]=x only changes that index.
+	vals = maputil.MergeMaps(vals, e.CLIOverrides,
+		maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
 
 	vals, err := maputil.CastKeysToStrings(vals)
 	if err != nil {
