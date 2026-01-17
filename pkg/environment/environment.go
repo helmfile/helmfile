@@ -85,9 +85,8 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 	if e == nil {
 		if other != nil {
 			copy := other.DeepCopy()
-			// Also merge CLIOverrides into Values for template access via .Environment.Values
-			copy.Values = maputil.MergeMaps(copy.Values, copy.CLIOverrides,
-				maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
+			// Don't merge CLIOverrides into Values here - keep them separate.
+			// The proper merge happens in GetMergedValues() with correct layering.
 			return &copy, nil
 		}
 		return nil, nil
@@ -101,15 +100,14 @@ func (e *Environment) Merge(other *Environment) (*Environment, error) {
 		if other.KubeContext != "" {
 			copy.KubeContext = other.KubeContext
 		}
-		// Merge Values - layer values replace arrays
+		// Merge Values - layer values replace arrays (using default Sparse strategy)
 		copy.Values = maputil.MergeMaps(copy.Values, other.Values)
 		copy.Defaults = maputil.MergeMaps(copy.Defaults, other.Defaults)
 		// Merge CLIOverrides using element-by-element array merging
 		copy.CLIOverrides = maputil.MergeMaps(copy.CLIOverrides, other.CLIOverrides,
 			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
-		// Also merge CLIOverrides into Values for template access via .Environment.Values
-		copy.Values = maputil.MergeMaps(copy.Values, copy.CLIOverrides,
-			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
+		// Don't merge CLIOverrides into Values here - keep them separate.
+		// The proper merge happens in GetMergedValues() with correct layering.
 	}
 	return &copy, nil
 }

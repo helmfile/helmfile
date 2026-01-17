@@ -20,8 +20,13 @@ type EnvironmentTemplateData struct {
 	StateValues *map[string]any
 }
 
-func NewEnvironmentTemplateData(environment environment.Environment, namespace string, values map[string]any) *EnvironmentTemplateData {
-	d := EnvironmentTemplateData{environment, namespace, values, nil}
+func NewEnvironmentTemplateData(env environment.Environment, namespace string, values map[string]any) *EnvironmentTemplateData {
+	// Create a copy of the environment with merged values for template access.
+	// This ensures templates accessing .Environment.Values see the same merged values
+	// (Defaults + Values + CLIOverrides) as templates accessing .Values directly.
+	envCopy := env
+	envCopy.Values = values
+	d := EnvironmentTemplateData{envCopy, namespace, values, nil}
 	d.StateValues = &d.Values
 	return &d
 }
