@@ -1,12 +1,13 @@
 # Test for issue #2353: Environment values should replace default arrays entirely
 #
-# This tests that the default array-merge behavior in GetMergedValues() correctly
-# replaces arrays via auto-detection (complete arrays without nils replace entirely).
+# This tests that the default sparse array-merge behavior in GetMergedValues()
+# (ArrayMergeStrategySparse) correctly auto-detects that a complete override array
+# without nils should replace the default array entirely rather than merge element-wise.
 #
 # Expected behavior:
 # - default values define: myList: [default1, default2, default3]
 # - environment values override: myList: [override1, override2]
-# - Result should be: myList: [override1, override2] (REPLACED, not merged)
+# - Result should be: myList: [override1, override2] (REPLACED via sparse auto-detection)
 # - Before fix: myList: [override1, override2, default3] (incorrectly merged element-by-element)
 
 # Default values that go to e.Defaults

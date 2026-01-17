@@ -13,7 +13,13 @@ type Environment struct {
 	CLIOverrides map[string]any // CLI --state-values-set values, merged element-by-element
 }
 
-var EmptyEnvironment Environment
+var EmptyEnvironment = Environment{
+	Name:         "",
+	KubeContext:  "",
+	Values:       map[string]any{},
+	Defaults:     map[string]any{},
+	CLIOverrides: map[string]any{},
+}
 
 // New return Environment with default name and values
 func New(name string) *Environment {
