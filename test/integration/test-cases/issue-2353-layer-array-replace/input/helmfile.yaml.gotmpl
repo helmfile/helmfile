@@ -1,7 +1,7 @@
 # Test for issue #2353: Environment values should replace default arrays entirely
 #
-# This tests that ArrayMergeStrategyReplace is correctly used in GetMergedValues()
-# when merging environment Defaults with environment Values.
+# This tests that the default array-merge behavior in GetMergedValues() correctly
+# replaces arrays via auto-detection (complete arrays without nils replace entirely).
 #
 # Expected behavior:
 # - default values define: myList: [default1, default2, default3]
