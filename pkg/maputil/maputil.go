@@ -291,15 +291,28 @@ type MergeOptions struct {
 }
 
 // mergeSlices merges two slices based on the strategy.
+//
+// Behavior by strategy:
+//   - ArrayMergeStrategyReplace: always returns override as-is
+//   - ArrayMergeStrategySparse: auto-detects based on nil values (see below)
+//   - ArrayMergeStrategyMerge: always merges element-by-element
+//
+// For Sparse strategy, auto-detection logic:
+//   - If override contains ANY nil values → treated as sparse → merge element-by-element
+//   - If override contains NO nil values → treated as complete → replace entirely
+//
+// Edge cases:
+//   - Empty array `[]` has no nils, so it replaces entirely. This is intentional:
+//     explicitly setting an empty array should clear the base array.
+//   - Explicit `[null, value]` in YAML is treated as sparse (rare but correct).
+//
+// Recursive behavior: When merging maps within array elements, the same strategy
+// is propagated to nested MergeMaps calls, maintaining consistent merge semantics.
 func mergeSlices(base, override []any, strategy ArrayMergeStrategy) []any {
 	if strategy == ArrayMergeStrategyReplace {
 		return override
 	}
 
-	// For Sparse strategy, auto-detect based on nil values.
-	// Assumption: CLI --state-values-set creates sparse arrays with nils at unset indices,
-	// while YAML layer arrays have no nils. Edge case: explicit "array: [null, value]" in
-	// YAML would be treated as sparse, but this is rare and arguably correct behavior.
 	if strategy == ArrayMergeStrategySparse {
 		isSparse := false
 		for _, v := range override {
