@@ -489,8 +489,8 @@ github.com/hashicorp/jsonapi v1.4.3-0.20250220162346-81a76b606f3e h1:xwy/1T0cxHW
 github.com/hashicorp/jsonapi v1.4.3-0.20250220162346-81a76b606f3e/go.mod h1:kWfdn49yCjQvbpnvY1dxxAuAFzISwrrMDQOcu6NsFoM=
 github.com/hashicorp/vault/api v1.22.0 h1:+HYFquE35/B74fHoIeXlZIP2YADVboaPjaSicHEZiH0=
 github.com/hashicorp/vault/api v1.22.0/go.mod h1:IUZA2cDvr4Ok3+NtK2Oq/r+lJeXkeCrHRmqdyWfpmGM=
-github.com/helmfile/chartify v0.26.1 h1:HzVs7qbas5HB/vyIJCo6vgpnPX+hLnhx51Bl352Jj0A=
-github.com/helmfile/chartify v0.26.1/go.mod h1:e4Ym+XfSIPdqG3KL8lwkSrvQzrRKTEQKyF1/8BoFpVA=
+github.com/helmfile/chartify v0.26.2 h1:DM9t0fcKpBdAFAKOccrBZ9HZbDfsyQiNUCydmwVjB7E=
+github.com/helmfile/chartify v0.26.2/go.mod h1:a5faVrDFlVzi3cQakbtjDnIfonskkIsvms5Vj7aKYdw=
 github.com/helmfile/vals v0.43.1 h1:b2+h3T1dzsr9Vgpbd4ElPROK1vGNv9euUBWAnWvDwUM=
 github.com/helmfile/vals v0.43.1/go.mod h1:9ig23WrnSQcrIzrCpr/O2rlphSvaf/li20jm+aVBrb0=
 github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec h1:qv2VnGeEQHchGaZ/u7lxST/RaJw+cv273q79D81Xbog=
@@ -954,10 +954,10 @@ gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.0-20200605160147-a5ece683394c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-helm.sh/helm/v3 v3.19.4 h1:E2yFBejmZBczWr5LblhjZbvAOAwVumfBO1AtN3nqI30=
-helm.sh/helm/v3 v3.19.4/go.mod h1:PC1rk7PqacpkV4acUFMLStOOis7QM9Jq3DveHBInu4s=
-helm.sh/helm/v4 v4.0.4 h1:5Lokr7XxCe6IW/NMtdECuAFW/0bTs/2831deUrlKqP8=
-helm.sh/helm/v4 v4.0.4/go.mod h1:fMyG9onvVK6HOBjjkzhhHORAsgEWlRMqDY84lvX7GvY=
+helm.sh/helm/v3 v3.19.5 h1:l8zDGBhPaF2z5pTR5ASku/yZwi0qZrWthWMzvf1ZruE=
+helm.sh/helm/v3 v3.19.5/go.mod h1:PC1rk7PqacpkV4acUFMLStOOis7QM9Jq3DveHBInu4s=
+helm.sh/helm/v4 v4.0.5 h1:EaVWKXQT5tdEFbV3RNMFs3Bkdc0PyQOTXhq+bKXC8ew=
+helm.sh/helm/v4 v4.0.5/go.mod h1:fMyG9onvVK6HOBjjkzhhHORAsgEWlRMqDY84lvX7GvY=
 k8s.io/api v0.35.0 h1:iBAU5LTyBI9vw3L5glmat1njFK34srdLmktWwLTprlY=
 k8s.io/api v0.35.0/go.mod h1:AQ0SNTzm4ZAczM03QH42c7l3bih1TbAXYo0DkF8ktnA=
 k8s.io/apiextensions-apiserver v0.34.2 h1:WStKftnGeoKP4AZRz/BaAAEJvYp4mlZGN0UCv+uvsqo=
