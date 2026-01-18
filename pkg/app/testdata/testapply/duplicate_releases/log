@@ -1,5 +1,5 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-merged environment: &{default  map[] map[]}
+merged environment: &{default  map[] map[] map[]}
 err: found 2 duplicate releases with ID "default//foo"
 changing working directory back to "/path/to"

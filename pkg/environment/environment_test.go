@@ -141,3 +141,67 @@ func TestEnvironment_GetMergedValues(t *testing.T) {
 
 	assert.Equal(t, expected, mergedValues)
 }
+
+func TestEnvironment_GetMergedValues_Issue2353_LayerArrayReplace(t *testing.T) {
+	env := &Environment{
+		Name: "test",
+		Defaults: map[string]any{
+			"top": map[string]any{
+				"array": []any{"default1", "default2", "default3"},
+			},
+		},
+		Values: map[string]any{
+			"top": map[string]any{
+				"array": []any{"override1", "override2"},
+			},
+		},
+	}
+
+	mergedValues, err := env.GetMergedValues()
+	require.NoError(t, err)
+
+	resultArray := mergedValues["top"].(map[string]any)["array"].([]any)
+	expected := []any{"override1", "override2"}
+	assert.Equal(t, expected, resultArray, "Layer arrays should replace defaults entirely")
+}
+
+func TestEnvironment_GetMergedValues_Issue2281_SparseArrayMerge(t *testing.T) {
+	env := &Environment{
+		Name: "test",
+		Defaults: map[string]any{
+			"top": map[string]any{
+				"array": []any{"thing1", "thing2"},
+				"complexArray": []any{
+					map[string]any{"thing": "a thing", "anotherThing": "another thing"},
+					map[string]any{"thing": "second thing", "anotherThing": "a second other thing"},
+				},
+			},
+		},
+		Values: map[string]any{
+			"top": map[string]any{
+				"array":        []any{nil, "cmdlinething1"},
+				"complexArray": []any{nil, map[string]any{"anotherThing": "cmdline"}},
+			},
+		},
+	}
+
+	mergedValues, err := env.GetMergedValues()
+	require.NoError(t, err)
+
+	top := mergedValues["top"].(map[string]any)
+
+	resultArray := top["array"].([]any)
+	expectedArray := []any{"thing1", "cmdlinething1"}
+	assert.Equal(t, expectedArray, resultArray, "CLI sparse arrays should merge element-by-element")
+
+	resultComplex := top["complexArray"].([]any)
+	assert.Len(t, resultComplex, 2)
+
+	elem0 := resultComplex[0].(map[string]any)
+	assert.Equal(t, "a thing", elem0["thing"])
+	assert.Equal(t, "another thing", elem0["anotherThing"])
+
+	elem1 := resultComplex[1].(map[string]any)
+	assert.Equal(t, "second thing", elem1["thing"])
+	assert.Equal(t, "cmdline", elem1["anotherThing"])
+}

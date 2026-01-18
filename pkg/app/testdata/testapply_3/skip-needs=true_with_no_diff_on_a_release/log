@@ -1,6 +1,6 @@
 processing file "helmfile.yaml.gotmpl" in directory "."
 changing working directory to "/path/to"
-rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default  map[] map[]}, overrode=<nil>
+rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default  map[] map[] map[]}, overrode=<nil>
 rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
  1: 
@@ -27,7 +27,7 @@ rendering result of "helmfile.yaml.gotmpl.part.0":
 22:   - default/external-secrets
 23: 
 
-merged environment: &{default  map[] map[]}
+merged environment: &{default  map[] map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml.gotmpl
 
 Affected releases are:

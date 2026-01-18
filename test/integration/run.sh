@@ -115,6 +115,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-1893.sh
 . ${dir}/test-cases/state-values-set-cli-args-in-environments.sh
 . ${dir}/test-cases/issue-2281-array-merge.sh
+. ${dir}/test-cases/issue-2353-layer-array-replace.sh
 . ${dir}/test-cases/issue-2247.sh
 . ${dir}/test-cases/issue-2291.sh
 . ${dir}/test-cases/oci-parallel-pull.sh

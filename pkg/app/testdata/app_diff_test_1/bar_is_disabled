@@ -1,6 +1,6 @@
 processing file "helmfile.yaml" in directory "."
 changing working directory to "/path/to"
-merged environment: &{default  map[] map[]}
+merged environment: &{default  map[] map[] map[]}
 3 release(s) found in helmfile.yaml
 
 processing 2 groups of releases in this order:

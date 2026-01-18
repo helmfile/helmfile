@@ -1,0 +1,14 @@
+# These are default values that should be overridable by environment values
+# Before the fix, arrays would be merged element-by-element
+# After the fix, arrays should be replaced entirely
+
+myList:
+  - default1
+  - default2
+  - default3
+
+nested:
+  innerArray:
+    - innerA
+    - innerB
+    - innerC
