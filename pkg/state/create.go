@@ -397,26 +397,33 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		return nil, &UndefinedEnvError{Env: name}
 	}
 
-	newEnv := &environment.Environment{Name: name, Values: valuesVals, KubeContext: envSpec.KubeContext}
+	newEnv := &environment.Environment{Name: name, Values: valuesVals, KubeContext: envSpec.KubeContext, Defaults: map[string]any{}, CLIOverrides: map[string]any{}}
 
 	if ctxEnv != nil {
-		intCtxEnv := *ctxEnv
-
-		if err := mergo.Merge(&intCtxEnv, newEnv, mergo.WithOverride); err != nil {
-			return nil, fmt.Errorf("error while merging environment values for \"%s\": %v", name, err)
+		// Merge base defaults (from top-level values:) - needed for multi-part helmfiles
+		// ctxEnv.Defaults is the base, newEnv.Defaults overrides (later parts win)
+		newEnv.Defaults = maputil.MergeMaps(ctxEnv.Defaults, newEnv.Defaults)
+		// Merge layer values - ctxEnv is base, newEnv (current part) overrides
+		newEnv.Values = maputil.MergeMaps(ctxEnv.Values, newEnv.Values)
+		// Copy CLI overrides to be merged at GetMergedValues time
+		newEnv.CLIOverrides = maputil.MergeMaps(newEnv.CLIOverrides, ctxEnv.CLIOverrides,
+			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
+		if ctxEnv.Name != "" {
+			newEnv.Name = ctxEnv.Name
 		}
-
-		newEnv = &intCtxEnv
+		if ctxEnv.KubeContext != "" {
+			newEnv.KubeContext = ctxEnv.KubeContext
+		}
 	}
 
 	if overrode != nil {
-		intOverrodeEnv := *newEnv
-
-		// Use MergeMaps instead of mergo.Merge to properly handle array merging element-by-element
-		// This fixes issue #2281 where arrays were being replaced entirely instead of merged
-		intOverrodeEnv.Values = maputil.MergeMaps(intOverrodeEnv.Values, overrode.Values)
-
-		newEnv = &intOverrodeEnv
+		// Merge base defaults from overrode
+		newEnv.Defaults = maputil.MergeMaps(newEnv.Defaults, overrode.Defaults)
+		// Merge layer values from overrode (arrays replace)
+		newEnv.Values = maputil.MergeMaps(newEnv.Values, overrode.Values)
+		// Merge CLI overrides (arrays merge element-by-element)
+		newEnv.CLIOverrides = maputil.MergeMaps(newEnv.CLIOverrides, overrode.CLIOverrides,
+			maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
 	}
 
 	return newEnv, nil

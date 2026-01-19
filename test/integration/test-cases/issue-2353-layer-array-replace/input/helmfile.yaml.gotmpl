@@ -1,0 +1,37 @@
+# Test for issue #2353: Environment values should replace default arrays entirely
+#
+# This tests that the default sparse array-merge behavior in GetMergedValues()
+# (ArrayMergeStrategySparse) correctly auto-detects that a complete override array
+# without nils should replace the default array entirely rather than merge element-wise.
+#
+# Expected behavior:
+# - default values define: myList: [default1, default2, default3]
+# - environment values override: myList: [override1, override2]
+# - Result should be: myList: [override1, override2] (REPLACED via sparse auto-detection)
+# - Before fix: myList: [override1, override2, default3] (incorrectly merged element-by-element)
+
+# Default values that go to e.Defaults
+values:
+  - defaults.yaml
+
+environments:
+  default:
+    # Environment values that go to e.Values and should replace defaults
+    values:
+      - overrides.yaml
+
+---
+releases:
+  - name: test
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: TestConfig
+            data:
+              # Arrays should be REPLACED (2 elements each), not merged (3 elements)
+              myList: {{ toJson .Values.myList }}
+              innerArray: {{ toJson .Values.nested.innerArray }}

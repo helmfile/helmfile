@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -31,6 +32,7 @@ func TestStorage_resolveFile(t *testing.T) {
 		wantFiles   []string
 		wantSkipped bool
 		wantErr     bool
+		skipNonCI   bool
 	}{
 		{
 			name: "non existing file in repo produce skip",
@@ -61,6 +63,7 @@ func TestStorage_resolveFile(t *testing.T) {
 			},
 			wantSkipped: false,
 			wantErr:     true,
+			skipNonCI:   true,
 		},
 		{
 			name: "non existing branch in repo produce info when ignoreMissingGitBranch=true",
@@ -125,6 +128,13 @@ func TestStorage_resolveFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipNonCI && os.Getenv("CI") == "" {
+				// CI uses HTTPS git remotes while local dev often has SSH configured via
+				// git config url."ssh://".insteadOf. This causes different behavior for
+				// non-existent branch scenarios.
+				t.Skip("skipping test that requires CI environment (git SSH/HTTPS differences)")
+			}
+
 			st := NewStorage(cacheDir, helmexec.NewLogger(io.Discard, "debug"), filesystem.DefaultFileSystem())
 
 			files, skipped, err := st.resolveFile(tt.args.missingFileHandler, tt.args.title, tt.args.path, tt.args.opts...)

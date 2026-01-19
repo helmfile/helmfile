@@ -1,0 +1,7 @@
+# Test helmfile for issue #2355
+# This helmfile uses a local kustomize chart to test the --validate flag compatibility with Helm 4
+
+releases:
+  - name: test-kustomize-2355
+    chart: ./kubernetes
+    namespace: helmfile-tests

@@ -65,7 +65,13 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				if strings.HasSuffix(f, ".hcl") {
 					hclLoader.AddFile(f)
 				} else {
-					tmplData := NewEnvironmentTemplateData(env, "", env.Values)
+					// Use merged values (Defaults + Values + CLIOverrides) for template rendering
+					// so that CLI values are accessible via .Values in environment value files.
+					mergedVals, err := env.GetMergedValues()
+					if err != nil {
+						return nil, fmt.Errorf("failed to get merged values for environment file \"%s\": %v", f, err)
+					}
+					tmplData := NewEnvironmentTemplateData(env, "", mergedVals)
 					r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
 					bytes, err := r.RenderToBytes(f)
 					if err != nil {

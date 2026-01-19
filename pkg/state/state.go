@@ -1514,11 +1514,36 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// The lookup() function can be used with or without patches, so we enable cluster access
 	// for all cluster-requiring operations (diff, apply, sync, etc.) but not for offline
 	// commands (template, lint, build, etc.)
+	// Issue #2309: Also pass --kube-context to chartify's internal helm template call
+	// Issue #2355: In Helm 4, --validate and --dry-run are mutually exclusive flags.
+	// When --validate is set, we skip adding --dry-run=server since --validate already
+	// provides server-side validation.
 	if requiresCluster {
-		if chartifyOpts.TemplateArgs == "" {
-			chartifyOpts.TemplateArgs = "--dry-run=server"
-		} else if !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
-			chartifyOpts.TemplateArgs += " --dry-run=server"
+		// Get the effective kube-context for this release
+		kubeContext := st.getKubeContext(release)
+
+		// Build the additional args needed for cluster-requiring commands
+		var additionalArgs []string
+
+		// Add --kube-context if configured (Issue #2309)
+		// Note: kube-context is independent of the validate/dry-run mutual exclusion
+		if kubeContext != "" && !strings.Contains(chartifyOpts.TemplateArgs, "--kube-context") {
+			additionalArgs = append(additionalArgs, "--kube-context", kubeContext)
+		}
+
+		// Add --dry-run=server if not already present (Issue #2271)
+		// Skip if --validate is set to avoid Helm 4 mutual exclusion error (Issue #2355)
+		if !opts.Validate && !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
+			additionalArgs = append(additionalArgs, "--dry-run=server")
+		}
+
+		// Append the additional args to TemplateArgs
+		if len(additionalArgs) > 0 {
+			if chartifyOpts.TemplateArgs == "" {
+				chartifyOpts.TemplateArgs = strings.Join(additionalArgs, " ")
+			} else {
+				chartifyOpts.TemplateArgs += " " + strings.Join(additionalArgs, " ")
+			}
 		}
 	}
 
@@ -3085,14 +3110,26 @@ func (st *HelmState) appendEnableDNSFlags(flags []string, release *ReleaseSpec) 
 	return flags
 }
 
+// getKubeContext returns the effective kube-context for a release.
+// It follows the priority: release.KubeContext > environment.KubeContext > helmDefaults.KubeContext
+// Issue #2309: This is the single source of truth for kube-context resolution
+func (st *HelmState) getKubeContext(release *ReleaseSpec) string {
+	if release.KubeContext != "" {
+		return release.KubeContext
+	}
+	if st.Environments[st.Env.Name].KubeContext != "" {
+		return st.Environments[st.Env.Name].KubeContext
+	}
+	if st.HelmDefaults.KubeContext != "" {
+		return st.HelmDefaults.KubeContext
+	}
+	return ""
+}
+
 func (st *HelmState) kubeConnectionFlags(release *ReleaseSpec) []string {
 	flags := []string{}
-	if release.KubeContext != "" {
-		flags = append(flags, "--kube-context", release.KubeContext)
-	} else if st.Environments[st.Env.Name].KubeContext != "" {
-		flags = append(flags, "--kube-context", st.Environments[st.Env.Name].KubeContext)
-	} else if st.HelmDefaults.KubeContext != "" {
-		flags = append(flags, "--kube-context", st.HelmDefaults.KubeContext)
+	if kubeContext := st.getKubeContext(release); kubeContext != "" {
+		flags = append(flags, "--kube-context", kubeContext)
 	}
 	return flags
 }
@@ -3273,6 +3310,8 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
 	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
+	// Issue #2309: Add kube-context flags for helm template when using jsonPatches with --dry-run=server
+	flags = st.appendConnectionFlags(flags, release)
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {

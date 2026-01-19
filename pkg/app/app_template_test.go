@@ -188,9 +188,10 @@ releases:
 				skipNeeds: true,
 			},
 			selectors: []string{"app=test"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
-				{Name: "my-release", Flags: []string{"--namespace", "default"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
 		})
 	})
@@ -203,12 +204,13 @@ releases:
 			},
 			error:     ``,
 			selectors: []string{"app=test"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
 				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
-				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
-				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
-				{Name: "my-release", Flags: []string{"--namespace", "default"}},
+				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
+				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
 		})
 	})
@@ -221,11 +223,12 @@ releases:
 			},
 			error:     ``,
 			selectors: []string{"app=test"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
-				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
-				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
-				{Name: "my-release", Flags: []string{"--namespace", "default"}},
+				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
+				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
 		})
 	})
@@ -237,8 +240,9 @@ releases:
 				includeNeeds: true,
 			},
 			selectors: []string{"name=test2"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "test2"},
+				{Name: "test2", Flags: []string{"--kube-context", "default"}},
 			},
 		})
 	})
@@ -250,9 +254,10 @@ releases:
 				includeNeeds: true,
 			},
 			selectors: []string{"name=test3"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "test2"},
-				{Name: "test3"},
+				{Name: "test2", Flags: []string{"--kube-context", "default"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default"}},
 			},
 		})
 	})
@@ -265,9 +270,10 @@ releases:
 				includeTransitiveNeeds: true,
 			},
 			selectors: []string{"name=test3"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "test2"},
-				{Name: "test3"},
+				{Name: "test2", Flags: []string{"--kube-context", "default"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default"}},
 			},
 		})
 	})
@@ -280,8 +286,9 @@ releases:
 				includeTransitiveNeeds: true,
 			},
 			selectors: []string{"name=test2"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "test2"},
+				{Name: "test2", Flags: []string{"--kube-context", "default"}},
 			},
 		})
 	})
@@ -294,9 +301,10 @@ releases:
 				includeTransitiveNeeds: true,
 			},
 			selectors: []string{"name=test3"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "test2"},
-				{Name: "test3"},
+				{Name: "test2", Flags: []string{"--kube-context", "default"}},
+				{Name: "test3", Flags: []string{"--kube-context", "default"}},
 			},
 		})
 	})
@@ -308,9 +316,10 @@ releases:
 				noHooks:   true,
 			},
 			selectors: []string{"app=test"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "external-secrets", Flags: []string{"--namespace", "default", "--no-hooks"}},
-				{Name: "my-release", Flags: []string{"--namespace", "default", "--no-hooks"}},
+				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks"}},
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--no-hooks"}},
 			},
 		})
 	})
@@ -329,8 +338,9 @@ releases:
 				showOnly: []string{"templates/resources.yaml"},
 			},
 			selectors: []string{"name=logging"},
+			// Issue #2309: --kube-context is now added to template flags
 			templated: []exectest.Release{
-				{Name: "logging", Flags: []string{"--show-only", "templates/resources.yaml", "--namespace", "kube-system"}},
+				{Name: "logging", Flags: []string{"--show-only", "templates/resources.yaml", "--kube-context", "default", "--namespace", "kube-system"}},
 			},
 		})
 	})

@@ -784,6 +784,8 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 		defaults     HelmSpec
 		release      *ReleaseSpec
 		templateOpts TemplateOpts
+		environments map[string]EnvironmentSpec
+		envName      string
 		want         []string
 		wantErr      string
 	}{
@@ -903,15 +905,114 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		// Issue #2309: kube-context tests
+		{
+			name: "kube-context-from-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Verify:      &disable,
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				KubeContext: "release-context",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--kube-context", "release-context",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "kube-context-from-helmdefaults",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+				KubeContext:     "default-context",
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--kube-context", "default-context",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "kube-context-release-overrides-helmdefaults",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+				KubeContext:     "default-context",
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Verify:      &disable,
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				KubeContext: "release-context",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--kube-context", "release-context",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "kube-context-from-environment",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Verify:    &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			environments: map[string]EnvironmentSpec{
+				"production": {KubeContext: "env-context"},
+			},
+			envName: "production",
+			want: []string{
+				"--version", "0.1",
+				"--kube-context", "env-context",
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
+			envName := tt.envName
+			if envName == "" {
+				envName = "default"
+			}
+			environments := tt.environments
+			if environments == nil {
+				environments = make(map[string]EnvironmentSpec)
+			}
 			state := &HelmState{
 				basePath: "./",
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases:     []ReleaseSpec{*tt.release},
 					HelmDefaults: tt.defaults,
+					Environments: environments,
+					Env:          environment.Environment{Name: envName},
 				},
 				valsRuntime: valsRuntime,
 			}
@@ -4911,5 +5012,104 @@ func TestChartCache(t *testing.T) {
 	}
 	if cachedPath != path {
 		t.Errorf("Expected path %s, got %s", path, cachedPath)
+	}
+}
+
+// TestHelmState_getKubeContext tests the kube-context resolution logic
+// Issue #2309: This helper is used to pass kube-context to chartify
+func TestHelmState_getKubeContext(t *testing.T) {
+	tests := []struct {
+		name         string
+		defaults     HelmSpec
+		environments map[string]EnvironmentSpec
+		envName      string
+		release      *ReleaseSpec
+		want         string
+	}{
+		{
+			name:     "returns empty when no context configured",
+			defaults: HelmSpec{},
+			release:  &ReleaseSpec{Name: "test"},
+			want:     "",
+		},
+		{
+			name: "returns release kubeContext when set",
+			defaults: HelmSpec{
+				KubeContext: "default-context",
+			},
+			release: &ReleaseSpec{
+				Name:        "test",
+				KubeContext: "release-context",
+			},
+			want: "release-context",
+		},
+		{
+			name: "returns helmDefaults kubeContext when release not set",
+			defaults: HelmSpec{
+				KubeContext: "default-context",
+			},
+			release: &ReleaseSpec{
+				Name: "test",
+			},
+			want: "default-context",
+		},
+		{
+			name: "environment overrides helmDefaults when release not set",
+			defaults: HelmSpec{
+				KubeContext: "default-context",
+			},
+			environments: map[string]EnvironmentSpec{
+				"production": {KubeContext: "env-context"},
+			},
+			envName: "production",
+			release: &ReleaseSpec{
+				Name: "test",
+			},
+			want: "env-context",
+		},
+		{
+			name: "release overrides environment",
+			defaults: HelmSpec{
+				KubeContext: "default-context",
+			},
+			environments: map[string]EnvironmentSpec{
+				"production": {KubeContext: "env-context"},
+			},
+			envName: "production",
+			release: &ReleaseSpec{
+				Name:        "test",
+				KubeContext: "release-context",
+			},
+			want: "release-context",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			envName := tt.envName
+			if envName == "" {
+				envName = "default"
+			}
+			environments := tt.environments
+			if environments == nil {
+				environments = make(map[string]EnvironmentSpec)
+			}
+
+			state := &HelmState{
+				basePath: "./",
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: tt.defaults,
+					Environments: environments,
+					Env: environment.Environment{
+						Name: envName,
+					},
+				},
+			}
+
+			got := state.getKubeContext(tt.release)
+			if got != tt.want {
+				t.Errorf("getKubeContext() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

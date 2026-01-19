@@ -1,0 +1,30 @@
+# Issue #2309: helm template should receive --kube-context when using jsonPatches
+# https://github.com/helmfile/helmfile/issues/2309
+helmDefaults:
+  kubeContext: test-context
+
+repositories:
+- name: incubator
+  url: https://charts.helm.sh/incubator
+---
+releases:
+- name: test-release
+  chart: incubator/raw
+  namespace: default
+  values:
+  - resources:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: test-configmap
+      data:
+        key: value
+  jsonPatches:
+    - target:
+        version: v1
+        kind: ConfigMap
+        name: test-configmap
+      patch:
+      - op: add
+        path: /data/patched
+        value: "true"
