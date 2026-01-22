@@ -211,16 +211,11 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 	case "":
 		args = append(args, "repo", "add", name, repository)
 
-		// --force-update is the default behavior in Helm 4, but needs to be explicit in Helm 3
+		// --force-update is needed for both Helm 3.3.2+ and Helm 4
+		// to ensure repository indexes are updated when a repository already exists
 		// See https://github.com/helm/helm/pull/8777
-		if helm.IsHelm3() {
-			if cons, err := semver.NewConstraint(">= 3.3.2"); err == nil {
-				if !helm.options.DisableForceUpdate && cons.Check(helm.version) {
-					args = append(args, "--force-update")
-				}
-			} else {
-				panic(err)
-			}
+		if !helm.options.DisableForceUpdate && (helm.IsHelm4() || helm.IsVersionAtLeast("3.3.2")) {
+			args = append(args, "--force-update")
 		}
 
 		if certfile != "" && keyfile != "" {
