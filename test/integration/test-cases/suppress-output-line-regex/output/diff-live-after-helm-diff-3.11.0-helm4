@@ -1,4 +1,4 @@
-"ingress-nginx" already exists with the same configuration, skipping
+"ingress-nginx" has been added to your repositories
 helmfile-tests, ingress-nginx, ClusterRole (rbac.authorization.k8s.io) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx, ClusterRoleBinding (rbac.authorization.k8s.io) has changed:
   # Source: ingress-nginx/templates/clusterrolebinding.yaml

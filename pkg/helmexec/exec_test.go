@@ -147,8 +147,16 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 `,
 		},
 		{
-			name:    "Helm 4.0.1 (force-update is default)",
+			name:    "Helm 4.0.1 (force-update needed)",
 			version: "4.0.1",
+			expected: `Adding repo myRepo https://repo.example.com/
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
+`,
+		},
+		{
+			name:               "Helm 4.0.1 (force-update disabled)",
+			version:            "4.0.1",
+			disableForceUpdate: true,
 			expected: `Adding repo myRepo https://repo.example.com/
 exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
 `,
@@ -188,7 +196,7 @@ func Test_AddRepo(t *testing.T) {
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "cert.pem", "key.pem", "", "", "", false, false)
 	expected := `Adding repo myRepo https://repo.example.com/
-exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --cert-file cert.pem --key-file key.pem
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --cert-file cert.pem --key-file key.pem
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -202,7 +210,7 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "ca.crt", "", "", "", "", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --ca-file ca.crt
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --ca-file ca.crt
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -216,7 +224,7 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -257,11 +265,12 @@ exec: az acr helm repo add --name acrRepo:
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", false, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --username example_user --password-stdin
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --username example_user --password-stdin
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
+
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
@@ -270,7 +279,7 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "example_user", "example_password", "", true, false)
 	expected = `Adding repo myRepo https://repo.example.com/
-exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --pass-credentials --username example_user --password-stdin
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --pass-credentials --username example_user --password-stdin
 `
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -285,8 +294,8 @@ exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.e
 	buffer.Reset()
 	err = helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "", "", "", false, true)
 	expected = `Adding repo myRepo https://repo.example.com/
-	exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --insecure-skip-tls-verify
-	`
+exec: helm --kubeconfig config --kube-context dev repo add myRepo https://repo.example.com/ --force-update --insecure-skip-tls-verify
+`
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -1174,7 +1183,7 @@ exec: helm --kubeconfig config --kube-context dev chart export chart --destinati
 
 var logLevelTests = map[string]string{
 	"debug": `Adding repo myRepo https://repo.example.com/
-exec: helm repo add myRepo https://repo.example.com/ --username example_user --password example_password
+exec: helm repo add myRepo https://repo.example.com/ --force-update --username example_user --password-stdin
 `,
 	"info": `Adding repo myRepo https://repo.example.com/
 `,
