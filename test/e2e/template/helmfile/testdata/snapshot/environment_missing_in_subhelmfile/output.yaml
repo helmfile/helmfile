@@ -1,8 +1,3 @@
-Updating repo
-Hang tight while we grab the latest from your chart repositories...
-...Successfully got an update from the "myrepo" chart repository
-Update Complete. ⎈Happy Helming!⎈
-
 Building dependency release=test, chart=../../../charts/raw-0.0.1
 Templating release=test, chart=../../../charts/raw-0.0.1
 ---

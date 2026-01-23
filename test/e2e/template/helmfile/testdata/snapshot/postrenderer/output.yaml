@@ -1,15 +1,10 @@
-Updating repo
-Hang tight while we grab the latest from your chart repositories...
-...Successfully got an update from the "myrepo" chart repository
-Update Complete. ⎈Happy Helming!⎈
-
-Building dependency release=foo, chart=$WD/testdata/charts/raw-0.1.0
-Building dependency release=baz, chart=$WD/temp1/baz
+Building dependency release=foo, chart=../../charts/raw-0.1.0
+Building dependency release=baz, chart=../../charts/raw-0.1.0
 Saving 1 charts
 Downloading raw from repo oci://localhost:$REGISTRY_PORT/myrepo
 Deleting outdated charts
 
-Templating release=foo, chart=$WD/testdata/charts/raw-0.1.0
+Templating release=foo, chart=../../charts/raw-0.1.0
 ---
 # Source: raw/templates/resources.yaml
 apiVersion: v1
@@ -20,7 +15,7 @@ metadata:
 data:
   foo: FOO
 
-Templating release=baz, chart=$WD/temp1/baz
+Templating release=baz, chart=../../charts/raw-0.1.0
 ---
 # Source: raw/templates/resources.yaml
 apiVersion: v1
@@ -30,6 +25,7 @@ metadata:
   namespace: default
 data:
   baz: BAZ
+
 ---
 apiVersion: v1
 kind: ConfigMap
