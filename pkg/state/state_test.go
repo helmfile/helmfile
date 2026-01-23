@@ -4027,10 +4027,40 @@ func TestGenerateChartPath(t *testing.T) {
 			outputDirTemplate: "{{ .OutputDir }",
 			wantErr:           true,
 		},
+		{
+			testName:          "PathGeneratedWithGivenOutputDirTemplateWithEnvironmentName",
+			chartName:         "chart-name",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDir:         "/output-dir",
+			outputDirTemplate: "{{ .OutputDir }}/{{ .Environment.Name }}",
+			wantErr:           false,
+			expected:          "/output-dir/test-env",
+		},
+		{
+			testName:          "PathGeneratedWithGivenOutputDirTemplateWithEnvironmentValues",
+			chartName:         "chart-name",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDir:         "/output-dir",
+			outputDirTemplate: "{{ .OutputDir }}/{{ .Environment.Values.cluster.name }}",
+			wantErr:           false,
+			expected:          "/output-dir/my-test-cluster",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got, err := generateChartPath(tt.chartName, tt.outputDir, tt.release, tt.outputDirTemplate)
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Env: environment.Environment{
+						Name: "test-env",
+						Values: map[string]any{
+							"cluster": map[string]any{
+								"name": "my-test-cluster",
+							},
+						},
+					},
+				},
+			}
+			got, err := st.generateChartPath(tt.chartName, tt.outputDir, tt.release, tt.outputDirTemplate)
 
 			if tt.wantErr {
 				require.Errorf(t, err, "GenerateChartPath() error \"%v\", want error", err)
