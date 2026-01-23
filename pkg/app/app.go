@@ -344,6 +344,46 @@ func (a *App) Lint(c LintConfigProvider) error {
 	return nil
 }
 
+func (a *App) Unittest(c UnittestConfigProvider) error {
+	var deferredUnittestErrors []error
+
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		var unittestErrs []error
+
+		prepErr := run.withPreparedCharts("unittest", state.ChartPrepareOptions{
+			ForceDownload:          true,
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
+			SkipDeps:               c.SkipDeps(),
+			SkipCleanup:            c.SkipCleanup(),
+			Concurrency:            c.Concurrency(),
+			IncludeTransitiveNeeds: c.IncludeNeeds(),
+		}, func() {
+			ok, unittestErrs, errs = a.unittest(run, c)
+		})
+
+		if prepErr != nil {
+			errs = append(errs, prepErr)
+		}
+
+		if len(unittestErrs) > 0 {
+			deferredUnittestErrors = append(deferredUnittestErrors, unittestErrs...)
+		}
+
+		return
+	}, c.IncludeTransitiveNeeds())
+
+	if err != nil {
+		return err
+	}
+
+	if len(deferredUnittestErrors) > 0 {
+		return &MultiError{Errors: deferredUnittestErrors}
+	}
+
+	return nil
+}
+
 func (a *App) Fetch(c FetchConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
@@ -1907,6 +1947,43 @@ func (a *App) lint(r *Run, c LintConfigProvider) (bool, []error, []error) {
 	})
 
 	return ok, deferredLintErrs, errs
+}
+
+func (a *App) unittest(r *Run, c UnittestConfigProvider) (bool, []error, []error) {
+	var deferredUnittestErrs []error
+
+	ok, errs := a.withNeeds(r, c, true, func(st *state.HelmState) []error {
+		helm := r.helm
+
+		args := GetArgs(c.Args(), st)
+
+		helm.SetExtraArgs()
+
+		if len(args) > 0 {
+			helm.SetExtraArgs(args...)
+		}
+
+		opts := &state.UnittestOpts{
+			Color:        c.Color(),
+			DebugPlugin:  c.DebugPlugin(),
+			FailFast:     c.FailFast(),
+			UnittestArgs: c.UnittestArgs(),
+		}
+		unittestErrs := st.UninttestReleases(helm, c.Values(), c.Concurrency(), true, opts)
+		if len(unittestErrs) == 1 {
+			if err, ok := unittestErrs[0].(helmexec.ExitError); ok {
+				if err.Code > 0 {
+					deferredUnittestErrs = append(deferredUnittestErrs, err)
+
+					return nil
+				}
+			}
+		}
+
+		return unittestErrs
+	})
+
+	return ok, deferredUnittestErrs, errs
 }
 
 func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {

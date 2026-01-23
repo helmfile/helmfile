@@ -24,6 +24,7 @@ type Interface interface {
 	SyncRelease(context HelmContext, name, chart, namespace string, flags ...string) error
 	DiffRelease(context HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error
 	TemplateRelease(name, chart string, flags ...string) error
+	UnittestRelease(context HelmContext, name, chart string, flags ...string) error
 	Fetch(chart string, flags ...string) error
 	ChartPull(chart string, path string, flags ...string) error
 	ChartExport(chart string, path string) error

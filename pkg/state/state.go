@@ -442,6 +442,9 @@ type ReleaseSpec struct {
 	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
 	// TakeOwnership is true if the release should take ownership of the resources
 	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
+
+	// UnitTests is a list of paths to unittest directories for this release
+	UnitTests []string `yaml:"unitTests,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -2166,6 +2169,95 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 	return nil
 }
 
+type UnittestOpts struct {
+	Color        bool
+	DebugPlugin  bool
+	FailFast     bool
+	UnittestArgs []string
+}
+
+func (o *UnittestOpts) Apply(opts *UnittestOpts) {
+	*opts = *o
+}
+
+type UnittestOpt interface{ Apply(*UnittestOpts) }
+
+// UninttestReleases wrapper for executing helm unittest on the releases
+func (st *HelmState) UninttestReleases(helm helmexec.Interface, additionalValues []string, workerLimit int, triggerCleanupEvents bool, opt ...UnittestOpt) []error {
+	opts := &UnittestOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	helm.SetExtraArgs()
+
+	errs := []error{}
+
+	for i := range st.Releases {
+		release := st.Releases[i]
+
+		if !release.Desired() {
+			continue
+		}
+
+		if len(release.UnitTests) == 0 {
+			continue
+		}
+
+		flags, files, err := st.flagsForUnittest(helm, &release, 0)
+
+		defer st.removeFiles(files)
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		for _, value := range additionalValues {
+			valfile, err := filepath.Abs(value)
+			if err != nil {
+				errs = append(errs, err)
+			}
+
+			if _, err := os.Stat(valfile); os.IsNotExist(err) {
+				errs = append(errs, err)
+			}
+			flags = append(flags, "--values", valfile)
+		}
+
+		flags = append(flags, opts.UnittestArgs...)
+
+		if opts.Color {
+			flags = append(flags, "--color")
+		}
+
+		if opts.DebugPlugin {
+			flags = append(flags, "--debug-plugin")
+		}
+
+		if opts.FailFast {
+			flags = append(flags, "--fail-fast")
+		}
+
+		if len(errs) == 0 {
+			if err := helm.UnittestRelease(st.createHelmContext(&release, 0), release.Name, release.ChartPathOrName(), flags...); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		if triggerCleanupEvents {
+			if _, err := st.TriggerCleanupEvent(&release, "unittest"); err != nil {
+				st.logger.Warnf("warn: %v\n", err)
+			}
+		}
+	}
+
+	if len(errs) != 0 {
+		return errs
+	}
+
+	return nil
+}
+
 type diffResult struct {
 	release *ReleaseSpec
 	err     *ReleaseError
@@ -3599,6 +3691,10 @@ func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec,
 	}
 
 	return st.appendHelmXFlags(flags, release), files, nil
+}
+
+func (st *HelmState) flagsForUnittest(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+	return st.namespaceAndValuesFlags(helm, release, workerIndex)
 }
 
 func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplateData {

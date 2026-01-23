@@ -224,6 +224,9 @@ func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
 	helm.Templated = append(helm.Templated, Release{Name: name, Flags: flags})
 	return nil
 }
+func (helm *Helm) UnittestRelease(context helmexec.HelmContext, name, chart string, flags ...string) error {
+	return nil
+}
 func (helm *Helm) ChartPull(chart string, path string, flags ...string) error {
 	return nil
 }
