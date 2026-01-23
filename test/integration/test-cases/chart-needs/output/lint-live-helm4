@@ -1,4 +1,14 @@
 "azuredisk-csi-driver" has been added to your repositories
+
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "azuredisk-csi-driver" chart repository
+...Successfully got an update from the "ingress-nginx" chart repository
+...Successfully got an update from the "elastic" chart repository
+...Successfully got an update from the "incubator" chart repository
+...Successfully got an update from the "prometheus-community" chart repository
+...Successfully got an update from the "bitnami" chart repository
+Update Complete.⎈Happy Helming!⎈
+
 [INFO] Chart.yaml: icon is recommended
 [INFO] values.yaml: file does not exist
 
@@ -6,3 +16,4 @@
 [INFO] Chart.yaml: icon is recommended
 
 1 chart(s) linted, 0 chart(s) failed
+
