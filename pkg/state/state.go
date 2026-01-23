@@ -1851,7 +1851,8 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	// Perform an update of repos once before running `helm dep build` so that we
 	// can safely pass --skip-refresh to the command to avoid doing a repo update
 	// for every iteration of the loop where charts have external dependencies.
-	if len(builds) > 0 && !opts.SkipRefresh {
+	// Only do this if there are repositories configured.
+	if len(builds) > 0 && !opts.SkipRefresh && len(st.Repositories) > 0 {
 		if err := helm.UpdateRepo(); err != nil {
 			return fmt.Errorf("updating repo: %w", err)
 		}
