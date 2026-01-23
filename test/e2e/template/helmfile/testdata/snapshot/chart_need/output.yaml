@@ -1,10 +1,12 @@
 Adding repo myrepo http://localhost:18080/
 "myrepo" has been added to your repositories
 
-Building dependency release=foo, chart=$WD/temp1/foo
+Updating repo
 Hang tight while we grab the latest from your chart repositories...
 ...Successfully got an update from the "myrepo" chart repository
 Update Complete. ⎈Happy Helming!⎈
+
+Building dependency release=foo, chart=$WD/temp1/foo
 Saving 1 charts
 Downloading raw from repo http://localhost:18080/
 Deleting outdated charts
