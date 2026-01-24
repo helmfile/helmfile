@@ -35,7 +35,7 @@ for i in $(seq 10); do
     info "Comparing lint/chart-needs #$i"
     # Remove azuredisk-csi-driver repo to ensure consistent output (repo addition message)
     ${helm} repo remove azuredisk-csi-driver &>/dev/null || true
-    ${helmfile} -f ${chart_need_case_input_dir}/${config_file} lint --include-needs | grep -v Linting | grep -v "has been removed" | grep -Ev "(Warning:.*is not a valid SemVerV2|\[WARNING\].*is not a valid SemVerV2|failed to load plugins)" > ${chart_needs_lint_reverse} || fail "\"helmfile lint\" shouldn't fail"
+    ${helmfile} -f ${chart_need_case_input_dir}/${config_file} lint --include-needs | grep -v Linting | grep -v "has been removed" | grep -Ev "(Updating repo|Hang tight while we grab|Update Complete|Successfully got an update from|Warning:.*is not a valid SemVerV2|\[WARNING\].*is not a valid SemVerV2|failed to load plugins)" > ${chart_needs_lint_reverse} || fail "\"helmfile lint\" shouldn't fail"
     diff -u ${lint_out_file} ${chart_needs_lint_reverse} || fail "\"helmfile lint\" should be consistent"
 done
 
