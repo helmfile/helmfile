@@ -43,7 +43,7 @@ for i in $(seq 10); do
     info "Comparing diff/chart-needs #$i"
     # Remove azuredisk-csi-driver repo to ensure consistent output (repo addition message)
     ${helm} repo remove azuredisk-csi-driver &>/dev/null || true
-    ${helmfile} -f ${chart_need_case_input_dir}/${config_file} diff --include-needs | grep -Ev "Comparing release=azuredisk-csi-storageclass, chart=.*/chartify.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse}.tmp || fail "\"helmfile diff\" shouldn't fail"
+    ${helmfile} -f ${chart_need_case_input_dir}/${config_file} diff --include-needs | grep -Ev "(Updating repo|Hang tight while we grab|Update Complete|Successfully got an update from|Comparing release=azuredisk-csi-storageclass, chart=.*/chartify.*/azuredisk-csi-storageclass" > ${chart_needs_diff_reverse}.tmp || fail "\"helmfile diff\" shouldn't fail"
     cat ${chart_needs_diff_reverse}.tmp | sed -E '/\*{20}/,/\*{20}/d' > ${chart_needs_diff_reverse}
 
     # With --enable-live-output, there's a race condition that can cause non-deterministic ordering
