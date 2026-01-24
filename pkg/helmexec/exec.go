@@ -204,6 +204,12 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		return fmt.Errorf("empty field name")
 	}
 
+	savedExtra := helm.extra
+	helm.extra = []string{}
+	defer func() {
+		helm.extra = savedExtra
+	}()
+
 	switch managed {
 	case "acr":
 		helm.logger.Infof("Adding repo %v (acr)", name)
@@ -252,6 +258,11 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 
 func (helm *execer) UpdateRepo() error {
 	helm.logger.Info("Updating repo")
+	savedExtra := helm.extra
+	helm.extra = []string{}
+	defer func() {
+		helm.extra = savedExtra
+	}()
 	out, err := helm.exec([]string{"repo", "update"}, map[string]string{}, nil)
 	helm.info(out)
 	return err
