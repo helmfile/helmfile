@@ -13,6 +13,7 @@ import (
 	"github.com/helmfile/chartify"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
+	"github.com/helmfile/helmfile/pkg/cluster"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/kubedog"
 	"github.com/helmfile/helmfile/pkg/remote"
@@ -503,32 +504,90 @@ func (st *HelmState) trackWithKubeDog(ctx context.Context, release *ReleaseSpec,
 func (st *HelmState) getReleaseResources(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface) ([]*kubedog.ResourceSpec, error) {
 	st.logger.Debugf("Getting resources for release %s", release.Name)
 
-	// TODO: Implement resource detection from manifest
-	// For now, return empty list to avoid compilation errors
-	return nil, nil
-}
-
-func (st *HelmState) parseResourceKindAndName(line string) (string, string, error) {
-	parts := strings.Fields(line)
-	if len(parts) < 3 {
-		return "", "", nil
+	manifest, err := st.getReleaseManifest(ctx, release, helm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get release manifest: %w", err)
 	}
 
-	kind := strings.TrimSpace(parts[0])
-	name := strings.TrimSpace(parts[1])
-
-	return kind, name, nil
-}
-
-func (st *HelmState) isTrackableResourceKind(kind string) bool {
-	trackableKinds := map[string]bool{
-		"Deployment":  true,
-		"StatefulSet": true,
-		"DaemonSet":   true,
-		"Job":         true,
-		"Pod":         true,
-		"ReplicaSet":  true,
+	if len(manifest) == 0 {
+		st.logger.Infof("No manifest found for release %s", release.Name)
+		return nil, nil
 	}
 
-	return trackableKinds[kind]
+	releaseResources, err := cluster.GetReleaseResourcesFromManifest(manifest, release.Name, release.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse release resources from manifest: %w", err)
+	}
+
+	var resources []*kubedog.ResourceSpec
+	for _, res := range releaseResources.Resources {
+		resources = append(resources, &kubedog.ResourceSpec{
+			Name:      res.Name,
+			Namespace: res.Namespace,
+			Kind:      res.Kind,
+		})
+	}
+
+	return resources, nil
+}
+
+func (st *HelmState) getReleaseManifest(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface) ([]byte, error) {
+	tempDir, err := st.tempDir("", "helmfile-template-")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			st.logger.Warnf("Failed to remove temp directory %s: %v", tempDir, err)
+		}
+	}()
+
+	st.ApplyOverrides(release)
+
+	flags, files, err := st.flagsForTemplate(helm, release, 0, &TemplateOpts{})
+	defer st.removeFiles(files)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate template flags: %w", err)
+	}
+
+	flags = append(flags, "--output-dir", tempDir)
+
+	if err := helm.TemplateRelease(release.Name, release.ChartPathOrName(), flags...); err != nil {
+		return nil, fmt.Errorf("failed to run helm template: %w", err)
+	}
+
+	var manifest []byte
+
+	err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(info.Name(), ".yaml") && !strings.HasSuffix(info.Name(), ".yml") {
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", path, err)
+		}
+
+		if len(manifest) > 0 {
+			manifest = append(manifest, []byte("\n---\n")...)
+		}
+		manifest = append(manifest, content...)
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk template output directory: %w", err)
+	}
+
+	return manifest, nil
 }
