@@ -80,7 +80,6 @@ func TestSync(t *testing.T) {
 			}
 
 			syncErr := app.Sync(applyConfig{
-				// if we check log output, concurrency must be 1. otherwise the test becomes non-deterministic.
 				concurrency:            tc.concurrency,
 				logger:                 logger,
 				skipDiffOnInstall:      tc.skipDiffOnInstall,
