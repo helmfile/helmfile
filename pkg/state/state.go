@@ -2,7 +2,7 @@ package state
 
 import (
 	"bytes"
-	"context"
+	gocontext "context"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
@@ -223,6 +223,8 @@ type HelmSpec struct {
 	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
 	// TakeOwnership is true if the helmfile should take ownership of the release
 	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
+	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
+	TrackMode string `yaml:"trackMode,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -437,8 +439,14 @@ type ReleaseSpec struct {
 	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
 	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
 	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
-	// TakeOwnership is true if the release should take ownership of the resources
+	// TakeOwnership is true if release should take ownership of resources
 	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
+	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
+	TrackMode string `yaml:"trackMode,omitempty"`
+	// TrackTimeout specifies timeout for kubedog tracking (in seconds)
+	TrackTimeout *int `yaml:"trackTimeout,omitempty"`
+	// TrackLogs enables log streaming with kubedog
+	TrackLogs *bool `yaml:"trackLogs,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -1098,6 +1106,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 							st.logger.Debugf("getting deployed release version failed: %v", err)
 						} else {
 							release.installedVersion = installedVersion
+						}
+
+						if st.shouldUseKubeDog(release, opts) {
+							trackCtx := gocontext.Background()
+							if trackErr := st.trackWithKubeDog(trackCtx, release, helm); trackErr != nil {
+								st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
+							}
 						}
 					}
 				}
@@ -4663,7 +4678,7 @@ func (st *HelmState) acquireSharedLock(result *chartLockResult, chartPath string
 	result.inProcessMutex = st.getNamedRWMutex(chartPath)
 	result.inProcessMutex.RLock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+	ctx, cancel := gocontext.WithTimeout(gocontext.Background(), lockTimeout)
 	defer cancel()
 
 	locked, err := result.fileLock.TryRLockContext(ctx, 500*time.Millisecond)
@@ -4698,7 +4713,7 @@ func (st *HelmState) acquireExclusiveLock(result *chartLockResult, chartPath str
 	var lockErr error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+		ctx, cancel := gocontext.WithTimeout(gocontext.Background(), lockTimeout)
 		locked, lockErr = result.fileLock.TryLockContext(ctx, 500*time.Millisecond)
 		cancel()
 

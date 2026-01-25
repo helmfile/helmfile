@@ -2378,6 +2378,9 @@ type applyConfig struct {
 	takeOwnership            bool
 	syncReleaseLabels        bool
 	enforceNeedsAreInstalled bool
+	trackMode                string
+	trackTimeout             int
+	trackLogs                bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2578,6 +2581,18 @@ func (a applyConfig) TakeOwnership() bool {
 
 func (a applyConfig) SyncReleaseLabels() bool {
 	return a.syncReleaseLabels
+}
+
+func (a applyConfig) TrackMode() string {
+	return a.trackMode
+}
+
+func (a applyConfig) TrackTimeout() int {
+	return a.trackTimeout
+}
+
+func (a applyConfig) TrackLogs() bool {
+	return a.trackLogs
 }
 
 type depsConfig struct {
