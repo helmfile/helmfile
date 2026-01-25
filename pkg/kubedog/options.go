@@ -16,13 +16,17 @@ type ResourceSpec struct {
 }
 
 type TrackOptions struct {
-	Timeout       time.Duration
-	Logs          bool
-	LogsSince     time.Duration
-	ContainerLogs []string
-	Namespace     string
-	KubeContext   string
-	Kubeconfig    string
+	Timeout              time.Duration
+	Logs                 bool
+	LogsSince            time.Duration
+	ContainerLogs        []string
+	Namespace            string
+	KubeContext          string
+	Kubeconfig           string
+	TrackKinds           []string
+	SkipKinds            []string
+	CustomTrackableKinds []string
+	CustomStaticKinds    []string
 }
 
 func NewTrackOptions() *TrackOptions {
@@ -64,5 +68,25 @@ func (o *TrackOptions) WithKubeContext(context string) *TrackOptions {
 
 func (o *TrackOptions) WithKubeconfig(kubeconfig string) *TrackOptions {
 	o.Kubeconfig = kubeconfig
+	return o
+}
+
+func (o *TrackOptions) WithTrackKinds(kinds []string) *TrackOptions {
+	o.TrackKinds = kinds
+	return o
+}
+
+func (o *TrackOptions) WithSkipKinds(kinds []string) *TrackOptions {
+	o.SkipKinds = kinds
+	return o
+}
+
+func (o *TrackOptions) WithCustomTrackableKinds(kinds []string) *TrackOptions {
+	o.CustomTrackableKinds = kinds
+	return o
+}
+
+func (o *TrackOptions) WithCustomStaticKinds(kinds []string) *TrackOptions {
+	o.CustomStaticKinds = kinds
 	return o
 }
