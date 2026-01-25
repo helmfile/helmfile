@@ -75,6 +75,12 @@ type ApplyOptions struct {
 	TakeOwnership bool
 
 	SyncReleaseLabels bool
+	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
+	TrackMode string
+	// TrackTimeout specifies timeout for kubedog tracking (in seconds)
+	TrackTimeout int
+	// TrackLogs enables log streaming with kubedog
+	TrackLogs bool
 }
 
 // NewApply creates a new Apply
@@ -279,4 +285,19 @@ func (a *ApplyImpl) TakeOwnership() bool {
 // SyncReleaseLabels returns the SyncReleaseLabels.
 func (a *ApplyImpl) SyncReleaseLabels() bool {
 	return a.ApplyOptions.SyncReleaseLabels
+}
+
+// TrackMode returns the track mode.
+func (a *ApplyImpl) TrackMode() string {
+	return a.ApplyOptions.TrackMode
+}
+
+// TrackTimeout returns the track timeout.
+func (a *ApplyImpl) TrackTimeout() int {
+	return a.ApplyOptions.TrackTimeout
+}
+
+// TrackLogs returns the track logs flag.
+func (a *ApplyImpl) TrackLogs() bool {
+	return a.ApplyOptions.TrackLogs
 }

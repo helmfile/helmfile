@@ -48,6 +48,12 @@ type SyncOptions struct {
 	TakeOwnership bool
 	// SyncReleaseLabels is the sync release labels flag
 	SyncReleaseLabels bool
+	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
+	TrackMode string
+	// TrackTimeout specifies timeout for kubedog tracking (in seconds)
+	TrackTimeout int
+	// TrackLogs enables log streaming with kubedog
+	TrackLogs bool
 }
 
 // NewSyncOptions creates a new Apply
@@ -186,4 +192,19 @@ func (t *SyncImpl) TakeOwnership() bool {
 
 func (t *SyncImpl) SyncReleaseLabels() bool {
 	return t.SyncOptions.SyncReleaseLabels
+}
+
+// TrackMode returns the track mode.
+func (t *SyncImpl) TrackMode() string {
+	return t.SyncOptions.TrackMode
+}
+
+// TrackTimeout returns the track timeout.
+func (t *SyncImpl) TrackTimeout() int {
+	return t.SyncOptions.TrackTimeout
+}
+
+// TrackLogs returns the track logs flag.
+func (t *SyncImpl) TrackLogs() bool {
+	return t.SyncOptions.TrackLogs
 }
