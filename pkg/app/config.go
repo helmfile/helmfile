@@ -119,6 +119,9 @@ type SyncConfigProvider interface {
 	IncludeTransitiveNeeds() bool
 
 	SyncReleaseLabels() bool
+	TrackMode() string
+	TrackTimeout() int
+	TrackLogs() bool
 
 	DAGConfig
 
