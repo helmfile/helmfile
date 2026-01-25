@@ -185,7 +185,7 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 	return flags
 }
 
-func (st *HelmState) shouldUseKubeDog(release *ReleaseSpec, ops *SyncOpts) bool {
+func (st *HelmState) shouldUseKubeDog(release *ReleaseSpec, _ *SyncOpts) bool {
 	if release.TrackMode != "" && release.TrackMode == "kubedog" {
 		return true
 	}
@@ -480,7 +480,11 @@ func (st *HelmState) trackWithKubeDog(ctx context.Context, release *ReleaseSpec,
 	if err != nil {
 		return fmt.Errorf("failed to create kubedog tracker: %w", err)
 	}
-	defer tracker.Close()
+	defer func() {
+		if err := tracker.Close(); err != nil {
+			st.logger.Warnf("Failed to close kubedog tracker: %v", err)
+		}
+	}()
 
 	resources, err := st.getReleaseResources(ctx, release, helm)
 	if err != nil {
@@ -501,10 +505,10 @@ func (st *HelmState) trackWithKubeDog(ctx context.Context, release *ReleaseSpec,
 	return nil
 }
 
-func (st *HelmState) getReleaseResources(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface) ([]*kubedog.ResourceSpec, error) {
+func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec, helm helmexec.Interface) ([]*kubedog.ResourceSpec, error) {
 	st.logger.Debugf("Getting resources for release %s", release.Name)
 
-	manifest, err := st.getReleaseManifest(ctx, release, helm)
+	manifest, err := st.getReleaseManifest(release, helm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get release manifest: %w", err)
 	}
@@ -531,7 +535,7 @@ func (st *HelmState) getReleaseResources(ctx context.Context, release *ReleaseSp
 	return resources, nil
 }
 
-func (st *HelmState) getReleaseManifest(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface) ([]byte, error) {
+func (st *HelmState) getReleaseManifest(release *ReleaseSpec, helm helmexec.Interface) ([]byte, error) {
 	tempDir, err := st.tempDir("", "helmfile-template-")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
