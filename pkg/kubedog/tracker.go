@@ -61,11 +61,17 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*ResourceSpec)
 		return nil
 	}
 
-	t.logger.Infof("Tracking %d resources with kubedog", len(resources))
+	filtered := t.filterResources(resources)
+	if len(filtered) == 0 {
+		t.logger.Info("No resources to track after filtering")
+		return nil
+	}
+
+	t.logger.Infof("Tracking %d resources with kubedog (filtered from %d total)", len(filtered), len(resources))
 
 	specs := multitrack.MultitrackSpecs{}
 
-	for _, res := range resources {
+	for _, res := range filtered {
 		switch res.Kind {
 		case "deployment", "deploy":
 			specs.Deployments = append(specs.Deployments, multitrack.MultitrackSpec{
@@ -199,6 +205,47 @@ func (t *Tracker) TrackJob(ctx context.Context, jobName, namespace string) error
 
 	t.logger.Infof("Job %s tracked successfully", jobName)
 	return nil
+}
+
+func (t *Tracker) filterResources(resources []*ResourceSpec) []*ResourceSpec {
+	var filtered []*ResourceSpec
+
+	for _, res := range resources {
+		if t.shouldSkipResource(res.Kind) {
+			t.logger.Debugf("Skipping resource %s/%s (kind: %s) based on configuration", res.Kind, res.Name, res.Kind)
+			continue
+		}
+		filtered = append(filtered, res)
+	}
+
+	return filtered
+}
+
+func (t *Tracker) shouldSkipResource(kind string) bool {
+	if len(t.trackOptions.SkipKinds) > 0 {
+		for _, skipKind := range t.trackOptions.SkipKinds {
+			if kind == skipKind {
+				t.logger.Debugf("Resource kind %s is in SkipKinds list, skipping", kind)
+				return true
+			}
+		}
+	}
+
+	if len(t.trackOptions.TrackKinds) > 0 {
+		shouldTrack := false
+		for _, trackKind := range t.trackOptions.TrackKinds {
+			if kind == trackKind {
+				shouldTrack = true
+				break
+			}
+		}
+		if !shouldTrack {
+			t.logger.Debugf("Resource kind %s is not in TrackKinds list, skipping", kind)
+			return true
+		}
+	}
+
+	return false
 }
 
 func (t *Tracker) Close() error {
