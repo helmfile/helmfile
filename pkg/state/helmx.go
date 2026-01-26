@@ -461,13 +461,34 @@ func (st *HelmState) trackWithKubeDog(ctx context.Context, release *ReleaseSpec,
 
 	st.logger.Infof("Tracking release %s resources with kubedog", release.Name)
 
-	trackOpts := &kubedog.TrackOptions{
-		Timeout:     timeout,
-		Logs:        trackLogs,
-		LogsSince:   10 * time.Minute,
-		Namespace:   release.Namespace,
-		KubeContext: st.HelmDefaults.KubeContext,
-		Kubeconfig:  "",
+	trackOpts := kubedog.NewTrackOptions().
+		WithTimeout(timeout).
+		WithLogs(trackLogs).
+		WithNamespace(release.Namespace).
+		WithKubeContext(st.HelmDefaults.KubeContext)
+
+	if len(release.TrackResources) > 0 {
+		var kubedogResources []kubedog.ResourceSpec
+		for _, tr := range release.TrackResources {
+			if tr.Kind == "" {
+				continue
+			}
+			kind := tr.Kind
+			namespace := tr.Namespace
+			if namespace == "" {
+				namespace = release.Namespace
+			}
+			kubedogResources = append(kubedogResources, kubedog.ResourceSpec{
+				Kind:      kind,
+				Name:      tr.Name,
+				Namespace: namespace,
+			})
+		}
+		trackOpts = trackOpts.WithTrackResources(kubedogResources)
+	}
+
+	if st.HelmDefaults.KubeContext != "" {
+		trackOpts = trackOpts.WithKubeContext(st.HelmDefaults.KubeContext)
 	}
 
 	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
