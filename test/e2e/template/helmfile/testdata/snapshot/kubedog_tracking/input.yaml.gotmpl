@@ -57,13 +57,13 @@ releases:
         tracked: value
     - |
       apiVersion: v1
-      kind: ConfigMap
+      kind: Secret
       metadata:
-        name: {{`{{ .Release.Name }}`}}-not-tracked
+        name: {{`{{ .Release.Name }}`}}-secret
         namespace: {{`{{ .Release.Namespace }}`}}
+      type: Opaque
       data:
-        not-tracked: value
-  trackMode: kubedog
-  trackResources:
-  - kind: ConfigMap
-    name: {{`{{ .Release.Name }}`}}-tracked
+        secret: dmFsdWU=
+    trackMode: kubedog
+    trackKinds:
+    - ConfigMap

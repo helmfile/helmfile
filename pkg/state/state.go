@@ -256,13 +256,6 @@ type Inherit struct {
 
 type Inherits []Inherit
 
-// ReleaseSpec defines the structure of a helm release
-type TrackResource struct {
-	Kind      string `yaml:"kind,omitempty"`
-	Name      string `yaml:"name,omitempty"`
-	Namespace string `yaml:"namespace,omitempty"`
-}
-
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
 	Chart string `yaml:"chart,omitempty"`
@@ -456,8 +449,8 @@ type ReleaseSpec struct {
 	TrackTimeout *int `yaml:"trackTimeout,omitempty"`
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs *bool `yaml:"trackLogs,omitempty"`
-	// TrackResources is a whitelist of specific resources to track (by kind, name, and namespace)
-	TrackResources []TrackResource `yaml:"trackResources,omitempty"`
+	// TrackKinds is a whitelist of resource kinds to track
+	TrackKinds []string `yaml:"trackKinds,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {

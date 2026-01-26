@@ -186,13 +186,11 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 }
 
 func (st *HelmState) shouldUseKubeDog(release *ReleaseSpec, _ *SyncOpts) bool {
-	if release.TrackMode != "" && release.TrackMode == "kubedog" {
-		return true
+	trackMode := release.TrackMode
+	if trackMode == "" {
+		trackMode = st.HelmDefaults.TrackMode
 	}
-	if release.TrackMode == "" && st.HelmDefaults.TrackMode == "kubedog" {
-		return true
-	}
-	return false
+	return trackMode == "kubedog"
 }
 
 func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
@@ -449,63 +447,29 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 func (st *HelmState) trackWithKubeDog(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface) error {
 	timeout := 5 * time.Minute
-	trackLogs := false
-
 	if release.TrackTimeout != nil {
 		timeout = time.Duration(*release.TrackTimeout) * time.Second
 	}
 
-	if release.TrackLogs != nil && *release.TrackLogs {
-		trackLogs = true
-	}
-
-	st.logger.Infof("Tracking release %s resources with kubedog", release.Name)
+	trackLogs := release.TrackLogs != nil && *release.TrackLogs
 
 	trackOpts := kubedog.NewTrackOptions().
 		WithTimeout(timeout).
 		WithLogs(trackLogs).
 		WithNamespace(release.Namespace).
-		WithKubeContext(st.HelmDefaults.KubeContext)
-
-	if len(release.TrackResources) > 0 {
-		var kubedogResources []kubedog.ResourceSpec
-		for _, tr := range release.TrackResources {
-			if tr.Kind == "" {
-				continue
-			}
-			kind := tr.Kind
-			namespace := tr.Namespace
-			if namespace == "" {
-				namespace = release.Namespace
-			}
-			kubedogResources = append(kubedogResources, kubedog.ResourceSpec{
-				Kind:      kind,
-				Name:      tr.Name,
-				Namespace: namespace,
-			})
-		}
-		trackOpts = trackOpts.WithTrackResources(kubedogResources)
-	}
-
-	if st.HelmDefaults.KubeContext != "" {
-		trackOpts = trackOpts.WithKubeContext(st.HelmDefaults.KubeContext)
-	}
+		WithKubeContext(st.HelmDefaults.KubeContext).
+		WithTrackKinds(release.TrackKinds)
 
 	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
 		Logger:       st.logger,
 		Namespace:    release.Namespace,
 		KubeContext:  st.HelmDefaults.KubeContext,
-		Kubeconfig:   "",
 		TrackOptions: trackOpts,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create kubedog tracker: %w", err)
 	}
-	defer func() {
-		if err := tracker.Close(); err != nil {
-			st.logger.Warnf("Failed to close kubedog tracker: %v", err)
-		}
-	}()
+	defer tracker.Close()
 
 	resources, err := st.getReleaseResources(ctx, release, helm)
 	if err != nil {
@@ -544,13 +508,13 @@ func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec
 		return nil, fmt.Errorf("failed to parse release resources from manifest: %w", err)
 	}
 
-	var resources []*kubedog.ResourceSpec
-	for _, res := range releaseResources.Resources {
-		resources = append(resources, &kubedog.ResourceSpec{
+	resources := make([]*kubedog.ResourceSpec, len(releaseResources.Resources))
+	for i, res := range releaseResources.Resources {
+		resources[i] = &kubedog.ResourceSpec{
 			Name:      res.Name,
 			Namespace: res.Namespace,
 			Kind:      res.Kind,
-		})
+		}
 	}
 
 	return resources, nil

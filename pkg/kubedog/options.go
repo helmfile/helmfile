@@ -27,7 +27,6 @@ type TrackOptions struct {
 	SkipKinds            []string
 	CustomTrackableKinds []string
 	CustomStaticKinds    []string
-	TrackResources       []ResourceSpec
 }
 
 func NewTrackOptions() *TrackOptions {
@@ -89,10 +88,5 @@ func (o *TrackOptions) WithCustomTrackableKinds(kinds []string) *TrackOptions {
 
 func (o *TrackOptions) WithCustomStaticKinds(kinds []string) *TrackOptions {
 	o.CustomStaticKinds = kinds
-	return o
-}
-
-func (o *TrackOptions) WithTrackResources(resources []ResourceSpec) *TrackOptions {
-	o.TrackResources = resources
 	return o
 }
