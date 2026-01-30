@@ -649,6 +649,17 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	return err
 }
 
+func (helm *execer) UnittestRelease(context HelmContext, name, chart string, flags ...string) error {
+	helm.logger.Infof("Running unittest for release=%v, chart=%v", name, redactedURL(chart))
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
+	var overrideEnableLiveOutput *bool = nil
+
+	out, err := helm.exec(append(append(preArgs, "unittest", chart), flags...), env, overrideEnableLiveOutput)
+	helm.write(context.Writer, out)
+	return err
+}
+
 func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {
 	diffMsg := fmt.Sprintf("Comparing release=%v, chart=%v, namespace=%v\n", name, redactedURL(chart), namespace)
 	if context.Writer != nil && !suppressDiff {
