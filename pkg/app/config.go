@@ -128,6 +128,25 @@ type SyncConfigProvider interface {
 	valuesControlMode
 }
 
+type UnittestConfigProvider interface {
+	Args() string
+	Values() []string
+	FailFast() bool
+	Color() bool
+	DebugPlugin() bool
+	UnittestArgs() []string
+	SkipNeeds() bool
+	IncludeNeeds() bool
+	IncludeTransitiveNeeds() bool
+	EnforceNeedsAreInstalled() bool
+	SkipDeps() bool
+	SkipRefresh() bool
+	SkipCleanup() bool
+
+	concurrencyConfig
+	DAGConfig
+}
+
 type DiffConfigProvider interface {
 	Args() string
 	PostRenderer() string

@@ -24,6 +24,7 @@ const (
 	HelmSecretsRecommendedVersion = "v4.7.4" // v4.7.0+ works with both Helm 3 (single plugin) and Helm 4 (split plugin architecture)
 	HelmGitRecommendedVersion     = "v1.3.0"
 	HelmS3RecommendedVersion      = "v0.16.3"
+	HelmUnittestVersion           = "v0.5.1"
 	HelmInstallCommand            = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3" // Default to Helm 3 script for compatibility
 )
 
@@ -53,6 +54,11 @@ var (
 			name:    "helm-git",
 			version: HelmGitRecommendedVersion,
 			repo:    "https://github.com/aslafy-z/helm-git.git",
+		},
+		{
+			name:    "unittest",
+			version: HelmUnittestVersion,
+			repo:    "https://github.com/helm-unittest/helm-unittest.git",
 		},
 	}
 )
