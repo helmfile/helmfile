@@ -12,6 +12,86 @@ RUN make static-${TARGETOS}-${TARGETARCH}
 
 # -----------------------------------------------------------------------------
 
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS kustomize-builder
+
+RUN apk add --no-cache git
+ARG TARGETARCH TARGETOS
+ENV KUSTOMIZE_VERSION="v5.8.0"
+RUN set -x && \
+    git clone --branch kustomize/${KUSTOMIZE_VERSION} --depth 1 https://github.com/kubernetes-sigs/kustomize.git /workspace/kustomize
+WORKDIR /workspace/kustomize/kustomize
+RUN GOFLAGS=-mod=readonly GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-s -w -X sigs.k8s.io/kustomize/api/provenance.version=kustomize/${KUSTOMIZE_VERSION}" -o /out/kustomize .
+
+# -----------------------------------------------------------------------------
+
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS sops-builder
+
+RUN apk add --no-cache git
+ARG TARGETARCH TARGETOS
+ENV SOPS_VERSION="v3.11.0"
+RUN set -x && \
+    git clone --branch ${SOPS_VERSION} --depth 1 https://github.com/getsops/sops.git /workspace/sops
+WORKDIR /workspace/sops
+RUN GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -mod=readonly -ldflags="-s -w -X github.com/getsops/sops/v3/version.Version=${SOPS_VERSION#v}" -o /out/sops ./cmd/sops
+
+# -----------------------------------------------------------------------------
+
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS age-builder
+
+RUN apk add --no-cache git
+ARG TARGETARCH TARGETOS
+ENV AGE_VERSION="v1.3.1"
+RUN set -x && \
+    git clone --branch ${AGE_VERSION} --depth 1 https://github.com/FiloSottile/age.git /workspace/age
+WORKDIR /workspace/age
+RUN GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-X main.Version=${AGE_VERSION}" -o /out/age ./cmd/age && \
+    GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-X main.Version=${AGE_VERSION}" -o /out/age-keygen ./cmd/age-keygen
+
+# -----------------------------------------------------------------------------
+
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS kubectl-builder
+
+RUN apk add --no-cache git bash rsync
+ARG TARGETARCH TARGETOS
+ENV KUBECTL_VERSION="v1.34.3"
+RUN set -x && \
+    git clone --branch ${KUBECTL_VERSION} --depth 1 https://github.com/kubernetes/kubernetes.git /workspace/kubernetes
+WORKDIR /workspace/kubernetes
+RUN GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-s -w -X k8s.io/component-base/version.gitVersion=${KUBECTL_VERSION}" -o /out/kubectl ./cmd/kubectl
+
+# -----------------------------------------------------------------------------
+
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS helm-diff-builder
+
+RUN apk add --no-cache git
+ARG TARGETARCH TARGETOS
+ENV HELM_DIFF_VERSION="v3.15.0"
+RUN set -x && \
+    git clone --branch ${HELM_DIFF_VERSION} --depth 1 https://github.com/databus23/helm-diff.git /workspace/helm-diff
+WORKDIR /workspace/helm-diff
+RUN GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-s -w -X github.com/databus23/helm-diff/v3/cmd.Version=${HELM_DIFF_VERSION}" -o /out/diff .
+
+# -----------------------------------------------------------------------------
+
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS helm-s3-builder
+
+RUN apk add --no-cache git
+ARG TARGETARCH TARGETOS
+ENV HELM_S3_VERSION="v0.17.1"
+RUN set -x && \
+    git clone --branch ${HELM_S3_VERSION} --depth 1 https://github.com/hypnoglow/helm-s3.git /workspace/helm-s3
+WORKDIR /workspace/helm-s3
+RUN GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-s -w -X main.version=${HELM_S3_VERSION}" -o /out/helm-s3 ./cmd/helm-s3
+
+# -----------------------------------------------------------------------------
+
 FROM alpine:3.22
 
 LABEL org.opencontainers.image.source=https://github.com/helmfile/helmfile
@@ -48,60 +128,26 @@ RUN set -x && \
     rm "${HELM_FILENAME}" && \
     [ "$(helm version --template '{{.Version}}')" = "${HELM_VERSION}" ]
 
-# using the install documentation found at https://kubernetes.io/docs/tasks/tools/install-kubectl/
-# for now but in a future version of alpine (in the testing version at the time of writing)
-# we should be able to install using apk add.
-ENV KUBECTL_VERSION="v1.34.0"
-RUN set -x && \
-    curl --retry 5 --retry-connrefused -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
-    case ${TARGETPLATFORM} in \
-    "linux/amd64")  KUBECTL_SHA256="cfda68cba5848bc3b6c6135ae2f20ba2c78de20059f68789c090166d6abc3e2c"  ;; \
-    "linux/arm64")  KUBECTL_SHA256="00b182d103a8a73da7a4d11e7526d0543dcf352f06cc63a1fde25ce9243f49a0"  ;; \
-    esac && \
-    echo "${KUBECTL_SHA256}  kubectl" | sha256sum -c && \
-    chmod +x kubectl && \
-    mv kubectl /usr/local/bin/kubectl && \
-    [ "$(kubectl version -o json | jq -r '.clientVersion.gitVersion')" = "${KUBECTL_VERSION}" ]
+COPY --from=kubectl-builder /out/kubectl /usr/local/bin/kubectl
 
-ENV KUSTOMIZE_VERSION="v5.8.0"
-ARG KUSTOMIZE_FILENAME="kustomize_${KUSTOMIZE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz"
-RUN set -x && \
-    curl --retry 5 --retry-connrefused -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}" && \
-    case ${TARGETPLATFORM} in \
-    # Checksums are available at https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/checksums.txt
-    "linux/amd64")  KUSTOMIZE_SHA256="4dfa8307358dd9284aa4d2b1d5596766a65b93433e8fa3f9f74498941f01c5ef"  ;; \
-    "linux/arm64")  KUSTOMIZE_SHA256="a4f48b4c3d4ca97d748943e19169de85a2e86e80bcc09558603e2aa66fb15ce1"  ;; \
-    esac && \
-    echo "${KUSTOMIZE_SHA256}  ${KUSTOMIZE_FILENAME}" | sha256sum -c && \
-    tar xvf "${KUSTOMIZE_FILENAME}" -C /usr/local/bin && \
-    rm "${KUSTOMIZE_FILENAME}" && \
-    [ "$(kustomize version)" = "${KUSTOMIZE_VERSION}" ]
+COPY --from=kustomize-builder /out/kustomize /usr/local/bin/kustomize
 
-ENV SOPS_VERSION="v3.10.2"
-ARG SOPS_FILENAME="sops-${SOPS_VERSION}.${TARGETOS}.${TARGETARCH}"
-RUN set -x && \
-    curl --retry 5 --retry-connrefused -LO "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/${SOPS_FILENAME}" && \
-    chmod +x "${SOPS_FILENAME}" && \
-    mv "${SOPS_FILENAME}" /usr/local/bin/sops && \
-    sops --version --disable-version-check | grep -E "^sops ${SOPS_VERSION#v}"
+COPY --from=sops-builder /out/sops /usr/local/bin/sops
 
-ENV AGE_VERSION="v1.2.1"
-ARG AGE_FILENAME="age-${AGE_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz"
-RUN set -x && \
-    curl --retry 5 --retry-connrefused -LO "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/${AGE_FILENAME}" && \
-    tar xvf "${AGE_FILENAME}" -C /usr/local/bin --strip-components 1 age/age age/age-keygen && \
-    rm "${AGE_FILENAME}" && \
-    [ "$(age --version)" = "${AGE_VERSION}" ] && \
-    [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
+COPY --from=age-builder /out/age /usr/local/bin/age
+COPY --from=age-builder /out/age-keygen /usr/local/bin/age-keygen
 
 ARG HELM_SECRETS_VERSION="4.7.4"
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.14.1 --verify=false && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.15.0 --verify=false && \
     helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-${HELM_SECRETS_VERSION}.tgz --verify=false && \
     helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-getter-${HELM_SECRETS_VERSION}.tgz --verify=false && \
     helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-post-renderer-${HELM_SECRETS_VERSION}.tgz --verify=false && \
-    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.17.0 --verify=false && \
+    helm plugin install https://github.com/hypnoglow/helm-s3.git --version v0.17.1 --verify=false && \
     helm plugin install https://github.com/aslafy-z/helm-git.git --version v1.4.1 --verify=false && \
     rm -rf ${HELM_CACHE_HOME}/plugins
+
+COPY --from=helm-diff-builder /out/diff ${HELM_DATA_HOME}/plugins/helm-diff/bin/diff
+COPY --from=helm-s3-builder /out/helm-s3 ${HELM_DATA_HOME}/plugins/helm-s3.git/bin/helm-s3
 
 # Allow users other than root to use helm plugins located in root home
 RUN chmod 751 ${HOME}
