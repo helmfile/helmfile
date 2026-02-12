@@ -1,0 +1,4 @@
+releases:
+  - name: test-oci-version-in-url
+    namespace: default
+    chart: oci://registry.example.com/my-chart:2.0.0

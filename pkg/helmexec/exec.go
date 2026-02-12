@@ -962,8 +962,16 @@ func (helm *execer) IsVersionAtLeast(versionStr string) bool {
 }
 
 func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
+	// Split off digest (e.g., @sha256:abc) first so the colon in sha256:
+	// does not confuse the version tag search below.
+	var digest string
+	if atIdx := strings.Index(ociChart, "@"); atIdx >= 0 {
+		digest = ociChart[atIdx:] // includes the "@"
+		ociChart = ociChart[:atIdx]
+	}
+
 	var urlTagIndex int
-	// Get the last : index
+	// Get the last : index in the pre-digest part
 	// e.g.,
 	// 1. registry:443/helm-charts
 	// 2. registry/helm-charts:latest
@@ -975,7 +983,7 @@ func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
 		urlTagIndex = strings.LastIndex(ociChart, ":")
 		ociChartTag = ociChart[urlTagIndex+1:]
 	}
-	ociChartURL = fmt.Sprintf("oci://%s", ociChart[:urlTagIndex])
+	ociChartURL = fmt.Sprintf("oci://%s%s", ociChart[:urlTagIndex], digest)
 	return ociChartURL, ociChartTag
 }
 

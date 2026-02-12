@@ -1381,6 +1381,30 @@ func Test_resolveOciChart(t *testing.T) {
 			ociChartURL: "oci://chart:5000/nginx",
 			ociChartTag: "",
 		},
+		{
+			name:        "digest only",
+			chartPath:   "ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			ociChartURL: "oci://ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			ociChartTag: "",
+		},
+		{
+			name:        "version and digest",
+			chartPath:   "ghcr.io/nginxinc/charts/nginx-ingress:2.0.0@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			ociChartURL: "oci://ghcr.io/nginxinc/charts/nginx-ingress@sha256:87ad282a8e7cc31913ce0543de2933ddb3f3eba80d6e5285f33b62ed720fc085",
+			ociChartTag: "2.0.0",
+		},
+		{
+			name:        "port with digest",
+			chartPath:   "registry:5000/chart@sha256:abc123",
+			ociChartURL: "oci://registry:5000/chart@sha256:abc123",
+			ociChartTag: "",
+		},
+		{
+			name:        "port with version and digest",
+			chartPath:   "registry:5000/chart:1.0.0@sha256:abc123",
+			ociChartURL: "oci://registry:5000/chart@sha256:abc123",
+			ociChartTag: "1.0.0",
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
