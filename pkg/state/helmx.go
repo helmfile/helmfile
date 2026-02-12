@@ -169,9 +169,9 @@ func (st *HelmState) appendSuppressOutputLineRegexFlags(flags []string, release 
 }
 
 func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
-	// if st.shouldUseKubeDog(release, ops) {
-	// 	return flags
-	// }
+	if st.shouldUseKubeDog(release, ops) {
+		return flags
+	}
 
 	switch {
 	case release.WaitForJobs != nil && *release.WaitForJobs:
