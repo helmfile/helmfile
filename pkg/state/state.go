@@ -4672,7 +4672,7 @@ func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions
 			// Skip refresh for shared cache paths to prevent race conditions when multiple
 			// processes are using the same cached chart. Use `helmfile cache cleanup` to force refresh.
 			if st.isSharedCachePath(chartPath) {
-				st.logger.Debugf("Skipping refresh for chart at %s (shared cache, another process may be using it)", chartPath)
+				st.logger.Infof("Skipping refresh for chart at %s (shared cache, another process may be using it; run 'helmfile cache cleanup' to force refresh)", chartPath)
 				result.action = chartActionUseCached
 				result.cachedPath = filepath.Dir(fullChartPath)
 				return result, nil
@@ -4688,8 +4688,8 @@ func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions
 			// Directory exists but invalid (no Chart.yaml) - corrupted cache
 			// Skip deletion for shared cache paths to prevent race conditions
 			if st.isSharedCachePath(chartPath) {
-				st.logger.Warnf("Chart directory at %s is corrupted but in shared cache, skipping deletion (use 'helmfile cache cleanup' to remove)", chartPath)
-				result.action = chartActionDownload
+				result.Release(st.logger)
+				return nil, fmt.Errorf("chart directory at %s is corrupted; cannot safely remove from shared cache while other processes may be running. Please run 'helmfile cache cleanup' to clear the cache", chartPath)
 			} else {
 				st.logger.Debugf("Chart directory at %s is corrupted: %v, will re-download", chartPath, err)
 				if err := os.RemoveAll(chartPath); err != nil {

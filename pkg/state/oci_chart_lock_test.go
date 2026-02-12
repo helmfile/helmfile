@@ -552,6 +552,7 @@ func TestIsSharedCachePath(t *testing.T) {
 }
 
 func createTestLogger(t *testing.T) *zap.SugaredLogger {
+	t.Helper()
 	logger, err := zap.NewDevelopment()
 	require.NoError(t, err)
 	return logger.Sugar()
