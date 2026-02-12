@@ -4539,6 +4539,22 @@ func (st *HelmState) addToChartCache(key ChartCacheKey, path string) {
 	downloadedCharts[key] = path
 }
 
+// isSharedCachePath returns true if the chartPath is within the shared cache directory.
+// Charts in the shared cache should not be deleted during refresh to prevent race conditions
+// when multiple processes are using the same cached chart.
+func (st *HelmState) isSharedCachePath(chartPath string) bool {
+	sharedCacheDir := remote.CacheDir()
+	absChartPath, err := filepath.Abs(chartPath)
+	if err != nil {
+		return false
+	}
+	absSharedCache, err := filepath.Abs(sharedCacheDir)
+	if err != nil {
+		return false
+	}
+	return strings.HasPrefix(absChartPath, absSharedCache+string(filepath.Separator))
+}
+
 // chartDownloadAction represents what action should be taken after acquiring locks
 type chartDownloadAction int
 
@@ -4590,7 +4606,9 @@ func (r *chartLockResult) Release(logger *zap.SugaredLogger) {
 // NOTE: The callback is executed while holding an exclusive lock, so it should be fast and non-blocking.
 //
 // IMPORTANT: Locks are released immediately after download completes.
-// The tempDir cleanup is deferred until after helm operations, so charts won't be deleted mid-use.
+// For process-specific temp directories, cleanup is deferred until after helm operations.
+// For the shared cache directory, refresh is skipped entirely to prevent race conditions
+// between processes (use `helmfile cache cleanup` to force refresh).
 func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions, skipRefreshCheck func() bool) (*chartLockResult, error) {
 	result := &chartLockResult{
 		chartPath: chartPath,
@@ -4651,6 +4669,14 @@ func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions
 				st.logger.Debugf("Skipping refresh for chart at %s (another worker already cached)", result.cachedPath)
 				return result, nil
 			}
+			// Skip refresh for shared cache paths to prevent race conditions when multiple
+			// processes are using the same cached chart. Use `helmfile cache cleanup` to force refresh.
+			if st.isSharedCachePath(chartPath) {
+				st.logger.Debugf("Skipping refresh for chart at %s (shared cache, another process may be using it)", chartPath)
+				result.action = chartActionUseCached
+				result.cachedPath = filepath.Dir(fullChartPath)
+				return result, nil
+			}
 			// Proceed with refresh: delete and re-download
 			st.logger.Debugf("Refreshing chart at %s (exclusive lock)", chartPath)
 			if err := os.RemoveAll(chartPath); err != nil {
@@ -4660,12 +4686,18 @@ func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions
 			result.action = chartActionRefresh
 		} else {
 			// Directory exists but invalid (no Chart.yaml) - corrupted cache
-			st.logger.Debugf("Chart directory at %s is corrupted: %v, will re-download", chartPath, err)
-			if err := os.RemoveAll(chartPath); err != nil {
-				result.Release(st.logger)
-				return nil, fmt.Errorf("failed to remove corrupted chart directory: %w", err)
+			// Skip deletion for shared cache paths to prevent race conditions
+			if st.isSharedCachePath(chartPath) {
+				st.logger.Warnf("Chart directory at %s is corrupted but in shared cache, skipping deletion (use 'helmfile cache cleanup' to remove)", chartPath)
+				result.action = chartActionDownload
+			} else {
+				st.logger.Debugf("Chart directory at %s is corrupted: %v, will re-download", chartPath, err)
+				if err := os.RemoveAll(chartPath); err != nil {
+					result.Release(st.logger)
+					return nil, fmt.Errorf("failed to remove corrupted chart directory: %w", err)
+				}
+				result.action = chartActionDownload
 			}
-			result.action = chartActionDownload
 		}
 	} else {
 		result.action = chartActionDownload

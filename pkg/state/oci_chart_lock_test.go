@@ -11,6 +11,10 @@ import (
 
 	"github.com/gofrs/flock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/remote"
 )
 
 // TestOCIChartFileLock tests that the file locking mechanism works correctly
@@ -484,4 +488,71 @@ func TestOCIChartDoubleCheckLocking(t *testing.T) {
 		_, err = os.Stat(filepath.Join(chartPath, "Chart.yaml"))
 		require.NoError(t, err, "chart should exist in cache")
 	})
+}
+
+// TestIsSharedCachePath tests the isSharedCachePath function to ensure it correctly
+// identifies paths within the shared cache directory.
+func TestIsSharedCachePath(t *testing.T) {
+	t.Run("path in shared cache is detected", func(t *testing.T) {
+		// Create a HelmState with test logger
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		// Get the shared cache directory
+		sharedCacheDir := remote.CacheDir()
+
+		// Test path inside shared cache
+		chartPath := filepath.Join(sharedCacheDir, "envoyproxy", "gateway-helm", "1.6.2", "gateway-helm")
+		require.True(t, st.isSharedCachePath(chartPath), "path in shared cache should return true")
+	})
+
+	t.Run("path outside shared cache is not detected", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		// Test path outside shared cache (temp directory)
+		tempDir, err := os.MkdirTemp("", "helmfile-test-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tempDir)
+
+		chartPath := filepath.Join(tempDir, "mychart")
+		require.False(t, st.isSharedCachePath(chartPath), "path outside shared cache should return false")
+	})
+
+	t.Run("relative path handling", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		// Test relative path
+		require.False(t, st.isSharedCachePath("./relative/path"), "relative path should return false")
+	})
+
+	t.Run("shared cache path as prefix only", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		// Test path that has shared cache dir as a prefix but not as the actual parent
+		// e.g., /home/user/.cache/helmfile-other/path should not match
+		sharedCacheDir := remote.CacheDir()
+		nonSubpath := sharedCacheDir + "-other/chart"
+		require.False(t, st.isSharedCachePath(nonSubpath), "path with shared cache as prefix but not subdirectory should return false")
+	})
+}
+
+func createTestLogger(t *testing.T) *zap.SugaredLogger {
+	logger, err := zap.NewDevelopment()
+	require.NoError(t, err)
+	return logger.Sugar()
 }
