@@ -2,7 +2,7 @@ package state
 
 import (
 	"bytes"
-	"context"
+	gocontext "context"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
@@ -226,6 +226,8 @@ type HelmSpec struct {
 	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
 	// TakeOwnership is true if the helmfile should take ownership of the release
 	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
+	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
+	TrackMode string `yaml:"trackMode,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -254,7 +256,6 @@ type Inherit struct {
 
 type Inherits []Inherit
 
-// ReleaseSpec defines the structure of a helm release
 type ReleaseSpec struct {
 	// Chart is the name of the chart being installed to create this release
 	Chart string `yaml:"chart,omitempty"`
@@ -440,8 +441,27 @@ type ReleaseSpec struct {
 	DeleteTimeout *int `yaml:"deleteTimeout,omitempty"`
 	// SyncReleaseLabels is true if the release labels should be synced with the helmfile labels
 	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
-	// TakeOwnership is true if the release should take ownership of the resources
+	// TakeOwnership is true if release should take ownership of resources
 	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
+	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
+	TrackMode string `yaml:"trackMode,omitempty"`
+	// TrackTimeout specifies timeout for kubedog tracking (in seconds)
+	TrackTimeout *int `yaml:"trackTimeout,omitempty"`
+	// TrackLogs enables log streaming with kubedog
+	TrackLogs *bool `yaml:"trackLogs,omitempty"`
+	// TrackKinds is a whitelist of resource kinds to track
+	TrackKinds []string `yaml:"trackKinds,omitempty"`
+	// SkipKinds is a blacklist of resource kinds to skip tracking
+	SkipKinds []string `yaml:"skipKinds,omitempty"`
+	// TrackResources is a whitelist of specific resources to track
+	TrackResources []TrackResourceSpec `yaml:"trackResources,omitempty"`
+}
+
+// TrackResourceSpec specifies a resource to track
+type TrackResourceSpec struct {
+	Kind      string `yaml:"kind,omitempty"`
+	Name      string `yaml:"name,omitempty"`
+	Namespace string `yaml:"namespace,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -866,6 +886,9 @@ type SyncOpts struct {
 	SyncArgs             string
 	HideNotes            bool
 	TakeOwnership        bool
+	TrackMode            string
+	TrackTimeout         int
+	TrackLogs            bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1101,6 +1124,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 							st.logger.Debugf("getting deployed release version failed: %v", err)
 						} else {
 							release.installedVersion = installedVersion
+						}
+
+						if st.shouldUseKubeDog(release, opts) {
+							trackCtx := gocontext.Background()
+							if trackErr := st.trackWithKubeDog(trackCtx, release, helm, opts); trackErr != nil {
+								st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
+							}
 						}
 					}
 				}
@@ -4685,7 +4715,7 @@ func (st *HelmState) acquireSharedLock(result *chartLockResult, chartPath string
 	result.inProcessMutex = st.getNamedRWMutex(chartPath)
 	result.inProcessMutex.RLock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+	ctx, cancel := gocontext.WithTimeout(gocontext.Background(), lockTimeout)
 	defer cancel()
 
 	locked, err := result.fileLock.TryRLockContext(ctx, 500*time.Millisecond)
@@ -4720,7 +4750,7 @@ func (st *HelmState) acquireExclusiveLock(result *chartLockResult, chartPath str
 	var lockErr error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+		ctx, cancel := gocontext.WithTimeout(gocontext.Background(), lockTimeout)
 		locked, lockErr = result.fileLock.TryLockContext(ctx, 500*time.Millisecond)
 		cancel()
 
