@@ -36,7 +36,12 @@ export SOPS_PGP_FP="B2D6D7BBEC03B2E66571C8C00AD18E16CFDEF700"
 # FUNCTIONS ----------------------------------------------------------------------------------------------------------
 
 function wait_deploy_ready() {
-    ${kubectl} rollout status deployment ${1}
+    ${kubectl} rollout status deployment ${1} --timeout=300s || {
+        info "Deployment ${1} rollout timed out, checking pod status:"
+        ${kubectl} get pods -l app=${1} -o wide --namespace=${test_ns} 2>/dev/null || true
+        ${kubectl} describe deployment ${1} --namespace=${test_ns} 2>/dev/null | tail -20 || true
+        fail "Deployment ${1} failed to become ready within 300s"
+    }
     while [ "$(${kubectl} get deploy ${1} -o=jsonpath='{.status.readyReplicas}')" == "0" ]; do
         info "Waiting for deployment ${1} to be ready"
         sleep 1
@@ -123,6 +128,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-2297-local-chart-transformers.sh
 . ${dir}/test-cases/issue-2309-kube-context-template.sh
 . ${dir}/test-cases/issue-2355.sh
+. ${dir}/test-cases/issue-2103.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 

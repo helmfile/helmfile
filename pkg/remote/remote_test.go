@@ -158,7 +158,7 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 		CacheDir(): "",
 	}
 	cachefs := map[string]string{
-		filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=redacted/releases/kiam.yaml"): "foo: bar",
+		filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=0b44c081/releases/kiam.yaml"): "foo: bar",
 	}
 
 	testcases := []struct {
@@ -205,7 +205,7 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=redacted/releases/kiam.yaml")
+			expectedFile := filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=0b44c081/releases/kiam.yaml")
 			if file != expectedFile {
 				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
 			}
@@ -497,6 +497,15 @@ func TestParse(t *testing.T) {
 			file:   "values.yaml",
 			query:  "",
 		},
+		{
+			name:   "https scheme normal with query params",
+			input:  "https://gitlab.example.com/api/v4/projects/test/repository/files/values.yaml/raw?ref=abc123",
+			getter: "normal",
+			scheme: "https",
+			dir:    "api/v4/projects/test/repository/files/values.yaml",
+			file:   "raw",
+			query:  "ref=abc123",
+		},
 	}
 
 	for _, tt := range testcases {
@@ -683,5 +692,112 @@ func TestAWSSDKLogLevelInit(t *testing.T) {
 				t.Errorf("Expected %q, got %q", tt.expectedValue, result)
 			}
 		})
+	}
+}
+
+func TestRemote_HttpUrlWithQueryParams(t *testing.T) {
+	cacheDir := CacheDir()
+	cleanfs := map[string]string{
+		cacheDir: "",
+	}
+	cachefs := map[string]string{
+		filepath.Join(cacheDir, "https_gitlab_example_com.ref=abc123/api/v4/projects/test/repository/files/values.yaml", "raw"): "cached: content",
+	}
+
+	testcases := []struct {
+		name           string
+		files          map[string]string
+		expectCacheHit bool
+	}{
+		{name: "cache miss", files: cleanfs, expectCacheHit: false},
+		{name: "cache hit", files: cachefs, expectCacheHit: true},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			testfs := testhelper.NewTestFs(tt.files)
+
+			hit := true
+
+			get := func(wd, src, dst string) error {
+				hit = false
+				return nil
+			}
+
+			getter := &testGetter{get: get}
+			remote := &Remote{
+				Logger:     helmexec.NewLogger(io.Discard, "debug"),
+				Home:       cacheDir,
+				Getter:     getter,
+				S3Getter:   getter,
+				HttpGetter: getter,
+				fs:         testfs.ToFileSystem(),
+			}
+
+			url := "https://gitlab.example.com/api/v4/projects/test/repository/files/values.yaml/raw?ref=abc123"
+			file, err := remote.Fetch(url)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			expectedFile := filepath.Join(cacheDir, "https_gitlab_example_com.ref=abc123/api/v4/projects/test/repository/files/values.yaml", "raw")
+			if file != expectedFile {
+				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
+			}
+
+			if tt.expectCacheHit && !hit {
+				t.Errorf("unexpected cache miss")
+			}
+			if !tt.expectCacheHit && hit {
+				t.Errorf("unexpected cache hit")
+			}
+		})
+	}
+}
+
+func TestRemote_HttpUrlQueryParamsAvoidCacheCollision(t *testing.T) {
+	cacheDir := CacheDir()
+	cleanfs := map[string]string{
+		cacheDir: "",
+	}
+	testfs := testhelper.NewTestFs(cleanfs)
+
+	get := func(wd, src, dst string) error {
+		return nil
+	}
+
+	getter := &testGetter{get: get}
+	remote := &Remote{
+		Logger:     helmexec.NewLogger(io.Discard, "debug"),
+		Home:       cacheDir,
+		Getter:     getter,
+		S3Getter:   getter,
+		HttpGetter: getter,
+		fs:         testfs.ToFileSystem(),
+	}
+
+	url1 := "https://gitlab.example.com/api/v4/projects/test/repository/files/values.yaml/raw?ref=29b5609"
+	url2 := "https://gitlab.example.com/api/v4/projects/test/repository/files/values.yaml/raw?ref=d80839c"
+
+	file1, err := remote.Fetch(url1)
+	if err != nil {
+		t.Fatalf("unexpected error fetching url1: %v", err)
+	}
+
+	file2, err := remote.Fetch(url2)
+	if err != nil {
+		t.Fatalf("unexpected error fetching url2: %v", err)
+	}
+
+	if file1 == file2 {
+		t.Errorf("expected different cache paths for different query params, but both resolved to: %s", file1)
+	}
+
+	// Verify both contain the ref in the path
+	if !strings.Contains(file1, "ref=29b5609") {
+		t.Errorf("expected file1 path to contain ref=29b5609, got: %s", file1)
+	}
+	if !strings.Contains(file2, "ref=d80839c") {
+		t.Errorf("expected file2 path to contain ref=d80839c, got: %s", file2)
 	}
 }
