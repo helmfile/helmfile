@@ -1,0 +1,3 @@
+# Default values for test-chart-2097
+# This is a minimal chart for testing OCI digest handling
+replicaCount: 1

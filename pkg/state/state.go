@@ -3513,8 +3513,13 @@ func (st *HelmState) appendTakeOwnershipFlagsForDiff(flags []string, release *Re
 }
 
 func (st *HelmState) appendChartVersionFlags(flags []string, release *ReleaseSpec) []string {
-	if release.Version != "" {
-		flags = append(flags, "--version", release.Version)
+	version := release.Version
+	// Strip OCI digest from version (digest is handled in chart URL, not --version flag)
+	if idx := strings.Index(version, "@"); idx >= 0 {
+		version = version[:idx]
+	}
+	if version != "" {
+		flags = append(flags, "--version", version)
 	}
 
 	if st.isDevelopment(release) {
@@ -4807,7 +4812,17 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	flags = st.appendVerifyFlags(flags, release)
 	flags = st.appendKeyringFlags(flags, release)
 	flags = st.appendChartDownloadFlags(flags, release)
-	flags = st.appendChartVersionFlags(flags, release)
+	// Use the clean chartVersion (without digest) from getOCIQualifiedChartName
+	// rather than appendChartVersionFlags which uses release.Version verbatim.
+	// The digest is already embedded in qualifiedChartName.
+	// When a digest is present, omit --version: the digest is the authoritative
+	// content identifier, and passing both causes errors in some Helm versions.
+	if chartVersion != "" && !strings.Contains(qualifiedChartName, "@") {
+		flags = append(flags, "--version", chartVersion)
+	}
+	if st.isDevelopment(release) {
+		flags = append(flags, "--devel")
+	}
 
 	if err := helm.ChartPull(qualifiedChartName, chartPath, flags...); err != nil {
 		lockResult.Release(st.logger)
@@ -4850,6 +4865,48 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 	return repo.OCI
 }
 
+// parseOCIChartRef parses an OCI chart URL into base URL, version tag, and digest.
+// Examples:
+//
+//	oci://registry/chart            → (oci://registry/chart, "", "")
+//	oci://registry/chart:2.0.0     → (oci://registry/chart, "2.0.0", "")
+//	oci://registry/chart@sha256:a  → (oci://registry/chart, "", "sha256:a")
+//	oci://registry/chart:2.0@sha256:a → (oci://registry/chart, "2.0", "sha256:a")
+//	oci://reg:5000/chart:1.0@sha256:a → (oci://reg:5000/chart, "1.0", "sha256:a")
+func parseOCIChartRef(chartURL string) (baseURL, version, digest string) {
+	// Split off digest first (everything after @)
+	if atIdx := strings.Index(chartURL, "@"); atIdx >= 0 {
+		digest = chartURL[atIdx+1:]
+		chartURL = chartURL[:atIdx]
+	}
+
+	// Find version tag: last ":" that comes after the last "/"
+	lastSlash := strings.LastIndex(chartURL, "/")
+	lastColon := strings.LastIndex(chartURL, ":")
+	if lastColon > lastSlash {
+		version = chartURL[lastColon+1:]
+		baseURL = chartURL[:lastColon]
+	} else {
+		baseURL = chartURL
+	}
+
+	return baseURL, version, digest
+}
+
+// parseVersionDigest splits a version string that may contain an OCI digest.
+// Examples:
+//
+//	"2.0.0"              → ("2.0.0", "")
+//	"2.0.0@sha256:abc"   → ("2.0.0", "sha256:abc")
+//	"@sha256:abc"        → ("", "sha256:abc")
+//	""                   → ("", "")
+func parseVersionDigest(version string) (ver, digest string) {
+	if atIdx := strings.Index(version, "@"); atIdx >= 0 {
+		return version[:atIdx], version[atIdx+1:]
+	}
+	return version, ""
+}
+
 func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec) (string, string, string, error) {
 	// For issue #2247: Don't default to "latest" - use empty string to let Helm pull the latest version
 	// Only use the version explicitly provided by the user
@@ -4867,21 +4924,69 @@ func (st *HelmState) getOCIQualifiedChartName(release *ReleaseSpec) (string, str
 	// Reject explicit "latest" for OCI charts (issue #1047, #2247)
 	// This only applies if user explicitly specified "latest", not when version is omitted
 	// We reject for all Helm versions to ensure consistent behavior
-	if release.Version == "latest" {
+	// Strip any digest suffix before checking (e.g. "latest@sha256:..." is still invalid)
+	versionForCheck, _ := parseVersionDigest(release.Version)
+	if versionForCheck == "latest" {
 		return "", "", "", fmt.Errorf("the version for OCI charts should be semver compliant, the latest tag is not supported")
 	}
 
 	var qualifiedChartName, chartName string
 	if strings.HasPrefix(release.Chart, "oci://") {
-		parts := strings.Split(release.Chart, "/")
+		// Parse version and digest from the chart URL
+		baseURL, versionInURL, digestInURL := parseOCIChartRef(release.Chart)
+
+		// Parse version and digest from the version field
+		versionInField, digestInField := parseVersionDigest(chartVersion)
+
+		// Merge: version field takes precedence; fall back to URL-embedded version
+		finalVersion := versionInField
+		if finalVersion == "" && versionInURL != "" {
+			finalVersion = versionInURL
+		}
+
+		// Merge: URL-embedded digest takes precedence; fall back to version field digest
+		finalDigest := digestInURL
+		if finalDigest == "" {
+			finalDigest = digestInField
+		}
+
+		// Extract chart name from base URL (last path segment)
+		parts := strings.Split(baseURL, "/")
 		chartName = parts[len(parts)-1]
-		qualifiedChartName = strings.Replace(fmt.Sprintf("%s:%s", release.Chart, chartVersion), "oci://", "", 1)
+
+		// Build qualifiedChartName: base (without oci:// prefix) + digest or version
+		base := strings.TrimPrefix(baseURL, "oci://")
+		if finalDigest != "" {
+			// Digest present — put it in the URL; version goes through --version flag only
+			qualifiedChartName = fmt.Sprintf("%s@%s", base, finalDigest)
+		} else if versionInURL == "" && finalVersion != "" {
+			// Version from field only (backward compatible format)
+			qualifiedChartName = fmt.Sprintf("%s:%s", base, finalVersion)
+		} else {
+			// Version came from URL (handled via --version flag) or no version at all
+			qualifiedChartName = base
+		}
+
+		chartVersion = finalVersion
 	} else {
 		var repo *RepositorySpec
 		repo, chartName = st.GetRepositoryAndNameFromChartName(release.Chart)
-		qualifiedChartName = fmt.Sprintf("%s/%s:%s", repo.URL, chartName, chartVersion)
+
+		// Handle digest in version field for repo-aliased OCI charts too
+		base := fmt.Sprintf("%s/%s", repo.URL, chartName)
+		finalVersion, digest := parseVersionDigest(chartVersion)
+
+		switch {
+		case digest != "":
+			qualifiedChartName = fmt.Sprintf("%s@%s", base, digest)
+		case finalVersion != "":
+			qualifiedChartName = fmt.Sprintf("%s:%s", base, finalVersion)
+		default:
+			qualifiedChartName = base
+		}
+
+		chartVersion = finalVersion
 	}
-	qualifiedChartName = strings.TrimSuffix(qualifiedChartName, ":")
 
 	return qualifiedChartName, chartName, chartVersion, nil
 }

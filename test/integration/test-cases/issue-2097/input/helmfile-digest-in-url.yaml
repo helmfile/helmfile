@@ -1,0 +1,4 @@
+releases:
+  - name: test-oci-digest-in-url
+    namespace: default
+    chart: oci://registry.example.com/my-chart@sha256:abc123def456

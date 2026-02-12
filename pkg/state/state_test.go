@@ -3701,6 +3701,212 @@ func TestGetOCIQualifiedChartName(t *testing.T) {
 				{"registry/chart-path/chart-name", "chart-name", ""},
 			},
 		},
+		// Digest in version field
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart:   "oci://registry/chart-path/chart-name",
+							Version: "2.0.0@sha256:abc123",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name@sha256:abc123", "chart-name", "2.0.0"},
+			},
+		},
+		// Digest-only in version field
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart:   "oci://registry/chart-path/chart-name",
+							Version: "@sha256:abc123",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name@sha256:abc123", "chart-name", ""},
+			},
+		},
+		// Version tag in URL
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://registry/chart-path/chart-name:2.0.0",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name", "chart-name", "2.0.0"},
+			},
+		},
+		// Digest in URL
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://registry/chart-path/chart-name@sha256:abc123",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name@sha256:abc123", "chart-name", ""},
+			},
+		},
+		// Version + digest in URL
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://registry/chart-path/chart-name:2.0.0@sha256:abc123",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name@sha256:abc123", "chart-name", "2.0.0"},
+			},
+		},
+		// Port with digest in URL
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart: "oci://registry:5000/chart-path/chart-name@sha256:abc123",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry:5000/chart-path/chart-name@sha256:abc123", "chart-name", ""},
+			},
+		},
+		// Digest in URL + version field
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{},
+					Releases: []ReleaseSpec{
+						{
+							Chart:   "oci://registry/chart-path/chart-name@sha256:abc123",
+							Version: "2.0.0",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name@sha256:abc123", "chart-name", "2.0.0"},
+			},
+		},
+		// Repo-aliased OCI chart with digest in version
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{
+						{
+							Name: "oci-repo",
+							URL:  "registry/chart-path",
+							OCI:  true,
+						},
+					},
+					Releases: []ReleaseSpec{
+						{
+							Chart:   "oci-repo/chart-name",
+							Version: "2.0.0@sha256:abc123",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name@sha256:abc123", "chart-name", "2.0.0"},
+			},
+		},
+		// Repo-aliased OCI chart with digest-only version
+		{
+			state: HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: []RepositorySpec{
+						{
+							Name: "oci-repo",
+							URL:  "registry/chart-path",
+							OCI:  true,
+						},
+					},
+					Releases: []ReleaseSpec{
+						{
+							Chart:   "oci-repo/chart-name",
+							Version: "@sha256:abc123",
+						},
+					},
+				},
+			},
+			helmVersion: "3.13.3",
+			expected: []struct {
+				qualifiedChartName string
+				chartName          string
+				chartVersion       string
+			}{
+				{"registry/chart-path/chart-name@sha256:abc123", "chart-name", ""},
+			},
+		},
 	}
 
 	for _, tt := range tests {
