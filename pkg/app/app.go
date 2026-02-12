@@ -1637,6 +1637,10 @@ Do you really want to apply?
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
 
+	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
+		return true, false, nil
+	}
+
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			for _, r := range subst.Releases {
