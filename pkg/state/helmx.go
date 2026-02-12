@@ -469,7 +469,11 @@ func (st *HelmState) trackWithKubeDog(ctx context.Context, release *ReleaseSpec,
 	if err != nil {
 		return fmt.Errorf("failed to create kubedog tracker: %w", err)
 	}
-	defer tracker.Close()
+	defer func() {
+		if closeErr := tracker.Close(); closeErr != nil {
+			st.logger.Warnf("failed to close tracker: %v", closeErr)
+		}
+	}()
 
 	resources, err := st.getReleaseResources(ctx, release, helm)
 	if err != nil {
