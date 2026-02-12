@@ -356,6 +356,54 @@ func TestRemote_S3(t *testing.T) {
 	}
 }
 
+func TestIsRemote(t *testing.T) {
+	testcases := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "git remote URL",
+			input:    "git::https://github.com/cloudposse/helmfiles.git@releases/kiam.yaml?ref=0.40.0",
+			expected: true,
+		},
+		{
+			name:     "s3 remote URL",
+			input:    "s3://helm-s3-values-example/values.yaml",
+			expected: true,
+		},
+		{
+			name:     "https remote URL",
+			input:    "https://example.com/values.yaml",
+			expected: true,
+		},
+		{
+			name:     "relative path",
+			input:    "relative/path/to/file.yaml",
+			expected: false,
+		},
+		{
+			name:     "parent-relative path",
+			input:    "../services/values.yaml",
+			expected: false,
+		},
+		{
+			name:     "unix absolute path",
+			input:    "/absolute/path/to/file.yaml",
+			expected: false,
+		},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsRemote(tt.input)
+			if result != tt.expected {
+				t.Errorf("IsRemote(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestParse(t *testing.T) {
 	testcases := []struct {
 		name   string
@@ -371,6 +419,11 @@ func TestParse(t *testing.T) {
 			name:  "miss scheme",
 			input: "raw/incubator",
 			err:   "parse url: missing scheme - probably this is a local file path? raw/incubator",
+		},
+		{
+			name:  "unix absolute path",
+			input: "/absolute/path/to/file.yaml",
+			err:   "parse url: local absolute path is not a remote URL: /absolute/path/to/file.yaml",
 		},
 		{
 			name:   "git scheme",

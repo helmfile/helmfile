@@ -102,6 +102,9 @@ type Source struct {
 }
 
 func IsRemote(goGetterSrc string) bool {
+	if filepath.IsAbs(goGetterSrc) {
+		return false
+	}
 	if _, err := Parse(goGetterSrc); err != nil {
 		return false
 	}
@@ -120,6 +123,13 @@ func Parse(goGetterSrc string) (*Source, error) {
 		if len(items) == 2 {
 			return ParseNormal(goGetterSrc)
 		}
+	}
+
+	// Local absolute paths (e.g., C:\path on Windows, /path on Unix)
+	// are not remote URLs. Reject them before go-getter's url.Parse
+	// can misinterpret Windows drive letters as URL schemes.
+	if filepath.IsAbs(goGetterSrc) {
+		return nil, InvalidURLError{err: fmt.Sprintf("parse url: local absolute path is not a remote URL: %s", goGetterSrc)}
 	}
 
 	u, err := url.Parse(goGetterSrc)
