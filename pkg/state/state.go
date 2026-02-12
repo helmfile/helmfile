@@ -451,6 +451,17 @@ type ReleaseSpec struct {
 	TrackLogs *bool `yaml:"trackLogs,omitempty"`
 	// TrackKinds is a whitelist of resource kinds to track
 	TrackKinds []string `yaml:"trackKinds,omitempty"`
+	// SkipKinds is a blacklist of resource kinds to skip tracking
+	SkipKinds []string `yaml:"skipKinds,omitempty"`
+	// TrackResources is a whitelist of specific resources to track
+	TrackResources []TrackResourceSpec `yaml:"trackResources,omitempty"`
+}
+
+// TrackResourceSpec specifies a resource to track
+type TrackResourceSpec struct {
+	Kind      string `yaml:"kind,omitempty"`
+	Name      string `yaml:"name,omitempty"`
+	Namespace string `yaml:"namespace,omitempty"`
 }
 
 func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
@@ -875,6 +886,9 @@ type SyncOpts struct {
 	SyncArgs             string
 	HideNotes            bool
 	TakeOwnership        bool
+	TrackMode            string
+	TrackTimeout         int
+	TrackLogs            bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1114,7 +1128,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 
 						if st.shouldUseKubeDog(release, opts) {
 							trackCtx := gocontext.Background()
-							if trackErr := st.trackWithKubeDog(trackCtx, release, helm); trackErr != nil {
+							if trackErr := st.trackWithKubeDog(trackCtx, release, helm, opts); trackErr != nil {
 								st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
 							}
 						}

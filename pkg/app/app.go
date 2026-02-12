@@ -1703,6 +1703,9 @@ Do you really want to apply?
 					HideNotes:            c.HideNotes(),
 					TakeOwnership:        c.TakeOwnership(),
 					SyncReleaseLabels:    c.SyncReleaseLabels(),
+					TrackMode:            c.TrackMode(),
+					TrackTimeout:         c.TrackTimeout(),
+					TrackLogs:            c.TrackLogs(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -2129,6 +2132,9 @@ Do you really want to sync?
 					TakeOwnership:        c.TakeOwnership(),
 					SkipSchemaValidation: c.SkipSchemaValidation(),
 					SyncReleaseLabels:    c.SyncReleaseLabels(),
+					TrackMode:            c.TrackMode(),
+					TrackTimeout:         c.TrackTimeout(),
+					TrackLogs:            c.TrackLogs(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

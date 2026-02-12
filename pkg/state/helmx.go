@@ -185,8 +185,11 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 	return flags
 }
 
-func (st *HelmState) shouldUseKubeDog(release *ReleaseSpec, _ *SyncOpts) bool {
+func (st *HelmState) shouldUseKubeDog(release *ReleaseSpec, ops *SyncOpts) bool {
 	trackMode := release.TrackMode
+	if trackMode == "" && ops != nil && ops.TrackMode != "" {
+		trackMode = ops.TrackMode
+	}
 	if trackMode == "" {
 		trackMode = st.HelmDefaults.TrackMode
 	}
@@ -445,20 +448,27 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	return nil, clean, nil
 }
 
-func (st *HelmState) trackWithKubeDog(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface) error {
+func (st *HelmState) trackWithKubeDog(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface, ops *SyncOpts) error {
 	timeout := 5 * time.Minute
 	if release.TrackTimeout != nil {
 		timeout = time.Duration(*release.TrackTimeout) * time.Second
+	} else if ops != nil && ops.TrackTimeout > 0 {
+		timeout = time.Duration(ops.TrackTimeout) * time.Second
 	}
 
 	trackLogs := release.TrackLogs != nil && *release.TrackLogs
+	if release.TrackLogs == nil && ops != nil {
+		trackLogs = ops.TrackLogs
+	}
 
 	trackOpts := kubedog.NewTrackOptions().
 		WithTimeout(timeout).
 		WithLogs(trackLogs).
 		WithNamespace(release.Namespace).
 		WithKubeContext(st.HelmDefaults.KubeContext).
-		WithTrackKinds(release.TrackKinds)
+		WithTrackKinds(release.TrackKinds).
+		WithSkipKinds(release.SkipKinds).
+		WithTrackResources(convertTrackResources(release.TrackResources))
 
 	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
 		Logger:       st.logger,
@@ -583,4 +593,19 @@ func (st *HelmState) getReleaseManifest(release *ReleaseSpec, helm helmexec.Inte
 	}
 
 	return manifest, nil
+}
+
+func convertTrackResources(resources []TrackResourceSpec) []kubedog.TrackResource {
+	if len(resources) == 0 {
+		return nil
+	}
+	result := make([]kubedog.TrackResource, len(resources))
+	for i, r := range resources {
+		result[i] = kubedog.TrackResource{
+			Kind:      r.Kind,
+			Name:      r.Name,
+			Namespace: r.Namespace,
+		}
+	}
+	return result
 }

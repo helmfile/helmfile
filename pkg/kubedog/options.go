@@ -15,6 +15,12 @@ type ResourceSpec struct {
 	Kind      string
 }
 
+type TrackResource struct {
+	Kind      string
+	Name      string
+	Namespace string
+}
+
 type TrackOptions struct {
 	Timeout              time.Duration
 	Logs                 bool
@@ -27,6 +33,7 @@ type TrackOptions struct {
 	SkipKinds            []string
 	CustomTrackableKinds []string
 	CustomStaticKinds    []string
+	TrackResources       []TrackResource
 }
 
 func NewTrackOptions() *TrackOptions {
@@ -88,5 +95,10 @@ func (o *TrackOptions) WithCustomTrackableKinds(kinds []string) *TrackOptions {
 
 func (o *TrackOptions) WithCustomStaticKinds(kinds []string) *TrackOptions {
 	o.CustomStaticKinds = kinds
+	return o
+}
+
+func (o *TrackOptions) WithTrackResources(resources []TrackResource) *TrackOptions {
+	o.TrackResources = resources
 	return o
 }

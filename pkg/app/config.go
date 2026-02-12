@@ -87,6 +87,10 @@ type ApplyConfigProvider interface {
 
 	DAGConfig
 
+	TrackMode() string
+	TrackTimeout() int
+	TrackLogs() bool
+
 	concurrencyConfig
 	interactive
 	loggingConfig

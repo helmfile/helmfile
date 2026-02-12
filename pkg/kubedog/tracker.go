@@ -211,7 +211,7 @@ func (t *Tracker) filterResources(resources []*ResourceSpec) []*ResourceSpec {
 	var filtered []*ResourceSpec
 
 	for _, res := range resources {
-		if t.shouldSkipResource(res.Kind) {
+		if t.shouldSkipResource(res.Kind, res.Name, res.Namespace) {
 			t.logger.Debugf("Skipping resource %s/%s (kind: %s) based on configuration", res.Namespace, res.Name, res.Kind)
 			continue
 		}
@@ -221,7 +221,24 @@ func (t *Tracker) filterResources(resources []*ResourceSpec) []*ResourceSpec {
 	return filtered
 }
 
-func (t *Tracker) shouldSkipResource(kind string) bool {
+func (t *Tracker) shouldSkipResource(kind, name, namespace string) bool {
+	if len(t.trackOptions.TrackResources) > 0 {
+		for _, tr := range t.trackOptions.TrackResources {
+			if tr.Kind != "" && tr.Kind != kind {
+				continue
+			}
+			if tr.Name != "" && tr.Name != name {
+				continue
+			}
+			if tr.Namespace != "" && tr.Namespace != namespace {
+				continue
+			}
+			return false
+		}
+		t.logger.Debugf("Resource %s/%s (kind: %s) not in TrackResources whitelist, skipping", namespace, name, kind)
+		return true
+	}
+
 	if len(t.trackOptions.SkipKinds) > 0 {
 		for _, skipKind := range t.trackOptions.SkipKinds {
 			if kind == skipKind {
