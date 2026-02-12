@@ -99,6 +99,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		NewLintCmd(globalImpl),
 		NewWriteValuesCmd(globalImpl),
 		NewTestCmd(globalImpl),
+		NewUnittestCmd(globalImpl),
 		NewTemplateCmd(globalImpl),
 		NewSyncCmd(globalImpl),
 		NewDiffCmd(globalImpl),

@@ -129,6 +129,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-2309-kube-context-template.sh
 . ${dir}/test-cases/issue-2355.sh
 . ${dir}/test-cases/issue-2103.sh
+. ${dir}/test-cases/unittest.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 

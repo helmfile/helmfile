@@ -37,6 +37,7 @@ type Helm struct {
 	Releases             []Release
 	Deleted              []Release
 	Linted               []Release
+	Unittested           []Release
 	Templated            []Release
 	Lists                map[ListKey]string
 	Diffs                map[DiffKey]error
@@ -208,6 +209,13 @@ func (helm *Helm) TestRelease(context helmexec.HelmContext, name string, flags .
 	return nil
 }
 func (helm *Helm) Fetch(chart string, flags ...string) error {
+	return nil
+}
+func (helm *Helm) Unittest(name, chart string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.Unittested = append(helm.Unittested, Release{Name: name, Flags: flags})
 	return nil
 }
 func (helm *Helm) Lint(name, chart string, flags ...string) error {

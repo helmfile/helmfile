@@ -18,13 +18,14 @@ import (
 )
 
 const (
-	HelmRequiredVersion           = "v3.18.6" // Minimum required version (supports Helm 3.x and 4.x)
-	HelmDiffRecommendedVersion    = "v3.14.1"
-	HelmRecommendedVersion        = "v4.1.0" // Recommended to use latest Helm 4
-	HelmSecretsRecommendedVersion = "v4.7.4" // v4.7.0+ works with both Helm 3 (single plugin) and Helm 4 (split plugin architecture)
-	HelmGitRecommendedVersion     = "v1.3.0"
-	HelmS3RecommendedVersion      = "v0.16.3"
-	HelmInstallCommand            = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3" // Default to Helm 3 script for compatibility
+	HelmRequiredVersion            = "v3.18.6" // Minimum required version (supports Helm 3.x and 4.x)
+	HelmDiffRecommendedVersion     = "v3.14.1"
+	HelmRecommendedVersion         = "v4.1.0" // Recommended to use latest Helm 4
+	HelmSecretsRecommendedVersion  = "v4.7.4" // v4.7.0+ works with both Helm 3 (single plugin) and Helm 4 (split plugin architecture)
+	HelmGitRecommendedVersion      = "v1.3.0"
+	HelmS3RecommendedVersion       = "v0.16.3"
+	HelmUnittestRecommendedVersion = "v1.0.3"
+	HelmInstallCommand             = "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3" // Default to Helm 3 script for compatibility
 )
 
 var (
@@ -53,6 +54,11 @@ var (
 			name:    "helm-git",
 			version: HelmGitRecommendedVersion,
 			repo:    "https://github.com/aslafy-z/helm-git.git",
+		},
+		{
+			name:    "unittest",
+			version: HelmUnittestRecommendedVersion,
+			repo:    "https://github.com/helm-unittest/helm-unittest",
 		},
 	}
 )

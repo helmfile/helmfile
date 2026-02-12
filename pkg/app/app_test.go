@@ -2354,6 +2354,8 @@ type applyConfig struct {
 	suppressDiff             bool
 	noColor                  bool
 	color                    bool
+	failFast                 bool
+	debugPlugin              bool
 	context                  int
 	diffOutput               string
 	concurrency              int
@@ -2474,6 +2476,14 @@ func (a applyConfig) SuppressDiff() bool {
 
 func (a applyConfig) Color() bool {
 	return a.color
+}
+
+func (a applyConfig) FailFast() bool {
+	return a.failFast
+}
+
+func (a applyConfig) DebugPlugin() bool {
+	return a.debugPlugin
 }
 
 func (a applyConfig) NoColor() bool {
@@ -2708,6 +2718,9 @@ func (helm *mockHelmExec) Fetch(chart string, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) Lint(name, chart string, flags ...string) error {
+	return nil
+}
+func (helm *mockHelmExec) Unittest(name, chart string, flags ...string) error {
 	return nil
 }
 func (helm *mockHelmExec) IsHelm3() bool {
