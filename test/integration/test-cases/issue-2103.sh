@@ -25,7 +25,7 @@ go build -o "${issue_2103_tmp_dir}/server" "${issue_2103_input_dir}/server.go" \
 "${issue_2103_tmp_dir}/server" > "${issue_2103_tmp_dir}/server_addr.txt" &
 server_pid=$!
 
-# Poll until the server writes its address (up to 10 seconds)
+# Poll until the server writes its address (up to 10 seconds: 20 x 0.5s)
 for i in $(seq 1 20); do
     if ! kill -0 "${server_pid}" 2>/dev/null; then
         fail "Test HTTP server failed to start"

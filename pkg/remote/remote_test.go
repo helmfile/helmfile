@@ -157,6 +157,9 @@ func TestRemote_SShGitHub_WithSshKey(t *testing.T) {
 	cleanfs := map[string]string{
 		CacheDir(): "",
 	}
+	// Note: "0b44c081" is the first 8 characters of the SHA256 hash of the test SSH key.
+	// It is intentionally hardcoded here as part of the expected cache key format and replaces
+	// the previous "redacted" placeholder to reflect the actual hashing behavior.
 	cachefs := map[string]string{
 		filepath.Join(CacheDir(), "ssh_github_com_helmfile_helmfiles_git.ref=0.40.0_sshkey=0b44c081/releases/kiam.yaml"): "foo: bar",
 	}

@@ -38,7 +38,7 @@ export SOPS_PGP_FP="B2D6D7BBEC03B2E66571C8C00AD18E16CFDEF700"
 function wait_deploy_ready() {
     ${kubectl} rollout status deployment ${1} --timeout=300s || {
         info "Deployment ${1} rollout timed out, checking pod status:"
-        ${kubectl} get pods -l app=${1} -o wide --namespace=${test_ns} 2>/dev/null || true
+        ${kubectl} get pods -o wide --namespace=${test_ns} 2>/dev/null || true
         ${kubectl} describe deployment ${1} --namespace=${test_ns} 2>/dev/null | tail -20 || true
         fail "Deployment ${1} failed to become ready within 300s"
     }

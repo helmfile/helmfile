@@ -296,7 +296,7 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 
 	{
 		if r.fs.FileExistsAt(cacheDirPath) {
-			return "", fmt.Errorf("%s is not a directory. Please remove it so that helmfile could use it for dependency caching", cacheDirPath)
+			return "", fmt.Errorf("%s is not a directory. Please remove it so that helmfile can use it for dependency caching", cacheDirPath)
 		}
 
 		if u.Getter == "normal" {
