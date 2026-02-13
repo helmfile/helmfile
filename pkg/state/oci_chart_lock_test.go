@@ -592,6 +592,44 @@ func TestIsSharedCachePath(t *testing.T) {
 	})
 }
 
+// TestAcquireChartLockSharedCacheSkipRefresh verifies that acquireChartLock
+// returns chartActionUseCached instead of chartActionRefresh when the chart
+// exists in the shared cache, even when refresh is requested. This tests the
+// core fix for the race condition issue #2387.
+func TestAcquireChartLockSharedCacheSkipRefresh(t *testing.T) {
+	logger := createTestLogger(t)
+
+	sharedCacheDir := remote.CacheDir()
+	chartPath := filepath.Join(sharedCacheDir, "testrepo", "testchart", "1.0.0", "testchart")
+
+	err := os.MkdirAll(chartPath, 0755)
+	require.NoError(t, err)
+	defer os.RemoveAll(filepath.Join(sharedCacheDir, "testrepo"))
+
+	chartFile := filepath.Join(chartPath, "Chart.yaml")
+	err = os.WriteFile(chartFile, []byte("name: testchart\nversion: 1.0.0\n"), 0644)
+	require.NoError(t, err)
+
+	st := &HelmState{
+		logger: logger,
+		fs:     filesystem.DefaultFileSystem(),
+	}
+
+	opts := ChartPrepareOptions{
+		SkipRefresh: false,
+	}
+
+	result, err := st.acquireChartLock(chartPath, opts, nil)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	defer result.Release(logger)
+
+	require.Equal(t, chartActionUseCached, result.action, "shared cache chart should use cached, not refresh")
+
+	_, err = os.Stat(chartFile)
+	require.NoError(t, err, "chart in shared cache should not be deleted")
+}
+
 func createTestLogger(t *testing.T) *zap.SugaredLogger {
 	t.Helper()
 	logger, err := zap.NewDevelopment()
