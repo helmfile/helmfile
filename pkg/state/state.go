@@ -4546,13 +4546,23 @@ func (st *HelmState) isSharedCachePath(chartPath string) bool {
 	sharedCacheDir := remote.CacheDir()
 	absChartPath, err := filepath.Abs(chartPath)
 	if err != nil {
+		st.logger.Debugf("failed to get absolute path for chartPath %q: %v", chartPath, err)
 		return false
 	}
 	absSharedCache, err := filepath.Abs(sharedCacheDir)
 	if err != nil {
+		st.logger.Debugf("failed to get absolute path for shared cache dir %q: %v", sharedCacheDir, err)
 		return false
 	}
-	return strings.HasPrefix(absChartPath, absSharedCache+string(filepath.Separator))
+	resolvedChartPath, err := filepath.EvalSymlinks(absChartPath)
+	if err != nil {
+		resolvedChartPath = absChartPath
+	}
+	resolvedSharedCache, err := filepath.EvalSymlinks(absSharedCache)
+	if err != nil {
+		resolvedSharedCache = absSharedCache
+	}
+	return strings.HasPrefix(resolvedChartPath, resolvedSharedCache+string(filepath.Separator))
 }
 
 // chartDownloadAction represents what action should be taken after acquiring locks

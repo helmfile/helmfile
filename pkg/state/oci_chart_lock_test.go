@@ -549,6 +549,35 @@ func TestIsSharedCachePath(t *testing.T) {
 		nonSubpath := sharedCacheDir + "-other/chart"
 		require.False(t, st.isSharedCachePath(nonSubpath), "path with shared cache as prefix but not subdirectory should return false")
 	})
+
+	t.Run("symlink to shared cache directory", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		sharedCacheDir := remote.CacheDir()
+		chartRelPath := filepath.Join("envoyproxy", "gateway-helm", "1.6.2", "gateway-helm")
+		targetChartPath := filepath.Join(sharedCacheDir, chartRelPath)
+
+		if err := os.MkdirAll(targetChartPath, 0755); err != nil {
+			t.Skipf("skipping symlink test; unable to create target directory: %v", err)
+		}
+
+		tempDir, err := os.MkdirTemp("", "helmfile-symlink-test-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tempDir)
+
+		symlinkPath := filepath.Join(tempDir, "cache-link")
+
+		if err := os.Symlink(sharedCacheDir, symlinkPath); err != nil {
+			t.Skipf("skipping symlink test; unable to create symlink: %v", err)
+		}
+
+		chartPath := filepath.Join(symlinkPath, chartRelPath)
+		require.True(t, st.isSharedCachePath(chartPath), "path within symlinked shared cache directory should return true")
+	})
 }
 
 func createTestLogger(t *testing.T) *zap.SugaredLogger {
