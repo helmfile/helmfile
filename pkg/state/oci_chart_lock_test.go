@@ -564,6 +564,7 @@ func TestIsSharedCachePath(t *testing.T) {
 		if err := os.MkdirAll(targetChartPath, 0755); err != nil {
 			t.Skipf("skipping symlink test; unable to create target directory: %v", err)
 		}
+		defer os.RemoveAll(filepath.Join(sharedCacheDir, "envoyproxy"))
 
 		tempDir, err := os.MkdirTemp("", "helmfile-symlink-test-*")
 		require.NoError(t, err)

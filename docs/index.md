@@ -672,7 +672,7 @@ OCI charts are cached in the shared cache directory (`~/.cache/helmfile` by defa
 **Cache Behavior:**
 
 - When a chart exists in the shared cache and is valid, it is reused without re-downloading
-- The `--skip-refresh` flag can be used to skip checking for updates to cached charts
+- The `--skip-refresh` flag can be used to skip checking for updates to cached charts stored in process-specific temporary directories (it does not affect charts already present in the shared cache)
 - When running multiple helmfile processes in parallel (e.g., as an ArgoCD plugin), charts in the shared cache are not refreshed/deleted to prevent race conditions
 
 **Forcing a Cache Refresh:**

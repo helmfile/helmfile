@@ -4699,7 +4699,7 @@ func (st *HelmState) acquireChartLock(chartPath string, opts ChartPrepareOptions
 			// Skip deletion for shared cache paths to prevent race conditions
 			if st.isSharedCachePath(chartPath) {
 				result.Release(st.logger)
-				return nil, fmt.Errorf("chart directory at %s is corrupted; cannot safely remove from shared cache while other processes may be running. Please run 'helmfile cache cleanup' to clear the cache", chartPath)
+				return nil, fmt.Errorf("chart directory at %s is corrupted (%w); cannot safely remove from shared cache while other processes may be running. Please run 'helmfile cache cleanup' to clear the cache", chartPath, err)
 			} else {
 				st.logger.Debugf("Chart directory at %s is corrupted: %v, will re-download", chartPath, err)
 				if err := os.RemoveAll(chartPath); err != nil {
