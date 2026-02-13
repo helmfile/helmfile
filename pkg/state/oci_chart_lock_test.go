@@ -579,6 +579,17 @@ func TestIsSharedCachePath(t *testing.T) {
 		chartPath := filepath.Join(symlinkPath, chartRelPath)
 		require.True(t, st.isSharedCachePath(chartPath), "path within symlinked shared cache directory should return true")
 	})
+
+	t.Run("exact match with shared cache directory", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		sharedCacheDir := remote.CacheDir()
+		require.True(t, st.isSharedCachePath(sharedCacheDir), "shared cache directory itself should return true")
+	})
 }
 
 func createTestLogger(t *testing.T) *zap.SugaredLogger {

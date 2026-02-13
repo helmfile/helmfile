@@ -4562,7 +4562,8 @@ func (st *HelmState) isSharedCachePath(chartPath string) bool {
 	if err != nil {
 		resolvedSharedCache = absSharedCache
 	}
-	return strings.HasPrefix(resolvedChartPath, resolvedSharedCache+string(filepath.Separator))
+	return resolvedChartPath == resolvedSharedCache ||
+		strings.HasPrefix(resolvedChartPath, resolvedSharedCache+string(filepath.Separator))
 }
 
 // chartDownloadAction represents what action should be taken after acquiring locks
