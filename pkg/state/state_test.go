@@ -4046,20 +4046,20 @@ func TestGenerateChartPath(t *testing.T) {
 			expected:          "/output-dir/my-test-cluster",
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.testName, func(t *testing.T) {
-			st := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Env: environment.Environment{
-						Name: "test-env",
-						Values: map[string]any{
-							"cluster": map[string]any{
-								"name": "my-test-cluster",
-							},
-						},
+	st := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Env: environment.Environment{
+				Name: "test-env",
+				Values: map[string]any{
+					"cluster": map[string]any{
+						"name": "my-test-cluster",
 					},
 				},
-			}
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
 			got, err := st.generateChartPath(tt.chartName, tt.outputDir, tt.release, tt.outputDirTemplate)
 
 			if tt.wantErr {

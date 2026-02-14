@@ -4326,6 +4326,7 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 		AbsPathSHA1 string
 	}
 
+	// Template data for output-dir-template. Environment provides .Name, .KubeContext, and .Values fields.
 	data := struct {
 		OutputDir   string
 		State       state
@@ -4364,6 +4365,7 @@ func (st *HelmState) generateChartPath(chartName string, outputDir string, relea
 	}
 
 	buf := &bytes.Buffer{}
+	// Template data for output-dir-template. Environment provides .Name, .KubeContext, and .Values fields.
 	data := struct {
 		ChartName   string
 		OutputDir   string
