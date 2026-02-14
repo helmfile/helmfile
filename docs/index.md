@@ -665,6 +665,33 @@ The `helmfile init` sub-command checks the dependencies required for helmfile op
 
 The `helmfile cache` sub-command is designed for cache management. Go-getter-backed remote file system are cached by `helmfile`. There is no TTL implemented, if you need to update the cached files or directories, you need to clean individually or run a full cleanup with `helmfile cache cleanup`
 
+#### OCI Chart Cache
+
+OCI charts are cached in the shared cache directory (`~/.cache/helmfile` by default, or `$HELMFILE_CACHE_HOME`). This cache is shared across all helmfile processes.
+
+**Cache Behavior:**
+
+- When a chart exists in the shared cache and is valid, it is reused without re-downloading
+- The `--skip-refresh` flag can be used to skip checking for updates to cached charts stored in process-specific temporary directories (it does not affect charts already present in the shared cache)
+- When running multiple helmfile processes in parallel (e.g., as an ArgoCD plugin), charts in the shared cache are not refreshed/deleted to prevent race conditions
+
+**Forcing a Cache Refresh:**
+
+To force a refresh of cached OCI charts, run:
+```bash
+helmfile cache cleanup
+```
+
+This will clear the shared cache, allowing the next helmfile command to re-download charts.
+
+#### cache info
+
+Display information about the cache directory.
+
+#### cache cleanup
+
+Remove all cached files from the cache directory.
+
 ### sync
 
 The `helmfile sync` sub-command sync your cluster state as described in your `helmfile`. The default helmfile is `helmfile.yaml`, but any YAML file can be passed by specifying a `--file path/to/your/yaml/file` flag.
@@ -1866,6 +1893,14 @@ repositories:
 export MY_OCI_REGISTRY_USERNAME=spongebob
 export MY_OCI_REGISTRY_PASSWORD=squarepants
 ```
+
+### OCI Chart Caching
+
+OCI charts are automatically cached in the shared cache directory (`~/.cache/helmfile` by default, or the directory specified by `HELMFILE_CACHE_HOME`). This improves performance by avoiding redundant downloads.
+
+**Multi-Process Safety:** When running multiple helmfile processes in parallel (e.g., as an ArgoCD plugin), charts in the shared cache are not deleted or refreshed to prevent race conditions where one process might delete a chart that another is using. To force a cache refresh, run `helmfile cache cleanup` first.
+
+See the [cache](#cache) section for more details on cache management.
 
 ## Attribution
 

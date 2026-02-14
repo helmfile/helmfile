@@ -11,6 +11,10 @@ import (
 
 	"github.com/gofrs/flock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/remote"
 )
 
 // TestOCIChartFileLock tests that the file locking mechanism works correctly
@@ -484,4 +488,151 @@ func TestOCIChartDoubleCheckLocking(t *testing.T) {
 		_, err = os.Stat(filepath.Join(chartPath, "Chart.yaml"))
 		require.NoError(t, err, "chart should exist in cache")
 	})
+}
+
+// TestIsSharedCachePath tests the isSharedCachePath function to ensure it correctly
+// identifies paths within the shared cache directory.
+func TestIsSharedCachePath(t *testing.T) {
+	t.Run("path in shared cache is detected", func(t *testing.T) {
+		// Create a HelmState with test logger
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		// Get the shared cache directory
+		sharedCacheDir := remote.CacheDir()
+
+		// Test path inside shared cache
+		chartPath := filepath.Join(sharedCacheDir, "envoyproxy", "gateway-helm", "1.6.2", "gateway-helm")
+		require.True(t, st.isSharedCachePath(chartPath), "path in shared cache should return true")
+	})
+
+	t.Run("path outside shared cache is not detected", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		// Test path outside shared cache (temp directory)
+		tempDir, err := os.MkdirTemp("", "helmfile-test-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tempDir)
+
+		chartPath := filepath.Join(tempDir, "mychart")
+		require.False(t, st.isSharedCachePath(chartPath), "path outside shared cache should return false")
+	})
+
+	t.Run("relative path handling", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		// Test relative path
+		require.False(t, st.isSharedCachePath("./relative/path"), "relative path should return false")
+	})
+
+	t.Run("shared cache path as prefix only", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		// Test path that has shared cache dir as a prefix but not as the actual parent
+		// e.g., /home/user/.cache/helmfile-other/path should not match
+		sharedCacheDir := remote.CacheDir()
+		nonSubpath := sharedCacheDir + "-other/chart"
+		require.False(t, st.isSharedCachePath(nonSubpath), "path with shared cache as prefix but not subdirectory should return false")
+	})
+
+	t.Run("symlink to shared cache directory", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		sharedCacheDir := remote.CacheDir()
+		chartRelPath := filepath.Join("envoyproxy", "gateway-helm", "1.6.2", "gateway-helm")
+		targetChartPath := filepath.Join(sharedCacheDir, chartRelPath)
+
+		if err := os.MkdirAll(targetChartPath, 0755); err != nil {
+			t.Skipf("skipping symlink test; unable to create target directory: %v", err)
+		}
+		defer os.RemoveAll(filepath.Join(sharedCacheDir, "envoyproxy"))
+
+		tempDir, err := os.MkdirTemp("", "helmfile-symlink-test-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tempDir)
+
+		symlinkPath := filepath.Join(tempDir, "cache-link")
+
+		if err := os.Symlink(sharedCacheDir, symlinkPath); err != nil {
+			t.Skipf("skipping symlink test; unable to create symlink: %v", err)
+		}
+
+		chartPath := filepath.Join(symlinkPath, chartRelPath)
+		require.True(t, st.isSharedCachePath(chartPath), "path within symlinked shared cache directory should return true")
+	})
+
+	t.Run("exact match with shared cache directory", func(t *testing.T) {
+		logger := createTestLogger(t)
+		st := &HelmState{
+			logger: logger,
+			fs:     filesystem.DefaultFileSystem(),
+		}
+
+		sharedCacheDir := remote.CacheDir()
+		require.True(t, st.isSharedCachePath(sharedCacheDir), "shared cache directory itself should return true")
+	})
+}
+
+// TestAcquireChartLockSharedCacheSkipRefresh verifies that acquireChartLock
+// returns chartActionUseCached instead of chartActionRefresh when the chart
+// exists in the shared cache, even when refresh is requested. This tests the
+// core fix for the race condition issue #2387.
+func TestAcquireChartLockSharedCacheSkipRefresh(t *testing.T) {
+	logger := createTestLogger(t)
+
+	sharedCacheDir := remote.CacheDir()
+	chartPath := filepath.Join(sharedCacheDir, "testrepo", "testchart", "1.0.0", "testchart")
+
+	err := os.MkdirAll(chartPath, 0755)
+	require.NoError(t, err)
+	defer os.RemoveAll(filepath.Join(sharedCacheDir, "testrepo"))
+
+	chartFile := filepath.Join(chartPath, "Chart.yaml")
+	err = os.WriteFile(chartFile, []byte("name: testchart\nversion: 1.0.0\n"), 0644)
+	require.NoError(t, err)
+
+	st := &HelmState{
+		logger: logger,
+		fs:     filesystem.DefaultFileSystem(),
+	}
+
+	opts := ChartPrepareOptions{
+		SkipRefresh: false,
+	}
+
+	result, err := st.acquireChartLock(chartPath, opts, nil)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	defer result.Release(logger)
+
+	require.Equal(t, chartActionUseCached, result.action, "shared cache chart should use cached, not refresh")
+
+	_, err = os.Stat(chartFile)
+	require.NoError(t, err, "chart in shared cache should not be deleted")
+}
+
+func createTestLogger(t *testing.T) *zap.SugaredLogger {
+	t.Helper()
+	logger, err := zap.NewDevelopment()
+	require.NoError(t, err)
+	return logger.Sugar()
 }
