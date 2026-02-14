@@ -2,6 +2,8 @@ package remote
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -235,16 +237,36 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 	should_cache := query.Get("cache") != "false"
 	delete(query, "cache")
 
+	// Precompute a redacted copy of the query for cache keys and debug logs.
+	// Sensitive query parameters are hashed so that different credentials produce
+	// distinct cache keys without writing the raw secret to disk or log output.
+	// Note: go-getter may still log the full URL internally.
+	var paramsSuffix string
+	var redactedQuery neturl.Values
+	if len(query) > 0 {
+		redactedQuery = maps.Clone(query)
+		for key := range redactedQuery {
+			lk := strings.ToLower(key)
+			if strings.Contains(lk, "token") || strings.Contains(lk, "password") ||
+				strings.Contains(lk, "secret") || strings.Contains(lk, "key") ||
+				strings.Contains(lk, "signature") {
+				orig := redactedQuery[key]
+				hashed := make([]string, len(orig))
+				for i, v := range orig {
+					h := sha256.Sum256([]byte(v))
+					hashed[i] = hex.EncodeToString(h[:])[:8]
+				}
+				redactedQuery[key] = hashed
+			}
+		}
+		paramsSuffix = strings.ReplaceAll(redactedQuery.Encode(), "&", "_")
+	}
+
 	var cacheKey string
 	replacer := strings.NewReplacer(":", "", "//", "_", "/", "_", ".", "_")
 	dirKey := replacer.Replace(srcDir)
-	if len(query) > 0 {
-		q := maps.Clone(query)
-		if q.Has("sshkey") {
-			q.Set("sshkey", "redacted")
-		}
-		paramsKey := strings.ReplaceAll(q.Encode(), "&", "_")
-		cacheKey = fmt.Sprintf("%s.%s", dirKey, paramsKey)
+	if paramsSuffix != "" {
+		cacheKey = fmt.Sprintf("%s.%s", dirKey, paramsSuffix)
 	} else {
 		cacheKey = dirKey
 	}
@@ -258,7 +280,13 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 	cacheDirPath := filepath.Join(r.Home, getterDst)
 	if u.Getter == "normal" {
 		srcDir = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
-		cacheKey = replacer.Replace(srcDir)
+		normalDirKey := replacer.Replace(srcDir)
+		if paramsSuffix != "" {
+			cacheKey = fmt.Sprintf("%s.%s", normalDirKey, paramsSuffix)
+		} else {
+			cacheKey = normalDirKey
+		}
+		getterDst = filepath.Join(cacheBaseDir, cacheKey)
 		cacheDirPath = filepath.Join(r.Home, cacheKey, u.Dir)
 	}
 
@@ -268,7 +296,7 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 
 	{
 		if r.fs.FileExistsAt(cacheDirPath) {
-			return "", fmt.Errorf("%s is not directory. please remove it so that variant could use it for dependency caching", getterDst)
+			return "", fmt.Errorf("%s is not a directory. Please remove it so that helmfile can use it for dependency caching", cacheDirPath)
 		}
 
 		if u.Getter == "normal" {
@@ -294,7 +322,11 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 			getterSrc = strings.Join([]string{getterSrc, query.Encode()}, "?")
 		}
 
-		r.Logger.Debugf("remote> downloading %s to %s", getterSrc, getterDst)
+		logSrc := path
+		if redactedQuery != nil {
+			logSrc = strings.Join([]string{strings.SplitN(path, "?", 2)[0], redactedQuery.Encode()}, "?")
+		}
+		r.Logger.Debugf("remote> downloading %s to %s", logSrc, cacheDirPath)
 
 		switch {
 		case u.Getter == "normal" && u.Scheme == "s3":

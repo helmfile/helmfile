@@ -1,0 +1,11 @@
+releases:
+  - name: test-release-commit1
+    namespace: {{ env "TEST_NS" | default "default" }}
+    chart: ../../../charts/raw
+    values:
+      - {{ env "HTTP_SERVER_URL" }}/api/v4/projects/test/files/values.yaml/raw?ref=commit1
+  - name: test-release-commit2
+    namespace: {{ env "TEST_NS" | default "default" }}
+    chart: ../../../charts/raw
+    values:
+      - {{ env "HTTP_SERVER_URL" }}/api/v4/projects/test/files/values.yaml/raw?ref=commit2
