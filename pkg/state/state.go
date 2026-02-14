@@ -4350,7 +4350,7 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 	return buf.String(), nil
 }
 
-// generateChartPath generates the path of the output directory of the `helmfile fetch` command.
+// generateChartPath generates the path of the output directory for chart downloads (e.g., fetch, pull, OCI chart downloads).
 // It uses a go template with data from the chart name, output directory, release spec, and environment.
 // If no template was provided (via the `--output-dir-template` flag) it uses the DefaultFetchOutputDirTemplate.
 func (st *HelmState) generateChartPath(chartName string, outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {

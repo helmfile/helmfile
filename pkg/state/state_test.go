@@ -4072,6 +4072,68 @@ func TestGenerateChartPath(t *testing.T) {
 	}
 }
 
+func TestGenerateOutputDir(t *testing.T) {
+	tests := []struct {
+		testName          string
+		release           *ReleaseSpec
+		outputDir         string
+		outputDirTemplate string
+		wantErr           bool
+		expected          string
+	}{
+		{
+			testName:          "PathGeneratedWithEnvironmentName",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDir:         "/output-dir",
+			outputDirTemplate: "{{ .OutputDir }}/{{ .Environment.Name }}/{{ .Release.Name }}",
+			wantErr:           false,
+			expected:          "/output-dir/test-env/release-name",
+		},
+		{
+			testName:          "PathGeneratedWithEnvironmentValues",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDir:         "/output-dir",
+			outputDirTemplate: "{{ .OutputDir }}/{{ .Environment.Values.cluster.name }}/{{ .Release.Name }}",
+			wantErr:           false,
+			expected:          "/output-dir/my-test-cluster/release-name",
+		},
+		{
+			testName:          "PathGeneratedWithEnvironmentKubeContext",
+			release:           &ReleaseSpec{Name: "release-name"},
+			outputDir:         "/output-dir",
+			outputDirTemplate: "{{ .OutputDir }}/{{ .Environment.KubeContext }}/{{ .Release.Name }}",
+			wantErr:           false,
+			expected:          "/output-dir/test-kubecontext/release-name",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			st := &HelmState{
+				FilePath: "test.yaml",
+				ReleaseSetSpec: ReleaseSetSpec{
+					Env: environment.Environment{
+						Name:        "test-env",
+						KubeContext: "test-kubecontext",
+						Values: map[string]any{
+							"cluster": map[string]any{
+								"name": "my-test-cluster",
+							},
+						},
+					},
+				},
+			}
+			got, err := st.GenerateOutputDir(tt.outputDir, tt.release, tt.outputDirTemplate)
+
+			if tt.wantErr {
+				require.Errorf(t, err, "GenerateOutputDir() error \"%v\", want error", err)
+			} else {
+				require.NoError(t, err, "GenerateOutputDir() error \"%v\", want no error", err)
+			}
+			require.Equalf(t, tt.expected, got, "GenerateOutputDir() got \"%v\", want \"%v\"", got, tt.expected)
+		})
+	}
+}
+
 func TestCommonDiffFlags(t *testing.T) {
 	tests := []struct {
 		name string

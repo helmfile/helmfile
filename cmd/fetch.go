@@ -34,7 +34,7 @@ func NewFetchCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f := cmd.Flags()
 	f.IntVar(&fetchOptions.Concurrency, "concurrency", 0, "maximum number of concurrent helm processes to run, 0 is unlimited")
 	f.StringVar(&fetchOptions.OutputDir, "output-dir", "", "directory to store charts (default: temporary directory which is deleted when the command terminates)")
-	f.StringVar(&fetchOptions.OutputDirTemplate, "output-dir-template", state.DefaultFetchOutputDirTemplate, "go text template for generating the output directory. Available fields: {{ .OutputDir }}, {{ .ChartName }}, {{ .Release.* }}, {{ .Environment.* }}")
+	f.StringVar(&fetchOptions.OutputDirTemplate, "output-dir-template", state.DefaultFetchOutputDirTemplate, "go text template for generating the output directory. Available fields: {{ .OutputDir }}, {{ .ChartName }}, {{ .Release.* }}, {{ .Environment.Name }}, {{ .Environment.KubeContext }}, {{ .Environment.Values.* }}")
 
 	return cmd
 }
