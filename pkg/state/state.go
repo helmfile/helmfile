@@ -1565,7 +1565,7 @@ func (st *HelmState) processLocalChart(normalizedChart, dir string, release *Rel
 	if helmfileCommand == "pull" && isLocal {
 		chartAbsPath := strings.TrimSuffix(filepath.Clean(normalizedChart), "/")
 		var err error
-		chartPath, err = generateChartPath(filepath.Base(chartAbsPath), dir, release, opts.OutputDirTemplate)
+		chartPath, err = st.generateChartPath(filepath.Base(chartAbsPath), dir, release, opts.OutputDirTemplate)
 		if err != nil {
 			return "", err
 		}
@@ -1589,7 +1589,7 @@ func (st *HelmState) forcedDownloadChart(chartName, dir string, release *Release
 		return cachedPath, nil
 	}
 
-	chartPath, err := generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
+	chartPath, err := st.generateChartPath(chartName, dir, release, opts.OutputDirTemplate)
 	if err != nil {
 		return "", err
 	}
@@ -4326,10 +4326,12 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 		AbsPathSHA1 string
 	}
 
+	// Template data for output-dir-template. Environment provides .Name, .KubeContext, and .Values fields.
 	data := struct {
-		OutputDir string
-		State     state
-		Release   *ReleaseSpec
+		OutputDir   string
+		State       state
+		Release     *ReleaseSpec
+		Environment environment.Environment
 	}{
 		OutputDir: outputDir,
 		State: state{
@@ -4338,7 +4340,8 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 			AbsPath:     stateAbsPath,
 			AbsPathSHA1: sha1sum,
 		},
-		Release: release,
+		Release:     release,
+		Environment: st.Env,
 	}
 
 	if err := t.Execute(buf, data); err != nil {
@@ -4348,10 +4351,10 @@ func (st *HelmState) GenerateOutputDir(outputDir string, release *ReleaseSpec, o
 	return buf.String(), nil
 }
 
-// generateChartPath generates the path of the output directory of the `helmfile fetch` command.
-// It uses a go template with data from the chart name, output directory and release spec.
+// generateChartPath generates the path of the output directory for chart downloads (e.g., fetch, pull, OCI chart downloads).
+// It uses a go template with data from the chart name, output directory, release spec, and environment.
 // If no template was provided (via the `--output-dir-template` flag) it uses the DefaultFetchOutputDirTemplate.
-func generateChartPath(chartName string, outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
+func (st *HelmState) generateChartPath(chartName string, outputDir string, release *ReleaseSpec, outputDirTemplate string) (string, error) {
 	if outputDirTemplate == "" {
 		outputDirTemplate = DefaultFetchOutputDirTemplate
 	}
@@ -4362,14 +4365,17 @@ func generateChartPath(chartName string, outputDir string, release *ReleaseSpec,
 	}
 
 	buf := &bytes.Buffer{}
+	// Template data for output-dir-template. Environment provides .Name, .KubeContext, and .Values fields.
 	data := struct {
-		ChartName string
-		OutputDir string
-		Release   ReleaseSpec
+		ChartName   string
+		OutputDir   string
+		Release     ReleaseSpec
+		Environment environment.Environment
 	}{
-		ChartName: chartName,
-		OutputDir: outputDir,
-		Release:   *release,
+		ChartName:   chartName,
+		OutputDir:   outputDir,
+		Release:     *release,
+		Environment: st.Env,
 	}
 	if err := t.Execute(buf, data); err != nil {
 		return "", fmt.Errorf("executing output-dir-template template: %w", err)
@@ -5045,7 +5051,7 @@ func (st *HelmState) FullFilePath() (string, error) {
 
 func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chartName, chartVersion, outputDirTemplate string) (string, error) {
 	if outputDirTemplate != "" {
-		return generateChartPath(chartName, tempDir, release, outputDirTemplate)
+		return st.generateChartPath(chartName, tempDir, release, outputDirTemplate)
 	}
 
 	pathElems := []string{tempDir}
