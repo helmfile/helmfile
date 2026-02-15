@@ -51,6 +51,8 @@ type execer struct {
 	decryptedSecretMutex sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
+	unittestPluginOnce   sync.Once
+	unittestPluginErr    error
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -740,6 +742,30 @@ func (helm *execer) Lint(name, chart string, flags ...string) error {
 	helm.logger.Infof("Linting release=%v, chart=%v", name, chart)
 	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{}, nil)
 	// Always write to stdout to write the linting result to eg. a file
+	helm.write(nil, out)
+	return err
+}
+
+func (helm *execer) Unittest(name, chart string, flags ...string) error {
+	// Check if the helm-unittest plugin is installed (cached across invocations)
+	helm.unittestPluginOnce.Do(func() {
+		var pluginsDir string
+		if helm.IsHelm3() {
+			pluginsDir = cliv3.New().PluginsDirectory
+		} else {
+			pluginsDir = cliv4.New().PluginsDirectory
+		}
+		_, err := GetPluginVersion("unittest", pluginsDir)
+		if err != nil {
+			helm.unittestPluginErr = fmt.Errorf("helm-unittest plugin is required for `helmfile unittest`. Install it with: helm plugin install https://github.com/helm-unittest/helm-unittest: %w", err)
+		}
+	})
+	if helm.unittestPluginErr != nil {
+		return helm.unittestPluginErr
+	}
+
+	helm.logger.Infof("Unit testing release=%v, chart=%v", name, chart)
+	out, err := helm.exec(append([]string{"unittest", chart}, flags...), map[string]string{}, nil)
 	helm.write(nil, out)
 	return err
 }

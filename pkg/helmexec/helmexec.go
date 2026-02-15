@@ -28,6 +28,7 @@ type Interface interface {
 	ChartPull(chart string, path string, flags ...string) error
 	ChartExport(chart string, path string) error
 	Lint(name, chart string, flags ...string) error
+	Unittest(name, chart string, flags ...string) error
 	ReleaseStatus(context HelmContext, name string, flags ...string) error
 	DeleteRelease(context HelmContext, name string, flags ...string) error
 	TestRelease(context HelmContext, name string, flags ...string) error

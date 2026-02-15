@@ -207,6 +207,23 @@ type LintConfigProvider interface {
 	concurrencyConfig
 }
 
+type UnittestConfigProvider interface {
+	Args() string
+
+	Values() []string
+	Set() []string
+	FailFast() bool
+	Color() bool
+	DebugPlugin() bool
+	SkipDeps() bool
+	SkipRefresh() bool
+	SkipCleanup() bool
+
+	DAGConfig
+
+	concurrencyConfig
+}
+
 type FetchConfigProvider interface {
 	SkipDeps() bool
 	SkipRefresh() bool

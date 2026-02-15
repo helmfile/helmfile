@@ -142,6 +142,10 @@ func (helm *noCallHelmExec) Lint(name, chart string, flags ...string) error {
 	helm.doPanic()
 	return nil
 }
+func (helm *noCallHelmExec) Unittest(name, chart string, flags ...string) error {
+	helm.doPanic()
+	return nil
+}
 func (helm *noCallHelmExec) IsHelm3() bool {
 	helm.doPanic()
 	return false

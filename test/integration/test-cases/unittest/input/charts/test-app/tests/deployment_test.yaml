@@ -1,0 +1,20 @@
+suite: test deployment
+templates:
+  - templates/deployment.yaml
+tests:
+  - it: should create deployment with correct replicas
+    set:
+      replicaCount: 3
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+
+  - it: should use the correct image
+    set:
+      image.repository: nginx
+      image.tag: "1.21"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "nginx:1.21"

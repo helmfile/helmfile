@@ -380,6 +380,11 @@ releases:
       - "version"
     # syncReleaseLabels is a list of labels to be added to the release when syncing.
     syncReleaseLabels: false
+    # unitTests is a list of test file or directory paths for helm-unittest integration.
+    # When specified, `helmfile unittest` will run `helm unittest` with the merged values and these test paths.
+    # Requires the helm-unittest plugin: https://github.com/helm-unittest/helm-unittest
+    unitTests:
+      - tests/vault
 
 
   # Local chart example
@@ -619,6 +624,7 @@ Available Commands:
   sync         Sync releases defined in state file
   template     Template releases defined in state file
   test         Test charts from state file (helm test)
+  unittest     Unit test charts from state file using helm-unittest plugin
   version      Print the CLI version
   write-values Write values files for releases. Similar to `helmfile template`, write values files instead of manifests.
 
@@ -786,6 +792,64 @@ Use `--cleanup` to delete pods upon completion.
 ### lint
 
 The `helmfile lint` sub-command runs a `helm lint` across all of the charts/releases defined in the manifest. Non local charts will be fetched into a temporary folder which will be deleted once the task is completed.
+
+### unittest
+
+The `helmfile unittest` sub-command runs `helm unittest` (from the [helm-unittest plugin](https://github.com/helm-unittest/helm-unittest)) on releases that have `unitTests` defined. It automatically generates the final merged values files for each release and passes them to `helm unittest`.
+
+This requires the `helm-unittest` plugin to be installed. You can install it with:
+
+```bash
+helm plugin install https://github.com/helm-unittest/helm-unittest
+```
+
+Releases without `unitTests` defined are skipped. Non-local charts will be fetched into a temporary folder which will be deleted once the task is completed.
+
+Example helmfile configuration:
+
+```yaml
+releases:
+  - name: my-app
+    chart: ./charts/my-app
+    values:
+      - values.yaml
+    unitTests:
+      - tests
+```
+
+The `unitTests` paths are relative to the chart directory and follow helm-unittest conventions.
+If a path does not contain glob characters, it is treated as a directory and `/*_test.yaml` is appended automatically.
+You can also specify explicit glob patterns (e.g., `tests/**/*_test.yaml`).
+
+Running `helmfile unittest` will:
+
+1. Merge all values files defined for the release
+2. Run `helm unittest ./charts/my-app --values <merged-values> --file tests/*_test.yaml`
+
+You can pass additional flags:
+
+```bash
+# Run with additional values
+helmfile unittest --values extra-values.yaml
+
+# Run with --set overrides
+helmfile unittest --set key=value
+
+# Target specific releases
+helmfile unittest --selector name=my-app
+
+# Fail fast on first test failure
+helmfile unittest --fail-fast
+
+# Enable colored output (Helm 3 only; ignored on Helm 4 due to flag parsing issues)
+helmfile unittest --color
+
+# Enable verbose plugin output
+helmfile unittest --debug-plugin
+
+# Pass extra arguments to helm unittest
+helmfile unittest --args "--strict"
+```
 
 ### fetch
 
