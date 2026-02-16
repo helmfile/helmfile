@@ -1156,7 +1156,6 @@ HCL values supports interpolations and sharing values across files
 * There can only be 1 `locals` block per file
 * Helmfile hcl `values` are referenced using the `hv` accessor.
 * Helmfile hcl `locals` are referenced using the `local` accessor.
-* Duplicated variables across .hcl `values` blocks are forbidden (An error will pop up specifying where are the duplicates)
 * All cty [standard library functions](`https://pkg.go.dev/github.com/zclconf/go-cty@v1.14.3/cty/function/stdlib`) are available and custom functions could be created in the future
 
 Consider the following example :
