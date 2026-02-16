@@ -26,6 +26,64 @@ const (
 	localsAccessorPrefix  = "local"
 )
 
+func hclParseError(key string, hv *HelmfileHCLValue) *hcl.Diagnostic {
+	return &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Unable to parse HCL expression",
+		Detail: fmt.Sprintf("The helmfile_var %q defined at %s:%d can't be parsed",
+			key, hv.Range.Filename, hv.Range.Start.Line),
+		Subject: &hv.Range,
+	}
+}
+
+func hclExprValues(expr hcl.Expression, ctx *hcl.EvalContext) (cty.Value, hcl.Diagnostics) {
+	if ctx == nil {
+		ctx = &hcl.EvalContext{}
+	}
+	return expr.Value(ctx)
+}
+
+// ctyMergeValues returns a new cty.Value that is the deep‑merge of a and b.
+// a is the “base”, b is the “override”
+func ctyMergeValues(a, b cty.Value) cty.Value {
+	// If b is null, keep a.
+	if !b.IsKnown() || b.IsNull() {
+		return a
+	}
+
+	// If a is null, just return b.
+	if !a.IsKnown() || a.IsNull() {
+		return b
+	}
+
+	// Objects -> merge per key.
+	if a.Type().IsObjectType() && b.Type().IsObjectType() {
+		mergedAttrs := make(map[string]cty.Value)
+		// Start with all attrs from a.
+		for name, av := range a.AsValueMap() {
+			mergedAttrs[name] = av
+		}
+		// Overlay attrs from b.
+		for name, bv := range b.AsValueMap() {
+			if av, ok := mergedAttrs[name]; ok {
+				mergedAttrs[name] = ctyMergeValues(av, bv)
+			} else {
+				mergedAttrs[name] = bv
+			}
+		}
+		return cty.ObjectVal(mergedAttrs)
+	}
+
+	// Tuples / Lists -> replace
+	if a.Type().IsTupleType() && b.Type().IsTupleType() ||
+		a.Type().IsListType() && b.Type().IsListType() {
+		return b
+	}
+
+	// Anything else (numbers, strings, bools, etc.) -> right‑hand side wins.
+	return b
+}
+
 // HelmfileHCLValue represents a single entry from a "values" or "locals" block file.
 // The blocks itself is not represented, because it serves only to
 // provide context for us to interpret its contents.
@@ -256,18 +314,24 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 			}
 		}
 
-		// make sure vars are unique across blocks
+		// override HCL expressions across files, if any
 		for k := range helmfileBlockVars {
 			if hvars[k] != nil {
 				var diags hcl.Diagnostics
-				diags = append(diags, &hcl.Diagnostic{
-					Severity: hcl.DiagError,
-					Summary:  "Duplicate helmfile_vars definition",
-					Detail: fmt.Sprintf("The helmfile_var %q was already defined at %s:%d",
-						k, hvars[k].Range.Filename, hvars[k].Range.Start.Line),
-					Subject: &helmfileBlockVars[k].Range,
-				})
-				return nil, nil, diags
+				origValues, diags := hclExprValues(hvars[k].Expr, nil)
+				if diags.HasErrors() {
+					diags = append(diags, hclParseError(k, hvars[k]))
+					return nil, nil, diags
+				}
+
+				newValues, diags := hclExprValues(helmfileBlockVars[k].Expr, nil)
+				if diags.HasErrors() {
+					diags = append(diags, hclParseError(k, hvars[k]))
+					return nil, nil, diags
+				}
+
+				mergedValues := ctyMergeValues(origValues, newValues)
+				hvars[k].Expr = hcl.StaticExpr(mergedValues, hvars[k].Range)
 			}
 		}
 		err = mergo.Merge(&hvars, &helmfileBlockVars)
