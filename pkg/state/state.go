@@ -335,6 +335,10 @@ type ReleaseSpec struct {
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
 	Hooks []event.Hook `yaml:"hooks,omitempty"`
 
+	// UnitTests is a list of test file or directory paths for helm-unittest integration.
+	// When specified, `helmfile unittest` will run `helm unittest` with the merged values and these test paths.
+	UnitTests []string `yaml:"unitTests,omitempty"`
+
 	// Name is the name of this release
 	Name            string            `yaml:"name,omitempty"`
 	Namespace       string            `yaml:"namespace,omitempty"`
@@ -2170,6 +2174,157 @@ func (st *HelmState) LintReleases(helm helmexec.Interface, additionalValues []st
 
 		if _, err := st.TriggerCleanupEvent(&release, "lint"); err != nil {
 			st.logger.Warnf("warn: %v\n", err)
+		}
+	}
+
+	if len(errs) != 0 {
+		return errs
+	}
+
+	return nil
+}
+
+// UnittestOpts is the options for the unittest command
+type UnittestOpts struct {
+	Set         []string
+	SkipCleanup bool
+	FailFast    bool
+	Color       bool
+	DebugPlugin bool
+}
+
+// UnittestOpt is a functional option for UnittestOpts
+type UnittestOpt interface {
+	Apply(*UnittestOpts)
+}
+
+// Apply implements UnittestOpt
+func (o *UnittestOpts) Apply(opts *UnittestOpts) {
+	*opts = *o
+}
+
+// UnittestReleases runs helm unittest on each release that has unitTests defined.
+// The workerLimit parameter is currently unused but kept for API consistency with
+// similar methods (e.g., LintReleases).
+func (st *HelmState) UnittestReleases(helm helmexec.Interface, additionalValues []string, args []string, _ int, opt ...UnittestOpt) []error {
+	opts := &UnittestOpts{}
+	for _, o := range opt {
+		o.Apply(opts)
+	}
+
+	helm.SetExtraArgs()
+
+	errs := []error{}
+
+	if len(args) > 0 {
+		helm.SetExtraArgs(args...)
+	}
+
+	for i := range st.Releases {
+		release := st.Releases[i]
+
+		if !release.Desired() {
+			continue
+		}
+
+		if len(release.UnitTests) == 0 {
+			continue
+		}
+
+		flags, files, err := st.flagsForLint(helm, &release, 0)
+
+		if !opts.SkipCleanup {
+			defer st.removeFiles(files)
+		}
+
+		releaseErr := false
+		if err != nil {
+			errs = append(errs, err)
+			releaseErr = true
+		}
+		for _, value := range additionalValues {
+			valfile, err := filepath.Abs(value)
+			if err != nil {
+				errs = append(errs, err)
+				releaseErr = true
+				break
+			}
+
+			// Check for any stat error (not just IsNotExist) to also catch
+			// permission denied, I/O errors, etc. before passing to helm.
+			// This intentionally differs from LintReleases which only checks IsNotExist.
+			if _, err := os.Stat(valfile); err != nil {
+				errs = append(errs, err)
+				releaseErr = true
+				break
+			}
+			flags = append(flags, "--values", valfile)
+		}
+
+		if releaseErr {
+			continue
+		}
+
+		if opts.Set != nil {
+			for _, s := range opts.Set {
+				flags = append(flags, "--set", s)
+			}
+		}
+
+		if opts.FailFast {
+			flags = append(flags, "--failfast")
+		}
+
+		if opts.Color {
+			// In Helm 4, --color is parsed by Helm itself before reaching the plugin.
+			// See https://github.com/helmfile/helmfile/issues/2280 for details.
+			// Skip the flag with a warning since helm-unittest does not currently
+			// support an env var alternative for colored output.
+			if helm.IsHelm4() {
+				st.logger.Warnf("warn: --color flag is not supported with Helm 4 due to flag parsing issues, ignoring\n")
+			} else {
+				flags = append(flags, "--color")
+			}
+		}
+
+		if opts.DebugPlugin {
+			flags = append(flags, "--debugPlugin")
+		}
+
+		// Add unit test file/directory paths as glob patterns for --file flag.
+		// Paths are relative to the chart directory (matching helm-unittest conventions).
+		// If the path has no glob characters and does not look like a YAML file,
+		// treat it as a directory and append a glob suffix.
+		// Validate and add unit test file/directory paths.
+		// Reject absolute paths and paths that escape the chart directory via "..".
+		for _, testPath := range release.UnitTests {
+			cleanPath := filepath.Clean(testPath)
+			if filepath.IsAbs(cleanPath) || cleanPath == ".." || strings.HasPrefix(cleanPath, ".."+string(filepath.Separator)) {
+				errs = append(errs, fmt.Errorf("release %q: unitTests path %q must be a relative path within the chart directory", release.Name, testPath))
+				releaseErr = true
+				break
+			}
+			if !strings.ContainsAny(testPath, "*?[") {
+				lowerPath := strings.ToLower(testPath)
+				if !strings.HasSuffix(lowerPath, ".yaml") && !strings.HasSuffix(lowerPath, ".yml") {
+					testPath = strings.TrimRight(testPath, "/") + "/*_test.yaml"
+				}
+			}
+			flags = append(flags, "--file", testPath)
+		}
+
+		if len(errs) == 0 || !opts.FailFast {
+			if err := helm.Unittest(release.Name, release.ChartPathOrName(), flags...); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		if _, err := st.TriggerCleanupEvent(&release, "unittest"); err != nil {
+			st.logger.Warnf("warn: %v\n", err)
+		}
+
+		if opts.FailFast && len(errs) > 0 {
+			break
 		}
 	}
 

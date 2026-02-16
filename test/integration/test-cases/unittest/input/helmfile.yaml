@@ -1,0 +1,10 @@
+releases:
+  - name: test-app
+    chart: ./charts/test-app
+    values:
+      - ./charts/test-app/values.yaml
+    unitTests:
+      - tests
+
+  - name: no-tests-app
+    chart: ./charts/test-app

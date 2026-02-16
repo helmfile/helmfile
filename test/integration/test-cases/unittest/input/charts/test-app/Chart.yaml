@@ -1,0 +1,5 @@
+apiVersion: v2
+name: test-app
+description: A test chart for helmfile unittest integration test
+type: application
+version: 0.1.0
