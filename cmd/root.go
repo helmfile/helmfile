@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	stderrors "errors"
 	"fmt"
 	"os"
 
@@ -23,6 +24,10 @@ var globalUsage = "Declaratively deploy your Kubernetes manifests, Kustomize con
 
 func toCLIError(g *config.GlobalImpl, err error) error {
 	if err != nil {
+		var exitErr helmexec.ExitError
+		if stderrors.As(err, &exitErr) {
+			return errors.NewExitError(exitErr.Error(), exitErr.ExitStatus())
+		}
 		switch e := err.(type) {
 		case *app.NoMatchingHelmfileError:
 			noMatchingExitCode := 3
@@ -35,7 +40,7 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 		case *app.Error:
 			return errors.NewExitError(e.Error(), e.Code())
 		default:
-			panic(fmt.Errorf("BUG: please file an github issue for this unhandled error: %T: %v", e, e))
+			return errors.NewExitError(fmt.Sprintf("unexpected error: %T: %v", e, e), 1)
 		}
 	}
 	return err
