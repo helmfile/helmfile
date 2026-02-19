@@ -1,5 +1,3 @@
-processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
 merged environment: &{default  map[] map[] map[]}
 WARNING: release bar needs foo, but foo is not installed due to installed: false. Either mark foo as installed or remove foo from bar's needs
 2 release(s) found in helmfile.yaml
@@ -37,4 +35,3 @@ DELETED RELEASES:
 NAME   NAMESPACE   DURATION
 foo                      0s
 
-changing working directory back to "/path/to"

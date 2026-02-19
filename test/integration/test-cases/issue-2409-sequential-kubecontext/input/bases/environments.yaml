@@ -1,0 +1,4 @@
+environments:
+  test:
+    values:
+    - environments/test.yaml

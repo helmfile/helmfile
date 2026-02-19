@@ -119,7 +119,7 @@ releases:
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	expectedOrder := []string{"a1.yaml", "a2.yaml", "b.yaml", "helmfile.yaml"}
+	expectedOrder := []string{"/path/to/helmfile.d/a1.yaml", "/path/to/helmfile.d/a2.yaml", "/path/to/helmfile.d/b.yaml", "helmfile.yaml"}
 	if !reflect.DeepEqual(actualOrder, expectedOrder) {
 		t.Errorf("unexpected order of processed state files: expected=%v, actual=%v", expectedOrder, actualOrder)
 	}

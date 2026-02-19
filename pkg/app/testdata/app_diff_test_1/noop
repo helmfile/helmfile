@@ -1,5 +1,3 @@
-processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
 merged environment: &{default  map[] map[] map[]}
 2 release(s) found in helmfile.yaml
 
@@ -9,4 +7,3 @@ GROUP RELEASES
 
 processing releases in group 1/1: default//bar
 No affected releases
-changing working directory back to "/path/to"

@@ -5201,6 +5201,11 @@ func (st *HelmState) FullFilePath() (string, error) {
 	if st.fs != nil {
 		wd, err = st.fs.Getwd()
 	}
+	// When FilePath already contains basePath as a prefix (e.g. when loaded
+	// with a baseDir), avoid double-counting basePath in the result.
+	if st.basePath != "" && strings.HasPrefix(st.FilePath, st.basePath+string(filepath.Separator)) {
+		return filepath.Join(wd, st.FilePath), err
+	}
 	return filepath.Join(wd, st.basePath, st.FilePath), err
 }
 
