@@ -703,7 +703,11 @@ bases:
 				if !ok {
 					return nil, fmt.Errorf("file not found: %s", path)
 				}
-				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, DefaultEnv, true, evaluateBases, evaluateBases, inheritedEnv, overrodeEnv)
+				// When loading base files, we don't apply defaults - they should only
+				// be applied to the main file after all parts/bases are merged.
+				// So applyDefaults = evaluateBases (true for main, false for bases).
+				applyDefaults := evaluateBases
+				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, DefaultEnv, true, evaluateBases, applyDefaults, inheritedEnv, overrodeEnv)
 			}
 
 			yamlContent, ok := tt.files[tt.mainFile]
@@ -858,7 +862,11 @@ releases:
 				if !ok {
 					return nil, fmt.Errorf("file not found: %s", path)
 				}
-				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, tt.environment, true, evaluateBases, evaluateBases, inheritedEnv, overrodeEnv)
+				// When loading base files, we don't apply defaults - they should only
+				// be applied to the main file after all parts/bases are merged.
+				// So applyDefaults = evaluateBases (true for main, false for bases).
+				applyDefaults := evaluateBases
+				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, tt.environment, true, evaluateBases, applyDefaults, inheritedEnv, overrodeEnv)
 			}
 
 			yamlContent, ok := tt.files[tt.mainFile]
