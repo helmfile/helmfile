@@ -21,7 +21,7 @@ func createFromYaml(content []byte, file string, env string, logger *zap.Sugared
 		fs:     filesystem.DefaultFileSystem(),
 		Strict: true,
 	}
-	return c.ParseAndLoad(content, filepath.Dir(file), file, env, false, true, nil, nil)
+	return c.ParseAndLoad(content, filepath.Dir(file), file, env, false, true, true, nil, nil)
 }
 
 func TestReadFromYaml(t *testing.T) {
@@ -86,7 +86,7 @@ func (testEnv stateTestEnv) MustLoadStateWithEnableLiveOutput(t *testing.T, file
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, enableLiveOutput, "").
-		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, true, nil, nil)
+		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -156,7 +156,7 @@ releaseNamespace: mynamespace
 		Name: "production",
 	}
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, &env, nil)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, true, &env, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -243,7 +243,7 @@ overrideNamespace: myns
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, nil, nil)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -507,7 +507,7 @@ releaseContext:
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, nil, nil)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -703,7 +703,7 @@ bases:
 				if !ok {
 					return nil, fmt.Errorf("file not found: %s", path)
 				}
-				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, DefaultEnv, true, evaluateBases, inheritedEnv, overrodeEnv)
+				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, DefaultEnv, true, evaluateBases, evaluateBases, inheritedEnv, overrodeEnv)
 			}
 
 			yamlContent, ok := tt.files[tt.mainFile]
@@ -711,7 +711,7 @@ bases:
 				t.Fatalf("no file named %q registered", tt.mainFile)
 			}
 
-			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, DefaultEnv, true, true, nil, nil)
+			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, DefaultEnv, true, true, true, nil, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -858,7 +858,7 @@ releases:
 				if !ok {
 					return nil, fmt.Errorf("file not found: %s", path)
 				}
-				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, tt.environment, true, evaluateBases, inheritedEnv, overrodeEnv)
+				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, tt.environment, true, evaluateBases, evaluateBases, inheritedEnv, overrodeEnv)
 			}
 
 			yamlContent, ok := tt.files[tt.mainFile]
@@ -866,7 +866,7 @@ releases:
 				t.Fatalf("no file named %q registered", tt.mainFile)
 			}
 
-			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, tt.environment, true, true, nil, nil)
+			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, tt.environment, true, true, true, nil, nil)
 			if tt.expectedError {
 				require.Error(t, err, "expected an error but got none")
 				return

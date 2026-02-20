@@ -177,7 +177,7 @@ func (a *desiredStateLoader) underlying() *state.StateCreator {
 	return c
 }
 
-func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
+func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluateBases bool, applyDefaults bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
 	var st *state.HelmState
 	var err error
 	merged, err := env.Merge(overrodeEnv)
@@ -185,7 +185,7 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 		return nil, err
 	}
 
-	st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, merged, nil)
+	st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, applyDefaults, merged, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +245,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			baseDir,
 			filename,
 			evaluateBases,
+			false, // Don't apply defaults for individual parts - apply after all parts are merged
 			env,
 			overrodeEnv,
 		)
@@ -295,6 +296,14 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 				Cause: &state.UndefinedEnvError{Env: env.Name},
 			}
 		}
+	}
+
+	// After all parts are merged, re-apply defaults and overrides to ensure
+	// that values from earlier parts (like helmBinary) are not incorrectly
+	// overridden by defaults applied during individual part processing.
+	// See https://github.com/helmfile/helmfile/issues/2319
+	if evaluateBases {
+		ld.underlying().ApplyDefaultsAndOverrides(finalState)
 	}
 
 	// If environments are not defined in the helmfile at all although the env is specified,
