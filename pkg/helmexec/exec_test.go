@@ -1321,13 +1321,14 @@ func Test_GetPluginVersion_XDGPaths(t *testing.T) {
 	v3PluginDirPath := "../../test/plugins/secrets/3.15.0"
 	v4PluginDirPath := "../../test/plugins/secrets/4.7.4"
 
-	xdgPaths := "/nonexistent/path:" + v3PluginDirPath + ":/another/nonexistent"
+	sep := string(os.PathListSeparator)
+	xdgPaths := "nonexistent/path" + sep + v3PluginDirPath + sep + "another/nonexistent"
 
 	pluginVersion, err := GetPluginVersion("secrets", xdgPaths)
 	require.NoError(t, err)
 	assert.Equal(t, v3ExpectedVersion, pluginVersion.String())
 
-	xdgPathsV4 := v4PluginDirPath + ":/nonexistent/path"
+	xdgPathsV4 := v4PluginDirPath + sep + "nonexistent/path"
 	pluginVersion, err = GetPluginVersion("secrets", xdgPathsV4)
 	require.NoError(t, err)
 	assert.Equal(t, v4ExpectedVersion, pluginVersion.String())

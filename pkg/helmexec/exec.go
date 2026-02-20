@@ -116,11 +116,19 @@ type PluginMetadata struct {
 func GetPluginVersion(name, pluginsDir string) (*semver.Version, error) {
 	pluginDirs := filepath.SplitList(pluginsDir)
 
+	var firstReadErr error
 	for _, dir := range pluginDirs {
+		if dir == "" {
+			continue
+		}
+
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
+			}
+			if firstReadErr == nil {
+				firstReadErr = err
 			}
 			continue
 		}
@@ -147,6 +155,9 @@ func GetPluginVersion(name, pluginsDir string) (*semver.Version, error) {
 		}
 	}
 
+	if firstReadErr != nil {
+		return nil, firstReadErr
+	}
 	return nil, fmt.Errorf("plugin %s not installed", name)
 }
 
