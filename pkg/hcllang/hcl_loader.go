@@ -331,7 +331,7 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 				}
 
 				mergedValues := ctyMergeValues(origValues, newValues)
-				hvars[k].Expr = hcl.StaticExpr(mergedValues, hvars[k].Range)
+				hvars[k].Expr = hcl.StaticExpr(mergedValues, helmfileBlockVars[k].Range)
 			}
 		}
 		err = mergo.Merge(&hvars, &helmfileBlockVars)
