@@ -177,7 +177,7 @@ func (a *desiredStateLoader) underlying() *state.StateCreator {
 	return c
 }
 
-func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluateBases bool, applyDefaults bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
+func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
 	var st *state.HelmState
 	var err error
 	merged, err := env.Merge(overrodeEnv)
@@ -185,7 +185,8 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 		return nil, err
 	}
 
-	st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, applyDefaults, merged, nil)
+	// applyDefaults is always false here - defaults are applied after all parts are merged
+	st, err = a.underlying().ParseAndLoad(yaml, baseDir, file, a.env, false, evaluateBases, false, merged, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +246,6 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			baseDir,
 			filename,
 			evaluateBases,
-			false, // Don't apply defaults for individual parts - apply after all parts are merged
 			env,
 			overrodeEnv,
 		)
