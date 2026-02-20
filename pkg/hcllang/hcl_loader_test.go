@@ -390,8 +390,8 @@ func TestHCL_ValuesOverride(t *testing.T) {
 		t.Errorf("Expected replicas=3 (overridden), got %v", config["replicas"])
 	}
 
-	if config["image"] != "v1.0" {
-		t.Errorf("Expected image=v1.0 (preserved from file1), got %v", config["image"])
+	if config["image"] != "v1.1" {
+		t.Errorf("Expected image=v1.1 (preserved from file1), got %v", config["image"])
 	}
 
 	if config["debug"] != true {
@@ -404,9 +404,14 @@ func TestHCL_ValuesOverride(t *testing.T) {
 		t.Errorf("Expected tags to be preserved from file1, got %v", actual["tags"])
 	}
 
-	// Verify new key from file2
+	// Verify new key from file2, using hv accessor
 	if actual["region"] != "us-east" {
 		t.Errorf("Expected region=us-east (new in file2), got %v", actual["region"])
+	}
+
+	// Verify new uppered key from file2
+	if actual["status"] != "READY" {
+		t.Errorf("Expected status=READY (new in file2), got %v", actual["status"])
 	}
 }
 
