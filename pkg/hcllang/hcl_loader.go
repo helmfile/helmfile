@@ -26,16 +26,6 @@ const (
 	localsAccessorPrefix  = "local"
 )
 
-func hclParseError(key string, hv *HelmfileHCLValue) *hcl.Diagnostic {
-	return &hcl.Diagnostic{
-		Severity: hcl.DiagError,
-		Summary:  "Unable to parse HCL expression",
-		Detail: fmt.Sprintf("The helmfile_var %q defined at %s:%d can't be parsed",
-			key, hv.Range.Filename, hv.Range.Start.Line),
-		Subject: &hv.Range,
-	}
-}
-
 // ctyMergeValues returns a new cty.Value that is the deep‑merge of a and b.
 // a is the “base”, b is the “override”
 func ctyMergeValues(a, b cty.Value) cty.Value {
