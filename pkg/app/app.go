@@ -1106,40 +1106,13 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 
 				st.Selectors = opts.Selectors
 
-				visitSubHelmfiles := func() error {
-					if len(st.Helmfiles) > 0 {
-						noMatchInSubHelmfiles := true
-						for i, m := range st.Helmfiles {
-							optsForNestedState := LoadOpts{
-								CalleePath:        filepath.Join(absd, file),
-								Environment:       m.Environment,
-								Reverse:           defOpts.Reverse,
-								RetainValuesFiles: defOpts.RetainValuesFiles,
-							}
-							if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-								optsForNestedState.Selectors = opts.Selectors
-							} else {
-								optsForNestedState.Selectors = m.Selectors
-							}
-
-							if err := a.visitStatesWithContext(m.Path, optsForNestedState, converge, sharedCtx); err != nil {
-								switch err.(type) {
-								case *NoMatchingHelmfileError:
-								default:
-									return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
-								}
-							} else {
-								noMatchInSubHelmfiles = false
-							}
-						}
-						noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
-					}
-					return nil
-				}
-
-				if !opts.Reverse {
-					if err := visitSubHelmfiles(); err != nil {
+				if !opts.Reverse && len(st.Helmfiles) > 0 {
+					matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
+					if err != nil {
 						return err
+					}
+					if matched {
+						noMatchInHelmfiles = false
 					}
 				}
 
@@ -1169,9 +1142,13 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 				if len(errs) == 0 {
 					noMatchInHelmfiles = noMatchInHelmfiles && !processed
 
-					if opts.Reverse {
-						if err := visitSubHelmfiles(); err != nil {
+					if opts.Reverse && len(st.Helmfiles) > 0 {
+						matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
+						if err != nil {
 							return err
+						}
+						if matched {
+							noMatchInHelmfiles = false
 						}
 					}
 				}

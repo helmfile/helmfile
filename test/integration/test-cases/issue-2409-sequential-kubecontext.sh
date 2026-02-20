@@ -23,6 +23,10 @@ grep -q "test-release-2409" ${issue_2409_tmp}/sequential.log \
 grep -q "test-infra-2409" ${issue_2409_tmp}/sequential.log \
     || fail "release test-infra-2409 from 02-infra.yaml should be in output"
 
+# Verify kubeContext was correctly applied
+grep -q "test-context" ${issue_2409_tmp}/sequential.log \
+    || fail "kubeContext 'test-context' should appear in template output"
+
 rm -rf ${issue_2409_tmp}
 
 test_pass "issue 2409 sequential helmfiles with kubeContext"

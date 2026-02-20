@@ -152,7 +152,7 @@ It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still dis
 	fs.BoolVarP(&globalOptions.Interactive, "interactive", "i", false, "Request confirmation before attempting to modify clusters")
 	fs.BoolVar(&globalOptions.SequentialHelmfiles, "sequential-helmfiles", false, `Process helmfile.d files sequentially in alphabetical order instead of in parallel.
 Useful when file order matters for dependencies (e.g., databases before applications).
-Both parallel and sequential modes resolve paths without changing the process working directory,
+When processing multiple files, paths are resolved without changing the process working directory,
 so relative environment variables like KUBECONFIG work correctly.`)
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")

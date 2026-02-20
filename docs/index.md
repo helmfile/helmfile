@@ -1444,7 +1444,7 @@ For example, you can use a `<two digit number>-<microservice>.yaml` naming conve
 helmfile --sequential-helmfiles sync
 ```
 
-> **Note:** Both parallel and sequential modes resolve paths without changing the process working directory, so relative environment variables like `KUBECONFIG` work correctly.
+> **Note:** When processing multiple helmfile.d files, both parallel and sequential modes resolve paths without changing the process working directory, so relative environment variables like `KUBECONFIG` work correctly.
 
 ### Glob patterns
 
