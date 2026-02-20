@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/zclconf/go-cty/cty"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -159,5 +162,359 @@ func TestHCL_resultValidate(t *testing.T) {
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
 		t.Error(diff)
+	}
+}
+
+func TestCtyMergeValues_SimpleTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        cty.Value
+		b        cty.Value
+		expected cty.Value
+	}{
+		{
+			name:     "merge strings - b wins",
+			a:        cty.StringVal("original"),
+			b:        cty.StringVal("override"),
+			expected: cty.StringVal("override"),
+		},
+		{
+			name:     "merge numbers - b wins",
+			a:        cty.NumberIntVal(42),
+			b:        cty.NumberIntVal(100),
+			expected: cty.NumberIntVal(100),
+		},
+		{
+			name:     "merge bools - b wins",
+			a:        cty.BoolVal(true),
+			b:        cty.BoolVal(false),
+			expected: cty.BoolVal(false),
+		},
+		{
+			name:     "b is null - keep a",
+			a:        cty.StringVal("keep"),
+			b:        cty.NullVal(cty.String),
+			expected: cty.StringVal("keep"),
+		},
+		{
+			name:     "a is null - use b",
+			a:        cty.NullVal(cty.String),
+			b:        cty.StringVal("new"),
+			expected: cty.StringVal("new"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctyMergeValues(tt.a, tt.b)
+			if !result.RawEquals(tt.expected) {
+				t.Errorf("ctyMergeValues() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCtyMergeValues_Objects(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        cty.Value
+		b        cty.Value
+		expected cty.Value
+	}{
+		{
+			name: "merge objects - shallow override",
+			a: cty.ObjectVal(map[string]cty.Value{
+				"key1": cty.StringVal("value1"),
+				"key2": cty.StringVal("value2"),
+			}),
+			b: cty.ObjectVal(map[string]cty.Value{
+				"key2": cty.StringVal("overridden"),
+				"key3": cty.StringVal("new"),
+			}),
+			expected: cty.ObjectVal(map[string]cty.Value{
+				"key1": cty.StringVal("value1"),
+				"key2": cty.StringVal("overridden"),
+				"key3": cty.StringVal("new"),
+			}),
+		},
+		{
+			name: "merge objects - nested merge",
+			a: cty.ObjectVal(map[string]cty.Value{
+				"parent": cty.ObjectVal(map[string]cty.Value{
+					"child1": cty.StringVal("original"),
+					"child2": cty.StringVal("keep"),
+				}),
+			}),
+			b: cty.ObjectVal(map[string]cty.Value{
+				"parent": cty.ObjectVal(map[string]cty.Value{
+					"child1": cty.StringVal("override"),
+					"child3": cty.StringVal("new"),
+				}),
+			}),
+			expected: cty.ObjectVal(map[string]cty.Value{
+				"parent": cty.ObjectVal(map[string]cty.Value{
+					"child1": cty.StringVal("override"),
+					"child2": cty.StringVal("keep"),
+					"child3": cty.StringVal("new"),
+				}),
+			}),
+		},
+		{
+			name: "merge objects - new keys in b",
+			a: cty.ObjectVal(map[string]cty.Value{
+				"existing": cty.StringVal("value"),
+			}),
+			b: cty.ObjectVal(map[string]cty.Value{
+				"new1": cty.StringVal("newvalue1"),
+				"new2": cty.NumberIntVal(42),
+			}),
+			expected: cty.ObjectVal(map[string]cty.Value{
+				"existing": cty.StringVal("value"),
+				"new1":     cty.StringVal("newvalue1"),
+				"new2":     cty.NumberIntVal(42),
+			}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctyMergeValues(tt.a, tt.b)
+			if !result.RawEquals(tt.expected) {
+				t.Errorf("ctyMergeValues() = %#v, want %#v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCtyMergeValues_Lists(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        cty.Value
+		b        cty.Value
+		expected cty.Value
+	}{
+		{
+			name: "merge lists - b replaces a",
+			a: cty.ListVal([]cty.Value{
+				cty.StringVal("a"),
+				cty.StringVal("b"),
+			}),
+			b: cty.ListVal([]cty.Value{
+				cty.StringVal("x"),
+				cty.StringVal("y"),
+				cty.StringVal("z"),
+			}),
+			expected: cty.ListVal([]cty.Value{
+				cty.StringVal("x"),
+				cty.StringVal("y"),
+				cty.StringVal("z"),
+			}),
+		},
+		{
+			name: "merge tuples - b replaces a",
+			a: cty.TupleVal([]cty.Value{
+				cty.StringVal("a"),
+				cty.NumberIntVal(1),
+			}),
+			b: cty.TupleVal([]cty.Value{
+				cty.StringVal("x"),
+				cty.NumberIntVal(99),
+			}),
+			expected: cty.TupleVal([]cty.Value{
+				cty.StringVal("x"),
+				cty.NumberIntVal(99),
+			}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ctyMergeValues(tt.a, tt.b)
+			if !result.RawEquals(tt.expected) {
+				t.Errorf("ctyMergeValues() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHclParseError(t *testing.T) {
+	hv := &HelmfileHCLValue{
+		Name: "testVar",
+		Range: hcl.Range{
+			Filename: "test.hcl",
+			Start:    hcl.Pos{Line: 10, Column: 5},
+		},
+	}
+
+	diag := hclParseError("myKey", hv)
+
+	if diag.Severity != hcl.DiagError {
+		t.Errorf("Expected severity DiagError, got %v", diag.Severity)
+	}
+
+	if diag.Summary != "Unable to parse HCL expression" {
+		t.Errorf("Unexpected summary: %s", diag.Summary)
+	}
+
+	expectedDetail := `The helmfile_var "myKey" defined at test.hcl:10 can't be parsed`
+	if diag.Detail != expectedDetail {
+		t.Errorf("Expected detail %q, got %q", expectedDetail, diag.Detail)
+	}
+
+	if diag.Subject != &hv.Range {
+		t.Error("Expected Subject to point to hv.Range")
+	}
+}
+
+func TestHclExprValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		exprStr  string
+		ctx      *hcl.EvalContext
+		expected cty.Value
+		hasError bool
+	}{
+		{
+			name:     "simple literal",
+			exprStr:  "42",
+			ctx:      nil,
+			expected: cty.NumberIntVal(42),
+			hasError: false,
+		},
+		{
+			name:     "string literal",
+			exprStr:  `"hello"`,
+			ctx:      nil,
+			expected: cty.StringVal("hello"),
+			hasError: false,
+		},
+		{
+			name:    "variable reference with context",
+			exprStr: "myvar",
+			ctx: &hcl.EvalContext{
+				Variables: map[string]cty.Value{
+					"myvar": cty.StringVal("resolved"),
+				},
+			},
+			expected: cty.StringVal("resolved"),
+			hasError: false,
+		},
+		{
+			name:     "variable reference without context",
+			exprStr:  "undefined_var",
+			ctx:      nil,
+			expected: cty.DynamicVal,
+			hasError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, diags := hclsyntax.ParseExpression([]byte(tt.exprStr), "test.hcl", hcl.Pos{Line: 1, Column: 1})
+			if diags.HasErrors() {
+				t.Fatalf("Failed to parse expression: %s", diags.Error())
+			}
+
+			result, diagsResult := hclExprValues(expr, tt.ctx)
+
+			if tt.hasError && !diagsResult.HasErrors() {
+				t.Error("Expected error but got none")
+			}
+
+			if !tt.hasError && diagsResult.HasErrors() {
+				t.Errorf("Unexpected error: %s", diagsResult.Error())
+			}
+
+			if !tt.hasError && !result.RawEquals(tt.expected) {
+				t.Errorf("hclExprValues() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHCL_ValuesOverride(t *testing.T) {
+	l := newHCLLoader()
+	files := []string{"testdata/override.1.hcl", "testdata/override.2.hcl"}
+	l.AddFiles(files)
+
+	actual, err := l.HCLRender()
+	if err != nil {
+		t.Fatalf("Render error: %s", err.Error())
+	}
+
+	// Verify that values from file2 override file1
+	if actual["env"] != "prod" {
+		t.Errorf("Expected env=prod (from override), got %v", actual["env"])
+	}
+
+	// Verify nested object merge
+	config, ok := actual["config"].(map[string]any)
+	if !ok {
+		t.Fatalf("Expected config to be a map, got %T", actual["config"])
+	}
+
+	if config["replicas"] != float64(3) {
+		t.Errorf("Expected replicas=3 (overridden), got %v", config["replicas"])
+	}
+
+	if config["image"] != "v1.0" {
+		t.Errorf("Expected image=v1.0 (preserved from file1), got %v", config["image"])
+	}
+
+	if config["debug"] != true {
+		t.Errorf("Expected debug=true (new from file2), got %v", config["debug"])
+	}
+
+	// Verify list from file1 is preserved (file2 doesn't define tags)
+	tags, ok := actual["tags"].([]any)
+	if !ok || len(tags) != 2 {
+		t.Errorf("Expected tags to be preserved from file1, got %v", actual["tags"])
+	}
+
+	// Verify new key from file2
+	if actual["region"] != "us-east" {
+		t.Errorf("Expected region=us-east (new in file2), got %v", actual["region"])
+	}
+}
+
+func TestHCL_ValuesOverride_ThreeFiles(t *testing.T) {
+	l := newHCLLoader()
+	files := []string{"testdata/multi.1.hcl", "testdata/multi.2.hcl", "testdata/multi.3.hcl"}
+	l.AddFiles(files)
+
+	actual, err := l.HCLRender()
+	if err != nil {
+		t.Fatalf("Render error: %s", err.Error())
+	}
+
+	// Last file wins for simple values
+	if actual["base"] != "file3" {
+		t.Errorf("Expected base=file3 (last override), got %v", actual["base"])
+	}
+
+	// Check deep merge of shared object
+	shared, ok := actual["shared"].(map[string]any)
+	if !ok {
+		t.Fatalf("Expected shared to be a map, got %T", actual["shared"])
+	}
+
+	if shared["key1"] != "v1" {
+		t.Errorf("Expected key1=v1 (from file1, preserved), got %v", shared["key1"])
+	}
+
+	if shared["key2"] != "override2" {
+		t.Errorf("Expected key2=override2 (from file2, not overridden by file3), got %v", shared["key2"])
+	}
+
+	if shared["key3"] != "final3" {
+		t.Errorf("Expected key3=final3 (from file3, final override), got %v", shared["key3"])
+	}
+
+	if shared["key4"] != "v4" {
+		t.Errorf("Expected key4=v4 (from file3, new key), got %v", shared["key4"])
+	}
+
+	if actual["final"] != "last" {
+		t.Errorf("Expected final=last (new in file3), got %v", actual["final"])
 	}
 }
