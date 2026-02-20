@@ -3,3 +3,4 @@ WARNING: release test2 needs disabled, but disabled is not installed due to inst
 2 release(s) matching app=test found in helmfile.yaml
 
 err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+Failed to clean up temporary files generated while processing "helmfile.yaml": release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies

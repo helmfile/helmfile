@@ -2,3 +2,4 @@ merged environment: &{default  map[] map[] map[]}
 1 release(s) matching name=foo found in helmfile.yaml
 
 err: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
+Failed to clean up temporary files generated while processing "helmfile.yaml": release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies

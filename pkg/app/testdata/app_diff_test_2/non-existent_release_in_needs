@@ -3,3 +3,4 @@ WARNING: release foo needs bar, but bar is not installed due to installed: false
 2 release(s) found in helmfile.yaml
 
 err: release(s) "foo" depend(s) on an undefined release "bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?
+Failed to clean up temporary files generated while processing "helmfile.yaml": release(s) "foo" depend(s) on an undefined release "bar". Perhaps you made a typo in "needs" or forgot defining a release named "bar" with appropriate "namespace" and "kubeContext"?

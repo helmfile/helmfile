@@ -913,6 +913,11 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 
 	st.Selectors = opts.Selectors
 
+	// Track whether any releases matched across nested helmfiles and converge.
+	// Aggregate into a single send to matchChan to avoid overfilling the buffer
+	// (which is sized to len(desiredStateFiles), i.e. one send per goroutine).
+	anyMatched := false
+
 	if len(st.Helmfiles) > 0 && !opts.Reverse {
 		matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
 		if err != nil {
@@ -920,7 +925,7 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 			return
 		}
 		if matched {
-			matchChan <- true
+			anyMatched = true
 		}
 	}
 
@@ -949,9 +954,8 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 		return
 	}
 
-	// Report if this file had matching releases
 	if processed {
-		matchChan <- true
+		anyMatched = true
 	}
 
 	if opts.Reverse && len(st.Helmfiles) > 0 {
@@ -961,8 +965,12 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 			return
 		}
 		if matched {
-			matchChan <- true
+			anyMatched = true
 		}
+	}
+
+	if anyMatched {
+		matchChan <- true
 	}
 }
 
@@ -1139,17 +1147,19 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 
 				processed, errs = converge(templated)
 
-				if len(errs) == 0 {
-					noMatchInHelmfiles = noMatchInHelmfiles && !processed
+				if len(errs) > 0 {
+					return errs[0]
+				}
 
-					if opts.Reverse && len(st.Helmfiles) > 0 {
-						matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
-						if err != nil {
-							return err
-						}
-						if matched {
-							noMatchInHelmfiles = false
-						}
+				noMatchInHelmfiles = noMatchInHelmfiles && !processed
+
+				if opts.Reverse && len(st.Helmfiles) > 0 {
+					matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
+					if err != nil {
+						return err
+					}
+					if matched {
+						noMatchInHelmfiles = false
 					}
 				}
 

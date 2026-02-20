@@ -1,0 +1,4 @@
+environments:
+  default:
+    values:
+      - ../bases/env-values.yaml

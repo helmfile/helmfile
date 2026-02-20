@@ -1,2 +1,3 @@
 merged environment: &{default  map[] map[] map[]}
 err: found 2 duplicate releases with ID "default//foo"
+Failed to clean up temporary files generated while processing "helmfile.yaml": found 2 duplicate releases with ID "default//foo"

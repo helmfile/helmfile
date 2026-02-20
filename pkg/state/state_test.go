@@ -2533,7 +2533,7 @@ func TestHelmState_ResolveDeps_NoLockFile_WithCustomLockFile(t *testing.T) {
 		logger: logger,
 		fs: &filesystem.FileSystem{
 			ReadFile: func(f string) ([]byte, error) {
-				if f != "/src/custom-lock-file" {
+				if f != filepath.Join("/src", "custom-lock-file") {
 					return nil, fmt.Errorf("stub: unexpected file: %s", f)
 				}
 				return nil, os.ErrNotExist

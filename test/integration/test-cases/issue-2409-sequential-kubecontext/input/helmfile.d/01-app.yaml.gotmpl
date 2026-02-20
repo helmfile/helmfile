@@ -1,0 +1,19 @@
+bases:
+  - ../bases/environments.yaml
+---
+bases:
+  - ../bases/defaults.yaml.gotmpl
+---
+releases:
+- name: test-release-2409
+  chart: ../../../../charts/raw
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: test-configmap-2409
+        namespace: {{ "{{ .Release.Namespace }}" }}
+      data:
+        key: value
