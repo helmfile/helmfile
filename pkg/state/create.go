@@ -137,6 +137,12 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 	return &state, nil
 }
 
+// ApplyDefaultsAndOverrides applies default binary paths and command-line overrides.
+// This is an exported version of applyDefaultsAndOverrides for use by the app package.
+func (c *StateCreator) ApplyDefaultsAndOverrides(state *HelmState) {
+	c.applyDefaultsAndOverrides(state)
+}
+
 // applyDefaultsAndOverrides applies default binary paths and command-line overrides
 func (c *StateCreator) applyDefaultsAndOverrides(state *HelmState) {
 	if c.overrideHelmBinary != "" && c.overrideHelmBinary != DefaultHelmBinary {
@@ -179,7 +185,8 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, failOnMissin
 
 // Parses YAML into HelmState, while loading environment values files relative to the `baseDir`
 // evaluateBases=true means that this is NOT a base helmfile
-func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envName string, failOnMissingEnv, evaluateBases bool, envValues, overrode *environment.Environment) (*HelmState, error) {
+// applyDefaults=true means that applyDefaultsAndOverrides should be called
+func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envName string, failOnMissingEnv, evaluateBases, applyDefaults bool, envValues, overrode *environment.Environment) (*HelmState, error) {
 	state, err := c.Parse(content, baseDir, file)
 	if err != nil {
 		return nil, err
@@ -198,7 +205,9 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 		// Apply default binaries and command-line overrides only for the main helmfile
 		// after loading and merging all bases. This ensures that values from bases are
 		// properly respected and that later bases/documents can override earlier ones.
-		c.applyDefaultsAndOverrides(state)
+		if applyDefaults {
+			c.applyDefaultsAndOverrides(state)
+		}
 	}
 
 	state, err = c.LoadEnvValues(state, envName, failOnMissingEnv, envValues, overrode)
