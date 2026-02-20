@@ -6,8 +6,11 @@ import (
 	"reflect"
 	"testing"
 
+	"dario.cat/mergo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
@@ -21,7 +24,7 @@ func createFromYaml(content []byte, file string, env string, logger *zap.Sugared
 		fs:     filesystem.DefaultFileSystem(),
 		Strict: true,
 	}
-	return c.ParseAndLoad(content, filepath.Dir(file), file, env, false, true, nil, nil)
+	return c.ParseAndLoad(content, filepath.Dir(file), file, env, false, true, true, nil, nil)
 }
 
 func TestReadFromYaml(t *testing.T) {
@@ -86,7 +89,7 @@ func (testEnv stateTestEnv) MustLoadStateWithEnableLiveOutput(t *testing.T, file
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, enableLiveOutput, "").
-		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, true, nil, nil)
+		ParseAndLoad([]byte(yamlContent), filepath.Dir(file), file, envName, true, true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -156,7 +159,7 @@ releaseNamespace: mynamespace
 		Name: "production",
 	}
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, &env, nil)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, true, &env, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -243,7 +246,7 @@ overrideNamespace: myns
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, nil, nil)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -507,7 +510,7 @@ releaseContext:
 
 	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
 	state, err := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "").
-		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, nil, nil)
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "production", true, true, true, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -703,7 +706,11 @@ bases:
 				if !ok {
 					return nil, fmt.Errorf("file not found: %s", path)
 				}
-				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, DefaultEnv, true, evaluateBases, inheritedEnv, overrodeEnv)
+				// When loading base files, we don't apply defaults - they should only
+				// be applied to the main file after all parts/bases are merged.
+				// So applyDefaults = evaluateBases (true for main, false for bases).
+				applyDefaults := evaluateBases
+				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, DefaultEnv, true, evaluateBases, applyDefaults, inheritedEnv, overrodeEnv)
 			}
 
 			yamlContent, ok := tt.files[tt.mainFile]
@@ -711,7 +718,7 @@ bases:
 				t.Fatalf("no file named %q registered", tt.mainFile)
 			}
 
-			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, DefaultEnv, true, true, nil, nil)
+			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, DefaultEnv, true, true, true, nil, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -727,6 +734,48 @@ bases:
 			}
 		})
 	}
+}
+
+// TestHelmBinaryInMultiDocumentYAML tests that helmBinary is preserved when
+// processing multi-document YAML files (files with --- separators).
+// This is a regression test for issue #2319.
+func TestHelmBinaryInMultiDocumentYAML(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	testFs := testhelper.NewTestFs(map[string]string{})
+	testFs.Cwd = "/"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+	creator := NewCreator(logger, testFs.ToFileSystem(), nil, nil, "", "", r, false, "")
+
+	// Simulate a multi-document YAML where the first document sets helmBinary
+	// and the second document has no helmBinary
+	doc1 := `helmBinary: /custom/helm
+helmDefaults:
+  timeout: 300
+`
+	doc2 := `releases:
+  - name: myapp
+    chart: stable/nginx
+`
+
+	// Simulate what load() in desired_state_file_loader.go does:
+	// 1. Process each part with applyDefaults=false
+	state1, err := creator.ParseAndLoad([]byte(doc1), "/", "/helmfile.yaml", DefaultEnv, true, true, false, nil, nil)
+	require.NoError(t, err)
+
+	state2, err := creator.ParseAndLoad([]byte(doc2), "/", "/helmfile.yaml", DefaultEnv, true, true, false, nil, nil)
+	require.NoError(t, err)
+
+	// 2. Merge parts (simulating what mergo.Merge does with mergo.WithOverride)
+	// Since state2 has empty DefaultHelmBinary, mergo.WithOverride should preserve state1's value
+	require.NoError(t, mergo.Merge(state1, state2, mergo.WithAppendSlice, mergo.WithOverride))
+
+	// 3. Apply defaults after merge
+	creator.ApplyDefaultsAndOverrides(state1)
+
+	// Verify that helmBinary from first document is preserved
+	assert.Equal(t, "/custom/helm", state1.DefaultHelmBinary,
+		"helmBinary from first document should be preserved after merge and applyDefaults")
 }
 
 // TestEnvironmentMergingWithBases tests that environment values from multiple bases
@@ -858,7 +907,11 @@ releases:
 				if !ok {
 					return nil, fmt.Errorf("file not found: %s", path)
 				}
-				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, tt.environment, true, evaluateBases, inheritedEnv, overrodeEnv)
+				// When loading base files, we don't apply defaults - they should only
+				// be applied to the main file after all parts/bases are merged.
+				// So applyDefaults = evaluateBases (true for main, false for bases).
+				applyDefaults := evaluateBases
+				return creator.ParseAndLoad([]byte(content), filepath.Dir(path), path, tt.environment, true, evaluateBases, applyDefaults, inheritedEnv, overrodeEnv)
 			}
 
 			yamlContent, ok := tt.files[tt.mainFile]
@@ -866,7 +919,7 @@ releases:
 				t.Fatalf("no file named %q registered", tt.mainFile)
 			}
 
-			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, tt.environment, true, true, nil, nil)
+			state, err := creator.ParseAndLoad([]byte(yamlContent), filepath.Dir(tt.mainFile), tt.mainFile, tt.environment, true, true, true, nil, nil)
 			if tt.expectedError {
 				require.Error(t, err, "expected an error but got none")
 				return

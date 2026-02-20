@@ -4618,3 +4618,47 @@ func TestRenderYamlEnvVar(t *testing.T) {
 		})
 	}
 }
+
+// TestHelmBinaryPreservedInMultiDocumentYAML tests that helmBinary is preserved
+// when processing multi-document YAML files at the loadDesiredStateFromYaml level.
+// This is a regression test for issue #2319.
+func TestHelmBinaryPreservedInMultiDocumentYAML(t *testing.T) {
+	statePath := "/path/to/helmfile.yaml"
+	stateContent := `helmBinary: /usr/bin/werf
+
+helmDefaults:
+  createNamespace: true
+
+---
+
+releases:
+  - name: myapp
+    chart: stable/nginx
+`
+	testFs := testhelper.NewTestFs(map[string]string{
+		statePath: stateContent,
+	})
+
+	app := &App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Namespace:                       "",
+		Env:                             "default",
+		FileOrDir:                       statePath,
+	}
+	app = injectFs(app, testFs)
+	app.remote = remote.NewRemote(app.Logger, testFs.Cwd, app.fs)
+
+	expectNoCallsToHelm(app)
+
+	st, err := app.loadDesiredStateFromYaml(statePath, LoadOpts{})
+	require.NoError(t, err, "unexpected error loading helmfile")
+	require.NotNil(t, st, "expected state to be loaded")
+
+	// The key assertion: helmBinary from document 1 should be preserved
+	// even though document 2 has no helmBinary setting
+	assert.Equal(t, "/usr/bin/werf", st.DefaultHelmBinary,
+		"helmBinary from first document should be preserved, not reset to default 'helm'")
+}
