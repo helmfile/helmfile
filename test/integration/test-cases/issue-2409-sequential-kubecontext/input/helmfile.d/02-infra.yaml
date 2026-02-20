@@ -1,13 +1,12 @@
-bases:
-- ../bases/environments.yaml
-- ../bases/defaults.yaml.gotmpl
----
+helmDefaults:
+  kubeContext: test-context
+
 repositories:
 - name: incubator
   url: https://charts.helm.sh/incubator
 ---
 releases:
-- name: test-release-2409
+- name: test-infra-2409
   chart: incubator/raw
   namespace: default
   values:
@@ -15,6 +14,6 @@ releases:
     - apiVersion: v1
       kind: ConfigMap
       metadata:
-        name: test-configmap-2409
+        name: test-infra-configmap-2409
       data:
-        key: value
+        key: infra-value

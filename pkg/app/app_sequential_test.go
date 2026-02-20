@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -355,5 +356,62 @@ releases:
 	// The staging-release should NOT be present (env "prod" not defined in that file)
 	if bytes.Contains([]byte(out), []byte("staging-release")) {
 		t.Errorf("staging-release should have been skipped but was found in output:\n%s", out)
+	}
+}
+
+// TestSequentialHelmfilesConvergeErrorPropagated verifies that errors returned
+// from the converge function are properly propagated in sequential mode.
+func TestSequentialHelmfilesConvergeErrorPropagated(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.d/01-first.yaml": `
+releases:
+- name: first-release
+  chart: stable/chart-a
+  namespace: default
+`,
+		"/path/to/helmfile.d/02-second.yaml": `
+releases:
+- name: second-release
+  chart: stable/chart-b
+  namespace: default
+`,
+	}
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          newAppTestLogger(),
+		valsRuntime:                     valsRuntime,
+		FileOrDir:                       "/path/to/helmfile.d",
+		SequentialHelmfiles:             true,
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	convergeErr := fmt.Errorf("simulated converge failure")
+	failingConverge := func(_ *Run) (bool, []error) {
+		return false, []error{convergeErr}
+	}
+
+	err = app.ForEachState(
+		failingConverge,
+		false,
+		SetFilter(true),
+	)
+
+	if err == nil {
+		t.Fatal("expected error from ForEachState, got nil")
+	}
+
+	if !bytes.Contains([]byte(err.Error()), []byte("simulated converge failure")) {
+		t.Errorf("expected error to contain 'simulated converge failure', got: %v", err)
 	}
 }

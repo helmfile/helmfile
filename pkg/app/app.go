@@ -1166,11 +1166,13 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 
 				processed, errs = converge(templated)
 
-				noMatchInHelmfiles = noMatchInHelmfiles && !processed
+				if len(errs) == 0 {
+					noMatchInHelmfiles = noMatchInHelmfiles && !processed
 
-				if opts.Reverse {
-					if err := visitSubHelmfiles(); err != nil {
-						return err
+					if opts.Reverse {
+						if err := visitSubHelmfiles(); err != nil {
+							return err
+						}
 					}
 				}
 
