@@ -298,9 +298,9 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 		}
 	}
 
-	// After all parts are merged, re-apply defaults and overrides to ensure
-	// that values from earlier parts (like helmBinary) are not incorrectly
-	// overridden by defaults applied during individual part processing.
+	// After all parts are merged, apply defaults and overrides to ensure
+	// that values from earlier parts (like helmBinary) are preserved correctly
+	// in the merged state.
 	// See https://github.com/helmfile/helmfile/issues/2319
 	if evaluateBases {
 		ld.underlying().ApplyDefaultsAndOverrides(finalState)
