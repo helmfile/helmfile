@@ -1,8 +1,15 @@
+locals {
+  image = "v1.1"
+}
+
 values {
-  env = "prod"
+  env     = "prod"
+  country = "us"
   config = {
     replicas = 3
-    debug = true
+    image    = local.image
+    debug    = true
   }
-  region = "us-east"
+  region = "${hv.country}-east"
+  status = upper("ready")
 }
