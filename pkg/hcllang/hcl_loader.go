@@ -75,8 +75,8 @@ func ctyMergeValues(a, b cty.Value) cty.Value {
 	}
 
 	// Tuples / Lists -> replace
-	if a.Type().IsTupleType() && b.Type().IsTupleType() ||
-		a.Type().IsListType() && b.Type().IsListType() {
+	if (a.Type().IsTupleType() && b.Type().IsTupleType()) ||
+		(a.Type().IsListType() && b.Type().IsListType()) {
 		return b
 	}
 
