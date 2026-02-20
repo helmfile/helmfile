@@ -114,37 +114,50 @@ type PluginMetadata struct {
 }
 
 func GetPluginVersion(name, pluginsDir string) (*semver.Version, error) {
-	// Scan pluginsDir for subdirectories containing plugin.yaml
-	entries, err := os.ReadDir(pluginsDir)
-	if err != nil {
-		// If directory doesn't exist, treat as plugin not installed
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("plugin %s not installed", name)
-		}
-		return nil, err
-	}
+	pluginDirs := filepath.SplitList(pluginsDir)
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
+	var firstReadErr error
+	for _, dir := range pluginDirs {
+		if dir == "" {
 			continue
 		}
 
-		pluginFile := filepath.Join(pluginsDir, entry.Name(), "plugin.yaml")
-		data, err := os.ReadFile(pluginFile)
+		entries, err := os.ReadDir(dir)
 		if err != nil {
-			continue // Skip if plugin.yaml doesn't exist in this directory
+			if os.IsNotExist(err) {
+				continue
+			}
+			if firstReadErr == nil {
+				firstReadErr = err
+			}
+			continue
 		}
 
-		var metadata PluginMetadata
-		if err := yaml.Unmarshal(data, &metadata); err != nil {
-			continue // Skip if plugin.yaml is malformed
-		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
 
-		if metadata.Name == name {
-			return semver.NewVersion(metadata.Version)
+			pluginFile := filepath.Join(dir, entry.Name(), "plugin.yaml")
+			data, err := os.ReadFile(pluginFile)
+			if err != nil {
+				continue
+			}
+
+			var metadata PluginMetadata
+			if err := yaml.Unmarshal(data, &metadata); err != nil {
+				continue
+			}
+
+			if metadata.Name == name {
+				return semver.NewVersion(metadata.Version)
+			}
 		}
 	}
 
+	if firstReadErr != nil {
+		return nil, firstReadErr
+	}
 	return nil, fmt.Errorf("plugin %s not installed", name)
 }
 
