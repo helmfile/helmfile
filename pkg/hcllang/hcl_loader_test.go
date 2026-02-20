@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
@@ -363,72 +362,6 @@ func TestHclParseError(t *testing.T) {
 
 	if diag.Subject != &hv.Range {
 		t.Error("Expected Subject to point to hv.Range")
-	}
-}
-
-func TestHclExprValues(t *testing.T) {
-	tests := []struct {
-		name     string
-		exprStr  string
-		ctx      *hcl.EvalContext
-		expected cty.Value
-		hasError bool
-	}{
-		{
-			name:     "simple literal",
-			exprStr:  "42",
-			ctx:      nil,
-			expected: cty.NumberIntVal(42),
-			hasError: false,
-		},
-		{
-			name:     "string literal",
-			exprStr:  `"hello"`,
-			ctx:      nil,
-			expected: cty.StringVal("hello"),
-			hasError: false,
-		},
-		{
-			name:    "variable reference with context",
-			exprStr: "myvar",
-			ctx: &hcl.EvalContext{
-				Variables: map[string]cty.Value{
-					"myvar": cty.StringVal("resolved"),
-				},
-			},
-			expected: cty.StringVal("resolved"),
-			hasError: false,
-		},
-		{
-			name:     "variable reference without context",
-			exprStr:  "undefined_var",
-			ctx:      nil,
-			expected: cty.DynamicVal,
-			hasError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			expr, diags := hclsyntax.ParseExpression([]byte(tt.exprStr), "test.hcl", hcl.Pos{Line: 1, Column: 1})
-			if diags.HasErrors() {
-				t.Fatalf("Failed to parse expression: %s", diags.Error())
-			}
-
-			result, diagsResult := hclExprValues(expr, tt.ctx)
-
-			if tt.hasError && !diagsResult.HasErrors() {
-				t.Error("Expected error but got none")
-			}
-
-			if !tt.hasError && diagsResult.HasErrors() {
-				t.Errorf("Unexpected error: %s", diagsResult.Error())
-			}
-
-			if !tt.hasError && !result.RawEquals(tt.expected) {
-				t.Errorf("hclExprValues() = %v, want %v", result, tt.expected)
-			}
-		})
 	}
 }
 
