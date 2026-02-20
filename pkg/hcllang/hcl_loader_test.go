@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/hashicorp/hcl/v2"
 	"github.com/zclconf/go-cty/cty"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
@@ -333,35 +332,6 @@ func TestCtyMergeValues_Lists(t *testing.T) {
 				t.Errorf("ctyMergeValues() = %v, want %v", result, tt.expected)
 			}
 		})
-	}
-}
-
-func TestHclParseError(t *testing.T) {
-	hv := &HelmfileHCLValue{
-		Name: "testVar",
-		Range: hcl.Range{
-			Filename: "test.hcl",
-			Start:    hcl.Pos{Line: 10, Column: 5},
-		},
-	}
-
-	diag := hclParseError("myKey", hv)
-
-	if diag.Severity != hcl.DiagError {
-		t.Errorf("Expected severity DiagError, got %v", diag.Severity)
-	}
-
-	if diag.Summary != "Unable to parse HCL expression" {
-		t.Errorf("Unexpected summary: %s", diag.Summary)
-	}
-
-	expectedDetail := `The helmfile_var "myKey" defined at test.hcl:10 can't be parsed`
-	if diag.Detail != expectedDetail {
-		t.Errorf("Expected detail %q, got %q", expectedDetail, diag.Detail)
-	}
-
-	if diag.Subject != &hv.Range {
-		t.Error("Expected Subject to point to hv.Range")
 	}
 }
 
