@@ -131,6 +131,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-2103.sh
 . ${dir}/test-cases/unittest.sh
 . ${dir}/test-cases/issue-2409-sequential-kubecontext.sh
+. ${dir}/test-cases/issue-2269.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 

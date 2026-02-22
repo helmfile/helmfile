@@ -1861,7 +1861,7 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	// can safely pass --skip-refresh to the command to avoid doing a repo update
 	// for every iteration of the loop where charts have external dependencies.
 	// Only do this if there are repositories configured.
-	if len(builds) > 0 && !opts.SkipRefresh && len(st.Repositories) > 0 {
+	if len(builds) > 0 && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && len(st.Repositories) > 0 {
 		if err := helm.UpdateRepo(); err != nil {
 			return fmt.Errorf("updating repo: %w", err)
 		}

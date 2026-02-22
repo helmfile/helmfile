@@ -4619,6 +4619,59 @@ func TestRenderYamlEnvVar(t *testing.T) {
 	}
 }
 
+// TestTemplate_HelmDefaultsSkipDepsSkipRefresh verifies that helmDefaults.skipDeps
+// and helmDefaults.skipRefresh cause SyncReposOnce to be skipped, so no AddRepo
+// calls are made. This is a regression test for issue #2269/#2296.
+func TestTemplate_HelmDefaultsSkipDepsSkipRefresh(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+repositories:
+- name: stable
+  url: https://kubernetes-charts.storage.googleapis.com
+
+helmDefaults:
+  skipDeps: true
+  skipRefresh: true
+
+releases:
+- name: myrelease1
+  chart: stable/mychart1
+`,
+	}
+
+	var helm = &mockHelmExec{}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", "default"): helm,
+		},
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+	}, files)
+
+	// Run Template with skipDeps=false to simulate no CLI flags being passed.
+	// The helmDefaults should still cause repos to be skipped.
+	err = app.Template(configImpl{set: []string{"foo=a"}, skipDeps: false})
+	require.NoError(t, err)
+
+	// The key assertion: repos should be empty because helmDefaults.skipDeps
+	// and helmDefaults.skipRefresh caused SyncReposOnce to be skipped.
+	assert.Empty(t, helm.repos, "expected no AddRepo calls when helmDefaults.skipDeps and helmDefaults.skipRefresh are true")
+}
+
 // TestHelmBinaryPreservedInMultiDocumentYAML tests that helmBinary is preserved
 // when processing multi-document YAML files at the loadDesiredStateFromYaml level.
 // This is a regression test for issue #2319.
