@@ -1,0 +1,13 @@
+# Issue #2269: helmDefaults.skipDeps and helmDefaults.skipRefresh should prevent
+# repo operations (Adding repo, helm repo update) without needing CLI flags.
+repositories:
+- name: fake-repo
+  url: https://fake-repo.example.com
+
+helmDefaults:
+  skipDeps: true
+  skipRefresh: true
+
+releases:
+- name: test-release-2269
+  chart: ./chart

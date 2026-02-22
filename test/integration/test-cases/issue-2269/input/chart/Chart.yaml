@@ -1,0 +1,4 @@
+apiVersion: v2
+name: test-chart-2269
+version: 0.1.0
+description: Minimal chart for issue #2269 integration test

@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/helmfile/helmfile/pkg/exectest"
 )
 
 // Note: boolPtr helper is already defined in skip_test.go and shared across test files in this package.
@@ -129,6 +131,94 @@ version: 0.1.0
 				"buildDeps mismatch: expected %v, got %v (skipDeps=%v)", tt.expectedBuildDeps, buildDeps, skipDeps)
 			assert.Equal(t, tt.expectedSkipRefresh, skipRefresh,
 				"skipRefresh mismatch: expected %v, got %v", tt.expectedSkipRefresh, skipRefresh)
+		})
+	}
+}
+
+// updateRepoTracker wraps exectest.Helm to track whether UpdateRepo was called.
+type updateRepoTracker struct {
+	exectest.Helm
+	updateRepoCalled bool
+}
+
+func (h *updateRepoTracker) UpdateRepo() error {
+	h.updateRepoCalled = true
+	return nil
+}
+
+// TestRunHelmDepBuilds_HelmDefaultsSkipRefresh verifies that when
+// helmDefaults.skipRefresh=true, runHelmDepBuilds skips the UpdateRepo call
+// even when opts.SkipRefresh is false. This is a regression test for issue #2269.
+func TestRunHelmDepBuilds_HelmDefaultsSkipRefresh(t *testing.T) {
+	tests := []struct {
+		name                    string
+		optsSkipRefresh         bool
+		helmDefaultsSkipRefresh bool
+		hasRepos                bool
+		expectUpdateRepo        bool
+	}{
+		{
+			name:                    "no skip flags and repos exist - UpdateRepo called",
+			optsSkipRefresh:         false,
+			helmDefaultsSkipRefresh: false,
+			hasRepos:                true,
+			expectUpdateRepo:        true,
+		},
+		{
+			name:                    "opts.SkipRefresh=true - UpdateRepo skipped",
+			optsSkipRefresh:         true,
+			helmDefaultsSkipRefresh: false,
+			hasRepos:                true,
+			expectUpdateRepo:        false,
+		},
+		{
+			name:                    "helmDefaults.skipRefresh=true - UpdateRepo skipped",
+			optsSkipRefresh:         false,
+			helmDefaultsSkipRefresh: true,
+			hasRepos:                true,
+			expectUpdateRepo:        false,
+		},
+		{
+			name:                    "no repos configured - UpdateRepo skipped",
+			optsSkipRefresh:         false,
+			helmDefaultsSkipRefresh: false,
+			hasRepos:                false,
+			expectUpdateRepo:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			helm := &updateRepoTracker{}
+
+			var repos []RepositorySpec
+			if tt.hasRepos {
+				repos = []RepositorySpec{{Name: "stable", URL: "https://example.com"}}
+			}
+
+			st := &HelmState{
+				logger: logger,
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: HelmSpec{
+						SkipRefresh: tt.helmDefaultsSkipRefresh,
+					},
+					Repositories: repos,
+				},
+			}
+
+			builds := []*chartPrepareResult{
+				{releaseName: "test", chartPath: "/tmp/chart", buildDeps: true},
+			}
+
+			opts := ChartPrepareOptions{
+				SkipRefresh: tt.optsSkipRefresh,
+			}
+
+			err := st.runHelmDepBuilds(helm, 1, builds, opts)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectUpdateRepo, helm.updateRepoCalled,
+				"UpdateRepo called mismatch: expected %v, got %v", tt.expectUpdateRepo, helm.updateRepoCalled)
 		})
 	}
 }
