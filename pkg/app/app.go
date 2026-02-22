@@ -756,6 +756,11 @@ func (a *App) within(dir string, do func() error) error {
 		return err
 	}
 
+	// Skip chdir if we're already in the target directory
+	if absDir == prev {
+		return do()
+	}
+
 	a.Logger.Debugf("changing working directory to \"%s\"", absDir)
 
 	if err := a.fs.Chdir(absDir); err != nil {
@@ -774,40 +779,6 @@ func (a *App) within(dir string, do func() error) error {
 	}
 
 	return appErr
-}
-
-func (a *App) visitStateFiles(fileOrDir string, opts LoadOpts, do func(string, string) error) error {
-	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir, opts)
-	if err != nil {
-		return appError("", err)
-	}
-
-	for _, relPath := range desiredStateFiles {
-		var file string
-		var dir string
-		if a.fs.DirectoryExistsAt(relPath) {
-			file = relPath
-			dir = relPath
-		} else {
-			file = filepath.Base(relPath)
-			dir = filepath.Dir(relPath)
-		}
-
-		a.Logger.Debugf("processing file \"%s\" in directory \"%s\"", file, dir)
-
-		absd, errAbsDir := a.fs.Abs(dir)
-		if errAbsDir != nil {
-			return errAbsDir
-		}
-		err := a.within(absd, func() error {
-			return do(file, absd)
-		})
-		if err != nil {
-			return appError(fmt.Sprintf("in %s/%s", dir, file), err)
-		}
-	}
-
-	return nil
 }
 
 func (a *App) loadDesiredStateFromYaml(file string, opts ...LoadOpts) (*state.HelmState, error) {
@@ -894,10 +865,6 @@ func (a *App) getHelm(st *state.HelmState) (helmexec.Interface, error) {
 	return a.helms[key], nil
 }
 
-func (a *App) visitStates(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error)) error {
-	return a.visitStatesWithContext(fileOrDir, defOpts, converge, nil)
-}
-
 // processStateFileParallel processes a single helmfile state file in a goroutine.
 // It is used for parallel processing of multiple helmfile.d files.
 // Results are communicated via errChan (errors) and matchChan (whether file had matching releases).
@@ -946,10 +913,19 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 
 	st.Selectors = opts.Selectors
 
+	// Track whether any releases matched across nested helmfiles and converge.
+	// Aggregate into a single send to matchChan to avoid overfilling the buffer
+	// (which is sized to len(desiredStateFiles), i.e. one send per goroutine).
+	anyMatched := false
+
 	if len(st.Helmfiles) > 0 && !opts.Reverse {
-		if err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx); err != nil {
+		matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
+		if err != nil {
 			errChan <- err
 			return
+		}
+		if matched {
+			anyMatched = true
 		}
 	}
 
@@ -978,19 +954,31 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 		return
 	}
 
-	// Report if this file had matching releases
 	if processed {
-		matchChan <- true
+		anyMatched = true
 	}
 
 	if opts.Reverse && len(st.Helmfiles) > 0 {
-		if err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx); err != nil {
+		matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
+		if err != nil {
 			errChan <- err
+			return
 		}
+		if matched {
+			anyMatched = true
+		}
+	}
+
+	if anyMatched {
+		matchChan <- true
 	}
 }
 
-func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) error {
+// processNestedHelmfiles processes sub-helmfiles referenced from a parent state.
+// It returns true if any nested helmfile successfully found matching releases,
+// which is used to update the caller's noMatchInHelmfiles tracking.
+func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
+	anyMatched := false
 	for i, m := range st.Helmfiles {
 		optsForNestedState := LoadOpts{
 			CalleePath:        filepath.Join(absd, file),
@@ -1008,17 +996,22 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 			switch err.(type) {
 			case *NoMatchingHelmfileError:
 			default:
-				return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+				return anyMatched, appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
 			}
+		} else {
+			anyMatched = true
 		}
 	}
-	return nil
+	return anyMatched, nil
 }
 
 func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) error {
 	noMatchInHelmfiles := true
 
-	desiredStateFiles, err := a.findDesiredStateFiles(fileOrDir, defOpts)
+	desiredStateFiles, findErr := a.findDesiredStateFiles(fileOrDir, defOpts)
+	if findErr != nil {
+		return appError("", findErr)
+	}
 
 	// Process files in parallel if we have multiple files and parallel mode is enabled
 	shouldProcessInParallel := len(desiredStateFiles) > 1 && !a.SequentialHelmfiles
@@ -1052,109 +1045,137 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 			noMatchInHelmfiles = false
 		}
 	} else {
-		// Sequential processing for single file or when --sequential-helmfiles is set
-		err = a.visitStateFiles(fileOrDir, defOpts, func(f, d string) (retErr error) {
+		// Sequential processing for single file or when --sequential-helmfiles is set.
+		//
+		// Two strategies for path resolution:
+		// - Single file: use os.Chdir (via within()) to preserve backward-compatible
+		//   chart path format in output (relative to the helmfile directory).
+		// - Multiple files with --sequential-helmfiles: use baseDir parameter to avoid
+		//   os.Chdir, which fixes relative env var paths like KUBECONFIG (#2409).
+		useBaseDir := len(desiredStateFiles) > 1
+
+		for _, relPath := range desiredStateFiles {
+			var file string
+			var dir string
+			if a.fs.DirectoryExistsAt(relPath) {
+				file = relPath
+				dir = relPath
+			} else {
+				file = filepath.Base(relPath)
+				dir = filepath.Dir(relPath)
+			}
+
+			absd, errAbsDir := a.fs.Abs(dir)
+			if errAbsDir != nil {
+				return errAbsDir
+			}
+
 			opts := defOpts.DeepCopy()
-
 			if opts.CalleePath == "" {
-				opts.CalleePath = f
+				opts.CalleePath = file
 			}
 
-			st, err := a.loadDesiredStateFromYaml(f, opts)
+			processFile := func() (retErr error) {
+				var st *state.HelmState
+				var loadErr error
 
-			ctx := context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}
+				if useBaseDir {
+					// Multi-file sequential: use baseDir for path resolution
+					// instead of os.Chdir to avoid breaking relative env var paths.
+					baseDir := dir
+					if dir == "." {
+						baseDir = ""
+					}
+					st, loadErr = a.loadDesiredStateFromYamlWithBaseDir(file, baseDir, opts)
+				} else {
+					// Single file: CWD is set by within(), load without baseDir
+					st, loadErr = a.loadDesiredStateFromYaml(file, opts)
+				}
 
-			if err != nil {
-				switch stateLoadErr := err.(type) {
-				case *state.StateLoadError:
-					switch stateLoadErr.Cause.(type) {
-					case *state.UndefinedEnvError:
-						return nil
+				ctx := context{app: a, st: st, retainValues: defOpts.RetainValuesFiles}
+
+				if loadErr != nil {
+					switch stateLoadErr := loadErr.(type) {
+					case *state.StateLoadError:
+						switch stateLoadErr.Cause.(type) {
+						case *state.UndefinedEnvError:
+							return nil
+						default:
+							return ctx.wrapErrs(loadErr)
+						}
 					default:
-						return ctx.wrapErrs(err)
+						return ctx.wrapErrs(loadErr)
 					}
-				default:
-					return ctx.wrapErrs(err)
 				}
-			}
-			st.Selectors = opts.Selectors
 
-			visitSubHelmfiles := func() error {
-				if len(st.Helmfiles) > 0 {
-					noMatchInSubHelmfiles := true
-					for i, m := range st.Helmfiles {
-						optsForNestedState := LoadOpts{
-							CalleePath:        filepath.Join(d, f),
-							Environment:       m.Environment,
-							Reverse:           defOpts.Reverse,
-							RetainValuesFiles: defOpts.RetainValuesFiles,
-						}
-						if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-							optsForNestedState.Selectors = opts.Selectors
-						} else {
-							optsForNestedState.Selectors = m.Selectors
-						}
+				if st == nil {
+					return nil
+				}
 
-						if err := a.visitStates(m.Path, optsForNestedState, converge); err != nil {
-							switch err.(type) {
-							case *NoMatchingHelmfileError:
-							default:
-								return appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
-							}
-						} else {
-							noMatchInSubHelmfiles = false
-						}
+				st.Selectors = opts.Selectors
+
+				if !opts.Reverse && len(st.Helmfiles) > 0 {
+					matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
+					if err != nil {
+						return err
 					}
-					noMatchInHelmfiles = noMatchInHelmfiles && noMatchInSubHelmfiles
+					if matched {
+						noMatchInHelmfiles = false
+					}
 				}
+
+				templated, tmplErr := st.ExecuteTemplates()
+				if tmplErr != nil {
+					return appError(fmt.Sprintf("failed executing release templates in \"%s\"", file), tmplErr)
+				}
+
+				var (
+					processed bool
+					errs      []error
+				)
+
+				CleanWaitGroup.Add(1)
+				defer func() {
+					defer CleanWaitGroup.Done()
+					cleanErr := context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
+					if retErr == nil {
+						retErr = cleanErr
+					} else if cleanErr != nil {
+						a.Logger.Debugf("Failed to clean up temporary files generated while processing %q: %v", templated.FilePath, cleanErr)
+					}
+				}()
+
+				processed, errs = converge(templated)
+
+				if len(errs) > 0 {
+					return errs[0]
+				}
+
+				noMatchInHelmfiles = noMatchInHelmfiles && !processed
+
+				if opts.Reverse && len(st.Helmfiles) > 0 {
+					matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
+					if err != nil {
+						return err
+					}
+					if matched {
+						noMatchInHelmfiles = false
+					}
+				}
+
 				return nil
 			}
 
-			if !opts.Reverse {
-				err = visitSubHelmfiles()
-				if err != nil {
-					return err
-				}
+			var fileErr error
+			if useBaseDir {
+				fileErr = processFile()
+			} else {
+				fileErr = a.within(absd, processFile)
 			}
-
-			templated, tmplErr := st.ExecuteTemplates()
-			if tmplErr != nil {
-				return appError(fmt.Sprintf("failed executing release templates in \"%s\"", f), tmplErr)
+			if fileErr != nil {
+				return appError(fmt.Sprintf("in %s/%s", dir, file), fileErr)
 			}
-
-			var (
-				processed bool
-				errs      []error
-			)
-
-			CleanWaitGroup.Add(1)
-			defer func() {
-				defer CleanWaitGroup.Done()
-				cleanErr := context{app: a, st: templated, retainValues: defOpts.RetainValuesFiles}.clean(errs)
-				if retErr == nil {
-					retErr = cleanErr
-				} else if cleanErr != nil {
-					a.Logger.Debugf("Failed to clean up temporary files generated while processing %q: %v", templated.FilePath, cleanErr)
-				}
-			}()
-
-			processed, errs = converge(templated)
-
-			noMatchInHelmfiles = noMatchInHelmfiles && !processed
-
-			if opts.Reverse {
-				err = visitSubHelmfiles()
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-	}
-
-	if err != nil {
-		return err
+		}
 	}
 
 	if noMatchInHelmfiles {

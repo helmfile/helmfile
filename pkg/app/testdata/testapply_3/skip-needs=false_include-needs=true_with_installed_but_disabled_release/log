@@ -1,5 +1,3 @@
-processing file "helmfile.yaml.gotmpl" in directory "."
-changing working directory to "/path/to"
 rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default  map[] map[] map[]}, overrode=<nil>
 rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
@@ -71,4 +69,3 @@ DELETED RELEASES:
 NAME                          NAMESPACE     DURATION
 kubernetes-external-secrets   kube-system         0s
 
-changing working directory back to "/path/to"

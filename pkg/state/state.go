@@ -1059,7 +1059,12 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 			for prep := range jobQueue {
 				release := prep.release
 				flags := prep.flags
-				chart := normalizeChart(st.basePath, release.ChartPathOrName())
+				// Use ChartPath directly if already set (normalized during chart preparation),
+				// otherwise normalize the original chart name.
+				chart := release.ChartPathOrName()
+				if release.ChartPath == "" {
+					chart = normalizeChart(st.basePath, chart)
+				}
 				var relErr *ReleaseError
 				context := st.createHelmContext(release, workerIndex)
 
@@ -2672,9 +2677,16 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					releaseSuppressDiff = true
 				}
 
+				// Use ChartPath directly if already set (normalized during chart preparation),
+				// otherwise normalize the original chart name.
+				chartPath := release.ChartPathOrName()
+				if release.ChartPath == "" {
+					chartPath = normalizeChart(st.basePath, chartPath)
+				}
+
 				if prep.upgradeDueToSkippedDiff {
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
-				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, normalizeChart(st.basePath, release.ChartPathOrName()), release.Namespace, releaseSuppressDiff, flags...); err != nil {
+				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
@@ -5200,6 +5212,11 @@ func (st *HelmState) FullFilePath() (string, error) {
 	var err error
 	if st.fs != nil {
 		wd, err = st.fs.Getwd()
+	}
+	// When FilePath already contains basePath as a prefix (e.g. when loaded
+	// with a baseDir), avoid double-counting basePath in the result.
+	if st.basePath != "" && strings.HasPrefix(st.FilePath, st.basePath+string(filepath.Separator)) {
+		return filepath.Join(wd, st.FilePath), err
 	}
 	return filepath.Join(wd, st.basePath, st.FilePath), err
 }

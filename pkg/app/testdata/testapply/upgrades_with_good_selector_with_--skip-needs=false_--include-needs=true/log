@@ -1,5 +1,3 @@
-processing file "helmfile.yaml.gotmpl" in directory "."
-changing working directory to "/path/to"
 rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default  map[] map[] map[]}, overrode=<nil>
 rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
@@ -31,4 +29,4 @@ merged environment: &{default  map[] map[] map[]}
 2 release(s) matching app=test found in helmfile.yaml.gotmpl
 
 err: release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies
-changing working directory back to "/path/to"
+Failed to clean up temporary files generated while processing "helmfile.yaml.gotmpl": release "default/default/external-secrets" depends on "default/kube-system/kubernetes-external-secrets" which does not match the selectors. Please add a selector like "--selector name=kubernetes-external-secrets", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies

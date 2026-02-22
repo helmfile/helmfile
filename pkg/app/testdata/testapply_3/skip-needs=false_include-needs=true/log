@@ -1,5 +1,3 @@
-processing file "helmfile.yaml.gotmpl" in directory "."
-changing working directory to "/path/to"
 rendering starting for "helmfile.yaml.gotmpl.part.0": inherited=&{default  map[] map[] map[]}, overrode=<nil>
 rendering result of "helmfile.yaml.gotmpl.part.0":
  0: 
@@ -60,4 +58,3 @@ kubernetes-external-secrets   kube-system   incubator/raw   3.1.0           0s
 external-secrets              default       incubator/raw   3.1.0           0s
 my-release                    default       incubator/raw   3.1.0           0s
 
-changing working directory back to "/path/to"

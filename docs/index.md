@@ -655,6 +655,7 @@ Flags:
       --state-values-file stringArray         specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).
       --state-values-set stringArray          set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).
       --state-values-set-string stringArray   set state STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).
+      --sequential-helmfiles                   Process helmfile.d files sequentially in alphabetical order instead of in parallel
       --strip-args-values-on-exit-error       Strip the potential secret values of the helm command args contained in a helmfile error message (default true)
   -v, --version                               version for helmfile
 
@@ -1442,6 +1443,8 @@ For example, you can use a `<two digit number>-<microservice>.yaml` naming conve
 # Process files sequentially in alphabetical order
 helmfile --sequential-helmfiles sync
 ```
+
+> **Note:** When processing multiple helmfile.d files, both parallel and sequential modes resolve paths without changing the process working directory, so relative environment variables like `KUBECONFIG` work correctly.
 
 ### Glob patterns
 

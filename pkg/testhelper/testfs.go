@@ -19,6 +19,7 @@ type TestFs struct {
 	GlobFixtures map[string][]string
 	DeleteFile   func(string) error
 
+	ChdirCalls      int
 	mu              sync.Mutex
 	fileReaderCalls int
 	successfulReads []string
@@ -160,6 +161,9 @@ func (f *TestFs) Getwd() (string, error) {
 }
 
 func (f *TestFs) Chdir(dir string) error {
+	f.mu.Lock()
+	f.ChdirCalls++
+	f.mu.Unlock()
 	if _, ok := f.dirs[dir]; ok {
 		f.Cwd = dir
 		return nil

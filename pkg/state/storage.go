@@ -134,9 +134,14 @@ func (st *Storage) normalizePath(path string) string {
 	u, _ := url.Parse(path)
 	if u != nil && (u.Scheme != "" || filepath.IsAbs(path)) {
 		return path
-	} else {
-		return st.JoinBase(path)
 	}
+	// Avoid double-prefixing when the path already starts with basePath.
+	// This can happen when normalizePath is called multiple times on the same path
+	// (e.g. once in generateVanillaValuesFiles and again in resolveFile/ExpandPaths).
+	if st.basePath != "" && st.basePath != "." && strings.HasPrefix(path, st.basePath+string(filepath.Separator)) {
+		return path
+	}
+	return st.JoinBase(path)
 }
 
 // JoinBase returns an absolute path in the form basePath/relative

@@ -1,5 +1,3 @@
-processing file "helmfile.yaml" in directory "."
-changing working directory to "/path/to"
 merged environment: &{default  map[] map[] map[]}
 WARNING: release foo needs bar, but bar is not installed due to installed: false. Either mark bar as installed or remove bar from foo's needs
 2 release(s) found in helmfile.yaml
@@ -14,4 +12,3 @@ Affected releases are:
   bar (mychart2) DELETED
   foo (mychart1) UPDATED
 
-changing working directory back to "/path/to"

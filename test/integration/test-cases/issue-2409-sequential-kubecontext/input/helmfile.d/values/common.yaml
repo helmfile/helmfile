@@ -1,0 +1,9 @@
+templates:
+- |
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: common-values-2409
+    namespace: {{ .Release.Namespace }}
+  data:
+    source: relative-path-resolved
