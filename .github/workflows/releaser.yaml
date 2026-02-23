@@ -41,7 +41,7 @@ jobs:
           go-version-file: go.mod
       - name: check disk usage
         run: df -h
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v7
         with:
           version: latest
           args: release --clean ${{ env.SNAPSHOT }}
