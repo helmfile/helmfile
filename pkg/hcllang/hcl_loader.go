@@ -154,13 +154,46 @@ func (hl *HCLLoader) createDAGGraph(HelmfileHCLValues map[string]*HelmfileHCLVal
 
 	for _, hv := range HelmfileHCLValues {
 		var traversals []string
-		for _, tr := range hv.Expr.Variables() {
-			attr, diags := hl.parseSingleAttrRef(tr, blockType)
-			if diags != nil {
-				return nil, fmt.Errorf("%s", diags.Errs()[0])
+
+		// For values blocks with multiple definitions, collect dependencies from ALL definitions
+		// to ensure proper evaluation order even if only earlier definitions have dependencies
+		if blockType == ValuesBlockIdentifier && hl.allVariableDefs != nil {
+			varDefs := hl.allVariableDefs[hv.Name]
+			if len(varDefs) > 1 {
+				// Collect traversals from all definitions
+				for _, varDef := range varDefs {
+					for _, tr := range varDef.Expr.Variables() {
+						attr, diags := hl.parseSingleAttrRef(tr, blockType)
+						if diags != nil {
+							return nil, fmt.Errorf("%s", diags.Errs()[0])
+						}
+						if attr != "" && !slices.Contains(traversals, attr) {
+							traversals = append(traversals, attr)
+						}
+					}
+				}
+			} else {
+				// Single definition, collect traversals normally
+				for _, tr := range hv.Expr.Variables() {
+					attr, diags := hl.parseSingleAttrRef(tr, blockType)
+					if diags != nil {
+						return nil, fmt.Errorf("%s", diags.Errs()[0])
+					}
+					if attr != "" && !slices.Contains(traversals, attr) {
+						traversals = append(traversals, attr)
+					}
+				}
 			}
-			if attr != "" && !slices.Contains(traversals, attr) {
-				traversals = append(traversals, attr)
+		} else {
+			// For locals or when no tracking available, collect traversals normally
+			for _, tr := range hv.Expr.Variables() {
+				attr, diags := hl.parseSingleAttrRef(tr, blockType)
+				if diags != nil {
+					return nil, fmt.Errorf("%s", diags.Errs()[0])
+				}
+				if attr != "" && !slices.Contains(traversals, attr) {
+					traversals = append(traversals, attr)
+				}
 			}
 		}
 		hl.logger.Debugf("Adding Dependency : %s  => [%s]", hv.Name, strings.Join(traversals, ", "))

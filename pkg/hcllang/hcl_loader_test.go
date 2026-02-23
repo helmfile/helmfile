@@ -443,3 +443,80 @@ func TestHCL_ValuesOverride_ThreeFiles(t *testing.T) {
 		t.Errorf("Expected final=last (new in file3), got %v", actual["final"])
 	}
 }
+
+// TestHCL_ValuesOverride_DependencyTracking tests that when a value is defined
+// in multiple files and only the base definition has dependencies, the DAG
+// still tracks those dependencies correctly.
+func TestHCL_ValuesOverride_DependencyTracking(t *testing.T) {
+	l := newHCLLoader()
+	files := []string{"testdata/dep.1.hcl", "testdata/dep.2.hcl"}
+	l.AddFiles(files)
+
+	actual, err := l.HCLRender()
+	if err != nil {
+		t.Fatalf("Render error: %s", err.Error())
+	}
+
+	// Verify base_var is defined and available
+	if actual["base_var"] != "foundation" {
+		t.Errorf("Expected base_var=foundation, got %v", actual["base_var"])
+	}
+
+	// Verify override worked
+	if actual["dependent"] != "override-literal" {
+		t.Errorf("Expected dependent=override-literal (from file2), got %v", actual["dependent"])
+	}
+}
+
+// TestHCL_ValuesOverride_DependencyInBaseOnly tests the scenario where:
+//   - File 1 defines variable A that depends on variable B (A references B)
+//   - File 2 overrides variable A with a literal (no dependency on B)
+//   - Without tracking all definitions, the DAG might not include B as a dependency
+//     of A, potentially causing evaluation order issues or undefined variable errors
+func TestHCL_ValuesOverride_DependencyInBaseOnly(t *testing.T) {
+	l := newHCLLoader()
+	files := []string{"testdata/dep_base.hcl", "testdata/dep_override.hcl"}
+	l.AddFiles(files)
+
+	actual, err := l.HCLRender()
+	if err != nil {
+		t.Fatalf("Render error (should not fail due to dependency tracking): %s", err.Error())
+	}
+
+	// Verify base variable is defined
+	if actual["image_version"] != "1.0.0" {
+		t.Errorf("Expected image_version=1.0.0, got %v", actual["image_version"])
+	}
+
+	// Verify override took effect
+	if actual["container_image"] != "myapp:override" {
+		t.Errorf("Expected container_image=myapp:override, got %v", actual["container_image"])
+	}
+}
+
+// TestHCL_ValuesOverride_TransitiveDependencies tests that when overriding
+// a variable that is part of a dependency chain, all transitive dependencies
+// are properly tracked in the DAG.
+func TestHCL_ValuesOverride_TransitiveDependencies(t *testing.T) {
+	l := newHCLLoader()
+	files := []string{"testdata/dep_chain_base.hcl", "testdata/dep_chain_override.hcl"}
+	l.AddFiles(files)
+
+	actual, err := l.HCLRender()
+	if err != nil {
+		t.Fatalf("Render error (DAG should track all transitive deps): %s", err.Error())
+	}
+
+	// Verify all variables evaluated correctly
+	if actual["version"] != "2.0" {
+		t.Errorf("Expected version=2.0, got %v", actual["version"])
+	}
+
+	if actual["image"] != "app:2.0" {
+		t.Errorf("Expected image=app:2.0 (depends on version), got %v", actual["image"])
+	}
+
+	if actual["full_path"] != "override/path" {
+		t.Errorf("Expected full_path=override/path (overridden), got %v", actual["full_path"])
+	}
+}
