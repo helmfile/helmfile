@@ -1,0 +1,4 @@
+helmfileArgs:
+- template
+- --concurrency=1
+- -q
