@@ -374,6 +374,11 @@ func TestHCL_ValuesOverride(t *testing.T) {
 		t.Errorf("Expected tags to be preserved from file1, got %v", actual["tags"])
 	}
 
+	// Verify no override with null value
+	if actual["class"] != "standard" {
+		t.Errorf("Expected class=standard (preserved from file1), got %v", actual["class"])
+	}
+
 	// Verify new key from file2, using hv accessor
 	if actual["region"] != "us-east" {
 		t.Errorf("Expected region=us-east (new in file2), got %v", actual["region"])

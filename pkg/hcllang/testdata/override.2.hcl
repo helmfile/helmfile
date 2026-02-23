@@ -10,6 +10,7 @@ values {
     image    = local.image
     debug    = true
   }
+  class  = null
   region = "${hv.country}-east"
   status = upper("ready")
 }

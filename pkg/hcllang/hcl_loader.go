@@ -30,12 +30,17 @@ const (
 // a is the “base”, b is the “override”
 func ctyMergeValues(a, b cty.Value) cty.Value {
 	// If b is null, keep a.
-	if !b.IsKnown() || b.IsNull() {
+	if b.IsNull() {
 		return a
 	}
 
-	// If a is null, just return b.
-	if !a.IsKnown() || a.IsNull() {
+	// If b is unknown (but not null), let the override propagate.
+	if !b.IsKnown() {
+		return b
+	}
+
+	// If a is null or unknown, just return b.
+	if a.IsNull() || !a.IsKnown() {
 		return b
 	}
 
