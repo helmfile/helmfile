@@ -388,6 +388,18 @@ func TestHCL_ValuesOverride(t *testing.T) {
 	if actual["status"] != "READY" {
 		t.Errorf("Expected status=READY (new in file2), got %v", actual["status"])
 	}
+
+	// Verify map merge
+	annotations, ok := actual["annotations"].(map[string]any)
+	if !ok {
+		t.Fatalf("Expected config to be a map, got %T %#v", actual["annotations"], annotations)
+	}
+	if annotations["a"] != "val2" {
+		t.Errorf("Expected a=val2 (overridden), got %v", annotations["a"])
+	}
+	if annotations["b"] != "val3" {
+		t.Errorf("Expected b=val3 (overridden), got %v", annotations["b"])
+	}
 }
 
 func TestHCL_ValuesOverride_ThreeFiles(t *testing.T) {

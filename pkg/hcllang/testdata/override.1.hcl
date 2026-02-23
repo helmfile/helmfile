@@ -10,4 +10,8 @@ values {
   }
   tags  = ["tag1", "tag2"]
   class = "standard"
+  annotations = {
+    a = "val1"
+    b = "val2"
+  }
 }

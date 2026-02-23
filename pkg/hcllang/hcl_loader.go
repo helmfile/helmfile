@@ -44,8 +44,9 @@ func ctyMergeValues(a, b cty.Value) cty.Value {
 		return b
 	}
 
-	// Objects -> merge per key.
-	if a.Type().IsObjectType() && b.Type().IsObjectType() {
+	// Objects or Maps -> merge per key.
+	if (a.Type().IsObjectType() && b.Type().IsObjectType()) ||
+		(a.Type().IsMapType() && b.Type().IsMapType()) {
 		mergedAttrs := make(map[string]cty.Value)
 		// Start with all attrs from a.
 		for name, av := range a.AsValueMap() {

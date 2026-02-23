@@ -13,4 +13,8 @@ values {
   class  = null
   region = "${hv.country}-east"
   status = upper("ready")
+  annotations = {
+    a = "val2"
+    b = "val3"
+  }
 }
