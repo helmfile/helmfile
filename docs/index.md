@@ -1305,7 +1305,15 @@ domain: "dev.example.com"
 # values2.hcl
 values {
   domain = "overdev.example.com"
+  env = "dev"
   willBeOverriden = "override_me"
+}
+```
+
+```terraform
+# values3.hcl
+values {
+  env = "local"
 }
 ```
 
@@ -1319,8 +1327,9 @@ willBeOverriden: overrided
 environments:
   default:
     values:
-    - value1.yaml
-    - value2.hcl
+    - values1.yaml
+    - values2.hcl
+    - values3.hcl
     secrets:
     - secrets.yml
 ---
@@ -1329,6 +1338,7 @@ releases:
   [...]
   values:
     domain: "{{ .Values.domain }}" # == "overdev.example.com"
+    env: "{{ .Values.env }}" # == "local"
     willBeOverriden: "{{ .Values.willBeOverriden }}" # == "overrided"
 ```
 ## DAG-aware installation/deletion ordering with `needs`
