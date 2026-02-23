@@ -392,13 +392,38 @@ func TestHCL_ValuesOverride(t *testing.T) {
 	// Verify map merge
 	annotations, ok := actual["annotations"].(map[string]any)
 	if !ok {
-		t.Fatalf("Expected config to be a map, got %T %#v", actual["annotations"], annotations)
+		t.Fatalf("Expected annotations to be a map, got %T", actual["annotations"])
 	}
 	if annotations["a"] != "val2" {
 		t.Errorf("Expected a=val2 (overridden), got %v", annotations["a"])
 	}
 	if annotations["b"] != "val3" {
 		t.Errorf("Expected b=val3 (overridden), got %v", annotations["b"])
+	}
+
+	// Verify mixed-types merge
+	mixed_types, ok := actual["mixed_types"].(map[string]any)
+	if !ok {
+		t.Fatalf("Expected mixed_types to be a map, got %T", actual["mixed_types"])
+	}
+	if mixed_types["string_value"] != false {
+		t.Errorf("Expected string_value=false (overridden), got %v", mixed_types["string_value"])
+	}
+	number_value, ok := mixed_types["number_value"].([]any)
+	if !ok {
+		t.Fatalf("Expected number_value to be a map, got %T", mixed_types["number_value"])
+	}
+	if number_value[0] != "val1" {
+		t.Errorf("Expected number_value[0]='val1' (overridden), got %v", number_value[0])
+	}
+	if number_value[1] != "val2" {
+		t.Errorf("Expected number_value[1]='val2' (overridden), got %v", number_value[1])
+	}
+	if mixed_types["bool_value"] != float64(1) {
+		t.Errorf("Expected bool_value=1 (overridden), got %v", mixed_types["bool_value"])
+	}
+	if mixed_types["list_value"] != "item1" {
+		t.Errorf("Expected list_value='item1' (overridden), got %v", mixed_types["list_value"])
 	}
 }
 
