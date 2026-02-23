@@ -361,7 +361,7 @@ func TestHCL_ValuesOverride(t *testing.T) {
 	}
 
 	if config["image"] != "v1.1" {
-		t.Errorf("Expected image=v1.1 (preserved from file1), got %v", config["image"])
+		t.Errorf("Expected image=v1.1 (overriden), got %v", config["image"])
 	}
 
 	if config["debug"] != true {
