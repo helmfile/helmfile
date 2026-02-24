@@ -139,6 +139,7 @@ version: 0.1.0
 type updateRepoTracker struct {
 	exectest.Helm
 	updateRepoCalled bool
+	buildDepsFlags   []string
 }
 
 func (h *updateRepoTracker) UpdateRepo() error {
@@ -146,44 +147,77 @@ func (h *updateRepoTracker) UpdateRepo() error {
 	return nil
 }
 
-// TestRunHelmDepBuilds_HelmDefaultsSkipRefresh verifies that when
-// helmDefaults.skipRefresh=true, runHelmDepBuilds skips the UpdateRepo call
-// even when opts.SkipRefresh is false. This is a regression test for issue #2269.
-func TestRunHelmDepBuilds_HelmDefaultsSkipRefresh(t *testing.T) {
+func (h *updateRepoTracker) BuildDeps(name, chart string, flags ...string) error {
+	h.buildDepsFlags = flags
+	return nil
+}
+
+// TestRunHelmDepBuilds_SkipRefreshBehaviors verifies two related behaviors around
+// skipRefresh handling in runHelmDepBuilds:
+//
+//  1. When helmDefaults.skipRefresh=true, runHelmDepBuilds skips the UpdateRepo call
+//     even when opts.SkipRefresh is false (regression test for issue #2269).
+//  2. When no repos are configured, helm dep build should not receive --skip-refresh
+//     so it can refresh repos for local charts with external dependencies
+//     (regression test for issue #2417).
+//
+// The precomputedSkipRefresh field simulates the skipRefresh value computed in
+// prepareChartForRelease, which accounts for CLI flags, helmDefaults.skipRefresh,
+// and release-level skipRefresh settings.
+func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 	tests := []struct {
 		name                    string
 		optsSkipRefresh         bool
 		helmDefaultsSkipRefresh bool
 		hasRepos                bool
+		precomputedSkipRefresh  bool
 		expectUpdateRepo        bool
+		expectSkipRefreshFlag   bool
 	}{
 		{
-			name:                    "no skip flags and repos exist - UpdateRepo called",
+			name:                    "no skip flags and repos exist - UpdateRepo called, skip-refresh passed",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
 			hasRepos:                true,
+			precomputedSkipRefresh:  false,
 			expectUpdateRepo:        true,
+			expectSkipRefreshFlag:   true,
 		},
 		{
-			name:                    "opts.SkipRefresh=true - UpdateRepo skipped",
+			name:                    "opts.SkipRefresh=true - UpdateRepo skipped, skip-refresh flag preserved from precomputed value",
 			optsSkipRefresh:         true,
 			helmDefaultsSkipRefresh: false,
 			hasRepos:                true,
+			precomputedSkipRefresh:  true,
 			expectUpdateRepo:        false,
+			expectSkipRefreshFlag:   true,
 		},
 		{
-			name:                    "helmDefaults.skipRefresh=true - UpdateRepo skipped",
+			name:                    "helmDefaults.skipRefresh=true - UpdateRepo skipped, skip-refresh flag preserved from precomputed value",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: true,
 			hasRepos:                true,
+			precomputedSkipRefresh:  true,
 			expectUpdateRepo:        false,
+			expectSkipRefreshFlag:   true,
 		},
 		{
-			name:                    "no repos configured - UpdateRepo skipped",
+			name:                    "release-level skipRefresh=true - UpdateRepo skipped, skip-refresh flag preserved from precomputed value",
+			optsSkipRefresh:         false,
+			helmDefaultsSkipRefresh: false,
+			hasRepos:                true,
+			precomputedSkipRefresh:  true,
+			expectUpdateRepo:        true,
+			expectSkipRefreshFlag:   true,
+		},
+		{
+			name:                    "no repos configured - UpdateRepo skipped, no skip-refresh flag (issue #2417)",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
 			hasRepos:                false,
+			precomputedSkipRefresh:  false,
 			expectUpdateRepo:        false,
+			expectSkipRefreshFlag:   false,
 		},
 	}
 
@@ -207,7 +241,7 @@ func TestRunHelmDepBuilds_HelmDefaultsSkipRefresh(t *testing.T) {
 			}
 
 			builds := []*chartPrepareResult{
-				{releaseName: "test", chartPath: "/tmp/chart", buildDeps: true},
+				{releaseName: "test", chartPath: "/tmp/chart", buildDeps: true, skipRefresh: tt.precomputedSkipRefresh},
 			}
 
 			opts := ChartPrepareOptions{
@@ -217,9 +251,78 @@ func TestRunHelmDepBuilds_HelmDefaultsSkipRefresh(t *testing.T) {
 			err := st.runHelmDepBuilds(helm, 1, builds, opts)
 			require.NoError(t, err)
 
+			assert.NotNil(t, helm.buildDepsFlags, "BuildDeps should have been called")
+
 			assert.Equal(t, tt.expectUpdateRepo, helm.updateRepoCalled,
 				"UpdateRepo called mismatch: expected %v, got %v", tt.expectUpdateRepo, helm.updateRepoCalled)
+
+			hasSkipRefreshFlag := false
+			for _, f := range helm.buildDepsFlags {
+				if f == "--skip-refresh" {
+					hasSkipRefreshFlag = true
+					break
+				}
+			}
+			assert.Equal(t, tt.expectSkipRefreshFlag, hasSkipRefreshFlag,
+				"--skip-refresh flag mismatch: expected %v, got %v (flags: %v)", tt.expectSkipRefreshFlag, hasSkipRefreshFlag, helm.buildDepsFlags)
 		})
+	}
+}
+
+// multiBuildTracker tracks multiple BuildDeps calls for testing scenarios with
+// multiple builds that have different skipRefresh values.
+type multiBuildTracker struct {
+	exectest.Helm
+	updateRepoCalled bool
+	buildDepsCalls   [][]string
+}
+
+func (h *multiBuildTracker) UpdateRepo() error {
+	h.updateRepoCalled = true
+	return nil
+}
+
+func (h *multiBuildTracker) BuildDeps(name, chart string, flags ...string) error {
+	h.buildDepsCalls = append(h.buildDepsCalls, flags)
+	return nil
+}
+
+// TestRunHelmDepBuilds_MultipleBuilds verifies that when didUpdateRepo=true,
+// all builds receive --skip-refresh regardless of their precomputed skipRefresh values.
+// This ensures the override applies uniformly across all builds in the loop.
+func TestRunHelmDepBuilds_MultipleBuilds(t *testing.T) {
+	helm := &multiBuildTracker{}
+
+	st := &HelmState{
+		logger: logger,
+		ReleaseSetSpec: ReleaseSetSpec{
+			HelmDefaults: HelmSpec{SkipRefresh: false},
+			Repositories: []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
+		},
+	}
+
+	builds := []*chartPrepareResult{
+		{releaseName: "release-a", chartPath: "/tmp/chart-a", buildDeps: true, skipRefresh: false},
+		{releaseName: "release-b", chartPath: "/tmp/chart-b", buildDeps: true, skipRefresh: true},
+	}
+
+	opts := ChartPrepareOptions{SkipRefresh: false}
+
+	err := st.runHelmDepBuilds(helm, 1, builds, opts)
+	require.NoError(t, err)
+
+	assert.True(t, helm.updateRepoCalled, "UpdateRepo should have been called")
+	assert.Len(t, helm.buildDepsCalls, 2, "BuildDeps should have been called twice")
+
+	for i, flags := range helm.buildDepsCalls {
+		hasSkipRefresh := false
+		for _, f := range flags {
+			if f == "--skip-refresh" {
+				hasSkipRefresh = true
+				break
+			}
+		}
+		assert.True(t, hasSkipRefresh, "build %d should have --skip-refresh flag (flags: %v)", i, flags)
 	}
 }
 
