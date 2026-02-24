@@ -399,7 +399,7 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, allDefs map[str
 				// Check if hvars[k] (the old definition) is already in allDefs
 				oldDefTracked := false
 				for _, existing := range allDefs[k] {
-					// Compare by pointer to see if this exact definition is already tracked
+					// Compare by values to see if this exact definition is already tracked
 					if existing.Range == hvars[k].Range {
 						oldDefTracked = true
 						break
