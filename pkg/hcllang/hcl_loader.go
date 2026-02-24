@@ -253,6 +253,9 @@ func (hl *HCLLoader) decodeGraph(dagTopology *dag.Topology, blocktype string, va
 						// Update local context for each file
 						if additionalLocalContext[varDef.Range.Filename] != nil {
 							ctx.Variables[localsAccessorPrefix] = additionalLocalContext[varDef.Range.Filename][localsAccessorPrefix]
+						} else {
+							// Ensure locals from a previous definition/file do not leak into this evaluation
+							ctx.Variables[localsAccessorPrefix] = cty.NilVal
 						}
 						evalValue, evalDiags := varDef.Expr.Value(ctx)
 						if len(evalDiags) > 0 {
