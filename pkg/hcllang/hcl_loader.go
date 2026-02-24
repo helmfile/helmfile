@@ -26,6 +26,56 @@ const (
 	localsAccessorPrefix  = "local"
 )
 
+// ctyMergeValues returns a new cty.Value that is the deep‑merge of a and b.
+// a is the “base”, b is the “override”
+func ctyMergeValues(a, b cty.Value) cty.Value {
+	// If b is null, keep a.
+	if b.IsNull() {
+		return a
+	}
+
+	// If b is unknown (but not null), let the override propagate.
+	if !b.IsKnown() {
+		return b
+	}
+
+	// If a is null or unknown, just return b.
+	if a.IsNull() || !a.IsKnown() {
+		return b
+	}
+
+	// Objects or Maps -> merge per key.
+	if (a.Type().IsObjectType() && b.Type().IsObjectType()) ||
+		(a.Type().IsMapType() && b.Type().IsMapType()) {
+		mergedAttrs := make(map[string]cty.Value)
+		// Start with all attrs from a.
+		for name, av := range a.AsValueMap() {
+			mergedAttrs[name] = av
+		}
+		// Overlay attrs from b.
+		for name, bv := range b.AsValueMap() {
+			if av, ok := mergedAttrs[name]; ok {
+				mergedAttrs[name] = ctyMergeValues(av, bv)
+			} else {
+				mergedAttrs[name] = bv
+			}
+		}
+		if a.Type().IsMapType() {
+			return cty.MapVal(mergedAttrs)
+		}
+		return cty.ObjectVal(mergedAttrs)
+	}
+
+	// Tuples / Lists -> replace
+	if (a.Type().IsTupleType() && b.Type().IsTupleType()) ||
+		(a.Type().IsListType() && b.Type().IsListType()) {
+		return b
+	}
+
+	// Anything else (numbers, strings, bools, etc.) -> right‑hand side wins.
+	return b
+}
+
 // HelmfileHCLValue represents a single entry from a "values" or "locals" block file.
 // The blocks itself is not represented, because it serves only to
 // provide context for us to interpret its contents.
@@ -36,9 +86,10 @@ type HelmfileHCLValue struct {
 }
 
 type HCLLoader struct {
-	hclFilesPath []string
-	fs           *filesystem.FileSystem
-	logger       *zap.SugaredLogger
+	hclFilesPath    []string
+	fs              *filesystem.FileSystem
+	logger          *zap.SugaredLogger
+	allVariableDefs map[string][]*HelmfileHCLValue // Track all definitions for merging
 }
 
 func NewHCLLoader(fs *filesystem.FileSystem, logger *zap.SugaredLogger) *HCLLoader {
@@ -106,13 +157,46 @@ func (hl *HCLLoader) createDAGGraph(HelmfileHCLValues map[string]*HelmfileHCLVal
 
 	for _, hv := range HelmfileHCLValues {
 		var traversals []string
-		for _, tr := range hv.Expr.Variables() {
-			attr, diags := hl.parseSingleAttrRef(tr, blockType)
-			if diags != nil {
-				return nil, fmt.Errorf("%s", diags.Errs()[0])
+
+		// For values blocks with multiple definitions, collect dependencies from ALL definitions
+		// to ensure proper evaluation order even if only earlier definitions have dependencies
+		if blockType == ValuesBlockIdentifier && hl.allVariableDefs != nil {
+			varDefs := hl.allVariableDefs[hv.Name]
+			if len(varDefs) > 1 {
+				// Collect traversals from all definitions
+				for _, varDef := range varDefs {
+					for _, tr := range varDef.Expr.Variables() {
+						attr, diags := hl.parseSingleAttrRef(tr, blockType)
+						if diags != nil {
+							return nil, fmt.Errorf("%s", diags.Errs()[0])
+						}
+						if attr != "" && !slices.Contains(traversals, attr) {
+							traversals = append(traversals, attr)
+						}
+					}
+				}
+			} else {
+				// Single definition, collect traversals normally
+				for _, tr := range hv.Expr.Variables() {
+					attr, diags := hl.parseSingleAttrRef(tr, blockType)
+					if diags != nil {
+						return nil, fmt.Errorf("%s", diags.Errs()[0])
+					}
+					if attr != "" && !slices.Contains(traversals, attr) {
+						traversals = append(traversals, attr)
+					}
+				}
 			}
-			if attr != "" && !slices.Contains(traversals, attr) {
-				traversals = append(traversals, attr)
+		} else {
+			// For locals or when no tracking available, collect traversals normally
+			for _, tr := range hv.Expr.Variables() {
+				attr, diags := hl.parseSingleAttrRef(tr, blockType)
+				if diags != nil {
+					return nil, fmt.Errorf("%s", diags.Errs()[0])
+				}
+				if attr != "" && !slices.Contains(traversals, attr) {
+					traversals = append(traversals, attr)
+				}
 			}
 		}
 		hl.logger.Debugf("Adding Dependency : %s  => [%s]", hv.Name, strings.Join(traversals, ", "))
@@ -158,11 +242,50 @@ func (hl *HCLLoader) decodeGraph(dagTopology *dag.Topology, blocktype string, va
 				Variables: values,
 				Functions: hclFunctions,
 			}
-			// Decode Value
-			helmfileHCLValuesValues[node.String()], diags = v.Expr.Value(ctx)
-			if len(diags) > 0 {
-				return nil, fmt.Errorf("error when trying to evaluate variable %s : %s", v.Name, diags.Errs()[0])
+
+			// Check if this variable has multiple definitions (overrides) for values blocks
+			if blocktype == ValuesBlockIdentifier && hl.allVariableDefs != nil {
+				varDefs := hl.allVariableDefs[node.String()]
+				if len(varDefs) > 1 {
+					// Evaluate and merge all definitions in file order
+					var mergedValue cty.Value
+					for i, varDef := range varDefs {
+						// Update local context for each file
+						if additionalLocalContext[varDef.Range.Filename] != nil {
+							ctx.Variables[localsAccessorPrefix] = additionalLocalContext[varDef.Range.Filename][localsAccessorPrefix]
+						} else {
+							// Ensure locals from a previous definition/file do not leak into this evaluation
+							ctx.Variables[localsAccessorPrefix] = cty.NilVal
+						}
+						evalValue, evalDiags := varDef.Expr.Value(ctx)
+						if len(evalDiags) > 0 {
+							return nil, fmt.Errorf("error when trying to evaluate variable %s at %s:%d : %s",
+								varDef.Name, varDef.Range.Filename, varDef.Range.Start.Line, evalDiags.Errs()[0])
+						}
+						if i == 0 {
+							mergedValue = evalValue
+						} else {
+							mergedValue = ctyMergeValues(mergedValue, evalValue)
+						}
+					}
+					helmfileHCLValuesValues[node.String()] = mergedValue
+					// Reset local context
+					values[localsAccessorPrefix] = cty.NilVal
+				} else {
+					// Single definition, evaluate normally
+					helmfileHCLValuesValues[node.String()], diags = v.Expr.Value(ctx)
+					if len(diags) > 0 {
+						return nil, fmt.Errorf("error when trying to evaluate variable %s : %s", v.Name, diags.Errs()[0])
+					}
+				}
+			} else {
+				// For locals or when no tracking available, evaluate normally
+				helmfileHCLValuesValues[node.String()], diags = v.Expr.Value(ctx)
+				if len(diags) > 0 {
+					return nil, fmt.Errorf("error when trying to evaluate variable %s : %s", v.Name, diags.Errs()[0])
+				}
 			}
+
 			switch blocktype {
 			case ValuesBlockIdentifier:
 				// Update the eval context for the next value evaluation iteration
@@ -179,24 +302,30 @@ func (hl *HCLLoader) decodeGraph(dagTopology *dag.Topology, blocktype string, va
 
 func (hl *HCLLoader) readHCLs() (map[string]*HelmfileHCLValue, map[string]map[string]*HelmfileHCLValue, hcl.Diagnostics) {
 	var variables map[string]*HelmfileHCLValue
+	// Track all definitions for merging during evaluation
+	var allVariableDefs map[string][]*HelmfileHCLValue
 	var local map[string]*HelmfileHCLValue
 	locals := map[string]map[string]*HelmfileHCLValue{}
 	var diags hcl.Diagnostics
 	for _, file := range hl.hclFilesPath {
-		variables, local, diags = hl.readHCL(variables, file)
+		variables, allVariableDefs, local, diags = hl.readHCL(variables, allVariableDefs, file)
 		if diags != nil {
 			return nil, nil, diags
 		}
 		locals[file] = make(map[string]*HelmfileHCLValue)
 		locals[file] = local
 	}
+
+	// Store all definitions in the HCLLoader for use in decodeGraph
+	hl.allVariableDefs = allVariableDefs
+
 	return variables, locals, nil
 }
 
-func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (map[string]*HelmfileHCLValue, map[string]*HelmfileHCLValue, hcl.Diagnostics) {
+func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, allDefs map[string][]*HelmfileHCLValue, file string) (map[string]*HelmfileHCLValue, map[string][]*HelmfileHCLValue, map[string]*HelmfileHCLValue, hcl.Diagnostics) {
 	src, err := hl.fs.ReadFile(file)
 	if err != nil {
-		return nil, nil, hcl.Diagnostics{
+		return nil, nil, nil, hcl.Diagnostics{
 			{
 				Severity: hcl.DiagError,
 				Summary:  fmt.Sprintf("%s", err),
@@ -210,7 +339,7 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 	p := hclparse.NewParser()
 	hclFile, diags := p.ParseHCL(src, file)
 	if hclFile == nil || hclFile.Body == nil || diags != nil {
-		return nil, nil, diags
+		return nil, nil, nil, diags
 	}
 
 	HelmfileHCLValuesSchema := &hcl.BodySchema{
@@ -226,14 +355,14 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 	// make sure content has a struct with helmfile_vars Schema defined
 	content, diags := hclFile.Body.Content(HelmfileHCLValuesSchema)
 	if diags != nil {
-		return nil, nil, diags
+		return nil, nil, nil, diags
 	}
 
 	var helmfileLocalsVars map[string]*HelmfileHCLValue
 	// Decode blocks to return HelmfileHCLValue object => (each var with expr + Name )
 
 	if len(content.Blocks.OfType(LocalsBlockIdentifier)) > 1 {
-		return nil, nil, hcl.Diagnostics{
+		return nil, nil, nil, hcl.Diagnostics{
 			&hcl.Diagnostic{
 				Severity: hcl.DiagError,
 				Summary:  "A file can only support exactly 1 `locals` block",
@@ -245,32 +374,50 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 		if block.Type == ValuesBlockIdentifier {
 			helmfileBlockVars, diags = hl.decodeHelmfileHCLValuesBlock(block)
 			if diags != nil {
-				return nil, nil, diags
+				return nil, nil, nil, diags
 			}
 		}
 
 		if block.Type == LocalsBlockIdentifier {
 			helmfileLocalsVars, diags = hl.decodeHelmfileHCLValuesBlock(block)
 			if diags != nil {
-				return nil, nil, diags
+				return nil, nil, nil, diags
 			}
 		}
 
-		// make sure vars are unique across blocks
-		for k := range helmfileBlockVars {
-			if hvars[k] != nil {
-				var diags hcl.Diagnostics
-				diags = append(diags, &hcl.Diagnostic{
-					Severity: hcl.DiagError,
-					Summary:  "Duplicate helmfile_vars definition",
-					Detail: fmt.Sprintf("The helmfile_var %q was already defined at %s:%d",
-						k, hvars[k].Range.Filename, hvars[k].Range.Start.Line),
-					Subject: &helmfileBlockVars[k].Range,
-				})
-				return nil, nil, diags
-			}
+		// Track all definitions before merging
+		if allDefs == nil {
+			allDefs = make(map[string][]*HelmfileHCLValue)
 		}
-		err = mergo.Merge(&hvars, &helmfileBlockVars)
+		for k, v := range helmfileBlockVars {
+			// Make a copy of v to avoid it being modified by future mergo.Merge calls
+			vCopy := *v
+
+			// If this variable already exists in hvars (from a previous file),
+			// ensure the old definition is tracked before adding the new one
+			if hvars != nil && hvars[k] != nil {
+				// Check if hvars[k] (the old definition) is already in allDefs
+				oldDefTracked := false
+				for _, existing := range allDefs[k] {
+					// Compare by values to see if this exact definition is already tracked
+					if existing.Range == hvars[k].Range {
+						oldDefTracked = true
+						break
+					}
+				}
+				if !oldDefTracked {
+					// Old definition not yet tracked - add a copy of it
+					oldDefCopy := *hvars[k]
+					allDefs[k] = append(allDefs[k], &oldDefCopy)
+				}
+			}
+			// Now add the new definition from this file (as a copy)
+			allDefs[k] = append(allDefs[k], &vCopy)
+		}
+
+		// Allow override of variables across files - last one wins
+		// The actual merge will happen in decodeGraph() where we have proper evaluation context
+		err = mergo.Merge(&hvars, &helmfileBlockVars, mergo.WithOverride)
 		if err != nil {
 			var diags hcl.Diagnostics
 			diags = append(diags, &hcl.Diagnostic{
@@ -279,11 +426,11 @@ func (hl *HCLLoader) readHCL(hvars map[string]*HelmfileHCLValue, file string) (m
 				Detail:   err.Error(),
 				Subject:  nil,
 			})
-			return nil, nil, diags
+			return nil, nil, nil, diags
 		}
 	}
 
-	return hvars, helmfileLocalsVars, nil
+	return hvars, allDefs, helmfileLocalsVars, nil
 }
 
 func (hl *HCLLoader) decodeHelmfileHCLValuesBlock(block *hcl.Block) (map[string]*HelmfileHCLValue, hcl.Diagnostics) {

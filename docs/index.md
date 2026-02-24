@@ -1149,14 +1149,14 @@ Since Helmfile v0.164.0, HCL language is supported for environment values only.
 HCL values supports interpolations and sharing values across files
 
 * Only `.hcl` suffixed files will be interpreted as is
-* Helmfile supports 2 differents blocks: `values` and `locals`
+* Helmfile supports 2 different blocks: `values` and `locals`
 * `values` block is a shared block where all values are accessible everywhere in all loaded files
 * `locals` block can't reference external values apart from the ones in the block itself, and where its defined values are only accessible in its local file
 * Only values in `values` blocks are made available to the final root `.Values` (e.g : ` values { myvar = "var" }` is accessed through `{{ .Values.myvar }}`)
 * There can only be 1 `locals` block per file
 * Helmfile hcl `values` are referenced using the `hv` accessor.
 * Helmfile hcl `locals` are referenced using the `local` accessor.
-* Duplicated variables across .hcl `values` blocks are forbidden (An error will pop up specifying where are the duplicates)
+* When the same key is defined multiple times across imported `.hcl` files in `values` blocks, values from later files override those from earlier files (last file loaded wins). Map values are merged per key, while list values are replaced as a whole (i.e. not deep-merged). Mixed-types overrides (e.g. bool -> string) are supported (latest value/type wins).
 * All cty [standard library functions](`https://pkg.go.dev/github.com/zclconf/go-cty@v1.14.3/cty/function/stdlib`) are available and custom functions could be created in the future
 
 Consider the following example :
@@ -1305,7 +1305,15 @@ domain: "dev.example.com"
 # values2.hcl
 values {
   domain = "overdev.example.com"
+  env = "dev"
   willBeOverriden = "override_me"
+}
+```
+
+```terraform
+# values3.hcl
+values {
+  env = "local"
 }
 ```
 
@@ -1319,8 +1327,9 @@ willBeOverriden: overrided
 environments:
   default:
     values:
-    - value1.yaml
-    - value2.hcl
+    - values1.yaml
+    - values2.hcl
+    - values3.hcl
     secrets:
     - secrets.yml
 ---
@@ -1329,6 +1338,7 @@ releases:
   [...]
   values:
     domain: "{{ .Values.domain }}" # == "overdev.example.com"
+    env: "{{ .Values.env }}" # == "local"
     willBeOverriden: "{{ .Values.willBeOverriden }}" # == "overrided"
 ```
 ## DAG-aware installation/deletion ordering with `needs`

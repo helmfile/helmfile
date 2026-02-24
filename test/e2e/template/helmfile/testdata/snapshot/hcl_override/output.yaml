@@ -1,0 +1,16 @@
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap
+data:
+  a: values2.hcl
+  b: b2
+  c: VALUES2.HCLB2
+  d: false
+  e: 2
+  list: "[values2.hcl b2]"
+  hello: hello
+  world: world
+
