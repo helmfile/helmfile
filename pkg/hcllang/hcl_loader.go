@@ -60,6 +60,9 @@ func ctyMergeValues(a, b cty.Value) cty.Value {
 				mergedAttrs[name] = bv
 			}
 		}
+		if a.Type().IsMapType() {
+			return cty.MapVal(mergedAttrs)
+		}
 		return cty.ObjectVal(mergedAttrs)
 	}
 
