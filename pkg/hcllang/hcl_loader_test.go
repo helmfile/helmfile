@@ -411,7 +411,7 @@ func TestHCL_ValuesOverride(t *testing.T) {
 	}
 	number_value, ok := mixed_types["number_value"].([]any)
 	if !ok {
-		t.Fatalf("Expected number_value to be a map, got %T", mixed_types["number_value"])
+		t.Fatalf("Expected number_value to be a slice, got %T", mixed_types["number_value"])
 	}
 	if number_value[0] != "val1" {
 		t.Errorf("Expected number_value[0]='val1' (overridden), got %v", number_value[0])
