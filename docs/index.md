@@ -1149,7 +1149,7 @@ Since Helmfile v0.164.0, HCL language is supported for environment values only.
 HCL values supports interpolations and sharing values across files
 
 * Only `.hcl` suffixed files will be interpreted as is
-* Helmfile supports 2 differents blocks: `values` and `locals`
+* Helmfile supports 2 different blocks: `values` and `locals`
 * `values` block is a shared block where all values are accessible everywhere in all loaded files
 * `locals` block can't reference external values apart from the ones in the block itself, and where its defined values are only accessible in its local file
 * Only values in `values` blocks are made available to the final root `.Values` (e.g : ` values { myvar = "var" }` is accessed through `{{ .Values.myvar }}`)
