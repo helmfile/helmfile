@@ -149,41 +149,60 @@ func (h *updateRepoTracker) UpdateRepo() error {
 // TestRunHelmDepBuilds_HelmDefaultsSkipRefresh verifies that when
 // helmDefaults.skipRefresh=true, runHelmDepBuilds skips the UpdateRepo call
 // even when opts.SkipRefresh is false. This is a regression test for issue #2269.
+// It also verifies that UpdateRepo is skipped when only OCI repos are configured,
+// as OCI repos don't need `helm repo update` (they use `helm registry login` instead).
 func TestRunHelmDepBuilds_HelmDefaultsSkipRefresh(t *testing.T) {
 	tests := []struct {
 		name                    string
 		optsSkipRefresh         bool
 		helmDefaultsSkipRefresh bool
-		hasRepos                bool
+		repos                   []RepositorySpec
 		expectUpdateRepo        bool
 	}{
 		{
 			name:                    "no skip flags and repos exist - UpdateRepo called",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
-			hasRepos:                true,
+			repos:                   []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
 			expectUpdateRepo:        true,
 		},
 		{
 			name:                    "opts.SkipRefresh=true - UpdateRepo skipped",
 			optsSkipRefresh:         true,
 			helmDefaultsSkipRefresh: false,
-			hasRepos:                true,
+			repos:                   []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
 			expectUpdateRepo:        false,
 		},
 		{
 			name:                    "helmDefaults.skipRefresh=true - UpdateRepo skipped",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: true,
-			hasRepos:                true,
+			repos:                   []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
 			expectUpdateRepo:        false,
 		},
 		{
 			name:                    "no repos configured - UpdateRepo skipped",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
-			hasRepos:                false,
+			repos:                   nil,
 			expectUpdateRepo:        false,
+		},
+		{
+			name:                    "only OCI repos configured - UpdateRepo skipped",
+			optsSkipRefresh:         false,
+			helmDefaultsSkipRefresh: false,
+			repos:                   []RepositorySpec{{Name: "karpenter", URL: "public.ecr.aws/karpenter", OCI: true}},
+			expectUpdateRepo:        false,
+		},
+		{
+			name:                    "mixed repos (OCI + non-OCI) - UpdateRepo called",
+			optsSkipRefresh:         false,
+			helmDefaultsSkipRefresh: false,
+			repos: []RepositorySpec{
+				{Name: "karpenter", URL: "public.ecr.aws/karpenter", OCI: true},
+				{Name: "stable", URL: "https://charts.helm.sh/stable"},
+			},
+			expectUpdateRepo: true,
 		},
 	}
 
@@ -191,18 +210,13 @@ func TestRunHelmDepBuilds_HelmDefaultsSkipRefresh(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			helm := &updateRepoTracker{}
 
-			var repos []RepositorySpec
-			if tt.hasRepos {
-				repos = []RepositorySpec{{Name: "stable", URL: "https://example.com"}}
-			}
-
 			st := &HelmState{
 				logger: logger,
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{
 						SkipRefresh: tt.helmDefaultsSkipRefresh,
 					},
-					Repositories: repos,
+					Repositories: tt.repos,
 				},
 			}
 
@@ -281,6 +295,61 @@ func TestSkipReposLogic(t *testing.T) {
 			skipRepos := tt.optsSkipRepos || tt.skipDeps || tt.skipRefresh
 			assert.Equal(t, tt.expectedSkipRepo, skipRepos,
 				"skipRepos mismatch: expected %v, got %v", tt.expectedSkipRepo, skipRepos)
+		})
+	}
+}
+
+// TestNeedsRepoUpdate tests the NeedsRepoUpdate function.
+// This is a regression test for issue #2418.
+func TestNeedsRepoUpdate(t *testing.T) {
+	tests := []struct {
+		name     string
+		repos    []RepositorySpec
+		expected bool
+	}{
+		{
+			name:     "no repos configured",
+			repos:    nil,
+			expected: false,
+		},
+		{
+			name:     "only non-OCI repos",
+			repos:    []RepositorySpec{{Name: "stable", URL: "https://charts.helm.sh/stable"}},
+			expected: true,
+		},
+		{
+			name:     "only OCI repos",
+			repos:    []RepositorySpec{{Name: "karpenter", URL: "public.ecr.aws/karpenter", OCI: true}},
+			expected: false,
+		},
+		{
+			name: "mixed repos (OCI + non-OCI)",
+			repos: []RepositorySpec{
+				{Name: "karpenter", URL: "public.ecr.aws/karpenter", OCI: true},
+				{Name: "stable", URL: "https://charts.helm.sh/stable"},
+			},
+			expected: true,
+		},
+		{
+			name: "multiple OCI repos",
+			repos: []RepositorySpec{
+				{Name: "karpenter", URL: "public.ecr.aws/karpenter", OCI: true},
+				{Name: "nginx", URL: "registry.example.com/nginx", OCI: true},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: tt.repos,
+				},
+			}
+			result := st.NeedsRepoUpdate()
+			assert.Equal(t, tt.expected, result,
+				"NeedsRepoUpdate mismatch: expected %v, got %v", tt.expected, result)
 		})
 	}
 }
