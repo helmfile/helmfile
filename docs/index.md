@@ -1306,7 +1306,7 @@ domain: "dev.example.com"
 values {
   domain = "overdev.example.com"
   env = "dev"
-  willBeOverriden = "override_me"
+  willBeOverridden = "override_me"
 }
 ```
 
@@ -1319,7 +1319,7 @@ values {
 
 ```yaml
 # secrets.yml (assuming this one has been encrypted)
-willBeOverriden: overrided
+willBeOverridden: overridden
 ```
 
 ```
@@ -1339,7 +1339,7 @@ releases:
   values:
     domain: "{{ .Values.domain }}" # == "overdev.example.com"
     env: "{{ .Values.env }}" # == "local"
-    willBeOverriden: "{{ .Values.willBeOverriden }}" # == "overrided"
+    willBeOverridden: "{{ .Values.willBeOverridden }}" # == "overridden"
 ```
 ## DAG-aware installation/deletion ordering with `needs`
 

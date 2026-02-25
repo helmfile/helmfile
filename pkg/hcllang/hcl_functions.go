@@ -2,6 +2,7 @@ package hcllang
 
 import (
 	"dario.cat/mergo"
+	"github.com/hashicorp/go-cty-funcs/cidr"
 	"github.com/hashicorp/hcl/v2/ext/tryfunc"
 	ctyyaml "github.com/zclconf/go-cty-yaml"
 	"github.com/zclconf/go-cty/cty/function"
@@ -14,6 +15,10 @@ func HCLFunctions(additionnalFunctions map[string]function.Function) (map[string
 		"can":             tryfunc.CanFunc,
 		"ceil":            stdlib.CeilFunc,
 		"chomp":           stdlib.ChompFunc,
+		"cidrhost":        cidr.HostFunc,
+		"cidrnetmask":     cidr.NetmaskFunc,
+		"cidrsubnet":      cidr.SubnetFunc,
+		"cidrsubnets":     cidr.SubnetsFunc,
 		"coalesce":        stdlib.CoalesceFunc,
 		"coalescelist":    stdlib.CoalesceListFunc,
 		"compact":         stdlib.CompactFunc,
