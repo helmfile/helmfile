@@ -1,6 +1,13 @@
+bases:
+  - ../bases/environments.yaml
+---
+bases:
+  - ../bases/defaults.yaml.gotmpl
+  - ../bases/templates.yaml
+---
 releases:
 - name: test-app-2424
   chart: ../../../../charts/raw
   namespace: default
-  values:
-  - ../config/default/values.yaml
+  inherit:
+    - template: default

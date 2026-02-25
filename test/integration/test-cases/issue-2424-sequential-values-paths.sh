@@ -5,10 +5,11 @@
 # was passed instead of an absolute one, breaking values/secrets path resolution
 # when using --sequential-helmfiles with helmfile.d/ containing multiple files.
 #
-# The setup has:
-#   - helmfile.d/ with two YAML files (to trigger multi-file sequential mode)
-#   - A values file referenced via relative path (../config/default/values.yaml)
-#   - The values file should be resolved correctly regardless of --sequential-helmfiles
+# The setup mirrors the reporter's structure:
+#   - helmfile.d/ with two .yaml.gotmpl files (to trigger multi-file sequential mode)
+#   - bases/ with environments, defaults, and templates (values: ../config/{{ .Release.Namespace }}/values.yaml)
+#   - Releases using inherit: [template: default] to pick up values via template
+#   - config/<namespace>/values.yaml resolved via the template's relative path
 
 issue_2424_input_dir="${cases_dir}/issue-2424-sequential-values-paths/input/helmfile.d"
 issue_2424_tmp=$(mktemp -d)
