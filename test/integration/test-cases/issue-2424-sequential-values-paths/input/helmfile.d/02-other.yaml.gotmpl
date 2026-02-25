@@ -1,0 +1,14 @@
+releases:
+- name: test-other-2424
+  chart: ../../../../charts/raw
+  namespace: default
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: other-configmap-2424
+        namespace: {{ "{{ .Release.Namespace }}" }}
+      data:
+        source: inline

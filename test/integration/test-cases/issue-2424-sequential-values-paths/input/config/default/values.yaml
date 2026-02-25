@@ -1,0 +1,10 @@
+templates:
+- |
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: app-configmap-2424
+    namespace: {{ .Release.Namespace }}
+  data:
+    issue: "2424"
+    resolved: "true"
