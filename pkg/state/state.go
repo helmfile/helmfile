@@ -1862,16 +1862,24 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	// for every iteration of the loop where charts have external dependencies.
 	// Only do this if there are non-OCI repositories configured.
 	// OCI repositories don't need `helm repo update` as they use `helm registry login` instead.
+	didUpdateRepo := false
 	if len(builds) > 0 && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && st.NeedsRepoUpdate() {
 		if err := helm.UpdateRepo(); err != nil {
 			return fmt.Errorf("updating repo: %w", err)
 		}
+		didUpdateRepo = true
 	}
 
 	for _, r := range builds {
-		// Never update the local repository cache here, since we've already
-		// updated it before entering the loop
-		r.skipRefresh = true
+		// If we ran helm repo update, pass --skip-refresh to helm dep build to avoid
+		// redundant repo updates. Otherwise, preserve the precomputed skipRefresh value
+		// which accounts for CLI flags, helmDefaults.skipRefresh, and release.skipRefresh.
+		// When no repos are configured in helmfile.yaml and user hasn't set skip-refresh,
+		// helm dep build will refresh repos as needed for local charts with external
+		// dependencies (fixes issue #2417).
+		if didUpdateRepo {
+			r.skipRefresh = true
+		}
 
 		buildDepsFlags := getBuildDepsFlags(r)
 		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {
