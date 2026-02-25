@@ -1,0 +1,5 @@
+templates:
+  default:
+    missingFileHandler: Error
+    values:
+    - ../config/{{ .Release.Namespace }}/values.yaml

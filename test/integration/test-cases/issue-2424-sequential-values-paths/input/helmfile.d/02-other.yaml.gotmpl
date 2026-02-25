@@ -1,0 +1,13 @@
+bases:
+  - ../bases/environments.yaml
+---
+bases:
+  - ../bases/defaults.yaml.gotmpl
+  - ../bases/templates.yaml
+---
+releases:
+- name: test-other-2424
+  chart: ../../../../charts/raw
+  namespace: default
+  inherit:
+    - template: default

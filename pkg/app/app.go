@@ -1080,13 +1080,10 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 				var loadErr error
 
 				if useBaseDir {
-					// Multi-file sequential: use baseDir for path resolution
+					// Multi-file sequential: use absolute baseDir for path resolution
 					// instead of os.Chdir to avoid breaking relative env var paths.
-					baseDir := dir
-					if dir == "." {
-						baseDir = ""
-					}
-					st, loadErr = a.loadDesiredStateFromYamlWithBaseDir(file, baseDir, opts)
+					// Must use absd (absolute dir) to correctly resolve relative values/secrets paths.
+					st, loadErr = a.loadDesiredStateFromYamlWithBaseDir(file, absd, opts)
 				} else {
 					// Single file: CWD is set by within(), load without baseDir
 					st, loadErr = a.loadDesiredStateFromYaml(file, opts)

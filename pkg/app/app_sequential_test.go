@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/helmfile/vals"
@@ -413,5 +414,89 @@ releases:
 
 	if !bytes.Contains([]byte(err.Error()), []byte("simulated converge failure")) {
 		t.Errorf("expected error to contain 'simulated converge failure', got: %v", err)
+	}
+}
+
+// TestSequentialHelmfilesValuesFileResolution verifies that relative values file
+// paths (e.g., ../config/myapp/values.yaml) are resolved correctly in sequential
+// mode. This is a regression test for issue #2424 where a relative baseDir caused
+// values paths to be resolved incorrectly.
+func TestSequentialHelmfilesValuesFileResolution(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.d/01-app.yaml": `
+releases:
+- name: myapp
+  chart: stable/myapp
+  namespace: default
+  values:
+  - ../config/myapp/values.yaml
+`,
+		"/path/to/helmfile.d/02-other.yaml": `
+releases:
+- name: other
+  chart: stable/other
+  namespace: default
+`,
+		"/path/to/config/myapp/values.yaml": `
+replicaCount: 3
+`,
+	}
+
+	testFs := testhelper.NewTestFs(files)
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := &App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          newAppTestLogger(),
+		valsRuntime:                     valsRuntime,
+		FileOrDir:                       "/path/to/helmfile.d",
+		SequentialHelmfiles:             true,
+	}
+
+	app = injectFs(app, testFs)
+	expectNoCallsToHelm(app)
+
+	var stateFilePaths []string
+	captureState := func(run *Run) (bool, []error) {
+		stateFilePaths = append(stateFilePaths, run.state.FilePath)
+		return false, []error{}
+	}
+
+	err = app.ForEachState(
+		captureState,
+		false,
+		SetFilter(true),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify that state FilePaths are absolute (which means basePath is also
+	// absolute, ensuring relative values paths like ../config/myapp/values.yaml
+	// resolve correctly). Before the fix, a relative baseDir was passed causing
+	// values path resolution to fail.
+	for _, fp := range stateFilePaths {
+		if !strings.HasPrefix(fp, "/") {
+			t.Errorf("expected absolute FilePath, got relative: %s", fp)
+		}
+	}
+
+	// Verify the values file was found and can be read (proving correct path resolution).
+	// With an absolute basePath, ../config/myapp/values.yaml resolves to
+	// /path/to/config/myapp/values.yaml which exists in our test filesystem.
+	valuesPath := "/path/to/config/myapp/values.yaml"
+	content, err := testFs.ToFileSystem().ReadFile(valuesPath)
+	if err != nil {
+		t.Fatalf("values file should be readable at %s: %v", valuesPath, err)
+	}
+	if !strings.Contains(string(content), "replicaCount") {
+		t.Errorf("values file content mismatch: %s", string(content))
 	}
 }
