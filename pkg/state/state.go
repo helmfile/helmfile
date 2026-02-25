@@ -1860,11 +1860,10 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	// Perform an update of repos once before running `helm dep build` so that we
 	// can safely pass --skip-refresh to the command to avoid doing a repo update
 	// for every iteration of the loop where charts have external dependencies.
-	// Only do this if there is at least one dependency build to run (len(builds) > 0),
-	// repositories are configured, AND global/CLI skip flags
-	// (opts.SkipRefresh, st.HelmDefaults.SkipRefresh) are not set.
+	// Only do this if there are non-OCI repositories configured.
+	// OCI repositories don't need `helm repo update` as they use `helm registry login` instead.
 	didUpdateRepo := false
-	if len(builds) > 0 && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && len(st.Repositories) > 0 {
+	if len(builds) > 0 && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && st.NeedsRepoUpdate() {
 		if err := helm.UpdateRepo(); err != nil {
 			return fmt.Errorf("updating repo: %w", err)
 		}
@@ -5089,6 +5088,17 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 		return false
 	}
 	return repo.OCI
+}
+
+// NeedsRepoUpdate returns true if there are any repositories that require `helm repo update`.
+// OCI repositories don't need `helm repo update` as they use `helm registry login` instead.
+func (st *HelmState) NeedsRepoUpdate() bool {
+	for _, repo := range st.Repositories {
+		if !repo.OCI {
+			return true
+		}
+	}
+	return false
 }
 
 // parseOCIChartRef parses an OCI chart URL into base URL, version tag, and digest.

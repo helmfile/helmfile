@@ -1,0 +1,9 @@
+repositories:
+  - name: karpenter
+    url: public.ecr.aws/karpenter
+    oci: true
+
+releases:
+- name: custom-resources
+  chart: ./customresources
+  namespace: default
