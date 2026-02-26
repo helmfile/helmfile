@@ -545,3 +545,26 @@ func TestHCL_ValuesOverride_TransitiveDependencies(t *testing.T) {
 		t.Errorf("Expected full_path=override/path (overridden), got %v", actual["full_path"])
 	}
 }
+
+// TestHCL_CIDRFunctions tests that HCL CIDR functions work correctly
+func TestHCL_CIDRFunctions(t *testing.T) {
+	l := newHCLLoader()
+	l.AddFiles([]string{"testdata/cidr.hcl"})
+
+	actual, err := l.HCLRender()
+	if err != nil {
+		t.Fatalf("Render error: %s", err.Error())
+	}
+
+	expected := map[string]any{
+		"host":     "10.0.0.2",
+		"host_neg": "10.255.255.254",
+		"netmask":  "255.255.0.0",
+		"subnet":   "10.2.0.0/16",
+		"subnets":  []any{"10.0.0.0/12", "10.16.0.0/12"},
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
+	}
+}

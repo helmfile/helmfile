@@ -14,6 +14,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
 	github.com/gosuri/uitable v0.0.4
+	github.com/hashicorp/go-cty-funcs v0.1.0
 	github.com/hashicorp/go-getter/v2 v2.2.3
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/helmfile/chartify v0.26.2
@@ -145,6 +146,7 @@ require (
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/antchfx/jsonquery v1.3.6 // indirect
 	github.com/antchfx/xpath v1.3.5 // indirect
+	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
