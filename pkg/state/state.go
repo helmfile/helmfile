@@ -1871,13 +1871,15 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	}
 
 	for _, r := range builds {
-		// If we ran helm repo update, pass --skip-refresh to helm dep build to avoid
-		// redundant repo updates. Otherwise, preserve the precomputed skipRefresh value
-		// which accounts for CLI flags, helmDefaults.skipRefresh, and release.skipRefresh.
-		// When no repos are configured in helmfile.yaml and user hasn't set skip-refresh,
-		// helm dep build will refresh repos as needed for local charts with external
-		// dependencies (fixes issue #2417).
-		if didUpdateRepo {
+		// If we ran helm repo update, pass --skip-refresh to helm dep build for non-local
+		// charts to avoid redundant repo updates. However, for local charts (skipRefresh=false),
+		// preserve the precomputed value because they may have external dependencies on repos
+		// not in helmfile.yaml that need to be refreshed (fixes issue #2431).
+		//
+		// The precomputed skipRefresh is:
+		// - false for local charts without explicit skip flags
+		// - true for non-local charts or charts with explicit skip flags
+		if didUpdateRepo && r.skipRefresh {
 			r.skipRefresh = true
 		}
 
