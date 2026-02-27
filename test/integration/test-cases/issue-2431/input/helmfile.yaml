@@ -1,0 +1,18 @@
+# Issue #2431: Local chart with external dependencies
+# 
+# helmfile.yaml has repos configured (vector), but the local chart has dependencies
+# on a repository that is NOT configured here.
+#
+# This test verifies that helm dep build does NOT receive --skip-refresh
+# for local charts, allowing them to refresh repos for external dependencies.
+
+repositories:
+  - name: vector
+    url: https://helm.vector.dev
+
+---
+
+releases:
+  - name: karma
+    namespace: default
+    chart: ./karma

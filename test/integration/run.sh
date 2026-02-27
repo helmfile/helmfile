@@ -134,6 +134,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-2269.sh
 . ${dir}/test-cases/issue-2418.sh
 . ${dir}/test-cases/issue-2424-sequential-values-paths.sh
+. ${dir}/test-cases/issue-2431.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 

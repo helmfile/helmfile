@@ -1,0 +1,6 @@
+apiVersion: v2
+name: karma
+description: Local chart with dependency (issue #2431)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
