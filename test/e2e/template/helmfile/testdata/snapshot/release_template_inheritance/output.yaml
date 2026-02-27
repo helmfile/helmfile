@@ -1,11 +1,6 @@
 Adding repo myrepo http://localhost:18084/
 "myrepo" has been added to your repositories
 
-Updating repo
-Hang tight while we grab the latest from your chart repositories...
-...Successfully got an update from the "myrepo" chart repository
-Update Complete. ⎈Happy Helming!⎈
-
 Building dependency release=foo1, chart=../../charts/raw-0.1.0
 Building dependency release=foo2, chart=../../charts/raw-0.1.0
 Templating release=foo1, chart=../../charts/raw-0.1.0
