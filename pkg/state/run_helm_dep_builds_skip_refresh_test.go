@@ -243,7 +243,7 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 			expectSkipRefreshFlag:  false,
 		},
 		{
-			name:                    "non-local chart with repos exist - UpdateRepo called, skip-refresh passed",
+			name:                    "build with skipRefresh=true and repos exist - UpdateRepo called, skip-refresh passed",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
 			repos:                   []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
@@ -314,9 +314,9 @@ func (h *multiBuildTracker) BuildDeps(name, chart string, flags ...string) error
 	return nil
 }
 
-// TestRunHelmDepBuilds_MultipleBuilds verifies that when didUpdateRepo=true,
-// only non-local charts (precomputed skipRefresh=true) receive --skip-refresh.
-// Local charts (precomputed skipRefresh=false) preserve their value to allow
+// TestRunHelmDepBuilds_MultipleBuilds verifies that when at least one build
+// has skipRefresh=true, UpdateRepo is called and only builds with skipRefresh=true
+// receive --skip-refresh. Builds with skipRefresh=false preserve their value to allow
 // refreshing repos for external dependencies not in helmfile.yaml (issue #2431).
 func TestRunHelmDepBuilds_MultipleBuilds(t *testing.T) {
 	helm := &multiBuildTracker{}
