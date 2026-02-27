@@ -1,6 +1,10 @@
 apiVersion: v2
 name: karma
-description: Local chart with dependency (issue #2431)
+description: Local chart with external dependencies (issue #2431)
 type: application
 version: 1.0.0
 appVersion: "1.0.0"
+dependencies:
+  - name: karma
+    version: 2.11.0
+    repository: https://wiremind.github.io/wiremind-helm-charts
