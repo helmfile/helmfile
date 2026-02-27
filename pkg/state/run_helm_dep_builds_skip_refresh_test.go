@@ -177,12 +177,12 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 		expectSkipRefreshFlag   bool
 	}{
 		{
-			name:                    "local chart with repos exist - UpdateRepo called, no skip-refresh flag (issue #2431)",
+			name:                    "local chart with repos exist - UpdateRepo skipped (all builds have skipRefresh=false), no skip-refresh flag (issue #2431)",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
 			repos:                   []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
 			precomputedSkipRefresh:  false,
-			expectUpdateRepo:        true,
+			expectUpdateRepo:        false,
 			expectSkipRefreshFlag:   false,
 		},
 		{
@@ -231,7 +231,7 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 			expectSkipRefreshFlag:   false,
 		},
 		{
-			name:                    "mixed repos (OCI + non-OCI) with local chart - UpdateRepo called, no skip-refresh flag",
+			name:                    "mixed repos (OCI + non-OCI) with local chart - UpdateRepo skipped (all builds have skipRefresh=false), no skip-refresh flag",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
 			repos: []RepositorySpec{
@@ -239,7 +239,7 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 				{Name: "stable", URL: "https://charts.helm.sh/stable"},
 			},
 			precomputedSkipRefresh: false,
-			expectUpdateRepo:       true,
+			expectUpdateRepo:       false,
 			expectSkipRefreshFlag:  false,
 		},
 		{

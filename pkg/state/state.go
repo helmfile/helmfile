@@ -1857,13 +1857,18 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
 
-	// Perform an update of repos once before running `helm dep build` so that
-	// non-local charts can safely use --skip-refresh to avoid redundant repo updates.
-	// Only do this if there are non-OCI repositories configured.
-	// OCI repositories don't need `helm repo update` as they use `helm registry login` instead.
-	// Local charts with external dependencies not in helmfile.yaml will still refresh
-	// repos during helm dep build (fixes issue #2431).
-	if len(builds) > 0 && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && st.NeedsRepoUpdate() {
+	// Only run a global repo update when at least one build will actually use --skip-refresh.
+	// If all builds have skipRefresh=false, each `helm dep build` will refresh repos itself,
+	// so calling `helm.UpdateRepo()` here would be redundant.
+	anySkipRefresh := false
+	for _, b := range builds {
+		if b.skipRefresh {
+			anySkipRefresh = true
+			break
+		}
+	}
+
+	if anySkipRefresh && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && st.NeedsRepoUpdate() {
 		if err := helm.UpdateRepo(); err != nil {
 			return fmt.Errorf("updating repo: %w", err)
 		}
