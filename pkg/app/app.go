@@ -359,7 +359,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 		var unittestErrs []error
 
 		// helm unittest needs local charts, so force download
-		prepErr := run.withPreparedCharts("unittest", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("unittest", state.ChartPrepareOptions{
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
