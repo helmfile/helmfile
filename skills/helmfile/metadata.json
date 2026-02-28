@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "organization": "Helmfile",
+  "date": "February 2026",
+  "abstract": "Comprehensive guide for Helmfile, a declarative spec for deploying Helm charts to Kubernetes. Covers configuration structure, CLI commands, templating, environments, layering, release templates, Kustomize integration, strategic merge patches, transformers, chart dependencies, remote secrets, and best practices. Designed for AI agents working with Helmfile configurations and Kubernetes deployments.",
+  "references": [
+    "https://helmfile.readthedocs.io",
+    "https://github.com/helmfile/helmfile",
+    "https://helm.sh",
+    "https://kubernetes.io"
+  ]
+}
