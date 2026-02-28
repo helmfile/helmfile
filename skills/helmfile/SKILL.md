@@ -151,7 +151,7 @@ helmfile --environment staging apply
 ```yaml
 releases:
   - name: monitoring
-    installed: {{ eq .Environment.Name "production" | toYaml }}
+    installed: {{ eq .Environment.Name "production" }}
     chart: stable/prometheus
 ```
 
