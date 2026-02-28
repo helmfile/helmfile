@@ -1857,29 +1857,29 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 	//
 	//    See https://github.com/roboll/helmfile/issues/1521
 
-	// Perform an update of repos once before running `helm dep build` so that we
-	// can safely pass --skip-refresh to the command to avoid doing a repo update
-	// for every iteration of the loop where charts have external dependencies.
-	// Only do this if there are non-OCI repositories configured.
-	// OCI repositories don't need `helm repo update` as they use `helm registry login` instead.
-	didUpdateRepo := false
-	if len(builds) > 0 && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && st.NeedsRepoUpdate() {
+	// Only run a global repo update when at least one build will actually use --skip-refresh.
+	// If all builds have skipRefresh=false, each `helm dep build` will refresh repos itself,
+	// so calling `helm.UpdateRepo()` here would be redundant.
+	anySkipRefresh := false
+	for _, b := range builds {
+		if b.skipRefresh {
+			anySkipRefresh = true
+			break
+		}
+	}
+
+	if anySkipRefresh && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && st.NeedsRepoUpdate() {
 		if err := helm.UpdateRepo(); err != nil {
 			return fmt.Errorf("updating repo: %w", err)
 		}
-		didUpdateRepo = true
 	}
 
 	for _, r := range builds {
-		// If we ran helm repo update, pass --skip-refresh to helm dep build to avoid
-		// redundant repo updates. Otherwise, preserve the precomputed skipRefresh value
-		// which accounts for CLI flags, helmDefaults.skipRefresh, and release.skipRefresh.
-		// When no repos are configured in helmfile.yaml and user hasn't set skip-refresh,
-		// helm dep build will refresh repos as needed for local charts with external
-		// dependencies (fixes issue #2417).
-		if didUpdateRepo {
-			r.skipRefresh = true
-		}
+		// skipRefresh for each release is precomputed in prepareChartForRelease to:
+		// - avoid redundant repo updates for non-local charts when helm repo update has run
+		// - preserve refresh behavior for local charts that may depend on external repos
+		// not listed in helmfile.yaml (fixes issue #2431).
+		// We intentionally do not modify r.skipRefresh here.
 
 		buildDepsFlags := getBuildDepsFlags(r)
 		if err := helm.BuildDeps(r.releaseName, r.chartPath, buildDepsFlags...); err != nil {

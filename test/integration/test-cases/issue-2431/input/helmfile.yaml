@@ -1,0 +1,28 @@
+# Issue #2431: Local chart with external dependencies
+# 
+# helmfile.yaml has repos configured (vector), but NOT the repo that the chart
+# depends on (wiremind). This tests that helm dep build does NOT receive
+# --skip-refresh for local charts, allowing them to refresh repos for
+# external dependencies not in helmfile.yaml.
+
+repositories:
+  ## Everything works if the wiremind repo is added here:
+  # - name: wiremind
+  #   url: https://wiremind.github.io/wiremind-helm-charts
+  - name: vector
+    url: https://helm.vector.dev
+
+---
+
+environments:
+  karma:
+    missingFileHandler: Debug
+
+---
+
+releases:
+  - name: karma
+    namespace: default
+    chart: ./karma
+    createNamespace: false
+    missingFileHandler: "Info"

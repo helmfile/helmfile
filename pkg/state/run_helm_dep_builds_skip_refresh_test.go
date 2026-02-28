@@ -177,13 +177,13 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 		expectSkipRefreshFlag   bool
 	}{
 		{
-			name:                    "no skip flags and repos exist - UpdateRepo called, skip-refresh passed",
+			name:                    "local chart with repos exist - UpdateRepo skipped (all builds have skipRefresh=false), no skip-refresh flag (issue #2431)",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
 			repos:                   []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
 			precomputedSkipRefresh:  false,
-			expectUpdateRepo:        true,
-			expectSkipRefreshFlag:   true,
+			expectUpdateRepo:        false,
+			expectSkipRefreshFlag:   false,
 		},
 		{
 			name:                    "opts.SkipRefresh=true - UpdateRepo skipped, skip-refresh flag preserved from precomputed value",
@@ -231,7 +231,7 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 			expectSkipRefreshFlag:   false,
 		},
 		{
-			name:                    "mixed repos (OCI + non-OCI) - UpdateRepo called",
+			name:                    "mixed repos (OCI + non-OCI) with local chart - UpdateRepo skipped (all builds have skipRefresh=false), no skip-refresh flag",
 			optsSkipRefresh:         false,
 			helmDefaultsSkipRefresh: false,
 			repos: []RepositorySpec{
@@ -239,8 +239,17 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 				{Name: "stable", URL: "https://charts.helm.sh/stable"},
 			},
 			precomputedSkipRefresh: false,
-			expectUpdateRepo:       true,
-			expectSkipRefreshFlag:  true,
+			expectUpdateRepo:       false,
+			expectSkipRefreshFlag:  false,
+		},
+		{
+			name:                    "build with skipRefresh=true and repos exist - UpdateRepo called, skip-refresh passed",
+			optsSkipRefresh:         false,
+			helmDefaultsSkipRefresh: false,
+			repos:                   []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
+			precomputedSkipRefresh:  true,
+			expectUpdateRepo:        true,
+			expectSkipRefreshFlag:   true,
 		},
 	}
 
@@ -305,9 +314,10 @@ func (h *multiBuildTracker) BuildDeps(name, chart string, flags ...string) error
 	return nil
 }
 
-// TestRunHelmDepBuilds_MultipleBuilds verifies that when didUpdateRepo=true,
-// all builds receive --skip-refresh regardless of their precomputed skipRefresh values.
-// This ensures the override applies uniformly across all builds in the loop.
+// TestRunHelmDepBuilds_MultipleBuilds verifies that when at least one build
+// has skipRefresh=true, UpdateRepo is called and only builds with skipRefresh=true
+// receive --skip-refresh. Builds with skipRefresh=false preserve their value to allow
+// refreshing repos for external dependencies not in helmfile.yaml (issue #2431).
 func TestRunHelmDepBuilds_MultipleBuilds(t *testing.T) {
 	helm := &multiBuildTracker{}
 
@@ -332,6 +342,7 @@ func TestRunHelmDepBuilds_MultipleBuilds(t *testing.T) {
 	assert.True(t, helm.updateRepoCalled, "UpdateRepo should have been called")
 	assert.Len(t, helm.buildDepsCalls, 2, "BuildDeps should have been called twice")
 
+	expectedSkipRefresh := []bool{false, true}
 	for i, flags := range helm.buildDepsCalls {
 		hasSkipRefresh := false
 		for _, f := range flags {
@@ -340,7 +351,8 @@ func TestRunHelmDepBuilds_MultipleBuilds(t *testing.T) {
 				break
 			}
 		}
-		assert.True(t, hasSkipRefresh, "build %d should have --skip-refresh flag (flags: %v)", i, flags)
+		assert.Equal(t, expectedSkipRefresh[i], hasSkipRefresh,
+			"build %d skip-refresh flag mismatch: expected %v, got %v (flags: %v)", i, expectedSkipRefresh[i], hasSkipRefresh, flags)
 	}
 }
 
