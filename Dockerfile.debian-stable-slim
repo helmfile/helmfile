@@ -104,7 +104,7 @@ RUN set -x && \
     [ "$(age-keygen --version)" = "${AGE_VERSION}" ]
 
 ARG HELM_SECRETS_VERSION="4.7.4"
-RUN helm plugin install https://github.com/databus23/helm-diff --version v3.14.1 --verify=false && \
+RUN helm plugin install https://github.com/databus23/helm-diff --version v3.15.1 --verify=false && \
     helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-${HELM_SECRETS_VERSION}.tgz --verify=false && \
     helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-getter-${HELM_SECRETS_VERSION}.tgz --verify=false && \
     helm plugin install https://github.com/jkroepke/helm-secrets/releases/download/v${HELM_SECRETS_VERSION}/secrets-post-renderer-${HELM_SECRETS_VERSION}.tgz --verify=false && \
