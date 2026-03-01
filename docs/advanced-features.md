@@ -1,9 +1,96 @@
 ## Advanced Features
 
+- [Resource Tracking with Kubedog](#resource-tracking-with-kubedog)
 - [Import Configuration Parameters into Helmfile](#import-configuration-parameters-into-helmfile)
 - [Deploy Kustomization with Helmfile](#deploy-kustomizations-with-helmfile)
 - [Adhoc Kustomization of Helm Charts](#adhoc-kustomization-of-helm-charts)
 - [Adding dependencies without forking the chart](#adding-dependencies-without-forking-the-chart)
+
+### Resource Tracking with Kubedog
+
+Helmfile can use [kubedog](https://github.com/werf/kubedog) for advanced resource tracking instead of Helm's built-in `--wait` flag. This provides more detailed feedback and control over deployment progress.
+
+#### Basic Usage
+
+Enable kubedog tracking in your `helmfile.yaml`:
+
+```yaml
+releases:
+  - name: myapp
+    chart: ./charts/myapp
+    trackMode: kubedog
+    trackTimeout: 300  # seconds
+    trackLogs: true
+```
+
+Or use command-line flags:
+
+```bash
+helmfile apply --track-mode kubedog --track-timeout 300 --track-logs
+```
+
+#### Configuration Options
+
+- **`trackMode`**: Set to `kubedog` to enable kubedog tracking (default: `helm`)
+- **`trackTimeout`**: Timeout in seconds for tracking resources (default: 300)
+- **`trackLogs`**: Enable real-time log streaming from tracked resources
+
+#### Resource Filtering
+
+Control which resources to track using whitelist/blacklist:
+
+```yaml
+releases:
+  - name: myapp
+    chart: ./charts/myapp
+    trackMode: kubedog
+    # Track only specific resource kinds
+    trackKinds:
+      - Deployment
+      - StatefulSet
+    # Skip certain resource kinds
+    skipKinds:
+      - ConfigMap
+      - Secret
+```
+
+#### Specific Resource Tracking
+
+Track only specific resources by name and namespace:
+
+```yaml
+releases:
+  - name: myapp
+    chart: ./charts/myapp
+    trackMode: kubedog
+    trackResources:
+      - kind: Deployment
+        name: myapp-deployment
+        namespace: default
+      - kind: Job
+        name: myapp-job
+```
+
+#### Priority Rules
+
+Resource filtering follows this priority (highest to lowest):
+
+1. **`trackResources`**: Whitelist specific resources (takes highest priority)
+2. **`skipKinds`**: Blacklist resource kinds
+3. **`trackKinds`**: Whitelist resource kinds
+
+#### Benefits
+
+- **Real-time feedback**: See deployment progress with detailed status updates
+- **Log streaming**: View container logs during deployment
+- **Fine-grained control**: Track only the resources you care about
+- **Better debugging**: Immediate visibility into deployment issues
+
+#### Compatibility
+
+- Kubedog tracking is compatible with Helm 3.x
+- Kubedog is a compiled dependency and is only used when `trackMode: kubedog` is set
+- Works with charts that deploy supported workload kinds (currently `Deployment`, `StatefulSet`, `DaemonSet`, and `Job`); other resource kinds are created by Helm/Helmfile as usual but are ignored by the kubedog tracker
 
 ### Import Configuration Parameters into Helmfile
 
