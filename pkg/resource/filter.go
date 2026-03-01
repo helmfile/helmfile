@@ -74,6 +74,11 @@ func (f *ResourceFilter) ShouldTrack(r *Resource) bool {
 
 func (f *ResourceFilter) matchWhitelist(r *Resource) bool {
 	for _, tr := range f.config.TrackResources {
+		// At least one field must be specified for a match
+		if tr.Kind == "" && tr.Name == "" && tr.Namespace == "" {
+			continue
+		}
+
 		if tr.Kind != "" && !strings.EqualFold(tr.Kind, r.Kind) {
 			continue
 		}

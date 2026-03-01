@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 // ApplyOptoons is the options for the apply command
 type ApplyOptions struct {
 	// Set is a list of key value pairs to be merged into the command
@@ -300,4 +302,11 @@ func (a *ApplyImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (a *ApplyImpl) TrackLogs() bool {
 	return a.ApplyOptions.TrackLogs
+}
+
+func (a *ApplyImpl) ValidateConfig() error {
+	if a.ApplyOptions.TrackMode != "" && a.ApplyOptions.TrackMode != "helm" && a.ApplyOptions.TrackMode != "kubedog" {
+		return fmt.Errorf("--track-mode must be 'helm' or 'kubedog', got: %s", a.ApplyOptions.TrackMode)
+	}
+	return a.GlobalImpl.ValidateConfig()
 }

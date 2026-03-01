@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 // SyncOptions is the options for the build command
 type SyncOptions struct {
 	// Set is the set flag
@@ -207,4 +209,11 @@ func (t *SyncImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (t *SyncImpl) TrackLogs() bool {
 	return t.SyncOptions.TrackLogs
+}
+
+func (t *SyncImpl) ValidateConfig() error {
+	if t.SyncOptions.TrackMode != "" && t.SyncOptions.TrackMode != "helm" && t.SyncOptions.TrackMode != "kubedog" {
+		return fmt.Errorf("--track-mode must be 'helm' or 'kubedog', got: %s", t.SyncOptions.TrackMode)
+	}
+	return t.GlobalImpl.ValidateConfig()
 }
