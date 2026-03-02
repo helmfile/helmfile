@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 // ApplyOptoons is the options for the apply command
 type ApplyOptions struct {
 	// Set is a list of key value pairs to be merged into the command
@@ -75,6 +77,12 @@ type ApplyOptions struct {
 	TakeOwnership bool
 
 	SyncReleaseLabels bool
+	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
+	TrackMode string
+	// TrackTimeout specifies timeout for kubedog tracking (in seconds)
+	TrackTimeout int
+	// TrackLogs enables log streaming with kubedog
+	TrackLogs bool
 }
 
 // NewApply creates a new Apply
@@ -279,4 +287,26 @@ func (a *ApplyImpl) TakeOwnership() bool {
 // SyncReleaseLabels returns the SyncReleaseLabels.
 func (a *ApplyImpl) SyncReleaseLabels() bool {
 	return a.ApplyOptions.SyncReleaseLabels
+}
+
+// TrackMode returns the track mode.
+func (a *ApplyImpl) TrackMode() string {
+	return a.ApplyOptions.TrackMode
+}
+
+// TrackTimeout returns the track timeout.
+func (a *ApplyImpl) TrackTimeout() int {
+	return a.ApplyOptions.TrackTimeout
+}
+
+// TrackLogs returns the track logs flag.
+func (a *ApplyImpl) TrackLogs() bool {
+	return a.ApplyOptions.TrackLogs
+}
+
+func (a *ApplyImpl) ValidateConfig() error {
+	if a.ApplyOptions.TrackMode != "" && a.ApplyOptions.TrackMode != "helm" && a.ApplyOptions.TrackMode != "kubedog" {
+		return fmt.Errorf("--track-mode must be 'helm' or 'kubedog', got: %s", a.ApplyOptions.TrackMode)
+	}
+	return a.GlobalImpl.ValidateConfig()
 }

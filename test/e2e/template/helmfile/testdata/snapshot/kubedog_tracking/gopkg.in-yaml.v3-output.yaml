@@ -1,0 +1,90 @@
+---
+#  Source: __workingdir__/testdata/snapshot/kubedog_tracking/input.yaml.gotmpl
+
+filepath: input.yaml.gotmpl
+helmBinary: helm
+kustomizeBinary: kustomize
+releases:
+  - chart: ../../charts/raw-0.1.0
+    name: kubedog-baseline
+    labels:
+      chart: raw-0.1.0
+      name: kubedog-baseline
+      namespace: ""
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}-baseline
+              namespace: {{ .Release.Namespace }}
+            data:
+              baseline: value
+    trackMode: kubedog
+  - chart: ../../charts/raw-0.1.0
+    name: kubedog-with-timeout
+    labels:
+      chart: raw-0.1.0
+      name: kubedog-with-timeout
+      namespace: ""
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}-timeout
+              namespace: {{ .Release.Namespace }}
+            data:
+              timeout: value
+    trackMode: kubedog
+    trackTimeout: 300
+  - chart: ../../charts/raw-0.1.0
+    name: kubedog-with-logs
+    labels:
+      chart: raw-0.1.0
+      name: kubedog-with-logs
+      namespace: ""
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}-logs
+              namespace: {{ .Release.Namespace }}
+            data:
+              logs: value
+    trackMode: kubedog
+    trackLogs: true
+  - chart: ../../charts/raw-0.1.0
+    name: kubedog-with-whitelist
+    labels:
+      chart: raw-0.1.0
+      name: kubedog-with-whitelist
+      namespace: ""
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}-tracked
+              namespace: {{ .Release.Namespace }}
+            data:
+              tracked: value
+          - |
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: {{ .Release.Name }}-secret
+              namespace: {{ .Release.Namespace }}
+            type: Opaque
+            data:
+              secret: dmFsdWU=
+    trackMode: kubedog
+    trackKinds:
+      - ConfigMap
+templates: {}
+renderedvalues: {}

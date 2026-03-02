@@ -54,6 +54,9 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&syncOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
 	f.BoolVar(&syncOptions.SkipSchemaValidation, "skip-schema-validation", false, `pass --skip-schema-validation to "helm template" or "helm upgrade --install"`)
 	f.StringVar(&syncOptions.Cascade, "cascade", "", "pass cascade to helm exec, default: background")
+	f.StringVar(&syncOptions.TrackMode, "track-mode", "", "Track mode for releases: 'helm' (default) or 'kubedog'")
+	f.IntVar(&syncOptions.TrackTimeout, "track-timeout", 0, `Timeout in seconds for kubedog tracking (0 to use default 300s timeout)`)
+	f.BoolVar(&syncOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking")
 
 	return cmd
 }

@@ -1,18 +1,22 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/helmfile/chartify"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/kubedog"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/resource"
 )
 
 type Dependency struct {
@@ -165,6 +169,10 @@ func (st *HelmState) appendSuppressOutputLineRegexFlags(flags []string, release 
 }
 
 func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
+	if st.shouldUseKubedog(release, ops) {
+		return flags
+	}
+
 	switch {
 	case release.WaitForJobs != nil && *release.WaitForJobs:
 		flags = append(flags, "--wait-for-jobs")
@@ -173,10 +181,26 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 	case release.WaitForJobs == nil && st.HelmDefaults.WaitForJobs:
 		flags = append(flags, "--wait-for-jobs")
 	}
+
 	return flags
 }
 
+func (st *HelmState) shouldUseKubedog(release *ReleaseSpec, ops *SyncOpts) bool {
+	trackMode := release.TrackMode
+	if trackMode == "" && ops != nil && ops.TrackMode != "" {
+		trackMode = ops.TrackMode
+	}
+	if trackMode == "" {
+		trackMode = st.HelmDefaults.TrackMode
+	}
+	return trackMode == "kubedog"
+}
+
 func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
+	if st.shouldUseKubedog(release, ops) {
+		return flags
+	}
+
 	switch {
 	case release.Wait != nil && *release.Wait:
 		flags = append(flags, "--wait")
@@ -422,4 +446,182 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	}
 
 	return nil, clean, nil
+}
+
+func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface, ops *SyncOpts) error {
+	timeout := 5 * time.Minute
+	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
+		timeout = time.Duration(*release.TrackTimeout) * time.Second
+	} else if ops != nil && ops.TrackTimeout > 0 {
+		timeout = time.Duration(ops.TrackTimeout) * time.Second
+	}
+
+	trackLogs := release.TrackLogs != nil && *release.TrackLogs
+	if release.TrackLogs == nil && ops != nil {
+		trackLogs = ops.TrackLogs
+	}
+
+	filterConfig := &resource.FilterConfig{
+		TrackKinds:     release.TrackKinds,
+		SkipKinds:      release.SkipKinds,
+		TrackResources: convertTrackResources(release.TrackResources),
+	}
+
+	kubeContext := st.getKubeContext(release)
+
+	trackOpts := kubedog.NewTrackOptions().
+		WithTimeout(timeout).
+		WithLogs(trackLogs).
+		WithFilterConfig(filterConfig)
+
+	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
+		Logger:       st.logger,
+		Namespace:    release.Namespace,
+		KubeContext:  kubeContext,
+		Kubeconfig:   st.kubeconfig,
+		TrackOptions: trackOpts,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create kubedog tracker: %w", err)
+	}
+
+	resources, err := st.getReleaseResources(ctx, release, helm)
+	if err != nil {
+		return fmt.Errorf("failed to get release resources: %w", err)
+	}
+
+	if len(resources) == 0 {
+		st.logger.Infof("No trackable resources found for release %s", release.Name)
+		return nil
+	}
+
+	st.logger.Infof("Tracking %d resources from release %s with kubedog", len(resources), release.Name)
+
+	if err := tracker.TrackResources(ctx, resources); err != nil {
+		return fmt.Errorf("kubedog tracking failed for release %s: %w", release.Name, err)
+	}
+
+	return nil
+}
+
+func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec, helm helmexec.Interface) ([]*resource.Resource, error) {
+	st.logger.Debugf("Getting resources for release %s", release.Name)
+
+	manifest, namespace, err := st.getReleaseManifest(release, helm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get release manifest: %w", err)
+	}
+
+	if len(manifest) == 0 {
+		st.logger.Infof("No manifest found for release %s", release.Name)
+		return nil, nil
+	}
+
+	defaultNs := namespace
+	if defaultNs == "" {
+		defaultNs = "default"
+	}
+
+	resources, err := resource.ParseManifest(manifest, defaultNs, st.logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse release resources from manifest: %w", err)
+	}
+
+	if len(resources) == 0 {
+		st.logger.Infof("No resources found in manifest for release %s", release.Name)
+		return nil, nil
+	}
+
+	st.logger.Infof("Found %d resources in manifest for release %s", len(resources), release.Name)
+
+	result := make([]*resource.Resource, len(resources))
+	for i := range resources {
+		result[i] = &resources[i]
+	}
+
+	return result, nil
+}
+
+func (st *HelmState) getReleaseManifest(release *ReleaseSpec, helm helmexec.Interface) ([]byte, string, error) {
+	var tempDir string
+	var err error
+
+	if st.tempDir != nil {
+		tempDir, err = st.tempDir("", "helmfile-template-")
+	} else {
+		tempDir, err = os.MkdirTemp("", "helmfile-template-")
+	}
+
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			st.logger.Warnf("Failed to remove temp directory %s: %v", tempDir, err)
+		}
+	}()
+
+	releaseCopy := *release
+	st.ApplyOverrides(&releaseCopy)
+
+	flags, files, err := st.flagsForTemplate(helm, &releaseCopy, 0, &TemplateOpts{})
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate template flags: %w", err)
+	}
+	defer st.removeFiles(files)
+
+	flags = append(flags, "--output-dir", tempDir)
+
+	if err := helm.TemplateRelease(releaseCopy.Name, releaseCopy.ChartPathOrName(), flags...); err != nil {
+		return nil, "", fmt.Errorf("failed to run helm template: %w", err)
+	}
+
+	var manifest []byte
+
+	err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(info.Name(), ".yaml") && !strings.HasSuffix(info.Name(), ".yml") {
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", path, err)
+		}
+
+		if len(manifest) > 0 {
+			manifest = append(manifest, []byte("\n---\n")...)
+		}
+		manifest = append(manifest, content...)
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to walk template output directory: %w", err)
+	}
+
+	return manifest, releaseCopy.Namespace, nil
+}
+
+func convertTrackResources(resources []TrackResourceSpec) []resource.Resource {
+	if len(resources) == 0 {
+		return nil
+	}
+	result := make([]resource.Resource, len(resources))
+	for i, r := range resources {
+		result[i] = resource.Resource{
+			Kind:      r.Kind,
+			Name:      r.Name,
+			Namespace: r.Namespace,
+		}
+	}
+	return result
 }
