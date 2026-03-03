@@ -128,3 +128,76 @@ func TestTrackerConfig_WithQPSBurst(t *testing.T) {
 	assert.Equal(t, float32(50.0), *config.KubedogQPS)
 	assert.Equal(t, 100, *config.KubedogBurst)
 }
+
+func TestNewTracker_InvalidQPS(t *testing.T) {
+	invalidQPS := float32(-1.0)
+	burst := 100
+
+	cfg := &TrackerConfig{
+		Logger:       nil,
+		Namespace:    "test-ns",
+		KubeContext:  "test-ctx",
+		Kubeconfig:   "/nonexistent/kubeconfig",
+		TrackOptions: NewTrackOptions(),
+		KubedogQPS:   &invalidQPS,
+		KubedogBurst: &burst,
+	}
+
+	tr, err := NewTracker(cfg)
+
+	assert.Error(t, err)
+	assert.Nil(t, tr)
+	assert.Contains(t, err.Error(), "invalid kubedog QPS")
+	assert.Contains(t, err.Error(), "must be > 0")
+}
+
+func TestNewTracker_InvalidBurst(t *testing.T) {
+	qps := float32(50.0)
+	invalidBurst := 0
+
+	cfg := &TrackerConfig{
+		Logger:       nil,
+		Namespace:    "test-ns",
+		KubeContext:  "test-ctx",
+		Kubeconfig:   "/nonexistent/kubeconfig",
+		TrackOptions: NewTrackOptions(),
+		KubedogQPS:   &qps,
+		KubedogBurst: &invalidBurst,
+	}
+
+	tr, err := NewTracker(cfg)
+
+	assert.Error(t, err)
+	assert.Nil(t, tr)
+	assert.Contains(t, err.Error(), "invalid kubedog burst")
+	assert.Contains(t, err.Error(), "must be >= 1")
+}
+
+func TestNewTracker_ValidQPSBurst(t *testing.T) {
+	qps := float32(50.0)
+	burst := 100
+
+	cfg := &TrackerConfig{
+		Logger:       nil,
+		Namespace:    "test-ns",
+		KubeContext:  "",
+		Kubeconfig:   "", // Will use default kubeconfig
+		TrackOptions: NewTrackOptions(),
+		KubedogQPS:   &qps,
+		KubedogBurst: &burst,
+	}
+
+	// This test may fail if no kubeconfig is available, which is expected
+	// in CI environments. The important part is that validation passes.
+	tr, err := NewTracker(cfg)
+
+	// If kubeconfig doesn't exist, we expect an error about loading kubeconfig,
+	// NOT an error about invalid QPS/Burst
+	if err != nil {
+		assert.NotContains(t, err.Error(), "invalid kubedog QPS")
+		assert.NotContains(t, err.Error(), "invalid kubedog burst")
+		assert.Nil(t, tr)
+	} else {
+		assert.NotNil(t, tr)
+	}
+}

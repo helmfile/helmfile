@@ -205,4 +205,4 @@ The default values (QPS=100, Burst=200) were chosen to:
 
 - [Issue #2445](https://github.com/helmfile/helmfile/issues/2445) - Original issue that led to configurable QPS/Burst
 - [Kubedog Documentation](https://github.com/werf/kubedog)
-- [Kubernetes Client Go Rate Limiting](https://kubernetes.io/docs/reference/config-api/apiserver-eventratelimit.v1alpha1/)
+- [Kubernetes client-go `rest.Config` QPS/Burst](https://pkg.go.dev/k8s.io/client-go/rest#Config)

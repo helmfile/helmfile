@@ -73,6 +73,13 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 		burst = *config.KubedogBurst
 	}
 
+	if qps <= 0 {
+		return nil, fmt.Errorf("invalid kubedog QPS %v: must be > 0", qps)
+	}
+	if burst < 1 {
+		return nil, fmt.Errorf("invalid kubedog burst %v: must be >= 1", burst)
+	}
+
 	clientSet, err := getOrCreateClient(config.KubeContext, kubeconfig, qps, burst)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
@@ -101,18 +108,15 @@ func getOrCreateClient(kubeContext, kubeconfig string, qps float32, burst int) (
 	}
 
 	kubeInitMu.Lock()
-	defer kubeInitMu.Unlock()
-
 	if client, ok := clientCache[key]; ok {
+		kubeInitMu.Unlock()
 		return client, nil
 	}
+	kubeInitMu.Unlock()
 
-	var explicitPath string
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if kubeconfig != "" {
-		explicitPath = kubeconfig
-	}
-	loadingRules := &clientcmd.ClientConfigLoadingRules{
-		ExplicitPath: explicitPath,
+		loadingRules.ExplicitPath = kubeconfig
 	}
 
 	overrides := &clientcmd.ConfigOverrides{}
@@ -132,6 +136,13 @@ func getOrCreateClient(kubeContext, kubeconfig string, qps float32, burst int) (
 	client, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	kubeInitMu.Lock()
+	defer kubeInitMu.Unlock()
+
+	if existingClient, ok := clientCache[key]; ok {
+		return existingClient, nil
 	}
 
 	clientCache[key] = client
