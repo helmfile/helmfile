@@ -1,0 +1,141 @@
+# Advanced Kubedog Configuration Examples
+
+# Example 1: Basic kubedog tracking with custom QPS/Burst
+releases:
+  - name: simple-app
+    namespace: default
+    chart: ./charts/simple-app
+    trackMode: kubedog
+    trackTimeout: 300
+    trackLogs: true
+    kubedogQPS: 50
+    kubedogBurst: 100
+
+---
+# Example 2: With resource filtering
+releases:
+  - name: filtered-app
+    namespace: production
+    chart: ./charts/complex-app
+    trackMode: kubedog
+    trackTimeout: 600
+    trackLogs: true
+    trackKinds:
+      - Deployment
+      - StatefulSet
+    skipKinds:
+      - ConfigMap
+      - Secret
+
+---
+# Example 3: With specific resource tracking
+releases:
+  - name: selective-tracking
+    namespace: default
+    chart: ./charts/microservices
+    trackMode: kubedog
+    trackResources:
+      - kind: Deployment
+        name: api-server
+        namespace: default
+      - kind: StatefulSet
+        name: database
+        namespace: default
+
+---
+# Example 4: Production-grade configuration
+releases:
+  - name: production-app
+    namespace: production
+    chart: ./charts/production-app
+    trackMode: kubedog
+    trackTimeout: 900
+    trackLogs: true
+    kubedogQPS: 30
+    kubedogBurst: 60
+    trackKinds:
+      - Deployment
+      - StatefulSet
+      - DaemonSet
+      - Job
+    trackResources:
+      - kind: Deployment
+        name: frontend
+        namespace: production
+      - kind: Deployment
+        name: backend
+        namespace: production
+      - kind: StatefulSet
+        name: redis
+        namespace: production
+
+---
+# Example 5: With Helm values containing annotations (future feature)
+# Note: Annotation support is proposed but not yet implemented
+releases:
+  - name: annotated-app
+    namespace: default
+    chart: ./charts/annotated-app
+    trackMode: kubedog
+    values:
+      - values.yaml:
+          # When annotation support is implemented, these would work:
+          # metadata:
+          #   annotations:
+          #     helmfile.dev/track-termination-mode: "NonBlocking"
+          #     helmfile.dev/fail-mode: "HopeUntilEndOfDeployProcess"
+          #     helmfile.dev/failures-allowed-per-replica: "2"
+          #     helmfile.dev/log-regex: "^(ERROR|WARN)"
+          #     helmfile.dev/skip-logs-for-containers: "sidecar,init"
+          #     helmfile.dev/show-service-messages: "true"
+
+---
+# Example 6: Multi-environment configuration
+environments:
+  production:
+    values:
+      - kubedogQPS: 30
+      - kubedogBurst: 60
+      - trackTimeout: 900
+  staging:
+    values:
+      - kubedogQPS: 100
+      - kubedogBurst: 200
+      - trackTimeout: 300
+
+releases:
+  - name: multi-env-app
+    namespace: {{ .Environment.Name }}
+    chart: ./charts/app
+    trackMode: kubedog
+    trackLogs: true
+    kubedogQPS: {{ .Values.kubedogQPS }}
+    kubedogBurst: {{ .Values.kubedogBurst }}
+    trackTimeout: {{ .Values.trackTimeout }}
+
+---
+# Example 7: With needs and tracking (tracking happens after dependencies)
+releases:
+  - name: database
+    namespace: default
+    chart: ./charts/postgresql
+    trackMode: kubedog
+    trackTimeout: 600
+
+  - name: backend
+    namespace: default
+    chart: ./charts/backend
+    needs:
+      - database
+    trackMode: kubedog
+    trackTimeout: 300
+    trackLogs: true
+
+  - name: frontend
+    namespace: default
+    chart: ./charts/frontend
+    needs:
+      - backend
+    trackMode: kubedog
+    trackTimeout: 300
+    trackLogs: true

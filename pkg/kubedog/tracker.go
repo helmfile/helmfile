@@ -9,10 +9,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/werf/kubedog/pkg/tracker"
-	"github.com/werf/kubedog/pkg/trackers/rollout/multitrack"
+	"github.com/werf/kubedog-for-werf-helm/pkg/tracker"
+	"github.com/werf/kubedog-for-werf-helm/pkg/trackers/rollout/multitrack"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/helmfile/helmfile/pkg/resource"
@@ -25,17 +31,28 @@ type cacheKey struct {
 	burst       int
 }
 
+type clientCacheEntry struct {
+	clientSet     kubernetes.Interface
+	dynamicClient dynamic.Interface
+	restConfig    *rest.Config
+	discovery     discovery.CachedDiscoveryInterface
+	mapper        meta.RESTMapper
+}
+
 var (
 	kubeInitMu  sync.Mutex
-	clientCache = make(map[cacheKey]kubernetes.Interface)
+	clientCache = make(map[cacheKey]clientCacheEntry)
 )
 
 type Tracker struct {
-	logger       *zap.SugaredLogger
-	clientSet    kubernetes.Interface
-	trackOptions *TrackOptions
-	filter       *resource.ResourceFilter
-	namespace    string
+	logger        *zap.SugaredLogger
+	clientSet     kubernetes.Interface
+	dynamicClient dynamic.Interface
+	discovery     discovery.CachedDiscoveryInterface
+	mapper        meta.RESTMapper
+	trackOptions  *TrackOptions
+	filter        *resource.ResourceFilter
+	namespace     string
 }
 
 type TrackerConfig struct {
@@ -81,9 +98,9 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 		return nil, fmt.Errorf("invalid kubedog burst %v: must be >= 1", burst)
 	}
 
-	clientSet, err := getOrCreateClient(config.KubeContext, kubeconfig, qps, burst)
+	cacheEntry, err := getOrCreateClients(config.KubeContext, kubeconfig, qps, burst)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
+		return nil, fmt.Errorf("failed to initialize kubernetes clients: %w", err)
 	}
 
 	var filter *resource.ResourceFilter
@@ -92,15 +109,18 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 	}
 
 	return &Tracker{
-		logger:       logger,
-		clientSet:    clientSet,
-		trackOptions: options,
-		filter:       filter,
-		namespace:    config.Namespace,
+		logger:        logger,
+		clientSet:     cacheEntry.clientSet,
+		dynamicClient: cacheEntry.dynamicClient,
+		discovery:     cacheEntry.discovery,
+		mapper:        cacheEntry.mapper,
+		trackOptions:  options,
+		filter:        filter,
+		namespace:     config.Namespace,
 	}, nil
 }
 
-func getOrCreateClient(kubeContext, kubeconfig string, qps float32, burst int) (kubernetes.Interface, error) {
+func getOrCreateClients(kubeContext, kubeconfig string, qps float32, burst int) (clientCacheEntry, error) {
 	key := cacheKey{
 		kubeContext: kubeContext,
 		kubeconfig:  kubeconfig,
@@ -109,9 +129,9 @@ func getOrCreateClient(kubeContext, kubeconfig string, qps float32, burst int) (
 	}
 
 	kubeInitMu.Lock()
-	if client, ok := clientCache[key]; ok {
+	if cache, ok := clientCache[key]; ok {
 		kubeInitMu.Unlock()
-		return client, nil
+		return cache, nil
 	}
 	kubeInitMu.Unlock()
 
@@ -128,27 +148,43 @@ func getOrCreateClient(kubeContext, kubeconfig string, qps float32, burst int) (
 	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 	restConfig, err := cc.ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
+		return clientCacheEntry{}, fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
 
 	restConfig.QPS = qps
 	restConfig.Burst = burst
 
-	client, err := kubernetes.NewForConfig(restConfig)
+	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+		return clientCacheEntry{}, fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return clientCacheEntry{}, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	discoveryClient := memory.NewMemCacheClient(clientSet.Discovery())
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
+
+	cache := clientCacheEntry{
+		clientSet:     clientSet,
+		dynamicClient: dynamicClient,
+		restConfig:    restConfig,
+		discovery:     discoveryClient,
+		mapper:        mapper,
 	}
 
 	kubeInitMu.Lock()
 	defer kubeInitMu.Unlock()
 
-	if existingClient, ok := clientCache[key]; ok {
-		return existingClient, nil
+	if existingCache, ok := clientCache[key]; ok {
+		return existingCache, nil
 	}
 
-	clientCache[key] = client
+	clientCache[key] = cache
 
-	return client, nil
+	return cache, nil
 }
 
 func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Resource) error {
@@ -198,15 +234,28 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 				Namespace:    namespace,
 				SkipLogs:     !t.trackOptions.Logs,
 			})
+		case "canary":
+			specs.Canaries = append(specs.Canaries, multitrack.MultitrackSpec{
+				ResourceName: res.Name,
+				Namespace:    namespace,
+				SkipLogs:     !t.trackOptions.Logs,
+			})
 		default:
 			t.logger.Debugf("Skipping unsupported kind %s for resource %s/%s", res.Kind, namespace, res.Name)
 		}
 	}
 
-	if len(specs.Deployments)+len(specs.StatefulSets)+len(specs.DaemonSets)+len(specs.Jobs) == 0 {
-		t.logger.Info("No trackable resources found (only Deployment, StatefulSet, DaemonSet, and Job are supported)")
+	totalResources := len(specs.Deployments) + len(specs.StatefulSets) +
+		len(specs.DaemonSets) + len(specs.Jobs) + len(specs.Canaries)
+
+	if totalResources == 0 {
+		t.logger.Info("No trackable resources found (only Deployment, StatefulSet, DaemonSet, Job, and Canary are supported)")
 		return nil
 	}
+
+	t.logger.Infof("Tracking breakdown: Deployments=%d, StatefulSets=%d, DaemonSets=%d, Jobs=%d, Canaries=%d",
+		len(specs.Deployments), len(specs.StatefulSets), len(specs.DaemonSets),
+		len(specs.Jobs), len(specs.Canaries))
 
 	opts := multitrack.MultitrackOptions{
 		Options: tracker.Options{
@@ -215,6 +264,9 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 			LogsFromTime:  time.Now().Add(-t.trackOptions.LogsSince),
 		},
 		StatusProgressPeriod: 5 * time.Second,
+		DynamicClient:        t.dynamicClient,
+		DiscoveryClient:      t.discovery,
+		Mapper:               t.mapper,
 	}
 
 	err := multitrack.Multitrack(t.clientSet, specs, opts)
