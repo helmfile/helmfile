@@ -572,3 +572,72 @@ func TestFormatLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestAppendAtomicFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		syncOpts *SyncOpts
+		helmSpec HelmSpec
+		expected []string
+	}{
+		{
+			name:     "atomic from release",
+			release:  &ReleaseSpec{Atomic: &[]bool{true}[0]},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{"--atomic"},
+		},
+		{
+			name:     "atomic from helm defaults",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Atomic: true},
+			expected: []string{"--atomic"},
+		},
+		{
+			name:     "atomic disabled in release",
+			release:  &ReleaseSpec{Atomic: &[]bool{false}[0]},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Atomic: true},
+			expected: []string{},
+		},
+		{
+			name:     "no atomic",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{},
+		},
+		{
+			name:     "atomic skipped when kubedog enabled via release",
+			release:  &ReleaseSpec{Atomic: &[]bool{true}[0], TrackMode: "kubedog"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{},
+		},
+		{
+			name:     "atomic skipped when kubedog enabled via syncOpts",
+			release:  &ReleaseSpec{Atomic: &[]bool{true}[0]},
+			syncOpts: &SyncOpts{TrackMode: "kubedog"},
+			helmSpec: HelmSpec{},
+			expected: []string{},
+		},
+		{
+			name:     "atomic skipped when kubedog enabled via helm defaults",
+			release:  &ReleaseSpec{Atomic: &[]bool{true}[0]},
+			syncOpts: nil,
+			helmSpec: HelmSpec{TrackMode: "kubedog"},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.helmSpec
+			got := st.appendAtomicFlags([]string{}, tt.release, tt.syncOpts)
+			require.Equalf(t, tt.expected, got, "appendAtomicFlags() = %v, want %v", got, tt.expected)
+		})
+	}
+}

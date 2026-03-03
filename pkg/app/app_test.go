@@ -2727,6 +2727,9 @@ func (helm *mockHelmExec) ReleaseStatus(context helmexec.HelmContext, release st
 func (helm *mockHelmExec) DeleteRelease(context helmexec.HelmContext, name string, flags ...string) error {
 	return nil
 }
+func (helm *mockHelmExec) RollbackRelease(context helmexec.HelmContext, name string, flags ...string) error {
+	return nil
+}
 
 func (helm *mockHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
 	return "", nil
