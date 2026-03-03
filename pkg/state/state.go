@@ -1579,6 +1579,11 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		// Build the additional args needed for cluster-requiring commands
 		var additionalArgs []string
 
+		// Add --kubeconfig if configured (Issue #2444)
+		if st.kubeconfig != "" && !strings.Contains(chartifyOpts.TemplateArgs, "--kubeconfig") {
+			additionalArgs = append(additionalArgs, "--kubeconfig", st.kubeconfig)
+		}
+
 		// Add --kube-context if configured (Issue #2309)
 		// Note: kube-context is independent of the validate/dry-run mutual exclusion
 		if kubeContext != "" && !strings.Contains(chartifyOpts.TemplateArgs, "--kube-context") {
