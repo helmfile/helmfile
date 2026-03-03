@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/werf/kubedog/pkg/kube"
 	"github.com/werf/kubedog/pkg/tracker"
 	"github.com/werf/kubedog/pkg/trackers/rollout/multitrack"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/helmfile/helmfile/pkg/resource"
 )
@@ -20,6 +20,8 @@ import (
 type cacheKey struct {
 	kubeContext string
 	kubeconfig  string
+	qps         float32
+	burst       int
 }
 
 var (
@@ -41,6 +43,8 @@ type TrackerConfig struct {
 	KubeContext  string
 	Kubeconfig   string
 	TrackOptions *TrackOptions
+	KubedogQPS   *float32
+	KubedogBurst *int
 }
 
 func NewTracker(config *TrackerConfig) (*Tracker, error) {
@@ -54,14 +58,24 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 		kubeconfig = os.Getenv("KUBECONFIG")
 	}
 
-	clientSet, err := getOrCreateClient(config.KubeContext, kubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
-	}
-
 	options := config.TrackOptions
 	if options == nil {
 		options = NewTrackOptions()
+	}
+
+	qps := options.QPS
+	if config.KubedogQPS != nil {
+		qps = *config.KubedogQPS
+	}
+
+	burst := options.Burst
+	if config.KubedogBurst != nil {
+		burst = *config.KubedogBurst
+	}
+
+	clientSet, err := getOrCreateClient(config.KubeContext, kubeconfig, qps, burst)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
 	}
 
 	var filter *resource.ResourceFilter
@@ -78,10 +92,12 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 	}, nil
 }
 
-func getOrCreateClient(kubeContext, kubeconfig string) (kubernetes.Interface, error) {
+func getOrCreateClient(kubeContext, kubeconfig string, qps float32, burst int) (kubernetes.Interface, error) {
 	key := cacheKey{
 		kubeContext: kubeContext,
 		kubeconfig:  kubeconfig,
+		qps:         qps,
+		burst:       burst,
 	}
 
 	kubeInitMu.Lock()
@@ -91,18 +107,33 @@ func getOrCreateClient(kubeContext, kubeconfig string) (kubernetes.Interface, er
 		return client, nil
 	}
 
-	initOpts := kube.InitOptions{
-		KubeConfigOptions: kube.KubeConfigOptions{
-			Context:    kubeContext,
-			ConfigPath: kubeconfig,
-		},
+	var explicitPath string
+	if kubeconfig != "" {
+		explicitPath = kubeconfig
+	}
+	loadingRules := &clientcmd.ClientConfigLoadingRules{
+		ExplicitPath: explicitPath,
 	}
 
-	if err := kube.Init(initOpts); err != nil {
-		return nil, err
+	overrides := &clientcmd.ConfigOverrides{}
+	if kubeContext != "" {
+		overrides.CurrentContext = kubeContext
 	}
 
-	client := kube.Kubernetes
+	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
+	restConfig, err := cc.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
+	}
+
+	restConfig.QPS = qps
+	restConfig.Burst = burst
+
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
 	clientCache[key] = client
 
 	return client, nil

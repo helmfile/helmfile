@@ -18,12 +18,16 @@ type TrackOptions struct {
 	Logs      bool
 	LogsSince time.Duration
 	Filter    *resource.FilterConfig
+	QPS       float32
+	Burst     int
 }
 
 func NewTrackOptions() *TrackOptions {
 	return &TrackOptions{
 		Timeout:   5 * time.Minute,
 		LogsSince: 10 * time.Minute,
+		QPS:       100,
+		Burst:     200,
 	}
 }
 
@@ -39,5 +43,15 @@ func (o *TrackOptions) WithLogs(logs bool) *TrackOptions {
 
 func (o *TrackOptions) WithFilterConfig(config *resource.FilterConfig) *TrackOptions {
 	o.Filter = config
+	return o
+}
+
+func (o *TrackOptions) WithQPS(qps float32) *TrackOptions {
+	o.QPS = qps
+	return o
+}
+
+func (o *TrackOptions) WithBurst(burst int) *TrackOptions {
+	o.Burst = burst
 	return o
 }

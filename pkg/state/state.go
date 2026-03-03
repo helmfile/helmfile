@@ -466,6 +466,10 @@ type ReleaseSpec struct {
 	SkipKinds []string `yaml:"skipKinds,omitempty"`
 	// TrackResources is a whitelist of specific resources to track
 	TrackResources []TrackResourceSpec `yaml:"trackResources,omitempty"`
+	// KubedogQPS specifies the QPS (queries per second) for kubedog kubernetes client
+	KubedogQPS *float32 `yaml:"kubedogQPS,omitempty"`
+	// KubedogBurst specifies the burst for kubedog kubernetes client
+	KubedogBurst *int `yaml:"kubedogBurst,omitempty"`
 }
 
 // TrackResourceSpec specifies a resource to track

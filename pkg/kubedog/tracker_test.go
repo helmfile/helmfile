@@ -86,3 +86,45 @@ func TestTrackOptions_WithFilterConfig(t *testing.T) {
 	assert.Equal(t, []string{"Deployment", "StatefulSet"}, opts.Filter.TrackKinds)
 	assert.Equal(t, []string{"ConfigMap"}, opts.Filter.SkipKinds)
 }
+
+func TestTrackOptions_WithQPS(t *testing.T) {
+	opts := NewTrackOptions()
+	opts = opts.WithQPS(50.0)
+
+	assert.Equal(t, float32(50.0), opts.QPS)
+}
+
+func TestTrackOptions_WithBurst(t *testing.T) {
+	opts := NewTrackOptions()
+	opts = opts.WithBurst(100)
+
+	assert.Equal(t, 100, opts.Burst)
+}
+
+func TestTrackOptions_DefaultQPSBurst(t *testing.T) {
+	opts := NewTrackOptions()
+
+	assert.Equal(t, float32(100), opts.QPS)
+	assert.Equal(t, 200, opts.Burst)
+}
+
+func TestTrackerConfig_WithQPSBurst(t *testing.T) {
+	qps := float32(50.0)
+	burst := 100
+	config := &TrackerConfig{
+		Logger:       nil,
+		Namespace:    "test-ns",
+		KubeContext:  "test-ctx",
+		Kubeconfig:   "/test/kubeconfig",
+		TrackOptions: NewTrackOptions(),
+		KubedogQPS:   &qps,
+		KubedogBurst: &burst,
+	}
+
+	assert.NotNil(t, config)
+	assert.Equal(t, "test-ns", config.Namespace)
+	assert.Equal(t, &qps, config.KubedogQPS)
+	assert.Equal(t, &burst, config.KubedogBurst)
+	assert.Equal(t, float32(50.0), *config.KubedogQPS)
+	assert.Equal(t, 100, *config.KubedogBurst)
+}
