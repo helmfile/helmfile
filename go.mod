@@ -25,7 +25,7 @@ require (
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/tj/assert v0.0.3
 	github.com/variantdev/dag v1.1.0
-	github.com/werf/kubedog v0.13.0
+	github.com/werf/kubedog-for-werf-helm v0.0.0-20241217155728-9d45c48b82b6
 	github.com/zclconf/go-cty v1.18.0
 	github.com/zclconf/go-cty-yaml v1.2.0
 	go.szostok.io/version v1.2.0
@@ -108,7 +108,7 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
-	sigs.k8s.io/yaml v1.6.0
+	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
 require (

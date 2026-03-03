@@ -480,6 +480,8 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 		KubeContext:  kubeContext,
 		Kubeconfig:   st.kubeconfig,
 		TrackOptions: trackOpts,
+		KubedogQPS:   release.KubedogQPS,
+		KubedogBurst: release.KubedogBurst,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create kubedog tracker: %w", err)
