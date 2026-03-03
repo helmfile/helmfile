@@ -3,6 +3,7 @@ package kubedog
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -73,8 +74,8 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 		burst = *config.KubedogBurst
 	}
 
-	if qps <= 0 {
-		return nil, fmt.Errorf("invalid kubedog QPS %v: must be > 0", qps)
+	if qps <= 0 || math.IsInf(float64(qps), 0) || math.IsNaN(float64(qps)) {
+		return nil, fmt.Errorf("invalid kubedog QPS %v: must be > 0 and finite", qps)
 	}
 	if burst < 1 {
 		return nil, fmt.Errorf("invalid kubedog burst %v: must be >= 1", burst)

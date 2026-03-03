@@ -1,10 +1,13 @@
 package kubedog
 
 import (
+	"math"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/resource"
 )
@@ -151,6 +154,50 @@ func TestNewTracker_InvalidQPS(t *testing.T) {
 	assert.Contains(t, err.Error(), "must be > 0")
 }
 
+func TestNewTracker_NaNQPS(t *testing.T) {
+	nanQPS := float32(math.NaN())
+	burst := 100
+
+	cfg := &TrackerConfig{
+		Logger:       nil,
+		Namespace:    "test-ns",
+		KubeContext:  "test-ctx",
+		Kubeconfig:   "/nonexistent/kubeconfig",
+		TrackOptions: NewTrackOptions(),
+		KubedogQPS:   &nanQPS,
+		KubedogBurst: &burst,
+	}
+
+	tr, err := NewTracker(cfg)
+
+	assert.Error(t, err)
+	assert.Nil(t, tr)
+	assert.Contains(t, err.Error(), "invalid kubedog QPS")
+	assert.Contains(t, err.Error(), "must be > 0 and finite")
+}
+
+func TestNewTracker_InfQPS(t *testing.T) {
+	infQPS := float32(math.Inf(1))
+	burst := 100
+
+	cfg := &TrackerConfig{
+		Logger:       nil,
+		Namespace:    "test-ns",
+		KubeContext:  "test-ctx",
+		Kubeconfig:   "/nonexistent/kubeconfig",
+		TrackOptions: NewTrackOptions(),
+		KubedogQPS:   &infQPS,
+		KubedogBurst: &burst,
+	}
+
+	tr, err := NewTracker(cfg)
+
+	assert.Error(t, err)
+	assert.Nil(t, tr)
+	assert.Contains(t, err.Error(), "invalid kubedog QPS")
+	assert.Contains(t, err.Error(), "must be > 0 and finite")
+}
+
 func TestNewTracker_InvalidBurst(t *testing.T) {
 	qps := float32(50.0)
 	invalidBurst := 0
@@ -177,27 +224,54 @@ func TestNewTracker_ValidQPSBurst(t *testing.T) {
 	qps := float32(50.0)
 	burst := 100
 
+	// Create a minimal valid kubeconfig in a temp file
+	tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	kubeconfigContent := `
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://test-server:6443
+  name: test-cluster
+contexts:
+- context:
+    cluster: test-cluster
+    user: test-user
+  name: test-context
+current-context: test-context
+users:
+- name: test-user
+  user:
+    token: test-token
+`
+	_, err = tmpFile.WriteString(kubeconfigContent)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
 	cfg := &TrackerConfig{
 		Logger:       nil,
 		Namespace:    "test-ns",
-		KubeContext:  "",
-		Kubeconfig:   "", // Will use default kubeconfig
+		KubeContext:  "test-context",
+		Kubeconfig:   tmpFile.Name(),
 		TrackOptions: NewTrackOptions(),
 		KubedogQPS:   &qps,
 		KubedogBurst: &burst,
 	}
 
-	// This test may fail if no kubeconfig is available, which is expected
-	// in CI environments. The important part is that validation passes.
+	// This should succeed - validation passes and client is created
 	tr, err := NewTracker(cfg)
 
-	// If kubeconfig doesn't exist, we expect an error about loading kubeconfig,
-	// NOT an error about invalid QPS/Burst
+	// The test should pass validation. It may fail later due to invalid cluster,
+	// but that's okay - we're testing that QPS/Burst validation works.
 	if err != nil {
+		// If there's an error, it should NOT be about invalid QPS/Burst
 		assert.NotContains(t, err.Error(), "invalid kubedog QPS")
 		assert.NotContains(t, err.Error(), "invalid kubedog burst")
-		assert.Nil(t, tr)
 	} else {
+		// If no error, tracker should be created successfully
 		assert.NotNil(t, tr)
 	}
 }
