@@ -66,6 +66,8 @@ type TrackerConfig struct {
 }
 
 func NewTracker(config *TrackerConfig) (*Tracker, error) {
+	initErrorHandlers()
+
 	logger := config.Logger
 	if logger == nil {
 		logger = zap.NewNop().Sugar()
