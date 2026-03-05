@@ -30,5 +30,7 @@ func (o LoadOpts) DeepCopy() LoadOpts {
 		panic(err)
 	}
 
+	new.Environment.OverrideValuesAreCLI = o.Environment.OverrideValuesAreCLI
+
 	return new
 }

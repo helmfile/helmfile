@@ -1349,6 +1349,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir stri
 
 	if len(envvals) > 0 {
 		opts.Environment.OverrideValues = envvals
+		opts.Environment.OverrideValuesAreCLI = true
 	}
 
 	a.remote = remote.NewRemote(a.Logger, "", a.fs)
