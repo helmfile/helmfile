@@ -20,6 +20,8 @@ nav:
     - Templating Funcs: templating_funcs.md
     - HCL Funcs: hcl_funcs.md
     - Built-in Objects: builtin-objects.md
+  - Core Concepts:
+    - Values and Merging: values-and-merging.md
   - Advanced Features:
     - Best Practices Guide: writing-helmfile.md
     - Advanced Features: advanced-features.md
