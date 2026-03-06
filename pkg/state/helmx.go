@@ -186,6 +186,10 @@ func (st *HelmState) appendWaitForJobsFlags(flags []string, release *ReleaseSpec
 }
 
 func (st *HelmState) shouldUseKubedog(release *ReleaseSpec, ops *SyncOpts) bool {
+	return st.getTrackMode(release, ops) == string(kubedog.TrackModeKubedog)
+}
+
+func (st *HelmState) getTrackMode(release *ReleaseSpec, ops *SyncOpts) string {
 	trackMode := release.TrackMode
 	if trackMode == "" && ops != nil && ops.TrackMode != "" {
 		trackMode = ops.TrackMode
@@ -193,24 +197,43 @@ func (st *HelmState) shouldUseKubedog(release *ReleaseSpec, ops *SyncOpts) bool 
 	if trackMode == "" {
 		trackMode = st.HelmDefaults.TrackMode
 	}
-	return trackMode == "kubedog"
+	if trackMode == "" {
+		trackMode = string(kubedog.TrackModeHelm)
+	}
+	return trackMode
 }
 
-func (st *HelmState) appendWaitFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
+func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, ops *SyncOpts) []string {
 	if st.shouldUseKubedog(release, ops) {
 		return flags
 	}
 
+	shouldWait := false
 	switch {
 	case release.Wait != nil && *release.Wait:
-		flags = append(flags, "--wait")
+		shouldWait = true
 	case ops != nil && ops.Wait:
-		flags = append(flags, "--wait")
+		shouldWait = true
 	case release.Wait == nil && st.HelmDefaults.Wait:
-		flags = append(flags, "--wait")
+		shouldWait = true
 	}
-	// Note: --wait-retries flag has been removed from Helm and is no longer supported
-	// WaitRetries configuration is preserved for backward compatibility but ignored
+
+	if shouldWait {
+		trackMode := st.getTrackMode(release, ops)
+		if trackMode == string(kubedog.TrackModeHelmLegacy) {
+			if helm != nil && helm.IsHelm4() {
+				flags = append(flags, "--wait=legacy")
+			} else {
+				if st.logger != nil {
+					st.logger.Warnf("trackMode 'helm-legacy' requires Helm v4, falling back to regular --wait for release %s", release.Name)
+				}
+				flags = append(flags, "--wait")
+			}
+		} else {
+			flags = append(flags, "--wait")
+		}
+	}
+
 	return flags
 }
 

@@ -9,8 +9,9 @@ import (
 type TrackMode string
 
 const (
-	TrackModeHelm    TrackMode = "helm"
-	TrackModeKubedog TrackMode = "kubedog"
+	TrackModeHelm       TrackMode = "helm"
+	TrackModeHelmLegacy TrackMode = "helm-legacy"
+	TrackModeKubedog    TrackMode = "kubedog"
 )
 
 type TrackOptions struct {

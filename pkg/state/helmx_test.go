@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -77,6 +78,7 @@ func TestAppendWaitFlags(t *testing.T) {
 		release  *ReleaseSpec
 		syncOpts *SyncOpts
 		helmSpec HelmSpec
+		helm     helmexec.Interface
 		expected []string
 	}{
 		// --wait
@@ -85,6 +87,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -92,6 +95,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{},
 			syncOpts: &SyncOpts{Wait: true},
 			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -99,6 +103,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{},
 			syncOpts: nil,
 			helmSpec: HelmSpec{Wait: true},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -106,6 +111,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{Wait: &[]bool{false}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{Wait: true},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{},
 		},
 		{
@@ -113,6 +119,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{},
 			syncOpts: &SyncOpts{},
 			helmSpec: HelmSpec{Wait: true},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -120,6 +127,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{},
 			syncOpts: nil,
 			helmSpec: HelmSpec{Wait: false},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{},
 		},
 		// --wait-retries flag has been removed from Helm
@@ -128,6 +136,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0], WaitRetries: &[]int{1}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -135,6 +144,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0], WaitRetries: &[]int{1}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -142,6 +152,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{WaitRetries: &[]int{1}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{},
 		},
 		{
@@ -149,6 +160,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{},
 			syncOpts: &SyncOpts{Wait: true, WaitRetries: 2},
 			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -156,6 +168,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{},
 			syncOpts: nil,
 			helmSpec: HelmSpec{Wait: true, WaitRetries: 3},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -163,6 +176,7 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{WaitRetries: 4},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
 		},
 		{
@@ -170,16 +184,82 @@ func TestAppendWaitFlags(t *testing.T) {
 			release:  &ReleaseSpec{WaitRetries: &[]int{5}[0]},
 			syncOpts: nil,
 			helmSpec: HelmSpec{Wait: true},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
 			expected: []string{"--wait"},
+		},
+		// helm-legacy track mode with Helm v4
+		{
+			name:     "helm-legacy track mode with Helm v4",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], TrackMode: "helm-legacy"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{"--wait=legacy"},
+		},
+		{
+			name:     "helm-legacy track mode with Helm v4 from syncOpts",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
+			syncOpts: &SyncOpts{TrackMode: "helm-legacy"},
+			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{"--wait=legacy"},
+		},
+		{
+			name:     "helm-legacy track mode with Helm v4 from helmDefaults",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
+			syncOpts: nil,
+			helmSpec: HelmSpec{TrackMode: "helm-legacy"},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{"--wait=legacy"},
+		},
+		{
+			name:     "helm-legacy track mode with Helm v3 shows warning and uses --wait",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], Name: "test-release", TrackMode: "helm-legacy"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "helm-legacy track mode without wait flag",
+			release:  &ReleaseSpec{Wait: &[]bool{false}[0], Name: "test-release", TrackMode: "helm-legacy"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{},
+		},
+		{
+			name:     "helm track mode with Helm v4 uses --wait",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], TrackMode: "helm"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "kubedog track mode skips --wait",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], TrackMode: "kubedog"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var buffer bytes.Buffer
 			st := &HelmState{}
 			st.HelmDefaults = tt.helmSpec
-			got := st.appendWaitFlags([]string{}, tt.release, tt.syncOpts)
+			st.logger = helmexec.NewLogger(&buffer, "debug")
+			got := st.appendWaitFlags([]string{}, tt.helm, tt.release, tt.syncOpts)
 			require.Equalf(t, tt.expected, got, "appendWaitFlags() = %v, want %v", got, tt.expected)
+
+			// Check for warning message when helm-legacy is used with Helm v3
+			if tt.name == "helm-legacy track mode with Helm v3 shows warning and uses --wait" {
+				require.Contains(t, buffer.String(), "trackMode 'helm-legacy' requires Helm v4")
+				require.Contains(t, buffer.String(), tt.release.Name)
+			}
 		})
 	}
 }
