@@ -1,6 +1,8 @@
 # The Helmfile Best Practices Guide
 
-This guide covers the Helmfile’s considered patterns for writing advanced helmfiles. It focuses on how helmfile should be structured and executed.
+This guide covers the Helmfile's considered patterns for writing advanced helmfiles. It focuses on how helmfile should be structured and executed.
+
+**Before diving into advanced patterns, we strongly recommend reading [Values Merging and Data Flow](values-and-merging.md)** to understand how Helmfile merges values from various sources. This foundational knowledge is essential for writing effective helmfiles.
 
 ## Helmfile .Values vs Helm .Values
 
