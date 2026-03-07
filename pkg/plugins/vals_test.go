@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/helmfile/vals"
@@ -11,17 +12,241 @@ import (
 	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
-func TestValsInstance(t *testing.T) {
-	i, err := ValsInstance()
+// resetInstance resets the singleton for testing
+func resetInstance() {
+	instance = nil
+	once = sync.Once{}
+}
 
+func TestValsInstance(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	i, err := ValsInstance()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	i2, _ := ValsInstance()
-
 	if i != i2 {
 		t.Error("Instances should be equal")
+	}
+}
+
+func TestDisableVals(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	os.Setenv(envvar.DisableVals, "true")
+	defer os.Unsetenv(envvar.DisableVals)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should pass through values unchanged
+	input := map[string]any{"key": "ref+echo://secret"}
+	output, err := evaluator.Eval(input)
+	if err != nil {
+		t.Fatalf("passthrough should not error: %v", err)
+	}
+
+	if output["key"] != "ref+echo://secret" {
+		t.Errorf("expected ref+ to pass through unchanged, got %v", output["key"])
+	}
+}
+
+func TestDisableValsStrict(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	os.Setenv(envvar.DisableValsStrict, "true")
+	defer os.Unsetenv(envvar.DisableValsStrict)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should error on ref+
+	input := map[string]any{"key": "ref+echo://secret"}
+	_, err = evaluator.Eval(input)
+	if err == nil {
+		t.Fatal("strict mode should error on ref+")
+	}
+	if err != ErrValsDisabled {
+		t.Errorf("expected ErrValsDisabled, got %v", err)
+	}
+}
+
+func TestDisableValsStrictAllowsNonRef(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	os.Setenv(envvar.DisableValsStrict, "true")
+	defer os.Unsetenv(envvar.DisableValsStrict)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should pass through non-ref+ values
+	input := map[string]any{"key": "normal-value"}
+	output, err := evaluator.Eval(input)
+	if err != nil {
+		t.Fatalf("strict mode should allow non-ref+ values: %v", err)
+	}
+	if output["key"] != "normal-value" {
+		t.Errorf("expected value to pass through, got %v", output["key"])
+	}
+}
+
+func TestDisableValsStrictNestedRef(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	os.Setenv(envvar.DisableValsStrict, "true")
+	defer os.Unsetenv(envvar.DisableValsStrict)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should detect nested ref+ in map[string]any
+	input := map[string]any{
+		"outer": map[string]any{
+			"inner": "ref+vault://secret",
+		},
+	}
+	_, err = evaluator.Eval(input)
+	if err == nil {
+		t.Fatal("strict mode should detect nested ref+")
+	}
+}
+
+func TestDisableValsStrictMapAnyAny(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	os.Setenv(envvar.DisableValsStrict, "true")
+	defer os.Unsetenv(envvar.DisableValsStrict)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should detect ref+ inside map[any]any (yaml.v2 nested maps)
+	input := map[string]any{
+		"outer": map[any]any{
+			"inner": "ref+vault://secret",
+		},
+	}
+	_, err = evaluator.Eval(input)
+	if err == nil {
+		t.Fatal("strict mode should detect ref+ in map[any]any")
+	}
+}
+
+func TestDisableValsStrictArrayRef(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	os.Setenv(envvar.DisableValsStrict, "true")
+	defer os.Unsetenv(envvar.DisableValsStrict)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should detect ref+ in []any arrays
+	input := map[string]any{
+		"values": []any{"normal", "ref+awssecrets://db/password"},
+	}
+	_, err = evaluator.Eval(input)
+	if err == nil {
+		t.Fatal("strict mode should detect ref+ in arrays")
+	}
+}
+
+func TestDisableValsStrictStringSlice(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	os.Setenv(envvar.DisableValsStrict, "true")
+	defer os.Unsetenv(envvar.DisableValsStrict)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should detect ref+ in []string arrays (matches renderValsSecrets usage)
+	input := map[string]any{
+		"values": []string{"normal", "ref+awssecrets://db/password"},
+	}
+	_, err = evaluator.Eval(input)
+	if err == nil {
+		t.Fatal("strict mode should detect ref+ in []string arrays")
+	}
+}
+
+func TestDisableValsPassThroughStringSlice(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	os.Setenv(envvar.DisableVals, "true")
+	defer os.Unsetenv(envvar.DisableVals)
+	os.Unsetenv(envvar.DisableValsStrict)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	input := map[string]any{
+		"values": []string{"normal", "ref+awssecrets://db/password"},
+	}
+	out, err := evaluator.Eval(input)
+	if err != nil {
+		t.Fatalf("pass-through should not error: %v", err)
+	}
+
+	values, ok := out["values"].([]any)
+	if !ok {
+		t.Fatalf("expected out[\"values\"] to be []any, got %T", out["values"])
+	}
+	if values[0] != "normal" || values[1] != "ref+awssecrets://db/password" {
+		t.Errorf("unexpected values: %v", values)
+	}
+}
+
+func TestNormalValsProcessing(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	// Ensure both are unset
+	os.Unsetenv(envvar.DisableVals)
+	os.Unsetenv(envvar.DisableValsStrict)
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// ref+echo should expand to the value after ://
+	input := map[string]any{"key": "ref+echo://myvalue"}
+	output, err := evaluator.Eval(input)
+	if err != nil {
+		t.Fatalf("normal vals should process ref+echo: %v", err)
+	}
+
+	if output["key"] != "myvalue" {
+		t.Errorf("expected 'myvalue', got %v", output["key"])
 	}
 }
 
