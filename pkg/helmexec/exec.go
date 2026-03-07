@@ -837,6 +837,15 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 	return err
 }
 
+func (helm *execer) RollbackRelease(context HelmContext, name string, flags ...string) error {
+	helm.logger.Infof("Rolling back %v", name)
+	preArgs := make([]string, 0)
+	env := make(map[string]string)
+	out, err := helm.exec(append(append(preArgs, "rollback", name), flags...), env, nil)
+	helm.info(out)
+	return err
+}
+
 func (helm *execer) TestRelease(context HelmContext, name string, flags ...string) error {
 	helm.logger.Infof("Testing %v", name)
 	preArgs := make([]string, 0)
