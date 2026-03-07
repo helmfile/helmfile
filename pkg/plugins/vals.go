@@ -1,8 +1,10 @@
 package plugins
 
 import (
+	"errors"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -16,12 +18,65 @@ const (
 	valsCacheSize = 512
 )
 
-var instance *vals.Runtime
+var instance vals.Evaluator
 var once sync.Once
 
-func ValsInstance() (*vals.Runtime, error) {
+var ErrValsDisabled = errors.New("vals is disabled via HELMFILE_DISABLE_VALS_STRICT environment variable")
+
+// passthroughEvaluator passes values through unchanged (for external vals)
+type passthroughEvaluator struct{}
+
+func (p *passthroughEvaluator) Eval(m map[string]any) (map[string]any, error) {
+	return m, nil
+}
+
+// strictEvaluator passes through values but errors if ref+ is detected
+type strictEvaluator struct{}
+
+func (s *strictEvaluator) Eval(m map[string]any) (map[string]any, error) {
+	if containsRefPlus(m) {
+		return nil, ErrValsDisabled
+	}
+	return m, nil
+}
+
+func containsRefPlus(v any) bool {
+	switch val := v.(type) {
+	case string:
+		return strings.Contains(val, "ref+")
+	case map[string]any:
+		for _, v := range val {
+			if containsRefPlus(v) {
+				return true
+			}
+		}
+	case []any:
+		for _, v := range val {
+			if containsRefPlus(v) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func ValsInstance() (vals.Evaluator, error) {
 	var err error
 	once.Do(func() {
+		// HELMFILE_DISABLE_VALS_STRICT: error on ref+ usage
+		strict, _ := strconv.ParseBool(os.Getenv(envvar.DisableValsStrict))
+		if strict {
+			instance = &strictEvaluator{}
+			return
+		}
+
+		// HELMFILE_DISABLE_VALS: pass-through for external vals
+		disabled, _ := strconv.ParseBool(os.Getenv(envvar.DisableVals))
+		if disabled {
+			instance = &passthroughEvaluator{}
+			return
+		}
+
 		// Configure AWS SDK logging via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
 		// Default: "off" to prevent sensitive information (tokens, auth headers) from being exposed
 		// See issue #2270 and vals PR helmfile/vals#893
