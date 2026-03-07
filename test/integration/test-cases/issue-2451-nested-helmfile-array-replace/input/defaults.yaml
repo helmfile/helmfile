@@ -1,0 +1,5 @@
+list:
+  - name: dummy
+    values:
+      - 1
+      - 2

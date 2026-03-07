@@ -1,0 +1,9 @@
+---
+# Source: raw/templates/resources.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a
+data:
+  values: null

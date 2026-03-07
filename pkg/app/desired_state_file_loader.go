@@ -64,9 +64,16 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 			return nil, err
 		}
 
-		overrodeEnv = &environment.Environment{
-			Name:         ld.env,
-			CLIOverrides: vals,
+		if opts.Environment.OverrideValuesAreCLI {
+			overrodeEnv = &environment.Environment{
+				Name:         ld.env,
+				CLIOverrides: vals,
+			}
+		} else {
+			overrodeEnv = &environment.Environment{
+				Name:         ld.env,
+				Values: vals,
+			}
 		}
 	}
 
