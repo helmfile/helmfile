@@ -55,3 +55,63 @@ service:
   password: pass
 
 ```
+
+
+## Disabling vals
+
+You can disable the built-in vals processing using environment variables:
+
+### Pass-through mode
+
+Set `HELMFILE_DISABLE_VALS=true` to disable internal vals processing. Any `ref+` values will pass through unchanged, allowing you to validate them with a policy tool such as [conftest](https://www.conftest.dev/) before they are resolved:
+
+```bash
+HELMFILE_DISABLE_VALS=true helmfile template | conftest test -
+```
+
+### Strict mode
+
+Set `HELMFILE_DISABLE_VALS_STRICT=true` to disable vals and error if any `ref+` values are detected. This is useful when you want to prevent users from using vals references:
+
+```bash
+HELMFILE_DISABLE_VALS_STRICT=true helmfile sync
+# Error: vals is disabled via HELMFILE_DISABLE_VALS_STRICT environment variable
+```
+
+Note: If both are set, strict mode takes precedence.
+
+### Validating ref+ expressions with conftest
+
+You can use `HELMFILE_DISABLE_VALS=true` with [conftest](https://www.conftest.dev/) to validate that all `ref+` expressions conform to your security policy before processing them.
+
+Example rego policy (`policy/vals_refs.rego`):
+
+```rego
+package main
+
+allowed_refs := {
+    "ref+tfstates3://my-terraform-state/networking/eu-west-2/vpc/vpc_id",
+    "ref+tfstates3://my-terraform-state/networking/eu-west-2/vpc/private_subnet_ids",
+    "ref+tfstates3://my-terraform-state/platform/eu-west-2/eks/cluster_endpoint",
+}
+
+deny[msg] {
+    value := input[_]
+    startswith(value, "ref+tfstates3://")
+    not allowed_refs[value]
+    msg := sprintf("ref+ expression references an unapproved tfstates3 URI: %s", [value])
+}
+
+deny[msg] {
+    value := input[_]
+    startswith(value, "ref+")
+    not startswith(value, "ref+tfstates3://")
+    msg := sprintf("only tfstates3 ref+ expressions are permitted, got: %s", [value])
+}
+```
+
+Run against your rendered values:
+
+```bash
+HELMFILE_DISABLE_VALS=true helmfile template | conftest test -
+```
