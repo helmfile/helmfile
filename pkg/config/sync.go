@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // SyncOptions is the options for the build command
 type SyncOptions struct {
@@ -212,8 +215,9 @@ func (t *SyncImpl) TrackLogs() bool {
 }
 
 func (t *SyncImpl) ValidateConfig() error {
-	if t.SyncOptions.TrackMode != "" && t.SyncOptions.TrackMode != "helm" && t.SyncOptions.TrackMode != "kubedog" {
-		return fmt.Errorf("--track-mode must be 'helm' or 'kubedog', got: %s", t.SyncOptions.TrackMode)
+	validTrackModes := []string{"helm", "helm-legacy", "kubedog"}
+	if t.SyncOptions.TrackMode != "" && !slices.Contains(validTrackModes, t.SyncOptions.TrackMode) {
+		return fmt.Errorf("--track-mode must be 'helm', 'helm-legacy', or 'kubedog', got: %s", t.SyncOptions.TrackMode)
 	}
 	return t.GlobalImpl.ValidateConfig()
 }

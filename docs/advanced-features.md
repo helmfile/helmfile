@@ -31,9 +31,17 @@ helmfile apply --track-mode kubedog --track-timeout 300 --track-logs
 
 #### Configuration Options
 
-- **`trackMode`**: Set to `kubedog` to enable kubedog tracking (default: `helm`)
+- **`trackMode`**: Set to `kubedog` to enable kubedog tracking, or `helm-legacy` to use Helm v4's legacy wait mode (default: `helm`)
 - **`trackTimeout`**: Timeout in seconds for tracking resources (default: 300)
 - **`trackLogs`**: Enable real-time log streaming from tracked resources
+
+#### Track Modes
+
+Helmfile supports three track modes:
+
+- **`helm`** (default): Uses Helm's built-in `--wait` flag for resource tracking
+- **`helm-legacy`**: Uses Helm v4's `--wait=legacy` flag. This is useful when migrating from Helm v3 to Helm v4 and you have charts that may have compatibility issues with the new watcher-based wait mechanism (e.g., charts with `livenessProbe` but no `startupProbe`). Note: This mode only works with Helm v4; with Helm v3 it falls back to regular `--wait`.
+- **`kubedog`**: Uses kubedog for advanced resource tracking with detailed feedback
 
 #### Resource Filtering
 
@@ -86,9 +94,31 @@ Resource filtering follows this priority (highest to lowest):
 - **Fine-grained control**: Track only the resources you care about
 - **Better debugging**: Immediate visibility into deployment issues
 
+#### Helm v4 Legacy Wait Mode
+
+When using Helm v4 with charts that have broken `livenessProbe` configurations without `startupProbe`, the default `--wait=watcher` mode may fail. Helm v4 introduces `--wait=legacy` which uses the simpler polling mechanism compatible with Helm v3's behavior.
+
+To use this mode, set `trackMode: helm-legacy`:
+
+```yaml
+releases:
+  - name: myapp
+    chart: ./charts/myapp
+    trackMode: helm-legacy
+```
+
+Or via command-line:
+
+```bash
+helmfile apply --track-mode helm-legacy
+```
+
 #### Compatibility
 
-- Kubedog tracking is compatible with Helm 3.x
+- **`helm`**: Default mode, uses Helm's built-in `--wait` flag
+- **`helm-legacy`**: Uses Helm v4's `--wait=legacy` flag (only available in Helm v4)
+- **`kubedog`**: Uses kubedog library for advanced resource tracking
+- Kubedog tracking is compatible with Helm 3.x and 4.x
 - Kubedog is a compiled dependency and is only used when `trackMode: kubedog` is set
 - Works with charts that deploy supported workload kinds (currently `Deployment`, `StatefulSet`, `DaemonSet`, and `Job`); other resource kinds are created by Helm/Helmfile as usual but are ignored by the kubedog tracker
 

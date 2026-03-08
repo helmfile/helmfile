@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // ApplyOptoons is the options for the apply command
 type ApplyOptions struct {
@@ -305,8 +308,9 @@ func (a *ApplyImpl) TrackLogs() bool {
 }
 
 func (a *ApplyImpl) ValidateConfig() error {
-	if a.ApplyOptions.TrackMode != "" && a.ApplyOptions.TrackMode != "helm" && a.ApplyOptions.TrackMode != "kubedog" {
-		return fmt.Errorf("--track-mode must be 'helm' or 'kubedog', got: %s", a.ApplyOptions.TrackMode)
+	validTrackModes := []string{"helm", "helm-legacy", "kubedog"}
+	if a.ApplyOptions.TrackMode != "" && !slices.Contains(validTrackModes, a.ApplyOptions.TrackMode) {
+		return fmt.Errorf("--track-mode must be 'helm', 'helm-legacy', or 'kubedog', got: %s", a.ApplyOptions.TrackMode)
 	}
 	return a.GlobalImpl.ValidateConfig()
 }
