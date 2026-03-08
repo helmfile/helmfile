@@ -116,6 +116,7 @@ Iterate on the `helmfile.yaml` by referencing:
 * [Configuration](#configuration)
 * [CLI reference](#cli-reference).
 * [Helmfile Best Practices Guide](writing-helmfile.md)
+* [Values Merging and Data Flow](values-and-merging.md) - Understanding how Helmfile merges values
 
 ## Configuration
 
