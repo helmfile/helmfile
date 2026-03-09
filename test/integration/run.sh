@@ -121,6 +121,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/state-values-set-cli-args-in-environments.sh
 . ${dir}/test-cases/issue-2281-array-merge.sh
 . ${dir}/test-cases/issue-2353-layer-array-replace.sh
+. ${dir}/test-cases/issue-2451-nested-helmfile-array-replace.sh
 . ${dir}/test-cases/issue-2247.sh
 . ${dir}/test-cases/issue-2097.sh
 . ${dir}/test-cases/issue-2291.sh
