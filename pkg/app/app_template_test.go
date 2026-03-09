@@ -205,9 +205,8 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			// Issue #2309: --kube-context is now added to template flags
+			// Issue #1003: --include-needs should only include direct dependencies, not transitive
 			templated: []exectest.Release{
-				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system"}},
 				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},

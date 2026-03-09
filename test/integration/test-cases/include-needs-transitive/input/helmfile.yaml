@@ -1,0 +1,23 @@
+repositories:
+  - name: incubator
+    url: https://charts.helm.sh/incubator
+
+releases:
+  # release1 has no dependencies - this is a transitive dependency of release3
+  - name: release1
+    chart: incubator/raw
+    namespace: default
+
+  # release2 depends on release1 - this is a direct dependency of release3
+  - name: release2
+    chart: incubator/raw
+    namespace: default
+    needs:
+      - default/release1
+
+  # release3 depends on release2 (and transitively on release1)
+  - name: release3
+    chart: incubator/raw
+    namespace: default
+    needs:
+      - default/release2
