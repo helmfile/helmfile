@@ -3056,7 +3056,7 @@ func unmarkDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) {
 	unmarkReleases(directNeeds, filteredReleases)
 }
 
-func collectDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
+func collectDirectNeeds(filteredReleases []Release, _ []ReleaseSpec) map[string]struct{} {
 	directNeeds := map[string]struct{}{}
 	for _, r := range filteredReleases {
 		if !r.Filtered {

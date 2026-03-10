@@ -256,7 +256,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		if username != "" && password != "" {
 			args = append(args, "--username", username, "--password-stdin")
 			buffer := bytes.Buffer{}
-			buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+			fmt.Fprintf(&buffer, "%s\n", password)
 			out, err = helm.execStdIn(args, map[string]string{}, &buffer)
 		} else {
 			out, err = helm.exec(args, map[string]string{}, nil)
