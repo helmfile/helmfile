@@ -1342,6 +1342,7 @@ type ChartPrepareOptions struct {
 	WaitForJobs            bool
 	OutputDir              string
 	OutputDirTemplate      string
+	IncludeNeeds           bool
 	IncludeTransitiveNeeds bool
 	Concurrency            int
 	KubeVersion            string
@@ -2943,14 +2944,23 @@ func (st *HelmState) GetReleasesWithLabels() []ReleaseSpec {
 
 func (st *HelmState) SelectReleases(includeTransitiveNeeds bool) ([]Release, error) {
 	values := st.Values()
-	rs, err := markExcludedReleases(st.Releases, st.Selectors, values, includeTransitiveNeeds)
+	rs, err := markExcludedReleases(st.Releases, st.Selectors, values, includeTransitiveNeeds, false)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]any, includeTransitiveNeeds bool) ([]Release, error) {
+func (st *HelmState) SelectReleasesWithNeeds(includeTransitiveNeeds bool) ([]Release, error) {
+	values := st.Values()
+	rs, err := markExcludedReleases(st.Releases, st.Selectors, values, includeTransitiveNeeds, true)
+	if err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]any, includeTransitiveNeeds bool, includeNeeds bool) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -2982,6 +2992,8 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 	}
 	if includeTransitiveNeeds {
 		unmarkNeedsAndTransitives(filteredReleases, releases)
+	} else if includeNeeds {
+		unmarkDirectNeeds(filteredReleases, releases)
 	}
 	return filteredReleases, nil
 }
@@ -3037,6 +3049,23 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []ReleaseSpec) {
 	needsWithTranstives := collectAllNeedsWithTransitives(filteredReleases, allReleases)
 	unmarkReleases(needsWithTranstives, filteredReleases)
+}
+
+func unmarkDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) {
+	directNeeds := collectDirectNeeds(filteredReleases, allReleases)
+	unmarkReleases(directNeeds, filteredReleases)
+}
+
+func collectDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
+	directNeeds := map[string]struct{}{}
+	for _, r := range filteredReleases {
+		if !r.Filtered {
+			for _, need := range r.Needs {
+				directNeeds[need] = struct{}{}
+			}
+		}
+	}
+	return directNeeds
 }
 
 func collectAllNeedsWithTransitives(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
