@@ -1819,7 +1819,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		}
 		*st = *updated
 	}
-	selected, err := st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
+	selected, err := st.GetSelectedReleasesWithNeeds(opts.IncludeNeeds, opts.IncludeTransitiveNeeds)
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -3103,6 +3103,31 @@ func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec,
 
 func (st *HelmState) GetSelectedReleases(includeTransitiveNeeds bool) ([]ReleaseSpec, error) {
 	filteredReleases, err := st.SelectReleases(includeTransitiveNeeds)
+	if err != nil {
+		return nil, err
+	}
+	var releases []ReleaseSpec
+	for _, r := range filteredReleases {
+		if !r.Filtered {
+			releases = append(releases, r.ReleaseSpec)
+		}
+	}
+
+	return releases, nil
+}
+
+func (st *HelmState) GetSelectedReleasesWithNeeds(includeNeeds bool, includeTransitiveNeeds bool) ([]ReleaseSpec, error) {
+	var filteredReleases []Release
+	var err error
+
+	if includeTransitiveNeeds {
+		filteredReleases, err = st.SelectReleases(true)
+	} else if includeNeeds {
+		filteredReleases, err = st.SelectReleasesWithNeeds(false)
+	} else {
+		filteredReleases, err = st.SelectReleases(false)
+	}
+
 	if err != nil {
 		return nil, err
 	}

@@ -169,6 +169,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			IncludeCRDs:            &includeCRDs,
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
+			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
