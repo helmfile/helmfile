@@ -3451,7 +3451,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = append(flags, st.timeoutFlags(release, opt)...)
 
-	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
+	if (release.Force != nil && *release.Force) || (release.Force == nil && st.HelmDefaults.Force) {
 		if helm.IsHelm4() {
 			flags = append(flags, "--force-replace")
 		} else {
