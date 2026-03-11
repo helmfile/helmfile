@@ -3459,11 +3459,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	forceConflictsEnabled := (release.ForceConflicts != nil && *release.ForceConflicts) || (release.ForceConflicts == nil && st.HelmDefaults.ForceConflicts)
 
 	if forceConflictsEnabled && !helm.IsHelm4() {
-		return nil, nil, fmt.Errorf("releases[].forceConflicts requires Helm 4 or greater")
+		return nil, nil, fmt.Errorf("forceConflicts requires Helm 4 or greater (set via releases[].forceConflicts or helmDefaults.forceConflicts)")
 	}
 
 	if forceEnabled && forceConflictsEnabled {
-		return nil, nil, fmt.Errorf("force and forceConflicts are mutually exclusive")
+		return nil, nil, fmt.Errorf("force and forceConflicts are mutually exclusive (check both releases[].force/forceConflicts and helmDefaults.force/forceConflicts)")
 	}
 
 	if forceEnabled {
