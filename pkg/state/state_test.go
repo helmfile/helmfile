@@ -377,6 +377,76 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "force-conflicts-helm4",
+			defaults: HelmSpec{
+				ForceConflicts:  false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:          "test/chart",
+				Version:        "0.1",
+				ForceConflicts: &enable,
+				Name:           "test-charts",
+				Namespace:      "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force-conflicts",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-conflicts-from-default-helm4",
+			defaults: HelmSpec{
+				ForceConflicts:  true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force-conflicts",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-conflicts-helm3-error",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:          "test/chart",
+				Version:        "0.1",
+				ForceConflicts: &enable,
+				Name:           "test-charts",
+				Namespace:      "test-namespace",
+			},
+			wantErr: "releases[].forceConflicts requires Helm 4 or greater",
+		},
+		{
+			name: "force-and-force-conflicts-mutually-exclusive-helm4",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:          "test/chart",
+				Version:        "0.1",
+				Force:          &enable,
+				ForceConflicts: &enable,
+				Name:           "test-charts",
+				Namespace:      "test-namespace",
+			},
+			wantErr: "force and forceConflicts are mutually exclusive",
+		},
+		{
 			name: "recreate-pods",
 			defaults: HelmSpec{
 				RecreatePods: false,
