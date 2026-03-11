@@ -339,6 +339,44 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "force-from-default-nil-release-helm3",
+			defaults: HelmSpec{
+				Force:           true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-from-default-nil-release-helm4",
+			defaults: HelmSpec{
+				Force:           true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force-replace",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "recreate-pods",
 			defaults: HelmSpec{
 				RecreatePods: false,
