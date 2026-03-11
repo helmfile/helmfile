@@ -261,10 +261,12 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "force",
+			name: "force-helm3",
 			defaults: HelmSpec{
-				Force: false,
+				Force:           false,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -279,10 +281,51 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "force-from-default",
+			name: "force-helm4",
 			defaults: HelmSpec{
-				Force: true,
+				Force:           false,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Force:     &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force-replace",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-from-default-helm3",
+			defaults: HelmSpec{
+				Force:           true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Force:     &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-from-default-helm4",
+			defaults: HelmSpec{
+				Force:           true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
