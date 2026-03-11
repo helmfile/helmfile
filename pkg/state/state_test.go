@@ -339,7 +339,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "force-from-default-nil-release-helm3",
+			name: "force-from-default-nil-force-helm3",
 			defaults: HelmSpec{
 				Force:           true,
 				CreateNamespace: &disable,
@@ -358,7 +358,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "force-from-default-nil-release-helm4",
+			name: "force-from-default-nil-force-helm4",
 			defaults: HelmSpec{
 				Force:           true,
 				CreateNamespace: &disable,
