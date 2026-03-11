@@ -257,10 +257,11 @@ func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface,
 
 // append hide-notes flags to helm flags
 func (st *HelmState) appendHideNotesFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string {
-	if !helm.IsVersionAtLeast("3.16.0") {
+	if ops == nil {
 		return flags
 	}
-	if ops == nil {
+	// see https://github.com/helm/helm/releases/tag/v3.16.0
+	if !helm.IsVersionAtLeast("3.16.0") {
 		return flags
 	}
 	switch {
