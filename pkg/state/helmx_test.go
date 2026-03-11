@@ -442,6 +442,15 @@ func TestAppendHideNotesFlags(t *testing.T) {
 				expected: []string{"--hide-notes"},
 			},
 		},
+		{
+			name: "no hide-notes when ops is nil",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewVersionHelmExec("3.16.0"),
+				opt:      nil,
+				expected: []string{},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
