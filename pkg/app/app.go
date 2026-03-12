@@ -241,6 +241,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
+			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 			Set:                    c.Set(),
 			Values:                 c.Values(),
@@ -318,6 +319,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
+			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 		}, func() {
 			ok, lintErrs, errs = a.lint(run, c)
@@ -418,6 +420,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			WaitRetries:            c.WaitRetries(),
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
+			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
@@ -456,6 +459,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
+			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)

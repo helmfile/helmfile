@@ -3071,16 +3071,32 @@ func collectDirectNeeds(filteredReleases []Release, _ []ReleaseSpec) map[string]
 func collectAllNeedsWithTransitives(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
 	needsWithTranstives := map[string]struct{}{}
 	for _, r := range filteredReleases {
-		if !r.Filtered {
-			collectNeedsWithTransitives(r.ReleaseSpec, allReleases, needsWithTranstives)
-		}
+		fmt.Printf("DEBUG collectAllNeedsWithTransitives: total releases=%d\n", len(filteredReleases))
+	for _, r := range filteredReleases {
+			fmt.Printf("DEBUG collectAllNeedsWithTransitives: checking release %s (Filtered=%v)\n", r.Name, r.Filtered
+        if !r.Filtered {
+            fmt.Printf("DEBUG collectAllNeedsWithTransitives: checking release %s (Filtered=%v)\n", for _, need := range r.Needs {
+                fmt.Printf("DEBUG collectAllNeedsWithTransitives: found need %s\n", needsWithTranstives[need] = struct{}{}
+            }
+        }
+        }
+    }
+    fmt.Printf("DEBUG collectAllNeedsWithTransitives: collected needs=%v\n", needsWithTranstives)
+    return needsWithTranstives
+}
+	}
+	return needsWithTranstives
+}
 	}
 	return needsWithTranstives
 }
 
 func unmarkReleases(toUnmark map[string]struct{}, releases []Release) {
+	fmt.Printf("DEBUG unmarkReleases: toUnmark=%v\n", toUnmark)
 	for i, r := range releases {
-		if _, ok := toUnmark[ReleaseToID(&r.ReleaseSpec)]; ok {
+		id := ReleaseToID(&r.ReleaseSpec)
+		if _, ok := toUnmark[id]; ok {
+			fmt.Printf("DEBUG unmarkReleases: unmarking %s (was Filtered=%v)\n", r.Name, r.Filtered)
 			releases[i].Filtered = false
 		}
 	}

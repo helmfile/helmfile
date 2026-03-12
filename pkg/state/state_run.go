@@ -99,7 +99,17 @@ type PlanOptions struct {
 }
 
 func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
-	marked, err := st.SelectReleases(opts.IncludeTransitiveNeeds)
+	var marked []Release
+	var err error
+
+	if opts.IncludeTransitiveNeeds {
+		marked, err = st.SelectReleases(true)
+	} else if opts.IncludeNeeds {
+		marked, err = st.SelectReleasesWithNeeds(false)
+	} else {
+		marked, err = st.SelectReleases(false)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -252,10 +262,16 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 			if !ok {
 				panic(fmt.Errorf("bug: unexpectedly failed to get releases for id %q: %v", id, ids))
 			}
-			releasesInGroup = append(releasesInGroup, rs...)
+			for _, r := range rs {
+				if !r.Filtered {
+					releasesInGroup = append(releasesInGroup, r)
+				}
+			}
 		}
 
-		result = append(result, releasesInGroup)
+		if len(releasesInGroup) > 0 {
+			result = append(result, releasesInGroup)
+		}
 	}
 
 	return result, nil
