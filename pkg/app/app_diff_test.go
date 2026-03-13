@@ -175,8 +175,6 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			diffed: []exectest.Release{
-				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "kube-system", "--reset-values"}},
 				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
 				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},

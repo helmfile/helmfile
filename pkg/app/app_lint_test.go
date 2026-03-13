@@ -199,8 +199,6 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			linted: []exectest.Release{
-				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
 				{Name: "my-release", Flags: []string{"--namespace", "default"}},
@@ -217,6 +215,8 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			linted: []exectest.Release{
+				// logging is a transitive dependency of kubernetes-external-secrets
+				// kubernetes-external-secrets -> external-secrets -> my-release
 				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},

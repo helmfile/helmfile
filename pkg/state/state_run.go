@@ -160,7 +160,11 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		var needs []string
 		for i := 0; i < len(r.Needs); i++ {
 			n := r.Needs[i]
-			if _, exists := unfilteredIDs[n]; exists {
+			if opts.IncludeNeeds || opts.IncludeTransitiveNeeds {
+				if _, exists := unfilteredIDs[n]; exists {
+					needs = append(needs, n)
+				}
+			} else {
 				needs = append(needs, n)
 			}
 		}

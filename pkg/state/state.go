@@ -3108,12 +3108,8 @@ func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec,
 				}
 			}
 			needsWithTranstives[id] = struct{}{}
-			releaseParts := strings.Split(id, "/")
-			releaseName := releaseParts[len(releaseParts)-1]
-			for _, r := range allReleases {
-				if r.Name == releaseName {
-					collectNeedsWithTransitives(r, allReleases, needsWithTranstives)
-				}
+			if needRelease, exists := allReleasesMap[id]; exists {
+				collectNeedsWithTransitives(*needRelease, allReleases, needsWithTranstives)
 			}
 		}
 	}
