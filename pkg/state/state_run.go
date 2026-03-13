@@ -262,16 +262,10 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 			if !ok {
 				panic(fmt.Errorf("bug: unexpectedly failed to get releases for id %q: %v", id, ids))
 			}
-			for _, r := range rs {
-				if !r.Filtered {
-					releasesInGroup = append(releasesInGroup, r)
-				}
-			}
+			releasesInGroup = append(releasesInGroup, rs...)
 		}
 
-		if len(releasesInGroup) > 0 {
-			result = append(result, releasesInGroup)
-		}
+		result = append(result, releasesInGroup)
 	}
 
 	return result, nil

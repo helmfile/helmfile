@@ -1819,7 +1819,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		}
 		*st = *updated
 	}
-	selected, err := st.GetSelectedReleasesWithNeeds(opts.IncludeNeeds, opts.IncludeTransitiveNeeds)
+	selected, err := st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -3071,32 +3071,16 @@ func collectDirectNeeds(filteredReleases []Release, _ []ReleaseSpec) map[string]
 func collectAllNeedsWithTransitives(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
 	needsWithTranstives := map[string]struct{}{}
 	for _, r := range filteredReleases {
-		fmt.Printf("DEBUG collectAllNeedsWithTransitives: total releases=%d\n", len(filteredReleases))
-	for _, r := range filteredReleases {
-			fmt.Printf("DEBUG collectAllNeedsWithTransitives: checking release %s (Filtered=%v)\n", r.Name, r.Filtered
-        if !r.Filtered {
-            fmt.Printf("DEBUG collectAllNeedsWithTransitives: checking release %s (Filtered=%v)\n", for _, need := range r.Needs {
-                fmt.Printf("DEBUG collectAllNeedsWithTransitives: found need %s\n", needsWithTranstives[need] = struct{}{}
-            }
-        }
-        }
-    }
-    fmt.Printf("DEBUG collectAllNeedsWithTransitives: collected needs=%v\n", needsWithTranstives)
-    return needsWithTranstives
-}
-	}
-	return needsWithTranstives
-}
+		if !r.Filtered {
+			collectNeedsWithTransitives(r.ReleaseSpec, allReleases, needsWithTranstives)
+		}
 	}
 	return needsWithTranstives
 }
 
 func unmarkReleases(toUnmark map[string]struct{}, releases []Release) {
-	fmt.Printf("DEBUG unmarkReleases: toUnmark=%v\n", toUnmark)
 	for i, r := range releases {
-		id := ReleaseToID(&r.ReleaseSpec)
-		if _, ok := toUnmark[id]; ok {
-			fmt.Printf("DEBUG unmarkReleases: unmarking %s (was Filtered=%v)\n", r.Name, r.Filtered)
+		if _, ok := toUnmark[ReleaseToID(&r.ReleaseSpec)]; ok {
 			releases[i].Filtered = false
 		}
 	}
@@ -3119,31 +3103,6 @@ func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec,
 
 func (st *HelmState) GetSelectedReleases(includeTransitiveNeeds bool) ([]ReleaseSpec, error) {
 	filteredReleases, err := st.SelectReleases(includeTransitiveNeeds)
-	if err != nil {
-		return nil, err
-	}
-	var releases []ReleaseSpec
-	for _, r := range filteredReleases {
-		if !r.Filtered {
-			releases = append(releases, r.ReleaseSpec)
-		}
-	}
-
-	return releases, nil
-}
-
-func (st *HelmState) GetSelectedReleasesWithNeeds(includeNeeds bool, includeTransitiveNeeds bool) ([]ReleaseSpec, error) {
-	var filteredReleases []Release
-	var err error
-
-	if includeTransitiveNeeds {
-		filteredReleases, err = st.SelectReleases(true)
-	} else if includeNeeds {
-		filteredReleases, err = st.SelectReleasesWithNeeds(false)
-	} else {
-		filteredReleases, err = st.SelectReleases(false)
-	}
-
 	if err != nil {
 		return nil, err
 	}
@@ -3521,8 +3480,12 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = append(flags, st.timeoutFlags(release, opt)...)
 
-	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
-		flags = append(flags, "--force")
+	if (release.Force != nil && *release.Force) || (release.Force == nil && st.HelmDefaults.Force) {
+		if helm.IsHelm4() {
+			flags = append(flags, "--force-replace")
+		} else {
+			flags = append(flags, "--force")
+		}
 	}
 
 	if release.RecreatePods != nil && *release.RecreatePods || release.RecreatePods == nil && st.HelmDefaults.RecreatePods {
