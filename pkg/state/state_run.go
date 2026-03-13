@@ -143,6 +143,13 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 	idToReleases := map[string][]Release{}
 	idToIndex := map[string]int{}
 
+	unfilteredIDs := make(map[string]struct{})
+	for _, r := range releases {
+		if !r.Filtered {
+			unfilteredIDs[ReleaseToID(&r.ReleaseSpec)] = struct{}{}
+		}
+	}
+
 	d := dag.New()
 	for i, r := range releases {
 		id := ReleaseToID(&r.ReleaseSpec)
@@ -153,7 +160,9 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		var needs []string
 		for i := 0; i < len(r.Needs); i++ {
 			n := r.Needs[i]
-			needs = append(needs, n)
+			if _, exists := unfilteredIDs[n]; exists {
+				needs = append(needs, n)
+			}
 		}
 		d.Add(id, dag.Dependencies(needs))
 	}
@@ -171,9 +180,18 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		selectedReleaseIDs = append(selectedReleaseIDs, id)
 	}
 
+	var onlyReleaseIDs []string
+	if opts.IncludeNeeds || opts.IncludeTransitiveNeeds {
+		for id := range unfilteredIDs {
+			onlyReleaseIDs = append(onlyReleaseIDs, id)
+		}
+	} else {
+		onlyReleaseIDs = selectedReleaseIDs
+	}
+
 	plan, err := d.Plan(dag.SortOptions{
-		Only:                selectedReleaseIDs,
-		WithDependencies:    opts.IncludeNeeds,
+		Only:                onlyReleaseIDs,
+		WithDependencies:    false,
 		WithoutDependencies: opts.SkipNeeds,
 	})
 	if err != nil {

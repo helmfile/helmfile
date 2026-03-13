@@ -3067,10 +3067,8 @@ func collectDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) m
 	for _, r := range filteredReleases {
 		if !r.Filtered {
 			for _, need := range r.Needs {
-				if release, exists := allReleasesMap[need]; exists {
-					if release.Installed == nil || *release.Installed {
-						directNeeds[need] = struct{}{}
-					}
+				if _, exists := allReleasesMap[need]; exists {
+					directNeeds[need] = struct{}{}
 				}
 			}
 		}
