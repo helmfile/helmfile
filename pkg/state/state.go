@@ -3056,12 +3056,22 @@ func unmarkDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) {
 	unmarkReleases(directNeeds, filteredReleases)
 }
 
-func collectDirectNeeds(filteredReleases []Release, _ []ReleaseSpec) map[string]struct{} {
+func collectDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
 	directNeeds := map[string]struct{}{}
+
+	allReleasesMap := make(map[string]*ReleaseSpec)
+	for i := range allReleases {
+		allReleasesMap[ReleaseToID(&allReleases[i])] = &allReleases[i]
+	}
+
 	for _, r := range filteredReleases {
 		if !r.Filtered {
 			for _, need := range r.Needs {
-				directNeeds[need] = struct{}{}
+				if release, exists := allReleasesMap[need]; exists {
+					if release.Installed == nil || *release.Installed {
+						directNeeds[need] = struct{}{}
+					}
+				}
 			}
 		}
 	}
@@ -3087,8 +3097,18 @@ func unmarkReleases(toUnmark map[string]struct{}, releases []Release) {
 }
 
 func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec, needsWithTranstives map[string]struct{}) {
+	allReleasesMap := make(map[string]*ReleaseSpec)
+	for i := range allReleases {
+		allReleasesMap[ReleaseToID(&allReleases[i])] = &allReleases[i]
+	}
+
 	for _, id := range release.Needs {
 		if _, exists := needsWithTranstives[id]; !exists {
+			if needRelease, exists := allReleasesMap[id]; exists {
+				if needRelease.Installed != nil && !*needRelease.Installed {
+					continue
+				}
+			}
 			needsWithTranstives[id] = struct{}{}
 			releaseParts := strings.Split(id, "/")
 			releaseName := releaseParts[len(releaseParts)-1]
