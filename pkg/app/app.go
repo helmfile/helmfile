@@ -2292,7 +2292,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state.HelmState) []error) (bool, []error) {
 	st := r.state
 
-	selectedReleases, deduplicated, err := a.getSelectedReleases(r, false)
+	selectedReleases, deduplicated, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, []error{err}
 	}
