@@ -2965,7 +2965,6 @@ func (st *HelmState) SelectReleasesWithNeeds(includeTransitiveNeeds bool) ([]Rel
 }
 
 func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]any, includeTransitiveNeeds bool, includeNeeds bool) ([]Release, error) {
-
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
