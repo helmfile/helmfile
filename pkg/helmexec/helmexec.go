@@ -31,6 +31,7 @@ type Interface interface {
 	Unittest(name, chart string, flags ...string) error
 	ReleaseStatus(context HelmContext, name string, flags ...string) error
 	DeleteRelease(context HelmContext, name string, flags ...string) error
+	RollbackRelease(context HelmContext, name string, flags ...string) error
 	TestRelease(context HelmContext, name string, flags ...string) error
 	List(context HelmContext, filter string, flags ...string) (string, error)
 	DecryptSecret(context HelmContext, name string, flags ...string) (string, error)
