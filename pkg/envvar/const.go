@@ -2,6 +2,8 @@ package envvar
 
 const (
 	DisableInsecureFeatures = "HELMFILE_DISABLE_INSECURE_FEATURES"
+	DisableVals             = "HELMFILE_DISABLE_VALS"        // pass-through ref+ for external vals
+	DisableValsStrict       = "HELMFILE_DISABLE_VALS_STRICT" // error on ref+
 
 	// use helm status to check if a release exists before installing it
 	UseHelmStatusToCheckReleaseExistence = "HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE"
