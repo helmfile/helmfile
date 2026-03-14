@@ -3059,16 +3059,17 @@ func unmarkDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) {
 func collectDirectNeeds(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
 	directNeeds := map[string]struct{}{}
 
-	allReleasesMap := make(map[string]*ReleaseSpec)
-	for i := range allReleases {
-		allReleasesMap[ReleaseToID(&allReleases[i])] = &allReleases[i]
-	}
-
 	for _, r := range filteredReleases {
 		if !r.Filtered {
 			for _, need := range r.Needs {
-				if _, exists := allReleasesMap[need]; exists {
-					directNeeds[need] = struct{}{}
+				releaseParts := strings.Split(need, "/")
+				releaseName := releaseParts[len(releaseParts)-1]
+
+				for _, ar := range allReleases {
+					if ar.Name == releaseName {
+						directNeeds[ReleaseToID(&ar)] = struct{}{}
+						break
+					}
 				}
 			}
 		}
@@ -3095,21 +3096,24 @@ func unmarkReleases(toUnmark map[string]struct{}, releases []Release) {
 }
 
 func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec, needsWithTranstives map[string]struct{}) {
-	allReleasesMap := make(map[string]*ReleaseSpec)
-	for i := range allReleases {
-		allReleasesMap[ReleaseToID(&allReleases[i])] = &allReleases[i]
-	}
-
 	for _, id := range release.Needs {
-		if _, exists := needsWithTranstives[id]; !exists {
-			if needRelease, exists := allReleasesMap[id]; exists {
-				if needRelease.Installed != nil && !*needRelease.Installed {
+		releaseParts := strings.Split(id, "/")
+		releaseName := releaseParts[len(releaseParts)-1]
+
+		for _, r := range allReleases {
+			if r.Name == releaseName {
+				fullID := ReleaseToID(&r)
+
+				if _, exists := needsWithTranstives[fullID]; exists {
 					continue
 				}
-			}
-			needsWithTranstives[id] = struct{}{}
-			if needRelease, exists := allReleasesMap[id]; exists {
-				collectNeedsWithTransitives(*needRelease, allReleases, needsWithTranstives)
+
+				if r.Installed != nil && !*r.Installed {
+					continue
+				}
+
+				needsWithTranstives[fullID] = struct{}{}
+				collectNeedsWithTransitives(r, allReleases, needsWithTranstives)
 			}
 		}
 	}
