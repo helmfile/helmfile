@@ -4,7 +4,6 @@ import (
 	"bytes"
 	goContext "context"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -712,7 +711,6 @@ func (a *App) list(run *Run) ([]*HelmRelease, error) {
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
 		}
-		maps.Copy(r.Labels, resolvedState.CommonLabels)
 
 		var keys []string
 		for k := range r.Labels {

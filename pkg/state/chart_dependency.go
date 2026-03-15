@@ -140,8 +140,15 @@ func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {
 	// When basePath is set (e.g. when loaded with baseDir instead of os.Chdir),
 	// resolve the lock file path relative to basePath so it can be found
 	// without changing the working directory.
-	if lockFile != "" && st.basePath != "" && !filepath.IsAbs(lockFile) {
-		lockFile = filepath.Join(st.basePath, lockFile)
+	switch {
+	case lockFile != "":
+		if st.basePath != "" && !filepath.IsAbs(lockFile) {
+			lockFile = filepath.Join(st.basePath, lockFile)
+		}
+	case st.basePath != "":
+		// When no custom lockfile is specified, use the default lockfile name
+		// joined with basePath to ensure it's found when not changing CWD.
+		lockFile = filepath.Join(st.basePath, filename+".lock")
 	}
 
 	depMan := NewChartDependencyManager(filename, st.logger, lockFile)

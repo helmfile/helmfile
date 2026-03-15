@@ -2648,7 +2648,7 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 		logger: logger,
 		fs: &filesystem.FileSystem{
 			ReadFile: func(f string) ([]byte, error) {
-				if f != "helmfile.lock" {
+				if f != filepath.Join("/src", "helmfile.lock") {
 					return nil, fmt.Errorf("stub: unexpected file: %s", f)
 				}
 				return nil, os.ErrNotExist
