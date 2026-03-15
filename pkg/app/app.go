@@ -2323,7 +2323,7 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 		SelectedReleases:       selectedReleases,
 		IncludeNeeds:           false,
 		IncludeTransitiveNeeds: false,
-		SkipNeeds:              c.SkipNeeds(),
+		SkipNeeds:              c.SkipNeeds() || includeNeeds,
 	})
 
 	if err != nil {

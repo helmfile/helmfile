@@ -6,14 +6,14 @@ GROUP RELEASES
 1     default//logging, default//front-proxy
 2     default//database, default//servicemesh
 3     default//anotherbackend
-4     default//backend-v2
-5     default//frontend-v2, default//frontend-v3
+4     default//backend-v1, default//backend-v2
+5     default//frontend-v1, default//frontend-v2, default//frontend-v3
 
 processing releases in group 1/5: default//logging, default//front-proxy
 processing releases in group 2/5: default//database, default//servicemesh
 processing releases in group 3/5: default//anotherbackend
-processing releases in group 4/5: default//backend-v2
-processing releases in group 5/5: default//frontend-v2, default//frontend-v3
+processing releases in group 4/5: default//backend-v1, default//backend-v2
+processing releases in group 5/5: default//frontend-v1, default//frontend-v2, default//frontend-v3
 Affected releases are:
   anotherbackend (charts/anotherbackend) UPDATED
   backend-v1 (charts/backend) DELETED

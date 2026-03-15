@@ -3053,10 +3053,24 @@ func unmarkNeedsDirectOnly(filteredReleases []Release) {
 
 func collectDirectNeedsOnly(filteredReleases []Release) map[string]struct{} {
 	directNeeds := map[string]struct{}{}
+	nameToID := map[string]string{}
+	for _, r := range filteredReleases {
+		nameToID[r.Name] = ReleaseToID(&r.ReleaseSpec)
+	}
 	for _, r := range filteredReleases {
 		if !r.Filtered {
-			for _, id := range r.ReleaseSpec.Needs {
-				directNeeds[id] = struct{}{}
+			for _, need := range r.ReleaseSpec.Needs {
+				if fullID, ok := nameToID[need]; ok {
+					directNeeds[fullID] = struct{}{}
+				} else {
+					parts := strings.Split(need, "/")
+					needName := parts[len(parts)-1]
+					if fullID, ok := nameToID[needName]; ok {
+						directNeeds[fullID] = struct{}{}
+					} else {
+						directNeeds[need] = struct{}{}
+					}
+				}
 			}
 		}
 	}
@@ -3064,13 +3078,10 @@ func collectDirectNeedsOnly(filteredReleases []Release) map[string]struct{} {
 }
 
 func unmarkReleasesByNeedID(toUnmark map[string]struct{}, releases []Release) {
-	for needID := range toUnmark {
-		parts := strings.Split(needID, "/")
-		needName := parts[len(parts)-1]
-		for i, r := range releases {
-			if r.Name == needName {
-				releases[i].Filtered = false
-			}
+	for i := range releases {
+		releaseID := ReleaseToID(&releases[i].ReleaseSpec)
+		if _, ok := toUnmark[releaseID]; ok {
+			releases[i].Filtered = false
 		}
 	}
 }

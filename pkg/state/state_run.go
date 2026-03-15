@@ -104,6 +104,19 @@ func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
 		return nil, err
 	}
 
+	// If SelectedReleases is provided, mark those releases as not filtered
+	if len(opts.SelectedReleases) > 0 {
+		selectedIDs := make(map[string]struct{})
+		for _, r := range opts.SelectedReleases {
+			selectedIDs[ReleaseToID(&r)] = struct{}{}
+		}
+		for i := range marked {
+			if _, ok := selectedIDs[ReleaseToID(&marked[i].ReleaseSpec)]; ok {
+				marked[i].Filtered = false
+			}
+		}
+	}
+
 	groups, err := SortedReleaseGroups(marked, opts)
 	if err != nil {
 		return nil, err
