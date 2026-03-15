@@ -22,22 +22,18 @@ rendering result of "helmfile.yaml.gotmpl.part.0":
 19: 
 
 merged environment: &{default  map[] map[] map[]}
-3 release(s) matching name=serviceA found in helmfile.yaml.gotmpl
+1 release(s) matching name=serviceA found in helmfile.yaml.gotmpl
 
 Affected releases are:
   serviceA (my/chart) UPDATED
   serviceB (my/chart) UPDATED
   serviceC (my/chart) UPDATED
 
-invoking preapply hooks for 3 groups of releases in this order:
+invoking preapply hooks for 1 groups of releases in this order:
 GROUP RELEASES
 1     default//serviceA
-2     default//serviceB
-3     default//serviceC
 
-invoking preapply hooks for releases in group 1/3: default//serviceA
-invoking preapply hooks for releases in group 2/3: default//serviceB
-invoking preapply hooks for releases in group 3/3: default//serviceC
+invoking preapply hooks for releases in group 1/1: default//serviceA
 processing 3 groups of releases in this order:
 GROUP RELEASES
 1     default//serviceC

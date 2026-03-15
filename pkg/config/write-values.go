@@ -51,6 +51,11 @@ func (c *WriteValuesImpl) SkipCleanup() bool {
 	return false
 }
 
+// IncludeNeeds returns the include needs
+func (c *WriteValuesImpl) IncludeNeeds() bool {
+	return false
+}
+
 // IncludeTransitiveNeeds returns the include transitive needs
 func (c *WriteValuesImpl) IncludeTransitiveNeeds() bool {
 	return false
@@ -59,4 +64,14 @@ func (c *WriteValuesImpl) IncludeTransitiveNeeds() bool {
 // OutputFileTemplate returns the output file template
 func (c *WriteValuesImpl) OutputFileTemplate() string {
 	return c.WriteValuesOptions.OutputFileTemplate
+}
+
+// SkipDeps returns the skip deps
+func (c *WriteValuesImpl) SkipDeps() bool {
+	return false
+}
+
+// SkipRefresh returns the skip refresh
+func (c *WriteValuesImpl) SkipRefresh() bool {
+	return false
 }

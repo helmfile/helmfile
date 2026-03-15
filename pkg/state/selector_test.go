@@ -117,7 +117,7 @@ func TestSelectReleasesWithOverrides(t *testing.T) {
 		}
 		state.Releases = state.GetReleasesWithLabels()
 
-		rs, err := state.GetSelectedReleases(false)
+		rs, err := state.GetSelectedReleases(false, false)
 		if err != nil {
 			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
 		}
@@ -192,7 +192,7 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 		}
 		state.Releases = state.GetReleasesWithLabels()
 
-		rs, err := state.GetSelectedReleases(tc.includeTransitiveNeeds)
+		rs, err := state.GetSelectedReleases(tc.includeTransitiveNeeds, tc.includeTransitiveNeeds)
 		if err != nil {
 			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
 		}
