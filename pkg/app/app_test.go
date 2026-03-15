@@ -2628,7 +2628,6 @@ type depsConfig struct {
 	skipRepos              bool
 	includeNeeds           bool
 	includeTransitiveNeeds bool
-	args                   []string
 }
 
 func (c depsConfig) SkipRepos() bool {
