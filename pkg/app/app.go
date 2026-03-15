@@ -131,7 +131,7 @@ func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		errs = run.Deps(c)
 		return
-	}, false, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
 func (a *App) Repos(c ReposConfigProvider) error {
@@ -143,7 +143,7 @@ func (a *App) Repos(c ReposConfigProvider) error {
 		}
 
 		return
-	}, false, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {

@@ -22,6 +22,11 @@ func NewReposImpl(g *GlobalImpl, b *ReposOptions) *ReposImpl {
 	}
 }
 
+// IncludeNeeds returns the include needs
+func (r *ReposImpl) IncludeNeeds() bool {
+	return false
+}
+
 // IncludeTransitiveNeeds returns the include transitive needs
 func (r *ReposImpl) IncludeTransitiveNeeds() bool {
 	return false
