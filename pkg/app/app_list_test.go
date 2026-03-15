@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -300,4 +301,68 @@ func TestListWithJSONOutput(t *testing.T) {
 	t.Run("with skipCharts=true", func(t *testing.T) {
 		testListWithJSONOutput(t, configImpl{skipCharts: true})
 	})
+}
+
+func TestListWithLockFileVersion(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+repositories:
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami
+
+releases:
+- name: redis
+  namespace: default
+  chart: bitnami/redis
+  version: ">=1.0.0"
+`,
+		"/path/to/helmfile.lock": `version: v0.0.0
+dependencies:
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 17.0.7
+digest: sha256:abc123
+generated: "2024-01-01T00:00:00Z"
+`,
+	}
+
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		valsRuntime:                     valsRuntime,
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	out, err := testutil.CaptureStdout(func() {
+		err := app.ListReleases(configImpl{skipCharts: true, output: "json"})
+		assert.Nil(t, err)
+	})
+	assert.NoError(t, err)
+
+	var releases []HelmRelease
+	if err := json.Unmarshal([]byte(out), &releases); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+
+	assert.Len(t, releases, 1, "expected 1 release")
+	assert.Equal(t, "redis", releases[0].Name)
+	assert.Equal(t, "bitnami/redis", releases[0].Chart)
+	assert.Equal(t, "17.0.7", releases[0].Version, "expected version from helmfile.lock")
 }
