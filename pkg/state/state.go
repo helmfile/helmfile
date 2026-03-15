@@ -3048,7 +3048,7 @@ func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []Release
 
 func unmarkNeedsDirectOnly(filteredReleases []Release) {
 	directNeeds := collectDirectNeedsOnly(filteredReleases)
-	unmarkReleases(directNeeds, filteredReleases)
+	unmarkReleasesByNeedID(directNeeds, filteredReleases)
 }
 
 func collectDirectNeedsOnly(filteredReleases []Release) map[string]struct{} {
@@ -3061,6 +3061,18 @@ func collectDirectNeedsOnly(filteredReleases []Release) map[string]struct{} {
 		}
 	}
 	return directNeeds
+}
+
+func unmarkReleasesByNeedID(toUnmark map[string]struct{}, releases []Release) {
+	for needID := range toUnmark {
+		parts := strings.Split(needID, "/")
+		needName := parts[len(parts)-1]
+		for i, r := range releases {
+			if r.Name == needName {
+				releases[i].Filtered = false
+			}
+		}
+	}
 }
 
 func collectAllNeedsWithTransitives(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
