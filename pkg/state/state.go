@@ -190,6 +190,8 @@ type HelmSpec struct {
 	Atomic bool `yaml:"atomic"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
 	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
+	// ForceConflicts, when set to true, force server-side apply changes against conflicts (Helm 4 only)
+	ForceConflicts bool `yaml:"forceConflicts"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
 	// CreateNamespace, when set to true (default), --create-namespace is passed to helm on install/upgrade
@@ -306,6 +308,8 @@ type ReleaseSpec struct {
 	Atomic *bool `yaml:"atomic,omitempty"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
 	CleanupOnFail *bool `yaml:"cleanupOnFail,omitempty"`
+	// ForceConflicts, when set to true, force server-side apply changes against conflicts (Helm 4 only)
+	ForceConflicts *bool `yaml:"forceConflicts,omitempty"`
 	// HistoryMax, limit the maximum number of revisions saved per release. Use 0 for no limit (default 10)
 	HistoryMax *int `yaml:"historyMax,omitempty"`
 	// Condition, when set, evaluate the mapping specified in this string to a boolean which decides whether or not to process the release
@@ -3451,8 +3455,27 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = append(flags, st.timeoutFlags(release, opt)...)
 
-	if release.Force != nil && *release.Force || release.Force == nil && st.HelmDefaults.Force {
-		flags = append(flags, "--force")
+	forceEnabled := (release.Force != nil && *release.Force) || (release.Force == nil && st.HelmDefaults.Force)
+	forceConflictsEnabled := (release.ForceConflicts != nil && *release.ForceConflicts) || (release.ForceConflicts == nil && st.HelmDefaults.ForceConflicts)
+
+	if forceConflictsEnabled && !helm.IsHelm4() {
+		return nil, nil, fmt.Errorf("forceConflicts requires Helm 4 or greater (set via releases[].forceConflicts or helmDefaults.forceConflicts)")
+	}
+
+	if forceEnabled && forceConflictsEnabled {
+		return nil, nil, fmt.Errorf("force and forceConflicts are mutually exclusive (check both releases[].force/forceConflicts and helmDefaults.force/forceConflicts)")
+	}
+
+	if forceEnabled {
+		if helm.IsHelm4() {
+			flags = append(flags, "--force-replace")
+		} else {
+			flags = append(flags, "--force")
+		}
+	}
+
+	if forceConflictsEnabled {
+		flags = append(flags, "--force-conflicts")
 	}
 
 	if release.RecreatePods != nil && *release.RecreatePods || release.RecreatePods == nil && st.HelmDefaults.RecreatePods {

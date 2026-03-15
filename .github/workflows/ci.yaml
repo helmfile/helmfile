@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        helm-version: [v3.18.6, v3.20.0, v4.1.1]
+        helm-version: [v3.18.6, v3.20.1, v4.1.3]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -67,16 +67,16 @@ jobs:
         env:
           HELMFILE_HELM4: ${{ startsWith(matrix.helm-version, 'v4') && '1' || '0' }}
       - name: Archive built binaries
-        if: matrix.helm-version == 'v4.1.1'
+        if: matrix.helm-version == 'v4.1.3'
         run: tar -cvf built-binaries.tar helmfile diff-yamls dyff
       - uses: actions/upload-artifact@v7
-        if: matrix.helm-version == 'v4.1.1'
+        if: matrix.helm-version == 'v4.1.3'
         with:
           name: built-binaries-${{ github.run_id }}
           path: built-binaries.tar
           retention-days: 1
       - name: Display built binaries
-        if: matrix.helm-version == 'v4.1.1'
+        if: matrix.helm-version == 'v4.1.3'
         run: ls -l helmfile diff-yamls dyff
 
   integration_tests:
@@ -105,23 +105,23 @@ jobs:
             plugin-secrets-version: 4.7.4
             plugin-diff-version: 3.15.1
             extra-helmfile-flags: '--enable-live-output'
-          - helm-version: v3.20.0
+          - helm-version: v3.20.1
             kustomize-version: v5.8.0
             plugin-secrets-version: 4.7.4
             plugin-diff-version: 3.15.1
             extra-helmfile-flags: ''
-          - helm-version: v3.20.0
+          - helm-version: v3.20.1
             kustomize-version: v5.8.0
             plugin-secrets-version: 4.7.4
             plugin-diff-version: 3.15.1
             extra-helmfile-flags: '--enable-live-output'
           # Helmfile now supports both Helm 3.x and Helm 4.x
-          - helm-version: v4.1.1
+          - helm-version: v4.1.3
             kustomize-version: v5.8.0
             plugin-secrets-version: 4.7.4
             plugin-diff-version: 3.15.1
             extra-helmfile-flags: ''
-          - helm-version: v4.1.1
+          - helm-version: v4.1.3
             kustomize-version: v5.8.0
             plugin-secrets-version: 4.7.4
             plugin-diff-version: 3.15.1
@@ -147,7 +147,7 @@ jobs:
         with:
           name: built-binaries-${{ github.run_id }}
       - name: install semver
-        run: go install github.com/ffurrer2/semver/v2/cmd/semver@latest
+        run: go install github.com/ffurrer2/semver/v2/cmd/semver@v2.12.0
       - name: Extract tar to get built binaries
         run: tar -xvf built-binaries.tar
       - name: Display built binaries
