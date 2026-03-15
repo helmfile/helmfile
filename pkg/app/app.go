@@ -701,13 +701,15 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 func (a *App) list(run *Run) ([]*HelmRelease, error) {
 	var releases []*HelmRelease
 
-	for _, r := range run.state.Releases {
+	resolvedState, err := run.state.ResolveDeps()
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve dependencies: %w", err)
+	}
+
+	for _, r := range resolvedState.Releases {
 		labels := ""
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
-		}
-		for k, v := range run.state.CommonLabels {
-			r.Labels[k] = v
 		}
 
 		var keys []string
@@ -722,7 +724,7 @@ func (a *App) list(run *Run) ([]*HelmRelease, error) {
 		}
 		labels = strings.Trim(labels, ",")
 
-		enabled, err := state.ConditionEnabled(r, run.state.Values())
+		enabled, err := state.ConditionEnabled(r, resolvedState.Values())
 		if err != nil {
 			return nil, err
 		}
