@@ -260,11 +260,13 @@ func (a *App) Template(c TemplateConfigProvider) error {
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh: c.SkipRefresh(),
-			SkipDeps:    c.SkipDeps(),
-			SkipCleanup: c.SkipCleanup(),
-			Concurrency: c.Concurrency(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
+			SkipDeps:               c.SkipDeps(),
+			SkipCleanup:            c.SkipCleanup(),
+			IncludeNeeds:           c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			Concurrency:            c.Concurrency(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
 		})
@@ -274,7 +276,7 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 		}
 
 		return
-	}, false, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
 type MultiError struct {

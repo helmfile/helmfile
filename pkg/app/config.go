@@ -281,6 +281,7 @@ type WriteValuesConfigProvider interface {
 	SkipDeps() bool
 	SkipRefresh() bool
 	SkipCleanup() bool
+	IncludeNeeds() bool
 	IncludeTransitiveNeeds() bool
 
 	concurrencyConfig
