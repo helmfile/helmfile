@@ -2299,7 +2299,12 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state.HelmState) []error) (bool, []error) {
 	st := r.state
 
-	selectedReleases, deduplicated, err := a.getSelectedReleases(r, false, false)
+	includeNeeds := c.IncludeNeeds()
+	if c.IncludeTransitiveNeeds() {
+		includeNeeds = true
+	}
+
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, includeNeeds, c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, []error{err}
 	}
@@ -2311,18 +2316,13 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
 	// even if we provided `SelectedReleases: selectedReleases`.
 	// See https://github.com/roboll/helmfile/issues/1818 for more context.
-	st.Releases = deduplicated
-
-	includeNeeds := c.IncludeNeeds()
-	if c.IncludeTransitiveNeeds() {
-		includeNeeds = true
-	}
+	st.Releases = selectedAndNeededReleases
 
 	batches, err := st.PlanReleases(state.PlanOptions{
 		Reverse:                false,
 		SelectedReleases:       selectedReleases,
-		IncludeNeeds:           includeNeeds,
-		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
 		SkipNeeds:              c.SkipNeeds(),
 	})
 
