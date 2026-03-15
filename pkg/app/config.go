@@ -39,6 +39,7 @@ type DepsConfigProvider interface {
 
 type ReposConfigProvider interface {
 	Args() string
+	IncludeNeeds() bool
 	IncludeTransitiveNeeds() bool
 }
 
