@@ -1,6 +1,7 @@
 releases:
-  - name: serviceA
+  - name: service-a
     chart: ../../../charts/raw
+    namespace: helmfile-tests
     values:
       - templates:
           - |
@@ -12,10 +13,11 @@ releases:
             data:
               name: {{ .Release.Name }}
     needs:
-      - serviceB
+      - service-b
 
-  - name: serviceB
+  - name: service-b
     chart: ../../../charts/raw
+    namespace: helmfile-tests
     values:
       - templates:
           - |
@@ -27,10 +29,11 @@ releases:
             data:
               name: {{ .Release.Name }}
     needs:
-      - serviceC
+      - service-c
 
-  - name: serviceC
+  - name: service-c
     chart: ../../../charts/raw
+    namespace: helmfile-tests
     values:
       - templates:
           - |
@@ -42,8 +45,9 @@ releases:
             data:
               name: {{ .Release.Name }}
 
-  - name: serviceD
+  - name: service-d
     chart: ../../../charts/raw
+    namespace: helmfile-tests
     values:
       - templates:
           - |
