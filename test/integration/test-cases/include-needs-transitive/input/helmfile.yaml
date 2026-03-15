@@ -1,0 +1,56 @@
+releases:
+  - name: serviceA
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}
+              namespace: {{ .Release.Namespace }}
+            data:
+              name: {{ .Release.Name }}
+    needs:
+      - serviceB
+
+  - name: serviceB
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}
+              namespace: {{ .Release.Namespace }}
+            data:
+              name: {{ .Release.Name }}
+    needs:
+      - serviceC
+
+  - name: serviceC
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}
+              namespace: {{ .Release.Namespace }}
+            data:
+              name: {{ .Release.Name }}
+
+  - name: serviceD
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}
+              namespace: {{ .Release.Namespace }}
+            data:
+              name: {{ .Release.Name }}
