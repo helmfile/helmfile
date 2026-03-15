@@ -2626,22 +2626,28 @@ func (a applyConfig) TrackLogs() bool {
 
 type depsConfig struct {
 	skipRepos              bool
+	includeNeeds           bool
 	includeTransitiveNeeds bool
+	args                   []string
 }
 
-func (d depsConfig) SkipRepos() bool {
-	return d.skipRepos
+func (c depsConfig) SkipRepos() bool {
+	return c.skipRepos
 }
 
-func (d depsConfig) IncludeTransitiveNeeds() bool {
-	return d.includeTransitiveNeeds
+func (c depsConfig) IncludeNeeds() bool {
+	return c.includeNeeds
 }
 
-func (d depsConfig) Args() string {
+func (c depsConfig) IncludeTransitiveNeeds() bool {
+	return c.includeTransitiveNeeds
+}
+
+func (c depsConfig) Args() string {
 	return ""
 }
 
-func (d depsConfig) Concurrency() int {
+func (c depsConfig) Concurrency() int {
 	return 2
 }
 
@@ -4116,6 +4122,7 @@ releases:
 
 				depsErr := app.Deps(depsConfig{
 					skipRepos:              false,
+					includeNeeds:           false,
 					includeTransitiveNeeds: false,
 				})
 				switch {

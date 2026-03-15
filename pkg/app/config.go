@@ -31,6 +31,7 @@ type ConfigProvider interface {
 type DepsConfigProvider interface {
 	Args() string
 	SkipRepos() bool
+	IncludeNeeds() bool
 	IncludeTransitiveNeeds() bool
 
 	concurrencyConfig
