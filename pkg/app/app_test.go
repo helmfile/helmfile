@@ -113,7 +113,8 @@ releases:
 	err := app.ForEachState(
 		noop,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -167,7 +168,8 @@ BAZ: 4
 	err := app.ForEachState(
 		Noop,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -211,7 +213,8 @@ releases:
 	err := app.ForEachState(
 		Noop,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err == nil {
 		t.Fatal("expected error did not occur")
@@ -298,7 +301,8 @@ func TestUpdateStrategyParamValidation(t *testing.T) {
 		err := app.ForEachState(
 			Noop,
 			false,
-			SetFilter(true),
+
+			false, SetFilter(true),
 		)
 
 		if c.isValid && err != nil {
@@ -350,7 +354,8 @@ releases:
 	err := app.ForEachState(
 		Noop,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -404,7 +409,8 @@ releases:
 			err := app.ForEachState(
 				Noop,
 				false,
-				SetFilter(true),
+
+				false, SetFilter(true),
 			)
 			if testcase.expectErr && err == nil {
 				t.Fatal("expected error did not occur")
@@ -472,7 +478,8 @@ releases:
 		err := app.ForEachState(
 			Noop,
 			false,
-			SetFilter(true),
+
+			false, SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
 			t.Errorf("error expected but not happened for name=%s", testcase.name)
@@ -528,7 +535,8 @@ releases:
 		err := app.ForEachState(
 			Noop,
 			false,
-			SetFilter(true),
+
+			false, SetFilter(true),
 		)
 		if testcase.expectErr && err == nil {
 			t.Errorf("error expected but not happened for environment=%s", testcase.name)
@@ -643,7 +651,8 @@ releases:
 			err := app.ForEachState(
 				collectReleases,
 				false,
-				SetFilter(true),
+
+				false, SetFilter(true),
 			)
 			if testcase.expectErr {
 				if err == nil {
@@ -885,7 +894,8 @@ func runFilterSubHelmFilesTests(testcases []struct {
 		err := app.ForEachState(
 			collectReleases,
 			false,
-			SetFilter(true),
+
+			false, SetFilter(true),
 		)
 		if testcase.expectErr {
 			if err == nil {
@@ -975,7 +985,8 @@ ns: INLINE_NS
 	err := app.ForEachState(
 		collectReleases,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 
 	if err != nil {
@@ -1073,6 +1084,7 @@ releases:
 		err := app.ForEachState(
 			collectReleases,
 			false,
+			false,
 			SetReverse(testcase.reverse),
 			SetFilter(true),
 		)
@@ -1140,7 +1152,8 @@ bar: "bar1"
 		err := app.ForEachState(
 			collectReleases,
 			false,
-			SetFilter(true),
+
+			false, SetFilter(true),
 		)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1262,7 +1275,8 @@ x:
 			err := app.ForEachState(
 				collectReleases,
 				false,
-				SetFilter(true),
+
+				false, SetFilter(true),
 			)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -1314,7 +1328,8 @@ releases:
 	err := app.ForEachState(
 		collectReleases,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1371,7 +1386,8 @@ releases:
 			err := app.ForEachState(
 				collectReleases,
 				false,
-				SetFilter(true),
+
+				false, SetFilter(true),
 			)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -1421,7 +1437,8 @@ releases:
 	err := app.ForEachState(
 		collectReleases,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 
 	if err != nil {
@@ -1464,7 +1481,8 @@ releases:
 	err := app.ForEachState(
 		collectReleases,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 
 	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"
@@ -1511,7 +1529,8 @@ releases:
 	err := app.ForEachState(
 		collectReleases,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 
 	expected := "in ./helmfile.yaml: duplicate release \"foo\" found in namespace \"foo\" in kubecontext \"default\": there were 2 releases named \"foo\" matching specified selector"
@@ -4331,7 +4350,8 @@ releases:
 	err := app.ForEachState(
 		collectReleases,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -4404,7 +4424,8 @@ releases:
 	err := app.ForEachState(
 		collectReleases,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -4616,7 +4637,8 @@ func TestRenderYamlEnvVar(t *testing.T) {
 					return false, nil
 				},
 				false,
-				SetFilter(true),
+
+				false, SetFilter(true),
 			)
 
 			if tc.expectErr {

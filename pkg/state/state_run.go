@@ -99,7 +99,7 @@ type PlanOptions struct {
 }
 
 func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
-	marked, err := st.SelectReleases(opts.IncludeTransitiveNeeds)
+	marked, err := st.SelectReleases(opts.IncludeNeeds, opts.IncludeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
