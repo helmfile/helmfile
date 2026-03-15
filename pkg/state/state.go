@@ -2988,7 +2988,7 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 	if includeTransitiveNeeds {
 		unmarkNeedsAndTransitives(filteredReleases, releases)
 	} else if includeNeeds {
-		unmarkNeedsDirectOnly(filteredReleases, releases)
+		unmarkNeedsDirectOnly(filteredReleases)
 	}
 	return filteredReleases, nil
 }
@@ -3046,7 +3046,7 @@ func unmarkNeedsAndTransitives(filteredReleases []Release, allReleases []Release
 	unmarkReleases(needsWithTranstives, filteredReleases)
 }
 
-func unmarkNeedsDirectOnly(filteredReleases []Release, allReleases []ReleaseSpec) {
+func unmarkNeedsDirectOnly(filteredReleases []Release) {
 	directNeeds := collectDirectNeedsOnly(filteredReleases)
 	unmarkReleases(directNeeds, filteredReleases)
 }
