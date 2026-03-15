@@ -163,7 +163,7 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 
 	plan, err := d.Plan(dag.SortOptions{
 		Only:                selectedReleaseIDs,
-		WithDependencies:    opts.IncludeNeeds,
+		WithDependencies:    opts.IncludeNeeds || opts.IncludeTransitiveNeeds,
 		WithoutDependencies: opts.SkipNeeds,
 	})
 	if err != nil {
