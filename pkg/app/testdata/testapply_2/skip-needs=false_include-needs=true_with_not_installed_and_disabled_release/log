@@ -28,7 +28,7 @@ rendering result of "helmfile.yaml.gotmpl.part.0":
 
 merged environment: &{default  map[] map[] map[]}
 WARNING: release external-secrets needs kubernetes-external-secrets, but kubernetes-external-secrets is not installed due to installed: false. Either mark kubernetes-external-secrets as installed or remove kubernetes-external-secrets from external-secrets's needs
-3 release(s) matching app=test found in helmfile.yaml.gotmpl
+2 release(s) matching app=test found in helmfile.yaml.gotmpl
 
 WARNING: release external-secrets needs kubernetes-external-secrets, but kubernetes-external-secrets is not installed due to installed: false. Either mark kubernetes-external-secrets as installed or remove kubernetes-external-secrets from external-secrets's needs
 Affected releases are:

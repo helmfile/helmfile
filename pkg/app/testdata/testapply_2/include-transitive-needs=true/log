@@ -22,7 +22,7 @@ rendering result of "helmfile.yaml.gotmpl.part.0":
 19: 
 
 merged environment: &{default  map[] map[] map[]}
-3 release(s) matching name=serviceA found in helmfile.yaml.gotmpl
+1 release(s) matching name=serviceA found in helmfile.yaml.gotmpl
 
 Affected releases are:
   serviceA (my/chart) UPDATED

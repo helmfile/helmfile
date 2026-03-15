@@ -1597,7 +1597,11 @@ func (a *App) getSelectedReleases(r *Run, includeNeeds bool, includeTransitiveNe
 		extra = " matching " + strings.Join(r.state.Selectors, ",")
 	}
 
-	a.Logger.Debugf("%d release(s)%s found in %s\n", len(selected), extra, r.state.FilePath)
+	matchedOnly, err := r.state.GetSelectedReleases(false, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	a.Logger.Debugf("%d release(s)%s found in %s\n", len(matchedOnly), extra, r.state.FilePath)
 
 	return selected, deduplicated, nil
 }
