@@ -180,13 +180,15 @@ releases:
 
 	t.Run("unittest all releases with unitTests", func(t *testing.T) {
 		check(t, testcase{
-	unittested: []exectest.Release{
-	{Name: "logging", Flags: []string{"--namespace", "kube-system", "--file", "tests/logging/*_test.yaml"}},
-	{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
-	{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
-	{Name: "my-release", Flags: []string{"--namespace", "default"}},
-}
-		expectedFlags = append(expectedFlags, "--debugPlugin", "--file", "tests/logging/*_test.yaml")
+			unittested: []exectest.Release{
+				{Name: "logging", Flags: []string{"--namespace", "kube-system", "--file", "tests/logging/*_test.yaml"}},
+				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
+				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
+				{Name: "my-release", Flags: []string{"--namespace", "default"}},
+			},
+		})
+
+		expectedFlags := append([]string{"--namespace", "kube-system"}, "--debugPlugin", "--file", "tests/logging/*_test.yaml")
 
 		check(t, testcase{
 			fields: fields{
