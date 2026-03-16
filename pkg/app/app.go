@@ -2358,7 +2358,17 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 		// Otherwise, in case include-needs=true, it will include the needs of needs, which results in unexpectedly introducing transitive needs,
 		// even if include-transitive-needs=true is unspecified.
 		// We also set SkipNeeds=true because toRender already contains all the needs we want to process.
-		if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		//
+		// IMPORTANT: Filter out disabled releases from toRender to avoid duplicates.
+		// Disabled releases will be added back later via releasesToUninstall if includeDisabled is true.
+		var enabledToRender []state.ReleaseSpec
+		for _, r := range toRender {
+			if r.Desired() {
+				enabledToRender = append(enabledToRender, r)
+			}
+		}
+
+		if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: enabledToRender, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			rels = append(rels, subst.Releases...)
 			return nil
 		})); len(errs) > 0 {
