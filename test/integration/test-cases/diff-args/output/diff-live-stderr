@@ -1,3 +1,4 @@
 Live output is enabled
 Building dependency release=installed, chart=../../../charts/httpbin
 Listing releases matching ^uninstalled$
+Listing releases matching ^uninstalled$ 
