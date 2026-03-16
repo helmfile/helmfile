@@ -182,13 +182,15 @@ releases:
 		check(t, testcase{
 			unittested: []exectest.Release{
 				{Name: "logging", Flags: []string{"--namespace", "kube-system", "--file", "tests/logging/*_test.yaml"}},
-				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
-				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
-				{Name: "my-release", Flags: []string{"--namespace", "default"}},
+				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system", "--file", "tests/secrets/*_test.yaml"}},
+				{Name: "external-secrets", Flags: []string{"--namespace", "default", "--file", "tests/external/*_test.yaml"}},
+				{Name: "my-release", Flags: []string{"--namespace", "default", "--file", "tests/myrelease/*_test.yaml"}},
 			},
 		})
+	})
 
-		expectedFlags := append([]string{"--namespace", "kube-system"}, "--debugPlugin", "--file", "tests/logging/*_test.yaml")
+	t.Run("with dedicated flags", func(t *testing.T) {
+		expectedFlags := []string{"--namespace", "kube-system", "--failfast", "--color", "--debugPlugin", "--file", "tests/logging/*_test.yaml"}
 
 		check(t, testcase{
 			fields: fields{
@@ -224,7 +226,6 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			unittested: []exectest.Release{
-				{Name: "logging", Flags: []string{"--namespace", "kube-system", "--file", "tests/logging/*_test.yaml"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system", "--file", "tests/secrets/*_test.yaml"}},
 				{Name: "external-secrets", Flags: []string{"--namespace", "default", "--file", "tests/external/*_test.yaml"}},
 				{Name: "my-release", Flags: []string{"--namespace", "default", "--file", "tests/myrelease/*_test.yaml"}},
