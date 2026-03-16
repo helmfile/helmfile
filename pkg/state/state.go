@@ -3081,7 +3081,9 @@ func unmarkReleasesByNeedID(toUnmark map[string]struct{}, releases []Release) {
 	for i := range releases {
 		releaseID := ReleaseToID(&releases[i].ReleaseSpec)
 		if _, ok := toUnmark[releaseID]; ok {
-			releases[i].Filtered = false
+			if releases[i].Desired() {
+				releases[i].Filtered = false
+			}
 		}
 	}
 }
