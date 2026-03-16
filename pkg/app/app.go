@@ -643,17 +643,17 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var err error
 
 		if !c.SkipCharts() {
+			var listErr error
 			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
 			}, func() {
-				rel, err := a.list(run)
-				if err != nil {
-					panic(err)
-				}
-				stateReleases = rel
+				stateReleases, listErr = a.list(run)
 			})
+			if listErr != nil {
+				err = listErr
+			}
 		} else {
 			stateReleases, err = a.list(run)
 		}
