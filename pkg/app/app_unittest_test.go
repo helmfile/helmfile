@@ -190,7 +190,10 @@ releases:
 	})
 
 	t.Run("with dedicated flags", func(t *testing.T) {
-		expectedFlags := []string{"--namespace", "kube-system", "--failfast", "--color", "--debugPlugin", "--file", "tests/logging/*_test.yaml"}
+		expectedFlags := []string{"--namespace", "kube-system", "--failfast", "--debugPlugin", "--file", "tests/logging/*_test.yaml"}
+		if !exectest.IsHelm4Enabled() {
+			expectedFlags = []string{"--namespace", "kube-system", "--failfast", "--color", "--debugPlugin", "--file", "tests/logging/*_test.yaml"}
+		}
 
 		check(t, testcase{
 			fields: fields{
