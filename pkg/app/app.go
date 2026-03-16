@@ -703,7 +703,7 @@ func (a *App) list(run *Run) ([]*HelmRelease, error) {
 
 	resolvedState, err := run.state.ResolveDeps()
 	if err != nil {
-		return nil, fmt.Errorf("unable to resolve dependencies: %w", err)
+		return nil, fmt.Errorf("unable to resolve dependencies for %s: %w", run.state.FilePath, err)
 	}
 
 	for _, r := range resolvedState.Releases {
