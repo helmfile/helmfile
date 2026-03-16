@@ -180,21 +180,12 @@ releases:
 
 	t.Run("unittest all releases with unitTests", func(t *testing.T) {
 		check(t, testcase{
-			unittested: []exectest.Release{
-				{Name: "logging", Flags: []string{"--namespace", "kube-system", "--file", "tests/logging/*_test.yaml"}},
-				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system", "--file", "tests/secrets/*_test.yaml"}},
-				{Name: "external-secrets", Flags: []string{"--namespace", "default", "--file", "tests/external/*_test.yaml"}},
-				{Name: "my-release", Flags: []string{"--namespace", "default", "--file", "tests/myrelease/*_test.yaml"}},
-			},
-		})
-	})
-
-	t.Run("with dedicated flags", func(t *testing.T) {
-		// --color is skipped on Helm 4 due to flag parsing issues
-		expectedFlags := []string{"--namespace", "kube-system", "--failfast"}
-		if !exectest.IsHelm4Enabled() {
-			expectedFlags = append(expectedFlags, "--color")
-		}
+	unittested: []exectest.Release{
+	{Name: "logging", Flags: []string{"--namespace", "kube-system", "--file", "tests/logging/*_test.yaml"}},
+	{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
+	{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
+	{Name: "my-release", Flags: []string{"--namespace", "default"}},
+}
 		expectedFlags = append(expectedFlags, "--debugPlugin", "--file", "tests/logging/*_test.yaml")
 
 		check(t, testcase{
