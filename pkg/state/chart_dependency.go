@@ -265,8 +265,13 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies)
 
 func updateDependencies(st *HelmState, shell helmexec.DependencyUpdater, unresolved *UnresolvedDependencies, filename, wd string) (*HelmState, error) {
 	lockFile := st.LockFile
-	if lockFile != "" && st.basePath != "" && !filepath.IsAbs(lockFile) {
-		lockFile = filepath.Join(st.basePath, lockFile)
+	switch {
+	case lockFile != "":
+		if st.basePath != "" && !filepath.IsAbs(lockFile) {
+			lockFile = filepath.Join(st.basePath, lockFile)
+		}
+	case st.basePath != "":
+		lockFile = filepath.Join(st.basePath, filename+".lock")
 	}
 
 	depMan := NewChartDependencyManager(filename, st.logger, lockFile)
