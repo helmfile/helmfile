@@ -854,10 +854,18 @@ func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helme
 
 func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
 	deleted := []ReleaseSpec{}
+	checked := make(map[string]bool)
+
 	for i := range releases {
 		release := releases[i]
 
 		if !release.Desired() {
+			id := ReleaseToID(&release)
+			if checked[id] {
+				continue
+			}
+			checked[id] = true
+
 			installed, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
 			if err != nil {
 				return nil, err
