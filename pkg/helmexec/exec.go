@@ -1033,7 +1033,8 @@ func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
 
 func (helm *execer) ShowChart(chartPath string) (chart.Metadata, error) {
 	var helmArgs = []string{"show", "chart", chartPath}
-	out, error := helm.exec(helmArgs, map[string]string{}, nil)
+	enableLiveOutput := false
+	out, error := helm.exec(helmArgs, map[string]string{}, &enableLiveOutput)
 	if error != nil {
 		return chart.Metadata{}, error
 	}
