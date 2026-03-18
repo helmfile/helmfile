@@ -2584,10 +2584,10 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	fs := testhelper.NewTestFs(map[string]string{
-		"/example/Chart.yaml":                         `foo: FOO`,
-		filepath.Join(basePath, "example/Chart.yaml"): `foo: FOO`,
+		"/example/Chart.yaml": `foo: FOO`,
+		filepath.ToSlash(filepath.Join(basePath, "example/Chart.yaml")): `foo: FOO`,
 	})
-	fs.Cwd = basePath
+	fs.Cwd = filepath.ToSlash(basePath)
 	state = injectFs(state, fs)
 	errs := state.UpdateDeps(helm, false)
 

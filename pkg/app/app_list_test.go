@@ -317,12 +317,12 @@ releases:
   version: ">=1.0.0"
 `,
 		"/path/to/helmfile.lock": `version: v0.0.0
+digest: sha256:abc123
+generated: "2024-01-01T00:00:00Z"
 dependencies:
 - name: redis
   repository: https://charts.bitnami.com/bitnami
   version: 17.0.7
-digest: sha256:abc123
-generated: "2024-01-01T00:00:00Z"
 `,
 	}
 
@@ -381,12 +381,12 @@ releases:
   version: ">=1.0.0"
 `,
 		"/path/to/helmfile.d/first.lock": `version: v0.0.0
+digest: sha256:abc123
+generated: "2024-01-01T00:00:00Z"
 dependencies:
 - name: redis
   repository: https://charts.bitnami.com/bitnami
   version: 17.0.7
-digest: sha256:abc123
-generated: "2024-01-01T00:00:00Z"
 `,
 		"/path/to/helmfile.d/second.yaml": `
 repositories:
@@ -400,12 +400,12 @@ releases:
   version: ">=1.0.0"
 `,
 		"/path/to/helmfile.d/second.lock": `version: v0.0.0
+digest: sha256:def456
+generated: "2024-01-01T00:00:00Z"
 dependencies:
 - name: nginx
   repository: https://charts.bitnami.com/bitnami
   version: 15.0.0
-digest: sha256:def456
-generated: "2024-01-01T00:00:00Z"
 `,
 	}
 
