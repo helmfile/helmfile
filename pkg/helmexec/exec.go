@@ -526,8 +526,13 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	//
 	// This fixes it by removing the header from the v3 output, so that the output is formatted the same as that of v2.
 	lines := strings.Split(string(out), "\n")
-	lines = lines[1:]
-	out = []byte(strings.Join(lines, "\n"))
+	var filtered []string
+	for _, line := range lines[1:] {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			filtered = append(filtered, trimmed)
+		}
+	}
+	out = []byte(strings.Join(filtered, "\n"))
 	helm.info(out)
 	return string(out), err
 }
