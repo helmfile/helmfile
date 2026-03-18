@@ -9,6 +9,7 @@ REVISION: 1
 TEST SUITE: None
 
 Listing releases matching ^installed$
+
 UPDATED RELEASES:
 NAME        NAMESPACE        CHART                     VERSION   DURATION
 
