@@ -2548,7 +2548,7 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	logger := helmexec.NewLogger(io.Discard, "debug")
-	basePath := t.TempDir()
+	basePath := filepath.ToSlash(t.TempDir())
 	state := &HelmState{
 		basePath: basePath,
 		FilePath: filepath.Join(basePath, "helmfile.yaml"),
@@ -2584,10 +2584,10 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	fs := testhelper.NewTestFs(map[string]string{
-		"/example/Chart.yaml": `foo: FOO`,
-		filepath.ToSlash(filepath.Join(basePath, "example/Chart.yaml")): `foo: FOO`,
+		"/example/Chart.yaml":                         `foo: FOO`,
+		filepath.Join(basePath, "example/Chart.yaml"): `foo: FOO`,
 	})
-	fs.Cwd = filepath.ToSlash(basePath)
+	fs.Cwd = basePath
 	state = injectFs(state, fs)
 	errs := state.UpdateDeps(helm, false)
 

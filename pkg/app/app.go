@@ -640,22 +640,27 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		var stateReleases []*HelmRelease
-		var err error
+		var listErr error
 
 		if !c.SkipCharts() {
-			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
+			prepErr := run.withPreparedCharts("list", state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
 			}, func() {
-				stateReleases, err = a.list(run)
+				stateReleases, listErr = a.list(run)
 			})
+			if prepErr != nil {
+				errs = append(errs, prepErr)
+			}
+			if listErr != nil {
+				errs = append(errs, listErr)
+			}
 		} else {
-			stateReleases, err = a.list(run)
-		}
-
-		if err != nil {
-			errs = append(errs, err)
+			stateReleases, listErr = a.list(run)
+			if listErr != nil {
+				errs = append(errs, listErr)
+			}
 		}
 
 		if len(stateReleases) > 0 {
