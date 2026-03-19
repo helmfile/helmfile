@@ -15,7 +15,6 @@ import (
 
 func TestCleanupHooksErrorPropagation(t *testing.T) {
 	type testcase struct {
-		name           string
 		files          map[string]string
 		releaseName    string
 		expectedError  bool
@@ -72,7 +71,6 @@ func TestCleanupHooksErrorPropagation(t *testing.T) {
 
 	t.Run("cleanup hook receives error when sync fails", func(t *testing.T) {
 		check(t, testcase{
-			name:        "sync-failure-cleanup-error",
 			releaseName: "error-release",
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
@@ -98,7 +96,6 @@ releases:
 
 	t.Run("cleanup hook receives nil when sync succeeds", func(t *testing.T) {
 		check(t, testcase{
-			name:        "sync-success-cleanup-nil",
 			releaseName: "success-release",
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `

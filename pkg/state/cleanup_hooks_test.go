@@ -36,7 +36,7 @@ func (r *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]stri
 	return []byte(""), nil
 }
 
-func TestTriggerGlobalCleanupEventWithMockRunner(t *testing.T) {
+func TestEventBusTriggerCleanupEventWithError(t *testing.T) {
 	runner := &mockRunner{}
 
 	core, _ := observer.New(zap.InfoLevel)
@@ -101,7 +101,7 @@ func TestTriggerGlobalCleanupEventWithMockRunner(t *testing.T) {
 	}
 }
 
-func TestTriggerGlobalCleanupEventNilError(t *testing.T) {
+func TestEventBusTriggerCleanupEventWithNilError(t *testing.T) {
 	runner := &mockRunner{}
 
 	core, _ := observer.New(zap.InfoLevel)

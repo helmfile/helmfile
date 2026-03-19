@@ -323,7 +323,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 		}, func() []error {
 			ok, lintErrs, errs = a.lint(run, c)
-			return errs
+			return append(errs, lintErrs...)
 		})
 
 		if prepErr != nil {
@@ -365,7 +365,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 		}, func() []error {
 			ok, unittestErrs, errs = a.unittest(run, c)
-			return errs
+			return append(errs, unittestErrs...)
 		})
 
 		if prepErr != nil {
@@ -664,6 +664,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 			}, func() []error {
 				rel, err := a.list(run)
 				if err != nil {
+					errs = append(errs, err)
 					return []error{err}
 				}
 				stateReleases = rel

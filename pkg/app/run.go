@@ -120,16 +120,12 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	r.ReleaseToChart = releaseToChart
 
 	errs := f()
-	var nonNilErrs []error
+	var firstErr error
 	for _, e := range errs {
 		if e != nil {
-			nonNilErrs = append(nonNilErrs, e)
+			firstErr = e
+			break
 		}
-	}
-
-	var firstErr error
-	if len(nonNilErrs) > 0 {
-		firstErr = nonNilErrs[0]
 	}
 
 	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand, firstErr)
