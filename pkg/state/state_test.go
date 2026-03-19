@@ -2548,10 +2548,10 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	logger := helmexec.NewLogger(io.Discard, "debug")
-	basePath := "/src"
+	basePath := filepath.ToSlash(t.TempDir())
 	state := &HelmState{
 		basePath: basePath,
-		FilePath: "/src/helmfile.yaml",
+		FilePath: filepath.Join(basePath, "helmfile.yaml"),
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
 				{
@@ -2584,8 +2584,8 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	fs := testhelper.NewTestFs(map[string]string{
-		"/example/Chart.yaml":     `foo: FOO`,
-		"/src/example/Chart.yaml": `foo: FOO`,
+		"/example/Chart.yaml":                         `foo: FOO`,
+		filepath.Join(basePath, "example/Chart.yaml"): `foo: FOO`,
 	})
 	fs.Cwd = basePath
 	state = injectFs(state, fs)
@@ -2648,7 +2648,7 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 		logger: logger,
 		fs: &filesystem.FileSystem{
 			ReadFile: func(f string) ([]byte, error) {
-				if f != "helmfile.lock" {
+				if f != filepath.Join("/src", "helmfile.lock") {
 					return nil, fmt.Errorf("stub: unexpected file: %s", f)
 				}
 				return nil, os.ErrNotExist

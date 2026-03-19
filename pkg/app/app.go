@@ -640,26 +640,27 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		var stateReleases []*HelmRelease
-		var err error
+		var listErr error
 
 		if !c.SkipCharts() {
-			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
+			prepErr := run.withPreparedCharts("list", state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
 			}, func() {
-				rel, err := a.list(run)
-				if err != nil {
-					panic(err)
-				}
-				stateReleases = rel
+				stateReleases, listErr = a.list(run)
 			})
+			if prepErr != nil {
+				errs = append(errs, prepErr)
+			}
+			if listErr != nil {
+				errs = append(errs, listErr)
+			}
 		} else {
-			stateReleases, err = a.list(run)
-		}
-
-		if err != nil {
-			errs = append(errs, err)
+			stateReleases, listErr = a.list(run)
+			if listErr != nil {
+				errs = append(errs, listErr)
+			}
 		}
 
 		if len(stateReleases) > 0 {
@@ -701,13 +702,15 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 func (a *App) list(run *Run) ([]*HelmRelease, error) {
 	var releases []*HelmRelease
 
-	for _, r := range run.state.Releases {
+	resolvedState, err := run.state.ResolveDeps()
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve dependencies for %s: %w", run.state.FilePath, err)
+	}
+
+	for _, r := range resolvedState.Releases {
 		labels := ""
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
-		}
-		for k, v := range run.state.CommonLabels {
-			r.Labels[k] = v
 		}
 
 		var keys []string
@@ -722,7 +725,7 @@ func (a *App) list(run *Run) ([]*HelmRelease, error) {
 		}
 		labels = strings.Trim(labels, ",")
 
-		enabled, err := state.ConditionEnabled(r, run.state.Values())
+		enabled, err := state.ConditionEnabled(r, resolvedState.Values())
 		if err != nil {
 			return nil, err
 		}
