@@ -3105,11 +3105,7 @@ func (st *HelmState) TriggerGlobalPrepareEvent(helmfileCommand string) (bool, er
 	return st.triggerGlobalReleaseEvent("prepare", nil, helmfileCommand)
 }
 
-func (st *HelmState) TriggerGlobalCleanupEvent(helmfileCommand string) (bool, error) {
-	return st.TriggerGlobalCleanupEventWithError(helmfileCommand, nil)
-}
-
-func (st *HelmState) TriggerGlobalCleanupEventWithError(helmfileCommand string, evtErr error) (bool, error) {
+func (st *HelmState) TriggerGlobalCleanupEvent(helmfileCommand string, evtErr error) (bool, error) {
 	return st.triggerGlobalReleaseEvent("cleanup", evtErr, helmfileCommand)
 }
 

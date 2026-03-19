@@ -132,7 +132,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		firstErr = nonNilErrs[0]
 	}
 
-	_, err = r.state.TriggerGlobalCleanupEventWithError(helmfileCommand, firstErr)
+	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand, firstErr)
 	return err
 }
 
