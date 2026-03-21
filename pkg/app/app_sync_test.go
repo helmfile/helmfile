@@ -25,6 +25,7 @@ func TestSync(t *testing.T) {
 		fields            fields
 		ns                string
 		concurrency       int
+		timeout           int
 		skipDiffOnInstall bool
 		error             string
 		files             map[string]string
@@ -81,6 +82,7 @@ func TestSync(t *testing.T) {
 
 			syncErr := app.Sync(applyConfig{
 				concurrency:            tc.concurrency,
+				timeout:                tc.timeout,
 				logger:                 logger,
 				skipDiffOnInstall:      tc.skipDiffOnInstall,
 				skipNeeds:              tc.fields.skipNeeds,
@@ -476,6 +478,29 @@ releases:
 			error:     "err: no releases found that matches specified selector(app=test_non_existent) and environment(default), in any helmfile",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
+		})
+	})
+
+	t.Run("timeout flag is passed to helm", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+`,
+			},
+			timeout:     600,
+			concurrency: 1,
+			upgraded: []exectest.Release{
+				{Name: "my-release", Flags: []string{"--timeout", "600s", "--kube-context", "default", "--namespace", "default"}},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
 		})
 	})
 }
