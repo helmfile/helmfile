@@ -61,7 +61,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.SuppressDiff, "suppress-diff", false, "suppress diff in the output. Usable in new installs")
 	f.BoolVar(&applyOptions.Wait, "wait", false, `Override helmDefaults.wait setting "helm upgrade --install --wait"`)
 	f.BoolVar(&applyOptions.WaitForJobs, "wait-for-jobs", false, `Override helmDefaults.waitForJobs setting "helm upgrade --install --wait-for-jobs"`)
-	f.IntVar(&applyOptions.Timeout, "timeout", 0, `Override helmDefaults.timeout setting "helm upgrade --install --timeout" (default 0, which means no timeout)`)
+	f.IntVar(&applyOptions.Timeout, "timeout", 0, `Override helmDefaults.timeout in seconds for "helm upgrade --install --timeout" (default 0, which uses helmDefaults.timeout or helm's default if not set)`)
 	f.BoolVar(&applyOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reuse-values"`)
 	f.BoolVar(&applyOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reset-values"`)
 	f.StringVar(&applyOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
