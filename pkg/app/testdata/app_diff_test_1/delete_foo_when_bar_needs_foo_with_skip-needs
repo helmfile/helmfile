@@ -2,11 +2,13 @@ merged environment: &{default  map[] map[] map[]}
 WARNING: release bar needs foo, but foo is not installed due to installed: false. Either mark foo as installed or remove foo from bar's needs
 2 release(s) found in helmfile.yaml
 
-processing 1 groups of releases in this order:
+processing 2 groups of releases in this order:
 GROUP RELEASES
-1     default//bar
+1     default//foo
+2     default//bar
 
-processing releases in group 1/1: default//bar
+processing releases in group 1/2: default//foo
+processing releases in group 2/2: default//bar
 WARNING: release bar needs foo, but foo is not installed due to installed: false. Either mark foo as installed or remove foo from bar's needs
 Affected releases are:
   bar (mychart2) UPDATED

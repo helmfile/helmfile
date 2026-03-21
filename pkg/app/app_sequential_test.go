@@ -57,6 +57,7 @@ releases:
 	err = app.ForEachState(
 		Noop,
 		false,
+		false,
 		SetFilter(true),
 	)
 	if err != nil {
@@ -192,7 +193,8 @@ releases:
 	err = app.ForEachState(
 		noop,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -405,7 +407,8 @@ releases:
 	err = app.ForEachState(
 		failingConverge,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 
 	if err == nil {
@@ -472,7 +475,8 @@ replicaCount: 3
 	err = app.ForEachState(
 		captureState,
 		false,
-		SetFilter(true),
+
+		false, SetFilter(true),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

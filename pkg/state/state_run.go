@@ -99,9 +99,22 @@ type PlanOptions struct {
 }
 
 func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
-	marked, err := st.SelectReleases(opts.IncludeTransitiveNeeds)
+	marked, err := st.SelectReleases(opts.IncludeNeeds, opts.IncludeTransitiveNeeds)
 	if err != nil {
 		return nil, err
+	}
+
+	// If SelectedReleases is provided, mark those releases as not filtered
+	if len(opts.SelectedReleases) > 0 {
+		selectedIDs := make(map[string]struct{})
+		for _, r := range opts.SelectedReleases {
+			selectedIDs[ReleaseToID(&r)] = struct{}{}
+		}
+		for i := range marked {
+			if _, ok := selectedIDs[ReleaseToID(&marked[i].ReleaseSpec)]; ok {
+				marked[i].Filtered = false
+			}
+		}
 	}
 
 	groups, err := SortedReleaseGroups(marked, opts)
@@ -132,6 +145,12 @@ func SortedReleaseGroups(releases []Release, opts PlanOptions) ([][]Release, err
 func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Release, error) {
 	idToReleases := map[string][]Release{}
 	idToIndex := map[string]int{}
+	nameToID := map[string]string{}
+
+	for _, r := range releases {
+		id := ReleaseToID(&r.ReleaseSpec)
+		nameToID[r.Name] = id
+	}
 
 	d := dag.New()
 	for i, r := range releases {
@@ -143,7 +162,11 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		var needs []string
 		for i := 0; i < len(r.Needs); i++ {
 			n := r.Needs[i]
-			needs = append(needs, n)
+			if fullID, ok := nameToID[n]; ok {
+				needs = append(needs, fullID)
+			} else {
+				needs = append(needs, n)
+			}
 		}
 		d.Add(id, dag.Dependencies(needs))
 	}
@@ -154,17 +177,22 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 	}
 
 	var selectedReleaseIDs []string
+	for _, r := range releases {
+		if !r.Filtered {
+			id := ReleaseToID(&r.ReleaseSpec)
+			selectedReleaseIDs = append(selectedReleaseIDs, id)
+		}
+	}
 
-	for _, r := range opts.SelectedReleases {
-		release := r
-		id := ReleaseToID(&release)
-		selectedReleaseIDs = append(selectedReleaseIDs, id)
+	skipDepValidation := opts.SkipNeeds
+	if opts.IncludeNeeds && !opts.IncludeTransitiveNeeds {
+		skipDepValidation = true
 	}
 
 	plan, err := d.Plan(dag.SortOptions{
 		Only:                selectedReleaseIDs,
-		WithDependencies:    opts.IncludeNeeds,
-		WithoutDependencies: opts.SkipNeeds,
+		WithDependencies:    false,
+		WithoutDependencies: skipDepValidation,
 	})
 	if err != nil {
 		if ude, ok := err.(*dag.UnhandledDependencyError); ok {

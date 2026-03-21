@@ -131,7 +131,7 @@ func (a *App) Deps(c DepsConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		errs = run.Deps(c)
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
 func (a *App) Repos(c ReposConfigProvider) error {
@@ -143,7 +143,7 @@ func (a *App) Repos(c ReposConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
 func (a *App) Diff(c DiffConfigProvider) error {
@@ -169,7 +169,8 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			IncludeCRDs:            &includeCRDs,
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 		}, func() {
 			msg, matched, affected, errs = a.diff(run, c)
 		})
@@ -200,7 +201,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		}
 
 		return matched, criticalErrs
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 
 	if err != nil {
 		return err
@@ -240,7 +241,8 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 			Set:                    c.Set(),
 			Values:                 c.Values(),
 			KubeVersion:            c.KubeVersion(),
@@ -254,17 +256,19 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 }
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh: c.SkipRefresh(),
-			SkipDeps:    c.SkipDeps(),
-			SkipCleanup: c.SkipCleanup(),
-			Concurrency: c.Concurrency(),
+			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:            c.SkipRefresh(),
+			SkipDeps:               c.SkipDeps(),
+			SkipCleanup:            c.SkipCleanup(),
+			IncludeNeeds:           c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			Concurrency:            c.Concurrency(),
 		}, func() {
 			ok, errs = a.writeValues(run, c)
 		})
@@ -274,7 +278,7 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds(), SetFilter(true))
 }
 
 type MultiError struct {
@@ -317,7 +321,8 @@ func (a *App) Lint(c LintConfigProvider) error {
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 		}, func() {
 			ok, lintErrs, errs = a.lint(run, c)
 		})
@@ -331,7 +336,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 
 	if err != nil {
 		return err
@@ -358,6 +363,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
+			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 		}, func() {
 			ok, unittestErrs, errs = a.unittest(run, c)
@@ -372,7 +378,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 
 	if err != nil {
 		return err
@@ -402,7 +408,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, false, false, SetFilter(true))
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
@@ -417,7 +423,8 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			WaitRetries:            c.WaitRetries(),
 			WaitForJobs:            c.WaitForJobs(),
 			IncludeCRDs:            &includeCRDs,
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 		}, func() {
@@ -429,7 +436,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 }
 
 func (a *App) Apply(c ApplyConfigProvider) error {
@@ -455,7 +462,8 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			IncludeNeeds:           c.IncludeNeeds(),
+			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 		}, func() {
 			matched, updated, es := a.apply(run, c)
 
@@ -471,7 +479,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), opts...)
+	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds(), opts...)
 
 	if err != nil {
 		return err
@@ -501,7 +509,7 @@ func (a *App) Status(c StatusesConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, false, false, SetFilter(true))
 }
 
 func (a *App) Destroy(c DestroyConfigProvider) error {
@@ -524,7 +532,7 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 			ok, errs = a.delete(run, true, c)
 		}
 		return
-	}, false, SetReverse(true))
+	}, false, false, SetReverse(true))
 }
 
 func (a *App) Test(c TestConfigProvider) error {
@@ -549,7 +557,7 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, false, false, SetFilter(true))
 }
 
 func (a *App) PrintDAGState(c DAGConfigProvider) error {
@@ -566,7 +574,7 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 			}
 		})
 		return ok, errs
-	}, false, SetFilter(true))
+	}, false, false, SetFilter(true))
 }
 
 func (a *App) PrintState(c StateConfigProvider) error {
@@ -619,7 +627,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, false, false, SetFilter(true))
 }
 
 func (a *App) dag(r *Run) error {
@@ -668,7 +676,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		}
 
 		return
-	}, false, SetFilter(true))
+	}, false, false, SetFilter(true))
 
 	close(releasesChan)
 
@@ -1214,7 +1222,7 @@ var (
 	}
 )
 
-func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds bool, o ...LoadOption) error {
+func (a *App) ForEachState(do func(*Run) (bool, []error), includeNeeds bool, includeTransitiveNeeds bool, o ...LoadOption) error {
 	ctx := NewContext()
 	err := a.visitStatesWithSelectorsAndRemoteSupportWithContext(a.FileOrDir, func(st *state.HelmState) (bool, []error) {
 		helm, err := a.getHelm(st)
@@ -1227,7 +1235,7 @@ func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds
 			return false, []error{err}
 		}
 		return do(run)
-	}, includeTransitiveNeeds, &ctx, o...)
+	}, includeNeeds, includeTransitiveNeeds, &ctx, o...)
 
 	return err
 }
@@ -1331,7 +1339,7 @@ type Opts struct {
 	DAGEnabled bool
 }
 
-func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir string, converge func(*state.HelmState) (bool, []error), includeTransitiveNeeds bool, sharedCtx *Context, opt ...LoadOption) error {
+func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir string, converge func(*state.HelmState) (bool, []error), includeNeeds bool, includeTransitiveNeeds bool, sharedCtx *Context, opt ...LoadOption) error {
 	opts := LoadOpts{
 		Selectors: a.Selectors,
 	}
@@ -1364,7 +1372,7 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir stri
 				_, err := converge(st)
 				return err
 			},
-				includeTransitiveNeeds)
+				includeNeeds, includeTransitiveNeeds)
 		}
 	}
 
@@ -1385,9 +1393,9 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir stri
 	return a.visitStatesWithContext(fileOrDir, opts, fHelmStatsWithOverrides, sharedCtx)
 }
 
-func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, includeTransitiveNeeds bool) (bool, []error) {
+func processFilteredReleases(st *state.HelmState, converge func(st *state.HelmState) []error, includeNeeds bool, includeTransitiveNeeds bool) (bool, []error) {
 	if len(st.Selectors) > 0 {
-		err := st.FilterReleases(includeTransitiveNeeds)
+		err := st.FilterReleases(includeNeeds, includeTransitiveNeeds)
 		if err != nil {
 			return false, []error{err}
 		}
@@ -1433,11 +1441,11 @@ func checkDuplicates(releases []state.ReleaseSpec) error {
 	return nil
 }
 
-func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
-	return func(st *state.HelmState, helm helmexec.Interface, includeTransitiveNeeds bool) (bool, []error) {
+func (a *App) Wrap(converge func(*state.HelmState, helmexec.Interface) []error) func(st *state.HelmState, helm helmexec.Interface, includeNeeds bool, includeTransitiveNeeds bool) (bool, []error) {
+	return func(st *state.HelmState, helm helmexec.Interface, includeNeeds bool, includeTransitiveNeeds bool) (bool, []error) {
 		return processFilteredReleases(st, func(st *state.HelmState) []error {
 			return converge(st, helm)
-		}, includeTransitiveNeeds)
+		}, includeNeeds, includeTransitiveNeeds)
 	}
 }
 
@@ -1526,8 +1534,8 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 	return files, nil
 }
 
-func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
-	selected, err := r.state.GetSelectedReleases(includeTransitiveNeeds)
+func (a *App) getSelectedReleases(r *Run, includeNeeds bool, includeTransitiveNeeds bool) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
+	selected, err := r.state.GetSelectedReleases(includeNeeds, includeTransitiveNeeds)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1592,7 +1600,11 @@ func (a *App) getSelectedReleases(r *Run, includeTransitiveNeeds bool) ([]state.
 		extra = " matching " + strings.Join(r.state.Selectors, ",")
 	}
 
-	a.Logger.Debugf("%d release(s)%s found in %s\n", len(selected), extra, r.state.FilePath)
+	matchedOnly, err := r.state.GetSelectedReleases(false, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	a.Logger.Debugf("%d release(s)%s found in %s\n", len(matchedOnly), extra, r.state.FilePath)
 
 	return selected, deduplicated, nil
 }
@@ -1603,7 +1615,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 
 	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, false, []error{err}
 	}
@@ -1811,7 +1823,7 @@ func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error
 
 	affectedReleases := state.AffectedReleases{}
 
-	toSync, _, err := a.getSelectedReleases(r, false)
+	toSync, _, err := a.getSelectedReleases(r, false, false)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -2031,7 +2043,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 
 	allReleases := st.Releases
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, false)
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, false, false)
 	if err != nil {
 		return false, []error{err}
 	}
@@ -2080,7 +2092,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeTransitiveNeeds())
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, []error{err}
 	}
@@ -2294,7 +2306,12 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state.HelmState) []error) (bool, []error) {
 	st := r.state
 
-	selectedReleases, deduplicated, err := a.getSelectedReleases(r, false)
+	includeNeeds := c.IncludeNeeds()
+	if c.IncludeTransitiveNeeds() {
+		includeNeeds = true
+	}
+
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, includeNeeds, c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, []error{err}
 	}
@@ -2306,19 +2323,14 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
 	// even if we provided `SelectedReleases: selectedReleases`.
 	// See https://github.com/roboll/helmfile/issues/1818 for more context.
-	st.Releases = deduplicated
-
-	includeNeeds := c.IncludeNeeds()
-	if c.IncludeTransitiveNeeds() {
-		includeNeeds = true
-	}
+	st.Releases = selectedAndNeededReleases
 
 	batches, err := st.PlanReleases(state.PlanOptions{
 		Reverse:                false,
 		SelectedReleases:       selectedReleases,
-		IncludeNeeds:           includeNeeds,
-		IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
-		SkipNeeds:              c.SkipNeeds(),
+		IncludeNeeds:           false,
+		IncludeTransitiveNeeds: false,
+		SkipNeeds:              c.SkipNeeds() || includeNeeds,
 	})
 
 	if err != nil {
@@ -2349,10 +2361,21 @@ func (a *App) withNeeds(r *Run, c DAGConfig, includeDisabled bool, f func(*state
 
 	if len(toRender) > 0 {
 		// toRender already contains the direct and transitive needs depending on the DAG options.
-		// That's why we don't pass in `IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()` here.
+		// That's why we don't pass in `IncludeNeeds` or `IncludeTransitiveNeeds` here.
 		// Otherwise, in case include-needs=true, it will include the needs of needs, which results in unexpectedly introducing transitive needs,
 		// even if include-transitive-needs=true is unspecified.
-		if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: toRender, Reverse: false, SkipNeeds: c.SkipNeeds(), IncludeNeeds: includeNeeds}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		// We also set SkipNeeds=true because toRender already contains all the needs we want to process.
+		//
+		// IMPORTANT: Filter out disabled releases from toRender to avoid duplicates.
+		// Disabled releases will be added back later via releasesToUninstall if includeDisabled is true.
+		var enabledToRender []state.ReleaseSpec
+		for _, r := range toRender {
+			if r.Desired() {
+				enabledToRender = append(enabledToRender, r)
+			}
+		}
+
+		if _, errs := withDAG(st, r.helm, a.Logger, state.PlanOptions{SelectedReleases: enabledToRender, Reverse: false, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			rels = append(rels, subst.Releases...)
 			return nil
 		})); len(errs) > 0 {
@@ -2394,7 +2417,7 @@ func (a *App) test(r *Run, c TestConfigProvider) []error {
 
 	st := r.state
 
-	toTest, _, err := a.getSelectedReleases(r, false)
+	toTest, _, err := a.getSelectedReleases(r, false, false)
 	if err != nil {
 		return []error{err}
 	}
@@ -2416,7 +2439,7 @@ func (a *App) writeValues(r *Run, c WriteValuesConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	toRender, _, err := a.getSelectedReleases(r, false)
+	toRender, _, err := a.getSelectedReleases(r, false, false)
 	if err != nil {
 		return false, []error{err}
 	}
