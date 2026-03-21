@@ -2253,6 +2253,7 @@ Do you really want to sync?
 					Wait:                 c.Wait(),
 					WaitRetries:          c.WaitRetries(),
 					WaitForJobs:          c.WaitForJobs(),
+					Timeout:              c.Timeout(),
 					ReuseValues:          c.ReuseValues(),
 					ResetValues:          c.ResetValues(),
 					PostRenderer:         c.PostRenderer(),
