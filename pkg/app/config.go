@@ -59,6 +59,7 @@ type ApplyConfigProvider interface {
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
+	Timeout() int
 
 	IncludeTests() bool
 
