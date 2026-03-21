@@ -59,6 +59,7 @@ type ApplyConfigProvider interface {
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
+	Timeout() int
 
 	IncludeTests() bool
 
@@ -114,6 +115,7 @@ type SyncConfigProvider interface {
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
+	Timeout() int
 	SyncArgs() string
 
 	Validate() bool
