@@ -120,6 +120,10 @@ func (helm *noCallHelmExec) DeleteRelease(context helmexec.HelmContext, name str
 	helm.doPanic()
 	return nil
 }
+func (helm *noCallHelmExec) RollbackRelease(context helmexec.HelmContext, name string, flags ...string) error {
+	helm.doPanic()
+	return nil
+}
 
 func (helm *noCallHelmExec) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
 	helm.doPanic()

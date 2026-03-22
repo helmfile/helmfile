@@ -36,6 +36,7 @@ type Helm struct {
 	RegistryLoginHost    string // Captures the host passed to RegistryLogin
 	Releases             []Release
 	Deleted              []Release
+	Rolledback           []Release
 	Linted               []Release
 	Unittested           []Release
 	Templated            []Release
@@ -179,6 +180,13 @@ func (helm *Helm) DeleteRelease(context helmexec.HelmContext, name string, flags
 		return errors.New("error")
 	}
 	helm.Deleted = append(helm.Deleted, Release{Name: name, Flags: flags})
+	return nil
+}
+func (helm *Helm) RollbackRelease(context helmexec.HelmContext, name string, flags ...string) error {
+	if strings.Contains(name, "error") {
+		return errors.New("error")
+	}
+	helm.Rolledback = append(helm.Rolledback, Release{Name: name, Flags: flags})
 	return nil
 }
 func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
