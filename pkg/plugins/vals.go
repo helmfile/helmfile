@@ -36,8 +36,15 @@ func ValsInstance() (*vals.Runtime, error) {
 		// Note: AWS_SDK_GO_LOG_LEVEL environment variable always takes precedence over this setting
 		logLevel := strings.TrimSpace(os.Getenv(envvar.AWSSDKLogLevel))
 
+		// Configure fail on missing key behavior
+		// Default to false for backward compatibility
+		// Set HELMFILE_VALS_FAIL_ON_MISSING_KEY_IN_MAP=true to enable strict mode
+		// See issue #1563
+		failOnMissingKey := strings.TrimSpace(os.Getenv(envvar.ValsFailOnMissingKeyInMap)) == "true"
+
 		opts := vals.Options{
-			CacheSize: valsCacheSize,
+			CacheSize:             valsCacheSize,
+			FailOnMissingKeyInMap: failOnMissingKey,
 		}
 
 		// Default to "off" for security if not specified

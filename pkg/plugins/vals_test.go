@@ -164,3 +164,57 @@ func TestEnvironmentVariableReading(t *testing.T) {
 		})
 	}
 }
+
+func TestFailOnMissingKeyInMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		expected bool
+	}{
+		{
+			name:     "empty defaults to false",
+			envValue: "",
+			expected: false,
+		},
+		{
+			name:     "true enables strict mode",
+			envValue: "true",
+			expected: true,
+		},
+		{
+			name:     "false keeps backward compatible",
+			envValue: "false",
+			expected: false,
+		},
+		{
+			name:     "other values treated as false",
+			envValue: "yes",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			original := os.Getenv(envvar.ValsFailOnMissingKeyInMap)
+			defer func() {
+				if original == "" {
+					os.Unsetenv(envvar.ValsFailOnMissingKeyInMap)
+				} else {
+					os.Setenv(envvar.ValsFailOnMissingKeyInMap, original)
+				}
+			}()
+
+			if tt.envValue == "" {
+				os.Unsetenv(envvar.ValsFailOnMissingKeyInMap)
+			} else {
+				os.Setenv(envvar.ValsFailOnMissingKeyInMap, tt.envValue)
+			}
+
+			failOnMissingKey := strings.TrimSpace(os.Getenv(envvar.ValsFailOnMissingKeyInMap)) == "true"
+
+			if failOnMissingKey != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, failOnMissingKey)
+			}
+		})
+	}
+}
