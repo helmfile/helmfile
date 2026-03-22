@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/helmfile/vals"
-
 	"github.com/helmfile/helmfile/pkg/plugins"
 )
 
@@ -42,13 +40,8 @@ func fetchSecretValues(values map[string]any) (map[string]any, error) {
 	var err error
 	// below lines are for tests
 	once.Do(func() {
-		var valRuntime *vals.Runtime
 		if secretsClient == nil {
-			valRuntime, err = plugins.ValsInstance()
-			if err != nil {
-				return
-			}
-			secretsClient = valRuntime
+			secretsClient, err = plugins.ValsInstance()
 		}
 	})
 	if secretsClient == nil {
