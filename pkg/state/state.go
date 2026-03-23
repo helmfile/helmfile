@@ -353,7 +353,7 @@ type ReleaseSpec struct {
 	UnitTests []string `yaml:"unitTests,omitempty"`
 
 	// Name is the name of this release
-	Name            string            `yaml:"name,omitempty"`
+	Name string `yaml:"name,omitempty"`
 	// Description is the description for this release that will be passed to helm upgrade with --description flag
 	Description     string            `yaml:"description,omitempty"`
 	Namespace       string            `yaml:"namespace,omitempty"`
