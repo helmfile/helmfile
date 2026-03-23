@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -20,7 +21,7 @@ const (
 var instance *vals.Runtime
 var once sync.Once
 
-func buildValsOptions() vals.Options {
+func buildValsOptions() (vals.Options, error) {
 	// Configure AWS SDK logging via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
 	// Default: "off" to prevent sensitive information (tokens, auth headers) from being exposed
 	// See issue #2270 and vals PR helmfile/vals#893
@@ -40,7 +41,15 @@ func buildValsOptions() vals.Options {
 	// Set HELMFILE_VALS_FAIL_ON_MISSING_KEY_IN_MAP=true to enable strict mode
 	// Supports common boolean values: "true", "TRUE", "1", etc.
 	// See issue #1563
-	failOnMissingKey, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv(envvar.ValsFailOnMissingKeyInMap)))
+	envVal := strings.TrimSpace(os.Getenv(envvar.ValsFailOnMissingKeyInMap))
+	var failOnMissingKey bool
+	if envVal != "" {
+		var err error
+		failOnMissingKey, err = strconv.ParseBool(envVal)
+		if err != nil {
+			return vals.Options{}, fmt.Errorf("invalid value for %s: %q (must be a valid boolean)", envvar.ValsFailOnMissingKeyInMap, envVal)
+		}
+	}
 
 	// Default to "off" for security if not specified
 	if logLevel == "" {
@@ -55,18 +64,23 @@ func buildValsOptions() vals.Options {
 
 	// Also suppress vals' own internal logging unless user wants verbose output
 	// This prevents vals' log messages (separate from AWS SDK logs) from exposing credentials
-	if logLevel == "off" {
+	// Use case-insensitive comparison for "off" to handle OFF, Off, etc.
+	if strings.EqualFold(logLevel, "off") {
 		opts.LogOutput = io.Discard
 	}
 	// For other levels, allow vals to log to default output for debugging
 
-	return opts
+	return opts, nil
 }
 
 func ValsInstance() (*vals.Runtime, error) {
 	var err error
 	once.Do(func() {
-		opts := buildValsOptions()
+		var opts vals.Options
+		opts, err = buildValsOptions()
+		if err != nil {
+			return
+		}
 		instance, err = vals.New(opts)
 	})
 

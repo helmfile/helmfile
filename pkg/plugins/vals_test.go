@@ -4,6 +4,10 @@ import (
 	"io"
 	"testing"
 
+	"github.com/helmfile/vals"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
@@ -29,6 +33,7 @@ func TestBuildValsOptions(t *testing.T) {
 		expectedLogLevel           string
 		expectedFailOnMissingKey   bool
 		expectedLogOutputDiscarded bool
+		expectError                bool
 	}{
 		{
 			name:                       "defaults",
@@ -87,6 +92,12 @@ func TestBuildValsOptions(t *testing.T) {
 			expectedLogOutputDiscarded: true,
 		},
 		{
+			name:             "failOnMissingKey invalid value",
+			awsLogLevel:      "",
+			failOnMissingKey: "invalid",
+			expectError:      true,
+		},
+		{
 			name:                       "aws log level verbose",
 			awsLogLevel:                "verbose",
 			failOnMissingKey:           "",
@@ -103,6 +114,22 @@ func TestBuildValsOptions(t *testing.T) {
 			expectedLogOutputDiscarded: false,
 		},
 		{
+			name:                       "aws log level OFF uppercase",
+			awsLogLevel:                "OFF",
+			failOnMissingKey:           "",
+			expectedLogLevel:           "OFF",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "aws log level Off mixed case",
+			awsLogLevel:                "Off",
+			failOnMissingKey:           "",
+			expectedLogLevel:           "Off",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: true,
+		},
+		{
 			name:                       "both options set",
 			awsLogLevel:                "standard",
 			failOnMissingKey:           "true",
@@ -117,22 +144,22 @@ func TestBuildValsOptions(t *testing.T) {
 			t.Setenv(envvar.AWSSDKLogLevel, tt.awsLogLevel)
 			t.Setenv(envvar.ValsFailOnMissingKeyInMap, tt.failOnMissingKey)
 
-			opts := buildValsOptions()
+			opts, err := buildValsOptions()
 
-			if opts.AWSLogLevel != tt.expectedLogLevel {
-				t.Errorf("AWSLogLevel: expected %q, got %q", tt.expectedLogLevel, opts.AWSLogLevel)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), envvar.ValsFailOnMissingKeyInMap)
+				return
 			}
-			if opts.FailOnMissingKeyInMap != tt.expectedFailOnMissingKey {
-				t.Errorf("FailOnMissingKeyInMap: expected %v, got %v", tt.expectedFailOnMissingKey, opts.FailOnMissingKeyInMap)
-			}
-			if opts.CacheSize != valsCacheSize {
-				t.Errorf("CacheSize: expected %d, got %d", valsCacheSize, opts.CacheSize)
-			}
+
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedLogLevel, opts.AWSLogLevel)
+			assert.Equal(t, tt.expectedFailOnMissingKey, opts.FailOnMissingKeyInMap)
+			assert.Equal(t, valsCacheSize, opts.CacheSize)
 
 			isDiscarded := opts.LogOutput == io.Discard
-			if isDiscarded != tt.expectedLogOutputDiscarded {
-				t.Errorf("LogOutput discarded: expected %v, got %v", tt.expectedLogOutputDiscarded, isDiscarded)
-			}
+			assert.Equal(t, tt.expectedLogOutputDiscarded, isDiscarded)
 		})
 	}
 }
@@ -154,6 +181,12 @@ func TestAWSSDKLogLevelConfiguration(t *testing.T) {
 			name:              "explicit off",
 			envValue:          "off",
 			expectedLogLevel:  "off",
+			expectedLogOutput: true,
+		},
+		{
+			name:              "OFF uppercase",
+			envValue:          "OFF",
+			expectedLogLevel:  "OFF",
 			expectedLogOutput: true,
 		},
 		{
@@ -186,16 +219,32 @@ func TestAWSSDKLogLevelConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(envvar.AWSSDKLogLevel, tt.envValue)
 
-			opts := buildValsOptions()
+			opts, err := buildValsOptions()
+			require.NoError(t, err)
 
-			if opts.AWSLogLevel != tt.expectedLogLevel {
-				t.Errorf("Expected log level %q, got %q", tt.expectedLogLevel, opts.AWSLogLevel)
-			}
+			assert.Equal(t, tt.expectedLogLevel, opts.AWSLogLevel)
 
 			isDiscarded := opts.LogOutput == io.Discard
-			if isDiscarded != tt.expectedLogOutput {
-				t.Errorf("Expected LogOutput discarded %v, got %v", tt.expectedLogOutput, isDiscarded)
-			}
+			assert.Equal(t, tt.expectedLogOutput, isDiscarded)
 		})
 	}
+}
+
+func TestBuildValsOptionsIntegration(t *testing.T) {
+	t.Run("valid configuration produces working vals options", func(t *testing.T) {
+		t.Setenv(envvar.AWSSDKLogLevel, "off")
+		t.Setenv(envvar.ValsFailOnMissingKeyInMap, "true")
+
+		opts, err := buildValsOptions()
+		require.NoError(t, err)
+
+		assert.Equal(t, valsCacheSize, opts.CacheSize)
+		assert.Equal(t, "off", opts.AWSLogLevel)
+		assert.True(t, opts.FailOnMissingKeyInMap)
+		assert.Equal(t, io.Discard, opts.LogOutput)
+
+		rt, err := vals.New(opts)
+		require.NoError(t, err)
+		assert.NotNil(t, rt)
+	})
 }
