@@ -3,6 +3,7 @@ package plugins
 import (
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -37,8 +38,9 @@ func buildValsOptions() vals.Options {
 	// Configure fail on missing key behavior
 	// Default to false for backward compatibility
 	// Set HELMFILE_VALS_FAIL_ON_MISSING_KEY_IN_MAP=true to enable strict mode
+	// Supports common boolean values: "true", "TRUE", "1", etc.
 	// See issue #1563
-	failOnMissingKey := strings.TrimSpace(os.Getenv(envvar.ValsFailOnMissingKeyInMap)) == "true"
+	failOnMissingKey, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv(envvar.ValsFailOnMissingKeyInMap)))
 
 	// Default to "off" for security if not specified
 	if logLevel == "" {

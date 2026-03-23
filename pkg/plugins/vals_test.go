@@ -63,6 +63,30 @@ func TestBuildValsOptions(t *testing.T) {
 			expectedLogOutputDiscarded: true,
 		},
 		{
+			name:                       "failOnMissingKey uppercase TRUE",
+			awsLogLevel:                "",
+			failOnMissingKey:           "TRUE",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   true,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "failOnMissingKey numeric 1",
+			awsLogLevel:                "",
+			failOnMissingKey:           "1",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   true,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "failOnMissingKey numeric 0",
+			awsLogLevel:                "",
+			failOnMissingKey:           "0",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: true,
+		},
+		{
 			name:                       "aws log level verbose",
 			awsLogLevel:                "verbose",
 			failOnMissingKey:           "",
@@ -90,12 +114,8 @@ func TestBuildValsOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.awsLogLevel != "" {
-				t.Setenv(envvar.AWSSDKLogLevel, tt.awsLogLevel)
-			}
-			if tt.failOnMissingKey != "" {
-				t.Setenv(envvar.ValsFailOnMissingKeyInMap, tt.failOnMissingKey)
-			}
+			t.Setenv(envvar.AWSSDKLogLevel, tt.awsLogLevel)
+			t.Setenv(envvar.ValsFailOnMissingKeyInMap, tt.failOnMissingKey)
 
 			opts := buildValsOptions()
 
@@ -164,9 +184,7 @@ func TestAWSSDKLogLevelConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.envValue != "" {
-				t.Setenv(envvar.AWSSDKLogLevel, tt.envValue)
-			}
+			t.Setenv(envvar.AWSSDKLogLevel, tt.envValue)
 
 			opts := buildValsOptions()
 
