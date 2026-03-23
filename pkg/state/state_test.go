@@ -908,6 +908,94 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		{
+			name: "description-from-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--description", "Release description from config",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-from-cli",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description from --description flag",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--description", "CLI description from --description flag",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-cli-overrides-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description overrides config",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--description", "CLI description overrides config",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-empty-string-not-passed",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "",
+			},
+			syncOpts: &SyncOpts{
+				Description: "",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
