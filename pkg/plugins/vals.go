@@ -19,7 +19,7 @@ const (
 )
 
 var instance *vals.Runtime
-var once sync.Once
+var mu sync.Mutex
 
 func buildValsOptions() (vals.Options, error) {
 	// Configure AWS SDK logging via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
@@ -34,6 +34,7 @@ func buildValsOptions() (vals.Options, error) {
 	// - Custom: Comma-separated values like "request,response"
 	//
 	// Note: AWS_SDK_GO_LOG_LEVEL environment variable always takes precedence over this setting
+	// Note: Case-insensitive for known values like "off", "OFF", "Off"
 	logLevel := strings.TrimSpace(os.Getenv(envvar.AWSSDKLogLevel))
 
 	// Configure fail on missing key behavior
@@ -56,6 +57,11 @@ func buildValsOptions() (vals.Options, error) {
 		logLevel = "off"
 	}
 
+	// Normalize known values to lowercase for case-insensitive handling
+	if strings.EqualFold(logLevel, "off") {
+		logLevel = "off"
+	}
+
 	opts := vals.Options{
 		CacheSize:             valsCacheSize,
 		FailOnMissingKeyInMap: failOnMissingKey,
@@ -64,8 +70,7 @@ func buildValsOptions() (vals.Options, error) {
 
 	// Also suppress vals' own internal logging unless user wants verbose output
 	// This prevents vals' log messages (separate from AWS SDK logs) from exposing credentials
-	// Use case-insensitive comparison for "off" to handle OFF, Off, etc.
-	if strings.EqualFold(logLevel, "off") {
+	if logLevel == "off" {
 		opts.LogOutput = io.Discard
 	}
 	// For other levels, allow vals to log to default output for debugging
@@ -74,15 +79,22 @@ func buildValsOptions() (vals.Options, error) {
 }
 
 func ValsInstance() (*vals.Runtime, error) {
-	var err error
-	once.Do(func() {
-		var opts vals.Options
-		opts, err = buildValsOptions()
-		if err != nil {
-			return
-		}
-		instance, err = vals.New(opts)
-	})
+	mu.Lock()
+	defer mu.Unlock()
 
-	return instance, err
+	if instance != nil {
+		return instance, nil
+	}
+
+	opts, err := buildValsOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	instance, err = vals.New(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return instance, nil
 }
