@@ -354,6 +354,8 @@ type ReleaseSpec struct {
 
 	// Name is the name of this release
 	Name            string            `yaml:"name,omitempty"`
+	// Description is the description for this release that will be passed to helm upgrade with --description flag
+	Description     string            `yaml:"description,omitempty"`
 	Namespace       string            `yaml:"namespace,omitempty"`
 	Labels          map[string]string `yaml:"labels,omitempty"`
 	Values          []any             `yaml:"values,omitempty"`
@@ -909,6 +911,7 @@ type SyncOpts struct {
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
+	Description          string
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -3488,6 +3491,15 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	if release.CleanupOnFail != nil && *release.CleanupOnFail || release.CleanupOnFail == nil && st.HelmDefaults.CleanupOnFail {
 		flags = append(flags, "--cleanup-on-fail")
+	}
+
+	// Handle description flag - command line takes precedence over config file
+	description := release.Description
+	if opt != nil && opt.Description != "" {
+		description = opt.Description
+	}
+	if description != "" {
+		flags = append(flags, "--description", description)
 	}
 
 	if release.CreateNamespace != nil && *release.CreateNamespace ||

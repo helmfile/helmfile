@@ -92,6 +92,8 @@ type ApplyConfigProvider interface {
 	TrackTimeout() int
 	TrackLogs() bool
 
+	Description() string
+
 	concurrencyConfig
 	interactive
 	loggingConfig
@@ -128,6 +130,8 @@ type SyncConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+
+	Description() string
 
 	DAGConfig
 

@@ -2610,6 +2610,10 @@ func (a applyConfig) TrackLogs() bool {
 	return a.trackLogs
 }
 
+func (a applyConfig) Description() string {
+	return ""
+}
+
 type depsConfig struct {
 	skipRepos              bool
 	includeTransitiveNeeds bool
