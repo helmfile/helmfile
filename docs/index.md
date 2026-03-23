@@ -593,6 +593,8 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
 * `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
 * `HELMFILE_RENDER_YAML` - force helmfile.yaml to be rendered as a Go template regardless of file extension, expecting `true` lower case. Useful for migrating from v0 to v1 without renaming files to `.gotmpl`
+* `HELMFILE_AWS_SDK_LOG_LEVEL` - configure AWS SDK logging level for vals library. Valid values: `off` (default, secure), `minimal`, `standard`, `verbose`, or custom comma-separated values like `request,response`. See issue #2270 for details
+* `HELMFILE_VALS_FAIL_ON_MISSING_KEY_IN_MAP` - enable strict mode for vals secret references. When set to `true` (or any value accepted by Go's `strconv.ParseBool` like `TRUE`, `1`), vals will fail when a referenced key does not exist in the secret map. Default is `false` for backward compatibility. See issue #1563 for details
 
 ## CLI Reference
 
