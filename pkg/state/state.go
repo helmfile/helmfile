@@ -3397,6 +3397,19 @@ func (st *HelmState) appendChartDownloadFlags(flags []string, release *ReleaseSp
 	return flags
 }
 
+// appendDescriptionFlags appends the helm command-line flag for release description
+// Command line takes precedence over config file
+func (st *HelmState) appendDescriptionFlags(flags []string, release *ReleaseSpec, opt *SyncOpts) []string {
+	description := release.Description
+	if opt != nil && opt.Description != "" {
+		description = opt.Description
+	}
+	if description != "" {
+		flags = append(flags, "--description", description)
+	}
+	return flags
+}
+
 func (st *HelmState) needsPlainHttp(release *ReleaseSpec, repo *RepositorySpec) bool {
 	var repoPlainHttp, relPlainHttp bool
 	if repo != nil {
@@ -3493,15 +3506,6 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--cleanup-on-fail")
 	}
 
-	// Handle description flag - command line takes precedence over config file
-	description := release.Description
-	if opt != nil && opt.Description != "" {
-		description = opt.Description
-	}
-	if description != "" {
-		flags = append(flags, "--description", description)
-	}
-
 	if release.CreateNamespace != nil && *release.CreateNamespace ||
 		release.CreateNamespace == nil && (st.HelmDefaults.CreateNamespace == nil || *st.HelmDefaults.CreateNamespace) {
 		if helm.IsVersionAtLeast("3.2.0") {
@@ -3534,6 +3538,8 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	flags = st.appendLabelsFlags(flags, helm, release, syncReleaseLabels)
 
 	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
+
+	flags = st.appendDescriptionFlags(flags, release, opt)
 
 	var postRendererArgs []string
 	if opt != nil {
