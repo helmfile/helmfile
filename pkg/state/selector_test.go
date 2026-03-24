@@ -165,6 +165,13 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 			includeNeeds:           false,
 			includeTransitiveNeeds: true,
 		},
+		{
+			subject:                "include both direct and transitive needs",
+			selector:               []string{"name=serviceA"},
+			want:                   []string{"serviceA", "serviceB", "serviceC"},
+			includeNeeds:           true,
+			includeTransitiveNeeds: true,
+		},
 	}
 
 	example := []byte(`releases:
