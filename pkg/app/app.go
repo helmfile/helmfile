@@ -1617,11 +1617,17 @@ func (a *App) getSelectedReleases(r *Run, includeNeeds bool, includeTransitiveNe
 		extra = " matching " + strings.Join(r.state.Selectors, ",")
 	}
 
-	matchedOnly, err := r.state.GetSelectedReleases(false, false)
-	if err != nil {
-		return nil, nil, err
+	// When needs are included, we need a separate count of just the selector-matched releases
+	// for the debug log, so we don't count the included needs in the "found" message.
+	matchCount := len(selected)
+	if includeNeeds || includeTransitiveNeeds {
+		matchedOnly, err := r.state.GetSelectedReleases(false, false)
+		if err != nil {
+			return nil, nil, err
+		}
+		matchCount = len(matchedOnly)
 	}
-	a.Logger.Debugf("%d release(s)%s found in %s\n", len(matchedOnly), extra, r.state.FilePath)
+	a.Logger.Debugf("%d release(s)%s found in %s\n", matchCount, extra, r.state.FilePath)
 
 	return selected, deduplicated, nil
 }

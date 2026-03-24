@@ -139,20 +139,30 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 		subject                string
 		selector               []string
 		want                   []string
+		includeNeeds           bool
 		includeTransitiveNeeds bool
 	}
 
 	testcases := []testcase{
 		{
-			subject:                "include transitives is false",
+			subject:                "no needs inclusion",
 			selector:               []string{"name=serviceA"},
 			want:                   []string{"serviceA"},
+			includeNeeds:           false,
 			includeTransitiveNeeds: false,
 		},
 		{
-			subject:                "include transitives is true",
+			subject:                "include direct needs only",
+			selector:               []string{"name=serviceA"},
+			want:                   []string{"serviceA", "serviceB"},
+			includeNeeds:           true,
+			includeTransitiveNeeds: false,
+		},
+		{
+			subject:                "include transitive needs",
 			selector:               []string{"name=serviceA"},
 			want:                   []string{"serviceA", "serviceB", "serviceC"},
+			includeNeeds:           false,
 			includeTransitiveNeeds: true,
 		},
 	}
@@ -192,7 +202,7 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 		}
 		state.Releases = state.GetReleasesWithLabels()
 
-		rs, err := state.GetSelectedReleases(tc.includeTransitiveNeeds, tc.includeTransitiveNeeds)
+		rs, err := state.GetSelectedReleases(tc.includeNeeds, tc.includeTransitiveNeeds)
 		if err != nil {
 			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
 		}

@@ -66,12 +66,3 @@ func (c *WriteValuesImpl) OutputFileTemplate() string {
 	return c.WriteValuesOptions.OutputFileTemplate
 }
 
-// SkipDeps returns the skip deps
-func (c *WriteValuesImpl) SkipDeps() bool {
-	return false
-}
-
-// SkipRefresh returns the skip refresh
-func (c *WriteValuesImpl) SkipRefresh() bool {
-	return false
-}
