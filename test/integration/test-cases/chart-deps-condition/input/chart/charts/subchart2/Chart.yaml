@@ -1,0 +1,6 @@
+apiVersion: v2
+name: subchart2
+description: Test sub helm chart 2
+type: application
+version: 2.0.0
+appVersion: "2.0.0"

@@ -1,0 +1,57 @@
+# Test that subcharts 'condition' is working properly
+
+releases:
+# Releases without patches, so not using chartify
+- name: testdefault
+  chart: ./chart
+  namespace: testdefault
+- name: testinstallfalse
+  chart: ./chart
+  namespace: testinstallfalse
+  values:
+  - subchart1:
+      install: false
+- name: testinstalltrue
+  chart: ./chart
+  namespace: testcinstalltrue
+  values:
+  - subchart1:
+      install: true
+
+# Releases with patches, so using chartify
+- name: testchartifydefault
+  chart: ./chart
+  namespace: testchartifydefault
+  strategicMergePatches:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: testsub2
+    data:
+      sub: 42
+- name: testchartifyinstallfalse
+  chart: ./chart
+  namespace: testchartifyinstallfalse
+  values:
+  - subchart1:
+      install: false
+  strategicMergePatches:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: testsub2
+    data:
+      sub: 42
+- name: testchartifyinstalltrue
+  chart: ./chart
+  namespace: testchartifyinstalltrue
+  values:
+  - subchart1:
+      install: true
+  strategicMergePatches:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: testsub2
+    data:
+      sub: 42

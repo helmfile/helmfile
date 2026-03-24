@@ -146,6 +146,41 @@ dependencies:
 				}
 			},
 		},
+		{
+			name: "extra fields",
+			chartYaml: `apiVersion: v2
+name: test-chart
+version: 1.0.0
+dependencies:
+  - name: dep1
+    repository: https://charts.example.com
+    version: 1.0.0
+    condition: dep.install
+    import-values:
+    - child: persistence
+      parent: global.persistence
+    extra-field2: bbb
+extra-field: aaa
+`,
+			expectModified: false,
+			expectError:    false,
+			validate: func(t *testing.T, modifiedChartYaml string) {
+				requiredFields := []string{
+					"condition: dep.install",
+					"import-values:",
+					"child: persistence",
+					"parent: global.persistence",
+					"extra-field2: bbb",
+					"extra-field: aaa",
+				}
+
+				for _, field := range requiredFields {
+					if !strings.Contains(modifiedChartYaml, field) {
+						t.Errorf("field %q should be preserved", field)
+					}
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -304,6 +339,7 @@ dependencies:
   - name: dep1
     repository: file://../relative-chart
     version: 1.0.0
+    condition: test
 `
 
 	chartYamlPath := filepath.Join(tempDir, "Chart.yaml")
@@ -331,9 +367,7 @@ dependencies:
 
 	content := string(modifiedContent)
 
-	// Verify top-level fields are preserved
-	// Note: The implementation preserves top-level chart metadata but may not preserve
-	// extra dependency-level fields (like condition, tags) that are not in the ChartDependency struct
+	// Verify fields are preserved
 	requiredFields := []string{
 		"apiVersion: v2",
 		"name: test-chart",
@@ -341,6 +375,7 @@ dependencies:
 		"description: A test chart",
 		"keywords:",
 		"maintainers:",
+		"condition:",
 	}
 
 	for _, field := range requiredFields {
