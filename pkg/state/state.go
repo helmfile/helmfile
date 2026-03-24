@@ -353,7 +353,10 @@ type ReleaseSpec struct {
 	UnitTests []string `yaml:"unitTests,omitempty"`
 
 	// Name is the name of this release
-	Name            string            `yaml:"name,omitempty"`
+	Name string `yaml:"name,omitempty"`
+
+	// Description is the description for this release that will be passed to helm upgrade with --description flag
+	Description     string            `yaml:"description,omitempty"`
 	Namespace       string            `yaml:"namespace,omitempty"`
 	Labels          map[string]string `yaml:"labels,omitempty"`
 	Values          []any             `yaml:"values,omitempty"`
@@ -917,6 +920,7 @@ type SyncOpts struct {
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
+	Description          string
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -3158,8 +3162,8 @@ func (st *HelmState) TriggerGlobalPrepareEvent(helmfileCommand string) (bool, er
 	return st.triggerGlobalReleaseEvent("prepare", nil, helmfileCommand)
 }
 
-func (st *HelmState) TriggerGlobalCleanupEvent(helmfileCommand string) (bool, error) {
-	return st.triggerGlobalReleaseEvent("cleanup", nil, helmfileCommand)
+func (st *HelmState) TriggerGlobalCleanupEvent(helmfileCommand string, evtErr error) (bool, error) {
+	return st.triggerGlobalReleaseEvent("cleanup", evtErr, helmfileCommand)
 }
 
 func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfileCmd string) (bool, error) {
@@ -3447,6 +3451,28 @@ func (st *HelmState) appendChartDownloadFlags(flags []string, release *ReleaseSp
 	return flags
 }
 
+// appendDescriptionFlags appends the helm command-line flag for release description
+// Command line takes precedence over config file
+func (st *HelmState) appendDescriptionFlags(flags []string, release *ReleaseSpec, opt *SyncOpts, helm helmexec.Interface) ([]string, error) {
+	description := release.Description
+	if opt != nil && opt.Description != "" {
+		description = opt.Description
+	}
+
+	if description != "" {
+		if !helm.IsVersionAtLeast("3.3.0") {
+			// Determine error message based on source
+			if opt != nil && opt.Description != "" {
+				return nil, fmt.Errorf("--description flag requires Helm 3.3.0 or greater")
+			}
+			return nil, fmt.Errorf("releases[].description requires Helm 3.3.0 or greater")
+		}
+		flags = append(flags, "--description", description)
+	}
+
+	return flags, nil
+}
+
 func (st *HelmState) needsPlainHttp(release *ReleaseSpec, repo *RepositorySpec) bool {
 	var repoPlainHttp, relPlainHttp bool
 	if repo != nil {
@@ -3575,6 +3601,11 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	flags = st.appendLabelsFlags(flags, helm, release, syncReleaseLabels)
 
 	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
+
+	flags, err := st.appendDescriptionFlags(flags, release, opt, helm)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	var postRendererArgs []string
 	if opt != nil {

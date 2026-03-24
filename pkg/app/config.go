@@ -61,6 +61,7 @@ type ApplyConfigProvider interface {
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
+	Timeout() int
 
 	IncludeTests() bool
 
@@ -93,6 +94,8 @@ type ApplyConfigProvider interface {
 	TrackTimeout() int
 	TrackLogs() bool
 
+	Description() string
+
 	concurrencyConfig
 	interactive
 	loggingConfig
@@ -116,6 +119,7 @@ type SyncConfigProvider interface {
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
+	Timeout() int
 	SyncArgs() string
 
 	Validate() bool
@@ -128,6 +132,8 @@ type SyncConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+
+	Description() string
 
 	DAGConfig
 

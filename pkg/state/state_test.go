@@ -908,6 +908,188 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		{
+			name: "description-from-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--description", "Release description from config",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-from-cli",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description from --description flag",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--description", "CLI description from --description flag",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-cli-overrides-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description overrides config",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--description", "CLI description overrides config",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-empty-string-not-passed",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "",
+			},
+			syncOpts: &SyncOpts{
+				Description: "",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-from-config-unsupported-version-3.1.0",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.1.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			wantErr:  "releases[].description requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-from-config-unsupported-version-3.2.4",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.2.4"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			wantErr:  "releases[].description requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-from-cli-unsupported-version",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.2.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description from --description flag",
+			},
+			wantErr: "--description flag requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-empty-on-old-version",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.1.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+				// No description set
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+				// No --description flag should appear
+			},
+		},
+		{
+			name: "description-from-config-supported-version-3.3.0",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.3.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--description", "Release description from config",
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -2548,10 +2730,10 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	logger := helmexec.NewLogger(io.Discard, "debug")
-	basePath := "/src"
+	basePath := filepath.ToSlash(t.TempDir())
 	state := &HelmState{
 		basePath: basePath,
-		FilePath: "/src/helmfile.yaml",
+		FilePath: filepath.Join(basePath, "helmfile.yaml"),
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
 				{
@@ -2584,8 +2766,8 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	fs := testhelper.NewTestFs(map[string]string{
-		"/example/Chart.yaml":     `foo: FOO`,
-		"/src/example/Chart.yaml": `foo: FOO`,
+		"/example/Chart.yaml":                         `foo: FOO`,
+		filepath.Join(basePath, "example/Chart.yaml"): `foo: FOO`,
 	})
 	fs.Cwd = basePath
 	state = injectFs(state, fs)
@@ -2648,7 +2830,7 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 		logger: logger,
 		fs: &filesystem.FileSystem{
 			ReadFile: func(f string) ([]byte, error) {
-				if f != "helmfile.lock" {
+				if f != filepath.Join("/src", "helmfile.lock") {
 					return nil, fmt.Errorf("stub: unexpected file: %s", f)
 				}
 				return nil, os.ErrNotExist

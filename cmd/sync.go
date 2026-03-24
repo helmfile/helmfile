@@ -47,7 +47,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&syncOptions.SyncReleaseLabels, "sync-release-labels", false, "sync release labels to the target release")
 	f.BoolVar(&syncOptions.Wait, "wait", false, `Override helmDefaults.wait setting "helm upgrade --install --wait"`)
 	f.BoolVar(&syncOptions.WaitForJobs, "wait-for-jobs", false, `Override helmDefaults.waitForJobs setting "helm upgrade --install --wait-for-jobs"`)
-	f.IntVar(&syncOptions.Timeout, "timeout", 0, `Override helmDefaults.timeout setting "helm upgrade --install --timeout" (default 0, which means no timeout)`)
+	f.IntVar(&syncOptions.Timeout, "timeout", 0, `Override helmDefaults.timeout in seconds for "helm upgrade --install --timeout" (default 0, which uses helmDefaults.timeout or helm's default if not set)`)
 	f.BoolVar(&syncOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reuse-values"`)
 	f.BoolVar(&syncOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm upgrade --install --reset-values"`)
 	f.StringVar(&syncOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
@@ -57,6 +57,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&syncOptions.TrackMode, "track-mode", "", "Track mode for releases: 'helm' (default), 'helm-legacy' (Helm v4 only), or 'kubedog'")
 	f.IntVar(&syncOptions.TrackTimeout, "track-timeout", 0, `Timeout in seconds for kubedog tracking (0 to use default 300s timeout)`)
 	f.BoolVar(&syncOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking")
+	f.StringVar(&syncOptions.Description, "description", "", `Set description for all releases. If set, overrides descriptions in helmfile.yaml. Will be passed to "helm upgrade --description"`)
 
 	return cmd
 }

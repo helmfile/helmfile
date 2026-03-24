@@ -593,6 +593,8 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_FILE_PATH` - specify the path to the helmfile.yaml file
 * `HELMFILE_INTERACTIVE` - enable interactive mode, expecting `true` lower case. The same as `--interactive` CLI flag
 * `HELMFILE_RENDER_YAML` - force helmfile.yaml to be rendered as a Go template regardless of file extension, expecting `true` lower case. Useful for migrating from v0 to v1 without renaming files to `.gotmpl`
+* `HELMFILE_AWS_SDK_LOG_LEVEL` - configure AWS SDK logging level for vals library. Valid values: `off` (default, secure, case-insensitive), `minimal`, `standard`, `verbose`, or custom comma-separated values like `request,response`. See issue #2270 for details
+* `HELMFILE_VALS_FAIL_ON_MISSING_KEY_IN_MAP` - enable strict mode for vals secret references. When set to `true` (or any value accepted by Go's `strconv.ParseBool` like `TRUE`, `1`), vals will fail when a referenced key does not exist in the secret map. Invalid values will cause an error when vals is initialized (when secret refs are first evaluated). Default is `false` (when unset or empty) for backward compatibility. See issue #1563 for details
 
 ## CLI Reference
 
@@ -1588,7 +1590,7 @@ Hooks associated to `presync` events are triggered before each release is synced
 This is the ideal event to execute any commands that may mutate the cluster state as it will not be run for read-only operations like `lint`, `diff` or `template`.
 
 `preapply` hooks are triggered before a release is uninstalled, installed, or upgraded as part of `helmfile apply`.
-This is the ideal event to hook into when you are going to use `helmfile apply` for every kind of change and you want the hook to be triggered regardless of whether the releases have changed or not. Be sure to make each `preapply` hook command idempotent. Otherwise, rerunning helmfile-apply on a transient failure may end up either breaking your cluster, or the hook that runs for the second time will never succeed.
+This is the ideal event to hook into when you are going to use `helmfile apply` for every kind of change. Note that preapply hooks will only run if at least one release has changes to apply. Be sure to make each `preapply` hook command idempotent. Otherwise, rerunning `helmfile apply` on a transient failure may end up either breaking your cluster, or the hook that runs for the second time will never succeed.
 
 `preuninstall` hooks are triggered immediately before a release is uninstalled as part of `helmfile apply`, `helmfile sync`, `helmfile delete`, and `helmfile destroy`.
 

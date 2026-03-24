@@ -171,8 +171,9 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			Concurrency:            c.Concurrency(),
 			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
-		}, func() {
+		}, func() []error {
 			msg, matched, affected, errs = a.diff(run, c)
+			return errs
 		})
 
 		if msg != nil {
@@ -247,8 +248,9 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Values:                 c.Values(),
 			KubeVersion:            c.KubeVersion(),
 			HelmOCIPlainHTTP:       a.HelmOCIPlainHTTP,
-		}, func() {
+		}, func() []error {
 			ok, errs = a.template(run, c)
+			return errs
 		})
 
 		if prepErr != nil {
@@ -269,8 +271,9 @@ func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 			Concurrency:            c.Concurrency(),
-		}, func() {
+		}, func() []error {
 			ok, errs = a.writeValues(run, c)
+			return errs
 		})
 
 		if prepErr != nil {
@@ -323,8 +326,9 @@ func (a *App) Lint(c LintConfigProvider) error {
 			Concurrency:            c.Concurrency(),
 			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
-		}, func() {
+		}, func() []error {
 			ok, lintErrs, errs = a.lint(run, c)
+			return append(errs, lintErrs...)
 		})
 
 		if prepErr != nil {
@@ -365,8 +369,9 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 			Concurrency:            c.Concurrency(),
 			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
-		}, func() {
+		}, func() []error {
 			ok, unittestErrs, errs = a.unittest(run, c)
+			return append(errs, unittestErrs...)
 		})
 
 		if prepErr != nil {
@@ -401,7 +406,9 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			OutputDir:         c.OutputDir(),
 			OutputDirTemplate: c.OutputDirTemplate(),
 			Concurrency:       c.Concurrency(),
-		}, func() {})
+		}, func() []error {
+			return nil
+		})
 
 		if prepErr != nil {
 			errs = append(errs, prepErr)
@@ -427,8 +434,9 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
-		}, func() {
+		}, func() []error {
 			ok, errs = a.sync(run, c)
+			return errs
 		})
 
 		if prepErr != nil {
@@ -464,7 +472,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Concurrency:            c.Concurrency(),
 			IncludeNeeds:           c.IncludeNeeds(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
-		}, func() {
+		}, func() []error {
 			matched, updated, es := a.apply(run, c)
 
 			mut.Lock()
@@ -472,6 +480,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			mut.Unlock()
 
 			ok, errs = matched, es
+			return errs
 		})
 
 		if prepErr != nil {
@@ -500,8 +509,9 @@ func (a *App) Status(c StatusesConfigProvider) error {
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: c.Concurrency(),
-		}, func() {
+		}, func() []error {
 			ok, errs = a.status(run, c)
+			return errs
 		})
 
 		if err != nil {
@@ -522,8 +532,9 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 				Concurrency:   c.Concurrency(),
 				DeleteWait:    c.DeleteWait(),
 				DeleteTimeout: c.DeleteTimeout(),
-			}, func() {
+			}, func() []error {
 				ok, errs = a.delete(run, true, c)
+				return errs
 			})
 			if err != nil {
 				errs = append(errs, err)
@@ -548,8 +559,9 @@ func (a *App) Test(c TestConfigProvider) error {
 			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
 			Concurrency: c.Concurrency(),
-		}, func() {
+		}, func() []error {
 			errs = a.test(run, c)
+			return errs
 		})
 
 		if err != nil {
@@ -567,11 +579,12 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
-		}, func() {
+		}, func() []error {
 			err = a.dag(run)
 			if err != nil {
 				errs = append(errs, err)
 			}
+			return errs
 		})
 		return ok, errs
 	}, false, false, SetFilter(true))
@@ -583,7 +596,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
-		}, func() {
+		}, func() []error {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
 					r := run.state.Releases[i]
@@ -591,7 +604,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 					values, err := run.state.LoadYAMLForEmbedding(&r, r.Values, r.MissingFileHandler, r.ValuesPathPrefix)
 					if err != nil {
 						errs = []error{err}
-						return
+						return errs
 					}
 
 					run.state.Releases[i].Values = values
@@ -599,7 +612,7 @@ func (a *App) PrintState(c StateConfigProvider) error {
 					secrets, err := run.state.LoadYAMLForEmbedding(&r, r.Secrets, r.MissingFileHandler, r.ValuesPathPrefix)
 					if err != nil {
 						errs = []error{err}
-						return
+						return errs
 					}
 
 					run.state.Releases[i].Secrets = secrets
@@ -609,17 +622,18 @@ func (a *App) PrintState(c StateConfigProvider) error {
 			stateYaml, err := run.state.ToYaml()
 			if err != nil {
 				errs = []error{err}
-				return
+				return errs
 			}
 
 			sourceFile, err := run.state.FullFilePath()
 			if err != nil {
 				errs = []error{err}
-				return
+				return errs
 			}
 			fmt.Printf("---\n#  Source: %s\n\n%+v", sourceFile, stateYaml)
 
 			errs = []error{}
+			return errs
 		})
 
 		if err != nil {
@@ -648,26 +662,30 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		var stateReleases []*HelmRelease
-		var err error
+		var listErr error
 
 		if !c.SkipCharts() {
-			err = run.withPreparedCharts("list", state.ChartPrepareOptions{
+			prepErr := run.withPreparedCharts("list", state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
-			}, func() {
+			}, func() []error {
 				rel, err := a.list(run)
 				if err != nil {
-					panic(err)
+					errs = append(errs, err)
+					return []error{err}
 				}
 				stateReleases = rel
+				return nil
 			})
+			if prepErr != nil {
+				errs = append(errs, prepErr)
+			}
 		} else {
-			stateReleases, err = a.list(run)
-		}
-
-		if err != nil {
-			errs = append(errs, err)
+			stateReleases, listErr = a.list(run)
+			if listErr != nil {
+				errs = append(errs, listErr)
+			}
 		}
 
 		if len(stateReleases) > 0 {
@@ -709,13 +727,15 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 func (a *App) list(run *Run) ([]*HelmRelease, error) {
 	var releases []*HelmRelease
 
-	for _, r := range run.state.Releases {
+	resolvedState, err := run.state.ResolveDeps()
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve dependencies for %s: %w", run.state.FilePath, err)
+	}
+
+	for _, r := range resolvedState.Releases {
 		labels := ""
 		if r.Labels == nil {
 			r.Labels = map[string]string{}
-		}
-		for k, v := range run.state.CommonLabels {
-			r.Labels[k] = v
 		}
 
 		var keys []string
@@ -730,7 +750,7 @@ func (a *App) list(run *Run) ([]*HelmRelease, error) {
 		}
 		labels = strings.Trim(labels, ",")
 
-		enabled, err := state.ConditionEnabled(r, run.state.Values())
+		enabled, err := state.ConditionEnabled(r, resolvedState.Values())
 		if err != nil {
 			return nil, err
 		}
@@ -1716,6 +1736,10 @@ Do you really want to apply?
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
 
+	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
+		return true, false, nil
+	}
+
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			for _, r := range subst.Releases {
@@ -1773,6 +1797,7 @@ Do you really want to apply?
 					Wait:                 c.Wait(),
 					WaitRetries:          c.WaitRetries(),
 					WaitForJobs:          c.WaitForJobs(),
+					Timeout:              c.Timeout(),
 					ReuseValues:          c.ReuseValues(),
 					ResetValues:          c.ResetValues(),
 					PostRenderer:         c.PostRenderer(),
@@ -1785,6 +1810,7 @@ Do you really want to apply?
 					TrackMode:            c.TrackMode(),
 					TrackTimeout:         c.TrackTimeout(),
 					TrackLogs:            c.TrackLogs(),
+					Description:          c.Description(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -2241,6 +2267,7 @@ Do you really want to sync?
 					Wait:                 c.Wait(),
 					WaitRetries:          c.WaitRetries(),
 					WaitForJobs:          c.WaitForJobs(),
+					Timeout:              c.Timeout(),
 					ReuseValues:          c.ReuseValues(),
 					ResetValues:          c.ResetValues(),
 					PostRenderer:         c.PostRenderer(),
@@ -2253,6 +2280,7 @@ Do you really want to sync?
 					TrackMode:            c.TrackMode(),
 					TrackTimeout:         c.TrackTimeout(),
 					TrackLogs:            c.TrackLogs(),
+					Description:          c.Description(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
 			}))

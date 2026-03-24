@@ -57,6 +57,8 @@ type ApplyOptions struct {
 	WaitRetries int
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
 	WaitForJobs bool
+	// Timeout is the timeout for helm operations in seconds
+	Timeout int
 	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
 	// ReuseValues is true if the helm command should reuse the values
@@ -86,6 +88,8 @@ type ApplyOptions struct {
 	TrackTimeout int
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs bool
+	// Description is the description that will be passed to helm upgrade --description
+	Description string
 }
 
 // NewApply creates a new Apply
@@ -235,6 +239,11 @@ func (a *ApplyImpl) WaitForJobs() bool {
 	return a.ApplyOptions.WaitForJobs
 }
 
+// Timeout returns the timeout.
+func (a *ApplyImpl) Timeout() int {
+	return a.ApplyOptions.Timeout
+}
+
 // ReuseValues returns the ReuseValues.
 func (a *ApplyImpl) ReuseValues() bool {
 	if !a.ResetValues() {
@@ -305,6 +314,11 @@ func (a *ApplyImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (a *ApplyImpl) TrackLogs() bool {
 	return a.ApplyOptions.TrackLogs
+}
+
+// Description returns the description.
+func (a *ApplyImpl) Description() string {
+	return a.ApplyOptions.Description
 }
 
 func (a *ApplyImpl) ValidateConfig() error {

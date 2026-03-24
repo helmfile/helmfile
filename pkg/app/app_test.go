@@ -2388,6 +2388,7 @@ type applyConfig struct {
 	wait                     bool
 	waitRetries              int
 	waitForJobs              bool
+	timeout                  int
 	reuseValues              bool
 	postRenderer             string
 	postRendererArgs         []string
@@ -2426,6 +2427,10 @@ func (a applyConfig) WaitRetries() int {
 
 func (a applyConfig) WaitForJobs() bool {
 	return a.waitForJobs
+}
+
+func (a applyConfig) Timeout() int {
+	return a.timeout
 }
 
 func (a applyConfig) Values() []string {
@@ -2622,6 +2627,10 @@ func (a applyConfig) TrackTimeout() int {
 
 func (a applyConfig) TrackLogs() bool {
 	return a.trackLogs
+}
+
+func (a applyConfig) Description() string {
+	return ""
 }
 
 type depsConfig struct {

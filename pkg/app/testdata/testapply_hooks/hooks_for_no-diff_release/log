@@ -1,9 +1,3 @@
 
 hook[prepare] logs | foo
 hook[prepare] logs | 
-
-hook[preapply] logs | foo
-hook[preapply] logs | 
-
-hook[cleanup] logs | foo
-hook[cleanup] logs | 

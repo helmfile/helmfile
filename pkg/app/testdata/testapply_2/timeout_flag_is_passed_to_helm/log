@@ -1,0 +1,21 @@
+merged environment: &{default  map[] map[] map[]}
+1 release(s) found in helmfile.yaml
+
+Affected releases are:
+  my-release (incubator/raw) UPDATED
+
+invoking preapply hooks for 1 groups of releases in this order:
+GROUP RELEASES
+1     default/default/my-release
+
+invoking preapply hooks for releases in group 1/1: default/default/my-release
+processing 1 groups of releases in this order:
+GROUP RELEASES
+1     default/default/my-release
+
+processing releases in group 1/1: default/default/my-release
+
+UPDATED RELEASES:
+NAME         NAMESPACE   CHART           VERSION   DURATION
+my-release   default     incubator/raw   3.1.0           0s
+
