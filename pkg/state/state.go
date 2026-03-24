@@ -354,6 +354,7 @@ type ReleaseSpec struct {
 
 	// Name is the name of this release
 	Name string `yaml:"name,omitempty"`
+
 	// Description is the description for this release that will be passed to helm upgrade with --description flag
 	Description     string            `yaml:"description,omitempty"`
 	Namespace       string            `yaml:"namespace,omitempty"`
@@ -3399,15 +3400,24 @@ func (st *HelmState) appendChartDownloadFlags(flags []string, release *ReleaseSp
 
 // appendDescriptionFlags appends the helm command-line flag for release description
 // Command line takes precedence over config file
-func (st *HelmState) appendDescriptionFlags(flags []string, release *ReleaseSpec, opt *SyncOpts) []string {
+func (st *HelmState) appendDescriptionFlags(flags []string, release *ReleaseSpec, opt *SyncOpts, helm helmexec.Interface) ([]string, error) {
 	description := release.Description
 	if opt != nil && opt.Description != "" {
 		description = opt.Description
 	}
+
 	if description != "" {
+		if !helm.IsVersionAtLeast("3.3.0") {
+			// Determine error message based on source
+			if opt != nil && opt.Description != "" {
+				return nil, fmt.Errorf("--description flag requires Helm 3.3.0 or greater")
+			}
+			return nil, fmt.Errorf("releases[].description requires Helm 3.3.0 or greater")
+		}
 		flags = append(flags, "--description", description)
 	}
-	return flags
+
+	return flags, nil
 }
 
 func (st *HelmState) needsPlainHttp(release *ReleaseSpec, repo *RepositorySpec) bool {
@@ -3539,7 +3549,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
 
-	flags = st.appendDescriptionFlags(flags, release, opt)
+	flags, err := st.appendDescriptionFlags(flags, release, opt, helm)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	var postRendererArgs []string
 	if opt != nil {

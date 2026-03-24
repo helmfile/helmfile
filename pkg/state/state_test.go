@@ -996,6 +996,100 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		{
+			name: "description-from-config-unsupported-version-3.1.0",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.1.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			wantErr:  "releases[].description requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-from-config-unsupported-version-3.2.4",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.2.4"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			wantErr:  "releases[].description requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-from-cli-unsupported-version",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.2.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description from --description flag",
+			},
+			wantErr: "--description flag requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-empty-on-old-version",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.1.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+				// No description set
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+				// No --description flag should appear
+			},
+		},
+		{
+			name: "description-from-config-supported-version-3.3.0",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.3.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--description", "Release description from config",
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
