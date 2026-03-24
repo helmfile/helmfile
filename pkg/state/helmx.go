@@ -237,7 +237,7 @@ func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, re
 	return flags
 }
 
-func (st *HelmState) shouldUseAtomic(release *ReleaseSpec, ops *SyncOpts) bool {
+func (st *HelmState) shouldUseAtomic(release *ReleaseSpec) bool {
 	switch {
 	case release.Atomic != nil:
 		return *release.Atomic
@@ -251,7 +251,7 @@ func (st *HelmState) appendAtomicFlags(flags []string, release *ReleaseSpec, ops
 		return flags
 	}
 
-	if st.shouldUseAtomic(release, ops) {
+	if st.shouldUseAtomic(release) {
 		flags = append(flags, "--atomic")
 	}
 

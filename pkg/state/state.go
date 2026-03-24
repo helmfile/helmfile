@@ -1141,7 +1141,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					if relErr == nil && st.shouldUseKubedog(release, opts) {
 						if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
 							st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
-							st.handleKubedogFailure(context, helm, release, trackErr, m, affectedReleases)
+							st.handleKubedogFailure(context, helm, release, m, affectedReleases)
 						}
 					}
 				} else {
@@ -1164,7 +1164,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						if st.shouldUseKubedog(release, opts) {
 							if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
 								st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
-								st.handleKubedogFailure(context, helm, release, trackErr, m, affectedReleases)
+								st.handleKubedogFailure(context, helm, release, m, affectedReleases)
 							}
 						}
 					}
@@ -1283,8 +1283,8 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 	return nil
 }
 
-func (st *HelmState) handleKubedogFailure(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec, trackErr error, m *sync.Mutex, affectedReleases *AffectedReleases) {
-	if !st.shouldUseAtomic(release, nil) {
+func (st *HelmState) handleKubedogFailure(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec, m *sync.Mutex, affectedReleases *AffectedReleases) {
+	if !st.shouldUseAtomic(release) {
 		return
 	}
 
