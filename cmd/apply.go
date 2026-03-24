@@ -72,6 +72,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&applyOptions.TrackMode, "track-mode", "", "Track mode for releases: 'helm' (default), 'helm-legacy' (Helm v4 only), or 'kubedog'")
 	f.IntVar(&applyOptions.TrackTimeout, "track-timeout", 0, `Timeout in seconds for kubedog tracking (0 to use default 300s timeout)`)
 	f.BoolVar(&applyOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking")
+	f.StringVar(&applyOptions.Description, "description", "", `Set description for all releases. If set, overridesdescriptions in helmfile.yaml. Will be passed to "helm upgrade --description"`)
 
 	return cmd
 }

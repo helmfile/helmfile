@@ -59,6 +59,8 @@ type SyncOptions struct {
 	TrackTimeout int
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs bool
+	// Description is the description that will be passed to helm upgrade --description
+	Description string
 }
 
 // NewSyncOptions creates a new Apply
@@ -212,6 +214,11 @@ func (t *SyncImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (t *SyncImpl) TrackLogs() bool {
 	return t.SyncOptions.TrackLogs
+}
+
+// Description returns the description.
+func (t *SyncImpl) Description() string {
+	return t.SyncOptions.Description
 }
 
 func (t *SyncImpl) ValidateConfig() error {

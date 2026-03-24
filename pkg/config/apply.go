@@ -88,6 +88,8 @@ type ApplyOptions struct {
 	TrackTimeout int
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs bool
+	// Description is the description that will be passed to helm upgrade --description
+	Description string
 }
 
 // NewApply creates a new Apply
@@ -312,6 +314,11 @@ func (a *ApplyImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (a *ApplyImpl) TrackLogs() bool {
 	return a.ApplyOptions.TrackLogs
+}
+
+// Description returns the description.
+func (a *ApplyImpl) Description() string {
+	return a.ApplyOptions.Description
 }
 
 func (a *ApplyImpl) ValidateConfig() error {
