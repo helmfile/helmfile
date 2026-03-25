@@ -739,7 +739,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least one change",
+			error:            `in ./helmfile.yaml: release "default//foo" depends on "default//bar" which does not match the selectors. Please add a selector like "--selector name=bar", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			diffs: map[exectest.DiffKey]error{
 				{Name: "bar", Chart: "mychart2", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				{Name: "foo", Chart: "mychart1", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -841,7 +841,7 @@ releases:
 `,
 			},
 			detailedExitcode: true,
-			error:            "Identified at least one change",
+			error:            `in ./helmfile.yaml: release "default//bar" depends on "default//foo" which does not match the selectors. Please add a selector like "--selector name=foo", or indicate whether to skip (--skip-needs) or include (--include-needs) these dependencies`,
 			diffs: map[exectest.DiffKey]error{
 				{Name: "bar", Chart: "mychart2", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				{Name: "foo", Chart: "mychart1", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},

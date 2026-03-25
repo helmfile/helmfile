@@ -182,14 +182,24 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		}
 	}
 
+	// When SelectedReleases is explicitly provided, use the DAG's dependency
+	// inclusion (WithDependencies) since markExcludedReleases doesn't apply.
+	// When using the Filtered flag path (no SelectedReleases), needs are already
+	// handled by markExcludedReleases, so WithDependencies stays false.
+	withDeps := false
 	skipDepValidation := opts.SkipNeeds
-	if opts.IncludeNeeds && !opts.IncludeTransitiveNeeds {
-		skipDepValidation = true
+	if len(opts.SelectedReleases) > 0 {
+		withDeps = opts.IncludeNeeds
+		skipDepValidation = opts.SkipNeeds
+	} else {
+		if opts.IncludeNeeds && !opts.IncludeTransitiveNeeds {
+			skipDepValidation = true
+		}
 	}
 
 	plan, err := d.Plan(dag.SortOptions{
 		Only:                selectedReleaseIDs,
-		WithDependencies:    false,
+		WithDependencies:    withDeps,
 		WithoutDependencies: skipDepValidation,
 	})
 	if err != nil {
