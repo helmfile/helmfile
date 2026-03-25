@@ -225,3 +225,53 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 		}
 	}
 }
+
+func TestSelectReleasesWithIncludeNeedsCrossNamespace(t *testing.T) {
+	// When multiple releases share the same name across different namespaces,
+	// includeNeeds should resolve the correct dependency using fully-qualified IDs
+	// rather than name-based lookup (which would be ambiguous).
+	example := []byte(`releases:
+- name: frontend
+  namespace: team-a
+  chart: stable/testchart
+  needs:
+    - team-a/backend
+- name: backend
+  namespace: team-a
+  chart: stable/testchart
+- name: backend
+  namespace: team-b
+  chart: stable/testchart
+`)
+
+	state := stateTestEnv{
+		Files: map[string]string{
+			"/helmfile.yaml": string(example),
+		},
+		WorkDir: "/",
+	}.MustLoadState(t, "/helmfile.yaml", "default")
+
+	state.Selectors = []string{"name=frontend"}
+	var err error
+	state.Releases, err = state.GetReleasesWithOverrides()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Releases = state.GetReleasesWithLabels()
+
+	rs, err := state.GetSelectedReleases(true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got []string
+	for _, r := range rs {
+		got = append(got, r.Namespace+"/"+r.Name)
+	}
+
+	// Should include team-a/backend (direct need) but NOT team-b/backend
+	want := []string{"team-a/frontend", "team-a/backend"}
+	if d := cmp.Diff(want, got); d != "" {
+		t.Errorf("cross-namespace include-needs: %s", d)
+	}
+}

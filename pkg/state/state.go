@@ -3065,24 +3065,12 @@ func unmarkNeedsDirectOnly(filteredReleases []Release) {
 
 func collectDirectNeedsOnly(filteredReleases []Release) map[string]struct{} {
 	directNeeds := map[string]struct{}{}
-	nameToID := map[string]string{}
-	for _, r := range filteredReleases {
-		nameToID[r.Name] = ReleaseToID(&r.ReleaseSpec)
-	}
 	for _, r := range filteredReleases {
 		if !r.Filtered {
 			for _, need := range r.ReleaseSpec.Needs {
-				if fullID, ok := nameToID[need]; ok {
-					directNeeds[fullID] = struct{}{}
-				} else {
-					parts := strings.Split(need, "/")
-					needName := parts[len(parts)-1]
-					if fullID, ok := nameToID[needName]; ok {
-						directNeeds[fullID] = struct{}{}
-					} else {
-						directNeeds[need] = struct{}{}
-					}
-				}
+				// After ApplyOverrides/reformat(), need IDs are already fully-qualified
+				// (matching ReleaseToID format), so we collect them as-is.
+				directNeeds[need] = struct{}{}
 			}
 		}
 	}
