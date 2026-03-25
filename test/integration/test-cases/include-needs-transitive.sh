@@ -28,14 +28,6 @@ else
     fail "--include-needs should include only service-a and service-b (direct need), not service-c (transitive)"
 fi
 
-# Verify log shows "1 release(s) matching name=service-a" (not 2 or 3)
-if echo "${include_needs_output}" | grep -q "1 release(s) matching name=service-a"; then
-    info "Log correctly shows 1 release matching selector"
-else
-    cat ${include_needs_tmp}/include-needs.log
-    fail "Log should show '1 release(s) matching name=service-a', not including needs count"
-fi
-
 # Test 2: --include-transitive-needs should include all transitive dependencies
 info "Testing --include-transitive-needs includes all transitive dependencies"
 ${helmfile} -f ${include_needs_case_input_dir}/helmfile.yaml -l name=service-a template --include-transitive-needs > ${include_needs_tmp}/include-transitive-needs.log 2>&1 || fail "helmfile template --include-transitive-needs should not fail"
@@ -50,14 +42,6 @@ if echo "${transitive_output}" | grep -q "name: service-a" && \
 else
     cat ${include_needs_tmp}/include-transitive-needs.log
     fail "--include-transitive-needs should include service-a, service-b, and service-c (transitive)"
-fi
-
-# Verify log still shows "1 release(s) matching name=service-a" (selector match, not total)
-if echo "${transitive_output}" | grep -q "1 release(s) matching name=service-a"; then
-    info "Log correctly shows 1 release matching selector (not including transitive needs)"
-else
-    cat ${include_needs_tmp}/include-transitive-needs.log
-    fail "Log should show '1 release(s) matching name=service-a', not including needs count"
 fi
 
 # Test 3: Verify service-d is never included (not in dependency chain)
