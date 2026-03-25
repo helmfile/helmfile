@@ -1,11 +1,9 @@
 merged environment: &{default  map[] map[] map[]}
 2 release(s) found in helmfile.yaml
 
-processing 2 groups of releases in this order:
+processing 1 groups of releases in this order:
 GROUP RELEASES
 1     bar
-2     foo
 
-processing releases in group 1/2: bar
-processing releases in group 2/2: foo
+processing releases in group 1/1: bar
 No affected releases

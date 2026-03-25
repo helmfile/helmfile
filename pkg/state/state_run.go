@@ -104,19 +104,6 @@ func (st *HelmState) PlanReleases(opts PlanOptions) ([][]Release, error) {
 		return nil, err
 	}
 
-	// If SelectedReleases is provided, mark those releases as not filtered
-	if len(opts.SelectedReleases) > 0 {
-		selectedIDs := make(map[string]struct{})
-		for _, r := range opts.SelectedReleases {
-			selectedIDs[ReleaseToID(&r)] = struct{}{}
-		}
-		for i := range marked {
-			if _, ok := selectedIDs[ReleaseToID(&marked[i].ReleaseSpec)]; ok {
-				marked[i].Filtered = false
-			}
-		}
-	}
-
 	groups, err := SortedReleaseGroups(marked, opts)
 	if err != nil {
 		return nil, err
@@ -177,10 +164,21 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 	}
 
 	var selectedReleaseIDs []string
-	for _, r := range releases {
-		if !r.Filtered {
-			id := ReleaseToID(&r.ReleaseSpec)
+	if len(opts.SelectedReleases) > 0 {
+		// When SelectedReleases is explicitly provided (e.g., by the delete/destroy path),
+		// use it directly to determine which releases to plan.
+		for _, r := range opts.SelectedReleases {
+			release := r
+			id := ReleaseToID(&release)
 			selectedReleaseIDs = append(selectedReleaseIDs, id)
+		}
+	} else {
+		// Otherwise, use the Filtered flag set by SelectReleases/markExcludedReleases
+		for _, r := range releases {
+			if !r.Filtered {
+				id := ReleaseToID(&r.ReleaseSpec)
+				selectedReleaseIDs = append(selectedReleaseIDs, id)
+			}
 		}
 	}
 

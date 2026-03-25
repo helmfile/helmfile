@@ -6,14 +6,14 @@ GROUP RELEASES
 1     logging, front-proxy
 2     database, servicemesh
 3     anotherbackend
-4     backend-v1, backend-v2
-5     frontend-v1, frontend-v2, frontend-v3
+4     backend-v2
+5     frontend-v2, frontend-v3
 
 processing releases in group 1/5: logging, front-proxy
 processing releases in group 2/5: database, servicemesh
 processing releases in group 3/5: anotherbackend
-processing releases in group 4/5: backend-v1, backend-v2
-processing releases in group 5/5: frontend-v1, frontend-v2, frontend-v3
+processing releases in group 4/5: backend-v2
+processing releases in group 5/5: frontend-v2, frontend-v3
 Affected releases are:
   anotherbackend (charts/anotherbackend) UPDATED
   backend-v1 (charts/backend) DELETED
