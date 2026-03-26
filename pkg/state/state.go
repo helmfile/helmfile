@@ -1764,7 +1764,7 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 	skipRefreshDefault := release.SkipRefresh == nil && st.HelmDefaults.SkipRefresh
 	skipRefresh := !isLocal || skipRefreshGlobal || skipRefreshRelease || skipRefreshDefault
 
-	if chartification != nil && helmfileCommand != "pull" {
+	if chartification != nil && (helmfileCommand != "pull" || chartification.NeedsChartifyForLocalDir) {
 		// Issue #2297: Normalize local chart paths before chartification
 		// When using transformers with local charts like "../chart", the chartify process
 		// needs an absolute path, otherwise it tries "helm pull ../chart" which fails

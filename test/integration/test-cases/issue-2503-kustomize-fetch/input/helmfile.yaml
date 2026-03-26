@@ -1,0 +1,3 @@
+releases:
+- name: test-kustomize
+  chart: ./kustomize
