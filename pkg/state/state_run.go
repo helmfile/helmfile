@@ -132,12 +132,6 @@ func SortedReleaseGroups(releases []Release, opts PlanOptions) ([][]Release, err
 func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Release, error) {
 	idToReleases := map[string][]Release{}
 	idToIndex := map[string]int{}
-	nameToID := map[string]string{}
-
-	for _, r := range releases {
-		id := ReleaseToID(&r.ReleaseSpec)
-		nameToID[r.Name] = id
-	}
 
 	d := dag.New()
 	for i, r := range releases {
@@ -146,14 +140,11 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 		idToReleases[id] = append(idToReleases[id], r)
 		idToIndex[id] = i
 
+		// After ApplyOverrides/reformat(), need IDs are already fully-qualified
+		// (matching ReleaseToID format), so we pass them as-is.
 		var needs []string
 		for i := 0; i < len(r.Needs); i++ {
-			n := r.Needs[i]
-			if fullID, ok := nameToID[n]; ok {
-				needs = append(needs, fullID)
-			} else {
-				needs = append(needs, n)
-			}
+			needs = append(needs, r.Needs[i])
 		}
 		d.Add(id, dag.Dependencies(needs))
 	}
