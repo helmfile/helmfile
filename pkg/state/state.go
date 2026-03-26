@@ -1444,9 +1444,9 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 
 	// Parse Chart.yaml
 	type ChartDependency struct {
-		Name       string `yaml:"name"`
-		Repository string `yaml:"repository"`
-		Version    string `yaml:"version"`
+		Name       string                 `yaml:"name"`
+		Repository string                 `yaml:"repository"`
+		Data       map[string]interface{} `yaml:",inline"`
 	}
 	type ChartMeta struct {
 		Dependencies []ChartDependency      `yaml:"dependencies,omitempty"`
