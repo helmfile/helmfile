@@ -107,6 +107,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/skip-diff-output.sh
 . ${dir}/test-cases/v1-subhelmfile-multi-bases-with-array-values.sh
 . ${dir}/test-cases/kustomized-fetch.sh
+. ${dir}/test-cases/issue-2503-kustomize-fetch.sh
 . ${dir}/test-cases/regression.sh
 . ${dir}/test-cases/secretssops.sh
 . ${dir}/test-cases/yaml-overwrite.sh
