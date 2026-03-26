@@ -303,8 +303,9 @@ func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []st
 }
 
 type Chartify struct {
-	Opts  *chartify.ChartifyOpts
-	Clean func()
+	Opts                     *chartify.ChartifyOpts
+	Clean                    func()
+	NeedsChartifyForLocalDir bool
 }
 
 func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
@@ -375,6 +376,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	if stat, _ := os.Stat(dir); stat != nil && stat.IsDir() {
 		if exists, err := st.fs.FileExists(filepath.Join(dir, "Chart.yaml")); err == nil && !exists {
 			shouldRun = true
+			c.NeedsChartifyForLocalDir = true
 		}
 	}
 
