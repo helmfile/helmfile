@@ -528,8 +528,8 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	lines := strings.Split(string(out), "\n")
 	var filtered []string
 	for _, line := range lines[1:] {
-		if trimmed := strings.TrimSpace(line); trimmed != "" {
-			filtered = append(filtered, trimmed)
+		if strings.TrimSpace(line) != "" {
+			filtered = append(filtered, line)
 		}
 	}
 	out = []byte(strings.Join(filtered, "\n"))

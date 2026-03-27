@@ -3089,10 +3089,17 @@ func unmarkReleasesByNeedID(toUnmark map[string]struct{}, releases []Release) {
 }
 
 func collectAllNeedsWithTransitives(filteredReleases []Release, allReleases []ReleaseSpec) map[string]struct{} {
+	// Build an ID→ReleaseSpec map for efficient lookup by fully-qualified ID,
+	// avoiding cross-namespace ambiguity from name-based matching.
+	idToRelease := map[string]ReleaseSpec{}
+	for _, r := range allReleases {
+		idToRelease[ReleaseToID(&r)] = r
+	}
+
 	needsWithTranstives := map[string]struct{}{}
 	for _, r := range filteredReleases {
 		if !r.Filtered {
-			collectNeedsWithTransitives(r.ReleaseSpec, allReleases, needsWithTranstives)
+			collectNeedsWithTransitives(r.ReleaseSpec, idToRelease, needsWithTranstives)
 		}
 	}
 	return needsWithTranstives
@@ -3106,16 +3113,15 @@ func unmarkReleases(toUnmark map[string]struct{}, releases []Release) {
 	}
 }
 
-func collectNeedsWithTransitives(release ReleaseSpec, allReleases []ReleaseSpec, needsWithTranstives map[string]struct{}) {
+func collectNeedsWithTransitives(release ReleaseSpec, idToRelease map[string]ReleaseSpec, needsWithTranstives map[string]struct{}) {
 	for _, id := range release.Needs {
 		if _, exists := needsWithTranstives[id]; !exists {
 			needsWithTranstives[id] = struct{}{}
-			releaseParts := strings.Split(id, "/")
-			releaseName := releaseParts[len(releaseParts)-1]
-			for _, r := range allReleases {
-				if r.Name == releaseName {
-					collectNeedsWithTransitives(r, allReleases, needsWithTranstives)
-				}
+			// After ApplyOverrides/reformat(), need IDs are already fully-qualified
+			// (matching ReleaseToID format), so we look up by full ID to avoid
+			// cross-namespace ambiguity when multiple releases share the same name.
+			if r, ok := idToRelease[id]; ok {
+				collectNeedsWithTransitives(r, idToRelease, needsWithTranstives)
 			}
 		}
 	}
