@@ -17,7 +17,7 @@ func TestRewriteChartDependencies(t *testing.T) {
 		chartYaml      string
 		expectModified bool
 		expectError    bool
-		validate       func(t *testing.T, chartPath string)
+		validate       func(t *testing.T, modifiedChartYaml string)
 	}{
 		{
 			name:           "no Chart.yaml exists",
@@ -46,13 +46,8 @@ dependencies:
 `,
 			expectModified: false,
 			expectError:    false,
-			validate: func(t *testing.T, chartPath string) {
-				data, err := os.ReadFile(filepath.Join(chartPath, "Chart.yaml"))
-				if err != nil {
-					t.Fatalf("failed to read Chart.yaml: %v", err)
-				}
-				content := string(data)
-				if !strings.Contains(content, "file:///absolute/path/to/chart") {
+			validate: func(t *testing.T, modifiedChartYaml string) {
+				if !strings.Contains(modifiedChartYaml, "file:///absolute/path/to/chart") {
 					t.Errorf("absolute path should not be modified")
 				}
 			},
@@ -69,20 +64,14 @@ dependencies:
 `,
 			expectModified: true,
 			expectError:    false,
-			validate: func(t *testing.T, chartPath string) {
-				data, err := os.ReadFile(filepath.Join(chartPath, "Chart.yaml"))
-				if err != nil {
-					t.Fatalf("failed to read Chart.yaml: %v", err)
-				}
-				content := string(data)
-
+			validate: func(t *testing.T, modifiedChartYaml string) {
 				// Should have been converted to absolute path
-				if strings.Contains(content, "file://../relative-chart") {
+				if strings.Contains(modifiedChartYaml, "file://../relative-chart") {
 					t.Errorf("relative path should have been converted to absolute")
 				}
 
 				// Should now have an absolute path
-				if !strings.Contains(content, "file://") {
+				if !strings.Contains(modifiedChartYaml, "file://") {
 					t.Errorf("should still have file:// prefix")
 				}
 			},
@@ -108,30 +97,24 @@ dependencies:
 `,
 			expectModified: true,
 			expectError:    false,
-			validate: func(t *testing.T, chartPath string) {
-				data, err := os.ReadFile(filepath.Join(chartPath, "Chart.yaml"))
-				if err != nil {
-					t.Fatalf("failed to read Chart.yaml: %v", err)
-				}
-				content := string(data)
-
+			validate: func(t *testing.T, modifiedChartYaml string) {
 				// HTTPS repo should remain unchanged
-				if !strings.Contains(content, "https://charts.example.com") {
+				if !strings.Contains(modifiedChartYaml, "https://charts.example.com") {
 					t.Errorf("https repository should not be modified")
 				}
 
 				// Relative path should be converted
-				if strings.Contains(content, "file://../relative-chart") {
+				if strings.Contains(modifiedChartYaml, "file://../relative-chart") {
 					t.Errorf("relative file:// path should have been converted")
 				}
 
 				// Absolute path should remain unchanged
-				if !strings.Contains(content, "file:///absolute/chart") {
+				if !strings.Contains(modifiedChartYaml, "file:///absolute/chart") {
 					t.Errorf("absolute file:// path should not be modified")
 				}
 
 				// OCI repo should remain unchanged
-				if !strings.Contains(content, "oci://registry.example.com") {
+				if !strings.Contains(modifiedChartYaml, "oci://registry.example.com") {
 					t.Errorf("oci repository should not be modified")
 				}
 			},
@@ -154,18 +137,47 @@ dependencies:
 `,
 			expectModified: true,
 			expectError:    false,
-			validate: func(t *testing.T, chartPath string) {
-				data, err := os.ReadFile(filepath.Join(chartPath, "Chart.yaml"))
-				if err != nil {
-					t.Fatalf("failed to read Chart.yaml: %v", err)
-				}
-				content := string(data)
-
+			validate: func(t *testing.T, modifiedChartYaml string) {
 				// All relative paths should be converted
-				if strings.Contains(content, "file://../chart1") ||
-					strings.Contains(content, "file://./chart2") ||
-					strings.Contains(content, "file://../../../chart3") {
+				if strings.Contains(modifiedChartYaml, "file://../chart1") ||
+					strings.Contains(modifiedChartYaml, "file://./chart2") ||
+					strings.Contains(modifiedChartYaml, "file://../../../chart3") {
 					t.Errorf("all relative paths should have been converted")
+				}
+			},
+		},
+		{
+			name: "extra fields",
+			chartYaml: `apiVersion: v2
+name: test-chart
+version: 1.0.0
+dependencies:
+  - name: dep1
+    repository: https://charts.example.com
+    version: 1.0.0
+    condition: dep.install
+    import-values:
+    - child: persistence
+      parent: global.persistence
+    extra-field2: bbb
+extra-field: aaa
+`,
+			expectModified: false,
+			expectError:    false,
+			validate: func(t *testing.T, modifiedChartYaml string) {
+				requiredFields := []string{
+					"condition: dep.install",
+					"import-values:",
+					"child: persistence",
+					"parent: global.persistence",
+					"extra-field2: bbb",
+					"extra-field: aaa",
+				}
+
+				for _, field := range requiredFields {
+					if !strings.Contains(modifiedChartYaml, field) {
+						t.Errorf("field %q should be preserved", field)
+					}
 				}
 			},
 		},
@@ -216,26 +228,34 @@ dependencies:
 				t.Fatalf("unexpected error: %v", err)
 			}
 
+			if tt.chartYaml == "" {
+				return
+			}
+
+			modifiedChartBytes, err := os.ReadFile(filepath.Join(tempDir, "Chart.yaml"))
+			if err != nil {
+				t.Fatalf("failed to read Chart.yaml: %v", err)
+			}
+			modifiedChartYaml := string(modifiedChartBytes)
+
 			// Validate the modified Chart.yaml
 			if tt.validate != nil {
-				tt.validate(t, tempDir)
+				tt.validate(t, modifiedChartYaml)
 			}
 
 			// Call cleanup and verify restoration
-			if tt.chartYaml != "" {
-				cleanup()
+			cleanup()
 
-				// Read restored content
-				restoredContent, err := os.ReadFile(chartYamlPath)
-				if err != nil {
-					t.Fatalf("failed to read restored Chart.yaml: %v", err)
-				}
+			// Read restored content
+			restoredContent, err := os.ReadFile(chartYamlPath)
+			if err != nil {
+				t.Fatalf("failed to read restored Chart.yaml: %v", err)
+			}
 
-				// Verify content was restored
-				if string(restoredContent) != string(originalContent) {
-					t.Errorf("cleanup did not restore original content\noriginal:\n%s\nrestored:\n%s",
-						string(originalContent), string(restoredContent))
-				}
+			// Verify content was restored
+			if string(restoredContent) != string(originalContent) {
+				t.Errorf("cleanup did not restore original content\noriginal:\n%s\nrestored:\n%s",
+					string(originalContent), string(restoredContent))
 			}
 		})
 	}
@@ -319,6 +339,7 @@ dependencies:
   - name: dep1
     repository: file://../relative-chart
     version: 1.0.0
+    condition: test
 `
 
 	chartYamlPath := filepath.Join(tempDir, "Chart.yaml")
@@ -346,9 +367,7 @@ dependencies:
 
 	content := string(modifiedContent)
 
-	// Verify top-level fields are preserved
-	// Note: The implementation preserves top-level chart metadata but may not preserve
-	// extra dependency-level fields (like condition, tags) that are not in the ChartDependency struct
+	// Verify fields are preserved
 	requiredFields := []string{
 		"apiVersion: v2",
 		"name: test-chart",
@@ -356,6 +375,7 @@ dependencies:
 		"description: A test chart",
 		"keywords:",
 		"maintainers:",
+		"condition:",
 	}
 
 	for _, field := range requiredFields {

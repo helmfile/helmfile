@@ -96,6 +96,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
+. ${dir}/test-cases/chart-deps-condition.sh
 . ${dir}/test-cases/fetch-forl-local-chart.sh
 . ${dir}/test-cases/suppress-output-line-regex.sh
 . ${dir}/test-cases/chartify-jsonPatches-and-strategicMergePatches.sh
@@ -107,6 +108,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/skip-diff-output.sh
 . ${dir}/test-cases/v1-subhelmfile-multi-bases-with-array-values.sh
 . ${dir}/test-cases/kustomized-fetch.sh
+. ${dir}/test-cases/issue-2503-kustomize-fetch.sh
 . ${dir}/test-cases/regression.sh
 . ${dir}/test-cases/secretssops.sh
 . ${dir}/test-cases/yaml-overwrite.sh
