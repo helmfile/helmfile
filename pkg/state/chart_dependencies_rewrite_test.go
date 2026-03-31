@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap"
@@ -501,5 +502,70 @@ dependencies:
 	// The relative path should have been converted to absolute
 	if strings.Contains(content, "file://./subdir/chart") {
 		t.Errorf("relative path with ./ should have been converted")
+	}
+}
+
+func TestRewriteChartDependencies_RaceCondition(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "helmfile-test-")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	chartYaml := `apiVersion: v2
+name: test-chart
+version: 1.0.0
+dependencies:
+  - name: dep1
+    repository: file://../relative-chart
+    version: 1.0.0
+`
+
+	chartYamlPath := filepath.Join(tempDir, "Chart.yaml")
+	if err := os.WriteFile(chartYamlPath, []byte(chartYaml), 0644); err != nil {
+		t.Fatalf("failed to write Chart.yaml: %v", err)
+	}
+
+	// Run multiple goroutines concurrently on the same chart path
+	numGoroutines := 10
+	var wg sync.WaitGroup
+	errCh := make(chan error, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			logger := zap.NewNop().Sugar()
+			st := &HelmState{
+				logger: logger,
+				fs:     filesystem.DefaultFileSystem(),
+			}
+
+			cleanup, err := st.rewriteChartDependencies(tempDir)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			defer cleanup()
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("goroutine error: %v", err)
+	}
+
+	// Verify Chart.yaml is still valid
+	data, err := os.ReadFile(chartYamlPath)
+	if err != nil {
+		t.Fatalf("failed to read Chart.yaml: %v", err)
+	}
+
+	// Should still have the dependencies section
+	if !strings.Contains(string(data), "dependencies:") {
+		t.Errorf("Chart.yaml should still have dependencies section")
 	}
 }

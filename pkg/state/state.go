@@ -1417,7 +1417,18 @@ type PrepareChartKey struct {
 //
 // When running `helmfile template` on helm v2, or `helmfile lint` on both helm v2 and v3,
 // PrepareCharts will download and untar charts for linting and templating.
-//
+var chartDepsMutexMap sync.Map
+
+func (st *HelmState) getChartDepsMutex(chartPath string) *sync.Mutex {
+	mu, ok := chartDepsMutexMap.Load(chartPath)
+	if ok {
+		return mu.(*sync.Mutex)
+	}
+	newMu := &sync.Mutex{}
+	actualMu, _ := chartDepsMutexMap.LoadOrStore(chartPath, newMu)
+	return actualMu.(*sync.Mutex)
+}
+
 // rewriteChartDependencies rewrites relative file:// dependencies in Chart.yaml to absolute paths
 // to ensure they can be resolved from chartify's temporary directory
 func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) {
@@ -1428,9 +1439,13 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		return func() {}, nil
 	}
 
+	mu := st.getChartDepsMutex(chartPath)
+	mu.Lock()
+
 	// Read Chart.yaml
 	data, err := os.ReadFile(chartYamlPath)
 	if err != nil {
+		mu.Unlock()
 		return func() {}, err
 	}
 
@@ -1440,6 +1455,7 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		if err := os.WriteFile(chartYamlPath, originalContent, 0644); err != nil {
 			st.logger.Warnf("Failed to restore original Chart.yaml at %s: %v", chartYamlPath, err)
 		}
+		mu.Unlock()
 	}
 
 	// Parse Chart.yaml
