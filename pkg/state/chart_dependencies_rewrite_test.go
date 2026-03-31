@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 func TestRewriteChartDependencies(t *testing.T) {
@@ -558,14 +559,39 @@ dependencies:
 		t.Errorf("goroutine error: %v", err)
 	}
 
-	// Verify Chart.yaml is still valid
+	// Verify Chart.yaml is still valid by unmarshaling and checking expected fields
 	data, err := os.ReadFile(chartYamlPath)
 	if err != nil {
 		t.Fatalf("failed to read Chart.yaml: %v", err)
 	}
 
-	// Should still have the dependencies section
-	if !strings.Contains(string(data), "dependencies:") {
-		t.Errorf("Chart.yaml should still have dependencies section")
+	type ChartDependency struct {
+		Name       string `yaml:"name"`
+		Repository string `yaml:"repository"`
+		Version    string `yaml:"version"`
+	}
+	type ChartMeta struct {
+		APIVersion   string            `yaml:"apiVersion"`
+		Name         string            `yaml:"name"`
+		Version      string            `yaml:"version"`
+		Dependencies []ChartDependency `yaml:"dependencies,omitempty"`
+	}
+
+	var chartMeta ChartMeta
+	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
+		t.Fatalf("Chart.yaml is not valid YAML after concurrent rewrites: %v", err)
+	}
+
+	if chartMeta.Name != "test-chart" {
+		t.Errorf("expected chart name 'test-chart', got %q", chartMeta.Name)
+	}
+	if len(chartMeta.Dependencies) != 1 {
+		t.Fatalf("expected 1 dependency, got %d", len(chartMeta.Dependencies))
+	}
+	if chartMeta.Dependencies[0].Name != "dep1" {
+		t.Errorf("expected dependency name 'dep1', got %q", chartMeta.Dependencies[0].Name)
+	}
+	if !strings.HasPrefix(chartMeta.Dependencies[0].Repository, "file://") {
+		t.Errorf("expected dependency repository to start with 'file://', got %q", chartMeta.Dependencies[0].Repository)
 	}
 }

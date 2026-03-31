@@ -1471,7 +1471,8 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 
 	var chartMeta ChartMeta
 	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
-		return cleanup, err
+		mu.Unlock()
+		return func() {}, err
 	}
 
 	// Rewrite relative file:// dependencies to absolute paths
@@ -1487,7 +1488,8 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 				absPath := filepath.Join(chartPath, relPath)
 				absPath, err = filepath.Abs(absPath)
 				if err != nil {
-					return cleanup, fmt.Errorf("failed to resolve absolute path for dependency %s: %w", dep.Name, err)
+					mu.Unlock()
+					return func() {}, fmt.Errorf("failed to resolve absolute path for dependency %s: %w", dep.Name, err)
 				}
 
 				st.logger.Debugf("Rewriting Chart dependency %s from %s to file://%s", dep.Name, dep.Repository, absPath)
@@ -1501,11 +1503,13 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 	if modified {
 		updatedData, err := yaml.Marshal(&chartMeta)
 		if err != nil {
-			return cleanup, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
+			mu.Unlock()
+			return func() {}, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
 		}
 
 		if err := os.WriteFile(chartYamlPath, updatedData, 0644); err != nil {
-			return cleanup, fmt.Errorf("failed to write Chart.yaml: %w", err)
+			mu.Unlock()
+			return func() {}, fmt.Errorf("failed to write Chart.yaml: %w", err)
 		}
 
 		st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", chartYamlPath)
