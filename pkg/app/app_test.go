@@ -2928,7 +2928,7 @@ releases:
 }
 
 func TestTemplate_HelmDefaultsPostRendererArgsFromDefaults(t *testing.T) {
-	postRenderer := "foo.sh"
+	postRenderer := "foo"
 	files := map[string]string{
 		"/path/to/helmfile.yaml": fmt.Sprintf(`
 helmDefaults:
@@ -3003,7 +3003,7 @@ releases:
 }
 
 func TestTemplate_HelmDefaultsPostRendererArgsMultiDoc(t *testing.T) {
-	postRenderer := "foo.sh"
+	postRenderer := "foo"
 	files := map[string]string{
 		"/path/to/helmfile.yaml": fmt.Sprintf(`
 helmDefaults:
