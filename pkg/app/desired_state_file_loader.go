@@ -276,7 +276,6 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 					finalState.Releases[i].PostRendererArgs = finalState.HelmDefaults.PostRendererArgs
 				}
 			}
-			finalState.HelmDefaults.PostRendererArgs = nil
 		}
 		env = &finalState.Env
 

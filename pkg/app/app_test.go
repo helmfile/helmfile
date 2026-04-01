@@ -2927,6 +2927,156 @@ releases:
 	}
 }
 
+func TestTemplate_HelmDefaultsPostRendererArgsFromDefaults(t *testing.T) {
+	postRenderer := "foo.sh"
+	files := map[string]string{
+		"/path/to/helmfile.yaml": fmt.Sprintf(`
+helmDefaults:
+  postRenderer: %s
+  postRendererArgs:
+    - --arg1
+    - --arg2
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+`, postRenderer),
+	}
+
+	var helm = &mockHelmExec{}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", "default"): helm,
+		},
+		valsRuntime: valsRuntime,
+	}, files)
+
+	if err := app.Template(configImpl{}); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	if len(helm.templated) != 1 {
+		t.Fatalf("expected 1 release, got %d", len(helm.templated))
+	}
+
+	flags := helm.templated[0].flags
+	hasPostRenderer := false
+	hasPostRendererArg1 := false
+	hasPostRendererArg2 := false
+	for i, f := range flags {
+		if f == "--post-renderer" && i+1 < len(flags) && flags[i+1] == postRenderer {
+			hasPostRenderer = true
+		}
+		if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg1" {
+			hasPostRendererArg1 = true
+		}
+		if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg2" {
+			hasPostRendererArg2 = true
+		}
+	}
+
+	if !hasPostRenderer {
+		t.Errorf("expected --post-renderer %s in flags, got %v", postRenderer, flags)
+	}
+	if !hasPostRendererArg1 {
+		t.Errorf("expected --post-renderer-args --arg1 in flags, got %v", flags)
+	}
+	if !hasPostRendererArg2 {
+		t.Errorf("expected --post-renderer-args --arg2 in flags, got %v", flags)
+	}
+}
+
+func TestTemplate_HelmDefaultsPostRendererArgsMultiDoc(t *testing.T) {
+	postRenderer := "foo.sh"
+	files := map[string]string{
+		"/path/to/helmfile.yaml": fmt.Sprintf(`
+helmDefaults:
+  postRenderer: %s
+  postRendererArgs:
+    - --arg1
+    - --arg2
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+`, postRenderer),
+	}
+
+	var helm = &mockHelmExec{}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", "default"): helm,
+		},
+		valsRuntime: valsRuntime,
+	}, files)
+
+	if err := app.Template(configImpl{}); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	if len(helm.templated) != 1 {
+		t.Fatalf("expected 1 release, got %d", len(helm.templated))
+	}
+
+	flags := helm.templated[0].flags
+	hasPostRenderer := false
+	hasPostRendererArg1 := false
+	hasPostRendererArg2 := false
+	for i, f := range flags {
+		if f == "--post-renderer" && i+1 < len(flags) && flags[i+1] == postRenderer {
+			hasPostRenderer = true
+		}
+		if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg1" {
+			hasPostRendererArg1 = true
+		}
+		if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg2" {
+			hasPostRendererArg2 = true
+		}
+	}
+
+	if !hasPostRenderer {
+		t.Errorf("expected --post-renderer %s in flags, got %v", postRenderer, flags)
+	}
+	if !hasPostRendererArg1 {
+		t.Errorf("expected --post-renderer-args --arg1 in flags, got %v", flags)
+	}
+	if !hasPostRendererArg2 {
+		t.Errorf("expected --post-renderer-args --arg2 in flags, got %v", flags)
+	}
+}
+
 func TestApply(t *testing.T) {
 	type fields struct {
 		skipNeeds    bool
