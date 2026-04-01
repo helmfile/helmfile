@@ -527,15 +527,20 @@ dependencies:
 		t.Fatalf("failed to write Chart.yaml: %v", err)
 	}
 
-	// Run multiple goroutines concurrently on the same chart path
+	// Run multiple goroutines concurrently on the same chart path.
+	// A start barrier ensures all goroutines attempt rewriteChartDependencies simultaneously.
 	numGoroutines := 10
 	var wg sync.WaitGroup
 	errCh := make(chan error, numGoroutines)
+	ready := make(chan struct{})
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
+			// Wait until all goroutines are ready so they start simultaneously.
+			<-ready
 
 			logger := zap.NewNop().Sugar()
 			st := &HelmState{
@@ -551,6 +556,9 @@ dependencies:
 			defer cleanup()
 		}()
 	}
+
+	// Release all goroutines at once to maximize contention.
+	close(ready)
 
 	wg.Wait()
 	close(errCh)

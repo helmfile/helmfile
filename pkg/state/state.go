@@ -1407,28 +1407,6 @@ type PrepareChartKey struct {
 	Namespace, Name, KubeContext string
 }
 
-// PrepareCharts creates temporary directories of charts.
-//
-// Each resulting "chart" can be one of the followings:
-//
-// (1) local chart
-// (2) temporary local chart generated from kustomization or manifests
-// (3) remote chart
-//
-// When running `helmfile template` on helm v2, or `helmfile lint` on both helm v2 and v3,
-// PrepareCharts will download and untar charts for linting and templating.
-var chartDepsMutexMap sync.Map
-
-func (st *HelmState) getChartDepsMutex(chartPath string) *sync.Mutex {
-	mu, ok := chartDepsMutexMap.Load(chartPath)
-	if ok {
-		return mu.(*sync.Mutex)
-	}
-	newMu := &sync.Mutex{}
-	actualMu, _ := chartDepsMutexMap.LoadOrStore(chartPath, newMu)
-	return actualMu.(*sync.Mutex)
-}
-
 // rewriteChartDependencies rewrites relative file:// dependencies in Chart.yaml to absolute paths
 // to ensure they can be resolved from chartify's temporary directory
 func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) {
@@ -1439,7 +1417,8 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		return func() {}, nil
 	}
 
-	mu := st.getChartDepsMutex(chartPath)
+	// Reuse the existing per-path RWMutex for exclusive access to the chart directory.
+	mu := st.getNamedRWMutex(chartPath)
 	mu.Lock()
 
 	// Read Chart.yaml
@@ -1508,6 +1487,10 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		}
 
 		if err := os.WriteFile(chartYamlPath, updatedData, 0644); err != nil {
+			// File may be truncated/partially written; restore original content before releasing the lock.
+			if restoreErr := os.WriteFile(chartYamlPath, originalContent, 0644); restoreErr != nil {
+				st.logger.Warnf("Failed to restore Chart.yaml at %s after write error (%v): %v", chartYamlPath, err, restoreErr)
+			}
 			mu.Unlock()
 			return func() {}, fmt.Errorf("failed to write Chart.yaml: %w", err)
 		}
