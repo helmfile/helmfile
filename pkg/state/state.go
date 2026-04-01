@@ -3594,6 +3594,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
 	flags = st.appendHelmXFlags(flags, release)
+    flags = st.appendEnableDNSFlags(flags, release)
 
 	var postRendererArgs []string
 	var showOnly []string
