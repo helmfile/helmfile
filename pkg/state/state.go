@@ -1408,7 +1408,10 @@ type PrepareChartKey struct {
 }
 
 // rewriteChartDependencies rewrites relative file:// dependencies in Chart.yaml to absolute paths
-// to ensure they can be resolved from chartify's temporary directory
+// to ensure they can be resolved from chartify's temporary directory.
+// When the file is actually rewritten the returned cleanup function restores the original content
+// and releases the per-chart mutex; when no rewrite is needed a no-op cleanup is returned and the
+// mutex is never held past this call.
 func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) {
 	chartYamlPath := filepath.Join(chartPath, "Chart.yaml")
 
@@ -1427,15 +1430,7 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		mu.Unlock()
 		return func() {}, err
 	}
-
 	originalContent := data
-	cleanup := func() {
-		// Restore original Chart.yaml
-		if err := os.WriteFile(chartYamlPath, originalContent, 0644); err != nil {
-			st.logger.Warnf("Failed to restore original Chart.yaml at %s: %v", chartYamlPath, err)
-		}
-		mu.Unlock()
-	}
 
 	// Parse Chart.yaml
 	type ChartDependency struct {
@@ -1449,7 +1444,7 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 	}
 
 	var chartMeta ChartMeta
-	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
+	if err := yaml.Unmarshal(originalContent, &chartMeta); err != nil {
 		mu.Unlock()
 		return func() {}, err
 	}
@@ -1478,27 +1473,36 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		}
 	}
 
-	// Write back if modified
-	if modified {
-		updatedData, err := yaml.Marshal(&chartMeta)
-		if err != nil {
-			mu.Unlock()
-			return func() {}, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
-		}
-
-		if err := os.WriteFile(chartYamlPath, updatedData, 0644); err != nil {
-			// File may be truncated/partially written; restore original content before releasing the lock.
-			if restoreErr := os.WriteFile(chartYamlPath, originalContent, 0644); restoreErr != nil {
-				st.logger.Warnf("Failed to restore Chart.yaml at %s after write error (%v): %v", chartYamlPath, err, restoreErr)
-			}
-			mu.Unlock()
-			return func() {}, fmt.Errorf("failed to write Chart.yaml: %w", err)
-		}
-
-		st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", chartYamlPath)
+	// If nothing changed, release the lock immediately – no file I/O or lock held by caller needed.
+	if !modified {
+		mu.Unlock()
+		return func() {}, nil
 	}
 
-	return cleanup, nil
+	updatedData, err := yaml.Marshal(&chartMeta)
+	if err != nil {
+		mu.Unlock()
+		return func() {}, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
+	}
+
+	if err := os.WriteFile(chartYamlPath, updatedData, 0644); err != nil {
+		// File may be truncated/partially written; restore original content before releasing the lock.
+		if restoreErr := os.WriteFile(chartYamlPath, originalContent, 0644); restoreErr != nil {
+			st.logger.Warnf("Failed to restore Chart.yaml at %s after write error (%v): %v", chartYamlPath, err, restoreErr)
+		}
+		mu.Unlock()
+		return func() {}, fmt.Errorf("failed to write Chart.yaml: %w", err)
+	}
+
+	st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", chartYamlPath)
+
+	// Return cleanup that restores original content and releases the lock.
+	return func() {
+		if restoreErr := os.WriteFile(chartYamlPath, originalContent, 0644); restoreErr != nil {
+			st.logger.Warnf("Failed to restore original Chart.yaml at %s: %v", chartYamlPath, restoreErr)
+		}
+		mu.Unlock()
+	}, nil
 }
 
 // Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.

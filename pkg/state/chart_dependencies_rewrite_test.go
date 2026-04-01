@@ -599,7 +599,9 @@ dependencies:
 	if chartMeta.Dependencies[0].Name != "dep1" {
 		t.Errorf("expected dependency name 'dep1', got %q", chartMeta.Dependencies[0].Name)
 	}
-	if !strings.HasPrefix(chartMeta.Dependencies[0].Repository, "file://") {
-		t.Errorf("expected dependency repository to start with 'file://', got %q", chartMeta.Dependencies[0].Repository)
+	// The cleanup from each goroutine must have restored the original relative path.
+	const wantRepository = "file://../relative-chart"
+	if chartMeta.Dependencies[0].Repository != wantRepository {
+		t.Errorf("expected dependency repository %q (original relative path), got %q", wantRepository, chartMeta.Dependencies[0].Repository)
 	}
 }
