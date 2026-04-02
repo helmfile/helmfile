@@ -2222,6 +2222,8 @@ type configImpl struct {
 	enforceNeedsAreInstalled bool
 	skipCharts               bool
 	kubeVersion              string
+	postRenderer             string
+	postRendererArgs         []string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2309,11 +2311,11 @@ func (c configImpl) SkipCharts() bool {
 }
 
 func (c configImpl) PostRenderer() string {
-	return ""
+	return c.postRenderer
 }
 
 func (c configImpl) PostRendererArgs() []string {
-	return nil
+	return c.postRendererArgs
 }
 
 func (c configImpl) KubeVersion() string {
@@ -2927,12 +2929,16 @@ releases:
 	}
 }
 
-func TestTemplate_HelmDefaultsPostRendererArgsFromDefaults(t *testing.T) {
-	postRenderer := "foo"
-	files := map[string]string{
-		"/path/to/helmfile.yaml": fmt.Sprintf(`
+func TestTemplate_HelmDefaultsPostRendererArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
 helmDefaults:
-  postRenderer: %s
+  postRenderer: foo
   postRendererArgs:
     - --arg1
     - --arg2
@@ -2940,74 +2946,13 @@ helmDefaults:
 releases:
 - name: myrelease
   chart: stable/mychart
-`, postRenderer),
-	}
-
-	var helm = &mockHelmExec{}
-
-	var buffer bytes.Buffer
-	syncWriter := testhelper.NewSyncWriter(&buffer)
-	logger := helmexec.NewLogger(syncWriter, "debug")
-
-	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
-	if err != nil {
-		t.Fatalf("unexpected error creating vals runtime: %v", err)
-	}
-
-	app := appWithFs(&App{
-		OverrideHelmBinary:              DefaultHelmBinary,
-		fs:                              ffs.DefaultFileSystem(),
-		OverrideKubeContext:             "default",
-		DisableKubeVersionAutoDetection: true,
-		Env:                             "default",
-		Logger:                          logger,
-		helms: map[helmKey]helmexec.Interface{
-			createHelmKey("helm", "default"): helm,
+`,
 		},
-		valsRuntime: valsRuntime,
-	}, files)
-
-	if err := app.Template(configImpl{}); err != nil {
-		t.Fatalf("%v", err)
-	}
-
-	if len(helm.templated) != 1 {
-		t.Fatalf("expected 1 release, got %d", len(helm.templated))
-	}
-
-	flags := helm.templated[0].flags
-	hasPostRenderer := false
-	hasPostRendererArg1 := false
-	hasPostRendererArg2 := false
-	for i, f := range flags {
-		if f == "--post-renderer" && i+1 < len(flags) && flags[i+1] == postRenderer {
-			hasPostRenderer = true
-		}
-		if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg1" {
-			hasPostRendererArg1 = true
-		}
-		if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg2" {
-			hasPostRendererArg2 = true
-		}
-	}
-
-	if !hasPostRenderer {
-		t.Errorf("expected --post-renderer %s in flags, got %v", postRenderer, flags)
-	}
-	if !hasPostRendererArg1 {
-		t.Errorf("expected --post-renderer-args --arg1 in flags, got %v", flags)
-	}
-	if !hasPostRendererArg2 {
-		t.Errorf("expected --post-renderer-args --arg2 in flags, got %v", flags)
-	}
-}
-
-func TestTemplate_HelmDefaultsPostRendererArgsMultiDoc(t *testing.T) {
-	postRenderer := "foo"
-	files := map[string]string{
-		"/path/to/helmfile.yaml": fmt.Sprintf(`
+		{
+			name: "multi-doc",
+			content: `
 helmDefaults:
-  postRenderer: %s
+  postRenderer: foo
   postRendererArgs:
     - --arg1
     - --arg2
@@ -3015,65 +2960,164 @@ helmDefaults:
 releases:
 - name: myrelease
   chart: stable/mychart
-`, postRenderer),
-	}
-
-	var helm = &mockHelmExec{}
-
-	var buffer bytes.Buffer
-	syncWriter := testhelper.NewSyncWriter(&buffer)
-	logger := helmexec.NewLogger(syncWriter, "debug")
-
-	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
-	if err != nil {
-		t.Fatalf("unexpected error creating vals runtime: %v", err)
-	}
-
-	app := appWithFs(&App{
-		OverrideHelmBinary:              DefaultHelmBinary,
-		fs:                              ffs.DefaultFileSystem(),
-		OverrideKubeContext:             "default",
-		DisableKubeVersionAutoDetection: true,
-		Env:                             "default",
-		Logger:                          logger,
-		helms: map[helmKey]helmexec.Interface{
-			createHelmKey("helm", "default"): helm,
+`,
 		},
-		valsRuntime: valsRuntime,
-	}, files)
-
-	if err := app.Template(configImpl{}); err != nil {
-		t.Fatalf("%v", err)
 	}
 
-	if len(helm.templated) != 1 {
-		t.Fatalf("expected 1 release, got %d", len(helm.templated))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			files := map[string]string{"/path/to/helmfile.yaml": tt.content}
+			var helm = &mockHelmExec{}
+
+			var buffer bytes.Buffer
+			syncWriter := testhelper.NewSyncWriter(&buffer)
+			logger := helmexec.NewLogger(syncWriter, "debug")
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Fatalf("unexpected error creating vals runtime: %v", err)
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              ffs.DefaultFileSystem(),
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			if err := app.Template(configImpl{}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			hasPostRenderer := false
+			hasPostRendererArg1 := false
+			hasPostRendererArg2 := false
+			for i, f := range flags {
+				if f == "--post-renderer" && i+1 < len(flags) && flags[i+1] == "foo" {
+					hasPostRenderer = true
+				}
+				if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg1" {
+					hasPostRendererArg1 = true
+				}
+				if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg2" {
+					hasPostRendererArg2 = true
+				}
+			}
+
+			if !hasPostRenderer {
+				t.Errorf("expected --post-renderer foo in flags, got %v", flags)
+			}
+			if !hasPostRendererArg1 {
+				t.Errorf("expected --post-renderer-args --arg1 in flags, got %v", flags)
+			}
+			if !hasPostRendererArg2 {
+				t.Errorf("expected --post-renderer-args --arg2 in flags, got %v", flags)
+			}
+		})
+	}
+}
+
+func TestTemplate_CLIPostRendererArgsOverridesHelmDefaults(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --default-arg
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+		{
+			name: "multi-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --default-arg
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
 	}
 
-	flags := helm.templated[0].flags
-	hasPostRenderer := false
-	hasPostRendererArg1 := false
-	hasPostRendererArg2 := false
-	for i, f := range flags {
-		if f == "--post-renderer" && i+1 < len(flags) && flags[i+1] == postRenderer {
-			hasPostRenderer = true
-		}
-		if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg1" {
-			hasPostRendererArg1 = true
-		}
-		if f == "--post-renderer-args" && i+1 < len(flags) && flags[i+1] == "--arg2" {
-			hasPostRendererArg2 = true
-		}
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			files := map[string]string{"/path/to/helmfile.yaml": tt.content}
+			var helm = &mockHelmExec{}
 
-	if !hasPostRenderer {
-		t.Errorf("expected --post-renderer %s in flags, got %v", postRenderer, flags)
-	}
-	if !hasPostRendererArg1 {
-		t.Errorf("expected --post-renderer-args --arg1 in flags, got %v", flags)
-	}
-	if !hasPostRendererArg2 {
-		t.Errorf("expected --post-renderer-args --arg2 in flags, got %v", flags)
+			var buffer bytes.Buffer
+			syncWriter := testhelper.NewSyncWriter(&buffer)
+			logger := helmexec.NewLogger(syncWriter, "debug")
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Fatalf("unexpected error creating vals runtime: %v", err)
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              ffs.DefaultFileSystem(),
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			// CLI provides --post-renderer-args which should override helmDefaults.postRendererArgs
+			if err := app.Template(configImpl{postRendererArgs: []string{"--cli-arg"}}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			hasCliArg := false
+			hasDefaultArg := false
+			for i, f := range flags {
+				if f == "--post-renderer-args" && i+1 < len(flags) {
+					if flags[i+1] == "--cli-arg" {
+						hasCliArg = true
+					}
+					if flags[i+1] == "--default-arg" {
+						hasDefaultArg = true
+					}
+				}
+			}
+
+			if !hasCliArg {
+				t.Errorf("expected --post-renderer-args --cli-arg in flags (CLI should override helmDefaults), got %v", flags)
+			}
+			if hasDefaultArg {
+				t.Errorf("unexpected --post-renderer-args --default-arg in flags (CLI should override helmDefaults), got %v", flags)
+			}
+		})
 	}
 }
 
