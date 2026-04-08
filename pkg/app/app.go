@@ -668,7 +668,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var listErr error
 
 		if !c.SkipCharts() {
-			prepErr := run.withPreparedCharts("list", state.ChartPrepareOptions{
+			prepErr := run.WithPreparedCharts("list", state.ChartPrepareOptions{
 				AllowPartialErrors: true,
 				SkipRepos:          true,
 				SkipDeps:           true,
@@ -2119,7 +2119,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	return true, errs
 }
 
-func (a *App) SyncRun(r *Run, c SyncConfigProvider) (bool, []error) {
+func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
