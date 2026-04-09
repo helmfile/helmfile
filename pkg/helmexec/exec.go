@@ -719,9 +719,14 @@ func writeRenderedManifests(outputDir string, content []byte) error {
 		return nil
 	}
 
-	// Split on the YAML document separator.  Helm emits "---\n" between
-	// documents; trim leading/trailing whitespace from each chunk.
-	rawDocs := bytes.Split(content, []byte("\n---"))
+	// Helm emits a leading "---\n" before the first document and uses "\n---\n"
+	// as the separator between subsequent documents.  Strip the leading marker
+	// first so that the initial chunk after splitting is a bare document body,
+	// not an empty string followed by the first document.
+	content = bytes.TrimPrefix(content, []byte("---\n"))
+
+	// Split on the YAML document separator.
+	rawDocs := bytes.Split(content, []byte("\n---\n"))
 
 	// fileContents maps relative path → accumulated YAML content.
 	fileContents := make(map[string][]byte)
@@ -771,17 +776,17 @@ func writeRenderedManifests(outputDir string, content []byte) error {
 	// Write unsourced documents (e.g. injected by a post-renderer) to a
 	// single fallback file.
 	if len(unsourced) > 0 {
-		var combined []byte
+		var combined bytes.Buffer
 		for _, doc := range unsourced {
-			combined = append(combined, []byte("---\n")...)
-			combined = append(combined, doc...)
-			combined = append(combined, '\n')
+			combined.WriteString("---\n")
+			combined.Write(doc)
+			combined.WriteByte('\n')
 		}
 		fallback := filepath.Join(outputDir, "manifest.yaml")
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			return fmt.Errorf("failed to create output directory %s: %w", outputDir, err)
 		}
-		if err := os.WriteFile(fallback, combined, 0644); err != nil {
+		if err := os.WriteFile(fallback, combined.Bytes(), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", fallback, err)
 		}
 	}
