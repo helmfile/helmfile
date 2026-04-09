@@ -115,6 +115,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/yaml-overwrite.sh
 . ${dir}/test-cases/chart-needs.sh
 . ${dir}/test-cases/postrender.sh
+. ${dir}/test-cases/issue-2515.sh
 . ${dir}/test-cases/chartify.sh
 . ${dir}/test-cases/deps-mr-1011.sh
 . ${dir}/test-cases/deps-kustomization-i-1402.sh

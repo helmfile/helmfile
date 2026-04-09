@@ -1,0 +1,13 @@
+releases:
+- name: issue-2515
+  chart: ../../charts/raw
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: original-cm
+        namespace: {{ .Release.Namespace }}
+      data:
+        key: value
