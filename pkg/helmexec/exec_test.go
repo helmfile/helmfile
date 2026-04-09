@@ -1255,6 +1255,46 @@ exec: helm --kubeconfig config --kube-context dev template release https://examp
 	}
 }
 
+func Test_Template_PostRendererWithOutputDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+
+	runner := &mockRunner{output: []byte("apiVersion: v1\nkind: Namespace\n")}
+	helm, err := New("helm", HelmExecOptions{}, logger, "config", "dev", runner)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	err = helm.TemplateRelease("myrelease", "path/to/chart",
+		"--post-renderer", "/bin/echo",
+		"--output-dir", tmpDir,
+		"--values", "file.yml",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	outputPath := filepath.Join(tmpDir, "myrelease.yaml")
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("expected output file %s to exist: %v", outputPath, err)
+	}
+
+	expected := "apiVersion: v1\nkind: Namespace\n\n"
+	if string(data) != expected {
+		t.Errorf("output file content:\nactual=%q\nexpect=%q", string(data), expected)
+	}
+
+	outputLog := buffer.String()
+	if strings.Contains(outputLog, "--output-dir") {
+		t.Errorf("helm should NOT have been called with --output-dir, got: %s", outputLog)
+	}
+	if !strings.Contains(outputLog, "--post-renderer") {
+		t.Errorf("helm should have been called with --post-renderer, got: %s", outputLog)
+	}
+}
+
 func Test_IsHelm3(t *testing.T) {
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
 	helm, err := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm3Runner)

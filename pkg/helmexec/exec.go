@@ -646,16 +646,54 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedURL(chart))
 	args := []string{"template", name, chart}
 
-	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
-
 	var outputToFile bool
+	var hasPostRenderer bool
 
 	for _, f := range flags {
 		if strings.HasPrefix("--output-dir", f) {
 			outputToFile = true
-			break
+		}
+		if f == "--post-renderer" {
+			hasPostRenderer = true
 		}
 	}
+
+	if outputToFile && hasPostRenderer {
+		// Helm does not apply --post-renderer to files written by --output-dir.
+		// It writes pre-post-renderer content to files and sends post-renderer output to stdout.
+		// Workaround: run without --output-dir, capture stdout (with post-renderer applied),
+		// and write the output to the output directory ourselves.
+		var outputDir string
+		filteredFlags := make([]string, 0, len(flags))
+		for i := 0; i < len(flags); i++ {
+			if flags[i] == "--output-dir" && i+1 < len(flags) {
+				outputDir = flags[i+1]
+				i++
+				continue
+			}
+			if strings.HasPrefix(flags[i], "--output-dir=") {
+				outputDir = strings.TrimPrefix(flags[i], "--output-dir=")
+				continue
+			}
+			filteredFlags = append(filteredFlags, flags[i])
+		}
+
+		out, err := helm.exec(append(args, filteredFlags...), map[string]string{}, nil)
+		if err != nil {
+			return err
+		}
+
+		if len(out) > 0 {
+			outputPath := filepath.Join(outputDir, name+".yaml")
+			if writeErr := os.WriteFile(outputPath, append(out, '\n'), 0644); writeErr != nil {
+				return writeErr
+			}
+			helm.logger.Debugf("Wrote post-renderer output to %s", outputPath)
+		}
+		return nil
+	}
+
+	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
 	if outputToFile {
 		// With --output-dir is passed to helm-template,
