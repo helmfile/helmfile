@@ -646,33 +646,147 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedURL(chart))
 	args := []string{"template", name, chart}
 
-	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
-
-	var outputToFile bool
-
-	for _, f := range flags {
-		if strings.HasPrefix("--output-dir", f) {
-			outputToFile = true
-			break
+	// Scan flags to detect --output-dir and --post-renderer.
+	var outputDir string
+	var hasPostRenderer bool
+	for i, f := range flags {
+		if f == "--output-dir" && i+1 < len(flags) {
+			outputDir = flags[i+1]
+		}
+		if f == "--post-renderer" {
+			hasPostRenderer = true
 		}
 	}
 
-	if outputToFile {
-		// With --output-dir is passed to helm-template,
+	outputToFile := outputDir != ""
+
+	// When both --output-dir and --post-renderer are used, Helm writes template
+	// files to the output directory before invoking the post-renderer, which
+	// means the post-renderer never sees the rendered manifests and the files
+	// contain unprocessed (pre-post-renderer) content.
+	//
+	// To work around this, we strip --output-dir from the flags so that Helm
+	// sends all rendered manifests through the post-renderer to stdout, and
+	// then we write the post-rendered output to the output directory ourselves,
+	// recreating the file-per-template structure using the "# Source:" comment
+	// that Helm embeds in each rendered document.
+	if outputToFile && hasPostRenderer {
+		var filteredFlags []string
+		for i := 0; i < len(flags); i++ {
+			if flags[i] == "--output-dir" {
+				i++ // skip the path value as well
+				continue
+			}
+			filteredFlags = append(filteredFlags, flags[i])
+		}
+		flags = filteredFlags
+	}
+
+	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
+
+	switch {
+	case outputToFile && hasPostRenderer:
+		// Write the post-rendered manifests to the output directory.
+		if writeErr := writeRenderedManifests(outputDir, out); writeErr != nil {
+			return fmt.Errorf("failed to write post-rendered templates to output dir %s: %w", outputDir, writeErr)
+		}
+	case outputToFile:
+		// With --output-dir passed to helm-template,
 		// we can safely direct all the logs from it to our logger.
 		//
 		// It's safe because anything written to stdout by helm-template with output-dir is logs,
 		// like excessive `wrote path/to/output/dir/chart/template/file.yaml` messages,
-		// but manifets.
+		// but not manifests.
 		//
 		// See https://github.com/roboll/helmfile/pull/1691#issuecomment-805636021 for more information.
 		helm.info(out)
-	} else {
+	default:
 		// Always write to stdout for use with e.g. `helmfile template | kubectl apply -f -`
 		helm.write(nil, out)
 	}
 
 	return err
+}
+
+// writeRenderedManifests writes YAML manifests to the output directory.
+// It splits the rendered output by "# Source:" comments to recreate the
+// per-template file structure that Helm's --output-dir normally provides.
+// Documents that do not carry a "# Source:" comment (e.g. resources added
+// by a post-renderer) are collected and written to a single fallback file
+// named "manifest.yaml" at the root of the output directory.
+func writeRenderedManifests(outputDir string, content []byte) error {
+	if len(content) == 0 {
+		return nil
+	}
+
+	// Split on the YAML document separator.  Helm emits "---\n" between
+	// documents; trim leading/trailing whitespace from each chunk.
+	rawDocs := bytes.Split(content, []byte("\n---"))
+
+	// fileContents maps relative path → accumulated YAML content.
+	fileContents := make(map[string][]byte)
+	// fileOrder preserves insertion order so output is deterministic.
+	var fileOrder []string
+	var unsourced [][]byte
+
+	for _, raw := range rawDocs {
+		doc := bytes.TrimSpace(raw)
+		if len(doc) == 0 {
+			continue
+		}
+
+		// Look for a "# Source: <path>" comment on any line of the document.
+		var sourcePath string
+		for _, line := range bytes.Split(doc, []byte("\n")) {
+			if bytes.HasPrefix(line, []byte("# Source: ")) {
+				sourcePath = string(bytes.TrimSpace(bytes.TrimPrefix(line, []byte("# Source: "))))
+				break
+			}
+		}
+
+		if sourcePath != "" {
+			if _, seen := fileContents[sourcePath]; !seen {
+				fileOrder = append(fileOrder, sourcePath)
+				fileContents[sourcePath] = append([]byte("---\n"), doc...)
+			} else {
+				fileContents[sourcePath] = append(fileContents[sourcePath], []byte("\n---\n")...)
+				fileContents[sourcePath] = append(fileContents[sourcePath], doc...)
+			}
+		} else {
+			unsourced = append(unsourced, doc)
+		}
+	}
+
+	// Write per-source files.
+	for _, relPath := range fileOrder {
+		fullPath := filepath.Join(outputDir, relPath)
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for %s: %w", fullPath, err)
+		}
+		if err := os.WriteFile(fullPath, fileContents[relPath], 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", fullPath, err)
+		}
+	}
+
+	// Write unsourced documents (e.g. injected by a post-renderer) to a
+	// single fallback file.
+	if len(unsourced) > 0 {
+		var combined []byte
+		for _, doc := range unsourced {
+			combined = append(combined, []byte("---\n")...)
+			combined = append(combined, doc...)
+			combined = append(combined, '\n')
+		}
+		fallback := filepath.Join(outputDir, "manifest.yaml")
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return fmt.Errorf("failed to create output directory %s: %w", outputDir, err)
+		}
+		if err := os.WriteFile(fallback, combined, 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", fallback, err)
+		}
+	}
+
+	return nil
 }
 
 func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace string, suppressDiff bool, flags ...string) error {

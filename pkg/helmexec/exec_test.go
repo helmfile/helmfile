@@ -1255,6 +1255,76 @@ exec: helm --kubeconfig config --kube-context dev template release https://examp
 	}
 }
 
+func Test_WriteRenderedManifests(t *testing.T) {
+	t.Run("sourced documents are written to per-file paths", func(t *testing.T) {
+		dir := t.TempDir()
+		content := []byte("---\n# Source: chart/templates/deployment.yaml\napiVersion: apps/v1\nkind: Deployment\n\n---\n# Source: chart/templates/service.yaml\napiVersion: v1\nkind: Service\n")
+		require.NoError(t, writeRenderedManifests(dir, content))
+
+		deployment, err := os.ReadFile(filepath.Join(dir, "chart/templates/deployment.yaml"))
+		require.NoError(t, err)
+		require.Contains(t, string(deployment), "kind: Deployment")
+
+		service, err := os.ReadFile(filepath.Join(dir, "chart/templates/service.yaml"))
+		require.NoError(t, err)
+		require.Contains(t, string(service), "kind: Service")
+	})
+
+	t.Run("documents without Source comment are written to manifest.yaml", func(t *testing.T) {
+		dir := t.TempDir()
+		content := []byte("---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: prometheus\n")
+		require.NoError(t, writeRenderedManifests(dir, content))
+
+		manifest, err := os.ReadFile(filepath.Join(dir, "manifest.yaml"))
+		require.NoError(t, err)
+		require.Contains(t, string(manifest), "kind: Namespace")
+	})
+
+	t.Run("empty content is a no-op", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, writeRenderedManifests(dir, nil))
+		require.NoError(t, writeRenderedManifests(dir, []byte{}))
+	})
+
+	t.Run("mixed sourced and unsourced documents", func(t *testing.T) {
+		dir := t.TempDir()
+		content := []byte("---\n# Source: chart/templates/deployment.yaml\napiVersion: apps/v1\nkind: Deployment\n\n---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: added-by-post-renderer\n")
+		require.NoError(t, writeRenderedManifests(dir, content))
+
+		deployment, err := os.ReadFile(filepath.Join(dir, "chart/templates/deployment.yaml"))
+		require.NoError(t, err)
+		require.Contains(t, string(deployment), "kind: Deployment")
+
+		manifest, err := os.ReadFile(filepath.Join(dir, "manifest.yaml"))
+		require.NoError(t, err)
+		require.Contains(t, string(manifest), "kind: Namespace")
+	})
+}
+
+func Test_TemplateRelease_OutputDirWithPostRenderer(t *testing.T) {
+	// When both --output-dir and --post-renderer are specified, TemplateRelease
+	// should strip --output-dir from the flags forwarded to helm so that the
+	// post-renderer actually receives the rendered manifests.
+	outputDir := t.TempDir()
+
+	manifests := "---\n# Source: chart/templates/configmap.yaml\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n"
+	runner := &mockRunner{output: []byte(manifests)}
+	logger := NewLogger(io.Discard, "error")
+	helm, err := New("helm", HelmExecOptions{}, logger, "", "", runner)
+	require.NoError(t, err)
+
+	err = helm.TemplateRelease("release", "chart",
+		"--output-dir", outputDir,
+		"--post-renderer", "./my-post-renderer.sh",
+	)
+	require.NoError(t, err)
+
+	// The file should exist and contain the (mock) post-rendered content.
+	content, err := os.ReadFile(filepath.Join(outputDir, "chart/templates/configmap.yaml"))
+	require.NoError(t, err)
+	require.Contains(t, string(content), "kind: ConfigMap")
+}
+
 func Test_IsHelm3(t *testing.T) {
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
 	helm, err := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm3Runner)
