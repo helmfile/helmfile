@@ -1260,11 +1260,13 @@ func Test_Template_PostRendererWithOutputDir(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 
-	runner := &mockRunner{output: []byte("apiVersion: v1\nkind: Namespace\n")}
+	runner := &mockRunner{}
 	helm, err := New("helm", HelmExecOptions{}, logger, "config", "dev", runner)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
+	runner.output = []byte("apiVersion: v1\nkind: Namespace\n")
 
 	err = helm.TemplateRelease("myrelease", "path/to/chart",
 		"--post-renderer", "/bin/echo",
@@ -1275,7 +1277,7 @@ func Test_Template_PostRendererWithOutputDir(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	outputPath := filepath.Join(tmpDir, "myrelease.yaml")
+	outputPath := filepath.Join(tmpDir, "templates", "myrelease.yaml")
 	data, err := os.ReadFile(outputPath)
 	if err != nil {
 		t.Fatalf("expected output file %s to exist: %v", outputPath, err)

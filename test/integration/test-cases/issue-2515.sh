@@ -17,9 +17,14 @@ else
         --output-dir-template "${issue_2515_output_dir}/{{.Release.Name}}" \
         &> ${issue_2515_tmp}/log || fail "helmfile template should not fail"
 
-    issue_2515_output_file="${issue_2515_output_dir}/issue-2515/issue-2515.yaml"
-    if [ ! -f "${issue_2515_output_file}" ]; then
-        fail "Expected output file ${issue_2515_output_file} to exist"
+    issue_2515_templates_dir="${issue_2515_output_dir}/issue-2515/templates"
+    if [ ! -d "${issue_2515_templates_dir}" ]; then
+        fail "Expected templates directory ${issue_2515_templates_dir} to exist"
+    fi
+
+    issue_2515_output_file=$(find "${issue_2515_templates_dir}" -type f \( -name '*.yaml' -o -name '*.yml' \) | head -n 1)
+    if [ -z "${issue_2515_output_file}" ]; then
+        fail "Expected rendered YAML file under ${issue_2515_templates_dir}"
     fi
 
     if grep -q "original-cm" "${issue_2515_output_file}"; then

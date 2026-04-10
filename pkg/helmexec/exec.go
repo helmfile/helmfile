@@ -650,7 +650,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	var hasPostRenderer bool
 
 	for _, f := range flags {
-		if strings.HasPrefix("--output-dir", f) {
+		if f == "--output-dir" || strings.HasPrefix(f, "--output-dir=") {
 			outputToFile = true
 		}
 		if f == "--post-renderer" {
@@ -678,13 +678,28 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 			filteredFlags = append(filteredFlags, flags[i])
 		}
 
+		if outputDir == "" {
+			return fmt.Errorf("output dir not found for template command")
+		}
+
 		out, err := helm.exec(append(args, filteredFlags...), map[string]string{}, nil)
 		if err != nil {
 			return err
 		}
 
+		templatesDir := filepath.Join(outputDir, "templates")
+		legacyOutputPath := filepath.Join(outputDir, name+".yaml")
+
+		if removeErr := os.Remove(legacyOutputPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return removeErr
+		}
+
 		if len(out) > 0 {
-			outputPath := filepath.Join(outputDir, name+".yaml")
+			if mkdirErr := os.MkdirAll(templatesDir, 0755); mkdirErr != nil {
+				return mkdirErr
+			}
+
+			outputPath := filepath.Join(templatesDir, name+".yaml")
 			if writeErr := os.WriteFile(outputPath, append(out, '\n'), 0644); writeErr != nil {
 				return writeErr
 			}
