@@ -207,11 +207,13 @@ func TestEnvironment_GetMergedValues_Issue2281_SparseArrayMerge(t *testing.T) {
 }
 
 func TestEnvironment_GetMergedValues_Issue2527_ValuesOverrideDefaults(t *testing.T) {
+	// Regression test for https://github.com/helmfile/helmfile/issues/2527:
+	// A boolean false in Values must not be overridden by a true in Defaults.
 	env := &Environment{
 		Name: "test",
 		Defaults: map[string]any{
 			"helmDefaults": map[string]any{
-				"atomic":  false,
+				"atomic":  true,
 				"wait":    true,
 				"timeout": 300,
 			},
@@ -219,7 +221,7 @@ func TestEnvironment_GetMergedValues_Issue2527_ValuesOverrideDefaults(t *testing
 		Values: map[string]any{
 			"appName": "my-app",
 			"helmDefaults": map[string]any{
-				"atomic":  true,
+				"atomic":  false, // explicit false override must survive
 				"wait":    true,
 				"timeout": 300,
 			},
@@ -231,7 +233,7 @@ func TestEnvironment_GetMergedValues_Issue2527_ValuesOverrideDefaults(t *testing
 	require.NoError(t, err)
 
 	hd := mergedValues["helmDefaults"].(map[string]any)
-	assert.Equal(t, true, hd["atomic"], "Values should override Defaults atomic value")
+	assert.Equal(t, false, hd["atomic"], "Values false should override Defaults true for atomic")
 	assert.Equal(t, true, hd["wait"])
 	assert.Equal(t, 300, hd["timeout"])
 }
