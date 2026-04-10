@@ -691,17 +691,17 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		legacyOutputPath := filepath.Join(outputDir, name+".yaml")
 
 		if removeErr := os.Remove(legacyOutputPath); removeErr != nil && !os.IsNotExist(removeErr) {
-			return removeErr
+			return fmt.Errorf("failed to remove legacy output file %s: %w", legacyOutputPath, removeErr)
 		}
 
 		if len(out) > 0 {
 			if mkdirErr := os.MkdirAll(templatesDir, 0755); mkdirErr != nil {
-				return mkdirErr
+				return fmt.Errorf("failed to create templates directory %s: %w", templatesDir, mkdirErr)
 			}
 
 			outputPath := filepath.Join(templatesDir, name+".yaml")
 			if writeErr := os.WriteFile(outputPath, append(out, '\n'), 0644); writeErr != nil {
-				return writeErr
+				return fmt.Errorf("failed to write output file %s: %w", outputPath, writeErr)
 			}
 			helm.logger.Debugf("Wrote post-renderer output to %s", outputPath)
 		}
