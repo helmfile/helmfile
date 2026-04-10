@@ -31,7 +31,7 @@ jobs:
         run: df -h
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.6.2
+          version: v2.11.4
 
   tests:
     runs-on: ubuntu-latest
