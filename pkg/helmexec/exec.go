@@ -256,7 +256,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		if username != "" && password != "" {
 			args = append(args, "--username", username, "--password-stdin")
 			buffer := bytes.Buffer{}
-			buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+			fmt.Fprintf(&buffer, "%s\n", password)
 			out, err = helm.execStdIn(args, map[string]string{}, &buffer)
 		} else {
 			out, err = helm.exec(args, map[string]string{}, nil)
@@ -311,7 +311,7 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 
 	args = append(args, "--username", username, "--password-stdin")
 	buffer := bytes.Buffer{}
-	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+	fmt.Fprintf(&buffer, "%s\n", password)
 
 	helm.logger.Info("Logging in to registry")
 	out, err := helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
