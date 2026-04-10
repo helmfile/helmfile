@@ -21,16 +21,16 @@ func TestLoadOptsDeepCopy(t *testing.T) {
 	require.Equal(t, lOld, lNew, "DeepCopy should return a copy of the LoadOpts struct")
 }
 
-// TestLoadOptsDeepCopyPreservesOverrideValuesAreCLI verifies that DeepCopy
-// preserves the OverrideValuesAreCLI flag which is tagged yaml:"-".
-func TestLoadOptsDeepCopyPreservesOverrideValuesAreCLI(t *testing.T) {
+// TestLoadOptsDeepCopyPreservesOverrideCLISetValues verifies that DeepCopy
+// preserves the OverrideCLISetValues field which is tagged yaml:"-".
+func TestLoadOptsDeepCopyPreservesOverrideCLISetValues(t *testing.T) {
 	lOld := LoadOpts{
 		Selectors:  []string{"test"},
 		CalleePath: "test",
 	}
-	lOld.Environment.OverrideValuesAreCLI = true
+	lOld.Environment.OverrideCLISetValues = []any{map[string]any{"key": "value"}}
 
 	lNew := lOld.DeepCopy()
 
-	require.True(t, lNew.Environment.OverrideValuesAreCLI, "DeepCopy should preserve OverrideValuesAreCLI flag")
+	require.Equal(t, lOld.Environment.OverrideCLISetValues, lNew.Environment.OverrideCLISetValues, "DeepCopy should preserve OverrideCLISetValues field")
 }
