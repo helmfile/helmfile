@@ -206,7 +206,7 @@ func TestEnvironment_GetMergedValues_Issue2281_SparseArrayMerge(t *testing.T) {
 	assert.Equal(t, "cmdline", elem1["anotherThing"])
 }
 
-func TestEnvironment_GetMergedValues_Issue2527_DefaultsOverrideValues(t *testing.T) {
+func TestEnvironment_GetMergedValues_Issue2527_ValuesOverrideDefaults(t *testing.T) {
 	env := &Environment{
 		Name: "test",
 		Defaults: map[string]any{
