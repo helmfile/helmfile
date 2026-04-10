@@ -205,3 +205,33 @@ func TestEnvironment_GetMergedValues_Issue2281_SparseArrayMerge(t *testing.T) {
 	assert.Equal(t, "second thing", elem1["thing"])
 	assert.Equal(t, "cmdline", elem1["anotherThing"])
 }
+
+func TestEnvironment_GetMergedValues_Issue2527_DefaultsOverrideValues(t *testing.T) {
+	env := &Environment{
+		Name: "test",
+		Defaults: map[string]any{
+			"helmDefaults": map[string]any{
+				"atomic":  false,
+				"wait":    true,
+				"timeout": 300,
+			},
+		},
+		Values: map[string]any{
+			"appName": "my-app",
+			"helmDefaults": map[string]any{
+				"atomic":  true,
+				"wait":    true,
+				"timeout": 300,
+			},
+		},
+		CLIOverrides: map[string]any{},
+	}
+
+	mergedValues, err := env.GetMergedValues()
+	require.NoError(t, err)
+
+	hd := mergedValues["helmDefaults"].(map[string]any)
+	assert.Equal(t, true, hd["atomic"], "Values should override Defaults atomic value")
+	assert.Equal(t, true, hd["wait"])
+	assert.Equal(t, 300, hd["timeout"])
+}
