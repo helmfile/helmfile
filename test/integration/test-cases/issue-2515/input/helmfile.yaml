@@ -1,6 +1,6 @@
 releases:
 - name: issue-2515
-  chart: ../../charts/raw
+  chart: ../../../charts/raw
   values:
   - templates:
     - |

@@ -1,4 +1,4 @@
-issue_2515_case_dir="${cases_dir}/issue-2515"
+issue_2515_case_dir="$(cd "${cases_dir}/issue-2515" && pwd)"
 issue_2515_tmp=$(mktemp -d)
 
 if [ "${HELMFILE_HELM4}" = "1" ]; then
