@@ -34,3 +34,20 @@ func TestLoadOptsDeepCopyPreservesOverrideCLISetValues(t *testing.T) {
 
 	require.Equal(t, lOld.Environment.OverrideCLISetValues, lNew.Environment.OverrideCLISetValues, "DeepCopy should preserve OverrideCLISetValues field")
 }
+
+// TestLoadOptsDeepCopyOverrideCLISetValuesIsNotShallow verifies that mutating a
+// map nested inside OverrideCLISetValues on the copy does not affect the
+// original.
+func TestLoadOptsDeepCopyOverrideCLISetValuesIsNotShallow(t *testing.T) {
+	lOld := LoadOpts{}
+	lOld.Environment.OverrideCLISetValues = []any{map[string]any{"key": "original"}}
+
+	lNew := lOld.DeepCopy()
+
+	// Mutate the map inside the copy.
+	lNew.Environment.OverrideCLISetValues[0].(map[string]any)["key"] = "mutated"
+
+	// The original must be unaffected; this fails with a shallow copy.
+	require.Equal(t, "original", lOld.Environment.OverrideCLISetValues[0].(map[string]any)["key"],
+		"mutating the copy's OverrideCLISetValues map must not affect the original (aliasing bug)")
+}
