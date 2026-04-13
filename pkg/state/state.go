@@ -1473,7 +1473,8 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		}
 	}
 
-	// If nothing changed, release the lock immediately – no file I/O or lock held by caller needed.
+	// If nothing changed, release the lock immediately. Chart.yaml has already been read and
+	// unmarshaled above, but no file write is needed and the lock is not held beyond this function.
 	if !modified {
 		mu.Unlock()
 		return func() {}, nil

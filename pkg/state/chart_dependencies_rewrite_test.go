@@ -528,18 +528,22 @@ dependencies:
 	}
 
 	// Run multiple goroutines concurrently on the same chart path.
-	// A start barrier ensures all goroutines attempt rewriteChartDependencies simultaneously.
+	// A readiness WaitGroup ensures all goroutines are blocked before the start barrier is released,
+	// so calls to rewriteChartDependencies overlap as much as possible.
 	numGoroutines := 10
 	var wg sync.WaitGroup
+	var readyWg sync.WaitGroup
 	errCh := make(chan error, numGoroutines)
 	ready := make(chan struct{})
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
+		readyWg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			// Wait until all goroutines are ready so they start simultaneously.
+			// Signal that this goroutine is ready, then wait for the start signal.
+			readyWg.Done()
 			<-ready
 
 			logger := zap.NewNop().Sugar()
@@ -557,7 +561,8 @@ dependencies:
 		}()
 	}
 
-	// Release all goroutines at once to maximize contention.
+	// Wait until all goroutines are ready, then release them simultaneously.
+	readyWg.Wait()
 	close(ready)
 
 	wg.Wait()
