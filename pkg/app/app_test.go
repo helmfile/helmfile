@@ -1283,6 +1283,67 @@ x:
 	}
 }
 
+// TestStateValuesFileArrayReplace verifies that arrays in --state-values-file
+// replace environment default arrays entirely rather than merging element-by-element.
+// Regression test for https://github.com/helmfile/helmfile/issues/2536
+func TestStateValuesFileArrayReplace(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml.gotmpl": `
+environments:
+  default:
+    values:
+    - env-defaults.yaml
+---
+releases:
+- name: {{ .Values.list | join "," }}
+  chart: stable/noop
+`,
+		// Environment default defines a list with two elements
+		"/path/to/env-defaults.yaml": `
+list:
+- first
+- second
+`,
+		// --state-values-file overrides the list with a single element
+		// This should REPLACE the list, not merge element-by-element.
+		"/path/to/overrides.yaml": `
+list:
+- second
+`,
+	}
+
+	actual := []state.ReleaseSpec{}
+	collectReleases := func(run *Run) (bool, []error) {
+		actual = append(actual, run.state.Releases...)
+		return false, []error{}
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Selectors:                       []string{},
+		Env:                             "default",
+		ValuesFiles:                     []string{"overrides.yaml"},
+		FileOrDir:                       "helmfile.yaml.gotmpl",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	err := app.ForEachState(collectReleases, false, SetFilter(true))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actual) != 1 {
+		t.Fatalf("expected 1 release, got %d", len(actual))
+	}
+	// list should be ["second"] (replaced), not ["second","second"] (merged by position)
+	if actual[0].Name != "second" {
+		t.Errorf("expected release name %q (list replaced), got %q (list was merged)", "second", actual[0].Name)
+	}
+}
+
 func TestVisitDesiredStatesWithReleasesFiltered_ChartAtAbsPath(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `

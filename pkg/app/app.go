@@ -1362,14 +1362,12 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir stri
 	for _, v := range a.ValuesFiles {
 		envvals = append(envvals, v)
 	}
-
-	if len(a.Set) > 0 {
-		envvals = append(envvals, a.Set)
-	}
-
 	if len(envvals) > 0 {
 		opts.Environment.OverrideValues = envvals
-		opts.Environment.OverrideValuesAreCLI = true
+	}
+
+	if len(a.Set) > 0 {
+		opts.Environment.OverrideCLISetValues = []any{a.Set}
 	}
 
 	a.remote = remote.NewRemote(a.Logger, "", a.fs)

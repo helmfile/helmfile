@@ -50,30 +50,39 @@ type desiredStateLoader struct {
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
 	var overrodeEnv *environment.Environment
 
-	args := opts.Environment.OverrideValues
+	fileArgs := opts.Environment.OverrideValues
+	setArgs := opts.Environment.OverrideCLISetValues
 
-	if len(args) > 0 {
+	if len(fileArgs) > 0 || len(setArgs) > 0 {
 		if opts.CalleePath == "" {
-			return nil, fmt.Errorf("bug: opts.CalleePath was nil: f=%s, opts=%v", f, opts)
+			return nil, fmt.Errorf("bug: opts.CalleePath was empty: f=%s, opts=%v", f, opts)
 		}
 		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.fs)
 		envld := state.NewEnvironmentValuesLoader(storage, ld.fs, ld.logger, ld.remote)
 		handler := state.MissingFileHandlerError
-		vals, err := envld.LoadEnvironmentValues(&handler, args, environment.New(ld.env), ld.env)
-		if err != nil {
-			return nil, err
+
+		overrodeEnv = &environment.Environment{
+			Name:         ld.env,
+			Values:       map[string]any{},
+			CLIOverrides: map[string]any{},
 		}
 
-		if opts.Environment.OverrideValuesAreCLI {
-			overrodeEnv = &environment.Environment{
-				Name:         ld.env,
-				CLIOverrides: vals,
+		// --state-values-file: loaded into Values so arrays replace (not merge)
+		if len(fileArgs) > 0 {
+			fileVals, err := envld.LoadEnvironmentValues(&handler, fileArgs, environment.New(ld.env), ld.env)
+			if err != nil {
+				return nil, err
 			}
-		} else {
-			overrodeEnv = &environment.Environment{
-				Name:   ld.env,
-				Values: vals,
+			overrodeEnv.Values = fileVals
+		}
+
+		// --state-values-set: loaded into CLIOverrides so arrays merge element-by-element
+		if len(setArgs) > 0 {
+			setVals, err := envld.LoadEnvironmentValues(&handler, setArgs, environment.New(ld.env), ld.env)
+			if err != nil {
+				return nil, err
 			}
+			overrodeEnv.CLIOverrides = setVals
 		}
 	}
 
