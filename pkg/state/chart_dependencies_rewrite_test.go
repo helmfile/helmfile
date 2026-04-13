@@ -4,11 +4,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 func TestRewriteChartDependencies(t *testing.T) {
@@ -501,5 +503,110 @@ dependencies:
 	// The relative path should have been converted to absolute
 	if strings.Contains(content, "file://./subdir/chart") {
 		t.Errorf("relative path with ./ should have been converted")
+	}
+}
+
+func TestRewriteChartDependencies_RaceCondition(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "helmfile-test-")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	chartYaml := `apiVersion: v2
+name: test-chart
+version: 1.0.0
+dependencies:
+  - name: dep1
+    repository: file://../relative-chart
+    version: 1.0.0
+`
+
+	chartYamlPath := filepath.Join(tempDir, "Chart.yaml")
+	if err := os.WriteFile(chartYamlPath, []byte(chartYaml), 0644); err != nil {
+		t.Fatalf("failed to write Chart.yaml: %v", err)
+	}
+
+	// Run multiple goroutines concurrently on the same chart path.
+	// A readiness WaitGroup ensures all goroutines are blocked before the start barrier is released,
+	// so calls to rewriteChartDependencies overlap as much as possible.
+	numGoroutines := 10
+	var wg sync.WaitGroup
+	var readyWg sync.WaitGroup
+	errCh := make(chan error, numGoroutines)
+	ready := make(chan struct{})
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		readyWg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			// Signal that this goroutine is ready, then wait for the start signal.
+			readyWg.Done()
+			<-ready
+
+			logger := zap.NewNop().Sugar()
+			st := &HelmState{
+				logger: logger,
+				fs:     filesystem.DefaultFileSystem(),
+			}
+
+			cleanup, err := st.rewriteChartDependencies(tempDir)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			defer cleanup()
+		}()
+	}
+
+	// Wait until all goroutines are ready, then release them simultaneously.
+	readyWg.Wait()
+	close(ready)
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("goroutine error: %v", err)
+	}
+
+	// Verify Chart.yaml is still valid by unmarshaling and checking expected fields
+	data, err := os.ReadFile(chartYamlPath)
+	if err != nil {
+		t.Fatalf("failed to read Chart.yaml: %v", err)
+	}
+
+	type ChartDependency struct {
+		Name       string `yaml:"name"`
+		Repository string `yaml:"repository"`
+		Version    string `yaml:"version"`
+	}
+	type ChartMeta struct {
+		APIVersion   string            `yaml:"apiVersion"`
+		Name         string            `yaml:"name"`
+		Version      string            `yaml:"version"`
+		Dependencies []ChartDependency `yaml:"dependencies,omitempty"`
+	}
+
+	var chartMeta ChartMeta
+	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
+		t.Fatalf("Chart.yaml is not valid YAML after concurrent rewrites: %v", err)
+	}
+
+	if chartMeta.Name != "test-chart" {
+		t.Errorf("expected chart name 'test-chart', got %q", chartMeta.Name)
+	}
+	if len(chartMeta.Dependencies) != 1 {
+		t.Fatalf("expected 1 dependency, got %d", len(chartMeta.Dependencies))
+	}
+	if chartMeta.Dependencies[0].Name != "dep1" {
+		t.Errorf("expected dependency name 'dep1', got %q", chartMeta.Dependencies[0].Name)
+	}
+	// The cleanup from each goroutine must have restored the original relative path.
+	const wantRepository = "file://../relative-chart"
+	if chartMeta.Dependencies[0].Repository != wantRepository {
+		t.Errorf("expected dependency repository %q (original relative path), got %q", wantRepository, chartMeta.Dependencies[0].Repository)
 	}
 }
