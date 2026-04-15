@@ -3181,7 +3181,7 @@ releases:
 				valsRuntime: valsRuntime,
 			}, files)
 
-			// Release explicitly sets postRendererArgs, CLI also provides --post-renderer-args; release should win
+			// Release explicitly sets postRendererArgs, CLI also provides --post-renderer-args flag; release should win
 			if err := app.Template(configImpl{postRendererArgs: []string{"--cli-arg"}}); err != nil {
 				t.Fatalf("%v", err)
 			}
