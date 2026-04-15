@@ -3121,6 +3121,99 @@ releases:
 	}
 }
 
+func TestTemplate_ReleasePostRendererArgsOverridesCLI(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+  postRendererArgs:
+    - --release-arg
+`,
+		},
+		{
+			name: "multi-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+  postRendererArgs:
+    - --release-arg
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			files := map[string]string{"/path/to/helmfile.yaml": tt.content}
+			var helm = &mockHelmExec{}
+
+			var buffer bytes.Buffer
+			syncWriter := testhelper.NewSyncWriter(&buffer)
+			logger := helmexec.NewLogger(syncWriter, "debug")
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Fatalf("unexpected error creating vals runtime: %v", err)
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              ffs.DefaultFileSystem(),
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			// Release explicitly sets postRendererArgs, CLI also provides --post-renderer-args; release should win
+			if err := app.Template(configImpl{postRendererArgs: []string{"--cli-arg"}}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			hasReleaseArg := false
+			hasCliArg := false
+			for i, f := range flags {
+				if f == "--post-renderer-args" && i+1 < len(flags) {
+					if flags[i+1] == "--release-arg" {
+						hasReleaseArg = true
+					}
+					if flags[i+1] == "--cli-arg" {
+						hasCliArg = true
+					}
+				}
+			}
+
+			if !hasReleaseArg {
+				t.Errorf("expected --post-renderer-args --release-arg in flags (release should override CLI), got %v", flags)
+			}
+			if hasCliArg {
+				t.Errorf("unexpected --post-renderer-args --cli-arg in flags (release should override CLI), got %v", flags)
+			}
+		})
+	}
+}
+
 func TestApply(t *testing.T) {
 	type fields struct {
 		skipNeeds    bool

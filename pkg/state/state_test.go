@@ -977,6 +977,56 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "post-renderer-args-cli-overrides-helmdefault",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"--default-arg"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			syncOpts: &SyncOpts{
+				PostRendererArgs: []string{"--cli-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args", "--cli-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-release-overrides-cli",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"--release-arg"},
+			},
+			syncOpts: &SyncOpts{
+				PostRendererArgs: []string{"--cli-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args", "--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "description-from-release",
 			defaults: HelmSpec{
 				Verify:          false,
@@ -1333,6 +1383,56 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 				Namespace:        "test-namespace",
 				CreateNamespace:  &disable,
 				PostRendererArgs: []string{"--release-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args", "--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-cli-overrides-helmdefault",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"--default-arg"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			templateOpts: TemplateOpts{
+				PostRendererArgs: []string{"--cli-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args", "--cli-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-release-overrides-cli",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"--release-arg"},
+			},
+			templateOpts: TemplateOpts{
+				PostRendererArgs: []string{"--cli-arg"},
 			},
 			want: []string{
 				"--version", "0.1",
