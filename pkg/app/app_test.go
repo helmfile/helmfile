@@ -2283,6 +2283,8 @@ type configImpl struct {
 	enforceNeedsAreInstalled bool
 	skipCharts               bool
 	kubeVersion              string
+	postRenderer             string
+	postRendererArgs         []string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2370,11 +2372,11 @@ func (c configImpl) SkipCharts() bool {
 }
 
 func (c configImpl) PostRenderer() string {
-	return ""
+	return c.postRenderer
 }
 
 func (c configImpl) PostRendererArgs() []string {
-	return nil
+	return c.postRendererArgs
 }
 
 func (c configImpl) KubeVersion() string {
@@ -2985,6 +2987,218 @@ releases:
 				t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
 			}
 		}
+	}
+}
+
+// newPostRendererTestApp creates an App and mockHelmExec wired together from a helmfile YAML content map,
+// suitable for testing post-renderer flag propagation.
+func newPostRendererTestApp(t *testing.T, files map[string]string) (*App, *mockHelmExec) {
+	t.Helper()
+	helm := &mockHelmExec{}
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", "default"): helm,
+		},
+		valsRuntime: valsRuntime,
+	}, files)
+	return app, helm
+}
+
+// hasFlagWithValue reports whether flags contains "--flagName value" as adjacent entries.
+func hasFlagWithValue(flags []string, flagName, value string) bool {
+	for i, f := range flags {
+		if f == flagName && i+1 < len(flags) && flags[i+1] == value {
+			return true
+		}
+	}
+	return false
+}
+
+func TestTemplate_HelmDefaultsPostRendererArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --arg1
+    - --arg2
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+		{
+			name: "multi-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --arg1
+    - --arg2
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, helm := newPostRendererTestApp(t, map[string]string{"/path/to/helmfile.yaml": tt.content})
+
+			if err := app.Template(configImpl{}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			if !hasFlagWithValue(flags, "--post-renderer", "foo") {
+				t.Errorf("expected --post-renderer foo in flags, got %v", flags)
+			}
+			if !hasFlagWithValue(flags, "--post-renderer-args", "--arg1") {
+				t.Errorf("expected --post-renderer-args --arg1 in flags, got %v", flags)
+			}
+			if !hasFlagWithValue(flags, "--post-renderer-args", "--arg2") {
+				t.Errorf("expected --post-renderer-args --arg2 in flags, got %v", flags)
+			}
+		})
+	}
+}
+
+func TestTemplate_CLIPostRendererArgsOverridesHelmDefaults(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --default-arg
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+		{
+			name: "multi-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --default-arg
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, helm := newPostRendererTestApp(t, map[string]string{"/path/to/helmfile.yaml": tt.content})
+
+			// CLI provides --post-renderer-args which should override helmDefaults.postRendererArgs
+			if err := app.Template(configImpl{postRendererArgs: []string{"--cli-arg"}}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			if !hasFlagWithValue(flags, "--post-renderer-args", "--cli-arg") {
+				t.Errorf("expected --post-renderer-args --cli-arg in flags (CLI should override helmDefaults), got %v", flags)
+			}
+			if hasFlagWithValue(flags, "--post-renderer-args", "--default-arg") {
+				t.Errorf("unexpected --post-renderer-args --default-arg in flags (CLI should override helmDefaults), got %v", flags)
+			}
+		})
+	}
+}
+
+func TestTemplate_ReleasePostRendererArgsOverridesCLI(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+  postRendererArgs:
+    - --release-arg
+`,
+		},
+		{
+			name: "multi-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+  postRendererArgs:
+    - --release-arg
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, helm := newPostRendererTestApp(t, map[string]string{"/path/to/helmfile.yaml": tt.content})
+
+			// Release explicitly sets postRendererArgs, CLI also provides --post-renderer-args flag; release should win
+			if err := app.Template(configImpl{postRendererArgs: []string{"--cli-arg"}}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			if !hasFlagWithValue(flags, "--post-renderer-args", "--release-arg") {
+				t.Errorf("expected --post-renderer-args --release-arg in flags (release should override CLI), got %v", flags)
+			}
+			if hasFlagWithValue(flags, "--post-renderer-args", "--cli-arg") {
+				t.Errorf("unexpected --post-renderer-args --cli-arg in flags (release should override CLI), got %v", flags)
+			}
+		})
 	}
 }
 
