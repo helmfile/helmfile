@@ -209,6 +209,16 @@ extra-field: aaa
 				return
 			}
 
+			if tt.expectModified {
+				if rewrittenPath == tempDir {
+					t.Errorf("expected rewrittenPath != tempDir when modifications are needed, got same path")
+				}
+			} else {
+				if rewrittenPath != tempDir {
+					t.Errorf("expected rewrittenPath == tempDir when no modifications are needed, got %q", rewrittenPath)
+				}
+			}
+
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

@@ -1410,15 +1410,18 @@ type PrepareChartKey struct {
 // rewriteChartDependencies rewrites relative file:// dependencies in Chart.yaml to absolute paths
 // to ensure they can be resolved from chartify's temporary directory.
 // Instead of modifying the original chart in-place (which causes race conditions when multiple
-// releases reference the same local chart), it copies the chart to a temporary directory and
-// rewrites the copy. Each call creates a fresh temp copy reflecting the current chart contents,
-// so prepare hooks or other steps that mutate the local chart directory are always honored.
-// The returned cleanup function removes the temporary directory when called.
+// releases reference the same local chart), it creates a temporary copy only when a rewrite is
+// needed and rewrites that copy. When a temp copy is created, it reflects the current chart
+// contents so prepare hooks or other steps that mutate the local chart directory are honored.
+// The returned cleanup function removes the temporary directory when one was created and is
+// otherwise a no-op.
 func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(), error) {
 	chartYamlPath := filepath.Join(chartPath, "Chart.yaml")
 
 	if _, err := st.fs.Stat(chartYamlPath); os.IsNotExist(err) {
 		return chartPath, func() {}, nil
+	} else if err != nil {
+		return chartPath, func() {}, err
 	}
 
 	data, err := st.fs.ReadFile(chartYamlPath)
