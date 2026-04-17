@@ -38,7 +38,7 @@ require (
 	helm.sh/helm/v3 v3.20.2
 	helm.sh/helm/v4 v4.1.4
 	k8s.io/apimachinery v0.35.4
-	k8s.io/client-go v0.35.3
+	k8s.io/client-go v0.35.4
 )
 
 require (
@@ -340,7 +340,7 @@ require (
 	gopkg.in/gookit/color.v1 v1.1.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.35.3 // indirect
+	k8s.io/api v0.35.4 // indirect
 	k8s.io/apiextensions-apiserver v0.35.1 // indirect
 	k8s.io/apiserver v0.35.1 // indirect
 	k8s.io/cli-runtime v0.35.1 // indirect
