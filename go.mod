@@ -26,7 +26,7 @@ require (
 	github.com/tj/assert v0.0.3
 	github.com/variantdev/dag v1.1.0
 	github.com/werf/kubedog-for-werf-helm v0.0.0-20241217155728-9d45c48b82b6
-	github.com/zclconf/go-cty v1.18.0
+	github.com/zclconf/go-cty v1.18.1
 	github.com/zclconf/go-cty-yaml v1.2.0
 	go.szostok.io/version v1.2.0
 	go.uber.org/zap v1.27.1
