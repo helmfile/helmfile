@@ -30,7 +30,7 @@ info "Running helmfile template with 5 releases sharing the same local chart (de
 pass=0
 iterations=5
 for i in $(seq 1 ${iterations}); do
-  if ${helmfile} -f ${issue_2502_input_dir}/helmfile.yaml -e test template --skip-deps > ${actual} 2>&1; then
+  if ${helmfile} -f ${issue_2502_input_dir}/helmfile.yaml -e test template > ${actual} 2>&1; then
     pass=$((pass + 1))
   else
     cat ${actual}
