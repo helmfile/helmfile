@@ -1,5 +1,6 @@
 environments:
   test: {}
+---
 releases:
   - name: app
     chart: helm/my-chart
