@@ -1,0 +1,10 @@
+dependencies:
+  - name: raw
+    repository: file://../../../charts/raw
+    version: 0.0.1
+apiVersion: v2
+appVersion: "1.0.0"
+description: A test chart for race condition reproduction
+name: my-chart
+type: application
+version: 0.1.0

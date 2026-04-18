@@ -1,0 +1,13 @@
+environments:
+  test: {}
+releases:
+  - name: app
+    chart: helm/my-chart
+  - name: app-2
+    chart: helm/my-chart
+  - name: app-3
+    chart: helm/my-chart
+  - name: app-4
+    chart: helm/my-chart
+  - name: app-5
+    chart: helm/my-chart

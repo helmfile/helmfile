@@ -96,6 +96,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 
 # TEST CASES----------------------------------------------------------------------------------------------------------
 
+. ${dir}/test-cases/issue-2502-race-condition-local-chart.sh
 . ${dir}/test-cases/chart-deps-condition.sh
 . ${dir}/test-cases/fetch-forl-local-chart.sh
 . ${dir}/test-cases/suppress-output-line-regex.sh
