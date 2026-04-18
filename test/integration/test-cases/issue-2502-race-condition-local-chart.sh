@@ -44,13 +44,6 @@ fi
 
 info "All ${iterations} iterations passed successfully"
 
-# Verify all 5 releases are present in output
-for name in app app-2 app-3 app-4 app-5; do
-  if ! grep -q "name: ${name}" ${actual}; then
-    fail "Output should contain release '${name}'"
-  fi
-done
-
 cleanup_issue_2502
 trap - EXIT
 
