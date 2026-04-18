@@ -1,6 +1,6 @@
 dependencies:
   - name: raw
-    repository: file://../../../../../../charts/raw
+    repository: file://../../../../../charts/raw
     version: 0.0.1
 apiVersion: v2
 appVersion: "1.0.0"
