@@ -95,13 +95,11 @@ func parseLabelFilters(selectors []string) ([]LabelFilter, error) {
 // positiveLabelsCompatibleWith returns true if the positive labels of two filters
 // do not conflict (i.e., no shared key with a different value).
 func (l LabelFilter) positiveLabelsCompatibleWith(other LabelFilter) bool {
-	otherPos := make(map[string]string, len(other.positiveLabels))
-	for _, kv := range other.positiveLabels {
-		otherPos[kv[0]] = kv[1]
-	}
-	for _, kv := range l.positiveLabels {
-		if v, ok := otherPos[kv[0]]; ok && v != kv[1] {
-			return false
+	for _, a := range l.positiveLabels {
+		for _, b := range other.positiveLabels {
+			if a[0] == b[0] && a[1] != b[1] {
+				return false
+			}
 		}
 	}
 	return true
