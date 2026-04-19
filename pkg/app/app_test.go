@@ -851,6 +851,89 @@ releases:
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd inherits")
 }
 
+func TestSubhelmfileSelectorsConflict(t *testing.T) {
+	tests := []struct {
+		name         string
+		cliSelectors []string
+		spec         state.SubHelmfileSpec
+		conflict     bool
+	}{
+		{
+			name:         "no CLI selectors",
+			cliSelectors: nil,
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}},
+			conflict:     false,
+		},
+		{
+			name:         "no subhelmfile selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: nil},
+			conflict:     false,
+		},
+		{
+			name:         "selectorsInherited true",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}, SelectorsInherited: true},
+			conflict:     false,
+		},
+		{
+			name:         "conflicting selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}},
+			conflict:     true,
+		},
+		{
+			name:         "matching selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "b.yaml", Selectors: []string{"name=b"}},
+			conflict:     false,
+		},
+		{
+			name:         "different keys no conflict",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"env=prod"}},
+			conflict:     false,
+		},
+		{
+			name:         "empty CLI selectors slice",
+			cliSelectors: []string{},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}},
+			conflict:     false,
+		},
+		{
+			name:         "empty subhelmfile selectors slice",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{}},
+			conflict:     false,
+		},
+		{
+			name:         "all pairs conflict with multiple subhelmfile selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a", "name=c"}},
+			conflict:     true,
+		},
+		{
+			name:         "one matching pair among multiple subhelmfile selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a", "name=b"}},
+			conflict:     false,
+		},
+		{
+			name:         "selectorsInherited false with conflicting selectors still conflicts",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}, SelectorsInherited: false},
+			conflict:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := subhelmfileSelectorsConflict(tt.cliSelectors, tt.spec)
+			assert.Equal(t, tt.conflict, got)
+		})
+	}
+}
+
 func runFilterSubHelmFilesTests(testcases []struct {
 	label            string
 	expectedReleases []string

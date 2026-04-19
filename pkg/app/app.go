@@ -1008,6 +1008,7 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 	anyMatched := false
 	for i, m := range st.Helmfiles {
 		if subhelmfileSelectorsConflict(a.Selectors, m) {
+			a.Logger.Debugf("skipping subhelmfile %q: CLI selectors %v conflict with subhelmfile selectors %v", m.Path, a.Selectors, m.Selectors)
 			continue
 		}
 

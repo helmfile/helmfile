@@ -1,10 +1,10 @@
 helmfiles:
 - path: subhelmfile-a.yaml
   selectors:
-  - name=a
+  - app=a
 - path: subhelmfile-b.yaml
   selectors:
-  - name=b
+  - app=b
 - path: subhelmfile-c.yaml
   selectors:
-  - name=c
+  - app=c

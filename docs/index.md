@@ -1523,6 +1523,7 @@ helmfiles:
 ```
 
 * When a selector is specified, only this selector applies and the parents or CLI selectors are ignored.
+* When CLI selectors are provided (e.g. `helmfile -l name=b sync`) and a subhelmfile has explicit selectors that are provably incompatible (same key, different value), that subhelmfile is **skipped entirely** without loading or rendering it. For example, with `-l name=b`, a subhelmfile with `selectors: [name=a]` will be skipped since no release could match both. This optimization does not apply when `selectorsInherited: true` is set or when no CLI selectors are provided. Use `--debug` to see log messages about skipped subhelmfiles.
 * When not selector is specified there are 2 modes for the selector inheritance because we would like to change the current inheritance behavior (see [issue #344](https://github.com/roboll/helmfile/issues/344)  ).
   * Legacy mode, sub-helmfiles without selectors inherit selectors from their parent helmfile. The initial helmfiles inherit from the command line selectors.
   * explicit mode, sub-helmfile without selectors do not inherit from their parent or the CLI selector. If you want them to inherit from their parent selector then use `selectorsInherited: true`. To enable this explicit mode you need to set the following environment variable `HELMFILE_EXPERIMENTAL=explicit-selector-inheritance` (see [experimental](#experimental-features)).

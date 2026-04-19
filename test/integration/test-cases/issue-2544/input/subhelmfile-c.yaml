@@ -2,7 +2,7 @@ releases:
 - name: release-c
   chart: ../../../charts/raw
   labels:
-    name: c
+    app: c
   values:
   - templates:
     - |

@@ -2,7 +2,7 @@ releases:
 - name: release-b
   chart: ../../../charts/raw
   labels:
-    name: b
+    app: b
   values:
   - templates:
     - |
