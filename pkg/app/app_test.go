@@ -928,7 +928,7 @@ func TestSubhelmfileSelectorsConflict(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := subhelmfileSelectorsConflict(tt.cliSelectors, tt.spec)
+			got := subhelmfileSelectorsConflict(tt.cliSelectors, tt.spec, newAppTestLogger())
 			assert.Equal(t, tt.conflict, got)
 		})
 	}

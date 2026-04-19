@@ -1007,7 +1007,7 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
 	anyMatched := false
 	for i, m := range st.Helmfiles {
-		if subhelmfileSelectorsConflict(a.Selectors, m) {
+		if subhelmfileSelectorsConflict(a.Selectors, m, a.Logger) {
 			a.Logger.Debugf("skipping subhelmfile %q: CLI selectors %v conflict with subhelmfile selectors %v", m.Path, a.Selectors, m.Selectors)
 			continue
 		}
@@ -1044,11 +1044,14 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 // Only CLI selectors (not inherited parent selectors) are used for comparison,
 // so this optimization is restricted to cases where the user explicitly
 // provided selectors via the command line (e.g. -l name=b).
-func subhelmfileSelectorsConflict(cliSelectors []string, m state.SubHelmfileSpec) bool {
+func subhelmfileSelectorsConflict(cliSelectors []string, m state.SubHelmfileSpec, logger *zap.SugaredLogger) bool {
 	if len(cliSelectors) == 0 || len(m.Selectors) == 0 || m.SelectorsInherited {
 		return false
 	}
-	compatible, _ := state.SelectorsAreCompatible(cliSelectors, m.Selectors)
+	compatible, err := state.SelectorsAreCompatible(cliSelectors, m.Selectors)
+	if err != nil {
+		logger.Debugf("selector compatibility check failed for subhelmfile %q: %v", m.Path, err)
+	}
 	return !compatible
 }
 
