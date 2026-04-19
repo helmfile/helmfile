@@ -1,8 +1,9 @@
-templates:
-  - |
-    apiVersion: v1
-    kind: ConfigMap
-    metadata:
-      name: {{ .Release.Name }}-config
-    data:
-      key: value
+raw:
+  templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: test-cm
+      data:
+        key: value
