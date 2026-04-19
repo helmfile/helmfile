@@ -1007,7 +1007,7 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
 	anyMatched := false
 	for i, m := range st.Helmfiles {
-		if subhelmfileSelectorsConflict(opts.Selectors, m) {
+		if subhelmfileSelectorsConflict(a.Selectors, m) {
 			continue
 		}
 
@@ -1037,14 +1037,17 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 }
 
 // subhelmfileSelectorsConflict returns true when the subhelmfile has explicit
-// selectors that are provably incompatible with the parent's selectors,
+// selectors that are provably incompatible with the CLI selectors,
 // meaning no release could satisfy both. In that case the subhelmfile can be
 // safely skipped without loading or evaluating it.
-func subhelmfileSelectorsConflict(parentSelectors []string, m state.SubHelmfileSpec) bool {
-	if len(parentSelectors) == 0 || len(m.Selectors) == 0 || m.SelectorsInherited {
+// Only CLI selectors (not inherited parent selectors) are used for comparison,
+// so this optimization is restricted to cases where the user explicitly
+// provided selectors via the command line (e.g. -l name=b).
+func subhelmfileSelectorsConflict(cliSelectors []string, m state.SubHelmfileSpec) bool {
+	if len(cliSelectors) == 0 || len(m.Selectors) == 0 || m.SelectorsInherited {
 		return false
 	}
-	compatible, _ := state.SelectorsAreCompatible(parentSelectors, m.Selectors)
+	compatible, _ := state.SelectorsAreCompatible(cliSelectors, m.Selectors)
 	return !compatible
 }
 

@@ -51,7 +51,9 @@ func (l LabelFilter) Match(r ReleaseSpec) bool {
 // potentially match the same release. It compares only positive labels (key=value):
 // two selectors conflict if they require the same key to have different values.
 // Returns true if at least one pair is compatible, false only if all pairs conflict.
-// On parse error, returns true (conservative: never skip on malformed input).
+// On parse error, returns (true, err): the conservative true ensures subhelmfiles
+// are never incorrectly skipped due to malformed input, while the non-nil error
+// allows callers to log or handle the parse failure if desired.
 func SelectorsAreCompatible(selectorsA, selectorsB []string) (bool, error) {
 	if len(selectorsA) == 0 || len(selectorsB) == 0 {
 		return true, nil

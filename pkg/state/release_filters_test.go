@@ -74,6 +74,7 @@ func TestSelectorsAreCompatible(t *testing.T) {
 		selectorsA []string
 		selectorsB []string
 		compatible bool
+		wantErr    bool
 	}{
 		{
 			name:       "same key different value",
@@ -147,12 +148,23 @@ func TestSelectorsAreCompatible(t *testing.T) {
 			selectorsB: []string{"name=a"},
 			compatible: true,
 		},
+		{
+			name:       "malformed selector returns conservative true with error",
+			selectorsA: []string{"name=b"},
+			selectorsB: []string{"invalid_label"},
+			compatible: true,
+			wantErr:    true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := SelectorsAreCompatible(tt.selectorsA, tt.selectorsB)
-			assert.NoError(t, err)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 			assert.Equal(t, tt.compatible, got)
 		})
 	}
