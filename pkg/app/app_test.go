@@ -722,8 +722,8 @@ releases:
 	}{
 		{label: "duplicatedOK=yes", expectedReleases: []string{"zipkin", "prometheus", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
 		{label: "name=zipkin", expectedReleases: []string{"zipkin", "prometheus", "grafana", "postgresql"}, expectErr: false},
-		{label: "name=grafana", expectedReleases: []string{"zipkin", "prometheus", "grafana", "grafana", "postgresql"}, expectErr: false},
-		{label: "name=doesnotexists", expectedReleases: []string{"zipkin", "prometheus", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=grafana", expectedReleases: []string{"grafana", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=doesnotexists", expectedReleases: []string{"grafana", "postgresql"}, expectErr: false},
 	}
 	runFilterSubHelmFilesTests(legacyTestcases, files, t, "1st EmbeddedSelectors")
 
@@ -735,7 +735,7 @@ releases:
 		errMsg           string
 	}{
 		{label: "duplicatedOK=yes", expectedReleases: []string{"zipkin", "prometheus", "grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
-		{label: "name=doesnotexists", expectedReleases: []string{"zipkin", "prometheus", "grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=doesnotexists", expectedReleases: []string{"grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
 	}
 
 	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)

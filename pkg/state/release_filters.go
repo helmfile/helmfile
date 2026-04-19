@@ -47,6 +47,64 @@ func (l LabelFilter) Match(r ReleaseSpec) bool {
 	return true
 }
 
+// SelectorsAreCompatible checks whether any pair of selectors from two sets could
+// potentially match the same release. It compares only positive labels (key=value):
+// two selectors conflict if they require the same key to have different values.
+// Returns true if at least one pair is compatible, false only if all pairs conflict.
+// On parse error, returns true (conservative: never skip on malformed input).
+func SelectorsAreCompatible(selectorsA, selectorsB []string) (bool, error) {
+	if len(selectorsA) == 0 || len(selectorsB) == 0 {
+		return true, nil
+	}
+
+	filtersA, err := parseLabelFilters(selectorsA)
+	if err != nil {
+		return true, err
+	}
+
+	filtersB, err := parseLabelFilters(selectorsB)
+	if err != nil {
+		return true, err
+	}
+
+	for _, a := range filtersA {
+		for _, b := range filtersB {
+			if a.positiveLabelsCompatibleWith(b) {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func parseLabelFilters(selectors []string) ([]LabelFilter, error) {
+	filters := make([]LabelFilter, 0, len(selectors))
+	for _, s := range selectors {
+		f, err := ParseLabels(s)
+		if err != nil {
+			return nil, err
+		}
+		filters = append(filters, f)
+	}
+	return filters, nil
+}
+
+// positiveLabelsCompatibleWith returns true if the positive labels of two filters
+// do not conflict (i.e., no shared key with a different value).
+func (l LabelFilter) positiveLabelsCompatibleWith(other LabelFilter) bool {
+	otherPos := make(map[string]string, len(other.positiveLabels))
+	for _, kv := range other.positiveLabels {
+		otherPos[kv[0]] = kv[1]
+	}
+	for _, kv := range l.positiveLabels {
+		if v, ok := otherPos[kv[0]]; ok && v != kv[1] {
+			return false
+		}
+	}
+	return true
+}
+
 // ParseLabels takes a label in the form foo=bar,baz!=bat and returns a LabelFilter that will match the labels
 func ParseLabels(l string) (LabelFilter, error) {
 	lf := LabelFilter{}

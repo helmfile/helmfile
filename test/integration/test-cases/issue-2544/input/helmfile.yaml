@@ -1,0 +1,10 @@
+helmfiles:
+- path: subhelmfile-a.yaml
+  selectors:
+  - name=a
+- path: subhelmfile-b.yaml
+  selectors:
+  - name=b
+- path: subhelmfile-c.yaml
+  selectors:
+  - name=c

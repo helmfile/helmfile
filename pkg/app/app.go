@@ -1007,6 +1007,10 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
 	anyMatched := false
 	for i, m := range st.Helmfiles {
+		if subhelmfileSelectorsConflict(opts.Selectors, m) {
+			continue
+		}
+
 		optsForNestedState := LoadOpts{
 			CalleePath:        filepath.Join(absd, file),
 			Environment:       m.Environment,
@@ -1030,6 +1034,18 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 		}
 	}
 	return anyMatched, nil
+}
+
+// subhelmfileSelectorsConflict returns true when the subhelmfile has explicit
+// selectors that are provably incompatible with the parent's selectors,
+// meaning no release could satisfy both. In that case the subhelmfile can be
+// safely skipped without loading or evaluating it.
+func subhelmfileSelectorsConflict(parentSelectors []string, m state.SubHelmfileSpec) bool {
+	if len(parentSelectors) == 0 || len(m.Selectors) == 0 || m.SelectorsInherited {
+		return false
+	}
+	compatible, _ := state.SelectorsAreCompatible(parentSelectors, m.Selectors)
+	return !compatible
 }
 
 func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) error {
