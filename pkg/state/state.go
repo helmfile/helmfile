@@ -1409,30 +1409,26 @@ type PrepareChartKey struct {
 
 // rewriteChartDependencies rewrites relative file:// dependencies in Chart.yaml to absolute paths
 // to ensure they can be resolved from chartify's temporary directory.
-// When the file is actually rewritten the returned cleanup function restores the original content
-// and releases the per-chart mutex; when no rewrite is needed a no-op cleanup is returned and the
-// mutex is never held past this call.
-func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) {
+// Instead of modifying the original chart in-place (which causes race conditions when multiple
+// releases reference the same local chart), it creates a temporary copy only when a rewrite is
+// needed and rewrites that copy. When a temp copy is created, it reflects the current chart
+// contents so prepare hooks or other steps that mutate the local chart directory are honored.
+// The returned cleanup function removes the temporary directory when one was created and is
+// otherwise a no-op.
+func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(), error) {
 	chartYamlPath := filepath.Join(chartPath, "Chart.yaml")
 
-	// Check if Chart.yaml exists
-	if _, err := os.Stat(chartYamlPath); os.IsNotExist(err) {
-		return func() {}, nil
+	if _, err := st.fs.Stat(chartYamlPath); os.IsNotExist(err) {
+		return chartPath, func() {}, nil
+	} else if err != nil {
+		return chartPath, func() {}, err
 	}
 
-	// Reuse the existing per-path RWMutex for exclusive access to the chart directory.
-	mu := st.getNamedRWMutex(chartPath)
-	mu.Lock()
-
-	// Read Chart.yaml
-	data, err := os.ReadFile(chartYamlPath)
+	data, err := st.fs.ReadFile(chartYamlPath)
 	if err != nil {
-		mu.Unlock()
-		return func() {}, err
+		return chartPath, func() {}, err
 	}
-	originalContent := data
 
-	// Parse Chart.yaml
 	type ChartDependency struct {
 		Name       string                 `yaml:"name"`
 		Repository string                 `yaml:"repository"`
@@ -1444,26 +1440,21 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 	}
 
 	var chartMeta ChartMeta
-	if err := yaml.Unmarshal(originalContent, &chartMeta); err != nil {
-		mu.Unlock()
-		return func() {}, err
+	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
+		return chartPath, func() {}, err
 	}
 
-	// Rewrite relative file:// dependencies to absolute paths
 	modified := false
 	for i := range chartMeta.Dependencies {
 		dep := &chartMeta.Dependencies[i]
 		if strings.HasPrefix(dep.Repository, "file://") {
 			relPath := strings.TrimPrefix(dep.Repository, "file://")
 
-			// Check if it's a relative path
 			if !filepath.IsAbs(relPath) {
-				// Convert to absolute path relative to the chart directory
 				absPath := filepath.Join(chartPath, relPath)
 				absPath, err = filepath.Abs(absPath)
 				if err != nil {
-					mu.Unlock()
-					return func() {}, fmt.Errorf("failed to resolve absolute path for dependency %s: %w", dep.Name, err)
+					return chartPath, func() {}, fmt.Errorf("failed to resolve absolute path for dependency %s: %w", dep.Name, err)
 				}
 
 				st.logger.Debugf("Rewriting Chart dependency %s from %s to file://%s", dep.Name, dep.Repository, absPath)
@@ -1473,37 +1464,44 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		}
 	}
 
-	// If nothing changed, release the lock immediately. Chart.yaml has already been read and
-	// unmarshaled above, but no file write is needed and the lock is not held beyond this function.
 	if !modified {
-		mu.Unlock()
-		return func() {}, nil
+		return chartPath, func() {}, nil
 	}
 
 	updatedData, err := yaml.Marshal(&chartMeta)
 	if err != nil {
-		mu.Unlock()
-		return func() {}, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
+		return chartPath, func() {}, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
 	}
 
-	if err := os.WriteFile(chartYamlPath, updatedData, 0644); err != nil {
-		// File may be truncated/partially written; restore original content before releasing the lock.
-		if restoreErr := os.WriteFile(chartYamlPath, originalContent, 0644); restoreErr != nil {
-			st.logger.Warnf("Failed to restore Chart.yaml at %s after write error (%v): %v", chartYamlPath, err, restoreErr)
-		}
-		mu.Unlock()
-		return func() {}, fmt.Errorf("failed to write Chart.yaml: %w", err)
+	tempDir, err := st.fs.MkdirTemp("", "chart-deps-rewrite-*")
+	if err != nil {
+		return chartPath, func() {}, fmt.Errorf("failed to create temp directory for chart rewrite: %w", err)
 	}
 
-	st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", chartYamlPath)
-
-	// Return cleanup that restores original content and releases the lock.
-	return func() {
-		if restoreErr := os.WriteFile(chartYamlPath, originalContent, 0644); restoreErr != nil {
-			st.logger.Warnf("Failed to restore original Chart.yaml at %s: %v", chartYamlPath, restoreErr)
+	if err := st.fs.CopyDir(chartPath, tempDir); err != nil {
+		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
+			st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
 		}
-		mu.Unlock()
-	}, nil
+		return chartPath, func() {}, fmt.Errorf("failed to copy chart to temp directory: %w", err)
+	}
+
+	tempChartYamlPath := filepath.Join(tempDir, "Chart.yaml")
+	if err := st.fs.WriteFile(tempChartYamlPath, updatedData, 0644); err != nil {
+		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
+			st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
+		}
+		return chartPath, func() {}, fmt.Errorf("failed to write Chart.yaml: %w", err)
+	}
+
+	st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", tempChartYamlPath)
+
+	cleanup := func() {
+		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
+			st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
+		}
+	}
+
+	return tempDir, cleanup, nil
 }
 
 // Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
@@ -1515,11 +1513,12 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// This prevents errors like "Error: directory /tmp/chartify.../argocd-application not found"
 	// when Chart.yaml contains dependencies like "file://../argocd-application"
 	if st.fs.DirectoryExistsAt(chartPath) {
-		restoreChart, err := st.rewriteChartDependencies(chartPath)
+		rewrittenPath, cleanupTempChart, err := st.rewriteChartDependencies(chartPath)
 		if err != nil {
 			return "", false, fmt.Errorf("failed to rewrite chart dependencies: %w", err)
 		}
-		defer restoreChart()
+		chartPath = rewrittenPath
+		defer cleanupTempChart()
 	}
 
 	c := chartify.New(

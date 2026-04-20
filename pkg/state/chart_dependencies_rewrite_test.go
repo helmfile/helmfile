@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,12 +68,10 @@ dependencies:
 			expectModified: true,
 			expectError:    false,
 			validate: func(t *testing.T, modifiedChartYaml string) {
-				// Should have been converted to absolute path
 				if strings.Contains(modifiedChartYaml, "file://../relative-chart") {
 					t.Errorf("relative path should have been converted to absolute")
 				}
 
-				// Should now have an absolute path
 				if !strings.Contains(modifiedChartYaml, "file://") {
 					t.Errorf("should still have file:// prefix")
 				}
@@ -100,22 +99,18 @@ dependencies:
 			expectModified: true,
 			expectError:    false,
 			validate: func(t *testing.T, modifiedChartYaml string) {
-				// HTTPS repo should remain unchanged
 				if !strings.Contains(modifiedChartYaml, "https://charts.example.com") {
 					t.Errorf("https repository should not be modified")
 				}
 
-				// Relative path should be converted
 				if strings.Contains(modifiedChartYaml, "file://../relative-chart") {
 					t.Errorf("relative file:// path should have been converted")
 				}
 
-				// Absolute path should remain unchanged
 				if !strings.Contains(modifiedChartYaml, "file:///absolute/chart") {
 					t.Errorf("absolute file:// path should not be modified")
 				}
 
-				// OCI repo should remain unchanged
 				if !strings.Contains(modifiedChartYaml, "oci://registry.example.com") {
 					t.Errorf("oci repository should not be modified")
 				}
@@ -140,7 +135,6 @@ dependencies:
 			expectModified: true,
 			expectError:    false,
 			validate: func(t *testing.T, modifiedChartYaml string) {
-				// All relative paths should be converted
 				if strings.Contains(modifiedChartYaml, "file://../chart1") ||
 					strings.Contains(modifiedChartYaml, "file://./chart2") ||
 					strings.Contains(modifiedChartYaml, "file://../../../chart3") {
@@ -187,14 +181,12 @@ extra-field: aaa
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create temporary directory for test
 			tempDir, err := os.MkdirTemp("", "helmfile-test-")
 			if err != nil {
 				t.Fatalf("failed to create temp dir: %v", err)
 			}
 			defer os.RemoveAll(tempDir)
 
-			// Create Chart.yaml if provided
 			if tt.chartYaml != "" {
 				chartYamlPath := filepath.Join(tempDir, "Chart.yaml")
 				if err := os.WriteFile(chartYamlPath, []byte(tt.chartYaml), 0644); err != nil {
@@ -202,22 +194,13 @@ extra-field: aaa
 				}
 			}
 
-			// Create HelmState with logger
 			logger := zap.NewNop().Sugar()
 			st := &HelmState{
 				logger: logger,
 				fs:     filesystem.DefaultFileSystem(),
 			}
 
-			// Read original content if it exists
-			var originalContent []byte
-			chartYamlPath := filepath.Join(tempDir, "Chart.yaml")
-			if _, err := os.Stat(chartYamlPath); err == nil {
-				originalContent, _ = os.ReadFile(chartYamlPath)
-			}
-
-			// Call rewriteChartDependencies
-			cleanup, err := st.rewriteChartDependencies(tempDir)
+			rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
 
 			if tt.expectError {
 				if err == nil {
@@ -226,44 +209,39 @@ extra-field: aaa
 				return
 			}
 
+			if tt.expectModified {
+				if rewrittenPath == tempDir {
+					t.Errorf("expected rewrittenPath != tempDir when modifications are needed, got same path")
+				}
+			} else {
+				if rewrittenPath != tempDir {
+					t.Errorf("expected rewrittenPath == tempDir when no modifications are needed, got %q", rewrittenPath)
+				}
+			}
+
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+			defer cleanup()
 
 			if tt.chartYaml == "" {
 				return
 			}
 
-			modifiedChartBytes, err := os.ReadFile(filepath.Join(tempDir, "Chart.yaml"))
+			modifiedChartBytes, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.yaml"))
 			if err != nil {
 				t.Fatalf("failed to read Chart.yaml: %v", err)
 			}
 			modifiedChartYaml := string(modifiedChartBytes)
 
-			// Validate the modified Chart.yaml
 			if tt.validate != nil {
 				tt.validate(t, modifiedChartYaml)
-			}
-
-			// Call cleanup and verify restoration
-			cleanup()
-
-			// Read restored content
-			restoredContent, err := os.ReadFile(chartYamlPath)
-			if err != nil {
-				t.Fatalf("failed to read restored Chart.yaml: %v", err)
-			}
-
-			// Verify content was restored
-			if string(restoredContent) != string(originalContent) {
-				t.Errorf("cleanup did not restore original content\noriginal:\n%s\nrestored:\n%s",
-					string(originalContent), string(restoredContent))
 			}
 		})
 	}
 }
 
-func TestRewriteChartDependencies_CleanupRestoresOriginal(t *testing.T) {
+func TestRewriteChartDependencies_OriginalNotModified(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "helmfile-test-")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -290,33 +268,44 @@ dependencies:
 		fs:     filesystem.DefaultFileSystem(),
 	}
 
-	cleanup, err := st.rewriteChartDependencies(tempDir)
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify modification happened
-	modifiedContent, err := os.ReadFile(chartYamlPath)
+	t.Cleanup(func() {
+		if rewrittenPath == tempDir {
+			return
+		}
+
+		cleanup()
+
+		if _, statErr := os.Stat(rewrittenPath); !os.IsNotExist(statErr) {
+			t.Errorf("expected rewritten chart path %q to be removed after cleanup", rewrittenPath)
+		}
+	})
+
+	if rewrittenPath == tempDir {
+		t.Errorf("expected a different path when modifications are needed, got same path")
+	}
+
+	modifiedContent, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.yaml"))
 	if err != nil {
 		t.Fatalf("failed to read modified Chart.yaml: %v", err)
 	}
 
 	if string(modifiedContent) == originalChart {
-		t.Errorf("Chart.yaml should have been modified")
+		t.Errorf("Chart.yaml in the copy should have been modified")
 	}
 
-	// Call cleanup
-	cleanup()
-
-	// Verify restoration
-	restoredContent, err := os.ReadFile(chartYamlPath)
+	originalContent, err := os.ReadFile(chartYamlPath)
 	if err != nil {
-		t.Fatalf("failed to read restored Chart.yaml: %v", err)
+		t.Fatalf("failed to read original Chart.yaml: %v", err)
 	}
 
-	if string(restoredContent) != originalChart {
-		t.Errorf("cleanup did not restore original content\nexpected:\n%s\ngot:\n%s",
-			originalChart, string(restoredContent))
+	if string(originalContent) != originalChart {
+		t.Errorf("original Chart.yaml should not have been modified\nexpected:\n%s\ngot:\n%s",
+			originalChart, string(originalContent))
 	}
 }
 
@@ -355,21 +344,30 @@ dependencies:
 		fs:     filesystem.DefaultFileSystem(),
 	}
 
-	cleanup, err := st.rewriteChartDependencies(tempDir)
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer cleanup()
 
-	// Read modified content
-	modifiedContent, err := os.ReadFile(chartYamlPath)
+	t.Cleanup(func() {
+		if rewrittenPath == tempDir {
+			return
+		}
+
+		cleanup()
+
+		if _, statErr := os.Stat(rewrittenPath); !os.IsNotExist(statErr) {
+			t.Errorf("expected rewritten chart path %q to be removed after cleanup", rewrittenPath)
+		}
+	})
+
+	modifiedContent, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.yaml"))
 	if err != nil {
 		t.Fatalf("failed to read modified Chart.yaml: %v", err)
 	}
 
 	content := string(modifiedContent)
 
-	// Verify fields are preserved
 	requiredFields := []string{
 		"apiVersion: v2",
 		"name: test-chart",
@@ -386,9 +384,16 @@ dependencies:
 		}
 	}
 
-	// Verify the dependency was rewritten
 	if strings.Contains(content, "file://../relative-chart") {
 		t.Errorf("relative path should have been converted to absolute")
+	}
+
+	originalContent, err := os.ReadFile(chartYamlPath)
+	if err != nil {
+		t.Fatalf("failed to read original Chart.yaml: %v", err)
+	}
+	if string(originalContent) != chartYaml {
+		t.Errorf("original Chart.yaml should not have been modified")
 	}
 }
 
@@ -397,7 +402,6 @@ func TestRewriteChartDependencies_ErrorHandling(t *testing.T) {
 		name        string
 		setupFunc   func(tempDir string) error
 		expectError bool
-		errorMsg    string
 	}{
 		{
 			name: "invalid yaml in Chart.yaml",
@@ -446,7 +450,7 @@ dependencies:
 				fs:     filesystem.DefaultFileSystem(),
 			}
 
-			_, err = st.rewriteChartDependencies(tempDir)
+			_, _, err = st.rewriteChartDependencies(tempDir)
 
 			if tt.expectError && err == nil {
 				t.Errorf("expected error but got none")
@@ -465,8 +469,6 @@ func TestRewriteChartDependencies_WindowsStylePath(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Test with backslash (Windows-style) paths
-	// Note: file:// URLs should use forward slashes, but test handling of edge cases
 	chartYaml := `apiVersion: v2
 name: test-chart
 version: 1.0.0
@@ -487,20 +489,29 @@ dependencies:
 		fs:     filesystem.DefaultFileSystem(),
 	}
 
-	cleanup, err := st.rewriteChartDependencies(tempDir)
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer cleanup()
 
-	// Should handle the path correctly
-	data, err := os.ReadFile(chartYamlPath)
+	t.Cleanup(func() {
+		if rewrittenPath == tempDir {
+			return
+		}
+
+		cleanup()
+
+		if _, statErr := os.Stat(rewrittenPath); !os.IsNotExist(statErr) {
+			t.Errorf("expected rewritten chart path %q to be removed after cleanup", rewrittenPath)
+		}
+	})
+
+	data, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.yaml"))
 	if err != nil {
 		t.Fatalf("failed to read Chart.yaml: %v", err)
 	}
 
 	content := string(data)
-	// The relative path should have been converted to absolute
 	if strings.Contains(content, "file://./subdir/chart") {
 		t.Errorf("relative path with ./ should have been converted")
 	}
@@ -527,9 +538,6 @@ dependencies:
 		t.Fatalf("failed to write Chart.yaml: %v", err)
 	}
 
-	// Run multiple goroutines concurrently on the same chart path.
-	// A readiness WaitGroup ensures all goroutines are blocked before the start barrier is released,
-	// so calls to rewriteChartDependencies overlap as much as possible.
 	numGoroutines := 10
 	var wg sync.WaitGroup
 	var readyWg sync.WaitGroup
@@ -542,7 +550,6 @@ dependencies:
 		go func() {
 			defer wg.Done()
 
-			// Signal that this goroutine is ready, then wait for the start signal.
 			readyWg.Done()
 			<-ready
 
@@ -552,16 +559,44 @@ dependencies:
 				fs:     filesystem.DefaultFileSystem(),
 			}
 
-			cleanup, err := st.rewriteChartDependencies(tempDir)
+			rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
 			if err != nil {
 				errCh <- err
 				return
 			}
 			defer cleanup()
+
+			data, readErr := os.ReadFile(filepath.Join(rewrittenPath, "Chart.yaml"))
+			if readErr != nil {
+				errCh <- readErr
+				return
+			}
+
+			type ChartDependency struct {
+				Name       string `yaml:"name"`
+				Repository string `yaml:"repository"`
+				Version    string `yaml:"version"`
+			}
+			type ChartMeta struct {
+				APIVersion   string            `yaml:"apiVersion"`
+				Name         string            `yaml:"name"`
+				Version      string            `yaml:"version"`
+				Dependencies []ChartDependency `yaml:"dependencies,omitempty"`
+			}
+
+			var meta ChartMeta
+			if unmarshalErr := yaml.Unmarshal(data, &meta); unmarshalErr != nil {
+				errCh <- unmarshalErr
+				return
+			}
+
+			if meta.Name != "test-chart" {
+				errCh <- fmt.Errorf("expected chart name 'test-chart', got %q", meta.Name)
+				return
+			}
 		}()
 	}
 
-	// Wait until all goroutines are ready, then release them simultaneously.
 	readyWg.Wait()
 	close(ready)
 
@@ -572,10 +607,9 @@ dependencies:
 		t.Errorf("goroutine error: %v", err)
 	}
 
-	// Verify Chart.yaml is still valid by unmarshaling and checking expected fields
 	data, err := os.ReadFile(chartYamlPath)
 	if err != nil {
-		t.Fatalf("failed to read Chart.yaml: %v", err)
+		t.Fatalf("failed to read original Chart.yaml: %v", err)
 	}
 
 	type ChartDependency struct {
@@ -592,21 +626,22 @@ dependencies:
 
 	var chartMeta ChartMeta
 	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
-		t.Fatalf("Chart.yaml is not valid YAML after concurrent rewrites: %v", err)
+		t.Fatalf("original Chart.yaml is not valid YAML: %v", err)
 	}
 
 	if chartMeta.Name != "test-chart" {
-		t.Errorf("expected chart name 'test-chart', got %q", chartMeta.Name)
+		t.Errorf("expected original chart name 'test-chart', got %q", chartMeta.Name)
 	}
-	if len(chartMeta.Dependencies) != 1 {
-		t.Fatalf("expected 1 dependency, got %d", len(chartMeta.Dependencies))
+	if len(chartMeta.Dependencies) == 0 {
+		t.Fatalf("expected original Chart.yaml to contain at least one dependency, got %d", len(chartMeta.Dependencies))
 	}
-	if chartMeta.Dependencies[0].Name != "dep1" {
-		t.Errorf("expected dependency name 'dep1', got %q", chartMeta.Dependencies[0].Name)
+
+	const wantDependencyName = "dep1"
+	if chartMeta.Dependencies[0].Name != wantDependencyName {
+		t.Errorf("expected first dependency name %q, got %q", wantDependencyName, chartMeta.Dependencies[0].Name)
 	}
-	// The cleanup from each goroutine must have restored the original relative path.
 	const wantRepository = "file://../relative-chart"
 	if chartMeta.Dependencies[0].Repository != wantRepository {
-		t.Errorf("expected dependency repository %q (original relative path), got %q", wantRepository, chartMeta.Dependencies[0].Repository)
+		t.Errorf("expected original dependency repository %q, got %q", wantRepository, chartMeta.Dependencies[0].Repository)
 	}
 }
