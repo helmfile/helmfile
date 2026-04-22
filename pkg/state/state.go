@@ -1622,6 +1622,8 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		}
 	}
 
+	chartifyOpts.TemplateArgs = st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(chartifyOpts.TemplateArgs, release)
+
 	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 	if err != nil {
 		return "", false, err
@@ -1632,6 +1634,18 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// explicitly skipped.
 	buildDeps := !skipDeps
 	return chartPath, buildDeps, nil
+}
+
+func (st *HelmState) appendSkipSchemaValidationFlagToChartifyTemplateArgs(templateArgs string, release *ReleaseSpec) string {
+	if !st.shouldSkipSchemaValidation(release, false) || strings.Contains(templateArgs, "--skip-schema-validation") {
+		return templateArgs
+	}
+
+	if templateArgs == "" {
+		return "--skip-schema-validation"
+	}
+
+	return templateArgs + " --skip-schema-validation"
 }
 
 // processLocalChart handles local chart processing
