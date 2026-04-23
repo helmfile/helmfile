@@ -13,6 +13,7 @@ func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 		name         string
 		defaults     HelmSpec
 		release      *ReleaseSpec
+		fromCLI      bool
 		templateArgs string
 		want         string
 	}{
@@ -56,6 +57,13 @@ func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 			want:         "--set name=foo--skip-schema-validation --skip-schema-validation",
 		},
 		{
+			name:         "adds flag from cli setting",
+			release:      &ReleaseSpec{},
+			fromCLI:      true,
+			templateArgs: "--kube-context default",
+			want:         "--kube-context default --skip-schema-validation",
+		},
+		{
 			name:         "does not add flag when disabled",
 			release:      &ReleaseSpec{},
 			templateArgs: "--kube-context default",
@@ -71,7 +79,7 @@ func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 				},
 			}
 
-			got := st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(tt.templateArgs, tt.release)
+			got := st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(tt.templateArgs, tt.release, tt.fromCLI)
 			require.Equal(t, tt.want, got)
 		})
 	}

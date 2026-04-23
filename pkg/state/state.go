@@ -1341,6 +1341,8 @@ type ChartPrepareOptions struct {
 	SkipRefresh   bool
 	SkipResolve   bool
 	SkipCleanup   bool
+	// SkipSchemaValidation configures chartify to pass --skip-schema-validation to helm-template run by it.
+	SkipSchemaValidation bool
 	// Validate configures chartify to pass --validate to helm-template run by it.
 	// It's required when one of your chart relies on Capabilities.APIVersions in a template
 	Validate               bool
@@ -1622,7 +1624,11 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		}
 	}
 
-	chartifyOpts.TemplateArgs = st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(chartifyOpts.TemplateArgs, release)
+	chartifyOpts.TemplateArgs = st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(
+		chartifyOpts.TemplateArgs,
+		release,
+		opts.SkipSchemaValidation,
+	)
 
 	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 	if err != nil {
@@ -1636,8 +1642,8 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	return chartPath, buildDeps, nil
 }
 
-func (st *HelmState) appendSkipSchemaValidationFlagToChartifyTemplateArgs(templateArgs string, release *ReleaseSpec) string {
-	if !st.shouldSkipSchemaValidation(release, false) || hasTemplateArg(templateArgs, "--skip-schema-validation") {
+func (st *HelmState) appendSkipSchemaValidationFlagToChartifyTemplateArgs(templateArgs string, release *ReleaseSpec, skipSchemaValidation bool) string {
+	if !st.shouldSkipSchemaValidation(release, skipSchemaValidation) || hasTemplateArg(templateArgs, "--skip-schema-validation") {
 		return templateArgs
 	}
 
