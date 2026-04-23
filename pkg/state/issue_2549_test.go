@@ -1,6 +1,10 @@
 package state
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 	enable := true
@@ -44,6 +48,14 @@ func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 			want:         "--skip-schema-validation --kube-context default",
 		},
 		{
+			name: "does not treat similar flag values as existing flag",
+			release: &ReleaseSpec{
+				SkipSchemaValidation: &enable,
+			},
+			templateArgs: "--set name=foo--skip-schema-validation",
+			want:         "--set name=foo--skip-schema-validation --skip-schema-validation",
+		},
+		{
 			name:         "does not add flag when disabled",
 			release:      &ReleaseSpec{},
 			templateArgs: "--kube-context default",
@@ -60,9 +72,7 @@ func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 			}
 
 			got := st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(tt.templateArgs, tt.release)
-			if got != tt.want {
-				t.Fatalf("appendSkipSchemaValidationFlagToChartifyTemplateArgs() = %q, want %q", got, tt.want)
-			}
+			require.Equal(t, tt.want, got)
 		})
 	}
 }

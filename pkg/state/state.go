@@ -1637,15 +1637,27 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 }
 
 func (st *HelmState) appendSkipSchemaValidationFlagToChartifyTemplateArgs(templateArgs string, release *ReleaseSpec) string {
-	if !st.shouldSkipSchemaValidation(release, false) || strings.Contains(templateArgs, "--skip-schema-validation") {
+	if !st.shouldSkipSchemaValidation(release, false) || hasTemplateArg(templateArgs, "--skip-schema-validation") {
 		return templateArgs
 	}
 
-	if templateArgs == "" {
-		return "--skip-schema-validation"
-	}
+	return appendTemplateArg(templateArgs, "--skip-schema-validation")
+}
 
-	return templateArgs + " --skip-schema-validation"
+func hasTemplateArg(templateArgs, arg string) bool {
+	for _, token := range strings.Fields(templateArgs) {
+		if token == arg || strings.HasPrefix(token, arg+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+func appendTemplateArg(templateArgs, arg string) string {
+	if templateArgs == "" {
+		return arg
+	}
+	return templateArgs + " " + arg
 }
 
 // processLocalChart handles local chart processing
