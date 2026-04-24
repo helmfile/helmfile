@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -270,6 +271,16 @@ func TestCheckHelmPlugins_UpdateFailsFallbackToReinstall(t *testing.T) {
 		assert.Contains(t, calledOps, "update:"+p.name, "expected update to be attempted for plugin %s", p.name)
 		assert.Contains(t, calledOps, "uninstall:"+p.name, "expected uninstall to be called for plugin %s", p.name)
 		assert.Contains(t, calledOps, "install:"+p.name, "expected install to be called for plugin %s", p.name)
+	}
+
+	// Verify that all plugins are now at (or above) the required version on disk.
+	for _, p := range helmPlugins {
+		requiredVersion, err := semver.NewVersion(p.version)
+		require.NoError(t, err)
+		installedVersion, err := helmexec.GetPluginVersion(p.name, pluginsDir)
+		require.NoError(t, err, "plugin %s should be present after reinstall", p.name)
+		assert.False(t, installedVersion.LessThan(requiredVersion),
+			"plugin %s: installed version %s should be >= required version %s", p.name, installedVersion, requiredVersion)
 	}
 }
 

@@ -946,11 +946,15 @@ func (helm *execer) UpdatePlugin(name, path, version string) error {
 	helm.info(out)
 	if err != nil {
 		// If standard update failed, fall back to uninstall + reinstall with specific version
-		helm.logger.Infof("helm plugin update %v failed, falling back to reinstall with version %v", name, version)
+		updateErr := err
+		helm.logger.Infof("helm plugin update %v failed (%v), falling back to reinstall with version %v", name, updateErr, version)
 		if uninstallErr := helm.uninstallPlugin(name); uninstallErr != nil {
 			helm.logger.Warnf("Failed to uninstall helm plugin %v: %v", name, uninstallErr)
 		}
-		return helm.AddPlugin(name, path, version)
+		if reinstallErr := helm.AddPlugin(name, path, version); reinstallErr != nil {
+			return fmt.Errorf("helm plugin update failed (%w) and reinstall also failed: %w", updateErr, reinstallErr)
+		}
+		return nil
 	}
 	return nil
 }
