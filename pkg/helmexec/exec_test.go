@@ -1547,3 +1547,100 @@ func TestParseHelmVersion(t *testing.T) {
 		})
 	}
 }
+
+func Test_helmSecretsRequiresSplitInstall(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    bool
+	}{
+		{name: "below threshold", version: "v4.6.9", want: false},
+		{name: "exactly at threshold", version: "v4.7.0", want: true},
+		{name: "above threshold single digit minor", version: "v4.8.0", want: true},
+		{name: "above threshold double digit minor (v4.10.0+)", version: "v4.10.0", want: true},
+		{name: "pre-release below threshold", version: "v4.7.0-beta.1", want: false},
+		{name: "invalid version string", version: "not-a-version", want: false},
+		{name: "empty string", version: "", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := helmSecretsRequiresSplitInstall(tt.version)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+type funcRunner struct {
+	execute func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
+}
+
+func (r *funcRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	return r.execute(cmd, args, env, false)
+}
+
+func (r *funcRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	return r.execute(cmd, args, env, enableLiveOutput)
+}
+
+func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
+	var calledArgs [][]string
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			calledArgs = append(calledArgs, append([]string(nil), args...))
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary:  "helm",
+		version:     semver.MustParse("4.0.0"),
+		logger:      logger,
+		kubeconfig:  "config",
+		kubeContext: "dev",
+		runner:      runner,
+	}
+
+	err := helm.UpdatePlugin("secrets", "https://github.com/jkroepke/helm-secrets", "v4.7.0")
+	require.NoError(t, err)
+
+	// Verify that "plugin update" was NOT called (the Helm 4 secrets path should skip it).
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == "plugin" && i+1 < len(args) && args[i+1] == "update" {
+				t.Errorf("expected 'plugin update' to not be called for Helm 4 secrets, but it was: %v", args)
+			}
+		}
+	}
+
+	// Verify that uninstall was called for all three split plugins.
+	checkUninstall := func(name string) {
+		for _, args := range calledArgs {
+			for i, a := range args {
+				if a == "plugin" && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == name {
+					return
+				}
+			}
+		}
+		t.Errorf("expected 'plugin uninstall %s' to be called", name)
+	}
+	checkUninstall("secrets")
+	checkUninstall("secrets-getter")
+	checkUninstall("secrets-post-renderer")
+
+	// Verify that install was called for all three split plugin tarballs.
+	checkInstall := func(urlSubstring string) {
+		for _, args := range calledArgs {
+			for i, a := range args {
+				if a == "plugin" && i+2 < len(args) && args[i+1] == "install" && strings.Contains(args[i+2], urlSubstring) {
+					return
+				}
+			}
+		}
+		t.Errorf("expected 'plugin install' for %q to be called", urlSubstring)
+	}
+	checkInstall("secrets-4.7.0.tgz")
+	checkInstall("secrets-getter-4.7.0.tgz")
+	checkInstall("secrets-post-renderer-4.7.0.tgz")
+}

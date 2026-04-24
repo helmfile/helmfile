@@ -923,11 +923,13 @@ func helmSecretsRequiresSplitInstall(version string) bool {
 func (helm *execer) uninstallPlugin(name string) error {
 	helm.logger.Infof("Uninstalling helm plugin %v", name)
 	out, err := helm.exec([]string{"plugin", "uninstall", name}, map[string]string{}, nil)
-	helm.info(out)
+	if err == nil {
+		helm.info(out)
+	}
 	return err
 }
 
-func (helm *execer) UpdatePlugin(name, path, version string) error {
+func (helm *execer) UpdatePlugin(name, repo, version string) error {
 	helm.logger.Infof("Updating helm plugin %v", name)
 
 	// Special handling for helm-secrets 4.7.0+ with Helm 4 which uses split plugin architecture
@@ -951,7 +953,7 @@ func (helm *execer) UpdatePlugin(name, path, version string) error {
 		if uninstallErr := helm.uninstallPlugin(name); uninstallErr != nil {
 			helm.logger.Warnf("Failed to uninstall helm plugin %v: %v", name, uninstallErr)
 		}
-		if reinstallErr := helm.AddPlugin(name, path, version); reinstallErr != nil {
+		if reinstallErr := helm.AddPlugin(name, repo, version); reinstallErr != nil {
 			return fmt.Errorf("helm plugin update failed (%w) and reinstall also failed: %w", updateErr, reinstallErr)
 		}
 		return nil
