@@ -207,3 +207,123 @@ func TestCheckHelmPlugins_InstallErrorPluginTrulyMissing(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "sh: not found")
 }
+
+func TestCheckHelmPlugins_UpdateFailsFallbackToReinstall(t *testing.T) {
+	pluginsDir := t.TempDir()
+	t.Setenv("HELM_PLUGINS", pluginsDir)
+
+	// Pre-populate plugins with outdated versions so the update path is triggered.
+	for _, p := range helmPlugins {
+		createPluginYAML(t, pluginsDir, p.name, p.name, "0.0.1")
+	}
+
+	// Track which plugin sub-commands were executed.
+	var calledOps []string
+
+	// The mock runner simulates "helm plugin update" failing and falling back to
+	// "helm plugin uninstall" + "helm plugin install" which succeeds and writes the
+	// required version to disk.
+	runner := &initMockRunner{
+		executeFunc: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			for _, a := range args {
+				if a == "--short" {
+					return []byte("v3.18.6"), nil
+				}
+			}
+			if len(args) >= 2 && args[0] == "plugin" {
+				switch args[1] {
+				case "update":
+					calledOps = append(calledOps, "update:"+args[2])
+					// Simulate helm plugin update failing (as can happen with Helm 4)
+					return nil, helmexec.ExitError{Message: "plugin update failed", Code: 1}
+				case "uninstall":
+					calledOps = append(calledOps, "uninstall:"+args[2])
+					// Simulate successful uninstall
+					return []byte{}, nil
+				case "install":
+					// Find which plugin is being installed by matching the repo URL.
+					if len(args) >= 3 {
+						repo := args[2]
+						for _, p := range helmPlugins {
+							if p.repo == repo {
+								calledOps = append(calledOps, "install:"+p.name)
+								createPluginYAML(t, pluginsDir, p.name, p.name, strings.TrimPrefix(p.version, "v"))
+								break
+							}
+						}
+					}
+					return []byte{}, nil
+				}
+			}
+			return []byte{}, nil
+		},
+	}
+
+	h := NewHelmfileInit("helm", &mockInitConfigProvider{force: true}, newTestLogger(), runner)
+	err := h.CheckHelmPlugins()
+	// Should succeed: update failed but fallback reinstall updated the plugin
+	assert.NoError(t, err)
+
+	// Verify that for each plugin the fallback path was taken:
+	// update was attempted, then uninstall + install were called.
+	for _, p := range helmPlugins {
+		assert.Contains(t, calledOps, "update:"+p.name, "expected update to be attempted for plugin %s", p.name)
+		assert.Contains(t, calledOps, "uninstall:"+p.name, "expected uninstall to be called for plugin %s", p.name)
+		assert.Contains(t, calledOps, "install:"+p.name, "expected install to be called for plugin %s", p.name)
+	}
+}
+
+func TestCheckHelmPlugins_UpdateErrorButPluginAtRequiredVersion(t *testing.T) {
+	pluginsDir := t.TempDir()
+	t.Setenv("HELM_PLUGINS", pluginsDir)
+
+	// Pre-populate plugins with outdated versions so the update path is triggered.
+	for _, p := range helmPlugins {
+		createPluginYAML(t, pluginsDir, p.name, p.name, "0.0.1")
+	}
+
+	// The mock runner simulates:
+	// 1. "helm plugin update" failing
+	// 2. "helm plugin uninstall" succeeding
+	// 3. "helm plugin install" writing the correct version but returning an error
+	//    (e.g., post-install script error on Windows)
+	// In this case, UpdatePlugin returns the install error, but CheckHelmPlugins
+	// verifies the version and warns instead of returning an error.
+	runner := &initMockRunner{
+		executeFunc: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			for _, a := range args {
+				if a == "--short" {
+					return []byte("v3.18.6"), nil
+				}
+			}
+			if len(args) >= 2 && args[0] == "plugin" {
+				switch args[1] {
+				case "update":
+					return nil, helmexec.ExitError{Message: "plugin update failed", Code: 1}
+				case "uninstall":
+					return []byte{}, nil
+				case "install":
+					// Write the correct version to disk, then return an error
+					// (simulates post-install script failure on Windows)
+					if len(args) >= 3 {
+						repo := args[2]
+						for _, p := range helmPlugins {
+							if p.repo == repo {
+								createPluginYAML(t, pluginsDir, p.name, p.name, strings.TrimPrefix(p.version, "v"))
+								break
+							}
+						}
+					}
+					return nil, helmexec.ExitError{Message: "post-install script failed", Code: 1}
+				}
+			}
+			return []byte{}, nil
+		},
+	}
+
+	h := NewHelmfileInit("helm", &mockInitConfigProvider{force: true}, newTestLogger(), runner)
+	err := h.CheckHelmPlugins()
+	// Should succeed: UpdatePlugin returned an error (from the fallback install step),
+	// but the plugin is present at the required version, so CheckHelmPlugins warns and continues.
+	assert.NoError(t, err)
+}
