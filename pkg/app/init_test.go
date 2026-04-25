@@ -234,11 +234,15 @@ func TestCheckHelmPlugins_UpdateFailsFallbackToReinstall(t *testing.T) {
 			if len(args) >= 2 && args[0] == "plugin" {
 				switch args[1] {
 				case "update":
-					calledOps = append(calledOps, "update:"+args[2])
+					if len(args) >= 3 {
+						calledOps = append(calledOps, "update:"+args[2])
+					}
 					// Simulate helm plugin update failing (as can happen with Helm 4)
 					return nil, helmexec.ExitError{Message: "plugin update failed", Code: 1}
 				case "uninstall":
-					calledOps = append(calledOps, "uninstall:"+args[2])
+					if len(args) >= 3 {
+						calledOps = append(calledOps, "uninstall:"+args[2])
+					}
 					// Simulate successful uninstall
 					return []byte{}, nil
 				case "install":
