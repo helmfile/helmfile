@@ -851,7 +851,7 @@ func (helm *execer) AddPlugin(name, path, version string) error {
 	helm.logger.Infof("Install helm plugin %v", name)
 
 	// Special handling for helm-secrets 4.7.0+ with Helm 4 which uses split plugin architecture
-	if name == "secrets" && version >= "v4.7.0" && helm.IsHelm4() {
+	if name == "secrets" && helmSecretsRequiresSplitInstall(version) && helm.IsHelm4() {
 		return helm.installHelmSecretsV4(version)
 	}
 
@@ -906,11 +906,59 @@ func (helm *execer) installHelmSecretsV4(version string) error {
 	return nil
 }
 
-func (helm *execer) UpdatePlugin(name string) error {
-	helm.logger.Infof("Update helm plugin %v", name)
+// helmSecretsV4SplitMinVersion is the minimum helm-secrets version that uses the
+// split plugin architecture (secrets, secrets-getter, secrets-post-renderer) with Helm 4.
+var helmSecretsV4SplitMinVersion = semver.MustParse("4.7.0")
+
+// helmSecretsRequiresSplitInstall returns true when the given helm-secrets version
+// requires the split plugin architecture introduced in v4.7.0 for Helm 4.
+func helmSecretsRequiresSplitInstall(version string) bool {
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return !v.LessThan(helmSecretsV4SplitMinVersion)
+}
+
+func (helm *execer) uninstallPlugin(name string) error {
+	helm.logger.Infof("Uninstalling helm plugin %v", name)
+	out, err := helm.exec([]string{"plugin", "uninstall", name}, map[string]string{}, nil)
+	if err == nil {
+		helm.info(out)
+	}
+	return err
+}
+
+func (helm *execer) UpdatePlugin(name, repo, version string) error {
+	helm.logger.Infof("Updating helm plugin %v", name)
+
+	// Special handling for helm-secrets 4.7.0+ with Helm 4 which uses split plugin architecture
+	if name == "secrets" && helmSecretsRequiresSplitInstall(version) && helm.IsHelm4() {
+		// Uninstall existing secrets plugins; ignore errors as some may not exist
+		for _, secretsPlugin := range []string{"secrets", "secrets-getter", "secrets-post-renderer"} {
+			if err := helm.uninstallPlugin(secretsPlugin); err != nil {
+				helm.logger.Debugf("Failed to uninstall helm plugin %v (may not exist): %v", secretsPlugin, err)
+			}
+		}
+		return helm.installHelmSecretsV4(version)
+	}
+
+	// Try standard helm plugin update
 	out, err := helm.exec([]string{"plugin", "update", name}, map[string]string{}, nil)
 	helm.info(out)
-	return err
+	if err != nil {
+		// If standard update failed, fall back to uninstall + reinstall with specific version
+		updateErr := err
+		helm.logger.Infof("helm plugin update %v failed (%v), falling back to reinstall with version %v", name, updateErr, version)
+		if uninstallErr := helm.uninstallPlugin(name); uninstallErr != nil {
+			return fmt.Errorf("helm plugin update failed (%w) and uninstall for reinstall also failed: %w", updateErr, uninstallErr)
+		}
+		if reinstallErr := helm.AddPlugin(name, repo, version); reinstallErr != nil {
+			return fmt.Errorf("helm plugin update failed (%w) and reinstall also failed: %w", updateErr, reinstallErr)
+		}
+		return nil
+	}
+	return nil
 }
 
 func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {

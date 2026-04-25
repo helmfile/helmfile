@@ -217,7 +217,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 			if err != nil {
 				return err
 			}
-			err = helm.UpdatePlugin(p.name)
+			err = helm.UpdatePlugin(p.name, p.repo, p.version)
 			if err != nil {
 				// Check if plugin was updated despite the error
 				updatedVersion, verifyErr := helmexec.GetPluginVersion(p.name, pluginsDir)
