@@ -951,7 +951,7 @@ func (helm *execer) UpdatePlugin(name, repo, version string) error {
 		updateErr := err
 		helm.logger.Infof("helm plugin update %v failed (%v), falling back to reinstall with version %v", name, updateErr, version)
 		if uninstallErr := helm.uninstallPlugin(name); uninstallErr != nil {
-			helm.logger.Warnf("Failed to uninstall helm plugin %v: %v", name, uninstallErr)
+			return fmt.Errorf("helm plugin update failed (%w) and uninstall for reinstall also failed: %w", updateErr, uninstallErr)
 		}
 		if reinstallErr := helm.AddPlugin(name, repo, version); reinstallErr != nil {
 			return fmt.Errorf("helm plugin update failed (%w) and reinstall also failed: %w", updateErr, reinstallErr)
