@@ -1097,7 +1097,7 @@ func TestMergedReleaseTemplateData_InlineValues(t *testing.T) {
 	}
 }
 
-func newTestHelmStateWithFiles(t *testing.T, files map[string]string, basePath string) (*HelmState, func()) {
+func newTestHelmStateWithFiles(t *testing.T, files map[string]string, basePath string) *HelmState {
 	t.Helper()
 	logger := zaptest.NewLogger(t).Sugar()
 	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
@@ -1106,7 +1106,7 @@ func newTestHelmStateWithFiles(t *testing.T, files map[string]string, basePath s
 	testFs := testhelper.NewTestFs(files)
 	testFs.Cwd = basePath
 
-	st := &HelmState{
+	return &HelmState{
 		logger:         logger,
 		fs:             testFs.ToFileSystem(),
 		valsRuntime:    valsRuntime,
@@ -1114,12 +1114,10 @@ func newTestHelmStateWithFiles(t *testing.T, files map[string]string, basePath s
 		FilePath:       basePath + "/helmfile.yaml",
 		RenderedValues: map[string]any{},
 	}
-	return st, func() {}
 }
 
 func TestResolveReleaseValues_Empty(t *testing.T) {
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
-	defer cleanup()
+	st := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	result, err := st.resolveReleaseValues(release)
@@ -1134,10 +1132,9 @@ image:
   repository: nginx
   tag: "1.21"
 `
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{
+	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
 	}, "/project")
-	defer cleanup()
 
 	release := &ReleaseSpec{
 		Name:  "myrelease",
@@ -1155,8 +1152,7 @@ image:
 }
 
 func TestResolveReleaseValues_InlineMap(t *testing.T) {
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
-	defer cleanup()
+	st := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
 
 	release := &ReleaseSpec{
 		Name:  "myrelease",
@@ -1190,11 +1186,10 @@ service:
 ingress:
   enabled: true
 `
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{
+	st := newTestHelmStateWithFiles(t, map[string]string{
 		baseValuesFile:     baseValuesContent,
 		overrideValuesFile: overrideValuesContent,
 	}, "/project")
-	defer cleanup()
 
 	release := &ReleaseSpec{
 		Name:  "myrelease",
@@ -1222,10 +1217,9 @@ func TestResolveReleaseValues_FileAndInlineMerged(t *testing.T) {
 	valuesFile := "/project/values.yaml"
 	valuesContent := `replicaCount: 1
 `
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{
+	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
 	}, "/project")
-	defer cleanup()
 
 	release := &ReleaseSpec{
 		Name:  "myrelease",
@@ -1249,10 +1243,9 @@ func TestRenderValuesFileToBytesWithData_PlainYAML(t *testing.T) {
 image:
   repository: nginx
 `
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{
+	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
 	}, "/project")
-	defer cleanup()
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
@@ -1268,10 +1261,9 @@ func TestRenderValuesFileToBytesWithData_WithValuesTemplate(t *testing.T) {
 	valuesContent := `replicaCount: {{ .Values.replicaCount }}
 enabled: {{ .Values.ingress.enabled }}
 `
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{
+	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
 	}, "/project")
-	defer cleanup()
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{
@@ -1292,10 +1284,9 @@ func TestRenderValuesFileToBytesWithData_WithReleaseTemplate(t *testing.T) {
 	valuesContent := `releaseName: {{ .Release.Name }}
 releaseNamespace: {{ .Release.Namespace }}
 `
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{
+	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
 	}, "/project")
-	defer cleanup()
 
 	release := &ReleaseSpec{Name: "myapp", Chart: "mychart", Namespace: "production"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
@@ -1311,10 +1302,9 @@ func TestGenerateTemporaryReleaseValuesFilesWithData_StringPath(t *testing.T) {
 	patchContent := `enabled: {{ .Values.ingress.enabled }}
 host: {{ .Values.ingress.host }}
 `
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{
+	st := newTestHelmStateWithFiles(t, map[string]string{
 		patchFile: patchContent,
 	}, "/project")
-	defer cleanup()
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{
@@ -1332,7 +1322,7 @@ host: {{ .Values.ingress.host }}
 	require.NoError(t, err)
 	require.Len(t, generatedFiles, 1)
 
-	// Read and verify the generated file content
+	// The temp files are created on the real OS filesystem via os.Create, so we read them with os.ReadFile
 	content, err := filesystem.DefaultFileSystem().ReadFile(generatedFiles[0])
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "enabled: true")
@@ -1340,8 +1330,7 @@ host: {{ .Values.ingress.host }}
 }
 
 func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
-	defer cleanup()
+	st := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
@@ -1361,6 +1350,7 @@ func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, generatedFiles, 1)
 
+	// The temp files are created on the real OS filesystem via os.Create, so we read them with os.ReadFile
 	content, err := filesystem.DefaultFileSystem().ReadFile(generatedFiles[0])
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "replicaCount: 5")
@@ -1368,8 +1358,7 @@ func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
 }
 
 func TestGenerateTemporaryReleaseValuesFilesWithData_UnknownTypeError(t *testing.T) {
-	st, cleanup := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
-	defer cleanup()
+	st := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
