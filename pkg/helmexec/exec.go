@@ -695,6 +695,11 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 			return fmt.Errorf("failed to remove legacy output file %s: %w", legacyOutputPath, removeErr)
 		}
 
+		// Clean up any stale files from previous runs before writing new output.
+		if removeErr := os.RemoveAll(templatesDir); removeErr != nil {
+			return fmt.Errorf("failed to remove stale templates directory %s: %w", templatesDir, removeErr)
+		}
+
 		if len(out) > 0 {
 			if mkdirErr := os.MkdirAll(templatesDir, 0755); mkdirErr != nil {
 				return fmt.Errorf("failed to create templates directory %s: %w", templatesDir, mkdirErr)
