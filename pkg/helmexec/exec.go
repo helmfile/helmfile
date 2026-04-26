@@ -653,7 +653,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		if f == "--output-dir" || strings.HasPrefix(f, "--output-dir=") {
 			outputToFile = true
 		}
-		if f == "--post-renderer" {
+		if f == "--post-renderer" || strings.HasPrefix(f, "--post-renderer=") {
 			hasPostRenderer = true
 		}
 	}
@@ -690,14 +690,16 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 
 		templatesDir := filepath.Join(outputDir, "templates")
 		legacyOutputPath := filepath.Join(outputDir, name+".yaml")
+		outputPath := filepath.Join(templatesDir, name+".yaml")
 
 		if removeErr := os.Remove(legacyOutputPath); removeErr != nil && !os.IsNotExist(removeErr) {
 			return fmt.Errorf("failed to remove legacy output file %s: %w", legacyOutputPath, removeErr)
 		}
 
-		// Clean up any stale files from previous runs before writing new output.
-		if removeErr := os.RemoveAll(templatesDir); removeErr != nil {
-			return fmt.Errorf("failed to remove stale templates directory %s: %w", templatesDir, removeErr)
+		// Remove only the specific file written by the previous run to avoid clobbering
+		// unrelated files in a shared output directory.
+		if removeErr := os.Remove(outputPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return fmt.Errorf("failed to remove stale output file %s: %w", outputPath, removeErr)
 		}
 
 		if len(out) > 0 {
@@ -705,7 +707,6 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 				return fmt.Errorf("failed to create templates directory %s: %w", templatesDir, mkdirErr)
 			}
 
-			outputPath := filepath.Join(templatesDir, name+".yaml")
 			if writeErr := os.WriteFile(outputPath, append(out, '\n'), 0644); writeErr != nil {
 				return fmt.Errorf("failed to write output file %s: %w", outputPath, writeErr)
 			}
