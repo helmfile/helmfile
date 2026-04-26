@@ -2,7 +2,7 @@ issue_2515_case_dir="$(cd "${cases_dir}/issue-2515" && pwd)"
 issue_2515_tmp=$(mktemp -d)
 
 if [ "${HELMFILE_HELM4}" = "1" ]; then
-    info "Skipping issue-2515 test for Helm 4 (post-renderer requires plugin)"
+    info "Skipping issue-2515 test for Helm 4 (Helm 4 natively applies --post-renderer to --output-dir output)"
     test_start "issue-2515 post-renderer with output-dir-template (skipped for Helm 4)"
     test_pass "issue-2515 post-renderer with output-dir-template (skipped for Helm 4)"
 else

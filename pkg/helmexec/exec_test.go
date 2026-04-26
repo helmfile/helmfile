@@ -21,8 +21,9 @@ import (
 // Mocking the command-line runner
 
 type mockRunner struct {
-	output []byte
-	err    error
+	output        []byte
+	versionOutput []byte // if set, returned for "helm version --short" probe; overrides default Helm 4 fallback
+	err           error
 }
 
 func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
@@ -30,8 +31,13 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	if len(mock.output) == 0 && strings.Join(args, " ") == "version --short" {
-		return []byte("v4.0.1+g12500dd"), nil
+	if strings.Join(args, " ") == "version --short" {
+		if mock.versionOutput != nil {
+			return mock.versionOutput, nil
+		}
+		if len(mock.output) == 0 {
+			return []byte("v4.0.1+g12500dd"), nil
+		}
 	}
 	return mock.output, mock.err
 }
@@ -1260,7 +1266,9 @@ func Test_Template_PostRendererWithOutputDir(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := NewLogger(&buffer, "debug")
 
-	runner := &mockRunner{}
+	// Use Helm 3 version for the version probe so the Helm 3 workaround is applied.
+	// The workaround is not needed for Helm 4, which natively applies --post-renderer to --output-dir output.
+	runner := &mockRunner{versionOutput: []byte("v3.20.0")}
 	helm, err := New("helm", HelmExecOptions{}, logger, "config", "dev", runner)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

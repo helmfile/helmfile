@@ -658,9 +658,10 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		}
 	}
 
-	if outputToFile && hasPostRenderer {
-		// Helm does not apply --post-renderer to files written by --output-dir.
+	if outputToFile && hasPostRenderer && helm.IsHelm3() {
+		// Helm 3 does not apply --post-renderer to files written by --output-dir.
 		// It writes pre-post-renderer content to files and sends post-renderer output to stdout.
+		// Helm 4 handles this correctly, so the workaround is only needed for Helm 3.
 		// Workaround: run without --output-dir, capture stdout (with post-renderer applied),
 		// and write the output to the output directory ourselves.
 		var outputDir string
