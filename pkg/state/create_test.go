@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"dario.cat/mergo"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -930,5 +931,168 @@ releases:
 				tt.checkValues(t, state)
 			}
 		})
+	}
+}
+
+func TestMergedReleaseTemplateData_IncludesReleaseValues(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	testValsRuntime, _ := vals.New(vals.Options{CacheSize: 32})
+
+	yamlFile := "/example/path/to/helmfile.yaml"
+	yamlContent := []byte(`environments:
+  default:
+    values:
+    - env.yaml
+
+releases:
+- name: myrelease
+  chart: mychart
+  values:
+  - values.yaml
+`)
+
+	envYamlFile := "/example/path/to/env.yaml"
+	envYamlContent := []byte(`envKey: envValue`)
+
+	valuesFile := "/example/path/to/values.yaml"
+	valuesContent := []byte(`ingress:
+  enabled: true
+  host: example.com`)
+
+	testFs := testhelper.NewTestFs(map[string]string{
+		envYamlFile: string(envYamlContent),
+		valuesFile:  string(valuesContent),
+	})
+	testFs.Cwd = "/example/path/to"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+	env := environment.Environment{
+		Name: "default",
+	}
+	state, err := NewCreator(logger, testFs.ToFileSystem(), testValsRuntime, nil, "", "", r, false, "").
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "default", true, true, true, &env, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	release := state.Releases[0]
+
+	templateData, err := state.mergedReleaseTemplateData(&release)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ingress, ok := templateData.Values["ingress"]
+	if !ok {
+		t.Fatalf("expected .Values to contain 'ingress' key from release values")
+	}
+	ingressMap, ok := ingress.(map[string]any)
+	if !ok {
+		t.Fatalf("expected ingress to be a map, got %T", ingress)
+	}
+	if ingressMap["enabled"] != true {
+		t.Errorf("expected ingress.enabled to be true, got %v", ingressMap["enabled"])
+	}
+	if ingressMap["host"] != "example.com" {
+		t.Errorf("expected ingress.host to be 'example.com', got %v", ingressMap["host"])
+	}
+
+	if templateData.Values["envKey"] != "envValue" {
+		t.Errorf("expected envKey to be 'envValue', got %v", templateData.Values["envKey"])
+	}
+}
+
+func TestMergedReleaseTemplateData_ReleaseValuesOverrideEnvValues(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	testValsRuntime, _ := vals.New(vals.Options{CacheSize: 32})
+
+	yamlFile := "/example/path/to/helmfile.yaml"
+	yamlContent := []byte(`environments:
+  default:
+    values:
+    - env.yaml
+
+releases:
+- name: myrelease
+  chart: mychart
+  values:
+  - values.yaml
+`)
+
+	envYamlFile := "/example/path/to/env.yaml"
+	envYamlContent := []byte(`replicaCount: 1`)
+
+	valuesFile := "/example/path/to/values.yaml"
+	valuesContent := []byte(`replicaCount: 3`)
+
+	testFs := testhelper.NewTestFs(map[string]string{
+		envYamlFile: string(envYamlContent),
+		valuesFile:  string(valuesContent),
+	})
+	testFs.Cwd = "/example/path/to"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+	env := environment.Environment{
+		Name: "default",
+	}
+	state, err := NewCreator(logger, testFs.ToFileSystem(), testValsRuntime, nil, "", "", r, false, "").
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "default", true, true, true, &env, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	release := state.Releases[0]
+
+	templateData, err := state.mergedReleaseTemplateData(&release)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if templateData.Values["replicaCount"] != 3 {
+		t.Errorf("expected replicaCount to be 3 (release value overriding env), got %v", templateData.Values["replicaCount"])
+	}
+}
+
+func TestMergedReleaseTemplateData_InlineValues(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	testValsRuntime, _ := vals.New(vals.Options{CacheSize: 32})
+
+	yamlFile := "/example/path/to/helmfile.yaml"
+	yamlContent := []byte(`releases:
+- name: myrelease
+  chart: mychart
+  values:
+  - ingress:
+      enabled: true
+      host: example.com
+`)
+
+	testFs := testhelper.NewTestFs(map[string]string{})
+	testFs.Cwd = "/example/path/to"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+	state, err := NewCreator(logger, testFs.ToFileSystem(), testValsRuntime, nil, "", "", r, false, "").
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "default", true, true, true, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	release := state.Releases[0]
+
+	templateData, err := state.mergedReleaseTemplateData(&release)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ingress, ok := templateData.Values["ingress"]
+	if !ok {
+		t.Fatalf("expected .Values to contain 'ingress' key from inline release values")
+	}
+	ingressMap, ok := ingress.(map[string]any)
+	if !ok {
+		t.Fatalf("expected ingress to be a map, got %T", ingress)
+	}
+	if ingressMap["enabled"] != true {
+		t.Errorf("expected ingress.enabled to be true, got %v", ingressMap["enabled"])
 	}
 }

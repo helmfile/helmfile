@@ -36,6 +36,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
@@ -3914,6 +3915,176 @@ func (st *HelmState) newReleaseTemplateData(release *ReleaseSpec) releaseTemplat
 	templateData := st.createReleaseTemplateData(release, vals)
 
 	return templateData
+}
+
+func (st *HelmState) mergedReleaseTemplateData(release *ReleaseSpec) (releaseTemplateData, error) {
+	releaseValues, err := st.resolveReleaseValues(release)
+	if err != nil {
+		return releaseTemplateData{}, err
+	}
+	mergedVals := maputil.MergeMaps(st.Values(), releaseValues)
+	return st.createReleaseTemplateData(release, mergedVals), nil
+}
+
+func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any, error) {
+	merged := map[string]any{}
+
+	values := []any{}
+	for _, v := range release.Values {
+		switch typedValue := v.(type) {
+		case string:
+			path := st.storage().normalizePath(release.ValuesPathPrefix + typedValue)
+			values = append(values, path)
+		default:
+			values = append(values, v)
+		}
+	}
+
+	valuesMapSecretsRendered, err := st.valsRuntime.Eval(map[string]any{"values": values})
+	if err != nil {
+		return nil, err
+	}
+
+	valuesSecretsRendered, ok := valuesMapSecretsRendered["values"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
+	}
+
+	for _, v := range valuesSecretsRendered {
+		switch typedValue := v.(type) {
+		case string:
+			paths, skip, err := st.storage().resolveFile(st.getReleaseMissingFileHandler(release), "values", typedValue, st.getReleaseMissingFileHandlerConfig(release).resolveFileOptions()...)
+			if err != nil {
+				return nil, err
+			}
+			if skip {
+				continue
+			}
+			if len(paths) > 1 {
+				return nil, fmt.Errorf("glob patterns in release values is not supported for template data resolution")
+			}
+			path := paths[0]
+
+			yamlBytes, err := st.RenderReleaseValuesFileToBytes(release, path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to render values file \"%s\": %v", typedValue, err)
+			}
+
+			var vals map[string]any
+			if err := yaml.Unmarshal(yamlBytes, &vals); err != nil {
+				return nil, fmt.Errorf("failed to parse values file \"%s\": %v", typedValue, err)
+			}
+
+			merged = maputil.MergeMaps(merged, vals)
+		case map[any]any:
+			strMap, err := maputil.CastKeysToStrings(typedValue)
+			if err != nil {
+				return nil, err
+			}
+			merged = maputil.MergeMaps(merged, strMap)
+		case map[string]any:
+			merged = maputil.MergeMaps(merged, typedValue)
+		default:
+			return nil, fmt.Errorf("unexpected type of value in release values: value=%v, type=%T", typedValue, typedValue)
+		}
+	}
+
+	return merged, nil
+}
+
+func (st *HelmState) renderValuesFileToBytesWithData(path string, templateData releaseTemplateData) ([]byte, error) {
+	r := tmpl.NewFileRenderer(st.fs, filepath.Dir(path), templateData)
+	rawBytes, err := r.RenderToBytes(path)
+	if err != nil {
+		return nil, err
+	}
+
+	match, err := regexp.Match("ref\\+.*", rawBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	if match {
+		var rawYaml map[string]any
+
+		if err := yaml.Unmarshal(rawBytes, &rawYaml); err != nil {
+			return nil, err
+		}
+
+		parsedYaml, err := st.valsRuntime.Eval(rawYaml)
+		if err != nil {
+			return nil, err
+		}
+
+		return yaml.Marshal(parsedYaml)
+	}
+
+	return rawBytes, nil
+}
+
+func (st *HelmState) generateTemporaryReleaseValuesFilesWithData(release *ReleaseSpec, values []any, templateData releaseTemplateData) ([]string, error) {
+	generatedFiles := []string{}
+
+	for _, value := range values {
+		switch typedValue := value.(type) {
+		case string:
+			paths, skip, err := st.storage().resolveFile(st.getReleaseMissingFileHandler(release), "values", typedValue, st.getReleaseMissingFileHandlerConfig(release).resolveFileOptions()...)
+			if err != nil {
+				return generatedFiles, err
+			}
+			if skip {
+				continue
+			}
+
+			if len(paths) > 1 {
+				return generatedFiles, fmt.Errorf("glob patterns in release values and secrets is not supported yet. please submit a feature request if necessary")
+			}
+			path := paths[0]
+
+			yamlBytes, err := st.renderValuesFileToBytesWithData(path, templateData)
+			if err != nil {
+				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
+			}
+
+			valfile, err := createTempValuesFile(release, yamlBytes)
+			if err != nil {
+				return generatedFiles, err
+			}
+			defer func() {
+				_ = valfile.Close()
+			}()
+
+			if _, err := valfile.Write(yamlBytes); err != nil {
+				return generatedFiles, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
+			}
+
+			st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+
+			generatedFiles = append(generatedFiles, valfile.Name())
+		case map[any]any, map[string]any:
+			valfile, err := createTempValuesFile(release, typedValue)
+			if err != nil {
+				return generatedFiles, err
+			}
+			defer func() {
+				_ = valfile.Close()
+			}()
+
+			encoder := yaml.NewEncoder(valfile)
+			defer func() {
+				_ = encoder.Close()
+			}()
+
+			if err := encoder.Encode(typedValue); err != nil {
+				return generatedFiles, err
+			}
+
+			generatedFiles = append(generatedFiles, valfile.Name())
+		default:
+			return generatedFiles, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
+		}
+	}
+	return generatedFiles, nil
 }
 
 func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
