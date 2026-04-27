@@ -3961,7 +3961,7 @@ func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any,
 				continue
 			}
 			if len(paths) > 1 {
-				return nil, fmt.Errorf("glob patterns in release values is not supported for template data resolution")
+				return nil, fmt.Errorf("glob patterns in release values are not supported for template data resolution: value=%q, resolvedPaths=%v", typedValue, paths)
 			}
 			path := paths[0]
 
@@ -3999,6 +3999,7 @@ func (st *HelmState) renderValuesFileToBytesWithData(path string, templateData r
 		return nil, err
 	}
 
+	// If 'ref+.*' exists in file, run vals against the file
 	match, err := regexp.Match("ref\\+.*", rawBytes)
 	if err != nil {
 		return nil, err
@@ -4037,7 +4038,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFilesWithData(release *Releas
 			}
 
 			if len(paths) > 1 {
-				return generatedFiles, fmt.Errorf("glob patterns in release values and secrets is not supported yet. please submit a feature request if necessary")
+				return generatedFiles, fmt.Errorf("glob patterns are not supported in patch/transformer values yet. please submit a feature request if necessary")
 			}
 			path := paths[0]
 
@@ -4046,40 +4047,81 @@ func (st *HelmState) generateTemporaryReleaseValuesFilesWithData(release *Releas
 				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
 
-			valfile, err := createTempValuesFile(release, yamlBytes)
+			if err := func() error {
+				valfile, err := createTempValuesFile(release, yamlBytes)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					_ = valfile.Close()
+				}()
+
+				if _, err := valfile.Write(yamlBytes); err != nil {
+					return fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
+				}
+
+				st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+
+				generatedFiles = append(generatedFiles, valfile.Name())
+
+				return nil
+			}(); err != nil {
+				return generatedFiles, err
+			}
+		case map[any]any:
+			strMap, err := maputil.CastKeysToStrings(typedValue)
 			if err != nil {
 				return generatedFiles, err
 			}
-			defer func() {
-				_ = valfile.Close()
-			}()
+			if err := func() error {
+				valfile, err := createTempValuesFile(release, strMap)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					_ = valfile.Close()
+				}()
 
-			if _, err := valfile.Write(yamlBytes); err != nil {
-				return generatedFiles, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
-			}
+				encoder := yaml.NewEncoder(valfile)
+				defer func() {
+					_ = encoder.Close()
+				}()
 
-			st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+				if err := encoder.Encode(strMap); err != nil {
+					return err
+				}
 
-			generatedFiles = append(generatedFiles, valfile.Name())
-		case map[any]any, map[string]any:
-			valfile, err := createTempValuesFile(release, typedValue)
-			if err != nil {
+				generatedFiles = append(generatedFiles, valfile.Name())
+
+				return nil
+			}(); err != nil {
 				return generatedFiles, err
 			}
-			defer func() {
-				_ = valfile.Close()
-			}()
+		case map[string]any:
+			if err := func() error {
+				valfile, err := createTempValuesFile(release, typedValue)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					_ = valfile.Close()
+				}()
 
-			encoder := yaml.NewEncoder(valfile)
-			defer func() {
-				_ = encoder.Close()
-			}()
+				encoder := yaml.NewEncoder(valfile)
+				defer func() {
+					_ = encoder.Close()
+				}()
 
-			if err := encoder.Encode(typedValue); err != nil {
+				if err := encoder.Encode(typedValue); err != nil {
+					return err
+				}
+
+				generatedFiles = append(generatedFiles, valfile.Name())
+
+				return nil
+			}(); err != nil {
 				return generatedFiles, err
 			}
-
-			generatedFiles = append(generatedFiles, valfile.Name())
 		default:
 			return generatedFiles, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
 		}
@@ -4095,35 +4137,7 @@ func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
 
 func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
 	templateData := st.newReleaseTemplateData(release)
-
-	r := tmpl.NewFileRenderer(st.fs, filepath.Dir(path), templateData)
-	rawBytes, err := r.RenderToBytes(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// If 'ref+.*' exists in file, run vals against the file
-	match, err := regexp.Match("ref\\+.*", rawBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	if match {
-		var rawYaml map[string]any
-
-		if err := yaml.Unmarshal(rawBytes, &rawYaml); err != nil {
-			return nil, err
-		}
-
-		parsedYaml, err := st.valsRuntime.Eval(rawYaml)
-		if err != nil {
-			return nil, err
-		}
-
-		return yaml.Marshal(parsedYaml)
-	}
-
-	return rawBytes, nil
+	return st.renderValuesFileToBytesWithData(path, templateData)
 }
 
 func (st *HelmState) storage() *Storage {
