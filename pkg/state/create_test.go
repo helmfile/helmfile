@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/testhelper"
@@ -1303,6 +1303,8 @@ releaseNamespace: {{ .Release.Namespace }}
 }
 
 func TestGenerateTemporaryReleaseValuesFilesWithData_StringPath(t *testing.T) {
+	t.Setenv(envvar.TempDir, t.TempDir())
+
 	patchFile := "/project/patch.yaml.gotmpl"
 	patchContent := `enabled: {{ .Values.ingress.enabled }}
 host: {{ .Values.ingress.host }}
@@ -1326,11 +1328,6 @@ host: {{ .Values.ingress.host }}
 	)
 	require.NoError(t, err)
 	require.Len(t, generatedFiles, 1)
-	t.Cleanup(func() {
-		for _, f := range generatedFiles {
-			_ = os.Remove(f)
-		}
-	})
 
 	// The temp files are created on the real OS filesystem via os.Create, so we read them with os.ReadFile
 	content, err := filesystem.DefaultFileSystem().ReadFile(generatedFiles[0])
@@ -1340,6 +1337,8 @@ host: {{ .Values.ingress.host }}
 }
 
 func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
+	t.Setenv(envvar.TempDir, t.TempDir())
+
 	st := newTestHelmStateWithFiles(t, map[string]string{})
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
@@ -1359,11 +1358,6 @@ func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Len(t, generatedFiles, 1)
-	t.Cleanup(func() {
-		for _, f := range generatedFiles {
-			_ = os.Remove(f)
-		}
-	})
 
 	// The temp files are created on the real OS filesystem via os.Create, so we read them with os.ReadFile
 	content, err := filesystem.DefaultFileSystem().ReadFile(generatedFiles[0])

@@ -4024,109 +4024,9 @@ func (st *HelmState) renderValuesFileToBytesWithData(path string, templateData r
 }
 
 func (st *HelmState) generateTemporaryReleaseValuesFilesWithData(release *ReleaseSpec, values []any, templateData releaseTemplateData) ([]string, error) {
-	generatedFiles := []string{}
-
-	for _, value := range values {
-		switch typedValue := value.(type) {
-		case string:
-			paths, skip, err := st.storage().resolveFile(st.getReleaseMissingFileHandler(release), "values", typedValue, st.getReleaseMissingFileHandlerConfig(release).resolveFileOptions()...)
-			if err != nil {
-				return generatedFiles, err
-			}
-			if skip {
-				continue
-			}
-
-			if len(paths) > 1 {
-				return generatedFiles, fmt.Errorf("glob patterns are not supported in patch/transformer values yet. please submit a feature request if necessary")
-			}
-			path := paths[0]
-
-			yamlBytes, err := st.renderValuesFileToBytesWithData(path, templateData)
-			if err != nil {
-				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
-			}
-
-			if err := func() error {
-				valfile, err := createTempValuesFile(release, yamlBytes)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					_ = valfile.Close()
-				}()
-
-				if _, err := valfile.Write(yamlBytes); err != nil {
-					return fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
-				}
-
-				st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
-
-				generatedFiles = append(generatedFiles, valfile.Name())
-
-				return nil
-			}(); err != nil {
-				return generatedFiles, err
-			}
-		case map[any]any:
-			strMap, err := maputil.CastKeysToStrings(typedValue)
-			if err != nil {
-				return generatedFiles, err
-			}
-			if err := func() error {
-				valfile, err := createTempValuesFile(release, strMap)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					_ = valfile.Close()
-				}()
-
-				encoder := yaml.NewEncoder(valfile)
-				defer func() {
-					_ = encoder.Close()
-				}()
-
-				if err := encoder.Encode(strMap); err != nil {
-					return err
-				}
-
-				generatedFiles = append(generatedFiles, valfile.Name())
-
-				return nil
-			}(); err != nil {
-				return generatedFiles, err
-			}
-		case map[string]any:
-			if err := func() error {
-				valfile, err := createTempValuesFile(release, typedValue)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					_ = valfile.Close()
-				}()
-
-				encoder := yaml.NewEncoder(valfile)
-				defer func() {
-					_ = encoder.Close()
-				}()
-
-				if err := encoder.Encode(typedValue); err != nil {
-					return err
-				}
-
-				generatedFiles = append(generatedFiles, valfile.Name())
-
-				return nil
-			}(); err != nil {
-				return generatedFiles, err
-			}
-		default:
-			return generatedFiles, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
-		}
-	}
-	return generatedFiles, nil
+	return st.generateTemporaryReleaseValuesFilesCore(release, values, func(path string) ([]byte, error) {
+		return st.renderValuesFileToBytesWithData(path, templateData)
+	})
 }
 
 func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
@@ -4265,6 +4165,14 @@ func (st *HelmState) getMissingFileHandler() *string {
 }
 
 func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, values []any) ([]string, error) {
+	return st.generateTemporaryReleaseValuesFilesCore(release, values, func(path string) ([]byte, error) {
+		return st.RenderReleaseValuesFileToBytes(release, path)
+	})
+}
+
+// generateTemporaryReleaseValuesFilesCore is the shared implementation for generating temporary values files.
+// renderStringValue is called for each string value entry after the file path has been resolved.
+func (st *HelmState) generateTemporaryReleaseValuesFilesCore(release *ReleaseSpec, values []any, renderStringValue func(path string) ([]byte, error)) ([]string, error) {
 	generatedFiles := []string{}
 
 	for _, value := range values {
@@ -4283,45 +4191,86 @@ func (st *HelmState) generateTemporaryReleaseValuesFiles(release *ReleaseSpec, v
 			}
 			path := paths[0]
 
-			yamlBytes, err := st.RenderReleaseValuesFileToBytes(release, path)
+			yamlBytes, err := renderStringValue(path)
 			if err != nil {
 				return generatedFiles, fmt.Errorf("failed to render values files \"%s\": %v", typedValue, err)
 			}
 
-			valfile, err := createTempValuesFile(release, yamlBytes)
+			if err := func() error {
+				valfile, err := createTempValuesFile(release, yamlBytes)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					_ = valfile.Close()
+				}()
+
+				if _, err := valfile.Write(yamlBytes); err != nil {
+					return fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
+				}
+
+				st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+
+				generatedFiles = append(generatedFiles, valfile.Name())
+
+				return nil
+			}(); err != nil {
+				return generatedFiles, err
+			}
+		case map[any]any:
+			strMap, err := maputil.CastKeysToStrings(typedValue)
 			if err != nil {
 				return generatedFiles, err
 			}
-			defer func() {
-				_ = valfile.Close()
-			}()
+			if err := func() error {
+				valfile, err := createTempValuesFile(release, strMap)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					_ = valfile.Close()
+				}()
 
-			if _, err := valfile.Write(yamlBytes); err != nil {
-				return generatedFiles, fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
-			}
+				encoder := yaml.NewEncoder(valfile)
+				defer func() {
+					_ = encoder.Close()
+				}()
 
-			st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+				if err := encoder.Encode(strMap); err != nil {
+					return err
+				}
 
-			generatedFiles = append(generatedFiles, valfile.Name())
-		case map[any]any, map[string]any:
-			valfile, err := createTempValuesFile(release, typedValue)
-			if err != nil {
+				generatedFiles = append(generatedFiles, valfile.Name())
+
+				return nil
+			}(); err != nil {
 				return generatedFiles, err
 			}
-			defer func() {
-				_ = valfile.Close()
-			}()
+		case map[string]any:
+			if err := func() error {
+				valfile, err := createTempValuesFile(release, typedValue)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					_ = valfile.Close()
+				}()
 
-			encoder := yaml.NewEncoder(valfile)
-			defer func() {
-				_ = encoder.Close()
-			}()
+				encoder := yaml.NewEncoder(valfile)
+				defer func() {
+					_ = encoder.Close()
+				}()
 
-			if err := encoder.Encode(typedValue); err != nil {
+				if err := encoder.Encode(typedValue); err != nil {
+					return err
+				}
+
+				generatedFiles = append(generatedFiles, valfile.Name())
+
+				return nil
+			}(); err != nil {
 				return generatedFiles, err
 			}
-
-			generatedFiles = append(generatedFiles, valfile.Name())
 		default:
 			return generatedFiles, fmt.Errorf("unexpected type of value: value=%v, type=%T", typedValue, typedValue)
 		}
