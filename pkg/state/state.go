@@ -3926,9 +3926,9 @@ func (st *HelmState) mergedReleaseTemplateData(release *ReleaseSpec) (releaseTem
 	return st.createReleaseTemplateData(release, mergedVals), nil
 }
 
-func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any, error) {
-	merged := map[string]any{}
-
+// prepareReleaseValuesEntries normalizes release.Values path entries (applying ValuesPathPrefix)
+// and evaluates any vals ref+ secrets, returning the fully-rendered values slice ready for processing.
+func (st *HelmState) prepareReleaseValuesEntries(release *ReleaseSpec) ([]any, error) {
 	values := []any{}
 	for _, v := range release.Values {
 		switch typedValue := v.(type) {
@@ -3936,7 +3936,7 @@ func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any,
 			path := st.storage().normalizePath(release.ValuesPathPrefix + typedValue)
 			values = append(values, path)
 		default:
-			values = append(values, v)
+			values = append(values, typedValue)
 		}
 	}
 
@@ -3948,6 +3948,17 @@ func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any,
 	valuesSecretsRendered, ok := valuesMapSecretsRendered["values"].([]any)
 	if !ok {
 		return nil, fmt.Errorf("failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
+	}
+
+	return valuesSecretsRendered, nil
+}
+
+func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any, error) {
+	merged := map[string]any{}
+
+	valuesSecretsRendered, err := st.prepareReleaseValuesEntries(release)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, v := range valuesSecretsRendered {
@@ -4209,7 +4220,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFilesCore(release *ReleaseSpe
 					return fmt.Errorf("failed to write %s: %v", valfile.Name(), err)
 				}
 
-				st.logger.Debugf("Successfully generated the value file at %s. produced:\n%s", path, string(yamlBytes))
+				st.logger.Debugf("Successfully generated the value file from %s to %s", path, valfile.Name())
 
 				generatedFiles = append(generatedFiles, valfile.Name())
 
@@ -4279,25 +4290,9 @@ func (st *HelmState) generateTemporaryReleaseValuesFilesCore(release *ReleaseSpe
 }
 
 func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string, error) {
-	values := []any{}
-	for _, v := range release.Values {
-		switch typedValue := v.(type) {
-		case string:
-			path := st.storage().normalizePath(release.ValuesPathPrefix + typedValue)
-			values = append(values, path)
-		default:
-			values = append(values, v)
-		}
-	}
-
-	valuesMapSecretsRendered, err := st.valsRuntime.Eval(map[string]any{"values": values})
+	valuesSecretsRendered, err := st.prepareReleaseValuesEntries(release)
 	if err != nil {
 		return nil, err
-	}
-
-	valuesSecretsRendered, ok := valuesMapSecretsRendered["values"].([]any)
-	if !ok {
-		return nil, fmt.Errorf("Failed to render values in %s for release %s: type %T isn't supported", st.FilePath, release.Name, valuesMapSecretsRendered["values"])
 	}
 
 	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, valuesSecretsRendered)
