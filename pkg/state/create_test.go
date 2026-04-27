@@ -1097,8 +1097,9 @@ func TestMergedReleaseTemplateData_InlineValues(t *testing.T) {
 	}
 }
 
-func newTestHelmStateWithFiles(t *testing.T, files map[string]string, basePath string) *HelmState {
+func newTestHelmStateWithFiles(t *testing.T, files map[string]string) *HelmState {
 	t.Helper()
+	const basePath = "/project"
 	logger := zaptest.NewLogger(t).Sugar()
 	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
 	require.NoError(t, err)
@@ -1117,7 +1118,7 @@ func newTestHelmStateWithFiles(t *testing.T, files map[string]string, basePath s
 }
 
 func TestResolveReleaseValues_Empty(t *testing.T) {
-	st := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
+	st := newTestHelmStateWithFiles(t, map[string]string{})
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	result, err := st.resolveReleaseValues(release)
@@ -1134,7 +1135,7 @@ image:
 `
 	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
-	}, "/project")
+	})
 
 	release := &ReleaseSpec{
 		Name:  "myrelease",
@@ -1152,7 +1153,7 @@ image:
 }
 
 func TestResolveReleaseValues_InlineMap(t *testing.T) {
-	st := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
+	st := newTestHelmStateWithFiles(t, map[string]string{})
 
 	release := &ReleaseSpec{
 		Name:  "myrelease",
@@ -1189,7 +1190,7 @@ ingress:
 	st := newTestHelmStateWithFiles(t, map[string]string{
 		baseValuesFile:     baseValuesContent,
 		overrideValuesFile: overrideValuesContent,
-	}, "/project")
+	})
 
 	release := &ReleaseSpec{
 		Name:  "myrelease",
@@ -1219,7 +1220,7 @@ func TestResolveReleaseValues_FileAndInlineMerged(t *testing.T) {
 `
 	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
-	}, "/project")
+	})
 
 	release := &ReleaseSpec{
 		Name:  "myrelease",
@@ -1245,7 +1246,7 @@ image:
 `
 	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
-	}, "/project")
+	})
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
@@ -1263,7 +1264,7 @@ enabled: {{ .Values.ingress.enabled }}
 `
 	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
-	}, "/project")
+	})
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{
@@ -1286,7 +1287,7 @@ releaseNamespace: {{ .Release.Namespace }}
 `
 	st := newTestHelmStateWithFiles(t, map[string]string{
 		valuesFile: valuesContent,
-	}, "/project")
+	})
 
 	release := &ReleaseSpec{Name: "myapp", Chart: "mychart", Namespace: "production"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
@@ -1304,7 +1305,7 @@ host: {{ .Values.ingress.host }}
 `
 	st := newTestHelmStateWithFiles(t, map[string]string{
 		patchFile: patchContent,
-	}, "/project")
+	})
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{
@@ -1330,7 +1331,7 @@ host: {{ .Values.ingress.host }}
 }
 
 func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
-	st := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
+	st := newTestHelmStateWithFiles(t, map[string]string{})
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
@@ -1358,7 +1359,7 @@ func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
 }
 
 func TestGenerateTemporaryReleaseValuesFilesWithData_UnknownTypeError(t *testing.T) {
-	st := newTestHelmStateWithFiles(t, map[string]string{}, "/project")
+	st := newTestHelmStateWithFiles(t, map[string]string{})
 
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
