@@ -28,12 +28,12 @@ if [ "${HELMFILE_HELM4}" = "1" ]; then
     # Helm 4 natively applies --post-renderer to --output-dir output.
     # The directory structure may differ from Helm 3 (no guaranteed templates/ subdir),
     # so search recursively for any YAML file. Fall back to stdout (log) if no files written.
-    issue_2515_output_file=$(find "${issue_2515_output_dir}" -type f \( -name '*.yaml' -o -name '*.yml' \) 2>/dev/null | head -n 1)
+    issue_2515_output_file=$(find "${issue_2515_output_dir}" -maxdepth 5 -type f \( -name '*.yaml' -o -name '*.yml' \) 2>/dev/null | head -n 1)
     if [ -z "${issue_2515_output_file}" ]; then
         # Helm 4 may write post-rendered output to stdout rather than files
         issue_2515_output_file="${issue_2515_tmp}/log"
         if ! grep -q "postrendered" "${issue_2515_output_file}"; then
-            fail "Expected post-rendered YAML (namespace postrendered) in output files under ${issue_2515_output_dir} or stdout. Dir: $(find ${issue_2515_output_dir} 2>/dev/null || echo 'not found'). Log: $(cat ${issue_2515_output_file})"
+            fail "Expected post-rendered YAML (namespace postrendered) in output files under ${issue_2515_output_dir} or stdout. Dir: $(find ${issue_2515_output_dir} 2>/dev/null || echo 'not found'). Log (last 50 lines): $(tail -50 ${issue_2515_output_file})"
         fi
     fi
 else
