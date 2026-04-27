@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -1029,7 +1030,8 @@ func TestMergeEnvironments_PreservesMergeStrategy(t *testing.T) {
 
 func TestMergedReleaseTemplateData_IncludesReleaseValues(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
-	testValsRuntime, _ := vals.New(vals.Options{CacheSize: 32})
+	testValsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
 
 	yamlFile := "/example/path/to/helmfile.yaml"
 	yamlContent := []byte(`environments:
@@ -1097,7 +1099,8 @@ releases:
 
 func TestMergedReleaseTemplateData_ReleaseValuesOverrideEnvValues(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
-	testValsRuntime, _ := vals.New(vals.Options{CacheSize: 32})
+	testValsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
 
 	yamlFile := "/example/path/to/helmfile.yaml"
 	yamlContent := []byte(`environments:
@@ -1148,7 +1151,8 @@ releases:
 
 func TestMergedReleaseTemplateData_InlineValues(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
-	testValsRuntime, _ := vals.New(vals.Options{CacheSize: 32})
+	testValsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
 
 	yamlFile := "/example/path/to/helmfile.yaml"
 	yamlContent := []byte(`releases:
@@ -1416,6 +1420,11 @@ host: {{ .Values.ingress.host }}
 	)
 	require.NoError(t, err)
 	require.Len(t, generatedFiles, 1)
+	t.Cleanup(func() {
+		for _, f := range generatedFiles {
+			_ = os.Remove(f)
+		}
+	})
 
 	// The temp files are created on the real OS filesystem via os.Create, so we read them with os.ReadFile
 	content, err := filesystem.DefaultFileSystem().ReadFile(generatedFiles[0])
@@ -1444,6 +1453,11 @@ func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Len(t, generatedFiles, 1)
+	t.Cleanup(func() {
+		for _, f := range generatedFiles {
+			_ = os.Remove(f)
+		}
+	})
 
 	// The temp files are created on the real OS filesystem via os.Create, so we read them with os.ReadFile
 	content, err := filesystem.DefaultFileSystem().ReadFile(generatedFiles[0])
