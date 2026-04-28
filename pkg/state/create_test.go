@@ -1418,7 +1418,7 @@ host: {{ .Values.ingress.host }}
 	generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(
 		release,
 		[]any{"patch.yaml.gotmpl"},
-		tmplData,
+		func() (releaseTemplateData, error) { return tmplData, nil },
 	)
 	require.NoError(t, err)
 	require.Len(t, generatedFiles, 1)
@@ -1448,7 +1448,7 @@ func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
 	generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(
 		release,
 		[]any{inlineValues},
-		tmplData,
+		func() (releaseTemplateData, error) { return tmplData, nil },
 	)
 	require.NoError(t, err)
 	require.Len(t, generatedFiles, 1)
@@ -1470,7 +1470,7 @@ func TestGenerateTemporaryReleaseValuesFilesWithData_UnknownTypeError(t *testing
 	_, err := st.generateTemporaryReleaseValuesFilesWithData(
 		release,
 		[]any{42},
-		tmplData,
+		func() (releaseTemplateData, error) { return tmplData, nil },
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected type of value")
