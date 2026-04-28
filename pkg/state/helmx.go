@@ -404,18 +404,28 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		shouldRun = true
 	}
 
-	var patchTemplateData *releaseTemplateData
-	if len(release.JSONPatches) > 0 || len(release.StrategicMergePatches) > 0 || len(release.Transformers) > 0 {
-		td, err := st.mergedReleaseTemplateData(release)
-		if err != nil {
-			return nil, clean, fmt.Errorf("failed to compute merged release values for patch rendering: %v", err)
+	// patchTemplateData is computed lazily on first use: only when an actual string patch/transformer
+	// file path is rendered. Inline-map entries don't require template data at all, so we avoid
+	// unnecessary I/O for releases whose patches are all inline maps or that have no string entries.
+	var (
+		cachedPatchTemplateData    releaseTemplateData
+		cachedPatchTemplateDataErr error
+		cachedPatchTemplateDataSet bool
+	)
+	getPatchTemplateData := func() (releaseTemplateData, error) {
+		if !cachedPatchTemplateDataSet {
+			cachedPatchTemplateDataSet = true
+			cachedPatchTemplateData, cachedPatchTemplateDataErr = st.mergedReleaseTemplateData(release)
+			if cachedPatchTemplateDataErr != nil {
+				cachedPatchTemplateDataErr = fmt.Errorf("failed to compute merged release values for patch rendering: %v", cachedPatchTemplateDataErr)
+			}
 		}
-		patchTemplateData = &td
+		return cachedPatchTemplateData, cachedPatchTemplateDataErr
 	}
 
 	jsonPatches := release.JSONPatches
 	if len(jsonPatches) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, jsonPatches, *patchTemplateData)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, jsonPatches, getPatchTemplateData)
 		if err != nil {
 			return nil, clean, err
 		}
@@ -429,7 +439,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	strategicMergePatches := release.StrategicMergePatches
 	if len(strategicMergePatches) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, strategicMergePatches, *patchTemplateData)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, strategicMergePatches, getPatchTemplateData)
 		if err != nil {
 			return nil, clean, err
 		}
@@ -443,7 +453,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	transformers := release.Transformers
 	if len(transformers) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, transformers, *patchTemplateData)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, transformers, getPatchTemplateData)
 		if err != nil {
 			return nil, clean, err
 		}

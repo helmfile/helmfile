@@ -4034,8 +4034,12 @@ func (st *HelmState) renderValuesFileToBytesWithData(path string, templateData r
 	return rawBytes, nil
 }
 
-func (st *HelmState) generateTemporaryReleaseValuesFilesWithData(release *ReleaseSpec, values []any, templateData releaseTemplateData) ([]string, error) {
+func (st *HelmState) generateTemporaryReleaseValuesFilesWithData(release *ReleaseSpec, values []any, getTemplateData func() (releaseTemplateData, error)) ([]string, error) {
 	return st.generateTemporaryReleaseValuesFilesCore(release, values, func(path string) ([]byte, error) {
+		templateData, err := getTemplateData()
+		if err != nil {
+			return nil, err
+		}
 		return st.renderValuesFileToBytesWithData(path, templateData)
 	})
 }
