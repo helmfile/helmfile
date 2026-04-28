@@ -21,8 +21,9 @@ import (
 // Mocking the command-line runner
 
 type mockRunner struct {
-	output []byte
-	err    error
+	output        []byte
+	versionOutput []byte // if set, returned for "helm version --short" probe; overrides default Helm 4 fallback
+	err           error
 }
 
 func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
@@ -30,8 +31,13 @@ func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]s
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	if len(mock.output) == 0 && strings.Join(args, " ") == "version --short" {
-		return []byte("v4.0.1+g12500dd"), nil
+	if strings.Join(args, " ") == "version --short" {
+		if mock.versionOutput != nil {
+			return mock.versionOutput, nil
+		}
+		if len(mock.output) == 0 {
+			return []byte("v4.0.1+g12500dd"), nil
+		}
 	}
 	return mock.output, mock.err
 }
@@ -1252,6 +1258,64 @@ exec: helm --kubeconfig config --kube-context dev template release https://examp
 	}
 	if buffer.String() != expected {
 		t.Errorf("helmexec.Template()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+func Test_Template_PostRendererWithOutputDir(t *testing.T) {
+	tests := []struct {
+		name             string
+		postRendererFlag string
+	}{
+		{"separate flags", "--post-renderer"},
+		{"combined flag", "--post-renderer=/bin/echo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			var buffer bytes.Buffer
+			logger := NewLogger(&buffer, "debug")
+
+			// Use Helm 3 version for the version probe so the Helm 3 workaround is applied.
+			// The workaround is not needed for Helm 4, which natively applies --post-renderer to --output-dir output.
+			runner := &mockRunner{versionOutput: []byte("v3.20.0")}
+			helm, err := New("helm", HelmExecOptions{}, logger, "config", "dev", runner)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			runner.output = []byte("apiVersion: v1\nkind: Namespace\n")
+
+			var flags []string
+			if tt.postRendererFlag == "--post-renderer" {
+				flags = []string{"--post-renderer", "/bin/echo", "--output-dir", tmpDir, "--values", "file.yml"}
+			} else {
+				flags = []string{tt.postRendererFlag, "--output-dir", tmpDir, "--values", "file.yml"}
+			}
+
+			err = helm.TemplateRelease("myrelease", "path/to/chart", flags...)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			outputPath := filepath.Join(tmpDir, "templates", "myrelease.yaml")
+			data, err := os.ReadFile(outputPath)
+			if err != nil {
+				t.Fatalf("expected output file %s to exist: %v", outputPath, err)
+			}
+
+			expected := "apiVersion: v1\nkind: Namespace\n\n"
+			if string(data) != expected {
+				t.Errorf("output file content:\nactual=%q\nexpect=%q", string(data), expected)
+			}
+
+			outputLog := buffer.String()
+			if strings.Contains(outputLog, "--output-dir") {
+				t.Errorf("helm should NOT have been called with --output-dir, got: %s", outputLog)
+			}
+			if !strings.Contains(outputLog, "--post-renderer") {
+				t.Errorf("helm should have been called with --post-renderer, got: %s", outputLog)
+			}
+		})
 	}
 }
 

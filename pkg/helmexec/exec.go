@@ -646,16 +646,76 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedURL(chart))
 	args := []string{"template", name, chart}
 
-	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
-
 	var outputToFile bool
+	var hasPostRenderer bool
 
 	for _, f := range flags {
-		if strings.HasPrefix("--output-dir", f) {
+		if f == "--output-dir" || strings.HasPrefix(f, "--output-dir=") {
 			outputToFile = true
-			break
+		}
+		if f == "--post-renderer" || strings.HasPrefix(f, "--post-renderer=") {
+			hasPostRenderer = true
 		}
 	}
+
+	if outputToFile && hasPostRenderer && helm.IsHelm3() {
+		// Helm 3 does not apply --post-renderer to files written by --output-dir.
+		// It writes pre-post-renderer content to files and sends post-renderer output to stdout.
+		// Helm 4 handles this correctly, so the workaround is only needed for Helm 3.
+		// Workaround: run without --output-dir, capture stdout (with post-renderer applied),
+		// and write the output to the output directory ourselves.
+		var outputDir string
+		filteredFlags := make([]string, 0, len(flags))
+		for i := 0; i < len(flags); i++ {
+			if flags[i] == "--output-dir" && i+1 < len(flags) {
+				outputDir = flags[i+1]
+				i++
+				continue
+			}
+			if strings.HasPrefix(flags[i], "--output-dir=") {
+				outputDir = strings.TrimPrefix(flags[i], "--output-dir=")
+				continue
+			}
+			filteredFlags = append(filteredFlags, flags[i])
+		}
+
+		if outputDir == "" {
+			return fmt.Errorf("output dir not found for template command")
+		}
+
+		out, err := helm.exec(append(args, filteredFlags...), map[string]string{}, nil)
+		if err != nil {
+			return err
+		}
+
+		templatesDir := filepath.Join(outputDir, "templates")
+		legacyOutputPath := filepath.Join(outputDir, name+".yaml")
+		outputPath := filepath.Join(templatesDir, name+".yaml")
+
+		if removeErr := os.Remove(legacyOutputPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return fmt.Errorf("failed to remove legacy output file %s: %w", legacyOutputPath, removeErr)
+		}
+
+		// Remove only the specific file written by the previous run to avoid clobbering
+		// unrelated files in a shared output directory.
+		if removeErr := os.Remove(outputPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return fmt.Errorf("failed to remove stale output file %s: %w", outputPath, removeErr)
+		}
+
+		if len(out) > 0 {
+			if mkdirErr := os.MkdirAll(templatesDir, 0755); mkdirErr != nil {
+				return fmt.Errorf("failed to create templates directory %s: %w", templatesDir, mkdirErr)
+			}
+
+			if writeErr := os.WriteFile(outputPath, append(out, '\n'), 0644); writeErr != nil {
+				return fmt.Errorf("failed to write output file %s: %w", outputPath, writeErr)
+			}
+			helm.logger.Debugf("Wrote post-renderer output to %s", outputPath)
+		}
+		return nil
+	}
+
+	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
 	if outputToFile {
 		// With --output-dir is passed to helm-template,
