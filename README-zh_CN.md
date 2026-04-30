@@ -60,7 +60,8 @@ Helmfile 是一个声明式Helm Chart管理工具
 详细见：[run as a container](https://helmfile.readthedocs.io/en/latest/#running-as-a-container)
 
 > 安装后请运行一次 `helmfile init`。 检查[helm-diff](https://github.com/databus23/helm-diff) 等插件安装正确。
-**4: 源码安装**
+
+**方式4: 源码安装**
 
 依赖: [Go](https://golang.org/dl/)
 
