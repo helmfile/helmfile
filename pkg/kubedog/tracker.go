@@ -262,7 +262,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 		t.logger.Info("All resources tracked successfully")
 		return nil
 	case <-ctx.Done():
-		return fmt.Errorf("tracking cancelled: %w", ctx.Err())
+		return fmt.Errorf("tracking canceled: %w", ctx.Err())
 	}
 }
 
@@ -324,7 +324,7 @@ func (t *Tracker) waitDeploymentTracker(ctx context.Context, tr *deployment.Trac
 		case <-doneCh:
 			return nil
 		case <-ctx.Done():
-			return fmt.Errorf("tracking cancelled for deployment %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
+			return fmt.Errorf("tracking canceled for deployment %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
 		}
 	}
 }
@@ -350,7 +350,7 @@ func (t *Tracker) waitStatefulSetTracker(ctx context.Context, tr *statefulset.Tr
 		case <-doneCh:
 			return nil
 		case <-ctx.Done():
-			return fmt.Errorf("tracking cancelled for statefulset %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
+			return fmt.Errorf("tracking canceled for statefulset %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
 		}
 	}
 }
@@ -376,7 +376,7 @@ func (t *Tracker) waitDaemonSetTracker(ctx context.Context, tr *daemonset.Tracke
 		case <-doneCh:
 			return nil
 		case <-ctx.Done():
-			return fmt.Errorf("tracking cancelled for daemonset %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
+			return fmt.Errorf("tracking canceled for daemonset %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
 		}
 	}
 }
@@ -402,7 +402,7 @@ func (t *Tracker) waitJobTracker(ctx context.Context, tr *job.Tracker, trackErrC
 		case <-doneCh:
 			return nil
 		case <-ctx.Done():
-			return fmt.Errorf("tracking cancelled for job %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
+			return fmt.Errorf("tracking canceled for job %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
 		}
 	}
 }
@@ -428,7 +428,7 @@ func (t *Tracker) waitCanaryTracker(ctx context.Context, tr *canary.Tracker, tra
 		case <-doneCh:
 			return nil
 		case <-ctx.Done():
-			return fmt.Errorf("tracking cancelled for canary %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
+			return fmt.Errorf("tracking canceled for canary %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
 		}
 	}
 }
