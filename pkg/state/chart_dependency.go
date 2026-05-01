@@ -129,6 +129,20 @@ func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, err
 	return "", fmt.Errorf("no resolved dependency found for \"%s\", running \"helmfile deps\" may resolve the issue", chart)
 }
 
+func dedupResolvedDependencies(deps []ResolvedChartDependency) []ResolvedChartDependency {
+	seen := map[string]bool{}
+	result := make([]ResolvedChartDependency, 0, len(deps))
+	for _, dep := range deps {
+		key := dep.ChartName + "|" + dep.Repository + "|" + dep.Version
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		result = append(result, dep)
+	}
+	return result
+}
+
 func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {
 	filename, unresolved := getUnresolvedDependenciess(st)
 
@@ -368,6 +382,8 @@ func (m *chartDependencyManager) doUpdate(chartLockFile string, unresolved *Unre
 	sort.Slice(lockedReqs.ResolvedDependencies, func(i, j int) bool {
 		return lockedReqs.ResolvedDependencies[i].ChartName < lockedReqs.ResolvedDependencies[j].ChartName
 	})
+
+	lockedReqs.ResolvedDependencies = dedupResolvedDependencies(lockedReqs.ResolvedDependencies)
 
 	lockedReqs.Version = version.Version()
 
