@@ -25,7 +25,7 @@ require (
 	github.com/tatsushid/go-prettytable v0.0.0-20141013043238-ed2d14c29939
 	github.com/tj/assert v0.0.3
 	github.com/variantdev/dag v1.1.0
-	github.com/werf/kubedog-for-werf-helm v0.0.0-20241217155728-9d45c48b82b6
+	github.com/werf/kubedog v0.13.1-0.20260217150136-ed58edf34eac
 	github.com/zclconf/go-cty v1.18.1
 	github.com/zclconf/go-cty-yaml v1.2.0
 	go.szostok.io/version v1.2.0

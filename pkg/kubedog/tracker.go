@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/werf/kubedog-for-werf-helm/pkg/tracker"
-	"github.com/werf/kubedog-for-werf-helm/pkg/trackers/rollout/multitrack"
+	"github.com/werf/kubedog/pkg/tracker"
+	"github.com/werf/kubedog/pkg/trackers/rollout/multitrack"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
