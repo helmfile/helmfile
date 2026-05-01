@@ -6,6 +6,69 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDedupResolvedDependencies(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []ResolvedChartDependency
+		expected []ResolvedChartDependency
+	}{
+		{
+			name: "no duplicates",
+			input: []ResolvedChartDependency{
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+				{ChartName: "redis", Repository: "https://charts.bitnami.com/bitnami", Version: "17.0.7"},
+			},
+			expected: []ResolvedChartDependency{
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+				{ChartName: "redis", Repository: "https://charts.bitnami.com/bitnami", Version: "17.0.7"},
+			},
+		},
+		{
+			name: "duplicates removed",
+			input: []ResolvedChartDependency{
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+			},
+			expected: []ResolvedChartDependency{
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+			},
+		},
+		{
+			name: "same chart different versions kept",
+			input: []ResolvedChartDependency{
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.1"},
+			},
+			expected: []ResolvedChartDependency{
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.1"},
+			},
+		},
+		{
+			name: "same chart different repos kept",
+			input: []ResolvedChartDependency{
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+				{ChartName: "app-template", Repository: "https://other.com", Version: "4.6.2"},
+			},
+			expected: []ResolvedChartDependency{
+				{ChartName: "app-template", Repository: "https://example.com", Version: "4.6.2"},
+				{ChartName: "app-template", Repository: "https://other.com", Version: "4.6.2"},
+			},
+		},
+		{
+			name:     "empty input",
+			input:    []ResolvedChartDependency{},
+			expected: []ResolvedChartDependency{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := dedupResolvedDependencies(tt.input)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestGetUnresolvedDependenciess(t *testing.T) {
 	tests := []struct {
 		name       string
