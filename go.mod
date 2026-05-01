@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	dario.cat/mergo v1.0.2
-	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.100.1
