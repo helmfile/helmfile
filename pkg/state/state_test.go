@@ -926,8 +926,8 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--arg1",
-				"--post-renderer-args", "--arg2",
+				"--post-renderer-args=--arg1",
+				"--post-renderer-args=--arg2",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -949,7 +949,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -972,7 +972,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -997,7 +997,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--cli-arg",
+				"--post-renderer-args=--cli-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1022,7 +1022,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1340,8 +1340,8 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--arg1",
-				"--post-renderer-args", "--arg2",
+				"--post-renderer-args=--arg1",
+				"--post-renderer-args=--arg2",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1363,7 +1363,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1386,7 +1386,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1411,7 +1411,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--cli-arg",
+				"--post-renderer-args=--cli-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1436,7 +1436,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},

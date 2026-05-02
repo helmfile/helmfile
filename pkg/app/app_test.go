@@ -3106,6 +3106,9 @@ func hasFlagWithValue(flags []string, flagName, value string) bool {
 		if f == flagName && i+1 < len(flags) && flags[i+1] == value {
 			return true
 		}
+		if f == flagName+"="+value {
+			return true
+		}
 	}
 	return false
 }
