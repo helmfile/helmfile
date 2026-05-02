@@ -4645,7 +4645,7 @@ releases:
 	assert.Contains(t, err.Error(), "--output-dir is required")
 }
 
-func TestFetch_WriteOutputErrorsOnMultipleStateFiles(t *testing.T) {
+func TestFetch_WriteOutput_ErrorsOnMultipleStateFiles(t *testing.T) {
 	// Two separate helmfile state files in a helmfile.d directory simulate the
 	// multi-file scenario that --write-output cannot safely handle: the resulting
 	// multi-document YAML stream would be merged by Helmfile in a way that can
