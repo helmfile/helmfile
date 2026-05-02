@@ -3981,12 +3981,20 @@ func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any,
 				return nil, fmt.Errorf("failed to render values file \"%s\": %v", typedValue, err)
 			}
 
-			var vals map[string]any
-			if err := yaml.Unmarshal(yamlBytes, &vals); err != nil {
+			var rawVals map[string]any
+			if err := yaml.Unmarshal(yamlBytes, &rawVals); err != nil {
 				return nil, fmt.Errorf("failed to parse values file \"%s\": %v", typedValue, err)
 			}
 
-			merged = maputil.MergeMaps(merged, vals)
+			// Normalize nested keys: yaml v2 may produce map[any]any for nested maps.
+			// CastKeysToStrings recurses through both map[any]any and map[string]any so it is
+			// safe to call even when yaml v3 is in use and keys are already strings.
+			normalizedVals, err := maputil.CastKeysToStrings(rawVals)
+			if err != nil {
+				return nil, fmt.Errorf("failed to normalize keys in values file \"%s\": %v", typedValue, err)
+			}
+
+			merged = maputil.MergeMaps(merged, normalizedVals)
 		case map[any]any:
 			strMap, err := maputil.CastKeysToStrings(typedValue)
 			if err != nil {
