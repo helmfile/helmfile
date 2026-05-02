@@ -112,7 +112,7 @@ func (a *App) Create(c CreateConfigProvider) error {
 		{gitkeepPath, []byte("")},
 	}
 	for _, f := range files {
-		if err := os.WriteFile(f.path, f.content, 0o644); err != nil {
+		if err := writeScaffoldFile(f.path, f.content, c.Force()); err != nil {
 			return fmt.Errorf("failed to write %s: %w", f.path, err)
 		}
 		c.Logger().Infof("created %s", f.path)
@@ -120,4 +120,23 @@ func (a *App) Create(c CreateConfigProvider) error {
 
 	c.Logger().Infof("\nhelmfile project created in %s\n\nNext steps:\n  cd %s\n  # Edit helmfile.yaml to add your releases\n  helmfile apply", absDir, absDir)
 	return nil
+}
+
+// writeScaffoldFile writes content to path. When force is false it uses
+// O_EXCL so that a file appearing between the preflight check and the write
+// is caught rather than silently overwritten (TOCTOU protection).
+func writeScaffoldFile(path string, content []byte, force bool) error {
+	if force {
+		return os.WriteFile(path, content, 0o644)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	_, werr := f.Write(content)
+	cerr := f.Close()
+	if werr != nil {
+		return werr
+	}
+	return cerr
 }

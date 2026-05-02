@@ -2,8 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -58,30 +56,6 @@ func (c *CreateImpl) ValidateConfig() error {
 		}
 		if strings.TrimSpace(name) == "" {
 			return fmt.Errorf("project name must not be empty or whitespace only")
-		}
-	}
-	outputDir := c.OutputDir()
-	absDir, err := filepath.Abs(outputDir)
-	if err != nil {
-		return fmt.Errorf("failed to resolve output directory: %w", err)
-	}
-	if !c.Force() {
-		scaffoldPaths := []string{
-			filepath.Join(absDir, "helmfile.yaml"),
-			filepath.Join(absDir, "environments", "default.yaml"),
-			filepath.Join(absDir, "values", ".gitkeep"),
-		}
-		var existing []string
-		for _, p := range scaffoldPaths {
-			_, statErr := os.Stat(p)
-			if statErr == nil {
-				existing = append(existing, p)
-			} else if !os.IsNotExist(statErr) {
-				return fmt.Errorf("failed to check %s: %w", p, statErr)
-			}
-		}
-		if len(existing) > 0 {
-			return fmt.Errorf("the following files already exist, use --force to overwrite: %s", strings.Join(existing, ", "))
 		}
 	}
 	return c.GlobalImpl.ValidateConfig()
