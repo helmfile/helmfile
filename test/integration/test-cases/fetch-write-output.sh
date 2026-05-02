@@ -26,7 +26,7 @@ info "Verifying chart files exist in output directory"
 cat ${fetch_write_output_tmp}/helmfile-tests/local-chart/raw/latest/Chart.yaml || fail "Chart.yaml should exist in fetched output directory"
 
 info "Verifying the chart path in output matches the actual downloaded location"
-chart_path=$(echo "${output}" | grep "^ *chart:" | head -1 | sed 's/^ *chart: *//' | tr -d '"')
+chart_path=$(echo "${output}" | grep -E "^\s+(-\s+)?chart:" | head -1 | sed 's/.*chart: *//' | tr -d '"')
 if [ ! -f "${chart_path}/Chart.yaml" ]; then
     fail "chart path '${chart_path}' from output should point to a directory containing Chart.yaml"
 fi
