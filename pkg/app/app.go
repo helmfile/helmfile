@@ -411,7 +411,10 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 		if c.WriteOutput() {
 			// Disable live output to avoid Helm progress/status lines being streamed
 			// to stdout and corrupting the YAML document emitted by --write-output.
+			// Restore the original value when this callback returns so the cached helm
+			// exec instance is not permanently mutated (important for tests and library usage).
 			run.helm.SetEnableLiveOutput(false)
+			defer run.helm.SetEnableLiveOutput(a.EnableLiveOutput)
 		}
 
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{

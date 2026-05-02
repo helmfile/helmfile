@@ -2809,8 +2809,9 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) (helmexec.Interfa
 // mocking helmexec.Interface
 
 type mockHelmExec struct {
-	templated []mockTemplates
-	repos     []mockRepo
+	templated        []mockTemplates
+	repos            []mockRepo
+	enableLiveOutput bool
 }
 
 type mockTemplates struct {
@@ -2850,6 +2851,7 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
 
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+	helm.enableLiveOutput = enableLiveOutput
 }
 
 func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {
@@ -4679,17 +4681,20 @@ releases:
 		valsRuntime: valsRuntime,
 		// Start with SequentialHelmfiles = false; it must be restored after Fetch.
 		SequentialHelmfiles: false,
+		EnableLiveOutput:    false,
 	}, files)
 
 	outputDir := t.TempDir()
 
 	// Fetch with --write-output + --output-dir enters the mutation block,
-	// temporarily sets SequentialHelmfiles = true, then restores it.
+	// temporarily sets SequentialHelmfiles = true and EnableLiveOutput = false,
+	// then restores both when it returns.
 	_ = app.Fetch(fetchConfigImpl{
 		writeOutput: true,
 		outputDir:   outputDir,
 	})
 	assert.False(t, app.SequentialHelmfiles, "SequentialHelmfiles should be restored to false after Fetch returns")
+	assert.False(t, helm.enableLiveOutput, "helm.enableLiveOutput should be restored to false (a.EnableLiveOutput) after Fetch returns")
 }
 
 func TestList(t *testing.T) {
