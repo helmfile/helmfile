@@ -4643,6 +4643,55 @@ releases:
 	assert.Contains(t, err.Error(), "--output-dir is required")
 }
 
+func TestFetch_WriteOutputRestoresSequentialHelmfiles(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	// Use a real mock helm exec (not noCallHelmExec) so that Fetch can proceed
+	// past the validation check and enter the SequentialHelmfiles mutation block.
+	helm := &mockHelmExec{}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey(DefaultHelmBinary, "default"): helm,
+		},
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+		// Start with SequentialHelmfiles = false; it must be restored after Fetch.
+		SequentialHelmfiles: false,
+	}, files)
+
+	outputDir := t.TempDir()
+
+	// Fetch with --write-output + --output-dir enters the mutation block,
+	// temporarily sets SequentialHelmfiles = true, then restores it.
+	_ = app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   outputDir,
+	})
+	assert.False(t, app.SequentialHelmfiles, "SequentialHelmfiles should be restored to false after Fetch returns")
+}
+
 func TestList(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.d/first.yaml": `
