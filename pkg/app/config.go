@@ -325,6 +325,14 @@ type InitConfigProvider interface {
 	Force() bool
 }
 
+type CreateConfigProvider interface {
+	Name() string
+	OutputDir() string
+	Force() bool
+
+	loggingConfig
+}
+
 type PrintEnvConfigProvider interface {
 	Output() string
 }
