@@ -4665,7 +4665,11 @@ releases:
 
 	// Use a real mock helm exec (not noCallHelmExec) so that Fetch can proceed
 	// past the validation check and enter the SequentialHelmfiles mutation block.
-	helm := &mockHelmExec{}
+	// Start with enableLiveOutput = true so the restore path is actually exercised:
+	// Fetch will call SetEnableLiveOutput(false), then the deferred restore call
+	// SetEnableLiveOutput(true) (a.EnableLiveOutput). If the defer were missing,
+	// helm.enableLiveOutput would remain false and the assertion below would fail.
+	helm := &mockHelmExec{enableLiveOutput: true}
 
 	app := appWithFs(&App{
 		OverrideHelmBinary:              DefaultHelmBinary,
@@ -4681,20 +4685,21 @@ releases:
 		valsRuntime: valsRuntime,
 		// Start with SequentialHelmfiles = false; it must be restored after Fetch.
 		SequentialHelmfiles: false,
-		EnableLiveOutput:    false,
+		// Start with EnableLiveOutput = true; the deferred restore must bring it back.
+		EnableLiveOutput: true,
 	}, files)
 
 	outputDir := t.TempDir()
 
 	// Fetch with --write-output + --output-dir enters the mutation block,
-	// temporarily sets SequentialHelmfiles = true and EnableLiveOutput = false,
+	// temporarily sets SequentialHelmfiles = true and helm.EnableLiveOutput = false,
 	// then restores both when it returns.
 	_ = app.Fetch(fetchConfigImpl{
 		writeOutput: true,
 		outputDir:   outputDir,
 	})
 	assert.False(t, app.SequentialHelmfiles, "SequentialHelmfiles should be restored to false after Fetch returns")
-	assert.False(t, helm.enableLiveOutput, "helm.enableLiveOutput should be restored to false (a.EnableLiveOutput) after Fetch returns")
+	assert.True(t, helm.enableLiveOutput, "helm.enableLiveOutput should be restored to true (a.EnableLiveOutput) after Fetch returns")
 }
 
 func TestList(t *testing.T) {
