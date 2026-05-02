@@ -81,5 +81,5 @@ func (c *CreateImpl) ValidateConfig() error {
 			return fmt.Errorf("the following files already exist, use --force to overwrite: %s", strings.Join(existing, ", "))
 		}
 	}
-	return nil
+	return c.GlobalImpl.ValidateConfig()
 }

@@ -27,6 +27,9 @@ Otherwise, creates the project in the current directory.`,
 				options.Name = args[0]
 			}
 			createImpl := config.NewCreateImpl(globalCfg, options)
+			if err := config.NewCLIConfigImpl(createImpl.GlobalImpl); err != nil {
+				return err
+			}
 			if err := createImpl.ValidateConfig(); err != nil {
 				return err
 			}
@@ -36,7 +39,7 @@ Otherwise, creates the project in the current directory.`,
 	}
 	f := cmd.Flags()
 	f.StringVarP(&options.OutputDir, "output-dir", "o", "", "Output directory (default: NAME or current directory)")
-	f.BoolVar(&options.Force, "force", false, "Overwrite existing helmfile.yaml")
+	f.BoolVar(&options.Force, "force", false, "Overwrite existing scaffold files (helmfile.yaml, environments/default.yaml, values/.gitkeep)")
 
 	return cmd
 }
