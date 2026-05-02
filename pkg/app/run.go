@@ -144,7 +144,7 @@ func (r *Run) Deps(c DepsConfigProvider) []error {
 
 	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
-	return r.state.UpdateDeps(r.helm, c.IncludeTransitiveNeeds())
+	return r.state.UpdateDeps(r.helm, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 }
 
 func (r *Run) Repos(c ReposConfigProvider) error {

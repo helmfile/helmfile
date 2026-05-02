@@ -117,7 +117,7 @@ func TestSelectReleasesWithOverrides(t *testing.T) {
 		}
 		state.Releases = state.GetReleasesWithLabels()
 
-		rs, err := state.GetSelectedReleases(false)
+		rs, err := state.GetSelectedReleases(false, false)
 		if err != nil {
 			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
 		}
@@ -139,20 +139,37 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 		subject                string
 		selector               []string
 		want                   []string
+		includeNeeds           bool
 		includeTransitiveNeeds bool
 	}
 
 	testcases := []testcase{
 		{
-			subject:                "include transitives is false",
+			subject:                "no needs inclusion",
 			selector:               []string{"name=serviceA"},
 			want:                   []string{"serviceA"},
+			includeNeeds:           false,
 			includeTransitiveNeeds: false,
 		},
 		{
-			subject:                "include transitives is true",
+			subject:                "include direct needs only",
+			selector:               []string{"name=serviceA"},
+			want:                   []string{"serviceA", "serviceB"},
+			includeNeeds:           true,
+			includeTransitiveNeeds: false,
+		},
+		{
+			subject:                "include transitive needs",
 			selector:               []string{"name=serviceA"},
 			want:                   []string{"serviceA", "serviceB", "serviceC"},
+			includeNeeds:           false,
+			includeTransitiveNeeds: true,
+		},
+		{
+			subject:                "include both direct and transitive needs",
+			selector:               []string{"name=serviceA"},
+			want:                   []string{"serviceA", "serviceB", "serviceC"},
+			includeNeeds:           true,
 			includeTransitiveNeeds: true,
 		},
 	}
@@ -192,7 +209,7 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 		}
 		state.Releases = state.GetReleasesWithLabels()
 
-		rs, err := state.GetSelectedReleases(tc.includeTransitiveNeeds)
+		rs, err := state.GetSelectedReleases(tc.includeNeeds, tc.includeTransitiveNeeds)
 		if err != nil {
 			t.Fatalf("%s %s: %v", tc.selector, tc.subject, err)
 		}
@@ -206,5 +223,55 @@ func TestSelectReleasesWithOverridesWithIncludedTransitives(t *testing.T) {
 		if d := cmp.Diff(tc.want, got); d != "" {
 			t.Errorf("%s %s: %s", tc.selector, tc.subject, d)
 		}
+	}
+}
+
+func TestSelectReleasesWithIncludeNeedsCrossNamespace(t *testing.T) {
+	// When multiple releases share the same name across different namespaces,
+	// includeNeeds should resolve the correct dependency using fully-qualified IDs
+	// rather than name-based lookup (which would be ambiguous).
+	example := []byte(`releases:
+- name: frontend
+  namespace: team-a
+  chart: stable/testchart
+  needs:
+    - team-a/backend
+- name: backend
+  namespace: team-a
+  chart: stable/testchart
+- name: backend
+  namespace: team-b
+  chart: stable/testchart
+`)
+
+	state := stateTestEnv{
+		Files: map[string]string{
+			"/helmfile.yaml": string(example),
+		},
+		WorkDir: "/",
+	}.MustLoadState(t, "/helmfile.yaml", "default")
+
+	state.Selectors = []string{"name=frontend"}
+	var err error
+	state.Releases, err = state.GetReleasesWithOverrides()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Releases = state.GetReleasesWithLabels()
+
+	rs, err := state.GetSelectedReleases(true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got []string
+	for _, r := range rs {
+		got = append(got, r.Namespace+"/"+r.Name)
+	}
+
+	// Should include team-a/backend (direct need) but NOT team-b/backend
+	want := []string{"team-a/frontend", "team-a/backend"}
+	if d := cmp.Diff(want, got); d != "" {
+		t.Errorf("cross-namespace include-needs: %s", d)
 	}
 }
