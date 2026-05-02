@@ -3100,7 +3100,8 @@ func newPostRendererTestApp(t *testing.T, files map[string]string) (*App, *mockH
 	return app, helm
 }
 
-// hasFlagWithValue reports whether flags contains "--flagName value" as adjacent entries.
+// hasFlagWithValue reports whether flags contains either "--flagName value" as adjacent entries
+// or "--flagName=value" as a single entry.
 func hasFlagWithValue(flags []string, flagName, value string) bool {
 	for i, f := range flags {
 		if f == flagName && i+1 < len(flags) && flags[i+1] == value {
@@ -3165,10 +3166,10 @@ releases:
 				t.Errorf("expected --post-renderer foo in flags, got %v", flags)
 			}
 			if !hasFlagWithValue(flags, "--post-renderer-args", "--arg1") {
-				t.Errorf("expected --post-renderer-args --arg1 in flags, got %v", flags)
+				t.Errorf("expected --post-renderer-args=--arg1 or --post-renderer-args --arg1 in flags, got %v", flags)
 			}
 			if !hasFlagWithValue(flags, "--post-renderer-args", "--arg2") {
-				t.Errorf("expected --post-renderer-args --arg2 in flags, got %v", flags)
+				t.Errorf("expected --post-renderer-args=--arg2 or --post-renderer-args --arg2 in flags, got %v", flags)
 			}
 		})
 	}
@@ -3222,7 +3223,7 @@ releases:
 
 			flags := helm.templated[0].flags
 			if !hasFlagWithValue(flags, "--post-renderer-args", "--cli-arg") {
-				t.Errorf("expected --post-renderer-args --cli-arg in flags (CLI should override helmDefaults), got %v", flags)
+				t.Errorf("expected --post-renderer-args=--cli-arg or --post-renderer-args --cli-arg in flags (CLI should override helmDefaults), got %v", flags)
 			}
 			if hasFlagWithValue(flags, "--post-renderer-args", "--default-arg") {
 				t.Errorf("unexpected --post-renderer-args --default-arg in flags (CLI should override helmDefaults), got %v", flags)
@@ -3279,7 +3280,7 @@ releases:
 
 			flags := helm.templated[0].flags
 			if !hasFlagWithValue(flags, "--post-renderer-args", "--release-arg") {
-				t.Errorf("expected --post-renderer-args --release-arg in flags (release should override CLI), got %v", flags)
+				t.Errorf("expected --post-renderer-args=--release-arg or --post-renderer-args --release-arg in flags (release should override CLI), got %v", flags)
 			}
 			if hasFlagWithValue(flags, "--post-renderer-args", "--cli-arg") {
 				t.Errorf("unexpected --post-renderer-args --cli-arg in flags (release should override CLI), got %v", flags)

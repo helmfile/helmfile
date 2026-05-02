@@ -1027,6 +1027,28 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "post-renderer-args-short-flag-value",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"-v"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=-v",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "description-from-release",
 			defaults: HelmSpec{
 				Verify:          false,
@@ -1437,6 +1459,28 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			want: []string{
 				"--version", "0.1",
 				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-short-flag-value",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"-v"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=-v",
 				"--namespace", "test-namespace",
 			},
 		},
