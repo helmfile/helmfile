@@ -407,8 +407,21 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 		defer func() { a.SequentialHelmfiles = prev }()
 	}
 
+	// stateFileCount tracks how many state files have been processed when
+	// --write-output is set; used to detect multi-file inputs early and return
+	// a clear error instead of silently producing semantically incorrect YAML.
+	var stateFileCount int
+
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if c.WriteOutput() {
+			stateFileCount++
+			if stateFileCount > 1 {
+				return false, []error{fmt.Errorf(
+					"--write-output requires a single helmfile state file, but multiple were found; " +
+						"use -f to specify a single helmfile instead of a directory or a helmfile with nested helmfiles: entries",
+				)}
+			}
+
 			// Disable live output to avoid Helm progress/status lines being streamed
 			// to stdout and corrupting the YAML document emitted by --write-output.
 			// Restore the original value when this callback returns so the cached helm

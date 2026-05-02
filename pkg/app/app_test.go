@@ -4645,6 +4645,59 @@ releases:
 	assert.Contains(t, err.Error(), "--output-dir is required")
 }
 
+func TestFetch_WriteOutputErrorsOnMultipleStateFiles(t *testing.T) {
+	// Two separate helmfile state files in a helmfile.d directory simulate the
+	// multi-file scenario that --write-output cannot safely handle: the resulting
+	// multi-document YAML stream would be merged by Helmfile in a way that can
+	// alter semantics (helmDefaults override, broken relative paths, etc.).
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+releases:
+- name: release1
+  chart: chart1
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: release2
+  chart: chart2
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	helm := &mockHelmExec{}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey(DefaultHelmBinary, "default"): helm,
+		},
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+	}, files)
+
+	outputDir := t.TempDir()
+
+	fetchErr := app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   outputDir,
+	})
+	assert.Error(t, fetchErr, "expected error when --write-output is used with multiple state files")
+	assert.Contains(t, fetchErr.Error(), "--write-output requires a single helmfile state file")
+}
+
 func TestFetch_WriteOutputRestoresSequentialHelmfiles(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `
