@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -71,52 +72,51 @@ func (a *App) Create(c CreateConfigProvider) error {
 		return fmt.Errorf("failed to resolve output directory: %w", err)
 	}
 
-	if err := os.MkdirAll(absDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", absDir, err)
-	}
-
+	// Scaffold file paths (intermediate directories may not exist yet).
 	helmfilePath := filepath.Join(absDir, "helmfile.yaml")
-	if err := writeFileIfNotExists(helmfilePath, []byte(helmfileYAMLTemplate), c.Force()); err != nil {
-		return err
-	}
-	c.Logger().Infof("created %s", helmfilePath)
+	envFilePath := filepath.Join(absDir, "environments", "default.yaml")
+	gitkeepPath := filepath.Join(absDir, "values", ".gitkeep")
 
-	envDir := filepath.Join(absDir, "environments")
-	if err := os.MkdirAll(envDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", envDir, err)
-	}
-
-	envFilePath := filepath.Join(envDir, "default.yaml")
-	if err := writeFileIfNotExists(envFilePath, []byte(envDefaultYAMLTemplate), c.Force()); err != nil {
-		return err
-	}
-	c.Logger().Infof("created %s", envFilePath)
-
-	valuesDir := filepath.Join(absDir, "values")
-	if err := os.MkdirAll(valuesDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", valuesDir, err)
+	// Preflight: when --force is not set, check all scaffold paths before
+	// writing anything so the command fails atomically rather than leaving a
+	// partially-written project directory.
+	if !c.Force() {
+		var existing []string
+		for _, p := range []string{helmfilePath, envFilePath, gitkeepPath} {
+			if _, err := os.Stat(p); err == nil {
+				existing = append(existing, p)
+			}
+		}
+		if len(existing) > 0 {
+			return fmt.Errorf("the following files already exist, use --force to overwrite: %s", strings.Join(existing, ", "))
+		}
 	}
 
-	gitkeepPath := filepath.Join(valuesDir, ".gitkeep")
-	if err := writeFileIfNotExists(gitkeepPath, []byte(""), c.Force()); err != nil {
-		return err
+	// Create directories.
+	for _, dir := range []string{absDir, filepath.Join(absDir, "environments"), filepath.Join(absDir, "values")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
 	}
-	c.Logger().Infof("created %s", gitkeepPath)
+
+	// Write scaffold files.
+	files := []struct {
+		path    string
+		content []byte
+	}{
+		{helmfilePath, []byte(helmfileYAMLTemplate)},
+		{envFilePath, []byte(envDefaultYAMLTemplate)},
+		{gitkeepPath, []byte("")},
+	}
+	for _, f := range files {
+		if err := os.WriteFile(f.path, f.content, 0o644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", f.path, err)
+		}
+		c.Logger().Infof("created %s", f.path)
+	}
 
 	c.Logger().Infof("\nhelmfile project created in %s\n\nNext steps:\n  cd %s\n  # Edit helmfile.yaml to add your releases\n  helmfile apply", absDir, absDir)
 	return nil
 }
 
-// writeFileIfNotExists writes content to path. When force is false and the file
-// already exists, it returns an error instead of overwriting.
-func writeFileIfNotExists(path string, content []byte, force bool) error {
-	if !force {
-		if _, err := os.Stat(path); err == nil {
-			return fmt.Errorf("%s already exists, use --force to overwrite", path)
-		}
-	}
-	if err := os.WriteFile(path, content, 0o644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", path, err)
-	}
-	return nil
-}
+

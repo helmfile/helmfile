@@ -70,7 +70,7 @@ func TestCreate_ExistingHelmfileYAMLNoForce(t *testing.T) {
 
 	err := a.Create(cfg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already exists")
+	assert.Contains(t, err.Error(), "already exist")
 	assert.Contains(t, err.Error(), "--force")
 
 	// Verify the existing file was not overwritten.
@@ -90,7 +90,7 @@ func TestCreate_ExistingEnvDefaultYAMLNoForce(t *testing.T) {
 
 	err := a.Create(cfg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already exists")
+	assert.Contains(t, err.Error(), "already exist")
 	assert.Contains(t, err.Error(), "--force")
 
 	// Verify the existing file was not overwritten.
@@ -110,13 +110,34 @@ func TestCreate_ExistingGitkeepNoForce(t *testing.T) {
 
 	err := a.Create(cfg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already exists")
+	assert.Contains(t, err.Error(), "already exist")
 	assert.Contains(t, err.Error(), "--force")
 
 	// Verify the existing file was not overwritten.
 	content, readErr := os.ReadFile(filepath.Join(valuesDir, ".gitkeep"))
 	require.NoError(t, readErr)
 	assert.Equal(t, "existing", string(content))
+}
+
+// TestCreate_PreflightAtomicOnLaterConflict verifies that when only a later
+// scaffold file exists (e.g. environments/default.yaml but not helmfile.yaml),
+// the preflight check catches it and no files are written at all.
+func TestCreate_PreflightAtomicOnLaterConflict(t *testing.T) {
+	dir := t.TempDir()
+	envDir := filepath.Join(dir, "environments")
+	require.NoError(t, os.MkdirAll(envDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(envDir, "default.yaml"), []byte("existing"), 0o644))
+
+	a := &App{}
+	cfg := newMockCreateConfig(dir, false)
+
+	err := a.Create(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already exist")
+
+	// helmfile.yaml must NOT have been created (preflight aborted before any write).
+	_, statErr := os.Stat(filepath.Join(dir, "helmfile.yaml"))
+	assert.True(t, os.IsNotExist(statErr), "helmfile.yaml should not have been created")
 }
 
 func TestCreate_ExistingFilesWithForce(t *testing.T) {
