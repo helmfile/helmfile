@@ -177,3 +177,32 @@ func assertFileExists(t *testing.T, path string) {
 	_, err := os.Stat(path)
 	assert.NoError(t, err, "file %s should exist", path)
 }
+
+func TestWriteScaffoldFile_CreatesNewFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "new.yaml")
+	require.NoError(t, writeScaffoldFile(path, []byte("hello"), false))
+	assertFileContent(t, path, "hello")
+}
+
+func TestWriteScaffoldFile_ExistingFileNoForce(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "existing.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("original"), 0o644))
+
+	err := writeScaffoldFile(path, []byte("new"), false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--force")
+
+	// Original content must be unchanged.
+	assertFileContent(t, path, "original")
+}
+
+func TestWriteScaffoldFile_ExistingFileWithForce(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "existing.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("original"), 0o644))
+
+	require.NoError(t, writeScaffoldFile(path, []byte("new"), true))
+	assertFileContent(t, path, "new")
+}

@@ -131,6 +131,9 @@ func writeScaffoldFile(path string, content []byte, force bool) error {
 	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
+		if os.IsExist(err) {
+			return fmt.Errorf("file %s already exists, use --force to overwrite: %w", path, err)
+		}
 		return err
 	}
 	_, werr := f.Write(content)
