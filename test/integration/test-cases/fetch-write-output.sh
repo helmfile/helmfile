@@ -7,7 +7,7 @@ case_title="fetch with --write-output for air-gapped environments"
 test_start "$case_title"
 
 info "Testing helmfile fetch --write-output with local chart"
-output=$(${helmfile} -f ${fetch_write_output_input_dir}/helmfile.yaml.gotmpl fetch --output-dir ${fetch_write_output_tmp} --write-output 2>/dev/null) \
+output=$("${helmfile}" -f "${fetch_write_output_input_dir}/helmfile.yaml.gotmpl" fetch --output-dir "${fetch_write_output_tmp}" --write-output 2>/dev/null) \
     || fail "\"helmfile fetch --write-output\" shouldn't fail"
 
 info "Verifying stdout does not contain non-YAML status messages"
@@ -26,14 +26,14 @@ info "Verifying output contains updated chart path pointing to output dir"
 echo "${output}" | grep -q "chart:" || fail "output should contain chart field"
 
 info "Verifying chart files exist in output directory"
-cat ${fetch_write_output_tmp}/helmfile-tests/local-chart/raw/latest/Chart.yaml || fail "Chart.yaml should exist in fetched output directory"
+cat "${fetch_write_output_tmp}/helmfile-tests/local-chart/raw/latest/Chart.yaml" || fail "Chart.yaml should exist in fetched output directory"
 
 info "Verifying the chart path in output matches the actual downloaded location"
-chart_path=$(echo "${output}" | grep -E "^\s+(-\s+)?chart:" | head -1 | sed 's/.*chart: *//' | tr -d '"')
+chart_path=$(echo "${output}" | grep -E "^[[:space:]]+(-[[:space:]]+)?chart:" | head -1 | sed 's/.*chart: *//' | tr -d '"')
 if [ ! -f "${chart_path}/Chart.yaml" ]; then
     fail "chart path '${chart_path}' from output should point to a directory containing Chart.yaml"
 fi
 
-rm -rf ${fetch_write_output_tmp}
+rm -rf "${fetch_write_output_tmp}"
 
 test_pass "$case_title"

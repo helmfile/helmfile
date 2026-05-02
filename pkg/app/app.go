@@ -408,6 +408,12 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 	}
 
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		if c.WriteOutput() {
+			// Disable live output to avoid Helm progress/status lines being streamed
+			// to stdout and corrupting the YAML document emitted by --write-output.
+			run.helm.SetEnableLiveOutput(false)
+		}
+
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
 			SkipRefresh:       c.SkipRefresh(),
