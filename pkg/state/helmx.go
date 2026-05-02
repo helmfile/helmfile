@@ -127,7 +127,7 @@ func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseS
 	}
 	for _, arg := range postRendererArgsFlags {
 		if arg != "" {
-			flags = append(flags, "--post-renderer-args", arg)
+			flags = append(flags, "--post-renderer-args="+arg)
 		}
 	}
 	return flags
