@@ -76,8 +76,8 @@ func (a *App) Create(c CreateConfigProvider) error {
 	}
 
 	helmfilePath := filepath.Join(absDir, "helmfile.yaml")
-	if err := os.WriteFile(helmfilePath, []byte(helmfileYAMLTemplate), 0o644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", helmfilePath, err)
+	if err := writeFileIfNotExists(helmfilePath, []byte(helmfileYAMLTemplate), c.Force()); err != nil {
+		return err
 	}
 	c.Logger().Infof("created %s", helmfilePath)
 
@@ -87,8 +87,8 @@ func (a *App) Create(c CreateConfigProvider) error {
 	}
 
 	envFilePath := filepath.Join(envDir, "default.yaml")
-	if err := os.WriteFile(envFilePath, []byte(envDefaultYAMLTemplate), 0o644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", envFilePath, err)
+	if err := writeFileIfNotExists(envFilePath, []byte(envDefaultYAMLTemplate), c.Force()); err != nil {
+		return err
 	}
 	c.Logger().Infof("created %s", envFilePath)
 
@@ -98,11 +98,25 @@ func (a *App) Create(c CreateConfigProvider) error {
 	}
 
 	gitkeepPath := filepath.Join(valuesDir, ".gitkeep")
-	if err := os.WriteFile(gitkeepPath, []byte(""), 0o644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", gitkeepPath, err)
+	if err := writeFileIfNotExists(gitkeepPath, []byte(""), c.Force()); err != nil {
+		return err
 	}
 	c.Logger().Infof("created %s", gitkeepPath)
 
 	c.Logger().Infof("\nhelmfile project created in %s\n\nNext steps:\n  cd %s\n  # Edit helmfile.yaml to add your releases\n  helmfile apply", absDir, absDir)
+	return nil
+}
+
+// writeFileIfNotExists writes content to path. When force is false and the file
+// already exists, it returns an error instead of overwriting.
+func writeFileIfNotExists(path string, content []byte, force bool) error {
+	if !force {
+		if _, err := os.Stat(path); err == nil {
+			return fmt.Errorf("%s already exists, use --force to overwrite", path)
+		}
+	}
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", path, err)
+	}
 	return nil
 }

@@ -65,10 +65,20 @@ func (c *CreateImpl) ValidateConfig() error {
 	if err != nil {
 		return fmt.Errorf("failed to resolve output directory: %w", err)
 	}
-	helmfilePath := filepath.Join(absDir, "helmfile.yaml")
 	if !c.Force() {
-		if _, err := os.Stat(helmfilePath); err == nil {
-			return fmt.Errorf("helmfile.yaml already exists in %s, use --force to overwrite", absDir)
+		scaffoldPaths := []string{
+			filepath.Join(absDir, "helmfile.yaml"),
+			filepath.Join(absDir, "environments", "default.yaml"),
+			filepath.Join(absDir, "values", ".gitkeep"),
+		}
+		var existing []string
+		for _, p := range scaffoldPaths {
+			if _, err := os.Stat(p); err == nil {
+				existing = append(existing, p)
+			}
+		}
+		if len(existing) > 0 {
+			return fmt.Errorf("the following files already exist in %s, use --force to overwrite: %s", absDir, strings.Join(existing, ", "))
 		}
 	}
 	return nil
