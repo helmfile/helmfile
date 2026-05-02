@@ -7,8 +7,11 @@ case_title="fetch with --write-output for air-gapped environments"
 test_start "$case_title"
 
 info "Testing helmfile fetch --write-output with local chart"
-output=$(${helmfile} -f ${fetch_write_output_input_dir}/helmfile.yaml.gotmpl fetch --output-dir ${fetch_write_output_tmp} --write-output) \
+output=$(${helmfile} -f ${fetch_write_output_input_dir}/helmfile.yaml.gotmpl fetch --output-dir ${fetch_write_output_tmp} --write-output 2>/dev/null) \
     || fail "\"helmfile fetch --write-output\" shouldn't fail"
+
+info "Verifying stdout does not contain non-YAML status messages"
+echo "${output}" | grep -q "^Charts will be downloaded to:" && fail "stdout should not contain 'Charts will be downloaded to:' (should be on stderr)" || true
 
 info "Verifying output contains YAML document separator"
 echo "${output}" | grep -q "^---" || fail "output should contain YAML document separator"

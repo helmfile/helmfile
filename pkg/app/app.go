@@ -397,6 +397,12 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 		return fmt.Errorf("--output-dir is required when --write-output is set")
 	}
 
+	if c.WriteOutput() {
+		// Force sequential processing to ensure YAML documents are emitted in order
+		// without interleaving when multiple helmfile state files are processed.
+		a.SequentialHelmfiles = true
+	}
+
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
