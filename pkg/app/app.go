@@ -467,7 +467,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			errs = append(errs, prepErr)
 		}
 
-		return
+		return ok, errs
 	}, false, SetFilter(true))
 }
 
