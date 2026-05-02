@@ -400,7 +400,11 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 	if c.WriteOutput() {
 		// Force sequential processing to ensure YAML documents are emitted in order
 		// without interleaving when multiple helmfile state files are processed.
+		// Restore the original value when Fetch returns so the App instance is not
+		// permanently mutated (important for tests and library usage).
+		prev := a.SequentialHelmfiles
 		a.SequentialHelmfiles = true
+		defer func() { a.SequentialHelmfiles = prev }()
 	}
 
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
@@ -431,7 +435,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 				if err != nil {
 					return []error{err}
 				}
-				fmt.Printf("---\n#  Source: %s\n\n%+v", sourceFile, stateYaml)
+				fmt.Printf("---\n#  Source: %s\n\n%s", sourceFile, stateYaml)
 			}
 
 			return nil
