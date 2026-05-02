@@ -73,8 +73,11 @@ func (c *CreateImpl) ValidateConfig() error {
 		}
 		var existing []string
 		for _, p := range scaffoldPaths {
-			if _, err := os.Stat(p); err == nil {
+			_, statErr := os.Stat(p)
+			if statErr == nil {
 				existing = append(existing, p)
+			} else if !os.IsNotExist(statErr) {
+				return fmt.Errorf("failed to check %s: %w", p, statErr)
 			}
 		}
 		if len(existing) > 0 {

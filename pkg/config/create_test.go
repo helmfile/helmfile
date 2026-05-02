@@ -38,6 +38,13 @@ func TestCreateImpl_ValidateConfig_NameDotDot(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid project name")
 }
 
+func TestCreateImpl_ValidateConfig_WhitespaceOnlyName(t *testing.T) {
+	c := newTestCreateImplWithDefaults("   ", "", false)
+	err := c.ValidateConfig()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not be empty or whitespace only")
+}
+
 func TestCreateImpl_ValidateConfig_ValidName(t *testing.T) {
 	dir := t.TempDir()
 	// outputDir points to an empty temp dir so no scaffold files exist and the

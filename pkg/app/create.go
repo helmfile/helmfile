@@ -83,8 +83,11 @@ func (a *App) Create(c CreateConfigProvider) error {
 	if !c.Force() {
 		var existing []string
 		for _, p := range []string{helmfilePath, envFilePath, gitkeepPath} {
-			if _, err := os.Stat(p); err == nil {
+			_, statErr := os.Stat(p)
+			if statErr == nil {
 				existing = append(existing, p)
+			} else if !os.IsNotExist(statErr) {
+				return fmt.Errorf("failed to check %s: %w", p, statErr)
 			}
 		}
 		if len(existing) > 0 {
@@ -118,5 +121,3 @@ func (a *App) Create(c CreateConfigProvider) error {
 	c.Logger().Infof("\nhelmfile project created in %s\n\nNext steps:\n  cd %s\n  # Edit helmfile.yaml to add your releases\n  helmfile apply", absDir, absDir)
 	return nil
 }
-
-
