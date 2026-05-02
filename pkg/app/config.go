@@ -242,6 +242,7 @@ type FetchConfigProvider interface {
 	SkipRefresh() bool
 	OutputDir() string
 	OutputDirTemplate() string
+	WriteOutput() bool
 
 	concurrencyConfig
 }

@@ -393,6 +393,10 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 }
 
 func (a *App) Fetch(c FetchConfigProvider) error {
+	if c.WriteOutput() && c.OutputDir() == "" {
+		return fmt.Errorf("--output-dir is required when --write-output is set")
+	}
+
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
@@ -403,6 +407,27 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			OutputDirTemplate: c.OutputDirTemplate(),
 			Concurrency:       c.Concurrency(),
 		}, func() []error {
+			if c.WriteOutput() {
+				for i := range run.state.Releases {
+					rel := &run.state.Releases[i]
+					if rel.ChartPath != "" {
+						rel.Chart = rel.ChartPath
+						rel.ChartPath = ""
+					}
+				}
+
+				stateYaml, err := run.state.ToYaml()
+				if err != nil {
+					return []error{err}
+				}
+
+				sourceFile, err := run.state.FullFilePath()
+				if err != nil {
+					return []error{err}
+				}
+				fmt.Printf("---\n#  Source: %s\n\n%+v", sourceFile, stateYaml)
+			}
+
 			return nil
 		})
 

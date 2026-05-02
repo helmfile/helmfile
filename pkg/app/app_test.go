@@ -2478,6 +2478,10 @@ func (c configImpl) EnforceNeedsAreInstalled() bool {
 	return c.enforceNeedsAreInstalled
 }
 
+func (c configImpl) WriteOutput() bool {
+	return false
+}
+
 type applyConfig struct {
 	args    string
 	cascade string
@@ -4585,6 +4589,58 @@ releases:
 		"state should contain source helmfile name:\n%s\n", out)
 	assert.True(t, strings.Contains(out, "second.yaml"),
 		"state should contain source helmfile name:\n%s\n", out)
+}
+
+type fetchConfigImpl struct {
+	configImpl
+	outputDir         string
+	outputDirTemplate string
+	writeOutput       bool
+}
+
+func (f fetchConfigImpl) OutputDir() string {
+	return f.outputDir
+}
+
+func (f fetchConfigImpl) OutputDirTemplate() string {
+	return f.outputDirTemplate
+}
+
+func (f fetchConfigImpl) WriteOutput() bool {
+	return f.writeOutput
+}
+
+func TestFetch_WriteOutputRequiresOutputDir(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	err := app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   "",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--output-dir is required")
 }
 
 func TestList(t *testing.T) {
