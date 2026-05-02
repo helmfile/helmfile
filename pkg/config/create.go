@@ -78,7 +78,7 @@ func (c *CreateImpl) ValidateConfig() error {
 			}
 		}
 		if len(existing) > 0 {
-			return fmt.Errorf("the following files already exist in %s, use --force to overwrite: %s", absDir, strings.Join(existing, ", "))
+			return fmt.Errorf("the following files already exist, use --force to overwrite: %s", strings.Join(existing, ", "))
 		}
 	}
 	return nil
