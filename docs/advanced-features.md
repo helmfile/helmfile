@@ -1,4 +1,4 @@
-## Advanced Features
+# Advanced Features
 
 - [Resource Tracking with Kubedog](#resource-tracking-with-kubedog)
 - [Import Configuration Parameters into Helmfile](#import-configuration-parameters-into-helmfile)
@@ -6,11 +6,11 @@
 - [Adhoc Kustomization of Helm Charts](#adhoc-kustomization-of-helm-charts)
 - [Adding dependencies without forking the chart](#adding-dependencies-without-forking-the-chart)
 
-### Resource Tracking with Kubedog
+## Resource Tracking with Kubedog
 
 Helmfile can use [kubedog](https://github.com/werf/kubedog) for advanced resource tracking instead of Helm's built-in `--wait` flag. This provides more detailed feedback and control over deployment progress.
 
-#### Basic Usage
+### Basic Usage
 
 Enable kubedog tracking in your `helmfile.yaml`:
 
@@ -29,13 +29,13 @@ Or use command-line flags:
 helmfile apply --track-mode kubedog --track-timeout 300 --track-logs
 ```
 
-#### Configuration Options
+### Configuration Options
 
 - **`trackMode`**: Set to `kubedog` to enable kubedog tracking, or `helm-legacy` to use Helm v4's legacy wait mode (default: `helm`)
 - **`trackTimeout`**: Timeout in seconds for tracking resources (default: 300)
 - **`trackLogs`**: Enable real-time log streaming from tracked resources
 
-#### Track Modes
+### Track Modes
 
 Helmfile supports three track modes:
 
@@ -43,7 +43,7 @@ Helmfile supports three track modes:
 - **`helm-legacy`**: Uses Helm v4's `--wait=legacy` flag. This is useful when migrating from Helm v3 to Helm v4 and you have charts that may have compatibility issues with the new watcher-based wait mechanism (e.g., charts with `livenessProbe` but no `startupProbe`). Note: This mode only works with Helm v4; with Helm v3 it falls back to regular `--wait`.
 - **`kubedog`**: Uses kubedog for advanced resource tracking with detailed feedback
 
-#### Resource Filtering
+### Resource Filtering
 
 Control which resources to track using whitelist/blacklist:
 
@@ -62,7 +62,7 @@ releases:
       - Secret
 ```
 
-#### Specific Resource Tracking
+### Specific Resource Tracking
 
 Track only specific resources by name and namespace:
 
@@ -79,7 +79,7 @@ releases:
         name: myapp-job
 ```
 
-#### Priority Rules
+### Priority Rules
 
 Resource filtering follows this priority (highest to lowest):
 
@@ -87,14 +87,14 @@ Resource filtering follows this priority (highest to lowest):
 2. **`skipKinds`**: Blacklist resource kinds
 3. **`trackKinds`**: Whitelist resource kinds
 
-#### Benefits
+### Benefits
 
 - **Real-time feedback**: See deployment progress with detailed status updates
 - **Log streaming**: View container logs during deployment
 - **Fine-grained control**: Track only the resources you care about
 - **Better debugging**: Immediate visibility into deployment issues
 
-#### Helm v4 Legacy Wait Mode
+### Helm v4 Legacy Wait Mode
 
 When using Helm v4 with charts that have broken `livenessProbe` configurations without `startupProbe`, the default `--wait=watcher` mode may fail. Helm v4 introduces `--wait=legacy` which uses the simpler polling mechanism compatible with Helm v3's behavior.
 
@@ -113,16 +113,32 @@ Or via command-line:
 helmfile apply --track-mode helm-legacy
 ```
 
-#### Compatibility
+### Compatibility
 
 - **`helm`**: Default mode, uses Helm's built-in `--wait` flag
 - **`helm-legacy`**: Uses Helm v4's `--wait=legacy` flag (only available in Helm v4)
 - **`kubedog`**: Uses kubedog library for advanced resource tracking
 - Kubedog tracking is compatible with Helm 3.x and 4.x
 - Kubedog is a compiled dependency and is only used when `trackMode: kubedog` is set
-- Works with charts that deploy supported workload kinds (currently `Deployment`, `StatefulSet`, `DaemonSet`, and `Job`); other resource kinds are created by Helm/Helmfile as usual but are ignored by the kubedog tracker
+- Works with charts that deploy supported workload kinds (currently `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, and `Canary`); other resource kinds are created by Helm/Helmfile as usual but are ignored by the kubedog tracker
 
-### Import Configuration Parameters into Helmfile
+### Advanced Kubedog Settings
+
+```yaml
+releases:
+  - name: myapp
+    chart: ./charts/myapp
+    trackMode: kubedog
+    trackTimeout: 600
+    trackLogs: true
+    kubedogQPS: 5.0
+    kubedogBurst: 10
+```
+
+- **`kubedogQPS`**: QPS (queries per second) for the kubedog kubernetes client (default: uses cluster defaults)
+- **`kubedogBurst`**: Burst for the kubedog kubernetes client (default: uses cluster defaults)
+
+## Import Configuration Parameters into Helmfile
 
 Helmfile integrates [vals]() to import configuration parameters from following backends:
 
@@ -136,7 +152,7 @@ See [Vals "Supported Backends"](https://github.com/helmfile/vals#supported-backe
 This feature was implemented in https://github.com/roboll/helmfile/pull/906.
 If you're curious about how it's designed and how it works, please review the pull request.
 
-### Deploy Kustomizations with Helmfile
+## Deploy Kustomizations with Helmfile
 
 You can deploy [kustomize](https://github.com/kubernetes-sigs/kustomize) "kustomization"s with Helmfile.
 
@@ -212,7 +228,7 @@ After all, Helmfile just installs the temporary chart like standard charts, whic
 
 Please also see [test/advanced/helmfile.yaml](https://github.com/helmfile/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of kustomization support and more.
 
-### Adhoc Kustomization of Helm charts
+## Adhoc Kustomization of Helm charts
 
 With Helmfile's integration with Kustomize, not only deploying Kustomization as a Helm chart, you can kustomize charts before installation.
 
@@ -225,7 +241,7 @@ Currently, Helmfile allows you to set the following fields for kustomizing the c
 - `releases[].jsonPatches`
 - [`releases[].transformers`](#transformers)
 
-#### `strategicMergePatches`
+### `strategicMergePatches`
 
 You can add/update any Kubernetes resource field rendered from a Helm chart by specifying `releases[].strategicMergePatches`:
 
@@ -269,7 +285,7 @@ There's also `releases[].jsonPatches` that works similarly to `strategicMergePat
 
 Please also see [test/advanced/helmfile.yaml](https://github.com/helmfile/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of patching support and more.
 
-#### `transformers`
+### `transformers`
 
 You can set `transformers` to apply [Kustomize's transformers](https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead).
 
@@ -331,7 +347,7 @@ transformers:
 
 Please see https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead for more information on how to declare transformers.
 
-### Adding dependencies without forking the chart
+## Adding dependencies without forking the chart
 
 With Helmfile, you can add chart dependencies to a Helm chart without forking it.
 
@@ -418,7 +434,7 @@ dependencies:
 
 Please read https://github.com/roboll/helmfile/issues/1762#issuecomment-816341251 for more details.
 
-#### OCI chart dependencies
+### OCI chart dependencies
 
 With Helmfile version v0.146.0 or later, you can add OCI chart to chart dependencies.
 
@@ -433,7 +449,7 @@ releases:
     version: 1.5
 ```
 
-### Lockfile per environment
+## Lockfile per environment
 
 In some cases it can be handy for CI/CD pipelines to be able to roll out updates gradually for environments, such as staging and production while using the same
 set of charts. This can be achieved by using `lockFilePath` in combination with environments, such as:
