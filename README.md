@@ -86,7 +86,13 @@ requirements: [Go](https://golang.org/dl/)
 
 Let's start with a simple `helmfile` and gradually improve it to fit your use-case!
 
-Suppose the `helmfile.yaml` representing the desired state of your helm releases looks like:
+Generate a project scaffold with best-practice directory structure:
+
+```console
+helmfile create my-project && cd my-project
+```
+
+Or create a `helmfile.yaml` manually. Suppose the `helmfile.yaml` representing the desired state of your helm releases looks like:
 
 ```yaml
 repositories:

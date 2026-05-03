@@ -72,7 +72,13 @@ Helmfile 是一个声明式Helm Chart管理工具
 
 让我们从最简单的 helmfile 开始，逐渐改进它以适应您的用例！
 
-假设表示您 helm releases 的期望状态的 helmfile.yaml 看起来像这样：
+使用脚手架命令生成具有最佳实践目录结构的项目：
+
+```console
+helmfile create my-project && cd my-project
+```
+
+或者手动创建 `helmfile.yaml`。假设表示您 helm releases 的期望状态的 helmfile.yaml 看起来像这样：
 
 ```yaml
 repositories:

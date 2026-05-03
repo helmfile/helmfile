@@ -13,6 +13,7 @@ Usage:
 Available Commands:
   apply        Apply all resources from state file only when there are changes
   build        Build all resources from state file
+  create       Create a helmfile deployment project scaffold
   cache        Cache management
   charts       DEPRECATED: sync releases from state file (helm upgrade --install)
   completion   Generate the autocompletion script for the specified shell
@@ -258,6 +259,39 @@ helmfile unittest --debug-plugin
 # Pass extra arguments to helm unittest
 helmfile unittest --args "--strict"
 ```
+
+### create
+
+The `helmfile create` sub-command generates a helmfile deployment project scaffold with best-practice directory structure.
+
+```bash
+# Create a project in a new directory
+helmfile create my-project
+
+# Create a project in the current directory
+helmfile create
+
+# Specify a custom output directory
+helmfile create my-project --output-dir /path/to/project
+
+# Overwrite existing scaffold files
+helmfile create my-project --force
+```
+
+This generates:
+
+* `helmfile.yaml` — Main configuration with commented examples for repositories, environments, and releases
+* `environments/default.yaml` — Default environment values file
+* `values/.gitkeep` — Placeholder for release-specific value files
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-o`, `--output-dir` | `""` | Output directory (defaults to NAME or current directory) |
+| `--force` | false | Overwrite existing scaffold files |
+
+The command validates the project name (no path separators, `.`, `..`, or whitespace-only names). Without `--force`, it atomically checks all target paths before writing to avoid partial scaffolds.
 
 ### fetch
 

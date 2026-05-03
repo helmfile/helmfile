@@ -103,7 +103,15 @@ Verify: `helmfile version`
 
 ### Step 2: Create your first helmfile.yaml
 
-Create a file named `helmfile.yaml`:
+Use `helmfile create` to generate a project scaffold with best-practice directory structure:
+
+```bash
+# Scaffold a new project
+helmfile create my-project
+cd my-project
+```
+
+Or create a `helmfile.yaml` manually:
 
 ```yaml
 repositories:
