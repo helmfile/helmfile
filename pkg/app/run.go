@@ -88,7 +88,7 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		dir = tempDir
 	} else {
 		dir = opts.OutputDir
-		fmt.Printf("Charts will be downloaded to: %s\n", dir)
+		fmt.Fprintf(os.Stderr, "Charts will be downloaded to: %s\n", dir)
 	}
 
 	if _, err := r.state.TriggerGlobalPrepareEvent(helmfileCommand); err != nil {

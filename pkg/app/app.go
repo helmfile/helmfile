@@ -393,7 +393,49 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 }
 
 func (a *App) Fetch(c FetchConfigProvider) error {
-	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+	if c.WriteOutput() && c.OutputDir() == "" {
+		return fmt.Errorf("--output-dir is required when --write-output is set")
+	}
+
+	if c.WriteOutput() {
+		// Force sequential processing to ensure YAML documents are emitted in order
+		// without interleaving when multiple helmfile state files are processed.
+		// Restore the original value when Fetch returns so the App instance is not
+		// permanently mutated (important for tests and library usage).
+		prev := a.SequentialHelmfiles
+		a.SequentialHelmfiles = true
+		defer func() { a.SequentialHelmfiles = prev }()
+	}
+
+	// processedStateFileCount tracks how many state files have been processed when
+	// --write-output is set; used to detect multi-file inputs early and return
+	// a clear error instead of silently producing semantically incorrect YAML.
+	var processedStateFileCount int
+
+	// yamlOutput buffers the generated YAML document so that nothing is written to
+	// stdout until ForEachState completes successfully. This prevents partial/corrupted
+	// output reaching stdout when a later state file (or chart download error) causes
+	// the operation to fail.
+	var yamlOutput strings.Builder
+
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		if c.WriteOutput() {
+			processedStateFileCount++
+			if processedStateFileCount > 1 {
+				return false, []error{fmt.Errorf(
+					"--write-output requires a single helmfile state file, but multiple were found; " +
+						"use -f to specify a single helmfile instead of a directory or a helmfile with nested helmfiles: entries",
+				)}
+			}
+
+			// Disable live output to avoid Helm progress/status lines being streamed
+			// to stdout and corrupting the YAML document emitted by --write-output.
+			// Restore the original value when this callback returns so the cached helm
+			// exec instance is not permanently mutated (important for tests and library usage).
+			run.helm.SetEnableLiveOutput(false)
+			defer run.helm.SetEnableLiveOutput(a.EnableLiveOutput)
+		}
+
 		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
 			SkipRefresh:       c.SkipRefresh(),
@@ -403,6 +445,27 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			OutputDirTemplate: c.OutputDirTemplate(),
 			Concurrency:       c.Concurrency(),
 		}, func() []error {
+			if c.WriteOutput() {
+				for i := range run.state.Releases {
+					rel := &run.state.Releases[i]
+					if rel.ChartPath != "" {
+						rel.Chart = rel.ChartPath
+						rel.ChartPath = ""
+					}
+				}
+
+				stateYaml, yamlErr := run.state.ToYaml()
+				if yamlErr != nil {
+					return []error{yamlErr}
+				}
+
+				sourceFile, pathErr := run.state.FullFilePath()
+				if pathErr != nil {
+					return []error{pathErr}
+				}
+				fmt.Fprintf(&yamlOutput, "---\n#  Source: %s\n\n%s", sourceFile, stateYaml)
+			}
+
 			return nil
 		})
 
@@ -410,8 +473,14 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			errs = append(errs, prepErr)
 		}
 
-		return
+		return ok, errs
 	}, false, SetFilter(true))
+
+	if err == nil && c.WriteOutput() {
+		fmt.Print(yamlOutput.String())
+	}
+
+	return err
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {

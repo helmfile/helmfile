@@ -99,6 +99,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-2502-race-condition-local-chart.sh
 . ${dir}/test-cases/chart-deps-condition.sh
 . ${dir}/test-cases/fetch-forl-local-chart.sh
+. ${dir}/test-cases/fetch-write-output.sh
 . ${dir}/test-cases/suppress-output-line-regex.sh
 . ${dir}/test-cases/chartify-jsonPatches-and-strategicMergePatches.sh
 . ${dir}/test-cases/include-template-func.sh

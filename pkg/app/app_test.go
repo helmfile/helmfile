@@ -2478,6 +2478,10 @@ func (c configImpl) EnforceNeedsAreInstalled() bool {
 	return c.enforceNeedsAreInstalled
 }
 
+func (c configImpl) WriteOutput() bool {
+	return false
+}
+
 type applyConfig struct {
 	args    string
 	cascade string
@@ -2805,8 +2809,9 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) (helmexec.Interfa
 // mocking helmexec.Interface
 
 type mockHelmExec struct {
-	templated []mockTemplates
-	repos     []mockRepo
+	templated        []mockTemplates
+	repos            []mockRepo
+	enableLiveOutput bool
 }
 
 type mockTemplates struct {
@@ -2846,6 +2851,7 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
 
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+	helm.enableLiveOutput = enableLiveOutput
 }
 
 func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {
@@ -4585,6 +4591,168 @@ releases:
 		"state should contain source helmfile name:\n%s\n", out)
 	assert.True(t, strings.Contains(out, "second.yaml"),
 		"state should contain source helmfile name:\n%s\n", out)
+}
+
+type fetchConfigImpl struct {
+	configImpl
+	outputDir         string
+	outputDirTemplate string
+	writeOutput       bool
+}
+
+func (f fetchConfigImpl) OutputDir() string {
+	return f.outputDir
+}
+
+func (f fetchConfigImpl) OutputDirTemplate() string {
+	return f.outputDirTemplate
+}
+
+func (f fetchConfigImpl) WriteOutput() bool {
+	return f.writeOutput
+}
+
+func TestFetch_WriteOutputRequiresOutputDir(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	err := app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   "",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--output-dir is required")
+}
+
+func TestFetch_WriteOutput_ErrorsOnMultipleStateFiles(t *testing.T) {
+	// Two separate helmfile state files in a helmfile.d directory simulate the
+	// multi-file scenario that --write-output cannot safely handle: the resulting
+	// multi-document YAML stream would be merged by Helmfile in a way that can
+	// alter semantics (helmDefaults override, broken relative paths, etc.).
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+releases:
+- name: release1
+  chart: chart1
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: release2
+  chart: chart2
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	helm := &mockHelmExec{}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey(DefaultHelmBinary, "default"): helm,
+		},
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+	}, files)
+
+	outputDir := t.TempDir()
+
+	fetchErr := app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   outputDir,
+	})
+	assert.Error(t, fetchErr, "expected error when --write-output is used with multiple state files")
+	assert.Contains(t, fetchErr.Error(), "--write-output requires a single helmfile state file")
+}
+
+func TestFetch_WriteOutputRestoresSequentialHelmfiles(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	// Use a real mock helm exec (not noCallHelmExec) so that Fetch can proceed
+	// past the validation check and enter the SequentialHelmfiles mutation block.
+	// Start with enableLiveOutput = true so the restore path is actually exercised:
+	// Fetch will call SetEnableLiveOutput(false), then the deferred restore call
+	// SetEnableLiveOutput(true) (a.EnableLiveOutput). If the defer were missing,
+	// helm.enableLiveOutput would remain false and the assertion below would fail.
+	helm := &mockHelmExec{enableLiveOutput: true}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey(DefaultHelmBinary, "default"): helm,
+		},
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+		// Start with SequentialHelmfiles = false; it must be restored after Fetch.
+		SequentialHelmfiles: false,
+		// Start with EnableLiveOutput = true; the deferred restore must bring it back.
+		EnableLiveOutput: true,
+	}, files)
+
+	outputDir := t.TempDir()
+
+	// Fetch with --write-output + --output-dir enters the mutation block,
+	// temporarily sets SequentialHelmfiles = true and helm.EnableLiveOutput = false,
+	// then restores both when it returns.
+	_ = app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   outputDir,
+	})
+	assert.False(t, app.SequentialHelmfiles, "SequentialHelmfiles should be restored to false after Fetch returns")
+	assert.True(t, helm.enableLiveOutput, "helm.enableLiveOutput should be restored to true (a.EnableLiveOutput) after Fetch returns")
 }
 
 func TestList(t *testing.T) {
