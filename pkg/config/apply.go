@@ -88,6 +88,8 @@ type ApplyOptions struct {
 	TrackTimeout int
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs bool
+	// TrackFailOnError controls whether kubedog tracking failures cause a non-zero exit code
+	TrackFailOnError bool
 	// Description is the description that will be passed to helm upgrade --description
 	Description string
 }
@@ -314,6 +316,11 @@ func (a *ApplyImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (a *ApplyImpl) TrackLogs() bool {
 	return a.ApplyOptions.TrackLogs
+}
+
+// TrackFailOnError returns whether kubedog tracking failures should cause a non-zero exit code.
+func (a *ApplyImpl) TrackFailOnError() bool {
+	return a.ApplyOptions.TrackFailOnError
 }
 
 // Description returns the description.

@@ -478,6 +478,8 @@ type ReleaseSpec struct {
 	KubedogQPS *float32 `yaml:"kubedogQPS,omitempty"`
 	// KubedogBurst specifies the burst for kubedog kubernetes client
 	KubedogBurst *int `yaml:"kubedogBurst,omitempty"`
+	// TrackFailOnError controls whether kubedog tracking failures cause a non-zero exit code
+	TrackFailOnError *bool `yaml:"trackFailOnError,omitempty"`
 }
 
 // TrackResourceSpec specifies a resource to track
@@ -912,6 +914,7 @@ type SyncOpts struct {
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
+	TrackFailOnError     bool
 	Description          string
 }
 
@@ -1138,10 +1141,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
-					if relErr == nil && st.shouldUseKubedog(release, opts) {
-						if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
-							st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
-						}
+					if relErr == nil {
+						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
 					}
 				} else {
 					if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
@@ -1160,10 +1161,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 							release.installedVersion = installedVersion
 						}
 
-						if st.shouldUseKubedog(release, opts) {
-							if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
-								st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
-							}
+						if trackErr := st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts); trackErr != nil {
+							m.Lock()
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							m.Unlock()
+							relErr = trackErr
 						}
 					}
 				}
