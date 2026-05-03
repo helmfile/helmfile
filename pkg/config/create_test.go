@@ -7,51 +7,50 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestCreateImplWithDefaults(name, outputDir string, force bool) *CreateImpl {
+func newTestCreateImplWithDefaults(name string, force bool) *CreateImpl {
 	return NewCreateImpl(NewGlobalImpl(&GlobalOptions{}), &CreateOptions{
-		Name:      name,
-		OutputDir: outputDir,
-		Force:     force,
+		Name:  name,
+		Force: force,
 	})
 }
 
 func TestCreateImpl_ValidateConfig_NameWithForwardSlash(t *testing.T) {
-	c := newTestCreateImplWithDefaults("foo/bar", "", false)
+	c := newTestCreateImplWithDefaults("foo/bar", false)
 	err := c.ValidateConfig()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must not contain path separators")
 }
 
 func TestCreateImpl_ValidateConfig_NameWithBackslash(t *testing.T) {
-	c := newTestCreateImplWithDefaults(`foo\bar`, "", false)
+	c := newTestCreateImplWithDefaults(`foo\bar`, false)
 	err := c.ValidateConfig()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must not contain path separators")
 }
 
 func TestCreateImpl_ValidateConfig_NameDotDot(t *testing.T) {
-	c := newTestCreateImplWithDefaults("..", "", false)
+	c := newTestCreateImplWithDefaults("..", false)
 	err := c.ValidateConfig()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid project name")
 }
 
 func TestCreateImpl_ValidateConfig_NameDot(t *testing.T) {
-	c := newTestCreateImplWithDefaults(".", "", false)
+	c := newTestCreateImplWithDefaults(".", false)
 	err := c.ValidateConfig()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid project name")
 }
 
 func TestCreateImpl_ValidateConfig_WhitespaceOnlyName(t *testing.T) {
-	c := newTestCreateImplWithDefaults("   ", "", false)
+	c := newTestCreateImplWithDefaults("   ", false)
 	err := c.ValidateConfig()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must not be empty or whitespace only")
 }
 
 func TestCreateImpl_ValidateConfig_ValidName(t *testing.T) {
-	c := newTestCreateImplWithDefaults("myproject", "", false)
+	c := newTestCreateImplWithDefaults("myproject", false)
 	require.NoError(t, c.ValidateConfig())
 }
 
