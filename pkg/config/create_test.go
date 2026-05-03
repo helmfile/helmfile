@@ -36,6 +36,13 @@ func TestCreateImpl_ValidateConfig_NameDotDot(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid project name")
 }
 
+func TestCreateImpl_ValidateConfig_NameDot(t *testing.T) {
+	c := newTestCreateImplWithDefaults(".", "", false)
+	err := c.ValidateConfig()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid project name")
+}
+
 func TestCreateImpl_ValidateConfig_WhitespaceOnlyName(t *testing.T) {
 	c := newTestCreateImplWithDefaults("   ", "", false)
 	err := c.ValidateConfig()

@@ -51,7 +51,7 @@ func (c *CreateImpl) ValidateConfig() error {
 		if strings.ContainsAny(name, "/\\") {
 			return fmt.Errorf("invalid project name %q: must not contain path separators", name)
 		}
-		if name == ".." {
+		if name == ".." || name == "." {
 			return fmt.Errorf("invalid project name %q", name)
 		}
 		if strings.TrimSpace(name) == "" {

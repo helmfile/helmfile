@@ -69,7 +69,7 @@ func (a *App) Create(c CreateConfigProvider) error {
 	outputDir := c.OutputDir()
 	absDir, err := filepath.Abs(outputDir)
 	if err != nil {
-		return fmt.Errorf("failed to resolve output directory: %w", err)
+		return appError("", fmt.Errorf("failed to resolve output directory: %w", err))
 	}
 
 	// Scaffold file paths (intermediate directories may not exist yet).
@@ -87,18 +87,18 @@ func (a *App) Create(c CreateConfigProvider) error {
 			if statErr == nil {
 				existing = append(existing, p)
 			} else if !os.IsNotExist(statErr) {
-				return fmt.Errorf("failed to check %s: %w", p, statErr)
+				return appError("", fmt.Errorf("failed to check %s: %w", p, statErr))
 			}
 		}
 		if len(existing) > 0 {
-			return fmt.Errorf("the following files already exist, use --force to overwrite: %s", strings.Join(existing, ", "))
+			return appError("", fmt.Errorf("the following files already exist, use --force to overwrite: %s", strings.Join(existing, ", ")))
 		}
 	}
 
 	// Create directories.
 	for _, dir := range []string{absDir, filepath.Join(absDir, "environments"), filepath.Join(absDir, "values")} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+			return appError("", fmt.Errorf("failed to create directory %s: %w", dir, err))
 		}
 	}
 
@@ -113,7 +113,7 @@ func (a *App) Create(c CreateConfigProvider) error {
 	}
 	for _, f := range files {
 		if err := writeScaffoldFile(f.path, f.content, c.Force()); err != nil {
-			return fmt.Errorf("failed to write %s: %w", f.path, err)
+			return appError("", fmt.Errorf("failed to write %s: %w", f.path, err))
 		}
 		c.Logger().Infof("created %s", f.path)
 	}
