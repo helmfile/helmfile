@@ -398,13 +398,24 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 	}
 
 	if c.WriteOutput() {
+		// Force sequential processing to ensure YAML documents are emitted in order
+		// without interleaving when multiple helmfile state files are processed.
+		// Restore the original value when Fetch returns so the App instance is not
+		// permanently mutated (important for tests and library usage).
 		prev := a.SequentialHelmfiles
 		a.SequentialHelmfiles = true
 		defer func() { a.SequentialHelmfiles = prev }()
 	}
 
+	// processedStateFileCount tracks how many state files have been processed when
+	// --write-output is set; used to detect multi-file inputs early and return
+	// a clear error instead of silently producing semantically incorrect YAML.
 	var processedStateFileCount int
 
+	// yamlOutput buffers the generated YAML document so that nothing is written to
+	// stdout until ForEachState completes successfully. This prevents partial/corrupted
+	// output reaching stdout when a later state file (or chart download error) causes
+	// the operation to fail.
 	var yamlOutput strings.Builder
 
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
@@ -417,6 +428,10 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 				)}
 			}
 
+			// Disable live output to avoid Helm progress/status lines being streamed
+			// to stdout and corrupting the YAML document emitted by --write-output.
+			// Restore the original value when this callback returns so the cached helm
+			// exec instance is not permanently mutated (important for tests and library usage).
 			run.helm.SetEnableLiveOutput(false)
 			defer run.helm.SetEnableLiveOutput(a.EnableLiveOutput)
 		}

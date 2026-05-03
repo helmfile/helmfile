@@ -4646,6 +4646,10 @@ releases:
 }
 
 func TestFetch_WriteOutput_ErrorsOnMultipleStateFiles(t *testing.T) {
+	// Two separate helmfile state files in a helmfile.d directory simulate the
+	// multi-file scenario that --write-output cannot safely handle: the resulting
+	// multi-document YAML stream would be merged by Helmfile in a way that can
+	// alter semantics (helmDefaults override, broken relative paths, etc.).
 	files := map[string]string{
 		"/path/to/helmfile.d/first.yaml": `
 releases:
@@ -4712,6 +4716,12 @@ releases:
 		t.Fatalf("unexpected error creating vals runtime: %v", err)
 	}
 
+	// Use a real mock helm exec (not noCallHelmExec) so that Fetch can proceed
+	// past the validation check and enter the SequentialHelmfiles mutation block.
+	// Start with enableLiveOutput = true so the restore path is actually exercised:
+	// Fetch will call SetEnableLiveOutput(false), then the deferred restore call
+	// SetEnableLiveOutput(true) (a.EnableLiveOutput). If the defer were missing,
+	// helm.enableLiveOutput would remain false and the assertion below would fail.
 	helm := &mockHelmExec{enableLiveOutput: true}
 
 	app := appWithFs(&App{
@@ -4724,14 +4734,19 @@ releases:
 		helms: map[helmKey]helmexec.Interface{
 			createHelmKey(DefaultHelmBinary, "default"): helm,
 		},
-		Namespace:           "testNamespace",
-		valsRuntime:         valsRuntime,
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+		// Start with SequentialHelmfiles = false; it must be restored after Fetch.
 		SequentialHelmfiles: false,
-		EnableLiveOutput:    true,
+		// Start with EnableLiveOutput = true; the deferred restore must bring it back.
+		EnableLiveOutput: true,
 	}, files)
 
 	outputDir := t.TempDir()
 
+	// Fetch with --write-output + --output-dir enters the mutation block,
+	// temporarily sets SequentialHelmfiles = true and helm.EnableLiveOutput = false,
+	// then restores both when it returns.
 	_ = app.Fetch(fetchConfigImpl{
 		writeOutput: true,
 		outputDir:   outputDir,
@@ -4739,7 +4754,6 @@ releases:
 	assert.False(t, app.SequentialHelmfiles, "SequentialHelmfiles should be restored to false after Fetch returns")
 	assert.True(t, helm.enableLiveOutput, "helm.enableLiveOutput should be restored to true (a.EnableLiveOutput) after Fetch returns")
 }
-
 
 func TestList(t *testing.T) {
 	files := map[string]string{
