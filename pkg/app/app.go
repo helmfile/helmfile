@@ -412,7 +412,13 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 	// a clear error instead of silently producing semantically incorrect YAML.
 	var processedStateFileCount int
 
-	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+	// yamlOutput buffers the generated YAML document so that nothing is written to
+	// stdout until ForEachState completes successfully. This prevents partial/corrupted
+	// output reaching stdout when a later state file (or chart download error) causes
+	// the operation to fail.
+	var yamlOutput strings.Builder
+
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if c.WriteOutput() {
 			processedStateFileCount++
 			if processedStateFileCount > 1 {
@@ -448,16 +454,16 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 					}
 				}
 
-				stateYaml, err := run.state.ToYaml()
-				if err != nil {
-					return []error{err}
+				stateYaml, yamlErr := run.state.ToYaml()
+				if yamlErr != nil {
+					return []error{yamlErr}
 				}
 
-				sourceFile, err := run.state.FullFilePath()
-				if err != nil {
-					return []error{err}
+				sourceFile, pathErr := run.state.FullFilePath()
+				if pathErr != nil {
+					return []error{pathErr}
 				}
-				fmt.Printf("---\n#  Source: %s\n\n%s", sourceFile, stateYaml)
+				fmt.Fprintf(&yamlOutput, "---\n#  Source: %s\n\n%s", sourceFile, stateYaml)
 			}
 
 			return nil
@@ -469,6 +475,12 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 
 		return ok, errs
 	}, false, SetFilter(true))
+
+	if err == nil && c.WriteOutput() {
+		fmt.Print(yamlOutput.String())
+	}
+
+	return err
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
