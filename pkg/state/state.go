@@ -1141,6 +1141,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					if relErr == nil && st.shouldUseKubedog(release, opts) {
 						if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
 							st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
+							st.handleKubedogFailure(context, helm, release, m, affectedReleases)
 						}
 					}
 				} else {
@@ -1163,6 +1164,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						if st.shouldUseKubedog(release, opts) {
 							if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
 								st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
+								st.handleKubedogFailure(context, helm, release, m, affectedReleases)
 							}
 						}
 					}
@@ -1279,6 +1281,33 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 		}
 	}
 	return nil
+}
+
+func (st *HelmState) handleKubedogFailure(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec, m *sync.Mutex, affectedReleases *AffectedReleases) {
+	if !st.shouldUseAtomic(release) {
+		return
+	}
+
+	st.logger.Infof("Rolling back release %s due to kubedog tracking failure (atomic mode enabled)", release.Name)
+
+	rollbackFlags := st.appendConnectionFlags([]string{}, release)
+	if err := helm.RollbackRelease(context, release.Name, rollbackFlags...); err != nil {
+		st.logger.Errorf("Failed to rollback release %s after kubedog tracking failure: %v", release.Name, err)
+		m.Lock()
+		affectedReleases.Failed = append(affectedReleases.Failed, release)
+		m.Unlock()
+	} else {
+		st.logger.Infof("Successfully rolled back release %s", release.Name)
+		m.Lock()
+		for i, r := range affectedReleases.Upgraded {
+			if r.Name == release.Name && r.Namespace == release.Namespace {
+				affectedReleases.Upgraded = append(affectedReleases.Upgraded[:i], affectedReleases.Upgraded[i+1:]...)
+				break
+			}
+		}
+		affectedReleases.Failed = append(affectedReleases.Failed, release)
+		m.Unlock()
+	}
 }
 
 func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
@@ -3547,9 +3576,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--recreate-pods")
 	}
 
-	if release.Atomic != nil && *release.Atomic || release.Atomic == nil && st.HelmDefaults.Atomic {
-		flags = append(flags, "--atomic")
-	}
+	flags = st.appendAtomicFlags(flags, release, opt)
 
 	if release.CleanupOnFail != nil && *release.CleanupOnFail || release.CleanupOnFail == nil && st.HelmDefaults.CleanupOnFail {
 		flags = append(flags, "--cleanup-on-fail")

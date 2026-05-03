@@ -245,6 +245,27 @@ func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, re
 	return flags
 }
 
+func (st *HelmState) shouldUseAtomic(release *ReleaseSpec) bool {
+	switch {
+	case release.Atomic != nil:
+		return *release.Atomic
+	default:
+		return st.HelmDefaults.Atomic
+	}
+}
+
+func (st *HelmState) appendAtomicFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
+	if st.shouldUseKubedog(release, ops) {
+		return flags
+	}
+
+	if st.shouldUseAtomic(release) {
+		flags = append(flags, "--atomic")
+	}
+
+	return flags
+}
+
 // append post-renderer flags to helm flags
 func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, cascade string) []string {
 	// see https://github.com/helm/helm/releases/tag/v3.12.1
