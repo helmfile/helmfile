@@ -2534,6 +2534,7 @@ type applyConfig struct {
 	trackMode                string
 	trackTimeout             int
 	trackLogs                bool
+	trackFailOnError         bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2758,6 +2759,10 @@ func (a applyConfig) TrackTimeout() int {
 
 func (a applyConfig) TrackLogs() bool {
 	return a.trackLogs
+}
+
+func (a applyConfig) TrackFailOnError() bool {
+	return a.trackFailOnError
 }
 
 func (a applyConfig) Description() string {

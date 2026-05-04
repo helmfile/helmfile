@@ -1891,6 +1891,7 @@ Do you really want to apply?
 					TrackMode:            c.TrackMode(),
 					TrackTimeout:         c.TrackTimeout(),
 					TrackLogs:            c.TrackLogs(),
+					TrackFailOnError:     c.TrackFailOnError(),
 					Description:          c.Description(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
@@ -2361,6 +2362,7 @@ Do you really want to sync?
 					TrackMode:            c.TrackMode(),
 					TrackTimeout:         c.TrackTimeout(),
 					TrackLogs:            c.TrackLogs(),
+					TrackFailOnError:     c.TrackFailOnError(),
 					Description:          c.Description(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)

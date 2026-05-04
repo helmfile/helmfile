@@ -197,6 +197,32 @@ func (st *HelmState) shouldUseKubedog(release *ReleaseSpec, ops *SyncOpts) bool 
 	return st.getTrackMode(release, ops) == string(kubedog.TrackModeKubedog)
 }
 
+func (st *HelmState) shouldFailOnTrackError(release *ReleaseSpec, ops *SyncOpts) bool {
+	if release.TrackFailOnError != nil {
+		return *release.TrackFailOnError
+	}
+	if ops != nil {
+		return ops.TrackFailOnError
+	}
+	return false
+}
+
+// trackReleaseIfEnabled performs kubedog tracking for a release if trackMode is "kubedog".
+// It returns a ReleaseError if tracking fails and shouldFailOnTrackError is true.
+// The caller is responsible for mutating affectedReleases when needed.
+func (st *HelmState) trackReleaseIfEnabled(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface, opts *SyncOpts) *ReleaseError {
+	if !st.shouldUseKubedog(release, opts) {
+		return nil
+	}
+	if trackErr := st.trackWithKubedog(ctx, release, helm, opts); trackErr != nil {
+		st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
+		if st.shouldFailOnTrackError(release, opts) {
+			return newReleaseFailedError(release, trackErr)
+		}
+	}
+	return nil
+}
+
 func (st *HelmState) getTrackMode(release *ReleaseSpec, ops *SyncOpts) string {
 	trackMode := release.TrackMode
 	if trackMode == "" && ops != nil && ops.TrackMode != "" {
