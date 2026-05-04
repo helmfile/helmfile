@@ -7,12 +7,14 @@ import (
 	"testing"
 
 	"dario.cat/mergo"
+	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/testhelper"
@@ -931,4 +933,451 @@ releases:
 			}
 		})
 	}
+}
+
+func TestMergedReleaseTemplateData_IncludesReleaseValues(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	testValsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
+
+	yamlFile := "/example/path/to/helmfile.yaml"
+	yamlContent := []byte(`environments:
+  default:
+    values:
+    - env.yaml
+
+releases:
+- name: myrelease
+  chart: mychart
+  values:
+  - values.yaml
+`)
+
+	envYamlFile := "/example/path/to/env.yaml"
+	envYamlContent := []byte(`envKey: envValue`)
+
+	valuesFile := "/example/path/to/values.yaml"
+	valuesContent := []byte(`ingress:
+  enabled: true
+  host: example.com`)
+
+	testFs := testhelper.NewTestFs(map[string]string{
+		envYamlFile: string(envYamlContent),
+		valuesFile:  string(valuesContent),
+	})
+	testFs.Cwd = "/example/path/to"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+	env := environment.Environment{
+		Name: "default",
+	}
+	state, err := NewCreator(logger, testFs.ToFileSystem(), testValsRuntime, nil, "", "", r, false, "").
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "default", true, true, true, &env, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	release := state.Releases[0]
+
+	templateData, err := state.mergedReleaseTemplateData(&release)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ingress, ok := templateData.Values["ingress"]
+	if !ok {
+		t.Fatalf("expected .Values to contain 'ingress' key from release values")
+	}
+	ingressMap, ok := ingress.(map[string]any)
+	if !ok {
+		t.Fatalf("expected ingress to be a map, got %T", ingress)
+	}
+	if ingressMap["enabled"] != true {
+		t.Errorf("expected ingress.enabled to be true, got %v", ingressMap["enabled"])
+	}
+	if ingressMap["host"] != "example.com" {
+		t.Errorf("expected ingress.host to be 'example.com', got %v", ingressMap["host"])
+	}
+
+	if templateData.Values["envKey"] != "envValue" {
+		t.Errorf("expected envKey to be 'envValue', got %v", templateData.Values["envKey"])
+	}
+}
+
+func TestMergedReleaseTemplateData_ReleaseValuesOverrideEnvValues(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	testValsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
+
+	yamlFile := "/example/path/to/helmfile.yaml"
+	yamlContent := []byte(`environments:
+  default:
+    values:
+    - env.yaml
+
+releases:
+- name: myrelease
+  chart: mychart
+  values:
+  - values.yaml
+`)
+
+	envYamlFile := "/example/path/to/env.yaml"
+	envYamlContent := []byte(`replicaCount: 1`)
+
+	valuesFile := "/example/path/to/values.yaml"
+	valuesContent := []byte(`replicaCount: 3`)
+
+	testFs := testhelper.NewTestFs(map[string]string{
+		envYamlFile: string(envYamlContent),
+		valuesFile:  string(valuesContent),
+	})
+	testFs.Cwd = "/example/path/to"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+	env := environment.Environment{
+		Name: "default",
+	}
+	state, err := NewCreator(logger, testFs.ToFileSystem(), testValsRuntime, nil, "", "", r, false, "").
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "default", true, true, true, &env, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	release := state.Releases[0]
+
+	templateData, err := state.mergedReleaseTemplateData(&release)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if templateData.Values["replicaCount"] != 3 {
+		t.Errorf("expected replicaCount to be 3 (release value overriding env), got %v", templateData.Values["replicaCount"])
+	}
+}
+
+func TestMergedReleaseTemplateData_InlineValues(t *testing.T) {
+	logger := zaptest.NewLogger(t).Sugar()
+	testValsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
+
+	yamlFile := "/example/path/to/helmfile.yaml"
+	yamlContent := []byte(`releases:
+- name: myrelease
+  chart: mychart
+  values:
+  - ingress:
+      enabled: true
+      host: example.com
+`)
+
+	testFs := testhelper.NewTestFs(map[string]string{})
+	testFs.Cwd = "/example/path/to"
+
+	r := remote.NewRemote(logger, testFs.Cwd, testFs.ToFileSystem())
+	state, err := NewCreator(logger, testFs.ToFileSystem(), testValsRuntime, nil, "", "", r, false, "").
+		ParseAndLoad(yamlContent, filepath.Dir(yamlFile), yamlFile, "default", true, true, true, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	release := state.Releases[0]
+
+	templateData, err := state.mergedReleaseTemplateData(&release)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ingress, ok := templateData.Values["ingress"]
+	if !ok {
+		t.Fatalf("expected .Values to contain 'ingress' key from inline release values")
+	}
+	ingressMap, ok := ingress.(map[string]any)
+	if !ok {
+		t.Fatalf("expected ingress to be a map, got %T", ingress)
+	}
+	if ingressMap["enabled"] != true {
+		t.Errorf("expected ingress.enabled to be true, got %v", ingressMap["enabled"])
+	}
+}
+
+func newTestHelmStateWithFiles(t *testing.T, files map[string]string) *HelmState {
+	t.Helper()
+	const basePath = "/project"
+	logger := zaptest.NewLogger(t).Sugar()
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
+
+	testFs := testhelper.NewTestFs(files)
+	testFs.Cwd = basePath
+
+	return &HelmState{
+		logger:         logger,
+		fs:             testFs.ToFileSystem(),
+		valsRuntime:    valsRuntime,
+		basePath:       basePath,
+		FilePath:       basePath + "/helmfile.yaml",
+		RenderedValues: map[string]any{},
+	}
+}
+
+func TestResolveReleaseValues_Empty(t *testing.T) {
+	st := newTestHelmStateWithFiles(t, map[string]string{})
+
+	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
+	result, err := st.resolveReleaseValues(release)
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestResolveReleaseValues_FromFile(t *testing.T) {
+	valuesFile := "/project/values.yaml"
+	valuesContent := `replicaCount: 2
+image:
+  repository: nginx
+  tag: "1.21"
+`
+	st := newTestHelmStateWithFiles(t, map[string]string{
+		valuesFile: valuesContent,
+	})
+
+	release := &ReleaseSpec{
+		Name:  "myrelease",
+		Chart: "mychart",
+		Values: []any{
+			"values.yaml",
+		},
+	}
+	result, err := st.resolveReleaseValues(release)
+	require.NoError(t, err)
+	assert.Equal(t, 2, result["replicaCount"])
+	imageMap, ok := result["image"].(map[string]any)
+	require.True(t, ok, "expected image to be a map")
+	assert.Equal(t, "nginx", imageMap["repository"])
+}
+
+func TestResolveReleaseValues_InlineMap(t *testing.T) {
+	st := newTestHelmStateWithFiles(t, map[string]string{})
+
+	release := &ReleaseSpec{
+		Name:  "myrelease",
+		Chart: "mychart",
+		Values: []any{
+			map[string]any{
+				"replicaCount": 5,
+				"service": map[string]any{
+					"type": "ClusterIP",
+					"port": 80,
+				},
+			},
+		},
+	}
+	result, err := st.resolveReleaseValues(release)
+	require.NoError(t, err)
+	assert.Equal(t, 5, result["replicaCount"])
+	serviceMap, ok := result["service"].(map[string]any)
+	require.True(t, ok, "expected service to be a map")
+	assert.Equal(t, "ClusterIP", serviceMap["type"])
+}
+
+func TestResolveReleaseValues_MultipleSourcesMerged(t *testing.T) {
+	baseValuesFile := "/project/base.yaml"
+	baseValuesContent := `replicaCount: 1
+service:
+  type: ClusterIP
+`
+	overrideValuesFile := "/project/override.yaml"
+	overrideValuesContent := `replicaCount: 3
+ingress:
+  enabled: true
+`
+	st := newTestHelmStateWithFiles(t, map[string]string{
+		baseValuesFile:     baseValuesContent,
+		overrideValuesFile: overrideValuesContent,
+	})
+
+	release := &ReleaseSpec{
+		Name:  "myrelease",
+		Chart: "mychart",
+		Values: []any{
+			"base.yaml",
+			"override.yaml",
+		},
+	}
+	result, err := st.resolveReleaseValues(release)
+	require.NoError(t, err)
+	// override.yaml value wins
+	assert.Equal(t, 3, result["replicaCount"])
+	// from base.yaml
+	serviceMap, ok := result["service"].(map[string]any)
+	require.True(t, ok, "expected service to be a map")
+	assert.Equal(t, "ClusterIP", serviceMap["type"])
+	// from override.yaml
+	ingressMap, ok := result["ingress"].(map[string]any)
+	require.True(t, ok, "expected ingress to be a map")
+	assert.Equal(t, true, ingressMap["enabled"])
+}
+
+func TestResolveReleaseValues_FileAndInlineMerged(t *testing.T) {
+	valuesFile := "/project/values.yaml"
+	valuesContent := `replicaCount: 1
+`
+	st := newTestHelmStateWithFiles(t, map[string]string{
+		valuesFile: valuesContent,
+	})
+
+	release := &ReleaseSpec{
+		Name:  "myrelease",
+		Chart: "mychart",
+		Values: []any{
+			"values.yaml",
+			map[string]any{
+				"extraEnv": "production",
+			},
+		},
+	}
+	result, err := st.resolveReleaseValues(release)
+	require.NoError(t, err)
+	assert.Equal(t, 1, result["replicaCount"])
+	assert.Equal(t, "production", result["extraEnv"])
+}
+
+func TestRenderValuesFileToBytesWithData_PlainYAML(t *testing.T) {
+	valuesFile := "/project/values.yaml"
+	valuesContent := `replicaCount: 2
+image:
+  repository: nginx
+`
+	st := newTestHelmStateWithFiles(t, map[string]string{
+		valuesFile: valuesContent,
+	})
+
+	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
+	tmplData := st.createReleaseTemplateData(release, map[string]any{})
+
+	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData)
+	require.NoError(t, err)
+	assert.Contains(t, string(result), "replicaCount: 2")
+	assert.Contains(t, string(result), "repository: nginx")
+}
+
+func TestRenderValuesFileToBytesWithData_WithValuesTemplate(t *testing.T) {
+	valuesFile := "/project/values.yaml.gotmpl"
+	valuesContent := `replicaCount: {{ .Values.replicaCount }}
+enabled: {{ .Values.ingress.enabled }}
+`
+	st := newTestHelmStateWithFiles(t, map[string]string{
+		valuesFile: valuesContent,
+	})
+
+	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
+	tmplData := st.createReleaseTemplateData(release, map[string]any{
+		"replicaCount": 3,
+		"ingress": map[string]any{
+			"enabled": true,
+		},
+	})
+
+	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData)
+	require.NoError(t, err)
+	assert.Contains(t, string(result), "replicaCount: 3")
+	assert.Contains(t, string(result), "enabled: true")
+}
+
+func TestRenderValuesFileToBytesWithData_WithReleaseTemplate(t *testing.T) {
+	valuesFile := "/project/values.yaml.gotmpl"
+	valuesContent := `releaseName: {{ .Release.Name }}
+releaseNamespace: {{ .Release.Namespace }}
+`
+	st := newTestHelmStateWithFiles(t, map[string]string{
+		valuesFile: valuesContent,
+	})
+
+	release := &ReleaseSpec{Name: "myapp", Chart: "mychart", Namespace: "production"}
+	tmplData := st.createReleaseTemplateData(release, map[string]any{})
+
+	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData)
+	require.NoError(t, err)
+	assert.Contains(t, string(result), "releaseName: myapp")
+	assert.Contains(t, string(result), "releaseNamespace: production")
+}
+
+func TestGenerateTemporaryReleaseValuesFilesWithData_StringPath(t *testing.T) {
+	t.Setenv(envvar.TempDir, t.TempDir())
+
+	patchFile := "/project/patch.yaml.gotmpl"
+	patchContent := `enabled: {{ .Values.ingress.enabled }}
+host: {{ .Values.ingress.host }}
+`
+	st := newTestHelmStateWithFiles(t, map[string]string{
+		patchFile: patchContent,
+	})
+
+	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
+	tmplData := st.createReleaseTemplateData(release, map[string]any{
+		"ingress": map[string]any{
+			"enabled": true,
+			"host":    "example.com",
+		},
+	})
+
+	generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(
+		release,
+		[]any{"patch.yaml.gotmpl"},
+		func() (releaseTemplateData, error) { return tmplData, nil },
+	)
+	require.NoError(t, err)
+	require.Len(t, generatedFiles, 1)
+
+	// The temp files are created on the real OS filesystem via os.Create, so we read them with os.ReadFile
+	content, err := filesystem.DefaultFileSystem().ReadFile(generatedFiles[0])
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "enabled: true")
+	assert.Contains(t, string(content), "host: example.com")
+}
+
+func TestGenerateTemporaryReleaseValuesFilesWithData_InlineMap(t *testing.T) {
+	t.Setenv(envvar.TempDir, t.TempDir())
+
+	st := newTestHelmStateWithFiles(t, map[string]string{})
+
+	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
+	tmplData := st.createReleaseTemplateData(release, map[string]any{})
+
+	inlineValues := map[string]any{
+		"replicaCount": 5,
+		"service": map[string]any{
+			"type": "NodePort",
+		},
+	}
+
+	generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(
+		release,
+		[]any{inlineValues},
+		func() (releaseTemplateData, error) { return tmplData, nil },
+	)
+	require.NoError(t, err)
+	require.Len(t, generatedFiles, 1)
+
+	// The temp files are created on the real OS filesystem via os.Create, so we read them with os.ReadFile
+	content, err := filesystem.DefaultFileSystem().ReadFile(generatedFiles[0])
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "replicaCount: 5")
+	assert.Contains(t, string(content), "NodePort")
+}
+
+func TestGenerateTemporaryReleaseValuesFilesWithData_UnknownTypeError(t *testing.T) {
+	st := newTestHelmStateWithFiles(t, map[string]string{})
+
+	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
+	tmplData := st.createReleaseTemplateData(release, map[string]any{})
+
+	// Passing an unsupported type (int) should return an error
+	_, err := st.generateTemporaryReleaseValuesFilesWithData(
+		release,
+		[]any{42},
+		func() (releaseTemplateData, error) { return tmplData, nil },
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected type of value")
 }
