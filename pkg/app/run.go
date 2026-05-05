@@ -57,9 +57,9 @@ func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurre
 	return releaseToChart, nil
 }
 
-func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func() []error) error {
+func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func() []error) error {
 	if r.ReleaseToChart != nil {
-		panic("Run.PrepareCharts can be called only once")
+		return fmt.Errorf("Run.WithPreparedCharts can be called only once")
 	}
 
 	// Check both CLI options and helmDefaults for skipping repos (issue #2296)
@@ -237,4 +237,12 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 `, strings.Join(names, "\n"))
 
 	return &infoMsg, releasesToBeUpdated, releasesToBeDeleted, nil
+}
+
+func (r *Run) State() *state.HelmState {
+	return r.state
+}
+
+func (r *Run) Helm() helmexec.Interface {
+	return r.helm
 }
