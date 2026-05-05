@@ -59,7 +59,7 @@ func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurre
 
 func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func() []error) error {
 	if r.ReleaseToChart != nil {
-		panic("Run.PrepareCharts can be called only once")
+		return fmt.Errorf("Run.WithPreparedCharts can be called only once")
 	}
 
 	// Check both CLI options and helmDefaults for skipping repos (issue #2296)
