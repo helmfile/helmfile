@@ -409,12 +409,6 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		if err != nil {
 			return nil, err
 		}
-		switch envSpec.MergeStrategy {
-		case "", MergeStrategyOverride, MergeStrategyFallback:
-		default:
-			return nil, fmt.Errorf("environment %q: invalid mergeStrategy %q (must be %q or %q)",
-				name, envSpec.MergeStrategy, MergeStrategyOverride, MergeStrategyFallback)
-		}
 		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, loadValuesEntriesEnv, name, envSpec.MergeStrategy)
 		if err != nil {
 			return nil, err

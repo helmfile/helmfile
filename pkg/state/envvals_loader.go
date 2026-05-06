@@ -37,6 +37,12 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 }
 
 func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string, mergeStrategy string) (map[string]any, error) {
+	switch mergeStrategy {
+	case "", MergeStrategyOverride, MergeStrategyFallback:
+	default:
+		return nil, fmt.Errorf("environment %q: invalid mergeStrategy %q (must be %q or %q)",
+			envName, mergeStrategy, MergeStrategyOverride, MergeStrategyFallback)
+	}
 	var (
 		result    = map[string]any{}
 		hclLoader = hcllang.NewHCLLoader(ld.fs, ld.logger)
@@ -112,7 +118,6 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 }
 
 func mapMerge(dest map[string]any, maps []any, mergeStrategy string) (map[string]any, error) {
-	_ = mergeStrategy // consumed in a follow-up commit; plumbing only here
 	for _, m := range maps {
 		// All the nested map key should be string. Otherwise we get strange errors due to that
 		// mergo or reflect is unable to merge map[any]any with map[string]any or vice versa.
@@ -121,9 +126,44 @@ func mapMerge(dest map[string]any, maps []any, mergeStrategy string) (map[string
 		if err != nil {
 			return nil, err
 		}
+		if mergeStrategy == MergeStrategyFallback {
+			dest = fallbackDeepMerge(dest, vals)
+			continue
+		}
 		if err := mergo.Merge(&dest, &vals, mergo.WithOverride); err != nil {
 			return nil, fmt.Errorf("failed to merge %v: %v", m, err)
 		}
 	}
 	return dest, nil
+}
+
+// fallbackDeepMerge returns a deep merge of dst and src where dst wins on every
+// key that already exists in dst — even when dst's value is the zero value
+// (false, 0, "", nil, empty slice/map). This is the strict "first file wins"
+// semantic users expect from mergeStrategy: fallback. mergo.Merge cannot
+// express this on its own: without WithOverride it still lets src overwrite
+// any dst value classified as "empty" by mergo's isEmptyValue, which silently
+// loses explicit feature flags like `enabled: false`.
+//
+// Nested map values present in both dst and src are merged recursively.
+// All callers must have already normalized keys via maputil.CastKeysToStrings,
+// so every nested map is map[string]any.
+func fallbackDeepMerge(dst, src map[string]any) map[string]any {
+	if dst == nil {
+		dst = map[string]any{}
+	}
+	for k, v := range src {
+		existing, exists := dst[k]
+		if !exists {
+			dst[k] = v
+			continue
+		}
+		dstMap, dstIsMap := existing.(map[string]any)
+		srcMap, srcIsMap := v.(map[string]any)
+		if dstIsMap && srcIsMap {
+			dst[k] = fallbackDeepMerge(dstMap, srcMap)
+		}
+		// else: dst already has the key with a non-map value — preserve it.
+	}
+	return dst
 }
