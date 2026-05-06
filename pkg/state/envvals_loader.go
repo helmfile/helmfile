@@ -36,7 +36,7 @@ func NewEnvironmentValuesLoader(storage *Storage, fs *filesystem.FileSystem, log
 	}
 }
 
-func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
+func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *string, valuesEntries []any, ctxEnv *environment.Environment, envName string, mergeStrategy string) (map[string]any, error) {
 	var (
 		result    = map[string]any{}
 		hclLoader = hcllang.NewHCLLoader(ld.fs, ld.logger)
@@ -91,7 +91,7 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", strOrMap, strOrMap)
 		}
 
-		result, err = mapMerge(result, maps)
+		result, err = mapMerge(result, maps, mergeStrategy)
 		if err != nil {
 			return nil, err
 		}
@@ -104,14 +104,15 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 		}
 		maps = append(maps, m)
 	}
-	result, err = mapMerge(result, maps)
+	result, err = mapMerge(result, maps, mergeStrategy)
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func mapMerge(dest map[string]any, maps []any) (map[string]any, error) {
+func mapMerge(dest map[string]any, maps []any, mergeStrategy string) (map[string]any, error) {
+	_ = mergeStrategy // consumed in a follow-up commit; plumbing only here
 	for _, m := range maps {
 		// All the nested map key should be string. Otherwise we get strange errors due to that
 		// mergo or reflect is unable to merge map[any]any with map[string]any or vice versa.

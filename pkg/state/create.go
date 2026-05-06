@@ -169,7 +169,7 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, failOnMissin
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
 
-	newDefaults, err := state.loadValuesEntries(nil, state.DefaultValues, c.remote, ctxEnv, env)
+	newDefaults, err := state.loadValuesEntries(nil, state.DefaultValues, c.remote, ctxEnv, env, "")
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 			return nil, fmt.Errorf("environment %q: invalid mergeStrategy %q (must be %q or %q)",
 				name, envSpec.MergeStrategy, MergeStrategyOverride, MergeStrategyFallback)
 		}
-		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, loadValuesEntriesEnv, name)
+		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, loadValuesEntriesEnv, name, envSpec.MergeStrategy)
 		if err != nil {
 			return nil, err
 		}
@@ -571,13 +571,13 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 	return decryptedFilesKeeper, nil
 }
 
-func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []any, remote *remote.Remote, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
+func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []any, remote *remote.Remote, ctxEnv *environment.Environment, envName string, mergeStrategy string) (map[string]any, error) {
 	var envVals map[string]any
 
 	valuesEntries := append([]any{}, entries...)
 	ld := NewEnvironmentValuesLoader(st.storage(), st.fs, st.logger, remote)
 	var err error
-	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries, ctxEnv, envName)
+	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries, ctxEnv, envName, mergeStrategy)
 	if err != nil {
 		return nil, err
 	}
