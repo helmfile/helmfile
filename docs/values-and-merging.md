@@ -133,7 +133,7 @@ environments:
 
 Under `fallback`:
 
-- An explicit non-nil value in an earlier file is preserved against any later file — including the zero values `false`, `0`, `""`, and empty list. An explicit `enabled: false` in `cluster-specific.yaml` is *not* silently overwritten by `enabled: true` from `shared-defaults.yaml`.
+- An explicit non-nil value in an earlier file is preserved against any later file, including the zero values `false`, `0`, `""`, and empty list. An explicit `enabled: false` in `cluster-specific.yaml` is *not* silently overwritten by `enabled: true` from `shared-defaults.yaml`.
 - Maps are deep-merged. An earlier map does not block later files from adding nested keys it didn't set; only the keys an earlier file explicitly defines win on conflict.
 - An explicit `null` in an earlier file falls through to a later file's value, matching how `MergeMaps` treats nil from the override side elsewhere in helmfile.
 - Within a single `values:` entry that expands to multiple files (e.g. via a glob), the **first** file in the expansion wins.

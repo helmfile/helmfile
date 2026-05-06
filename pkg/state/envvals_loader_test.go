@@ -316,7 +316,7 @@ func TestEnvValsLoad_FallbackStrategy_DeepMerge(t *testing.T) {
 	}
 }
 
-// First-wins precedence holds across an arbitrarily long chain — not just
+// First-wins precedence holds across an arbitrarily long chain, not just
 // pairwise. Three files exercise the accumulator state across iterations.
 func TestEnvValsLoad_FallbackStrategy_ChainedFiles(t *testing.T) {
 	l := newLoader()
@@ -370,8 +370,14 @@ func TestEnvValsLoad_FallbackStrategy_PreservesExplicitZeroValues(t *testing.T) 
 	}
 }
 
-// Explicit nil in the earlier file is also preserved.
-func TestEnvValsLoad_FallbackStrategy_PreservesExplicitNil(t *testing.T) {
+// Explicit nil in the earlier file does NOT win under fallback: it falls
+// through to the fallback file's value. This matches helmfile's existing
+// MergeMaps treatment of nil ("nil from the override side only fills missing
+// keys"; here, by argument-swap, nil from the winner is treated as
+// "no preference, let the fallback fill it"). Documented as the deliberate
+// difference from override mode, where mergo.WithOverride lets nil overwrite
+// (see TestEnvValsLoad_OverwriteWithNilValue_Issue1154).
+func TestEnvValsLoad_FallbackStrategy_NilFallsThroughToFallback(t *testing.T) {
 	l := newLoader()
 
 	actual, err := l.LoadEnvironmentValues(nil,
@@ -381,9 +387,9 @@ func TestEnvValsLoad_FallbackStrategy_PreservesExplicitNil(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := map[string]any{"value": nil}
+	expected := map[string]any{"value": "from-fallback"}
 	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Errorf("explicit nil not preserved (-want +got):\n%s", diff)
+		t.Errorf("explicit nil should fall through to fallback (-want +got):\n%s", diff)
 	}
 }
 
@@ -499,7 +505,7 @@ func TestEnvValsLoad_FallbackStrategy_TemplateAccessesPriorFile(t *testing.T) {
 }
 
 // Symmetric guard: under override, the same .gotmpl reference does NOT
-// see prior files in the same list. Documents the deliberate scoping —
+// see prior files in the same list. Documents the deliberate scoping:
 // the cross-file template enrichment is opt-in via mergeStrategy: fallback.
 func TestEnvValsLoad_OverrideStrategy_TemplateContextUnchanged(t *testing.T) {
 	l := newLoader()

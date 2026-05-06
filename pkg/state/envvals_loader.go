@@ -144,7 +144,13 @@ func mapMerge(dest map[string]any, maps []any, mergeStrategy string) (map[string
 			return nil, err
 		}
 		if mergeStrategy == MergeStrategyFallback {
-			dest = fallbackDeepMerge(dest, vals)
+			// First-file-wins: the new file is the base and the
+			// accumulator overlays it, so keys already accumulated keep
+			// their value while keys only present in the new file fill
+			// in. MergeMaps is used instead of mergo because mergo's
+			// isEmptyValue rule would silently let a later fallback's
+			// `enabled: true` clobber an explicit `enabled: false`.
+			dest = maputil.MergeMaps(vals, dest)
 			continue
 		}
 		if err := mergo.Merge(&dest, &vals, mergo.WithOverride); err != nil {
@@ -152,35 +158,4 @@ func mapMerge(dest map[string]any, maps []any, mergeStrategy string) (map[string
 		}
 	}
 	return dest, nil
-}
-
-// fallbackDeepMerge returns a deep merge of dst and src where dst wins on every
-// key that already exists in dst — even when dst's value is the zero value
-// (false, 0, "", nil, empty slice/map). This is the strict "first file wins"
-// semantic users expect from mergeStrategy: fallback. mergo.Merge cannot
-// express this on its own: without WithOverride it still lets src overwrite
-// any dst value classified as "empty" by mergo's isEmptyValue, which silently
-// loses explicit feature flags like `enabled: false`.
-//
-// Nested map values present in both dst and src are merged recursively.
-// All callers must have already normalized keys via maputil.CastKeysToStrings,
-// so every nested map is map[string]any.
-func fallbackDeepMerge(dst, src map[string]any) map[string]any {
-	if dst == nil {
-		dst = map[string]any{}
-	}
-	for k, v := range src {
-		existing, exists := dst[k]
-		if !exists {
-			dst[k] = v
-			continue
-		}
-		dstMap, dstIsMap := existing.(map[string]any)
-		srcMap, srcIsMap := v.(map[string]any)
-		if dstIsMap && srcIsMap {
-			dst[k] = fallbackDeepMerge(dstMap, srcMap)
-		}
-		// else: dst already has the key with a non-map value — preserve it.
-	}
-	return dst
 }
