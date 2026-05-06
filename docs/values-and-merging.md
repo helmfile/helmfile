@@ -116,6 +116,54 @@ environments:
       - secrets.yaml       # Merged last (step 3) - highest priority
 ```
 
+### 4a. Merge Strategy: `override` vs `fallback`
+
+By default, when an environment lists multiple files under `values:`, **later files override earlier files** (the historical helmfile behavior, equivalent to `mergeStrategy: override`).
+
+You can flip this per environment so that **earlier files take precedence** and later files only fill in missing keys:
+
+```yaml
+environments:
+  production:
+    mergeStrategy: fallback
+    values:
+      - cluster-specific.yaml   # wins on every key it defines
+      - shared-defaults.yaml    # only fills gaps
+```
+
+Under `fallback`:
+
+- An explicit non-nil value in an earlier file is preserved against any later file — including the zero values `false`, `0`, `""`, and empty list. An explicit `enabled: false` in `cluster-specific.yaml` is *not* silently overwritten by `enabled: true` from `shared-defaults.yaml`.
+- Maps are deep-merged. An earlier map does not block later files from adding nested keys it didn't set; only the keys an earlier file explicitly defines win on conflict.
+- An explicit `null` in an earlier file falls through to a later file's value, matching how `MergeMaps` treats nil from the override side elsewhere in helmfile.
+- Within a single `values:` entry that expands to multiple files (e.g. via a glob), the **first** file in the expansion wins.
+- A later `.gotmpl` values file can reference values from earlier files via `.Values`, so derived defaults work natively:
+
+  ```yaml
+  # cluster-specific.yaml
+  cluster:
+    domain: prod.example.com
+  ```
+
+  ```yaml
+  # shared-defaults.yaml.gotmpl
+  service:
+    domain: "service.{{ .Values.cluster.domain }}"
+  ```
+
+  → `service.domain: service.prod.example.com`. Under `mergeStrategy: override` this cross-file template reference is not available.
+
+Valid values: `override` (default) and `fallback`. Any other value is rejected at load time.
+
+#### Interaction with `.hcl` values files
+
+`.hcl` files are evaluated as a single unit so that HCL `locals` and `values` blocks can reference each other across files. Helmfile collects every `.hcl` entry from the `values:` list, renders them together, and merges the combined result after the YAML pass. Two consequences worth knowing:
+
+- `mergeStrategy` does not reshuffle the position of HCL within the list. HCL's combined output is always merged after the YAML pass. Under `override` it overrides YAML on conflicts (the historical behavior); under `fallback` it fills gaps only.
+- Among multiple `.hcl` files, the precedence is HCL's own (last-file-wins within HCL), independent of `mergeStrategy`. The strategy applies at the YAML-vs-HCL boundary, not within HCL.
+
+If you need first-file-wins precedence between specific HCL files, restructure them into one HCL file (or split the values into YAML).
+
 ### 5. CLI Overrides
 
 The highest priority values come from CLI flags:

@@ -104,6 +104,21 @@ releases:
   ...
 ```
 
+#### Merge strategy
+
+By default, when several files are listed under `values:`, later files override earlier files. Set `mergeStrategy: fallback` on the environment to flip the precedence so earlier files win and later files only fill missing keys:
+
+```yaml
+environments:
+  production:
+    mergeStrategy: fallback
+    values:
+      - cluster-specific.yaml   # wins on every key it defines
+      - shared-defaults.yaml.gotmpl
+```
+
+Under `fallback`, explicit non-nil values in the earlier file (including zero values like `false`, `0`, `""`, and empty list) are preserved against any later file, while maps are deep-merged so later files may still add nested keys. A later `.gotmpl` file can also reference values from earlier files via `.Values`. See [Merge Strategy: override vs fallback](values-and-merging.md#4a-merge-strategy-override-vs-fallback) for the full semantics, including how explicit `null` is handled.
+
 #### HCL specifications
 
 Since Helmfile v0.164.0, HCL language is supported for environment values only.
