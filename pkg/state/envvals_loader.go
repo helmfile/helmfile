@@ -50,8 +50,6 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 	)
 
 	for _, entry := range valuesEntries {
-		maps := []any{}
-
 		switch strOrMap := entry.(type) {
 		case string:
 			files, skipped, err := ld.storage.resolveFile(missingFileHandler, "environment values", entry.(string))
@@ -70,36 +68,55 @@ func (ld *EnvironmentValuesLoader) LoadEnvironmentValues(missingFileHandler *str
 				}
 				if strings.HasSuffix(f, ".hcl") {
 					hclLoader.AddFile(f)
-				} else {
-					// Use merged values (Defaults + Values + CLIOverrides) for template rendering
-					// so that CLI values are accessible via .Values in environment value files.
-					mergedVals, err := env.GetMergedValues()
-					if err != nil {
-						return nil, fmt.Errorf("failed to get merged values for environment file \"%s\": %v", f, err)
+					continue
+				}
+				// Use merged values (Defaults + Values + CLIOverrides) for template rendering
+				// so that CLI values are accessible via .Values in environment value files.
+				mergedVals, err := env.GetMergedValues()
+				if err != nil {
+					return nil, fmt.Errorf("failed to get merged values for environment file \"%s\": %v", f, err)
+				}
+				// Under fallback strategy, also expose values accumulated from earlier files
+				// in this same `values:` list, including earlier files in this same glob
+				// expansion, so a later .gotmpl can reference them via .Values (e.g.
+				// `{{ .Values.cluster.domain }}`). Env CLI overrides and values still win,
+				// layered on top with WithOverride.
+				if mergeStrategy == MergeStrategyFallback && len(result) > 0 {
+					enriched := map[string]any{}
+					if err := mergo.Merge(&enriched, result); err != nil {
+						return nil, fmt.Errorf("failed to build template context for \"%s\": %v", f, err)
 					}
-					tmplData := NewEnvironmentTemplateData(env, "", mergedVals)
-					r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
-					bytes, err := r.RenderToBytes(f)
-					if err != nil {
-						return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)
+					if err := mergo.Merge(&enriched, mergedVals, mergo.WithOverride); err != nil {
+						return nil, fmt.Errorf("failed to build template context for \"%s\": %v", f, err)
 					}
-					m := map[string]any{}
-					if err := yaml.Unmarshal(bytes, &m); err != nil {
-						return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
-					}
-					maps = append(maps, m)
-					ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
+					mergedVals = enriched
+				}
+				tmplData := NewEnvironmentTemplateData(env, "", mergedVals)
+				r := tmpl.NewFileRenderer(ld.fs, filepath.Dir(f), tmplData)
+				bytes, err := r.RenderToBytes(f)
+				if err != nil {
+					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v", f, err)
+				}
+				m := map[string]any{}
+				if err := yaml.Unmarshal(bytes, &m); err != nil {
+					return nil, fmt.Errorf("failed to load environment values file \"%s\": %v\n\nOffending YAML:\n%s", f, err, bytes)
+				}
+				ld.logger.Debugf("envvals_loader: loaded %s:%v", strOrMap, m)
+				// Merge each file into result immediately so subsequent files in the same
+				// entry's expansion (e.g. a glob) can see prior files' values via .Values
+				// when rendered as templates.
+				result, err = mapMerge(result, []any{m}, mergeStrategy)
+				if err != nil {
+					return nil, err
 				}
 			}
 		case map[any]any, map[string]any:
-			maps = append(maps, strOrMap)
+			result, err = mapMerge(result, []any{strOrMap}, mergeStrategy)
+			if err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf("unexpected type of value: value=%v, type=%T", strOrMap, strOrMap)
-		}
-
-		result, err = mapMerge(result, maps, mergeStrategy)
-		if err != nil {
-			return nil, err
 		}
 	}
 	maps := []any{}

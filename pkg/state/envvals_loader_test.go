@@ -455,6 +455,65 @@ func TestEnvValsLoad_DefaultStrategy_MatchesOverride(t *testing.T) {
 	}
 }
 
+// Within a single `values:` entry that expands to multiple files (a glob), a
+// later .gotmpl in the expansion can reference earlier files in that same
+// expansion. Matters because the inner file loop must merge each parsed file
+// into the accumulator before rendering the next, not buffer the whole
+// expansion and merge once at the end.
+func TestEnvValsLoad_FallbackStrategy_GlobTemplateSeesPriorFileInSameExpansion(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/glob_*.yaml*"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := actual["service"].(map[string]any)
+	if got := service["domain"]; got != "service.example.com" {
+		t.Errorf("service.domain: want %q (templated from sibling glob match), got %v",
+			"service.example.com", got)
+	}
+}
+
+// The headline use case: under fallback, a later .gotmpl values file can
+// reference values defined by earlier files in the same list via .Values.
+// default.yaml sets cluster.domain; fallback.yaml.gotmpl renders
+// `service.domain: "service.{{ .Values.cluster.domain }}"`.
+func TestEnvValsLoad_FallbackStrategy_TemplateAccessesPriorFile(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml.gotmpl"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := actual["service"].(map[string]any)
+	if got := service["domain"]; got != "service.example.com" {
+		t.Errorf("service.domain: want %q (templated from prior file), got %v",
+			"service.example.com", got)
+	}
+}
+
+// Symmetric guard: under override, the same .gotmpl reference does NOT
+// see prior files in the same list. Documents the deliberate scoping —
+// the cross-file template enrichment is opt-in via mergeStrategy: fallback.
+func TestEnvValsLoad_OverrideStrategy_TemplateContextUnchanged(t *testing.T) {
+	l := newLoader()
+
+	_, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml.gotmpl"},
+		nil, "", MergeStrategyOverride)
+	if err == nil {
+		t.Fatal("expected template render error: under override, .Values.cluster.domain should not resolve to a prior file's value")
+	}
+	// The exact error wording is owned by the template renderer; we only
+	// assert that we got an error rather than a bogus successful render.
+}
+
 // Unknown strategy values produce a clear error that names both the bad
 // value and the valid options.
 func TestEnvValsLoad_InvalidStrategy_Errors(t *testing.T) {
