@@ -237,17 +237,12 @@ func mergeEnvironments(dst, src map[string]EnvironmentSpec) {
 
 	for envName, srcEnv := range src {
 		if dstEnv, exists := dst[envName]; exists {
-			// Environment exists in both - merge the Values slices
-			mergedValues := append([]any{}, dstEnv.Values...)
-			mergedValues = append(mergedValues, srcEnv.Values...)
-
 			// Merge Secrets slices
 			mergedSecrets := append([]string{}, dstEnv.Secrets...)
 			mergedSecrets = append(mergedSecrets, srcEnv.Secrets...)
 
 			// Create merged environment
 			merged := EnvironmentSpec{
-				Values:  mergedValues,
 				Secrets: mergedSecrets,
 			}
 
@@ -270,6 +265,26 @@ func mergeEnvironments(dst, src map[string]EnvironmentSpec) {
 				merged.MissingFileHandlerConfig = srcEnv.MissingFileHandlerConfig
 			} else {
 				merged.MissingFileHandlerConfig = dstEnv.MissingFileHandlerConfig
+			}
+
+			// Override MergeStrategy if src has it
+			if srcEnv.MergeStrategy != "" {
+				merged.MergeStrategy = srcEnv.MergeStrategy
+			} else {
+				merged.MergeStrategy = dstEnv.MergeStrategy
+			}
+
+			// Concatenate Values so the later layer (src, e.g. main helmfile)
+			// always takes precedence over the earlier one (dst, e.g. a base
+			// helmfile). Under override the natural append order achieves that
+			// (last-file-wins). Under fallback we have to prepend src so that
+			// "first-file-wins" still resolves to "later layer wins".
+			if merged.MergeStrategy == MergeStrategyFallback {
+				mergedValues := append([]any{}, srcEnv.Values...)
+				merged.Values = append(mergedValues, dstEnv.Values...)
+			} else {
+				mergedValues := append([]any{}, dstEnv.Values...)
+				merged.Values = append(mergedValues, srcEnv.Values...)
 			}
 
 			dst[envName] = merged
@@ -393,6 +408,12 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		loadValuesEntriesEnv, err := ctxEnv.Merge(overrode)
 		if err != nil {
 			return nil, err
+		}
+		switch envSpec.MergeStrategy {
+		case "", MergeStrategyOverride, MergeStrategyFallback:
+		default:
+			return nil, fmt.Errorf("environment %q: invalid mergeStrategy %q (must be %q or %q)",
+				name, envSpec.MergeStrategy, MergeStrategyOverride, MergeStrategyFallback)
 		}
 		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, loadValuesEntriesEnv, name)
 		if err != nil {

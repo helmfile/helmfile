@@ -49,6 +49,12 @@ const (
 
 	// Valid enum for updateStrategy values
 	UpdateStrategyReinstallIfForbidden = "reinstallIfForbidden"
+
+	// Valid values for environment mergeStrategy.
+	// MergeStrategyOverride (default) makes later values files override earlier ones.
+	// MergeStrategyFallback flips the precedence: earlier files win and later files only fill gaps.
+	MergeStrategyOverride = "override"
+	MergeStrategyFallback = "fallback"
 )
 
 // ReleaseSetSpec is release set spec
