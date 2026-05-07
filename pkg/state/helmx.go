@@ -427,6 +427,9 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			if err != nil {
 				return nil, clean, err
 			}
+		} else if rewritten, ok := st.resolveOCIAdhocDepChart(d.Chart); ok {
+			st.logger.Debugf("ad-hoc dependency %q rewritten to %q (matched OCI repo entry)", d.Chart, rewritten)
+			chart = rewritten
 		}
 
 		c.Opts.AdhocChartDependencies = append(c.Opts.AdhocChartDependencies, chartify.ChartDependency{
