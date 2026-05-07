@@ -1392,6 +1392,28 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 	return nil, chartName
 }
 
+// resolveOCIAdhocDepChart rewrites a release `dependencies[].chart` value that
+// uses the named-repo prefix form ("repoName/chartName") into a full oci:// URL
+// when the prefix matches a `repositories:` entry with `oci: true`. It returns
+// (rewritten, true) on a hit and ("", false) otherwise.
+//
+// This avoids the chartify path that does `helm repo list` to look up the
+// repository URL: that lookup never finds OCI repos because helm 3+ does not
+// register OCI registries as named repos (it uses `helm registry login`
+// instead). By the time chartify sees an `oci://` URL it already takes the
+// correct branch, so rewriting here is enough to make the named-repo form
+// behave the same as the explicit URL form.
+func (st *HelmState) resolveOCIAdhocDepChart(chart string) (string, bool) {
+	if strings.HasPrefix(chart, "oci://") {
+		return "", false
+	}
+	repo, name := st.GetRepositoryAndNameFromChartName(chart)
+	if repo == nil || !repo.OCI {
+		return "", false
+	}
+	return "oci://" + strings.TrimSuffix(repo.URL, "/") + "/" + name, true
+}
+
 var rwMutexMap sync.Map
 
 // getNamedRWMutex retrieves or creates a sync.RWMutex for a given name.

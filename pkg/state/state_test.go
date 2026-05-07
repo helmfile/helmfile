@@ -6039,3 +6039,74 @@ func TestHelmState_getKubeContext(t *testing.T) {
 		})
 	}
 }
+
+// resolveOCIAdhocDepChart should rewrite a release `dependencies[].chart` value
+// that uses the named-repo prefix form into a full oci:// URL whenever the
+// matching `repositories:` entry has `oci: true`. All other inputs must pass
+// through unchanged so we never disturb existing behavior.
+func TestResolveOCIAdhocDepChart(t *testing.T) {
+	state := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{
+				{Name: "ociregistry", URL: "registry.example.com:5000/charts", OCI: true},
+				{Name: "ociregistry-trailing", URL: "registry.example.com:5000/charts/", OCI: true},
+				{Name: "stable", URL: "https://charts.helm.sh/stable"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		chart     string
+		wantOK    bool
+		wantChart string
+	}{
+		{
+			name:      "named OCI repo prefix is rewritten to oci:// URL",
+			chart:     "ociregistry/redis",
+			wantOK:    true,
+			wantChart: "oci://registry.example.com:5000/charts/redis",
+		},
+		{
+			name:      "trailing slash on repo URL does not produce a double slash",
+			chart:     "ociregistry-trailing/redis",
+			wantOK:    true,
+			wantChart: "oci://registry.example.com:5000/charts/redis",
+		},
+		{
+			name:   "non-OCI repo prefix is left alone for chartify's helm-repo-list path",
+			chart:  "stable/nginx",
+			wantOK: false,
+		},
+		{
+			name:   "explicit oci:// URL is left alone (already in chartify's OCI branch)",
+			chart:  "oci://registry.example.com:5000/charts/redis",
+			wantOK: false,
+		},
+		{
+			name:   "unknown repo prefix is left alone",
+			chart:  "unknownrepo/something",
+			wantOK: false,
+		},
+		{
+			name:   "single-segment chart (no slash) is left alone",
+			chart:  "localchart",
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := state.resolveOCIAdhocDepChart(tt.chart)
+			if ok != tt.wantOK {
+				t.Errorf("ok: want %v, got %v", tt.wantOK, ok)
+			}
+			if tt.wantOK && got != tt.wantChart {
+				t.Errorf("rewritten chart: want %q, got %q", tt.wantChart, got)
+			}
+			if !tt.wantOK && got != "" {
+				t.Errorf("expected empty rewrite when ok=false, got %q", got)
+			}
+		})
+	}
+}
