@@ -162,7 +162,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("diff", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -234,7 +234,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// https://github.com/helmfile/helmfile/issues/1749
 		run.helm.SetExtraArgs()
 
-		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("template", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -263,7 +263,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("write-values", state.ChartPrepareOptions{
 			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
@@ -315,7 +315,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		var lintErrs []error
 
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
-		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
@@ -357,7 +357,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 		var unittestErrs []error
 
 		// helm unittest needs local charts, so force download
-		prepErr := run.withPreparedCharts("unittest", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("unittest", state.ChartPrepareOptions{
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
@@ -436,7 +436,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			defer run.helm.SetEnableLiveOutput(a.EnableLiveOutput)
 		}
 
-		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
 			SkipRefresh:       c.SkipRefresh(),
 			SkipRepos:         c.SkipRefresh() || c.SkipDeps(),
@@ -487,7 +487,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("sync", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -500,7 +500,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 		}, func() []error {
-			ok, errs = a.sync(run, c)
+			ok, errs = a.SyncState(run, c)
 			return errs
 		})
 
@@ -524,7 +524,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("apply", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -570,7 +570,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts("status", state.ChartPrepareOptions{
+		err := run.WithPreparedCharts("status", state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: c.Concurrency(),
@@ -590,7 +590,7 @@ func (a *App) Status(c StatusesConfigProvider) error {
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
-			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
+			err := run.WithPreparedCharts("destroy", state.ChartPrepareOptions{
 				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
 				SkipRefresh:   c.SkipRefresh(),
 				SkipDeps:      c.SkipDeps(),
@@ -619,7 +619,7 @@ func (a *App) Test(c TestConfigProvider) error {
 				"or set helm.sh/hook-delete-policy\n")
 		}
 
-		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
+		err := run.WithPreparedCharts("test", state.ChartPrepareOptions{
 			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
@@ -640,7 +640,7 @@ func (a *App) Test(c TestConfigProvider) error {
 func (a *App) PrintDAGState(c DAGConfigProvider) error {
 	var err error
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err = run.withPreparedCharts("show-dag", state.ChartPrepareOptions{
+		err = run.WithPreparedCharts("show-dag", state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
@@ -657,7 +657,7 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
+		err := run.WithPreparedCharts("build", state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
@@ -730,7 +730,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var listErr error
 
 		if !c.SkipCharts() {
-			prepErr := run.withPreparedCharts("list", state.ChartPrepareOptions{
+			prepErr := run.WithPreparedCharts("list", state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
@@ -2189,7 +2189,7 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	return true, errs
 }
 
-func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
+func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, []error) {
 	st := r.state
 	helm := r.helm
 
