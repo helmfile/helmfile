@@ -13,10 +13,12 @@ import (
 	"github.com/helmfile/chartify"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/kubedog"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/resource"
+	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
 type Dependency struct {
@@ -115,7 +117,7 @@ func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec,
 }
 
 // append post-renderer-args flags to helm flags
-func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseSpec, postRendererArgs []string) []string {
+func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseSpec, postRendererArgs []string) ([]string, error) {
 	postRendererArgsFlags := []string{}
 	switch {
 	case len(release.PostRendererArgs) != 0:
@@ -123,14 +125,44 @@ func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseS
 	case len(postRendererArgs) != 0:
 		postRendererArgsFlags = postRendererArgs
 	case len(st.HelmDefaults.PostRendererArgs) != 0:
-		postRendererArgsFlags = st.HelmDefaults.PostRendererArgs
+		rendered, err := st.renderPostRendererArgs(release, st.HelmDefaults.PostRendererArgs)
+		if err != nil {
+			return nil, err
+		}
+		postRendererArgsFlags = rendered
 	}
 	for _, arg := range postRendererArgsFlags {
 		if arg != "" {
 			flags = append(flags, "--post-renderer-args="+arg)
 		}
 	}
-	return flags
+	return flags, nil
+}
+
+func (st *HelmState) renderPostRendererArgs(release *ReleaseSpec, args []string) ([]string, error) {
+	vals := st.RenderedValues
+	if vals == nil {
+		vals = make(map[string]any)
+	}
+
+	fs := st.fs
+	if fs == nil {
+		fs = filesystem.DefaultFileSystem()
+	}
+
+	tmplData := st.createReleaseTemplateData(release, vals)
+	renderer := tmpl.NewFileRenderer(fs, st.basePath, tmplData)
+
+	result := make([]string, 0, len(args))
+	for _, arg := range args {
+		rendered, err := renderer.RenderTemplateContentToString([]byte(arg))
+		if err != nil {
+			return nil, fmt.Errorf("failed rendering postRendererArg %q for release %q: %w", arg, release.Name, err)
+		}
+		result = append(result, rendered)
+	}
+
+	return result, nil
 }
 
 // append skip-schema-validation flags to helm flags
