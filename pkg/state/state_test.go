@@ -1049,6 +1049,51 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "post-renderer-args-helmdefault-templated-with-release-name",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"{{ .Release.Name }}", "--chart={{ .Release.Chart }}"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "my-release",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=my-release",
+				"--post-renderer-args=--chart=test/chart",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-helmdefault-templated-with-namespace",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"{{ .Release.Namespace }}/{{ .Release.Name }}"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "my-release",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=test-namespace/my-release",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "description-from-release",
 			defaults: HelmSpec{
 				Verify:          false,

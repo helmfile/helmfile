@@ -3627,7 +3627,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	flags, err = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	skipSchemaValidation := false
 	if opt != nil {
@@ -3670,7 +3673,10 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		skipSchemaValidation = opt.SkipSchemaValidation
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	flags, err := st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
@@ -3793,7 +3799,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	var err error
+	flags, err = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	skipSchemaValidation := false
 	if opt != nil {
@@ -3823,7 +3833,6 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		takeOwnership = opt.TakeOwnership
 	}
 
-	var err error
 	flags, err = st.appendTakeOwnershipFlagsForDiff(flags, release, takeOwnership, pluginsDir)
 	if err != nil {
 		return nil, nil, err
