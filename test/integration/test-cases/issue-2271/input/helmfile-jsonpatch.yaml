@@ -12,6 +12,5 @@ releases:
           namespace: default
         patch:
           - op: add
-            path: /metadata/annotations
-            value:
-              hello: world
+            path: /spec/template/metadata/labels/hello
+            value: world
