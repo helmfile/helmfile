@@ -4,7 +4,9 @@ import (
 	"bytes"
 	gocontext "context"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +29,7 @@ import (
 	"github.com/helmfile/vals"
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
+	helmchart "helm.sh/helm/v3/pkg/chart"
 	cliv3 "helm.sh/helm/v3/pkg/cli"
 	cliv4 "helm.sh/helm/v4/pkg/cli"
 
@@ -1526,6 +1529,77 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 	}
 
 	st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", tempChartYamlPath)
+
+	// Rewriting Chart.yaml invalidates Chart.lock's digest, since helm computes the
+	// digest over the JSON-marshaled dependencies block. If the lock isn't refreshed,
+	// downstream `helm dependency build` errors with "lock file is out of sync with
+	// the dependencies file" and falls back to `dependency update`, which re-resolves
+	// version constraints (e.g. `version: "*"`) against the chart repo and silently
+	// pulls newer dependency versions. The version pins in the lock are still the
+	// intended truth — only the rewritten file:// repository URL changed. Mirror the
+	// rewrite into the lock and recompute the digest so `dep build` accepts it.
+	tempChartLockPath := filepath.Join(tempDir, "Chart.lock")
+	if lockData, lockErr := st.fs.ReadFile(tempChartLockPath); lockErr == nil {
+		var lock struct {
+			Dependencies []*helmchart.Dependency `yaml:"dependencies,omitempty"`
+			Digest       string                  `yaml:"digest,omitempty"`
+			Generated    string                  `yaml:"generated,omitempty"`
+		}
+		if err := yaml.Unmarshal(lockData, &lock); err != nil {
+			st.logger.Warnf("Failed to parse Chart.lock at %s: %v", tempChartLockPath, err)
+		} else {
+			// Build the request slice (rewritten Chart.yaml dependencies) using helm's
+			// own chart.Dependency type so the JSON used for hashing matches helm's
+			// exactly. The version field lives in the inline Data map because Chart.yaml
+			// dependencies carry fields beyond name/repository.
+			req := make([]*helmchart.Dependency, 0, len(chartMeta.Dependencies))
+			for _, d := range chartMeta.Dependencies {
+				var version string
+				if v, ok := d.Data["version"].(string); ok {
+					version = v
+				}
+				req = append(req, &helmchart.Dependency{
+					Name:       d.Name,
+					Version:    version,
+					Repository: d.Repository,
+				})
+			}
+
+			// Mirror the rewritten file:// repository URLs onto matching lock entries.
+			// Without this, `helm dependency build` would resolve the lock's relative
+			// file:// paths against the (moved) chart directory and fail with
+			// "directory ... not found". Versions in the lock are left untouched.
+			for _, ld := range lock.Dependencies {
+				if !strings.HasPrefix(ld.Repository, "file://") {
+					continue
+				}
+				for _, rd := range req {
+					if rd.Name == ld.Name && strings.HasPrefix(rd.Repository, "file://") {
+						ld.Repository = rd.Repository
+						break
+					}
+				}
+			}
+
+			// Replicates helm's resolver.HashReq:
+			//   json.Marshal([2][]*chart.Dependency{req, lock}) → sha256 hex.
+			// resolver.HashReq lives in helm.sh/helm/v3/internal/resolver, so we
+			// inline the (small, stable) algorithm rather than importing it.
+			if payload, err := json.Marshal([2][]*helmchart.Dependency{req, lock.Dependencies}); err != nil {
+				st.logger.Warnf("Failed to marshal deps for Chart.lock digest at %s: %v", tempChartLockPath, err)
+			} else {
+				sum := sha256.Sum256(payload)
+				lock.Digest = "sha256:" + hex.EncodeToString(sum[:])
+				if updated, err := yaml.Marshal(&lock); err != nil {
+					st.logger.Warnf("Failed to marshal Chart.lock at %s: %v", tempChartLockPath, err)
+				} else if err := st.fs.WriteFile(tempChartLockPath, updated, 0644); err != nil {
+					st.logger.Warnf("Failed to write Chart.lock at %s: %v", tempChartLockPath, err)
+				} else {
+					st.logger.Debugf("Refreshed Chart.lock digest at %s after Chart.yaml rewrite", tempChartLockPath)
+				}
+			}
+		}
+	}
 
 	cleanup := func() {
 		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
