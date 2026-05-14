@@ -30,7 +30,7 @@ ENV HELM_CONFIG_HOME="${HELM_CONFIG_HOME}"
 ARG HELM_DATA_HOME="${HOME}/.local/share/helm"
 ENV HELM_DATA_HOME="${HELM_DATA_HOME}"
 
-ARG HELM_VERSION="v4.1.4"
+ARG HELM_VERSION="v4.2.0"
 ENV HELM_VERSION="${HELM_VERSION}"
 ENV HELM_BIN="/usr/local/bin/helm"
 ARG HELM_LOCATION="https://get.helm.sh"
@@ -39,8 +39,8 @@ RUN set -x && \
     curl --retry 5 --retry-connrefused -LO "${HELM_LOCATION}/${HELM_FILENAME}" && \
     echo Verifying ${HELM_FILENAME}... && \
     case ${TARGETPLATFORM} in \
-    "linux/amd64")  HELM_SHA256="70b2c30a19da4db264dfd68c8a3664e05093a361cefd89572ffb36f8abfa3d09"  ;; \
-    "linux/arm64")  HELM_SHA256="13d03672be289045d2ff00e4e345d61de1c6f21c1257a45955a30e8ae036d8f1"  ;; \
+    "linux/amd64")  HELM_SHA256="97dbeb971be4ac4b27e3839976d9564c0fb35c6f3b1da89dd1e292d236af4096"  ;; \
+    "linux/arm64")  HELM_SHA256="1f8de130dfbd04de64978e7b852a7a547be1404956a366608276d2520b678670"  ;; \
     esac && \
     echo "${HELM_SHA256}  ${HELM_FILENAME}" | sha256sum -c && \
     echo Extracting ${HELM_FILENAME}... && \
