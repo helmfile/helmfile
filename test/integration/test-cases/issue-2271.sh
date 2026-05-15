@@ -40,11 +40,18 @@ assert_lookup_preserved() {
   local label="$1"
   local helmfile_path="$2"
   local output_path="$3"
+  local code
 
   info "Testing diff with ${label} - lookup should preserve value"
 
   ${helmfile} -f "${helmfile_path}" diff > "${output_path}" 2>&1
   code=$?
+
+  if [ $code -ne 0 ] && [ $code -ne 2 ]; then
+    cat "${output_path}"
+    rm -rf "${issue_2271_tmp_dir}"
+    fail "Unexpected error during diff with ${label}"
+  fi
 
   # Check if the diff contains the preserved value (not "initial-value")
   if grep -q "preserved-value.*test-preserved-value" "${output_path}"; then
