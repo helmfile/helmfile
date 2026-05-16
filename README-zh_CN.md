@@ -61,11 +61,24 @@ Helmfile 是一个声明式Helm Chart管理工具
 
 > 安装后请运行一次 `helmfile init`。 检查[helm-diff](https://github.com/databus23/helm-diff) 等插件安装正确。
 
+**方式4: 源码安装**
+
+依赖: [Go](https://golang.org/dl/)
+
+
+
+` go install github.com/helmfile/helmfile@latest `
 ## 使用
 
 让我们从最简单的 helmfile 开始，逐渐改进它以适应您的用例！
 
-假设表示您 helm releases 的期望状态的 helmfile.yaml 看起来像这样：
+使用脚手架命令生成具有最佳实践目录结构的项目：
+
+```console
+helmfile create my-project && cd my-project
+```
+
+或者手动创建 `helmfile.yaml`。假设表示您 helm releases 的期望状态的 helmfile.yaml 看起来像这样：
 
 ```yaml
 repositories:

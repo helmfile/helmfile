@@ -1,0 +1,6 @@
+enabled: true
+replicas: 3
+name: from-fallback
+tags:
+  - a
+  - b

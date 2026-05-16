@@ -69,7 +69,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 
 		// --state-values-file: loaded into Values so arrays replace (not merge)
 		if len(fileArgs) > 0 {
-			fileVals, err := envld.LoadEnvironmentValues(&handler, fileArgs, environment.New(ld.env), ld.env)
+			fileVals, err := envld.LoadEnvironmentValues(&handler, fileArgs, environment.New(ld.env), ld.env, "")
 			if err != nil {
 				return nil, err
 			}
@@ -78,7 +78,7 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 
 		// --state-values-set: loaded into CLIOverrides so arrays merge element-by-element
 		if len(setArgs) > 0 {
-			setVals, err := envld.LoadEnvironmentValues(&handler, setArgs, environment.New(ld.env), ld.env)
+			setVals, err := envld.LoadEnvironmentValues(&handler, setArgs, environment.New(ld.env), ld.env, "")
 			if err != nil {
 				return nil, err
 			}

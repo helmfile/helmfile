@@ -91,6 +91,7 @@ type ApplyConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackFailOnError() bool
 
 	Description() string
 
@@ -130,6 +131,7 @@ type SyncConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackFailOnError() bool
 
 	Description() string
 
@@ -242,6 +244,7 @@ type FetchConfigProvider interface {
 	SkipRefresh() bool
 	OutputDir() string
 	OutputDirTemplate() string
+	WriteOutput() bool
 
 	concurrencyConfig
 }
@@ -323,6 +326,14 @@ type CacheConfigProvider any
 
 type InitConfigProvider interface {
 	Force() bool
+}
+
+type CreateConfigProvider interface {
+	Name() string
+	OutputDir() string
+	Force() bool
+
+	loggingConfig
 }
 
 type PrintEnvConfigProvider interface {

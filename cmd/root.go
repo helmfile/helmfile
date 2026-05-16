@@ -92,6 +92,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	}
 
 	cmd.AddCommand(
+		NewCreateCmd(globalImpl),
 		NewInitCmd(globalImpl),
 		NewApplyCmd(globalImpl),
 		NewBuildCmd(globalImpl),

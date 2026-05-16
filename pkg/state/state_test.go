@@ -926,8 +926,8 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--arg1",
-				"--post-renderer-args", "--arg2",
+				"--post-renderer-args=--arg1",
+				"--post-renderer-args=--arg2",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -949,7 +949,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -972,7 +972,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -997,7 +997,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--cli-arg",
+				"--post-renderer-args=--cli-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1022,7 +1022,74 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-short-flag-value",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"-v"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=-v",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-helmdefault-templated-with-release-name",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"{{ .Release.Name }}", "--chart={{ .Release.Chart }}"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "my-release",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=my-release",
+				"--post-renderer-args=--chart=test/chart",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-helmdefault-templated-with-namespace",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"{{ .Release.Namespace }}/{{ .Release.Name }}"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "my-release",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=test-namespace/my-release",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1340,8 +1407,8 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--arg1",
-				"--post-renderer-args", "--arg2",
+				"--post-renderer-args=--arg1",
+				"--post-renderer-args=--arg2",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1363,7 +1430,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1386,7 +1453,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1411,7 +1478,7 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--cli-arg",
+				"--post-renderer-args=--cli-arg",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1436,7 +1503,29 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			},
 			want: []string{
 				"--version", "0.1",
-				"--post-renderer-args", "--release-arg",
+				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-short-flag-value",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"-v"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=-v",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -5991,6 +6080,77 @@ func TestHelmState_getKubeContext(t *testing.T) {
 			got := state.getKubeContext(tt.release)
 			if got != tt.want {
 				t.Errorf("getKubeContext() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// resolveOCIAdhocDepChart should rewrite a release `dependencies[].chart` value
+// that uses the named-repo prefix form into a full oci:// URL whenever the
+// matching `repositories:` entry has `oci: true`. All other inputs must pass
+// through unchanged so we never disturb existing behavior.
+func TestResolveOCIAdhocDepChart(t *testing.T) {
+	state := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{
+				{Name: "ociregistry", URL: "registry.example.com:5000/charts", OCI: true},
+				{Name: "ociregistry-trailing", URL: "registry.example.com:5000/charts/", OCI: true},
+				{Name: "stable", URL: "https://charts.helm.sh/stable"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		chart     string
+		wantOK    bool
+		wantChart string
+	}{
+		{
+			name:      "named OCI repo prefix is rewritten to oci:// URL",
+			chart:     "ociregistry/redis",
+			wantOK:    true,
+			wantChart: "oci://registry.example.com:5000/charts/redis",
+		},
+		{
+			name:      "trailing slash on repo URL does not produce a double slash",
+			chart:     "ociregistry-trailing/redis",
+			wantOK:    true,
+			wantChart: "oci://registry.example.com:5000/charts/redis",
+		},
+		{
+			name:   "non-OCI repo prefix is left alone for chartify's helm-repo-list path",
+			chart:  "stable/nginx",
+			wantOK: false,
+		},
+		{
+			name:   "explicit oci:// URL is left alone (already in chartify's OCI branch)",
+			chart:  "oci://registry.example.com:5000/charts/redis",
+			wantOK: false,
+		},
+		{
+			name:   "unknown repo prefix is left alone",
+			chart:  "unknownrepo/something",
+			wantOK: false,
+		},
+		{
+			name:   "single-segment chart (no slash) is left alone",
+			chart:  "localchart",
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := state.resolveOCIAdhocDepChart(tt.chart)
+			if ok != tt.wantOK {
+				t.Errorf("ok: want %v, got %v", tt.wantOK, ok)
+			}
+			if tt.wantOK && got != tt.wantChart {
+				t.Errorf("rewritten chart: want %q, got %q", tt.wantChart, got)
+			}
+			if !tt.wantOK && got != "" {
+				t.Errorf("expected empty rewrite when ok=false, got %q", got)
 			}
 		})
 	}

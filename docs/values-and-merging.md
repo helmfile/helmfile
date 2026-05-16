@@ -116,6 +116,54 @@ environments:
       - secrets.yaml       # Merged last (step 3) - highest priority
 ```
 
+### 4a. Merge Strategy: `override` vs `fallback`
+
+By default, when an environment lists multiple files under `values:`, **later files override earlier files** (the historical helmfile behavior, equivalent to `mergeStrategy: override`).
+
+You can flip this per environment so that **earlier files take precedence** and later files only fill in missing keys:
+
+```yaml
+environments:
+  production:
+    mergeStrategy: fallback
+    values:
+      - cluster-specific.yaml   # wins on every key it defines
+      - shared-defaults.yaml    # only fills gaps
+```
+
+Under `fallback`:
+
+- An explicit non-nil value in an earlier file is preserved against any later file, including the zero values `false`, `0`, `""`, and empty list. An explicit `enabled: false` in `cluster-specific.yaml` is *not* silently overwritten by `enabled: true` from `shared-defaults.yaml`.
+- Maps are deep-merged. An earlier map does not block later files from adding nested keys it didn't set; only the keys an earlier file explicitly defines win on conflict.
+- An explicit `null` in an earlier file falls through to a later file's value, matching how `MergeMaps` treats nil from the override side elsewhere in helmfile.
+- Within a single `values:` entry that expands to multiple files (e.g. via a glob), the **first** file in the expansion wins.
+- A later `.gotmpl` values file can reference values from earlier files via `.Values`, so derived defaults work natively:
+
+  ```yaml
+  # cluster-specific.yaml
+  cluster:
+    domain: prod.example.com
+  ```
+
+  ```yaml
+  # shared-defaults.yaml.gotmpl
+  service:
+    domain: "service.{{ .Values.cluster.domain }}"
+  ```
+
+  → `service.domain: service.prod.example.com`. Under `mergeStrategy: override` this cross-file template reference is not available.
+
+Valid values: `override` (default) and `fallback`. Any other value is rejected at load time.
+
+#### Interaction with `.hcl` values files
+
+`.hcl` files are evaluated as a single unit so that HCL `locals` and `values` blocks can reference each other across files. Helmfile collects every `.hcl` entry from the `values:` list, renders them together, and merges the combined result after the YAML pass. Two consequences worth knowing:
+
+- `mergeStrategy` does not reshuffle the position of HCL within the list. HCL's combined output is always merged after the YAML pass. Under `override` it overrides YAML on conflicts (the historical behavior); under `fallback` it fills gaps only.
+- Among multiple `.hcl` files, the precedence is HCL's own (last-file-wins within HCL), independent of `mergeStrategy`. The strategy applies at the YAML-vs-HCL boundary, not within HCL.
+
+If you need first-file-wins precedence between specific HCL files, restructure them into one HCL file (or split the values into YAML).
+
 ### 5. CLI Overrides
 
 The highest priority values come from CLI flags:
@@ -412,133 +460,6 @@ Here's the complete data flow when running `helmfile sync`:
    - Defaults & Values: `ArrayMergeStrategySparse` (auto-detect nil values)
    - CLIOverrides: `ArrayMergeStrategyMerge` (always element-by-element)
 
-## Technical Details
-
-### Secret Handling Intern
-
-Helmfile processes secrets in a special way:
-
-**Non-HCL secrets (.yaml, .yaml.gotmpl):**
-1. Decrypted using helm-secrets plugin
-2. Parsed into values immediately (during load phase)
-3. Stored separately from regular values
-4. **Mrged last** (highest priority) after all environment values are loaded
-
-**HCL secrets (.hcl):**
-1. Decrypted using helm-secrets plugin
-2. Decrypted file paths added to values file list
-3. Processed in step 2 (HCL loading phase)
-4. Can reference values from other HCL files (using `hv.` accessor)
-
-This separation allows:
-- Secrets to override regular values without being re-decrypted multiple times
-- HCL secrets to participate in HCL's cross-file referencing system
-
-### Multiple Helmfiles and State files
-
-When using multi-part helmfiles (multiple YAML documents separated by `---`):
-
-```yaml
-# Part 1: base.yaml
-helmDefaults:
-  wait: true
-  timeout: 300
----
-# Part 2: environments.yaml
-environments:
-  default:
-  production:
-```
-
-Each part is processed in order:
- and the results are merged with later parts taking precedence.
-
-## Technical Details
-
-### Environment Structure Internals
-
-The `Environment` struct has three key fields that affect merging:
-
-```go
-type Environment struct {
-    Name         string
-    KubeContext  string
-    Values       map[string]any  // Environment values + secrets
-    Defaults     map[string]any  // Root-level values: block
-    CLIOverrides map[string]any  // CLI --state-values-set
-}
-```
-
-### Final Merge Process (GetMergedValues)
-
-When you access `.Values` in templates, Helmfile calls `GetMergedValues()` which merges in this order:
-
-```go
-func (e *Environment) GetMergedValues() (map[string]any, error) {
-    vals := map[string]any{}
-    vals = maputil.MergeMaps(vals, e.Defaults)     // 1. Defaults (root-level values:)
-    vals = maputil.MergeMaps(vals, e.Values)        // 2. Values (environment values + secrets)
-    vals = maputil.MergeMaps(vals, e.CLIOverrides, // 3. CLIOverrides (highest priority)
-        maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
-    return vals, nil
-}
-```
-
-**Important:** CLIOverrides uses `ArrayMergeStrategyMerge` (element-by-element merging), while Defaults and Values use the default strategy (sparse auto-detection).
-
-### Merging Library: mergo
-
-Helmfile uses the [mergo](https://github.com/imdario/mergo) library for deep merging with these key features:
-
-1. **Deep merge for maps**: Nested maps are merged recursively
-2. **WithOverride option**: Later values override earlier values
-3. **Type-safe**: Preserves value types during merge
-
-Example from code:
-```go
-// In loadEnvValues()
-if err := mergo.Merge(&valuesVals, &secretVals, mergo.WithOverride); err != nil {
-    return nil, err
-}
-```
-
-### Array Merge Strategies Implementation
-
-The `maputil.MergeMaps` function supports three array merge strategies:
-
-```go
-type ArrayMergeStrategy int
-
-const (
-    ArrayMergeStrategySparse  ArrayMergeStrategy = iota  // Auto-detect based on nil values
-    ArrayMergeStrategyReplace ArrayMergeStrategy = iota  // Always replace arrays
-    ArrayMergeStrategyMerge   ArrayMergeStrategy = iota  // Always merge element-by-element
-)
-```
-
-**Sparse Strategy (Default for most cases):**
-```go
-func mergeSlices(base, override []any, strategy ArrayMergeStrategy) []any {
-    if strategy == ArrayMergeStrategySparse {
-        isSparse := false
-        for _, v := range override {
-            if v == nil {
-                isSparse = true
-                break
-            }
-        }
-        if !isSparse {
-            return override  // Replace entirely
-        }
-        // Otherwise merge element-by-element
-    }
-}
-```
-
-This means:
-- `[1, 2, 3]` merged with `[4, 5]` → result: `[4, 5]` (replaced, no nils)
-- `[null, 2]` merged with `[1, 2, 3]` → result: `[1, 2, 3]` (merged, has nil)
-
 ## Common Patterns
 
 ### Pattern 1: Global Defaults with Environment Overrides
@@ -632,6 +553,44 @@ environments:
 ```
 
 ## Technical Implementation Details
+
+### Secret Handling
+
+Helmfile processes secrets in a special way:
+
+**Non-HCL secrets (.yaml, .yaml.gotmpl):**
+1. Decrypted using helm-secrets plugin
+2. Parsed into values immediately (during load phase)
+3. Stored separately from regular values
+4. **Merged last** (highest priority) after all environment values are loaded
+
+**HCL secrets (.hcl):**
+1. Decrypted using helm-secrets plugin
+2. Decrypted file paths added to values file list
+3. Processed in step 2 (HCL loading phase)
+4. Can reference values from other HCL files (using `hv.` accessor)
+
+This separation allows:
+- Secrets to override regular values without being re-decrypted multiple times
+- HCL secrets to participate in HCL's cross-file referencing system
+
+### Multiple Helmfiles and State files
+
+When using multi-part helmfiles (multiple YAML documents separated by `---`):
+
+```yaml
+# Part 1: base.yaml
+helmDefaults:
+  wait: true
+  timeout: 300
+---
+# Part 2: environments.yaml
+environments:
+  default:
+  production:
+```
+
+Each part is processed in order and the results are merged with later parts taking precedence.
 
 ### Environment Structure
 

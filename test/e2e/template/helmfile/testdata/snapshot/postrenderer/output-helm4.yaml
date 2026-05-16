@@ -13,6 +13,7 @@ data:
   two: TWO
 metadata:
   name: cm2
+
 ---
 # Source: raw/templates/resources.yaml
 apiVersion: v1
@@ -32,6 +33,7 @@ data:
   one: ONE
 metadata:
   name: cm1
+
 ---
 # Source: raw/templates/resources.yaml
 apiVersion: v1

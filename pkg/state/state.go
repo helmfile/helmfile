@@ -50,6 +50,12 @@ const (
 
 	// Valid enum for updateStrategy values
 	UpdateStrategyReinstallIfForbidden = "reinstallIfForbidden"
+
+	// Valid values for environment mergeStrategy.
+	// MergeStrategyOverride (default) makes later values files override earlier ones.
+	// MergeStrategyFallback flips the precedence: earlier files win and later files only fill gaps.
+	MergeStrategyOverride = "override"
+	MergeStrategyFallback = "fallback"
 )
 
 // ReleaseSetSpec is release set spec
@@ -479,6 +485,8 @@ type ReleaseSpec struct {
 	KubedogQPS *float32 `yaml:"kubedogQPS,omitempty"`
 	// KubedogBurst specifies the burst for kubedog kubernetes client
 	KubedogBurst *int `yaml:"kubedogBurst,omitempty"`
+	// TrackFailOnError controls whether kubedog tracking failures cause a non-zero exit code
+	TrackFailOnError *bool `yaml:"trackFailOnError,omitempty"`
 }
 
 // TrackResourceSpec specifies a resource to track
@@ -913,6 +921,7 @@ type SyncOpts struct {
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
+	TrackFailOnError     bool
 	Description          string
 }
 
@@ -1139,10 +1148,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
-					if relErr == nil && st.shouldUseKubedog(release, opts) {
-						if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
-							st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
-						}
+					if relErr == nil {
+						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
 					}
 				} else {
 					if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
@@ -1161,10 +1168,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 							release.installedVersion = installedVersion
 						}
 
-						if st.shouldUseKubedog(release, opts) {
-							if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
-								st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
-							}
+						if trackErr := st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts); trackErr != nil {
+							m.Lock()
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							m.Unlock()
+							relErr = trackErr
 						}
 					}
 				}
@@ -1342,6 +1350,8 @@ type ChartPrepareOptions struct {
 	SkipRefresh   bool
 	SkipResolve   bool
 	SkipCleanup   bool
+	// SkipSchemaValidation configures chartify to pass --skip-schema-validation to helm-template run by it.
+	SkipSchemaValidation bool
 	// Validate configures chartify to pass --validate to helm-template run by it.
 	// It's required when one of your chart relies on Capabilities.APIVersions in a template
 	Validate               bool
@@ -1387,6 +1397,28 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 		}
 	}
 	return nil, chartName
+}
+
+// resolveOCIAdhocDepChart rewrites a release `dependencies[].chart` value that
+// uses the named-repo prefix form ("repoName/chartName") into a full oci:// URL
+// when the prefix matches a `repositories:` entry with `oci: true`. It returns
+// (rewritten, true) on a hit and ("", false) otherwise.
+//
+// This avoids the chartify path that does `helm repo list` to look up the
+// repository URL: that lookup never finds OCI repos because helm 3+ does not
+// register OCI registries as named repos (it uses `helm registry login`
+// instead). By the time chartify sees an `oci://` URL it already takes the
+// correct branch, so rewriting here is enough to make the named-repo form
+// behave the same as the explicit URL form.
+func (st *HelmState) resolveOCIAdhocDepChart(chart string) (string, bool) {
+	if strings.HasPrefix(chart, "oci://") {
+		return "", false
+	}
+	repo, name := st.GetRepositoryAndNameFromChartName(chart)
+	if repo == nil || !repo.OCI {
+		return "", false
+	}
+	return "oci://" + strings.TrimSuffix(repo.URL, "/") + "/" + name, true
 }
 
 var rwMutexMap sync.Map
@@ -1623,6 +1655,12 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		}
 	}
 
+	chartifyOpts.TemplateArgs = st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(
+		chartifyOpts.TemplateArgs,
+		release,
+		opts.SkipSchemaValidation,
+	)
+
 	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 	if err != nil {
 		return "", false, err
@@ -1633,6 +1671,30 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// explicitly skipped.
 	buildDeps := !skipDeps
 	return chartPath, buildDeps, nil
+}
+
+func (st *HelmState) appendSkipSchemaValidationFlagToChartifyTemplateArgs(templateArgs string, release *ReleaseSpec, skipSchemaValidation bool) string {
+	if !st.shouldSkipSchemaValidation(release, skipSchemaValidation) || hasTemplateArg(templateArgs, "--skip-schema-validation") {
+		return templateArgs
+	}
+
+	return appendTemplateArg(templateArgs, "--skip-schema-validation")
+}
+
+func hasTemplateArg(templateArgs, arg string) bool {
+	for _, token := range strings.Fields(templateArgs) {
+		if token == arg || strings.HasPrefix(token, arg+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+func appendTemplateArg(templateArgs, arg string) string {
+	if templateArgs == "" {
+		return arg
+	}
+	return templateArgs + " " + arg
 }
 
 // processLocalChart handles local chart processing
@@ -3566,7 +3628,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	flags, err = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	skipSchemaValidation := false
 	if opt != nil {
@@ -3609,7 +3674,10 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		skipSchemaValidation = opt.SkipSchemaValidation
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	flags, err := st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
@@ -3732,7 +3800,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	var err error
+	flags, err = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	skipSchemaValidation := false
 	if opt != nil {
@@ -3762,7 +3834,6 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		takeOwnership = opt.TakeOwnership
 	}
 
-	var err error
 	flags, err = st.appendTakeOwnershipFlagsForDiff(flags, release, takeOwnership, pluginsDir)
 	if err != nil {
 		return nil, nil, err

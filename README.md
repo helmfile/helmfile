@@ -75,11 +75,24 @@ For more details, see [run as a container](https://helmfile.readthedocs.io/en/la
 
 > Make sure to run `helmfile init` once after installation. Helmfile uses the [helm-diff](https://github.com/databus23/helm-diff) plugin.
 
+**4: Build from source**
+
+requirements: [Go](https://golang.org/dl/)
+
+
+
+` go install github.com/helmfile/helmfile@latest `
 ## Getting Started
 
 Let's start with a simple `helmfile` and gradually improve it to fit your use-case!
 
-Suppose the `helmfile.yaml` representing the desired state of your helm releases looks like:
+Generate a project scaffold with best-practice directory structure:
+
+```console
+helmfile create my-project && cd my-project
+```
+
+Or create a `helmfile.yaml` manually. Suppose the `helmfile.yaml` representing the desired state of your helm releases looks like:
 
 ```yaml
 repositories:

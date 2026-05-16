@@ -2,6 +2,7 @@ package state
 
 import (
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,7 +30,7 @@ func newLoader() *EnvironmentValuesLoader {
 func TestEnvValsLoad_SingleValuesFile(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.5.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.5.yaml"}, nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +88,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.6.yaml.gotmpl"}, tt.env, tt.envName)
+			actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.6.yaml.gotmpl"}, tt.env, tt.envName, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,7 +104,7 @@ func TestEnvValsLoad_EnvironmentNameFile(t *testing.T) {
 func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"git::https://github.com/helm/helm.git@cmd/helm/testdata/output/values.yaml?ref=v3.8.1"}, nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +122,7 @@ func TestEnvValsLoad_SingleValuesFileRemote(t *testing.T) {
 func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.1.yaml", "testdata/values.2.yaml"}, nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.3.yaml", "testdata/values.4.yaml"}, nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +167,7 @@ func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/issues/1168/addons.yaml", "testdata/issues/1168/addons2.yaml"}, nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +192,7 @@ func TestEnvValsLoad_OverwriteEmptyValue_Issue1168(t *testing.T) {
 func TestEnvValsLoad_MultiHCL(t *testing.T) {
 	l := newLoader()
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.7.hcl", "testdata/values.8.hcl"}, nil, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.7.hcl", "testdata/values.8.hcl"}, nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +235,7 @@ func TestEnvValsLoad_EnvironmentValues(t *testing.T) {
 	env := environment.New("test")
 	env.Values["foo"] = "bar"
 
-	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.9.yaml.gotmpl"}, env, "")
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.9.yaml.gotmpl"}, env, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,5 +246,294 @@ func TestEnvValsLoad_EnvironmentValues(t *testing.T) {
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
 		t.Error(diff)
+	}
+}
+
+// --- mergeStrategy: fallback ---
+
+// Earlier files take precedence. Same conflicting key in two files →
+// the value from default.yaml (loaded first) wins.
+func TestEnvValsLoad_FallbackStrategy_EarlierWins(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cluster := actual["cluster"].(map[string]any)
+	if got := cluster["domain"]; got != "example.com" {
+		t.Errorf("cluster.domain: want %q (from default.yaml), got %v", "example.com", got)
+	}
+}
+
+// Later files only fill keys that are missing from earlier files.
+func TestEnvValsLoad_FallbackStrategy_FillsGaps(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cluster := actual["cluster"].(map[string]any)
+	if got := cluster["region"]; got != "us-east-1" {
+		t.Errorf("cluster.region: want %q (from fallback.yaml, missing in default.yaml), got %v", "us-east-1", got)
+	}
+	service := actual["service"].(map[string]any)
+	if got := service["port"]; got != 8080 {
+		t.Errorf("service.port: want 8080 (from fallback.yaml), got %v", got)
+	}
+}
+
+// Nested maps merge recursively: top-level cluster is not replaced
+// wholesale; both files contribute keys.
+func TestEnvValsLoad_FallbackStrategy_DeepMerge(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"cluster": map[string]any{
+			"domain": "example.com", // from default (wins)
+			"region": "us-east-1",   // from fallback (gap filled)
+		},
+		"service": map[string]any{
+			"port": 8080, // from fallback (gap filled)
+		},
+	}
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf("deep merge mismatch (-want +got):\n%s", diff)
+	}
+}
+
+// First-wins precedence holds across an arbitrarily long chain, not just
+// pairwise. Three files exercise the accumulator state across iterations.
+func TestEnvValsLoad_FallbackStrategy_ChainedFiles(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{
+			"testdata/mergestrategy/chain_a.yaml",
+			"testdata/mergestrategy/chain_b.yaml",
+			"testdata/mergestrategy/chain_c.yaml",
+		},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"letter":    "a",      // only in a
+		"only_a":    "from-a", // only in a
+		"only_b":    "from-b", // only in b
+		"only_c":    "from-c", // only in c
+		"both_ab":   "from-a", // a and b → a wins (earlier)
+		"both_bc":   "from-b", // b and c → b wins (earlier)
+		"all_three": "from-a", // a, b, c → a wins (earliest)
+	}
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf("chain mismatch (-want +got):\n%s", diff)
+	}
+}
+
+// Explicit zero values in the earlier file MUST be preserved. Without the
+// hand-rolled fallbackDeepMerge, mergo's isEmptyValue would silently let
+// `enabled: true` from fallback overwrite `enabled: false` from default.
+func TestEnvValsLoad_FallbackStrategy_PreservesExplicitZeroValues(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/zero_default.yaml", "testdata/mergestrategy/zero_fallback.yaml"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"enabled":  false,
+		"replicas": 0,
+		"name":     "",
+		"tags":     []any{},
+	}
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf("explicit zero values not preserved (-want +got):\n%s", diff)
+	}
+}
+
+// Explicit nil in the earlier file does NOT win under fallback: it falls
+// through to the fallback file's value. This matches helmfile's existing
+// MergeMaps treatment of nil ("nil from the override side only fills missing
+// keys"; here, by argument-swap, nil from the winner is treated as
+// "no preference, let the fallback fill it"). Documented as the deliberate
+// difference from override mode, where mergo.WithOverride lets nil overwrite
+// (see TestEnvValsLoad_OverwriteWithNilValue_Issue1154).
+func TestEnvValsLoad_FallbackStrategy_NilFallsThroughToFallback(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/nil_default.yaml", "testdata/mergestrategy/nil_fallback.yaml"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{"value": "from-fallback"}
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Errorf("explicit nil should fall through to fallback (-want +got):\n%s", diff)
+	}
+}
+
+// Inline map entries (not file paths) also honor the fallback strategy.
+func TestEnvValsLoad_FallbackStrategy_InlineMapEntry(t *testing.T) {
+	l := newLoader()
+
+	inline := map[string]any{
+		"cluster": map[string]any{"domain": "inline.example"},
+		"extra":   "from-inline",
+	}
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{inline, "testdata/mergestrategy/fallback.yaml"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cluster := actual["cluster"].(map[string]any)
+	if got := cluster["domain"]; got != "inline.example" {
+		t.Errorf("cluster.domain: want inline value to win, got %v", got)
+	}
+	if got := actual["extra"]; got != "from-inline" {
+		t.Errorf("extra: want %q, got %v", "from-inline", got)
+	}
+	// fallback.yaml still fills gaps the inline map did not set.
+	if got := cluster["region"]; got != "us-east-1" {
+		t.Errorf("cluster.region: want %q from fallback file, got %v", "us-east-1", got)
+	}
+}
+
+// Regression guard: explicit "override" matches today's behavior
+// (last file wins).
+func TestEnvValsLoad_OverrideStrategy_PreservesCurrentBehavior(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml"},
+		nil, "", MergeStrategyOverride)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cluster := actual["cluster"].(map[string]any)
+	if got := cluster["domain"]; got != "cluster.local" {
+		t.Errorf("cluster.domain under override: want %q (from fallback.yaml), got %v", "cluster.local", got)
+	}
+}
+
+// Empty strategy is identical to explicit "override".
+func TestEnvValsLoad_DefaultStrategy_MatchesOverride(t *testing.T) {
+	l := newLoader()
+
+	asDefault, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml"},
+		nil, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	asOverride, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml"},
+		nil, "", MergeStrategyOverride)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(asOverride, asDefault); diff != "" {
+		t.Errorf("default strategy diverges from override (-override +default):\n%s", diff)
+	}
+}
+
+// Within a single `values:` entry that expands to multiple files (a glob), a
+// later .gotmpl in the expansion can reference earlier files in that same
+// expansion. Matters because the inner file loop must merge each parsed file
+// into the accumulator before rendering the next, not buffer the whole
+// expansion and merge once at the end.
+func TestEnvValsLoad_FallbackStrategy_GlobTemplateSeesPriorFileInSameExpansion(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/glob_*.yaml*"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := actual["service"].(map[string]any)
+	if got := service["domain"]; got != "service.example.com" {
+		t.Errorf("service.domain: want %q (templated from sibling glob match), got %v",
+			"service.example.com", got)
+	}
+}
+
+// The headline use case: under fallback, a later .gotmpl values file can
+// reference values defined by earlier files in the same list via .Values.
+// default.yaml sets cluster.domain; fallback.yaml.gotmpl renders
+// `service.domain: "service.{{ .Values.cluster.domain }}"`.
+func TestEnvValsLoad_FallbackStrategy_TemplateAccessesPriorFile(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml.gotmpl"},
+		nil, "", MergeStrategyFallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := actual["service"].(map[string]any)
+	if got := service["domain"]; got != "service.example.com" {
+		t.Errorf("service.domain: want %q (templated from prior file), got %v",
+			"service.example.com", got)
+	}
+}
+
+// Symmetric guard: under override, the same .gotmpl reference does NOT
+// see prior files in the same list. Documents the deliberate scoping:
+// the cross-file template enrichment is opt-in via mergeStrategy: fallback.
+func TestEnvValsLoad_OverrideStrategy_TemplateContextUnchanged(t *testing.T) {
+	l := newLoader()
+
+	_, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml", "testdata/mergestrategy/fallback.yaml.gotmpl"},
+		nil, "", MergeStrategyOverride)
+	if err == nil {
+		t.Fatal("expected template render error: under override, .Values.cluster.domain should not resolve to a prior file's value")
+	}
+	// The exact error wording is owned by the template renderer; we only
+	// assert that we got an error rather than a bogus successful render.
+}
+
+// Unknown strategy values produce a clear error that names both the bad
+// value and the valid options.
+func TestEnvValsLoad_InvalidStrategy_Errors(t *testing.T) {
+	l := newLoader()
+
+	_, err := l.LoadEnvironmentValues(nil,
+		[]any{"testdata/mergestrategy/default.yaml"},
+		nil, "prod", "bogus")
+	if err == nil {
+		t.Fatal("expected error for invalid mergeStrategy, got nil")
+	}
+	for _, want := range []string{"prod", "bogus", MergeStrategyOverride, MergeStrategyFallback} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error message missing %q: %v", want, err)
+		}
 	}
 }

@@ -1,0 +1,8 @@
+apiVersion: v1
+type: postrenderer/v1
+name: filter
+version: 0.1.0
+runtime: subprocess
+runtimeConfig:
+  platformCommand:
+    - command: ${HELM_PLUGIN_DIR}/filter.sh

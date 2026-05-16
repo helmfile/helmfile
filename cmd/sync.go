@@ -57,6 +57,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&syncOptions.TrackMode, "track-mode", "", "Track mode for releases: 'helm' (default), 'helm-legacy' (Helm v4 only), or 'kubedog'")
 	f.IntVar(&syncOptions.TrackTimeout, "track-timeout", 0, `Timeout in seconds for kubedog tracking (0 to use default 300s timeout)`)
 	f.BoolVar(&syncOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking")
+	f.BoolVar(&syncOptions.TrackFailOnError, "track-fail-on-error", false, "Fail with non-zero exit code when kubedog tracking fails")
 	f.StringVar(&syncOptions.Description, "description", "", `Set description for all releases. If set, overrides descriptions in helmfile.yaml. Will be passed to "helm upgrade --description"`)
 
 	return cmd
