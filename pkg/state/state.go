@@ -39,6 +39,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
@@ -1584,7 +1585,12 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 					dep.Tags = tags
 				}
 				if v, ok := d.Data["import-values"].([]interface{}); ok {
-					dep.ImportValues = v
+					normalized, err := maputil.RecursivelyStringifyMapKey(v)
+					if err != nil {
+						st.logger.Warnf("Failed to normalize import-values for dependency %s: %v", d.Name, err)
+					} else {
+						dep.ImportValues = normalized.([]interface{})
+					}
 				}
 				req = append(req, dep)
 			}

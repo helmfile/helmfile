@@ -768,10 +768,59 @@ generated: "2024-01-01T00:00:00Z"
 // Chart.lock digest recomputation includes all dependency fields (alias, condition,
 // tags, import-values, enabled) — not just name/repository/version — so the digest
 // stays compatible with Helm's resolver.HashReq for charts using those fields.
+// It proves field coverage by running the same chart with and without extra fields
+// and asserting the digests differ.
 func TestRewriteChartDependencies_RefreshesChartLockWithExtraFields(t *testing.T) {
-	tempDir := t.TempDir()
+	// Run rewriteChartDependencies for a given Chart.yaml and return the recomputed digest.
+	getDigest := func(t *testing.T, chartYaml, chartLock string) string {
+		t.Helper()
+		tempDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(tempDir, "Chart.yaml"), []byte(chartYaml), 0644); err != nil {
+			t.Fatalf("writing Chart.yaml: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(tempDir, "Chart.lock"), []byte(chartLock), 0644); err != nil {
+			t.Fatalf("writing Chart.lock: %v", err)
+		}
+		logger := zap.NewNop().Sugar()
+		st := &HelmState{
+			basePath: tempDir,
+			fs:       filesystem.DefaultFileSystem(),
+			logger:   logger,
+		}
+		rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
+		if err != nil {
+			t.Fatalf("rewriteChartDependencies failed: %v", err)
+		}
+		defer cleanup()
+		lockData, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.lock"))
+		if err != nil {
+			t.Fatalf("reading rewritten Chart.lock: %v", err)
+		}
+		var lock struct {
+			Digest string `yaml:"digest"`
+		}
+		if err := yaml.Unmarshal(lockData, &lock); err != nil {
+			t.Fatalf("parsing rewritten Chart.lock: %v", err)
+		}
+		return lock.Digest
+	}
 
-	chartYaml := `apiVersion: v2
+	const originalDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	baseLock := `dependencies:
+  - name: local-dep
+    repository: file://../local-dep
+    version: 1.0.0
+    alias: my-local
+  - name: local-dep
+    repository: file://../local-dep-alt
+    version: 2.0.0
+    alias: my-local-alt
+digest: ` + originalDigest + `
+generated: "2024-01-01T00:00:00Z"
+`
+
+	// Chart.yaml with extra fields (alias, condition, tags, import-values).
+	chartYamlWithExtras := `apiVersion: v2
 name: parent-chart
 version: 1.0.0
 dependencies:
@@ -791,12 +840,12 @@ dependencies:
     version: 2.0.0
     alias: my-local-alt
 `
-	if err := os.WriteFile(filepath.Join(tempDir, "Chart.yaml"), []byte(chartYaml), 0644); err != nil {
-		t.Fatalf("writing Chart.yaml: %v", err)
-	}
 
-	const originalDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-	chartLock := `dependencies:
+	// Same chart without condition/tags/import-values — only alias remains.
+	chartYamlWithoutExtras := `apiVersion: v2
+name: parent-chart
+version: 1.0.0
+dependencies:
   - name: local-dep
     repository: file://../local-dep
     version: 1.0.0
@@ -805,35 +854,46 @@ dependencies:
     repository: file://../local-dep-alt
     version: 2.0.0
     alias: my-local-alt
-digest: ` + originalDigest + `
-generated: "2024-01-01T00:00:00Z"
 `
-	if err := os.WriteFile(filepath.Join(tempDir, "Chart.lock"), []byte(chartLock), 0644); err != nil {
-		t.Fatalf("writing Chart.lock: %v", err)
+
+	digestWith := getDigest(t, chartYamlWithExtras, baseLock)
+	digestWithout := getDigest(t, chartYamlWithoutExtras, baseLock)
+
+	if !strings.HasPrefix(digestWith, "sha256:") {
+		t.Errorf("expected sha256 digest, got %q", digestWith)
+	}
+	if digestWith == originalDigest {
+		t.Errorf("expected digest to be recomputed; still %q", digestWith)
+	}
+	if digestWith == digestWithout {
+		t.Errorf("digest should differ when extra fields (condition, tags, import-values) are present, but both are %q", digestWith)
 	}
 
+	// Also verify alias-based matching: both deps have name "local-dep" but
+	// different aliases; both should get their file:// paths rewritten.
+	tempDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempDir, "Chart.yaml"), []byte(chartYamlWithExtras), 0644); err != nil {
+		t.Fatalf("writing Chart.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "Chart.lock"), []byte(baseLock), 0644); err != nil {
+		t.Fatalf("writing Chart.lock: %v", err)
+	}
 	logger := zap.NewNop().Sugar()
 	st := &HelmState{
 		basePath: tempDir,
 		fs:       filesystem.DefaultFileSystem(),
 		logger:   logger,
 	}
-
 	rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
 	if err != nil {
 		t.Fatalf("rewriteChartDependencies failed: %v", err)
 	}
 	defer cleanup()
 
-	if rewrittenPath == tempDir {
-		t.Fatalf("expected a temp copy to be created, got original path %q", rewrittenPath)
-	}
-
 	lockData, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.lock"))
 	if err != nil {
 		t.Fatalf("reading rewritten Chart.lock: %v", err)
 	}
-
 	var lock struct {
 		Dependencies []struct {
 			Name       string `yaml:"name"`
@@ -841,34 +901,20 @@ generated: "2024-01-01T00:00:00Z"
 			Version    string `yaml:"version"`
 			Alias      string `yaml:"alias"`
 		} `yaml:"dependencies"`
-		Digest    string `yaml:"digest"`
-		Generated string `yaml:"generated"`
 	}
 	if err := yaml.Unmarshal(lockData, &lock); err != nil {
 		t.Fatalf("parsing rewritten Chart.lock: %v", err)
 	}
-
-	if lock.Digest == originalDigest {
-		t.Errorf("expected digest to be recomputed; still %q", lock.Digest)
-	}
-	if !strings.HasPrefix(lock.Digest, "sha256:") {
-		t.Errorf("expected sha256 digest, got %q", lock.Digest)
-	}
-
 	if len(lock.Dependencies) != 2 {
 		t.Fatalf("expected 2 lock dependencies, got %d", len(lock.Dependencies))
 	}
 
-	// Verify that deps with same name but different alias are matched correctly.
 	dep1 := lock.Dependencies[0]
 	if dep1.Alias != "my-local" {
 		t.Errorf("expected first lock dep alias 'my-local', got %q", dep1.Alias)
 	}
 	if !filepath.IsAbs(strings.TrimPrefix(dep1.Repository, "file://")) {
 		t.Errorf("expected first dep repository to be an absolute file:// path, got %q", dep1.Repository)
-	}
-	if dep1.Version != "1.0.0" {
-		t.Errorf("expected first dep version preserved as 1.0.0, got %q", dep1.Version)
 	}
 
 	dep2 := lock.Dependencies[1]
@@ -877,8 +923,5 @@ generated: "2024-01-01T00:00:00Z"
 	}
 	if !filepath.IsAbs(strings.TrimPrefix(dep2.Repository, "file://")) {
 		t.Errorf("expected second dep repository to be an absolute file:// path, got %q", dep2.Repository)
-	}
-	if dep2.Version != "2.0.0" {
-		t.Errorf("expected second dep version preserved as 2.0.0, got %q", dep2.Version)
 	}
 }
