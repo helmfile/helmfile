@@ -1539,7 +1539,11 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 	// intended truth — only the rewritten file:// repository URL changed. Mirror the
 	// rewrite into the lock and recompute the digest so `dep build` accepts it.
 	tempChartLockPath := filepath.Join(tempDir, "Chart.lock")
-	if lockData, lockErr := st.fs.ReadFile(tempChartLockPath); lockErr == nil {
+	lockData, lockErr := st.fs.ReadFile(tempChartLockPath)
+	if lockErr != nil && !os.IsNotExist(lockErr) {
+		st.logger.Warnf("Failed to read Chart.lock at %s: %v", tempChartLockPath, lockErr)
+	}
+	if lockErr == nil {
 		var lock struct {
 			Dependencies []*helmchart.Dependency `yaml:"dependencies,omitempty"`
 			Digest       string                  `yaml:"digest,omitempty"`
@@ -1550,31 +1554,53 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 		} else {
 			// Build the request slice (rewritten Chart.yaml dependencies) using helm's
 			// own chart.Dependency type so the JSON used for hashing matches helm's
-			// exactly. The version field lives in the inline Data map because Chart.yaml
-			// dependencies carry fields beyond name/repository.
+			// exactly. All supported fields must be mapped, not just name/repository/
+			// version, because helm's digest algorithm hashes the full Dependency struct.
 			req := make([]*helmchart.Dependency, 0, len(chartMeta.Dependencies))
 			for _, d := range chartMeta.Dependencies {
-				var version string
-				if v, ok := d.Data["version"].(string); ok {
-					version = v
-				}
-				req = append(req, &helmchart.Dependency{
+				dep := &helmchart.Dependency{
 					Name:       d.Name,
-					Version:    version,
 					Repository: d.Repository,
-				})
+				}
+				if v, ok := d.Data["version"].(string); ok {
+					dep.Version = v
+				}
+				if v, ok := d.Data["condition"].(string); ok {
+					dep.Condition = v
+				}
+				if v, ok := d.Data["alias"].(string); ok {
+					dep.Alias = v
+				}
+				if v, ok := d.Data["enabled"].(bool); ok {
+					dep.Enabled = v
+				}
+				if v, ok := d.Data["tags"].([]interface{}); ok {
+					tags := make([]string, 0, len(v))
+					for _, t := range v {
+						if s, ok := t.(string); ok {
+							tags = append(tags, s)
+						}
+					}
+					dep.Tags = tags
+				}
+				if v, ok := d.Data["import-values"].([]interface{}); ok {
+					dep.ImportValues = v
+				}
+				req = append(req, dep)
 			}
 
 			// Mirror the rewritten file:// repository URLs onto matching lock entries.
 			// Without this, `helm dependency build` would resolve the lock's relative
 			// file:// paths against the (moved) chart directory and fail with
 			// "directory ... not found". Versions in the lock are left untouched.
+			// Match on Name + Alias to handle charts with duplicate dependency names
+			// distinguished by alias.
 			for _, ld := range lock.Dependencies {
 				if !strings.HasPrefix(ld.Repository, "file://") {
 					continue
 				}
 				for _, rd := range req {
-					if rd.Name == ld.Name && strings.HasPrefix(rd.Repository, "file://") {
+					if rd.Name == ld.Name && rd.Alias == ld.Alias && strings.HasPrefix(rd.Repository, "file://") {
 						ld.Repository = rd.Repository
 						break
 					}
