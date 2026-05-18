@@ -1613,6 +1613,19 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 				}
 			}
 
+			// Normalize lock.Dependencies ImportValues to avoid json.Marshal failures
+			// when go-yaml v2 decodes nested maps as map[interface{}]interface{}.
+			for _, ld := range lock.Dependencies {
+				if ld.ImportValues != nil {
+					normalized, err := maputil.RecursivelyStringifyMapKey(ld.ImportValues)
+					if err != nil {
+						st.logger.Warnf("Failed to normalize import-values in Chart.lock for dependency %s: %v", ld.Name, err)
+					} else {
+						ld.ImportValues = normalized.([]interface{})
+					}
+				}
+			}
+
 			// Replicates helm's resolver.HashReq:
 			//   json.Marshal([2][]*chart.Dependency{req, lock}) → sha256 hex.
 			// resolver.HashReq lives in helm.sh/helm/v3/internal/resolver, so we

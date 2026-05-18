@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
@@ -768,26 +769,34 @@ generated: "2024-01-01T00:00:00Z"
 // Chart.lock digest recomputation includes all dependency fields (alias, condition,
 // tags, import-values, enabled) — not just name/repository/version — so the digest
 // stays compatible with Helm's resolver.HashReq for charts using those fields.
-// It proves field coverage by running the same chart with and without extra fields
-// and asserting the digests differ.
+// It proves field coverage by running two chart variants under a shared root
+// (so file:// paths resolve to the same absolute location) and asserting the
+// digests differ only due to extra fields.
 func TestRewriteChartDependencies_RefreshesChartLockWithExtraFields(t *testing.T) {
+	// Use a shared root so both chart variants resolve file://../local-dep to the
+	// same absolute path — isolating the digest difference to field content only.
+	sharedRoot := t.TempDir()
+	chartDir := filepath.Join(sharedRoot, "parent")
+	if err := os.MkdirAll(chartDir, 0755); err != nil {
+		t.Fatalf("creating chart dir: %v", err)
+	}
+
 	// Run rewriteChartDependencies for a given Chart.yaml and return the recomputed digest.
 	getDigest := func(t *testing.T, chartYaml, chartLock string) string {
 		t.Helper()
-		tempDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(tempDir, "Chart.yaml"), []byte(chartYaml), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(chartDir, "Chart.yaml"), []byte(chartYaml), 0644); err != nil {
 			t.Fatalf("writing Chart.yaml: %v", err)
 		}
-		if err := os.WriteFile(filepath.Join(tempDir, "Chart.lock"), []byte(chartLock), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(chartDir, "Chart.lock"), []byte(chartLock), 0644); err != nil {
 			t.Fatalf("writing Chart.lock: %v", err)
 		}
 		logger := zap.NewNop().Sugar()
 		st := &HelmState{
-			basePath: tempDir,
+			basePath: chartDir,
 			fs:       filesystem.DefaultFileSystem(),
 			logger:   logger,
 		}
-		rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
+		rewrittenPath, cleanup, err := st.rewriteChartDependencies(chartDir)
 		if err != nil {
 			t.Fatalf("rewriteChartDependencies failed: %v", err)
 		}
@@ -871,20 +880,19 @@ dependencies:
 
 	// Also verify alias-based matching: both deps have name "local-dep" but
 	// different aliases; both should get their file:// paths rewritten.
-	tempDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempDir, "Chart.yaml"), []byte(chartYamlWithExtras), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(chartDir, "Chart.yaml"), []byte(chartYamlWithExtras), 0644); err != nil {
 		t.Fatalf("writing Chart.yaml: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tempDir, "Chart.lock"), []byte(baseLock), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(chartDir, "Chart.lock"), []byte(baseLock), 0644); err != nil {
 		t.Fatalf("writing Chart.lock: %v", err)
 	}
 	logger := zap.NewNop().Sugar()
 	st := &HelmState{
-		basePath: tempDir,
+		basePath: chartDir,
 		fs:       filesystem.DefaultFileSystem(),
 		logger:   logger,
 	}
-	rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(chartDir)
 	if err != nil {
 		t.Fatalf("rewriteChartDependencies failed: %v", err)
 	}
@@ -923,5 +931,81 @@ dependencies:
 	}
 	if !filepath.IsAbs(strings.TrimPrefix(dep2.Repository, "file://")) {
 		t.Errorf("expected second dep repository to be an absolute file:// path, got %q", dep2.Repository)
+	}
+}
+
+// TestRewriteChartDependencies_GoYamlV2ImportValues verifies that Chart.lock
+// refresh works under go-yaml v2 (HELMFILE_GO_YAML_V3=false), where nested
+// maps in import-values decode as map[interface{}]interface{} which json.Marshal
+// cannot handle without normalization.
+func TestRewriteChartDependencies_GoYamlV2ImportValues(t *testing.T) {
+	prev := runtime.GoYamlV3
+	runtime.GoYamlV3 = false
+	t.Cleanup(func() {
+		runtime.GoYamlV3 = prev
+	})
+
+	tempDir := t.TempDir()
+
+	chartYaml := `apiVersion: v2
+name: parent-chart
+version: 1.0.0
+dependencies:
+  - name: local-dep
+    repository: file://../local-dep
+    version: 1.0.0
+    import-values:
+      - child: config
+        parent: global.config
+`
+	chartLock := `dependencies:
+  - name: local-dep
+    repository: file://../local-dep
+    version: 1.0.0
+    import-values:
+      - child: config
+        parent: global.config
+digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+generated: "2024-01-01T00:00:00Z"
+`
+
+	if err := os.WriteFile(filepath.Join(tempDir, "Chart.yaml"), []byte(chartYaml), 0644); err != nil {
+		t.Fatalf("writing Chart.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "Chart.lock"), []byte(chartLock), 0644); err != nil {
+		t.Fatalf("writing Chart.lock: %v", err)
+	}
+
+	logger := zap.NewNop().Sugar()
+	st := &HelmState{
+		basePath: tempDir,
+		fs:       filesystem.DefaultFileSystem(),
+		logger:   logger,
+	}
+
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
+	if err != nil {
+		t.Fatalf("rewriteChartDependencies failed: %v", err)
+	}
+	defer cleanup()
+
+	lockData, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.lock"))
+	if err != nil {
+		t.Fatalf("reading rewritten Chart.lock: %v", err)
+	}
+
+	var lock struct {
+		Digest string `yaml:"digest"`
+	}
+	if err := yaml.Unmarshal(lockData, &lock); err != nil {
+		t.Fatalf("parsing rewritten Chart.lock: %v", err)
+	}
+
+	if !strings.HasPrefix(lock.Digest, "sha256:") {
+		t.Errorf("expected sha256 digest, got %q", lock.Digest)
+	}
+	const originalDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	if lock.Digest == originalDigest {
+		t.Errorf("expected digest to be recomputed; still %q", lock.Digest)
 	}
 }
