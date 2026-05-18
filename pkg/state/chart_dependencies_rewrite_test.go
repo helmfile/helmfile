@@ -1,6 +1,9 @@
 package state
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +12,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	helmchart "helm.sh/helm/v3/pkg/chart"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/runtime"
@@ -1007,5 +1011,101 @@ generated: "2024-01-01T00:00:00Z"
 	const originalDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 	if lock.Digest == originalDigest {
 		t.Errorf("expected digest to be recomputed; still %q", lock.Digest)
+	}
+}
+
+// TestRewriteChartDependencies_DigestMatchesHelmHashReq verifies the recomputed
+// digest matches what Helm's resolver.HashReq would produce for a known input.
+// This guards against producing a digest that is "different" but still rejected
+// by `helm dependency build`.
+func TestRewriteChartDependencies_DigestMatchesHelmHashReq(t *testing.T) {
+	tempDir := t.TempDir()
+
+	chartYaml := `apiVersion: v2
+name: test-chart
+version: 1.0.0
+dependencies:
+  - name: dep-a
+    repository: file://../dep-a
+    version: 2.0.0
+    condition: dep-a.enabled
+    tags:
+      - backend
+`
+	chartLock := `dependencies:
+  - name: dep-a
+    repository: file://../dep-a
+    version: 2.0.0
+digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+generated: "2024-01-01T00:00:00Z"
+`
+
+	if err := os.WriteFile(filepath.Join(tempDir, "Chart.yaml"), []byte(chartYaml), 0644); err != nil {
+		t.Fatalf("writing Chart.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "Chart.lock"), []byte(chartLock), 0644); err != nil {
+		t.Fatalf("writing Chart.lock: %v", err)
+	}
+
+	logger := zap.NewNop().Sugar()
+	st := &HelmState{
+		basePath: tempDir,
+		fs:       filesystem.DefaultFileSystem(),
+		logger:   logger,
+	}
+
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(tempDir)
+	if err != nil {
+		t.Fatalf("rewriteChartDependencies failed: %v", err)
+	}
+	defer cleanup()
+
+	lockData, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.lock"))
+	if err != nil {
+		t.Fatalf("reading rewritten Chart.lock: %v", err)
+	}
+
+	var lock struct {
+		Dependencies []*helmchart.Dependency `yaml:"dependencies"`
+		Digest       string                  `yaml:"digest"`
+	}
+	if err := yaml.Unmarshal(lockData, &lock); err != nil {
+		t.Fatalf("parsing rewritten Chart.lock: %v", err)
+	}
+
+	// Compute the expected digest independently using Helm's HashReq algorithm:
+	// sha256(json.Marshal([2][]*chart.Dependency{req, lock}))
+	// where req = rewritten Chart.yaml deps, lock = rewritten Chart.lock deps.
+	absDepA, err := filepath.Abs(filepath.Join(tempDir, "../dep-a"))
+	if err != nil {
+		t.Fatalf("resolving absolute path: %v", err)
+	}
+
+	req := []*helmchart.Dependency{
+		{
+			Name:       "dep-a",
+			Repository: "file://" + absDepA,
+			Version:    "2.0.0",
+			Condition:  "dep-a.enabled",
+			Tags:       []string{"backend"},
+		},
+	}
+	lockDeps := []*helmchart.Dependency{
+		{
+			Name:       "dep-a",
+			Repository: "file://" + absDepA,
+			Version:    "2.0.0",
+		},
+	}
+
+	payload, err := json.Marshal([2][]*helmchart.Dependency{req, lockDeps})
+	if err != nil {
+		t.Fatalf("marshaling expected digest payload: %v", err)
+	}
+	sum := sha256.Sum256(payload)
+	expectedDigest := "sha256:" + hex.EncodeToString(sum[:])
+
+	if lock.Digest != expectedDigest {
+		t.Errorf("digest mismatch with Helm's HashReq algorithm:\n  got:  %s\n  want: %s", lock.Digest, expectedDigest)
 	}
 }
