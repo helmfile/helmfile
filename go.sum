@@ -532,8 +532,8 @@ github.com/hashicorp/jsonapi v1.4.3-0.20250220162346-81a76b606f3e h1:xwy/1T0cxHW
 github.com/hashicorp/jsonapi v1.4.3-0.20250220162346-81a76b606f3e/go.mod h1:kWfdn49yCjQvbpnvY1dxxAuAFzISwrrMDQOcu6NsFoM=
 github.com/hashicorp/vault/api v1.23.0 h1:gXgluBsSECfRWTSW9niY2jwg2e9mMJc4WoHNv4g3h6A=
 github.com/hashicorp/vault/api v1.23.0/go.mod h1:zransKiB9ftp+kgY8ydjnvCU7Wk8i9L0DYWpXeMj9ko=
-github.com/helmfile/chartify v0.26.3 h1:2wR0yfqtP/yG9y6uqM6nSKZ7W0E+nhhGGRsl14TOVVs=
-github.com/helmfile/chartify v0.26.3/go.mod h1:/ReUGTnbNHIV5tKAGXODkRtS7HwnUiJi2EXbJ34RzgY=
+github.com/helmfile/chartify v0.26.4 h1:pIzVe+mqBiBMlJEH3qUVKgFQKV/m4vGOVccdYWY4VbI=
+github.com/helmfile/chartify v0.26.4/go.mod h1:jnMhinkuwSMfgPPNb3JYges/13xkXPEdUVnh1eGxTOQ=
 github.com/helmfile/vals v0.44.0 h1:9Yf5JDIl3JUHE1XWR9GopurvAbuXowCSsgUShB4aWcI=
 github.com/helmfile/vals v0.44.0/go.mod h1:siAvy7f4VPPCrgLGzDOW21ZbvR6Tbf9g7oGRme9fMH4=
 github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec h1:qv2VnGeEQHchGaZ/u7lxST/RaJw+cv273q79D81Xbog=
