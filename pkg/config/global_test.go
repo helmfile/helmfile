@@ -82,3 +82,40 @@ func TestKubeContext(t *testing.T) {
 	}
 	os.Unsetenv(envvar.KubeContext)
 }
+
+// TestNamespace tests the namespace flag and HELMFILE_NAMESPACE env var fallback
+func TestNamespace(t *testing.T) {
+	tests := []struct {
+		opts     GlobalOptions
+		env      string
+		expected string
+	}{
+		{
+			opts:     GlobalOptions{},
+			env:      "",
+			expected: "",
+		},
+		{
+			opts:     GlobalOptions{},
+			env:      "envset",
+			expected: "envset",
+		},
+		{
+			opts:     GlobalOptions{Namespace: "flagset"},
+			env:      "",
+			expected: "flagset",
+		},
+		{
+			opts:     GlobalOptions{Namespace: "flagset"},
+			env:      "envset",
+			expected: "flagset",
+		},
+	}
+
+	for _, test := range tests {
+		os.Setenv(envvar.Namespace, test.env)
+		received := NewGlobalImpl(&test.opts).Namespace()
+		require.Equalf(t, test.expected, received, "Namespace expected %s, received %s", test.expected, received)
+	}
+	os.Unsetenv(envvar.Namespace)
+}

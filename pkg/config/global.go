@@ -139,7 +139,17 @@ func (g *GlobalImpl) KubeContext() string {
 
 // Namespace returns the namespace to use.
 func (g *GlobalImpl) Namespace() string {
-	return g.GlobalOptions.Namespace
+	var namespace string
+
+	switch {
+	case g.GlobalOptions.Namespace != "":
+		namespace = g.GlobalOptions.Namespace
+	case os.Getenv("HELMFILE_NAMESPACE") != "":
+		namespace = os.Getenv("HELMFILE_NAMESPACE")
+	default:
+		namespace = ""
+	}
+	return namespace
 }
 
 // Chart returns the chart to use.

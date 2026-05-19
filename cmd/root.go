@@ -141,7 +141,7 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.BoolVar(&globalOptions.Color, "color", false, "Output with color")
 	fs.BoolVar(&globalOptions.NoColor, "no-color", false, "Output without color")
 	fs.StringVar(&globalOptions.LogLevel, "log-level", "info", "Set log level, default info")
-	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}")
+	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", `Set namespace. Overrides "HELMFILE_NAMESPACE" OS environment variable when specified. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}`)
 	fs.StringVarP(&globalOptions.Chart, "chart", "c", "", "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}")
 	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
 A release must match all labels in a group in order to be used. Multiple groups can be specified at once.

@@ -67,6 +67,7 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_EXPERIMENTAL` - enable experimental features, expecting `true` lower case
 * `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](environments.md), it has lower priority than CLI argument `--environment`
 * `HELMFILE_KUBE_CONTEXT` - specify the kubectl context, it has lower priority than CLI argument `--kube-context`
+* `HELMFILE_NAMESPACE` - specify the namespace, it has lower priority than CLI argument `--namespace`
 * `HELMFILE_TEMPDIR` - specify directory to store temporary files
 * `HELMFILE_UPGRADE_NOTICE_DISABLED` - expecting any non-empty value to skip the check for the latest version of Helmfile in [helmfile version](cli.md#version)
 * `HELMFILE_GO_YAML_V3` - use *go.yaml.in/yaml/v3* instead of *go.yaml.in/yaml/v2*.  It's `false` by default in Helmfile v0.x, and `true` in Helmfile v1.x.

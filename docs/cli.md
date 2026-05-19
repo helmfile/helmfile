@@ -52,7 +52,7 @@ Flags:
       --kube-context string                   Set kubectl context. Overrides "HELMFILE_KUBE_CONTEXT" OS environment variable when specified. Uses current kubectl context by default
   -k, --kustomize-binary string               Path to the kustomize binary (default "kustomize")
       --log-level string                      Set log level, default info (default "info")
-  -n, --namespace string                      Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
+  -n, --namespace string                      Set namespace. Overrides "HELMFILE_NAMESPACE" OS environment variable when specified. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
       --no-color                              Output without color
   -q, --quiet                                 Silence output. Equivalent to log-level warn
   -l, --selector stringArray                  Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.

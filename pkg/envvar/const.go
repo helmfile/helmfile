@@ -10,6 +10,7 @@ const (
 	Experimental          = "HELMFILE_EXPERIMENTAL" // environment variable for experimental features, expecting "true" lower case
 	Environment           = "HELMFILE_ENVIRONMENT"
 	KubeContext           = "HELMFILE_KUBE_CONTEXT"
+	Namespace             = "HELMFILE_NAMESPACE"
 	FilePath              = "HELMFILE_FILE_PATH"
 	TempDir               = "HELMFILE_TEMPDIR"
 	UpgradeNoticeDisabled = "HELMFILE_UPGRADE_NOTICE_DISABLED"
