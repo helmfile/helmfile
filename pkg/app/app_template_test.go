@@ -665,7 +665,7 @@ releases:
 				Env:                             "default",
 				Logger:                          logger,
 				helms: map[helmKey]helmexec.Interface{
-					createHelmKey("helm", "default"): helm,
+					createHelmKey("helm", "default"):           helm,
 					createHelmKey("helm", "from-ctx-template"): helm,
 				},
 				valsRuntime: valsRuntime,
