@@ -143,6 +143,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-2424-sequential-values-paths.sh
 . ${dir}/test-cases/issue-2431.sh
 . ${dir}/test-cases/issue-2544.sh
+. ${dir}/test-cases/issue-2596-local-deps-multiple-files.sh
 . ${dir}/test-cases/kubedog-tracking.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
