@@ -397,7 +397,7 @@ func (st *HelmState) startBackgroundKubedogTracking(
 			if payload == "" {
 				return
 			}
-			header := kubedog.HeaderDivider(fmt.Sprintf("Helm output for release %s:", release.Name))
+			header := kubedog.HeaderDivider(fmt.Sprintf("Helm output for release '%s':", release.Name))
 			if useColor {
 				// ANSI bold/reset, matching the kubedog progress header.
 				header = "\x1b[1m" + header + "\x1b[0m"
