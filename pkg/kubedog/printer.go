@@ -173,11 +173,18 @@ func (p *progressPrinter) colorize(s, code string) string {
 	return code + s + ansiReset
 }
 
-// statusColor maps a status line to an ANSI color code. Checks the leading
-// kubedog state ("ready", "progressing", …) first; if that's not recognized
-// (e.g. raw pod phases like "ContainerCreating" or "Error"), falls back to
-// scanning the whole string for known pod-phase substrings.
+// statusColor maps a status line to an ANSI color code. Failing pod-phase
+// substrings ("Error", "CrashLoopBackOff", …) take priority — a Job whose
+// pod failed but whose overall task is marked Ready (because a sibling pod
+// completed) would otherwise render the failed pod's row in green. After
+// that we check the leading kubedog state, then fall back to other known
+// pod phases.
 func (p *progressPrinter) statusColor(status string) string {
+	if containsAny(status, "Error", "CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull", "Failed", "OOMKilled",
+		"CreateContainerConfigError", "CreateContainerError", "InvalidImageName") {
+		return ansiRed
+	}
+
 	head := status
 	if idx := strings.Index(status, " "); idx >= 0 {
 		head = status[:idx]
@@ -198,11 +205,8 @@ func (p *progressPrinter) statusColor(status string) string {
 	case "unknown":
 		return ansiGray
 	}
-	// Pod-phase substrings (e.g. "ContainerCreating", "Running", "Completed",
-	// "Error"). These show up either alone or appended in parentheses.
+
 	switch {
-	case containsAny(status, "Error", "CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull", "Failed", "OOMKilled"):
-		return ansiRed
 	case containsAny(status, "Completed"):
 		return ansiGreen
 	case containsAny(status, "Running"):
