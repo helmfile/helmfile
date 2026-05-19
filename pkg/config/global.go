@@ -124,7 +124,17 @@ func (g *GlobalImpl) Kubeconfig() string {
 
 // KubeContext returns the name of the kubectl context to use.
 func (g *GlobalImpl) KubeContext() string {
-	return g.GlobalOptions.KubeContext
+	var kubeContext string
+
+	switch {
+	case g.GlobalOptions.KubeContext != "":
+		kubeContext = g.GlobalOptions.KubeContext
+	case os.Getenv("HELMFILE_KUBE_CONTEXT") != "":
+		kubeContext = os.Getenv("HELMFILE_KUBE_CONTEXT")
+	default:
+		kubeContext = ""
+	}
+	return kubeContext
 }
 
 // Namespace returns the namespace to use.

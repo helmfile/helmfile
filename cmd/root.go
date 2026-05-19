@@ -136,7 +136,7 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.BoolVar(&globalOptions.HelmOCIPlainHTTP, "oci-plain-http", false, `use plain HTTP for OCI registries (required for local/insecure registries in Helm 4)`)
 	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, "Silence output. Equivalent to log-level warn")
 	fs.StringVar(&globalOptions.Kubeconfig, "kubeconfig", "", "Use a particular kubeconfig file")
-	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", "Set kubectl context. Uses current context by default")
+	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", `Set kubectl context. Overrides "HELMFILE_KUBE_CONTEXT" OS environment variable when specified. Uses current kubectl context by default`)
 	fs.BoolVar(&globalOptions.Debug, "debug", false, "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect")
 	fs.BoolVar(&globalOptions.Color, "color", false, "Output with color")
 	fs.BoolVar(&globalOptions.NoColor, "no-color", false, "Output without color")
