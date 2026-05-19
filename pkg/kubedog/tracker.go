@@ -403,7 +403,15 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 	}()
 
 	captureLogsFromTime := time.Now().Add(-t.trackOptions.LogsSince)
-	ignoreLogs := !t.trackOptions.Logs
+	// Capture logs whenever either flag wants them. The kubedog tracker
+	// records logs into the logStore unconditionally; the failed-only mode
+	// is enforced at print time by the printer.
+	wantLogsCapture := t.trackOptions.Logs || t.trackOptions.FailedLogsOnly
+	ignoreLogs := !wantLogsCapture
+	// failedLogsOnly takes effect only when full streaming isn't already on.
+	failedLogsOnly := t.trackOptions.FailedLogsOnly && !t.trackOptions.Logs
+	// skipLogsInPrinter mutes the printer entirely if neither mode is on.
+	skipLogsInPrinter := !wantLogsCapture
 
 	type trackerEntry struct {
 		target    trackTarget
@@ -423,7 +431,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 
 	gateStatuses := newGateStatuses()
 	skippedKeys := newSkippedKeys()
-	printer := newProgressPrinter(t.logger, taskStore, logStore, ignoreLogs, gateStatuses, skippedKeys, t.trackOptions.Color)
+	printer := newProgressPrinter(t.logger, taskStore, logStore, skipLogsInPrinter, failedLogsOnly, gateStatuses, skippedKeys, t.trackOptions.Color)
 	printerDone := make(chan struct{})
 
 	var trackerWg sync.WaitGroup

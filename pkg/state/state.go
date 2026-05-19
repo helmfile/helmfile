@@ -478,6 +478,10 @@ type ReleaseSpec struct {
 	TrackTimeout *int `yaml:"trackTimeout,omitempty"`
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs *bool `yaml:"trackLogs,omitempty"`
+	// TrackFailedLogs streams logs only for pods that enter a failed state
+	// (CrashLoopBackOff, Error, etc.). Pods that succeed produce no output.
+	// Has no effect when TrackLogs is true (full streaming wins).
+	TrackFailedLogs *bool `yaml:"trackFailedLogs,omitempty"`
 	// TrackKinds is a whitelist of resource kinds to track
 	TrackKinds []string `yaml:"trackKinds,omitempty"`
 	// SkipKinds is a blacklist of resource kinds to skip tracking
@@ -924,6 +928,7 @@ type SyncOpts struct {
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
+	TrackFailedLogs      bool
 	TrackFailOnError     bool
 	Description          string
 	Color                bool

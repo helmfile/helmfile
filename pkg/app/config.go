@@ -91,6 +91,7 @@ type ApplyConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackFailedLogs() bool
 	TrackFailOnError() bool
 
 	Description() string
@@ -131,6 +132,7 @@ type SyncConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackFailedLogs() bool
 	TrackFailOnError() bool
 
 	Color() bool

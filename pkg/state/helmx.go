@@ -326,6 +326,11 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		trackLogs = opts.TrackLogs
 	}
 
+	trackFailedLogs := release.TrackFailedLogs != nil && *release.TrackFailedLogs
+	if release.TrackFailedLogs == nil && opts != nil {
+		trackFailedLogs = opts.TrackFailedLogs
+	}
+
 	filterConfig := &resource.FilterConfig{
 		TrackKinds:     release.TrackKinds,
 		SkipKinds:      release.SkipKinds,
@@ -340,6 +345,7 @@ func (st *HelmState) startBackgroundKubedogTracking(
 	trackOpts := kubedog.NewTrackOptions().
 		WithTimeout(timeout).
 		WithLogs(trackLogs).
+		WithFailedLogsOnly(trackFailedLogs).
 		WithFilterConfig(filterConfig).
 		WithColor(useColor)
 
@@ -736,6 +742,11 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 		trackLogs = ops.TrackLogs
 	}
 
+	trackFailedLogs := release.TrackFailedLogs != nil && *release.TrackFailedLogs
+	if release.TrackFailedLogs == nil && ops != nil {
+		trackFailedLogs = ops.TrackFailedLogs
+	}
+
 	filterConfig := &resource.FilterConfig{
 		TrackKinds:     release.TrackKinds,
 		SkipKinds:      release.SkipKinds,
@@ -747,6 +758,7 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 	trackOpts := kubedog.NewTrackOptions().
 		WithTimeout(timeout).
 		WithLogs(trackLogs).
+		WithFailedLogsOnly(trackFailedLogs).
 		WithFilterConfig(filterConfig)
 
 	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{

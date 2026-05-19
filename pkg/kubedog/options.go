@@ -28,11 +28,16 @@ const (
 
 type TrackOptions struct {
 	Timeout   time.Duration
-	Logs      bool
-	LogsSince time.Duration
-	Filter    *resource.FilterConfig
-	QPS       float32
-	Burst     int
+	// Logs enables emitting logs for every pod kubedog observes.
+	Logs bool
+	// FailedLogsOnly enables capturing logs in the background and emitting
+	// them only for pods that enter a failed state (CrashLoopBackOff, Error,
+	// ImagePullBackOff, etc.). Has no effect when Logs is true.
+	FailedLogsOnly bool
+	LogsSince      time.Duration
+	Filter         *resource.FilterConfig
+	QPS            float32
+	Burst          int
 	// Baselines holds the pre-change state of each resource keyed by
 	// "Kind/Namespace/Name". When set, the tracker delays attaching kubedog
 	// to a resource until its UID changes or its generation increments past
@@ -85,5 +90,10 @@ func (o *TrackOptions) WithBaselines(baselines map[string]ResourceBaseline) *Tra
 
 func (o *TrackOptions) WithColor(color bool) *TrackOptions {
 	o.Color = color
+	return o
+}
+
+func (o *TrackOptions) WithFailedLogsOnly(v bool) *TrackOptions {
+	o.FailedLogsOnly = v
 	return o
 }

@@ -2761,6 +2761,10 @@ func (a applyConfig) TrackLogs() bool {
 	return a.trackLogs
 }
 
+func (a applyConfig) TrackFailedLogs() bool {
+	return false
+}
+
 func (a applyConfig) TrackFailOnError() bool {
 	return a.trackFailOnError
 }

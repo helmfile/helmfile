@@ -71,7 +71,8 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringArrayVar(&applyOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from diff output")
 	f.StringVar(&applyOptions.TrackMode, "track-mode", "", "Track mode for releases: 'helm' (default), 'helm-legacy' (Helm v4 only), or 'kubedog'")
 	f.IntVar(&applyOptions.TrackTimeout, "track-timeout", 0, `Timeout in seconds for kubedog tracking (0 to use default 300s timeout)`)
-	f.BoolVar(&applyOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking")
+	f.BoolVar(&applyOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking (all pods)")
+	f.BoolVar(&applyOptions.TrackFailedLogs, "track-failed-logs", false, "Enable log streaming with kubedog tracking, but only emit logs for pods that enter a failed state. Overridden by --track-logs when both are set")
 	f.BoolVar(&applyOptions.TrackFailOnError, "track-fail-on-error", false, "Fail with non-zero exit code when kubedog tracking fails")
 	f.StringVar(&applyOptions.Description, "description", "", `Set description for all releases. If set, overridesdescriptions in helmfile.yaml. Will be passed to "helm upgrade --description"`)
 

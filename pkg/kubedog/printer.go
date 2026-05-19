@@ -94,15 +94,16 @@ func (s *skippedKeys) has(id string) bool {
 // kubedog's util.ResourceID returns "<ns>:<group>:<kind>:<name>".
 
 type progressPrinter struct {
-	logger     *zap.SugaredLogger
-	taskStore  *kdutil.Concurrent[*statestore.TaskStore]
-	logStore   *kdutil.Concurrent[*logstore.LogStore]
-	skipLogs   bool
-	gates      *gateStatuses
-	skipped    *skippedKeys
-	useColor   bool
-	lastStatus map[string]string
-	lastCounts map[string]int
+	logger         *zap.SugaredLogger
+	taskStore      *kdutil.Concurrent[*statestore.TaskStore]
+	logStore       *kdutil.Concurrent[*logstore.LogStore]
+	skipLogs       bool
+	failedLogsOnly bool
+	gates          *gateStatuses
+	skipped        *skippedKeys
+	useColor       bool
+	lastStatus     map[string]string
+	lastCounts     map[string]int
 	// lastLogSource is the "<resourceKey>|<source>" emitted at the tail of
 	// the previous flushLogs call. Carrying it across flushes lets us drop
 	// the redundant "logs <pod> <container>:" header when consecutive flushes
@@ -115,20 +116,22 @@ func newProgressPrinter(
 	taskStore *kdutil.Concurrent[*statestore.TaskStore],
 	logStore *kdutil.Concurrent[*logstore.LogStore],
 	skipLogs bool,
+	failedLogsOnly bool,
 	gates *gateStatuses,
 	skipped *skippedKeys,
 	useColor bool,
 ) *progressPrinter {
 	return &progressPrinter{
-		logger:     logger,
-		taskStore:  taskStore,
-		logStore:   logStore,
-		skipLogs:   skipLogs,
-		gates:      gates,
-		skipped:    skipped,
-		useColor:   useColor,
-		lastStatus: make(map[string]string),
-		lastCounts: make(map[string]int),
+		logger:         logger,
+		taskStore:      taskStore,
+		logStore:       logStore,
+		skipLogs:       skipLogs,
+		failedLogsOnly: failedLogsOnly,
+		gates:          gates,
+		skipped:        skipped,
+		useColor:       useColor,
+		lastStatus:     make(map[string]string),
+		lastCounts:     make(map[string]int),
 	}
 }
 
@@ -455,6 +458,14 @@ func (p *progressPrinter) flushProgress() {
 }
 
 func (p *progressPrinter) flushLogs() {
+	// failedPodIDs holds the kdutil.ResourceID of every pod currently in a
+	// failed state. Populated only in failed-only mode; otherwise we don't
+	// need it.
+	var failedPodIDs map[string]struct{}
+	if p.failedLogsOnly {
+		failedPodIDs = p.collectFailedPodIDs()
+	}
+
 	type entry struct {
 		resourceKey string
 		source      string
@@ -467,6 +478,16 @@ func (p *progressPrinter) flushLogs() {
 		for _, rlC := range s.ResourcesLogs() {
 			rlC.RTransaction(func(rl *logstore.ResourceLogs) {
 				resourceKey := fmt.Sprintf("%s/%s/%s", rl.GroupVersionKind().Kind, rl.Namespace(), rl.Name())
+				// In failed-only mode, gate emission on the pod's current
+				// status. We keep the cursor frozen for non-failed pods so
+				// their accumulated lines stay queued and get printed in full
+				// if/when the pod transitions to failed later.
+				if p.failedLogsOnly {
+					podID := kdutil.ResourceID(rl.Name(), rl.Namespace(), rl.GroupVersionKind())
+					if _, failed := failedPodIDs[podID]; !failed {
+						return
+					}
+				}
 				for source, lines := range rl.LogLines() {
 					cursorKey := resourceKey + "|" + source
 					start := p.lastCounts[cursorKey]
@@ -538,6 +559,66 @@ func (p *progressPrinter) flushLogs() {
 	if lastEmitted != "" {
 		p.lastLogSource = lastEmitted
 	}
+}
+
+// collectFailedPodIDs walks the task store and returns the set of pod
+// resource IDs that are in a failed-ish state — either marked as
+// ResourceStatusFailed, carrying recorded errors, or whose status attribute
+// matches a known pod-phase failure (CrashLoopBackOff, ImagePullBackOff,
+// Error, etc.). Used by failed-only log mode to gate emission.
+func (p *progressPrinter) collectFailedPodIDs() map[string]struct{} {
+	out := map[string]struct{}{}
+	p.taskStore.RTransaction(func(s *statestore.TaskStore) {
+		for _, taskC := range s.ReadinessTasksStates() {
+			taskC.RTransaction(func(ts *statestore.ReadinessTaskState) {
+				for _, rsC := range ts.ResourceStates() {
+					rsC.RTransaction(func(rs *statestore.ResourceState) {
+						// We only filter pod logs, so only collect Pod IDs.
+						if rs.GroupVersionKind().Kind != "Pod" {
+							return
+						}
+						if rs.Status() == statestore.ResourceStatusFailed {
+							out[rs.ID()] = struct{}{}
+							return
+						}
+						if len(rs.Errors()) > 0 {
+							out[rs.ID()] = struct{}{}
+							return
+						}
+						for _, attr := range rs.Attributes() {
+							if attr.Name() != statestore.AttributeNameStatus {
+								continue
+							}
+							a, ok := attr.(*statestore.Attribute[string])
+							if !ok {
+								continue
+							}
+							if isFailingPodPhase(a.Value) {
+								out[rs.ID()] = struct{}{}
+							}
+						}
+					})
+				}
+			})
+		}
+	})
+	return out
+}
+
+// isFailingPodPhase returns true for kubelet-reported pod phases that
+// indicate the pod is in a broken state, even if kubedog hasn't yet flipped
+// the underlying ResourceStatus to Failed.
+func isFailingPodPhase(phase string) bool {
+	switch phase {
+	case "Error", "Failed",
+		"CrashLoopBackOff",
+		"ImagePullBackOff", "ErrImagePull",
+		"OOMKilled",
+		"CreateContainerConfigError", "CreateContainerError",
+		"InvalidImageName":
+		return true
+	}
+	return false
 }
 
 // shortKind maps full Kind names (as reported by the task store) back to the
