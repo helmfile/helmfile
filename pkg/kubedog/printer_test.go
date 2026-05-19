@@ -180,7 +180,7 @@ func TestFlushProgress_HidesStaleReadyPodWithoutAttr(t *testing.T) {
 	taskStore.RWTransaction(func(s *statestore.TaskStore) { s.AddReadinessTaskState(taskC) })
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, taskStore, logStore, true /*skipLogs*/, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true /*skipLogs*/, false, newGateStatuses(), newSkippedKeys(), false)
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
@@ -188,6 +188,40 @@ func TestFlushProgress_HidesStaleReadyPodWithoutAttr(t *testing.T) {
 	assert.Contains(t, out, "ready (1/1)", "ready count must be capped to required replicas")
 	assert.Contains(t, out, "Pod/ns/app-new-xyz")
 	assert.NotContains(t, out, "app-old-abc", "stale ready pod without status attribute must be hidden")
+}
+
+func TestFlushProgress_HeaderUsesReleaseName(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Release 'vray' progress:",
+		"header must use release name when set")
+	assert.Contains(t, out, "==========",
+		"header must include divider that survives CI newline stripping")
+}
+
+func TestFlushProgress_HeaderFallsBackWithoutReleaseName(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "kubedog progress:")
+	assert.NotContains(t, out, "Release ''", "empty release name must not produce 'Release '' progress:'")
 }
 
 func TestFlushProgress_NestingAndAlignment(t *testing.T) {
@@ -204,7 +238,7 @@ func TestFlushProgress_NestingAndAlignment(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
@@ -238,7 +272,7 @@ func TestFlushProgress_RespectsGateAndSkip(t *testing.T) {
 	skips.add(kdutil.ResourceID("skipped", "ns", deploymentGVK))
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, taskStore, logStore, true, false, gates, skips, false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, gates, skips, false)
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
@@ -266,7 +300,7 @@ func TestFlushLogs_FailedOnlyMode_GatesUnchanged(t *testing.T) {
 	addPodLogs(t, logStore, "init-bad", "ns", "container/main", "bad line 1", "panic: boom")
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, taskStore, logStore, false /*skipLogs*/, true /*failedLogsOnly*/, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false /*skipLogs*/, true /*failedLogsOnly*/, newGateStatuses(), newSkippedKeys(), false)
 	p.flushLogs()
 
 	out := capturedOutput(buf, mu)
@@ -291,7 +325,7 @@ func TestFlushLogs_FailedOnlyMode_DoesNotAdvanceCursorForSuccess(t *testing.T) {
 	addPodLogs(t, logStore, "flaky-pod", "ns", "container/main", "early line A", "early line B")
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, taskStore, logStore, false, true, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, true, newGateStatuses(), newSkippedKeys(), false)
 
 	p.flushLogs()
 	assert.NotContains(t, capturedOutput(buf, mu), "early line",
@@ -320,7 +354,7 @@ func TestFlushLogs_AllPodsMode_EmitsEverything(t *testing.T) {
 	addPodLogs(t, logStore, "init-bad", "ns", "container/main", "bad line 1")
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, taskStore, logStore, false, false /*failedLogsOnly=off*/, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false /*failedLogsOnly=off*/, newGateStatuses(), newSkippedKeys(), false)
 	p.flushLogs()
 
 	out := capturedOutput(buf, mu)
@@ -339,7 +373,7 @@ func TestFlushLogs_HeaderDedupedAcrossFlushes(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false)
 
 	addPodLogs(t, logStore, "app-pod", "ns", "container/main", "line 1", "line 2")
 	p.flushLogs()
@@ -349,10 +383,14 @@ func TestFlushLogs_HeaderDedupedAcrossFlushes(t *testing.T) {
 	out := capturedOutput(buf, mu)
 	// The header should appear exactly once — second flush is a continuation
 	// of the same source.
-	assert.Equal(t, 1, strings.Count(out, "logs Pod/ns/app-pod container/main:"),
+	assert.Equal(t, 1, strings.Count(out, "Logs Pod/ns/app-pod container/main:"),
 		"continuation flushes must not re-emit the per-source header")
 	assert.Contains(t, out, "line 1")
 	assert.Contains(t, out, "line 4")
+}
+
+func TestHeaderDivider_FormatsBothBorders(t *testing.T) {
+	assert.Equal(t, "========== title: ==========", HeaderDivider("title:"))
 }
 
 func TestProgressPrinter_FullRun_CancelsAndDrainsOnContextDone(t *testing.T) {
@@ -360,7 +398,7 @@ func TestProgressPrinter_FullRun_CancelsAndDrainsOnContextDone(t *testing.T) {
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
 	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
 	logger, _, _ := newBufferedLogger(t)
-	p := newProgressPrinter(logger, taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

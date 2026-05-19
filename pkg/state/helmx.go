@@ -354,6 +354,7 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		Namespace:    release.Namespace,
 		KubeContext:  st.getKubeContext(release),
 		Kubeconfig:   st.kubeconfig,
+		ReleaseName:  release.Name,
 		TrackOptions: trackOpts,
 		KubedogQPS:   release.KubedogQPS,
 		KubedogBurst: release.KubedogBurst,
@@ -396,7 +397,7 @@ func (st *HelmState) startBackgroundKubedogTracking(
 			if payload == "" {
 				return
 			}
-			header := fmt.Sprintf("helm output for release %s:", release.Name)
+			header := kubedog.HeaderDivider(fmt.Sprintf("Helm output for release %s:", release.Name))
 			if useColor {
 				// ANSI bold/reset, matching the kubedog progress header.
 				header = "\x1b[1m" + header + "\x1b[0m"
@@ -766,6 +767,7 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 		Namespace:    release.Namespace,
 		KubeContext:  kubeContext,
 		Kubeconfig:   st.kubeconfig,
+		ReleaseName:  release.Name,
 		TrackOptions: trackOpts,
 		KubedogQPS:   release.KubedogQPS,
 		KubedogBurst: release.KubedogBurst,

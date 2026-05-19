@@ -32,6 +32,14 @@ const (
 	ansiBold   = "\x1b[1m"
 )
 
+// HeaderDivider returns a section header decorated so it stays visually
+// prominent even in CI log viewers that collapse leading newlines (e.g.
+// GitLab CI). The "==" borders survive newline-stripping because they live
+// on the same line as the title.
+func HeaderDivider(title string) string {
+	return "========== " + title + " =========="
+}
+
 // gateStatuses holds per-resource "waiting for freshness" messages keyed by
 // BaselineKey. Producers (tracker goroutines) call set/clear; the printer
 // reads via snapshot.
@@ -95,6 +103,7 @@ func (s *skippedKeys) has(id string) bool {
 
 type progressPrinter struct {
 	logger         *zap.SugaredLogger
+	releaseName    string
 	taskStore      *kdutil.Concurrent[*statestore.TaskStore]
 	logStore       *kdutil.Concurrent[*logstore.LogStore]
 	skipLogs       bool
@@ -113,6 +122,7 @@ type progressPrinter struct {
 
 func newProgressPrinter(
 	logger *zap.SugaredLogger,
+	releaseName string,
 	taskStore *kdutil.Concurrent[*statestore.TaskStore],
 	logStore *kdutil.Concurrent[*logstore.LogStore],
 	skipLogs bool,
@@ -123,6 +133,7 @@ func newProgressPrinter(
 ) *progressPrinter {
 	return &progressPrinter{
 		logger:         logger,
+		releaseName:    releaseName,
 		taskStore:      taskStore,
 		logStore:       logStore,
 		skipLogs:       skipLogs,
@@ -432,11 +443,18 @@ func (p *progressPrinter) flushProgress() {
 	}
 	const statusGap = 2
 
+	title := "kubedog progress:"
+	if p.releaseName != "" {
+		title = fmt.Sprintf("Release '%s' progress:", p.releaseName)
+	}
+	header := HeaderDivider(title)
+
 	var sb strings.Builder
 	// Leading newline visually separates each progress block from helm output
-	// and from any log lines that came right before.
+	// and from any log lines that came right before. It may be collapsed in
+	// some CI log viewers — the "==" decoration in the header survives.
 	sb.WriteString("\n")
-	sb.WriteString(p.colorize("kubedog progress:", ansiBold))
+	sb.WriteString(p.colorize(header, ansiBold))
 	for _, r := range rows {
 		labelVisual := visibleWidth(r.label)
 		// Target column for the status = maxLabelWidth + statusGap +
@@ -532,18 +550,19 @@ func (p *progressPrinter) flushLogs() {
 		}
 		key := e.resourceKey + "|" + e.source
 		if key != prevKey {
-			// On a source change we emit a "logs <pod> <container>:" header
-			// preceded by a blank line so it visually detaches from whatever
-			// came before. Continuation flushes (same source) skip both the
-			// blank line AND the header to avoid stacking newlines from zap.
+			// On a source change we emit a "Logs <pod> <container>:" header
+			// (with "==" decoration for CI log readability) preceded by a
+			// blank line so it visually detaches from whatever came before.
+			// Continuation flushes (same source) skip both the blank line AND
+			// the header to avoid stacking newlines from zap.
 			if sb.Len() > 0 {
 				sb.WriteString("\n\n")
 			} else {
 				sb.WriteString("\n")
 				startedWithHeader = true
 			}
-			header := p.colorize(fmt.Sprintf("%s %s", e.resourceKey, e.source), ansiCyan)
-			sb.WriteString(fmt.Sprintf("logs %s:", header))
+			coloredSource := p.colorize(fmt.Sprintf("%s %s", e.resourceKey, e.source), ansiCyan)
+			sb.WriteString(HeaderDivider(fmt.Sprintf("Logs %s:", coloredSource)))
 			prevKey = key
 		}
 		// Indent each line; the first line of a continuation flush has no

@@ -61,6 +61,7 @@ type Tracker struct {
 	trackOptions  *TrackOptions
 	filter        *resource.ResourceFilter
 	namespace     string
+	releaseName   string
 
 	// upstreamDoneCh is closed when the calling code (e.g. helm.SyncRelease)
 	// finishes. Per-resource freshness gates use it to give up waiting for a
@@ -75,6 +76,9 @@ type TrackerConfig struct {
 	Namespace    string
 	KubeContext  string
 	Kubeconfig   string
+	// ReleaseName is shown in the progress header (e.g. "Release 'foo'
+	// progress:"). When empty the printer falls back to a generic header.
+	ReleaseName  string
 	TrackOptions *TrackOptions
 	KubedogQPS   *float32
 	KubedogBurst *int
@@ -132,6 +136,7 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 		trackOptions:   options,
 		filter:         filter,
 		namespace:      config.Namespace,
+		releaseName:    config.ReleaseName,
 		upstreamDoneCh: make(chan struct{}),
 	}, nil
 }
@@ -363,7 +368,12 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 		return nil
 	}
 
-	t.logger.Infof("Tracking %d resources with kubedog (filtered from %d total)", len(filtered), len(resources))
+	// The "Tracking N resources from release X with kubedog" line is already
+	// emitted by the caller (helmx). Only mention the filter here when it
+	// actually removed something.
+	if len(filtered) < len(resources) {
+		t.logger.Infof("kubedog filter kept %d of %d resources", len(filtered), len(resources))
+	}
 
 	targets := t.buildTargets(filtered)
 	if len(targets) == 0 {
@@ -431,7 +441,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 
 	gateStatuses := newGateStatuses()
 	skippedKeys := newSkippedKeys()
-	printer := newProgressPrinter(t.logger, taskStore, logStore, skipLogsInPrinter, failedLogsOnly, gateStatuses, skippedKeys, t.trackOptions.Color)
+	printer := newProgressPrinter(t.logger, t.releaseName, taskStore, logStore, skipLogsInPrinter, failedLogsOnly, gateStatuses, skippedKeys, t.trackOptions.Color)
 	printerDone := make(chan struct{})
 
 	var trackerWg sync.WaitGroup
