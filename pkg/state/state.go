@@ -926,6 +926,8 @@ type SyncOpts struct {
 	TrackLogs            bool
 	TrackFailOnError     bool
 	Description          string
+	Color                bool
+	NoColor              bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1155,23 +1157,44 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
 					}
 				} else {
-					if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+					trackHandle, trackStarted := st.startBackgroundKubedogTracking(gocontext.Background(), release, helm, opts)
+					// trackHandle.Helm is a logger-scoped helm clone that
+					// captures output to an in-memory buffer while tracking is
+					// active. When tracking isn't running it's the original
+					// helm — either path is safe to call directly.
+					releaseHelm := trackHandle.Helm
+					if err := releaseHelm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+						if trackStarted {
+							trackHandle.Cancel()
+							_ = trackHandle.Wait()
+						} else {
+							trackHandle.FlushBufferedHelmOutput()
+						}
 						m.Lock()
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						m.Unlock()
 						relErr = newReleaseFailedError(release, err)
 					} else {
+						if trackStarted {
+							trackHandle.NotifyHelmDone()
+						}
 						m.Lock()
 						affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
 						m.Unlock()
-						installedVersion, err := st.getDeployedVersion(context, helm, release)
+						installedVersion, err := st.getDeployedVersion(context, releaseHelm, release)
 						if err != nil { // err is not really impacting so just log it
 							st.logger.Debugf("getting deployed release version failed: %v", err)
 						} else {
 							release.installedVersion = installedVersion
 						}
 
-						if trackErr := st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts); trackErr != nil {
+						var trackErr *ReleaseError
+						if trackStarted {
+							trackErr = trackHandle.Wait()
+						} else {
+							trackErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+						}
+						if trackErr != nil {
 							m.Lock()
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							m.Unlock()

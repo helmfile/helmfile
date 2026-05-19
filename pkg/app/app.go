@@ -1914,6 +1914,8 @@ Do you really want to apply?
 					TrackLogs:            c.TrackLogs(),
 					TrackFailOnError:     c.TrackFailOnError(),
 					Description:          c.Description(),
+					Color:                c.Color(),
+					NoColor:              c.NoColor(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
@@ -2359,6 +2361,8 @@ Do you really want to sync?
 					TrackLogs:            c.TrackLogs(),
 					TrackFailOnError:     c.TrackFailOnError(),
 					Description:          c.Description(),
+					Color:                c.Color(),
+					NoColor:              c.NoColor(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))

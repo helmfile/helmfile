@@ -133,6 +133,9 @@ type SyncConfigProvider interface {
 	TrackLogs() bool
 	TrackFailOnError() bool
 
+	Color() bool
+	NoColor() bool
+
 	Description() string
 
 	DAGConfig

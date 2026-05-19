@@ -1,0 +1,559 @@
+package kubedog
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+	"unicode/utf8"
+
+	"github.com/werf/kubedog/pkg/trackers/dyntracker/logstore"
+	"github.com/werf/kubedog/pkg/trackers/dyntracker/statestore"
+	kdutil "github.com/werf/kubedog/pkg/trackers/dyntracker/util"
+	"go.uber.org/zap"
+)
+
+const (
+	progressInterval = 10 * time.Second
+	logsInterval     = 10 * time.Second
+)
+
+// ANSI escape codes. Hard-coded to keep the dependency list small — these are
+// the standard 16-color SGR sequences and work on any reasonable terminal.
+const (
+	ansiReset  = "\x1b[0m"
+	ansiGreen  = "\x1b[32m"
+	ansiYellow = "\x1b[33m"
+	ansiRed    = "\x1b[31m"
+	ansiCyan   = "\x1b[36m"
+	ansiGray   = "\x1b[90m"
+	ansiBold   = "\x1b[1m"
+)
+
+// gateStatuses holds per-resource "waiting for freshness" messages keyed by
+// BaselineKey. Producers (tracker goroutines) call set/clear; the printer
+// reads via snapshot.
+type gateStatuses struct {
+	mu sync.RWMutex
+	m  map[string]string
+}
+
+func newGateStatuses() *gateStatuses {
+	return &gateStatuses{m: make(map[string]string)}
+}
+
+func (g *gateStatuses) set(key, status string) {
+	g.mu.Lock()
+	g.m[key] = status
+	g.mu.Unlock()
+}
+
+func (g *gateStatuses) clear(key string) {
+	g.mu.Lock()
+	delete(g.m, key)
+	g.mu.Unlock()
+}
+
+func (g *gateStatuses) snapshot() map[string]string {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	out := make(map[string]string, len(g.m))
+	for k, v := range g.m {
+		out[k] = v
+	}
+	return out
+}
+
+// skippedKeys records the ResourceIDs of tasks the printer should hide
+// (typically because the upstream operation finished without changing the
+// resource and the task's "progressing" state would be misleading).
+type skippedKeys struct {
+	mu sync.RWMutex
+	m  map[string]struct{}
+}
+
+func newSkippedKeys() *skippedKeys {
+	return &skippedKeys{m: make(map[string]struct{})}
+}
+
+func (s *skippedKeys) add(id string) {
+	s.mu.Lock()
+	s.m[id] = struct{}{}
+	s.mu.Unlock()
+}
+
+func (s *skippedKeys) has(id string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.m[id]
+	return ok
+}
+
+// kubedog's util.ResourceID returns "<ns>:<group>:<kind>:<name>".
+
+type progressPrinter struct {
+	logger     *zap.SugaredLogger
+	taskStore  *kdutil.Concurrent[*statestore.TaskStore]
+	logStore   *kdutil.Concurrent[*logstore.LogStore]
+	skipLogs   bool
+	gates      *gateStatuses
+	skipped    *skippedKeys
+	useColor   bool
+	lastStatus map[string]string
+	lastCounts map[string]int
+	// lastLogSource is the "<resourceKey>|<source>" emitted at the tail of
+	// the previous flushLogs call. Carrying it across flushes lets us drop
+	// the redundant "logs <pod> <container>:" header when consecutive flushes
+	// continue from the same source.
+	lastLogSource string
+}
+
+func newProgressPrinter(
+	logger *zap.SugaredLogger,
+	taskStore *kdutil.Concurrent[*statestore.TaskStore],
+	logStore *kdutil.Concurrent[*logstore.LogStore],
+	skipLogs bool,
+	gates *gateStatuses,
+	skipped *skippedKeys,
+	useColor bool,
+) *progressPrinter {
+	return &progressPrinter{
+		logger:     logger,
+		taskStore:  taskStore,
+		logStore:   logStore,
+		skipLogs:   skipLogs,
+		gates:      gates,
+		skipped:    skipped,
+		useColor:   useColor,
+		lastStatus: make(map[string]string),
+		lastCounts: make(map[string]int),
+	}
+}
+
+func (p *progressPrinter) run(ctx context.Context, done <-chan struct{}) {
+	progressTicker := time.NewTicker(progressInterval)
+	defer progressTicker.Stop()
+	logsTicker := time.NewTicker(logsInterval)
+	defer logsTicker.Stop()
+
+	p.flushProgress()
+
+	for {
+		select {
+		case <-progressTicker.C:
+			p.flushProgress()
+			if !p.skipLogs {
+				p.flushLogs()
+			}
+		case <-logsTicker.C:
+			if !p.skipLogs {
+				p.flushLogs()
+			}
+		case <-done:
+			p.flushProgress()
+			if !p.skipLogs {
+				p.flushLogs()
+			}
+			return
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (p *progressPrinter) colorize(s, code string) string {
+	if !p.useColor || code == "" {
+		return s
+	}
+	return code + s + ansiReset
+}
+
+// statusColor maps a status line to an ANSI color code. Checks the leading
+// kubedog state ("ready", "progressing", …) first; if that's not recognized
+// (e.g. raw pod phases like "ContainerCreating" or "Error"), falls back to
+// scanning the whole string for known pod-phase substrings.
+func (p *progressPrinter) statusColor(status string) string {
+	head := status
+	if idx := strings.Index(status, " "); idx >= 0 {
+		head = status[:idx]
+	}
+	switch head {
+	case "ready":
+		return ansiGreen
+	case "progressing":
+		return ansiYellow
+	case "failed":
+		return ansiRed
+	case "waiting":
+		return ansiCyan
+	case "created":
+		return ansiCyan
+	case "deleted":
+		return ansiGray
+	case "unknown":
+		return ansiGray
+	}
+	// Pod-phase substrings (e.g. "ContainerCreating", "Running", "Completed",
+	// "Error"). These show up either alone or appended in parentheses.
+	switch {
+	case containsAny(status, "Error", "CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull", "Failed", "OOMKilled"):
+		return ansiRed
+	case containsAny(status, "Completed"):
+		return ansiGreen
+	case containsAny(status, "Running"):
+		return ansiGreen
+	case containsAny(status, "ContainerCreating", "PodInitializing", "Pending", "Init:", "ContainerStarting"):
+		return ansiYellow
+	case containsAny(status, "Terminating"):
+		return ansiGray
+	}
+	return ""
+}
+
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// describeChildStatus collapses kubedog's bookkeeping status with the
+// human-readable status attribute. When the bookkeeping value is "unknown"
+// (which it usually is for transient pod phases) the attribute alone is
+// shown; otherwise both are joined.
+func describeChildStatus(kdStatus, statusAttr string) string {
+	switch {
+	case statusAttr == "" && kdStatus == "":
+		return "unknown"
+	case statusAttr == "":
+		return kdStatus
+	case kdStatus == "" || kdStatus == "unknown":
+		return statusAttr
+	default:
+		return fmt.Sprintf("%s (%s)", kdStatus, statusAttr)
+	}
+}
+
+func (p *progressPrinter) flushProgress() {
+	type row struct {
+		sortKey string
+		label   string
+		status  string
+		indent  string
+	}
+	var rows []row
+
+	gateSnapshot := map[string]string{}
+	if p.gates != nil {
+		gateSnapshot = p.gates.snapshot()
+	}
+
+	p.taskStore.RTransaction(func(s *statestore.TaskStore) {
+		for _, taskC := range s.ReadinessTasksStates() {
+			taskC.RTransaction(func(ts *statestore.ReadinessTaskState) {
+				kind := ts.GroupVersionKind().Kind
+				name := ts.Name()
+				ns := ts.Namespace()
+				rootLabel := fmt.Sprintf("%s/%s/%s", kind, ns, name)
+				rootID := kdutil.ResourceID(name, ns, ts.GroupVersionKind())
+				gateKey := BaselineKey(shortKind(kind), ns, name)
+
+				if p.skipped != nil && p.skipped.has(rootID) {
+					return
+				}
+
+				if gateMsg, gated := gateSnapshot[gateKey]; gated {
+					rows = append(rows, row{
+						sortKey: rootLabel,
+						label:   rootLabel,
+						status:  gateMsg,
+					})
+					return
+				}
+
+				type childRow struct {
+					label    string
+					status   string
+					ready    bool
+					hasAttr  bool // has a populated AttributeNameStatus
+				}
+				var children []childRow
+				var required int
+				var rootStatusAttr string
+				var rootHasFailed bool
+
+				for _, rsC := range ts.ResourceStates() {
+					rsC.RTransaction(func(rs *statestore.ResourceState) {
+						if rs.ID() == rootID {
+							for _, attr := range rs.Attributes() {
+								switch attr.Name() {
+								case statestore.AttributeNameRequiredReplicas:
+									if a, ok := attr.(*statestore.Attribute[int]); ok {
+										required = a.Value
+									}
+								case statestore.AttributeNameStatus:
+									if a, ok := attr.(*statestore.Attribute[string]); ok {
+										rootStatusAttr = a.Value
+									}
+								}
+							}
+							if rs.Status() == statestore.ResourceStatusFailed {
+								rootHasFailed = true
+							}
+							return
+						}
+						label := fmt.Sprintf("%s/%s/%s", rs.GroupVersionKind().Kind, rs.Namespace(), rs.Name())
+						var podStatusAttr string
+						for _, attr := range rs.Attributes() {
+							if attr.Name() == statestore.AttributeNameStatus {
+								if a, ok := attr.(*statestore.Attribute[string]); ok {
+									podStatusAttr = a.Value
+								}
+							}
+						}
+						children = append(children, childRow{
+							label:   label,
+							status:  describeChildStatus(string(rs.Status()), podStatusAttr),
+							ready:   rs.Status() == statestore.ResourceStatusReady,
+							hasAttr: podStatusAttr != "",
+						})
+					})
+				}
+
+				// Filter out stale pods — Ready pods that no longer carry a
+				// status attribute are leftovers from a previous ReplicaSet
+				// that kubedog never updated past Ready. They survive in the
+				// resource graph but don't reflect the current spec.
+				if required > 0 {
+					filtered := children[:0]
+					for _, c := range children {
+						if c.ready && !c.hasAttr {
+							continue
+						}
+						filtered = append(filtered, c)
+					}
+					children = filtered
+				}
+
+				readyChildren := 0
+				for _, c := range children {
+					if c.ready {
+						readyChildren++
+					}
+				}
+				// Cap the displayed ready count at required so "ready (2/1)"
+				// can't happen even if a stale pod survived the filter above.
+				if required > 0 && readyChildren > required {
+					readyChildren = required
+				}
+
+				var rootStatus string
+				switch {
+				case rootHasFailed:
+					rootStatus = "failed"
+				case required > 0:
+					if readyChildren >= required {
+						rootStatus = fmt.Sprintf("ready (%d/%d)", readyChildren, required)
+					} else {
+						rootStatus = fmt.Sprintf("progressing (%d/%d)", readyChildren, required)
+					}
+				default:
+					rootStatus = string(ts.Status())
+				}
+				if rootStatusAttr != "" {
+					rootStatus = fmt.Sprintf("%s %s", rootStatus, rootStatusAttr)
+				}
+
+				rows = append(rows, row{
+					sortKey: rootLabel,
+					label:   rootLabel,
+					status:  rootStatus,
+				})
+				sort.Slice(children, func(i, j int) bool { return children[i].label < children[j].label })
+				for _, c := range children {
+					rows = append(rows, row{
+						sortKey: rootLabel + "/" + c.label,
+						label:   c.label,
+						status:  c.status,
+						indent:  "  • ",
+					})
+				}
+			})
+		}
+	})
+
+	sort.Slice(rows, func(i, j int) bool { return rows[i].sortKey < rows[j].sortKey })
+
+	current := make(map[string]string, len(rows))
+	for _, r := range rows {
+		current[r.indent+r.label] = r.status
+	}
+	changed := len(current) != len(p.lastStatus)
+	if !changed {
+		for k, v := range current {
+			if p.lastStatus[k] != v {
+				changed = true
+				break
+			}
+		}
+	}
+	if !changed {
+		return
+	}
+	p.lastStatus = current
+
+	if len(rows) == 0 {
+		return
+	}
+
+	// Auto-size label column to the widest row so long pod names don't
+	// run into the status text. We use rune count (not byte length) because
+	// the child indent contains "•" (3 bytes, 1 visual column) — counting
+	// bytes would over-estimate child row widths and under-pad parent rows
+	// by the difference.
+	visibleWidth := func(s string) int { return utf8.RuneCountInString(s) }
+	maxLabelWidth := 0
+	for _, r := range rows {
+		w := visibleWidth(r.indent) + visibleWidth(r.label)
+		if w > maxLabelWidth {
+			maxLabelWidth = w
+		}
+	}
+	const statusGap = 2
+
+	var sb strings.Builder
+	// Leading newline visually separates each progress block from helm output
+	// and from any log lines that came right before.
+	sb.WriteString("\n")
+	sb.WriteString(p.colorize("kubedog progress:", ansiBold))
+	for _, r := range rows {
+		labelVisual := visibleWidth(r.label)
+		// Target column for the status = maxLabelWidth + statusGap +
+		// indentVisual. After subtracting the row's actual prefix width
+		// (indentVisual + labelVisual), indentVisual cancels and we're left
+		// with padding = maxLabelWidth - labelVisual + statusGap. This nests
+		// child statuses further right than their parent's by exactly the
+		// child indent width.
+		pad := maxLabelWidth - labelVisual + statusGap
+		padding := strings.Repeat(" ", pad)
+		sb.WriteString(fmt.Sprintf("\n  %s%s%s%s",
+			r.indent,
+			r.label,
+			padding,
+			p.colorize(r.status, p.statusColor(r.status)),
+		))
+	}
+	p.logger.Info(sb.String())
+	// A progress block visually breaks any in-flight log stream, so the next
+	// flushLogs call should re-emit the "logs <pod> <container>:" header even
+	// if it continues from the same source.
+	p.lastLogSource = ""
+}
+
+func (p *progressPrinter) flushLogs() {
+	type entry struct {
+		resourceKey string
+		source      string
+		line        string
+		ts          time.Time
+	}
+	var pending []entry
+
+	p.logStore.RTransaction(func(s *logstore.LogStore) {
+		for _, rlC := range s.ResourcesLogs() {
+			rlC.RTransaction(func(rl *logstore.ResourceLogs) {
+				resourceKey := fmt.Sprintf("%s/%s/%s", rl.GroupVersionKind().Kind, rl.Namespace(), rl.Name())
+				for source, lines := range rl.LogLines() {
+					cursorKey := resourceKey + "|" + source
+					start := p.lastCounts[cursorKey]
+					if start >= len(lines) {
+						continue
+					}
+					for _, ll := range lines[start:] {
+						pending = append(pending, entry{
+							resourceKey: resourceKey,
+							source:      source,
+							line:        ll.Line,
+							ts:          ll.Time,
+						})
+					}
+					p.lastCounts[cursorKey] = len(lines)
+				}
+			})
+		}
+	})
+
+	sort.Slice(pending, func(i, j int) bool { return pending[i].ts.Before(pending[j].ts) })
+
+	if len(pending) == 0 {
+		return
+	}
+
+	// Group consecutive lines from the same pod/container into a single
+	// emission so the per-source header is only printed once and the lines
+	// look like an excerpt rather than scattered noise.
+	var sb strings.Builder
+	prevKey := p.lastLogSource
+	startedWithHeader := false
+	lastEmitted := ""
+	for _, e := range pending {
+		line := strings.TrimRight(e.line, "\n")
+		if line == "" {
+			continue
+		}
+		key := e.resourceKey + "|" + e.source
+		if key != prevKey {
+			// On a source change we emit a "logs <pod> <container>:" header
+			// preceded by a blank line so it visually detaches from whatever
+			// came before. Continuation flushes (same source) skip both the
+			// blank line AND the header to avoid stacking newlines from zap.
+			if sb.Len() > 0 {
+				sb.WriteString("\n\n")
+			} else {
+				sb.WriteString("\n")
+				startedWithHeader = true
+			}
+			header := p.colorize(fmt.Sprintf("%s %s", e.resourceKey, e.source), ansiCyan)
+			sb.WriteString(fmt.Sprintf("logs %s:", header))
+			prevKey = key
+		}
+		// Indent each line; the first line of a continuation flush has no
+		// leading newline so zap's own message-boundary newline alone
+		// separates it from the previous flush.
+		if startedWithHeader || sb.Len() > 0 {
+			sb.WriteString("\n  ")
+		} else {
+			sb.WriteString("  ")
+		}
+		sb.WriteString(line)
+		lastEmitted = key
+	}
+	if sb.Len() > 0 {
+		p.logger.Info(sb.String())
+	}
+	if lastEmitted != "" {
+		p.lastLogSource = lastEmitted
+	}
+}
+
+// shortKind maps full Kind names (as reported by the task store) back to the
+// short identifiers used as the BaselineKey prefix.
+func shortKind(kind string) string {
+	switch kind {
+	case "Deployment":
+		return "deploy"
+	case "StatefulSet":
+		return "sts"
+	case "DaemonSet":
+		return "ds"
+	case "Job":
+		return "job"
+	case "Canary":
+		return "canary"
+	}
+	return strings.ToLower(kind)
+}

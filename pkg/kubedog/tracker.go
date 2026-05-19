@@ -2,23 +2,25 @@ package kubedog
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/werf/kubedog/pkg/informer"
-	"github.com/werf/kubedog/pkg/tracker"
-	"github.com/werf/kubedog/pkg/tracker/canary"
-	"github.com/werf/kubedog/pkg/tracker/daemonset"
-	"github.com/werf/kubedog/pkg/tracker/deployment"
-	"github.com/werf/kubedog/pkg/tracker/job"
-	"github.com/werf/kubedog/pkg/tracker/statefulset"
-	"github.com/werf/kubedog/pkg/trackers/dyntracker/util"
+	"github.com/werf/kubedog/pkg/trackers/dyntracker"
+	"github.com/werf/kubedog/pkg/trackers/dyntracker/logstore"
+	"github.com/werf/kubedog/pkg/trackers/dyntracker/statestore"
+	kdutil "github.com/werf/kubedog/pkg/trackers/dyntracker/util"
 	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -26,7 +28,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
-	watchtools "k8s.io/client-go/tools/watch"
 
 	"github.com/helmfile/helmfile/pkg/resource"
 )
@@ -43,7 +44,7 @@ type clientCacheEntry struct {
 	dynamicClient dynamic.Interface
 	restConfig    *rest.Config
 	discovery     discovery.CachedDiscoveryInterface
-	mapper        meta.RESTMapper
+	mapper        meta.ResettableRESTMapper
 }
 
 var (
@@ -56,10 +57,17 @@ type Tracker struct {
 	clientSet     kubernetes.Interface
 	dynamicClient dynamic.Interface
 	discovery     discovery.CachedDiscoveryInterface
-	mapper        meta.RESTMapper
+	mapper        meta.ResettableRESTMapper
 	trackOptions  *TrackOptions
 	filter        *resource.ResourceFilter
 	namespace     string
+
+	// upstreamDoneCh is closed when the calling code (e.g. helm.SyncRelease)
+	// finishes. Per-resource freshness gates use it to give up waiting for a
+	// generation bump that will never come (e.g. when helm produced no diff
+	// for that resource).
+	upstreamDoneCh chan struct{}
+	upstreamOnce   sync.Once
 }
 
 type TrackerConfig struct {
@@ -116,15 +124,26 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 	}
 
 	return &Tracker{
-		logger:        logger,
-		clientSet:     cacheEntry.clientSet,
-		dynamicClient: cacheEntry.dynamicClient,
-		discovery:     cacheEntry.discovery,
-		mapper:        cacheEntry.mapper,
-		trackOptions:  options,
-		filter:        filter,
-		namespace:     config.Namespace,
+		logger:         logger,
+		clientSet:      cacheEntry.clientSet,
+		dynamicClient:  cacheEntry.dynamicClient,
+		discovery:      cacheEntry.discovery,
+		mapper:         cacheEntry.mapper,
+		trackOptions:   options,
+		filter:         filter,
+		namespace:      config.Namespace,
+		upstreamDoneCh: make(chan struct{}),
 	}, nil
+}
+
+// MarkUpstreamCompleted signals to any in-flight freshness gates that the
+// upstream operation (helm upgrade) has finished. Resources whose baseline
+// generation never bumped will then exit their gate without attaching kubedog
+// rather than wait indefinitely. Safe to call multiple times.
+func (t *Tracker) MarkUpstreamCompleted() {
+	t.upstreamOnce.Do(func() {
+		close(t.upstreamDoneCh)
+	})
 }
 
 func getOrCreateClients(kubeContext, kubeconfig string, qps float32, burst int) (clientCacheEntry, error) {
@@ -198,6 +217,138 @@ type trackTarget struct {
 	kind      string
 	name      string
 	namespace string
+	gvk       schema.GroupVersionKind
+}
+
+// BaselineKey returns the map key used to associate a resource with its
+// pre-change ResourceBaseline.
+func BaselineKey(kind, namespace, name string) string {
+	return kind + "/" + namespace + "/" + name
+}
+
+// CaptureBaselines fetches the current UID and metadata.generation for each
+// resource via the dynamic client. Resources that don't exist yet are
+// recorded with Exists=false so the freshness gate can detect first creation.
+// Errors other than NotFound are logged and the baseline is omitted (the
+// gate will then attach immediately rather than block on a degraded probe).
+func (t *Tracker) CaptureBaselines(ctx context.Context, resources []*resource.Resource) map[string]ResourceBaseline {
+	baselines := make(map[string]ResourceBaseline, len(resources))
+	for _, res := range resources {
+		ns := res.Namespace
+		if ns == "" {
+			ns = t.namespace
+		}
+		kind, gvk, ok := classifyResource(res.Kind)
+		if !ok {
+			continue
+		}
+		gvr, err := t.gvrFor(gvk)
+		if err != nil {
+			t.logger.Debugf("kubedog: cannot resolve GVR for %s/%s/%s baseline: %v", kind, ns, res.Name, err)
+			continue
+		}
+		key := BaselineKey(kind, ns, res.Name)
+		obj, err := t.dynamicClient.Resource(gvr).Namespace(ns).Get(ctx, res.Name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				baselines[key] = ResourceBaseline{Exists: false}
+				continue
+			}
+			t.logger.Debugf("kubedog: baseline fetch for %s/%s/%s failed: %v", kind, ns, res.Name, err)
+			continue
+		}
+		baselines[key] = ResourceBaseline{
+			UID:        obj.GetUID(),
+			Generation: obj.GetGeneration(),
+			Exists:     true,
+		}
+	}
+	return baselines
+}
+
+func (t *Tracker) gvrFor(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	mapping, err := t.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return schema.GroupVersionResource{}, err
+	}
+	return mapping.Resource, nil
+}
+
+// errUpstreamDoneNoChange signals that the upstream operation (helm) finished
+// without the resource ever changing — the goroutine should skip the dyntracker
+// attach and exit cleanly.
+var errUpstreamDoneNoChange = errors.New("upstream completed without resource change")
+
+// waitForFreshness blocks until the resource has either appeared (when it
+// didn't exist at baseline), been recreated (UID changed), or had its spec
+// updated (generation > baseline). Returns nil once the resource is fresh,
+// errUpstreamDoneNoChange when the upstream operation completed and no change
+// was ever observed, or ctx.Err() on cancellation.
+func (t *Tracker) waitForFreshness(ctx context.Context, tgt trackTarget, baseline ResourceBaseline, statusCb func(string)) error {
+	gvr, err := t.gvrFor(tgt.gvk)
+	if err != nil {
+		t.logger.Debugf("kubedog: cannot resolve GVR for %s/%s/%s, skipping freshness gate: %v", tgt.kind, tgt.namespace, tgt.name, err)
+		return nil
+	}
+
+	if statusCb != nil {
+		if baseline.Exists {
+			statusCb(fmt.Sprintf("waiting for update (uid=%s gen=%d)", baseline.UID, baseline.Generation))
+		} else {
+			statusCb("waiting for creation")
+		}
+	}
+
+	const (
+		pollInterval = 500 * time.Millisecond
+		// Grace window after helm finishes: keep checking briefly in case the
+		// API server lags. If nothing observed in this window, give up.
+		postUpstreamGrace = 3 * time.Second
+	)
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	probe := func() (fresh bool) {
+		obj, err := t.dynamicClient.Resource(gvr).Namespace(tgt.namespace).Get(ctx, tgt.name, metav1.GetOptions{})
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				t.logger.Debugf("kubedog: freshness probe for %s/%s/%s failed: %v", tgt.kind, tgt.namespace, tgt.name, err)
+			}
+			return false
+		}
+		if !baseline.Exists {
+			return true
+		}
+		if obj.GetUID() != baseline.UID {
+			return true
+		}
+		if obj.GetGeneration() > baseline.Generation {
+			return true
+		}
+		return false
+	}
+
+	var upstreamDoneAt time.Time
+	for {
+		if probe() {
+			return nil
+		}
+		if !upstreamDoneAt.IsZero() && time.Since(upstreamDoneAt) >= postUpstreamGrace {
+			return errUpstreamDoneNoChange
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.upstreamDoneCh:
+			if upstreamDoneAt.IsZero() {
+				upstreamDoneAt = time.Now()
+			}
+			// Fast retry once helm finishes, then fall through to the next
+			// ticker to enforce the grace window.
+		case <-ticker.C:
+		}
+	}
 }
 
 func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Resource) error {
@@ -222,215 +373,162 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 
 	t.logger.Infof("Tracking breakdown: %s", t.targetSummary(targets))
 
-	watchErrCh := make(chan error, len(targets))
+	trackCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	watchErrCh := make(chan error, 16)
 	informerFactory := informer.NewConcurrentInformerFactory(
-		ctx.Done(),
-		watchErrCh,
-		t.dynamicClient,
+		trackCtx.Done(), watchErrCh, t.dynamicClient,
 		informer.ConcurrentInformerFactoryOptions{},
 	)
 
-	opts := tracker.Options{
-		ParentContext: ctx,
-		Timeout:       t.trackOptions.Timeout,
-		LogsFromTime:  time.Now().Add(-t.trackOptions.LogsSince),
-	}
-
-	var wg sync.WaitGroup
-	errCh := make(chan error, len(targets))
-
-	for _, target := range targets {
-		wg.Add(1)
-		go func(tgt trackTarget) {
-			defer wg.Done()
-			if err := t.trackSingleResource(tgt, informerFactory, opts); err != nil {
-				errCh <- fmt.Errorf("%s/%s tracking failed: %w", tgt.kind, tgt.name, err)
-			}
-		}(target)
-	}
-
-	done := make(chan struct{})
+	// Drain informer watch errors so the factory doesn't block.
 	go func() {
-		wg.Wait()
-		close(done)
+		for {
+			select {
+			case err, ok := <-watchErrCh:
+				if !ok {
+					return
+				}
+				if err != nil {
+					t.logger.Warnf("kubedog informer watch error: %v", err)
+				}
+			case <-trackCtx.Done():
+				return
+			}
+		}
 	}()
 
+	captureLogsFromTime := time.Now().Add(-t.trackOptions.LogsSince)
+	ignoreLogs := !t.trackOptions.Logs
+
+	type trackerEntry struct {
+		target    trackTarget
+		taskState *kdutil.Concurrent[*statestore.ReadinessTaskState]
+	}
+	entries := make([]trackerEntry, 0, len(targets))
+
+	for _, tgt := range targets {
+		taskState := kdutil.NewConcurrent(
+			statestore.NewReadinessTaskState(tgt.name, tgt.namespace, tgt.gvk, statestore.ReadinessTaskStateOptions{}),
+		)
+		taskStore.RWTransaction(func(s *statestore.TaskStore) {
+			s.AddReadinessTaskState(taskState)
+		})
+		entries = append(entries, trackerEntry{target: tgt, taskState: taskState})
+	}
+
+	gateStatuses := newGateStatuses()
+	skippedKeys := newSkippedKeys()
+	printer := newProgressPrinter(t.logger, taskStore, logStore, ignoreLogs, gateStatuses, skippedKeys, t.trackOptions.Color)
+	printerDone := make(chan struct{})
+
+	var trackerWg sync.WaitGroup
+	errCh := make(chan error, len(entries))
+
+	for _, entry := range entries {
+		trackerWg.Add(1)
+		tgt := entry.target
+		ts := entry.taskState
+		baselineKey := BaselineKey(tgt.kind, tgt.namespace, tgt.name)
+		baseline, hasBaseline := t.trackOptions.Baselines[baselineKey]
+		go func() {
+			defer trackerWg.Done()
+
+			if hasBaseline {
+				err := t.waitForFreshness(trackCtx, tgt, baseline, func(msg string) {
+					gateStatuses.set(baselineKey, msg)
+				})
+				gateStatuses.clear(baselineKey)
+				switch {
+				case err == nil:
+					// resource changed; proceed to attach the tracker
+				case errors.Is(err, errUpstreamDoneNoChange):
+					t.logger.Debugf("kubedog: %s/%s/%s unchanged by upstream; skipping tracker", tgt.kind, tgt.namespace, tgt.name)
+					// Hide this task from the printer output: it never changed,
+					// so the persistent "progressing" we'd otherwise show is
+					// misleading.
+					skippedKeys.add(kdutil.ResourceID(tgt.name, tgt.namespace, tgt.gvk))
+					return
+				case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+					return
+				default:
+					errCh <- fmt.Errorf("%s/%s freshness gate failed: %w", tgt.kind, tgt.name, err)
+					return
+				}
+			}
+
+			dt, err := dyntracker.NewDynamicReadinessTracker(
+				trackCtx, ts, logStore, informerFactory,
+				t.clientSet, t.dynamicClient, t.discovery, t.mapper,
+				dyntracker.DynamicReadinessTrackerOptions{
+					Timeout:             t.trackOptions.Timeout,
+					CaptureLogsFromTime: captureLogsFromTime,
+					IgnoreLogs:          ignoreLogs,
+					// Kubedog uses this as a "stream logs for at most N replicas"
+					// cap. The zero value means "0 replicas", which silently disables
+					// log streaming even when IgnoreLogs is false. Use a high value
+					// so all replicas in any realistic deployment stream their logs.
+					SaveLogsOnlyForNumberOfReplicas: math.MaxInt32,
+				},
+			)
+			if err != nil {
+				errCh <- fmt.Errorf("create dynamic tracker for %s/%s: %w", tgt.kind, tgt.name, err)
+				return
+			}
+			if err := dt.Track(trackCtx); err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return
+				}
+				errCh <- fmt.Errorf("%s/%s tracking failed: %w", tgt.kind, tgt.name, err)
+			}
+		}()
+	}
+
+	trackersDone := make(chan struct{})
+	go func() {
+		trackerWg.Wait()
+		close(trackersDone)
+	}()
+
+	go func() {
+		printer.run(trackCtx, trackersDone)
+		close(printerDone)
+	}()
+
+	var firstErr error
 	select {
 	case err := <-errCh:
-		return fmt.Errorf("tracking failed: %w", err)
-	case <-done:
-		t.logger.Info("All resources tracked successfully")
-		return nil
-	case <-ctx.Done():
-		return fmt.Errorf("tracking canceled: %w", ctx.Err())
+		firstErr = err
+		cancel()
+	case <-trackersDone:
+	case <-trackCtx.Done():
+		firstErr = trackCtx.Err()
 	}
-}
 
-func (t *Tracker) trackSingleResource(target trackTarget, informerFactory *util.Concurrent[*informer.InformerFactory], opts tracker.Options) error {
-	parentContext := opts.ParentContext
-	if parentContext == nil {
-		parentContext = context.Background()
-	}
-	ctx, cancel := watchtools.ContextWithOptionalTimeout(parentContext, opts.Timeout)
-	defer cancel()
+	cancel()
+	<-trackersDone
+	<-printerDone
 
-	trackErrCh := make(chan error, 1)
-	doneCh := make(chan struct{})
-
-	switch target.kind {
-	case "deploy":
-		tr := deployment.NewTracker(target.name, target.namespace, t.clientSet, informerFactory, opts)
-		go t.runDeploymentTracker(ctx, tr, trackErrCh, doneCh)
-		return t.waitDeploymentTracker(ctx, tr, trackErrCh, doneCh)
-	case "sts":
-		tr := statefulset.NewTracker(target.name, target.namespace, t.clientSet, informerFactory, opts)
-		go t.runStatefulSetTracker(ctx, tr, trackErrCh, doneCh)
-		return t.waitStatefulSetTracker(ctx, tr, trackErrCh, doneCh)
-	case "ds":
-		tr := daemonset.NewTracker(target.name, target.namespace, t.clientSet, informerFactory, opts)
-		go t.runDaemonSetTracker(ctx, tr, trackErrCh, doneCh)
-		return t.waitDaemonSetTracker(ctx, tr, trackErrCh, doneCh)
-	case "job":
-		tr := job.NewTracker(target.name, target.namespace, t.clientSet, informerFactory, opts)
-		go t.runJobTracker(ctx, tr, trackErrCh, doneCh)
-		return t.waitJobTracker(ctx, tr, trackErrCh, doneCh)
-	case "canary":
-		tr := canary.NewTracker(target.name, target.namespace, t.clientSet, t.dynamicClient, informerFactory, opts)
-		go t.runCanaryTracker(ctx, tr, trackErrCh, doneCh)
-		return t.waitCanaryTracker(ctx, tr, trackErrCh, doneCh)
-	default:
-		return fmt.Errorf("unsupported resource kind: %s", target.kind)
-	}
-}
-
-func (t *Tracker) runDeploymentTracker(ctx context.Context, tr *deployment.Tracker, errCh chan<- error, doneCh chan<- struct{}) {
-	if err := tr.Track(ctx); err != nil {
-		errCh <- err
-	} else {
-		close(doneCh)
-	}
-}
-
-func (t *Tracker) waitDeploymentTracker(ctx context.Context, tr *deployment.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
-	for {
-		select {
-		case <-tr.Ready:
-			t.logger.Debugf("Deployment %s/%s is ready", tr.Namespace, tr.ResourceName)
-			return nil
-		case status := <-tr.Failed:
-			return fmt.Errorf("deployment %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
-		case err := <-trackErrCh:
-			return err
-		case <-doneCh:
-			return nil
-		case <-ctx.Done():
-			return fmt.Errorf("tracking canceled for deployment %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
+	// Drain remaining tracker errors so they're surfaced in logs.
+	close(errCh)
+	for err := range errCh {
+		if firstErr == nil {
+			firstErr = err
+		} else {
+			t.logger.Warnf("additional tracking error: %v", err)
 		}
 	}
-}
 
-func (t *Tracker) runStatefulSetTracker(ctx context.Context, tr *statefulset.Tracker, errCh chan<- error, doneCh chan<- struct{}) {
-	if err := tr.Track(ctx); err != nil {
-		errCh <- err
-	} else {
-		close(doneCh)
+	if firstErr != nil {
+		return firstErr
 	}
-}
 
-func (t *Tracker) waitStatefulSetTracker(ctx context.Context, tr *statefulset.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
-	for {
-		select {
-		case <-tr.Ready:
-			t.logger.Debugf("StatefulSet %s/%s is ready", tr.Namespace, tr.ResourceName)
-			return nil
-		case status := <-tr.Failed:
-			return fmt.Errorf("statefulset %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
-		case err := <-trackErrCh:
-			return err
-		case <-doneCh:
-			return nil
-		case <-ctx.Done():
-			return fmt.Errorf("tracking canceled for statefulset %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
-		}
-	}
-}
-
-func (t *Tracker) runDaemonSetTracker(ctx context.Context, tr *daemonset.Tracker, errCh chan<- error, doneCh chan<- struct{}) {
-	if err := tr.Track(ctx); err != nil {
-		errCh <- err
-	} else {
-		close(doneCh)
-	}
-}
-
-func (t *Tracker) waitDaemonSetTracker(ctx context.Context, tr *daemonset.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
-	for {
-		select {
-		case <-tr.Ready:
-			t.logger.Debugf("DaemonSet %s/%s is ready", tr.Namespace, tr.ResourceName)
-			return nil
-		case status := <-tr.Failed:
-			return fmt.Errorf("daemonset %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
-		case err := <-trackErrCh:
-			return err
-		case <-doneCh:
-			return nil
-		case <-ctx.Done():
-			return fmt.Errorf("tracking canceled for daemonset %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
-		}
-	}
-}
-
-func (t *Tracker) runJobTracker(ctx context.Context, tr *job.Tracker, errCh chan<- error, doneCh chan<- struct{}) {
-	if err := tr.Track(ctx); err != nil {
-		errCh <- err
-	} else {
-		close(doneCh)
-	}
-}
-
-func (t *Tracker) waitJobTracker(ctx context.Context, tr *job.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
-	for {
-		select {
-		case <-tr.Succeeded:
-			t.logger.Debugf("Job %s/%s succeeded", tr.Namespace, tr.ResourceName)
-			return nil
-		case status := <-tr.Failed:
-			return fmt.Errorf("job %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
-		case err := <-trackErrCh:
-			return err
-		case <-doneCh:
-			return nil
-		case <-ctx.Done():
-			return fmt.Errorf("tracking canceled for job %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
-		}
-	}
-}
-
-func (t *Tracker) runCanaryTracker(ctx context.Context, tr *canary.Tracker, errCh chan<- error, doneCh chan<- struct{}) {
-	if err := tr.Track(ctx); err != nil {
-		errCh <- err
-	} else {
-		close(doneCh)
-	}
-}
-
-func (t *Tracker) waitCanaryTracker(ctx context.Context, tr *canary.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
-	for {
-		select {
-		case <-tr.Succeeded:
-			t.logger.Debugf("Canary %s/%s succeeded", tr.Namespace, tr.ResourceName)
-			return nil
-		case status := <-tr.Failed:
-			return fmt.Errorf("canary %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
-		case err := <-trackErrCh:
-			return err
-		case <-doneCh:
-			return nil
-		case <-ctx.Done():
-			return fmt.Errorf("tracking canceled for canary %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
-		}
-	}
+	t.logger.Info("All resources tracked successfully")
+	return nil
 }
 
 func (t *Tracker) buildTargets(resources []*resource.Resource) []trackTarget {
@@ -441,19 +539,8 @@ func (t *Tracker) buildTargets(resources []*resource.Resource) []trackTarget {
 			namespace = t.namespace
 		}
 
-		kind := ""
-		switch strings.ToLower(res.Kind) {
-		case "deployment", "deploy":
-			kind = "deploy"
-		case "statefulset", "sts":
-			kind = "sts"
-		case "daemonset", "ds":
-			kind = "ds"
-		case "job":
-			kind = "job"
-		case "canary":
-			kind = "canary"
-		default:
+		kind, gvk, ok := classifyResource(res.Kind)
+		if !ok {
 			t.logger.Debugf("Skipping unsupported kind %s for resource %s/%s", res.Kind, namespace, res.Name)
 			continue
 		}
@@ -462,9 +549,26 @@ func (t *Tracker) buildTargets(resources []*resource.Resource) []trackTarget {
 			kind:      kind,
 			name:      res.Name,
 			namespace: namespace,
+			gvk:       gvk,
 		})
 	}
 	return targets
+}
+
+func classifyResource(rawKind string) (string, schema.GroupVersionKind, bool) {
+	switch strings.ToLower(rawKind) {
+	case "deployment", "deploy":
+		return "deploy", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, true
+	case "statefulset", "sts":
+		return "sts", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}, true
+	case "daemonset", "ds":
+		return "ds", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}, true
+	case "job":
+		return "job", schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}, true
+	case "canary":
+		return "canary", schema.GroupVersionKind{Group: "flagger.app", Version: "v1beta1", Kind: "Canary"}, true
+	}
+	return "", schema.GroupVersionKind{}, false
 }
 
 func (t *Tracker) targetSummary(targets []trackTarget) string {
@@ -476,6 +580,7 @@ func (t *Tracker) targetSummary(targets []trackTarget) string {
 	for kind, count := range counts {
 		parts = append(parts, fmt.Sprintf("%ss=%d", kind, count))
 	}
+	sort.Strings(parts)
 	return strings.Join(parts, ", ")
 }
 

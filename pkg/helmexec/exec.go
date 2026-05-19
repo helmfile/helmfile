@@ -48,11 +48,17 @@ type execer struct {
 	kubeconfig           string
 	kubeContext          string
 	extra                []string
-	decryptedSecretMutex sync.Mutex
+	// decryptedSecretMutex guards decryptedSecrets. It's a pointer so that
+	// WithLogger() can shallow-copy the execer and share the same lock+map
+	// across clones (the underlying secret cache must remain a single source
+	// of truth across all clones).
+	decryptedSecretMutex *sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
-	unittestPluginOnce   sync.Once
-	unittestPluginErr    error
+	// unittestPluginOnce is a pointer so WithLogger() clones share the
+	// detection result with the original execer.
+	unittestPluginOnce *sync.Once
+	unittestPluginErr  error
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -182,15 +188,35 @@ func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, 
 	}
 
 	return &execer{
-		helmBinary:       helmBinary,
-		options:          options,
-		version:          version,
-		logger:           logger,
-		kubeconfig:       kubeconfig,
-		kubeContext:      kubeContext,
-		runner:           runner,
-		decryptedSecrets: make(map[string]*decryptedSecret),
+		helmBinary:           helmBinary,
+		options:              options,
+		version:              version,
+		logger:               logger,
+		kubeconfig:           kubeconfig,
+		kubeContext:          kubeContext,
+		runner:               runner,
+		decryptedSecretMutex: &sync.Mutex{},
+		decryptedSecrets:     make(map[string]*decryptedSecret),
+		unittestPluginOnce:   &sync.Once{},
 	}, nil
+}
+
+// LoggerSwapper is the runtime contract that callers use to obtain a logger-
+// scoped helm clone for capturing helm output into a buffer. It's a side
+// interface (not part of helmexec.Interface) so mock implementations don't
+// have to provide it.
+type LoggerSwapper interface {
+	WithLogger(logger *zap.SugaredLogger) Interface
+}
+
+// WithLogger returns a shallow copy of the execer that writes its log output
+// to the given logger. The clone shares mutable state (decrypted-secret cache
+// and its lock) with the original via the pointer mutex, so concurrent use
+// of clone + original for decryption is safe.
+func (helm *execer) WithLogger(logger *zap.SugaredLogger) Interface {
+	clone := *helm
+	clone.logger = logger
+	return &clone
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {

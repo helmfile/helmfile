@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/helmfile/chartify"
@@ -253,6 +255,182 @@ func (st *HelmState) trackReleaseIfEnabled(ctx context.Context, release *Release
 		}
 	}
 	return nil
+}
+
+// kubedogTrackingHandle bundles the closures the caller needs to coordinate
+// parallel kubedog tracking with helm execution. See
+// startBackgroundKubedogTracking for the lifecycle.
+type kubedogTrackingHandle struct {
+	// Helm is the helm.Interface the caller MUST use for SyncRelease and any
+	// follow-up commands (e.g. listReleases) while tracking is running. It's
+	// a logger-scoped clone of the original helm that captures all its output
+	// into the per-release buffer so it doesn't interleave with kubedog
+	// progress on stdout.
+	Helm helmexec.Interface
+	// Wait blocks until the tracker exits and returns the resulting error
+	// (already shaped by trackFailOnError policy).
+	Wait func() *ReleaseError
+	// Cancel cancels the tracker; call when helm itself fails.
+	Cancel func()
+	// NotifyHelmDone signals to in-flight freshness gates that helm finished
+	// so unchanged resources can stop waiting for a generation bump.
+	NotifyHelmDone func()
+	// FlushBufferedHelmOutput emits the captured helm output (upgrades, list,
+	// etc.) through the real logger in a single block. Safe to call multiple
+	// times — second call is a no-op.
+	FlushBufferedHelmOutput func()
+}
+
+// startBackgroundKubedogTracking templates the release upfront and starts a
+// kubedog tracker in a goroutine so it runs in parallel with helm. It returns
+// a handle whose Helm field MUST be used for the helm calls during the
+// tracking window — that helm clone buffers output for clean ordering.
+//
+// When started is false the caller must fall back to the sequential
+// trackReleaseIfEnabled path (e.g. templating failed before helm ran, so we
+// retry after helm finishes to preserve the previous behavior).
+func (st *HelmState) startBackgroundKubedogTracking(
+	ctx context.Context, release *ReleaseSpec, helm helmexec.Interface, opts *SyncOpts,
+) (h *kubedogTrackingHandle, started bool) {
+	noop := &kubedogTrackingHandle{
+		Helm:                    helm,
+		Wait:                    func() *ReleaseError { return nil },
+		Cancel:                  func() {},
+		NotifyHelmDone:          func() {},
+		FlushBufferedHelmOutput: func() {},
+	}
+
+	if !st.shouldUseKubedog(release, opts) {
+		return noop, false
+	}
+
+	resources, err := st.getReleaseResources(ctx, release, helm)
+	if err != nil {
+		st.logger.Warnf("kubedog: failed to template release %s for parallel tracking, falling back to post-helm tracking: %v", release.Name, err)
+		return noop, false
+	}
+	if len(resources) == 0 {
+		st.logger.Infof("kubedog: no trackable resources templated for release %s", release.Name)
+		return noop, true
+	}
+
+	timeout := 5 * time.Minute
+	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
+		timeout = time.Duration(*release.TrackTimeout) * time.Second
+	} else if opts != nil && opts.TrackTimeout > 0 {
+		timeout = time.Duration(opts.TrackTimeout) * time.Second
+	}
+
+	trackLogs := release.TrackLogs != nil && *release.TrackLogs
+	if release.TrackLogs == nil && opts != nil {
+		trackLogs = opts.TrackLogs
+	}
+
+	filterConfig := &resource.FilterConfig{
+		TrackKinds:     release.TrackKinds,
+		SkipKinds:      release.SkipKinds,
+		TrackResources: convertTrackResources(release.TrackResources),
+	}
+
+	useColor := false
+	if opts != nil {
+		useColor = opts.Color && !opts.NoColor
+	}
+
+	trackOpts := kubedog.NewTrackOptions().
+		WithTimeout(timeout).
+		WithLogs(trackLogs).
+		WithFilterConfig(filterConfig).
+		WithColor(useColor)
+
+	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
+		Logger:       st.logger,
+		Namespace:    release.Namespace,
+		KubeContext:  st.getKubeContext(release),
+		Kubeconfig:   st.kubeconfig,
+		TrackOptions: trackOpts,
+		KubedogQPS:   release.KubedogQPS,
+		KubedogBurst: release.KubedogBurst,
+	})
+	if err != nil {
+		st.logger.Warnf("kubedog: failed to initialize tracker for release %s, falling back to post-helm tracking: %v", release.Name, err)
+		return noop, false
+	}
+
+	// Snapshot UID + generation BEFORE handing off to helm so each tracker
+	// goroutine can wait until the resource actually changes. Without this,
+	// kubedog observes the pre-upgrade "ready" state and exits immediately.
+	trackOpts.WithBaselines(tracker.CaptureBaselines(ctx, resources))
+
+	// Buffer helm output so it doesn't interleave with kubedog progress on
+	// stdout. We swap the helm logger out for one that writes into the buffer;
+	// after tracking finishes we replay the buffer through the real logger as
+	// a single block.
+	helmOutputBuf := &bytes.Buffer{}
+	bufHelm := helm
+	if swapper, ok := helm.(helmexec.LoggerSwapper); ok {
+		bufHelm = swapper.WithLogger(helmexec.NewLogger(helmOutputBuf, "info"))
+	} else {
+		st.logger.Debugf("kubedog: helm implementation does not support logger swap; output will interleave for release %s", release.Name)
+	}
+
+	trackCtx, trackCancel := context.WithCancel(ctx)
+	resultCh := make(chan error, 1)
+
+	st.logger.Infof("Tracking %d resources from release %s with kubedog (in parallel with helm)", len(resources), release.Name)
+
+	go func() {
+		resultCh <- tracker.TrackResources(trackCtx, resources)
+	}()
+
+	var flushOnce sync.Once
+	flush := func() {
+		flushOnce.Do(func() {
+			payload := strings.TrimSpace(helmOutputBuf.String())
+			if payload == "" {
+				return
+			}
+			header := fmt.Sprintf("helm output for release %s:", release.Name)
+			if useColor {
+				// ANSI bold/reset, matching the kubedog progress header.
+				header = "\x1b[1m" + header + "\x1b[0m"
+			}
+			st.logger.Infof("\n%s\n%s", header, payload)
+		})
+	}
+
+	canceled := false
+	wait := func() *ReleaseError {
+		trackErr := <-resultCh
+		trackCancel()
+		flush()
+		if canceled {
+			// Helm failed and we cancelled the tracker; treat as no-op.
+			return nil
+		}
+		if trackErr != nil {
+			st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
+			if st.shouldFailOnTrackError(release, opts) {
+				return newReleaseFailedError(release, trackErr)
+			}
+		}
+		return nil
+	}
+	cancel := func() {
+		canceled = true
+		trackCancel()
+	}
+	notifyHelmDone := func() {
+		tracker.MarkUpstreamCompleted()
+	}
+
+	return &kubedogTrackingHandle{
+		Helm:                    bufHelm,
+		Wait:                    wait,
+		Cancel:                  cancel,
+		NotifyHelmDone:          notifyHelmDone,
+		FlushBufferedHelmOutput: flush,
+	}, true
 }
 
 func (st *HelmState) getTrackMode(release *ReleaseSpec, ops *SyncOpts) string {
