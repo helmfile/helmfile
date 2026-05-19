@@ -95,6 +95,11 @@ type ReleaseSetSpec struct {
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
+	// DefaultInherit is a list of template names that all releases inherit by default.
+	// Each release will automatically inherit these templates unless it already explicitly
+	// inherits from the same template.
+	DefaultInherit DefaultInherits `yaml:"defaultInherit,omitempty"`
+
 	Env environment.Environment `yaml:"-"`
 
 	// If set to "Error", return an error when a subhelmfile points to a
@@ -511,6 +516,22 @@ func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
 		return nil
 	}
 	*r = v0151
+	return nil
+}
+
+type DefaultInherits []string
+
+func (r *DefaultInherits) UnmarshalYAML(unmarshal func(any) error) error {
+	var single string
+	if err := unmarshal(&single); err == nil {
+		*r = []string{single}
+		return nil
+	}
+	var list []string
+	if err := unmarshal(&list); err != nil {
+		return err
+	}
+	*r = list
 	return nil
 }
 

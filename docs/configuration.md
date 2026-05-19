@@ -21,6 +21,7 @@ A `helmfile.yaml` has these top-level sections:
 | `values` | Default values available in templates |
 | `commonLabels` | Labels applied to all releases |
 | `templates` | Reusable release templates |
+| `defaultInherit` | Default template(s) for all releases to inherit |
 | `hooks` | Global lifecycle hooks |
 | `apiVersions` / `kubeVersion` | Kubernetes version capabilities |
 
