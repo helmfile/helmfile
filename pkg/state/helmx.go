@@ -304,6 +304,11 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		return noop, false
 	}
 
+	// Print a release-level divider before any per-release noise (helm
+	// templating, kubedog progress, helm output flush) so consecutive
+	// releases are visually delimited in CI logs.
+	st.logger.Infof("\n%s", kubedog.HeaderDivider(fmt.Sprintf("Release '%s'", release.Name)))
+
 	resources, err := st.getReleaseResources(ctx, release, helm)
 	if err != nil {
 		st.logger.Warnf("kubedog: failed to template release %s for parallel tracking, falling back to post-helm tracking: %v", release.Name, err)
