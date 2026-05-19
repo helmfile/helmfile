@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/helmfile/helmfile/pkg/resource"
 )
@@ -274,4 +276,103 @@ users:
 		// If no error, tracker should be created successfully
 		assert.NotNil(t, tr)
 	}
+}
+
+func TestClassifyResource(t *testing.T) {
+	tests := []struct {
+		rawKind  string
+		wantKind string
+		wantGVK  schema.GroupVersionKind
+		wantOK   bool
+	}{
+		{"Deployment", "deploy", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, true},
+		{"deployment", "deploy", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, true},
+		{"deploy", "deploy", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, true},
+		{"StatefulSet", "sts", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}, true},
+		{"sts", "sts", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}, true},
+		{"DaemonSet", "ds", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}, true},
+		{"Job", "job", schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}, true},
+		{"Canary", "canary", schema.GroupVersionKind{Group: "flagger.app", Version: "v1beta1", Kind: "Canary"}, true},
+		{"ConfigMap", "", schema.GroupVersionKind{}, false},
+		{"Service", "", schema.GroupVersionKind{}, false},
+		{"", "", schema.GroupVersionKind{}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.rawKind, func(t *testing.T) {
+			kind, gvk, ok := classifyResource(tc.rawKind)
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.wantKind, kind)
+			assert.Equal(t, tc.wantGVK, gvk)
+		})
+	}
+}
+
+func TestBaselineKey(t *testing.T) {
+	assert.Equal(t, "deploy/ns/name", BaselineKey("deploy", "ns", "name"))
+	assert.Equal(t, "job//standalone", BaselineKey("job", "", "standalone"))
+}
+
+func TestResourceBaseline_DefaultsAreZeroValue(t *testing.T) {
+	var b ResourceBaseline
+	assert.Equal(t, types.UID(""), b.UID)
+	assert.Equal(t, int64(0), b.Generation)
+	assert.False(t, b.Exists)
+}
+
+func TestTrackOptions_WithColor(t *testing.T) {
+	opts := NewTrackOptions()
+	assert.False(t, opts.Color)
+
+	opts = opts.WithColor(true)
+	assert.True(t, opts.Color)
+}
+
+func TestTrackOptions_WithFailedLogsOnly(t *testing.T) {
+	opts := NewTrackOptions()
+	assert.False(t, opts.FailedLogsOnly)
+
+	opts = opts.WithFailedLogsOnly(true)
+	assert.True(t, opts.FailedLogsOnly)
+}
+
+func TestTrackOptions_WithBaselines(t *testing.T) {
+	opts := NewTrackOptions()
+	assert.Nil(t, opts.Baselines)
+
+	baselines := map[string]ResourceBaseline{
+		BaselineKey("deploy", "ns", "foo"): {UID: "uid-a", Generation: 3, Exists: true},
+	}
+	opts = opts.WithBaselines(baselines)
+	assert.Equal(t, baselines, opts.Baselines)
+
+	// Mutating the original map after the call must be visible through the
+	// stored field — confirms the setter retains the map by reference rather
+	// than copying.
+	baselines[BaselineKey("deploy", "ns", "bar")] = ResourceBaseline{Generation: 5}
+	assert.Contains(t, opts.Baselines, BaselineKey("deploy", "ns", "bar"))
+}
+
+func TestTrackOptions_Chaining_AllSetters(t *testing.T) {
+	filter := &resource.FilterConfig{TrackKinds: []string{"Deployment"}}
+	baselines := map[string]ResourceBaseline{
+		BaselineKey("deploy", "ns", "foo"): {UID: "uid-a", Generation: 1, Exists: true},
+	}
+	opts := NewTrackOptions().
+		WithTimeout(2*time.Minute).
+		WithLogs(true).
+		WithFailedLogsOnly(true).
+		WithFilterConfig(filter).
+		WithQPS(50).
+		WithBurst(80).
+		WithColor(true).
+		WithBaselines(baselines)
+
+	assert.Equal(t, 2*time.Minute, opts.Timeout)
+	assert.True(t, opts.Logs)
+	assert.True(t, opts.FailedLogsOnly)
+	assert.Equal(t, filter, opts.Filter)
+	assert.Equal(t, float32(50), opts.QPS)
+	assert.Equal(t, 80, opts.Burst)
+	assert.True(t, opts.Color)
+	assert.Equal(t, baselines, opts.Baselines)
 }
