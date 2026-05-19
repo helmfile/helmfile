@@ -49,7 +49,7 @@ Flags:
   -b, --helm-binary string                    Path to the helm binary (default "helm")
   -h, --help                                  help for helmfile
   -i, --interactive                           Request confirmation before attempting to modify clusters
-      --kube-context string                   Set kubectl context. Uses current context by default
+      --kube-context string                   Set kubectl context. Overrides "HELMFILE_KUBE_CONTEXT" OS environment variable when specified. Uses current kubectl context by default
   -k, --kustomize-binary string               Path to the kustomize binary (default "kustomize")
       --log-level string                      Set log level, default info (default "info")
   -n, --namespace string                      Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
