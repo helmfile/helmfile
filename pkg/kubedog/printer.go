@@ -28,6 +28,7 @@ const (
 	ansiYellow = "\x1b[33m"
 	ansiRed    = "\x1b[31m"
 	ansiCyan   = "\x1b[36m"
+	ansiBlue   = "\x1b[34m"
 	ansiGray   = "\x1b[90m"
 	ansiBold   = "\x1b[1m"
 )
@@ -38,6 +39,17 @@ const (
 // on the same line as the title.
 func HeaderDivider(title string) string {
 	return "========== " + title + " =========="
+}
+
+// HeaderDividerStyled is HeaderDivider with the bold+blue style nelm uses for
+// its section titles. When useColor is false it returns the plain divider so
+// non-TTY/CI-without-color callers see identical bytes.
+func HeaderDividerStyled(title string, useColor bool) string {
+	h := HeaderDivider(title)
+	if !useColor {
+		return h
+	}
+	return ansiBold + ansiBlue + h + ansiReset
 }
 
 // gateStatuses holds per-resource "waiting for freshness" messages keyed by
@@ -471,14 +483,13 @@ func (p *progressPrinter) flushProgress() {
 	if p.releaseName != "" {
 		title = fmt.Sprintf("Release '%s' progress:", p.releaseName)
 	}
-	header := HeaderDivider(title)
 
 	var sb strings.Builder
 	// Leading newline visually separates each progress block from helm output
 	// and from any log lines that came right before. It may be collapsed in
 	// some CI log viewers — the "==" decoration in the header survives.
 	sb.WriteString("\n")
-	sb.WriteString(p.colorize(header, ansiBold))
+	sb.WriteString(HeaderDividerStyled(title, p.useColor))
 	for _, r := range rows {
 		labelVisual := visibleWidth(r.label)
 		// Target column for the status = maxLabelWidth + statusGap +
@@ -585,8 +596,7 @@ func (p *progressPrinter) flushLogs() {
 				sb.WriteString("\n")
 				startedWithHeader = true
 			}
-			coloredSource := p.colorize(fmt.Sprintf("%s %s", e.resourceKey, e.source), ansiCyan)
-			sb.WriteString(HeaderDivider(fmt.Sprintf("Logs %s:", coloredSource)))
+			sb.WriteString(HeaderDividerStyled(fmt.Sprintf("Logs %s %s:", e.resourceKey, e.source), p.useColor))
 			prevKey = key
 		}
 		// Indent each line; the first line of a continuation flush has no

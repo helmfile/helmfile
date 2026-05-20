@@ -435,6 +435,23 @@ func TestHeaderDivider_FormatsBothBorders(t *testing.T) {
 	assert.Equal(t, "========== title: ==========", HeaderDivider("title:"))
 }
 
+func TestHeaderDividerStyled(t *testing.T) {
+	// Without color the styled helper must be byte-identical to HeaderDivider —
+	// CI logs and non-TTY consumers should see no ANSI noise.
+	assert.Equal(t, HeaderDivider("title:"), HeaderDividerStyled("title:", false))
+
+	// With color enabled, the divider is wrapped in bold + blue and ends with
+	// a single reset. We match the exact prefix/suffix so future drift in the
+	// style is a deliberate change.
+	styled := HeaderDividerStyled("title:", true)
+	assert.True(t, strings.HasPrefix(styled, ansiBold+ansiBlue),
+		"styled header must start with bold+blue, got %q", styled)
+	assert.True(t, strings.HasSuffix(styled, ansiReset),
+		"styled header must end with reset, got %q", styled)
+	assert.Contains(t, styled, HeaderDivider("title:"),
+		"styled header must contain the plain divider unchanged")
+}
+
 func TestProgressPrinter_FullRun_CancelsAndDrainsOnContextDone(t *testing.T) {
 	// Smoke test that the run loop terminates cleanly on context cancel.
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())

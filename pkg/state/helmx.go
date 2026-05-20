@@ -304,10 +304,15 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		return noop, false
 	}
 
+	useColor := false
+	if opts != nil {
+		useColor = opts.Color && !opts.NoColor
+	}
+
 	// Print a release-level divider before any per-release noise (helm
 	// templating, kubedog progress, helm output flush) so consecutive
 	// releases are visually delimited in CI logs.
-	st.logger.Infof("\n%s", kubedog.HeaderDivider(fmt.Sprintf("Release '%s'", release.Name)))
+	st.logger.Infof("\n%s", kubedog.HeaderDividerStyled(fmt.Sprintf("Release '%s'", release.Name), useColor))
 
 	resources, err := st.getReleaseResources(ctx, release, helm)
 	if err != nil {
@@ -340,11 +345,6 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		TrackKinds:     release.TrackKinds,
 		SkipKinds:      release.SkipKinds,
 		TrackResources: convertTrackResources(release.TrackResources),
-	}
-
-	useColor := false
-	if opts != nil {
-		useColor = opts.Color && !opts.NoColor
 	}
 
 	trackOpts := kubedog.NewTrackOptions().
@@ -402,11 +402,7 @@ func (st *HelmState) startBackgroundKubedogTracking(
 			if payload == "" {
 				return
 			}
-			header := kubedog.HeaderDivider(fmt.Sprintf("Helm output for release '%s':", release.Name))
-			if useColor {
-				// ANSI bold/reset, matching the kubedog progress header.
-				header = "\x1b[1m" + header + "\x1b[0m"
-			}
+			header := kubedog.HeaderDividerStyled(fmt.Sprintf("Helm output for release '%s':", release.Name), useColor)
 			st.logger.Infof("\n%s\n%s", header, payload)
 		})
 	}
