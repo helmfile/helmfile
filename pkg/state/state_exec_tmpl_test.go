@@ -340,6 +340,18 @@ func TestApplyDefaultInherit(t *testing.T) {
 			releaseInherit: Inherits{{Template: "foo"}},
 			want:           Inherits{{Template: "default"}, {Template: "ops"}, {Template: "foo"}},
 		},
+		{
+			name:           "release inherit with whitespace template is deduplicated correctly",
+			defaultInherit: DefaultInherits{"default"},
+			releaseInherit: Inherits{{Template: " default "}, {Template: "foo"}},
+			want:           Inherits{{Template: " default "}, {Template: "foo"}},
+		},
+		{
+			name:           "release inherit with blank template is skipped",
+			defaultInherit: DefaultInherits{"default"},
+			releaseInherit: Inherits{{Template: ""}, {Template: "foo"}},
+			want:           Inherits{{Template: "default"}, {Template: "foo"}},
+		},
 	}
 
 	for i := range tests {

@@ -237,7 +237,9 @@ func (st *HelmState) applyDefaultInherit(releaseInherit Inherits) Inherits {
 
 	existing := make(map[string]bool, len(releaseInherit))
 	for _, inh := range releaseInherit {
-		existing[inh.Template] = true
+		if name := strings.TrimSpace(inh.Template); name != "" {
+			existing[name] = true
+		}
 	}
 
 	result := make(Inherits, 0, len(st.DefaultInherit)+len(releaseInherit))
@@ -252,6 +254,10 @@ func (st *HelmState) applyDefaultInherit(releaseInherit Inherits) Inherits {
 			existing[name] = true
 		}
 	}
-	result = append(result, releaseInherit...)
+	for _, inh := range releaseInherit {
+		if strings.TrimSpace(inh.Template) != "" {
+			result = append(result, inh)
+		}
+	}
 	return result
 }
