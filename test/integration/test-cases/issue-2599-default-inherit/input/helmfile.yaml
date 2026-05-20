@@ -10,9 +10,9 @@ defaultInherit: default
 
 releases:
 - name: app1
-  chart: ../../../../charts/raw
+  chart: ../../../charts/raw
 - name: app2
-  chart: ../../../../charts/raw
+  chart: ../../../charts/raw
   inherit:
   - template: default
     except:
