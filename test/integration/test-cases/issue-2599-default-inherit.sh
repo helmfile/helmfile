@@ -29,12 +29,21 @@ grep -q "app1" ${issue_2599_tmp}/output.log \
 grep -q "app2" ${issue_2599_tmp}/output.log \
     || fail "release app2 should be in output"
 
-# Verify values from common.yaml are inherited
-grep -q "common.yaml" ${issue_2599_tmp}/output.log \
-    || fail "values from common.yaml should be inherited"
+# Verify inherited values and labels per release
+sed -n '/name: app1/,/name: app2/p' ${issue_2599_tmp}/output.log > ${issue_2599_tmp}/app1.log
+sed -n '/name: app2/,/templates:/p' ${issue_2599_tmp}/output.log > ${issue_2599_tmp}/app2.log
+
+grep -q 'managed: "true"' ${issue_2599_tmp}/app1.log \
+    || fail "release app1 should inherit managed label from default template"
+grep -q "common.yaml" ${issue_2599_tmp}/app1.log \
+    || fail "release app1 should inherit values from common.yaml"
+grep -q "common.yaml" ${issue_2599_tmp}/app2.log \
+    || fail "release app2 should inherit values from common.yaml"
+grep -q 'managed: "true"' ${issue_2599_tmp}/app2.log \
+    && fail "release app2 should not inherit managed label due to except"
 
 # Test 2: non-existent template in defaultInherit should fail
-info "Running helmfile template with non-existent defaultInherit template"
+info "Running helmfile build with non-existent defaultInherit template"
 cat > ${issue_2599_tmp}/bad-helmfile.yaml <<EOF
 defaultInherit: nonexistent
 releases:
@@ -42,9 +51,9 @@ releases:
   chart: ${dir}/charts/raw
 EOF
 
-${helmfile} -f ${issue_2599_tmp}/bad-helmfile.yaml template \
+${helmfile} -f ${issue_2599_tmp}/bad-helmfile.yaml build \
     > ${issue_2599_tmp}/error.log 2>&1 \
-    && fail "helmfile template with non-existent defaultInherit template should fail"
+    && fail "helmfile build with non-existent defaultInherit template should fail"
 
 grep -q "inexistent release template" ${issue_2599_tmp}/error.log \
     || fail "error message should mention inexistent release template"
