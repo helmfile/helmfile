@@ -190,7 +190,13 @@ func (p *progressPrinter) colorize(s, code string) string {
 // completed) would otherwise render the failed pod's row in green. After
 // that we check the leading kubedog state, then fall back to other known
 // pod phases.
-func (p *progressPrinter) statusColor(status string) string {
+//
+// parentKind is the kind of the workload owning this row (empty for the
+// root row of a task). It only affects how "Running" is colored: under a
+// Job parent, Running means "still executing toward Completed" so it's
+// yellow; everywhere else (Deployment/StatefulSet/DaemonSet) Running is
+// the steady state, so green.
+func (p *progressPrinter) statusColor(status, parentKind string) string {
 	if containsAny(status, "Error", "CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull", "Failed", "OOMKilled",
 		"CreateContainerConfigError", "CreateContainerError", "InvalidImageName") {
 		return ansiRed
@@ -215,6 +221,11 @@ func (p *progressPrinter) statusColor(status string) string {
 		return ansiGray
 	case "unknown":
 		return ansiGray
+	}
+
+	// Job pods in Running state haven't completed yet — treat as in-progress.
+	if parentKind == "Job" && containsAny(status, "Running") && !containsAny(status, "Completed") {
+		return ansiYellow
 	}
 
 	switch {
@@ -262,6 +273,11 @@ func (p *progressPrinter) flushProgress() {
 		label   string
 		status  string
 		indent  string
+		// parentKind is the Kind of the workload the row belongs to. Set
+		// only for child rows; empty for root rows. Used to bias the status
+		// color so a Running Job pod renders yellow (still in flight) while
+		// a Running Deployment pod renders green (steady state).
+		parentKind string
 	}
 	var rows []row
 
@@ -394,10 +410,11 @@ func (p *progressPrinter) flushProgress() {
 				sort.Slice(children, func(i, j int) bool { return children[i].label < children[j].label })
 				for _, c := range children {
 					rows = append(rows, row{
-						sortKey: rootLabel + "/" + c.label,
-						label:   c.label,
-						status:  c.status,
-						indent:  "  • ",
+						sortKey:    rootLabel + "/" + c.label,
+						label:      c.label,
+						status:     c.status,
+						indent:     "  • ",
+						parentKind: kind,
 					})
 				}
 			})
@@ -469,7 +486,7 @@ func (p *progressPrinter) flushProgress() {
 			r.indent,
 			r.label,
 			padding,
-			p.colorize(r.status, p.statusColor(r.status)),
+			p.colorize(r.status, p.statusColor(r.status, r.parentKind)),
 		))
 	}
 	p.logger.Info(sb.String())

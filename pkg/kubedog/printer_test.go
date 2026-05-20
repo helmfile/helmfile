@@ -87,31 +87,45 @@ func TestStatusColor_FailingPhaseOverridesReady(t *testing.T) {
 
 	// kubedog reports the pod's ResourceStatus as "ready" because the parent
 	// task is ready, but the pod's actual phase is "Error" — must render red.
-	assert.Equal(t, ansiRed, p.statusColor("ready (Error)"))
-	assert.Equal(t, ansiRed, p.statusColor("progressing (CrashLoopBackOff)"))
-	assert.Equal(t, ansiRed, p.statusColor("ready (ImagePullBackOff)"))
-	assert.Equal(t, ansiRed, p.statusColor("ready (OOMKilled)"))
+	assert.Equal(t, ansiRed, p.statusColor("ready (Error)", ""))
+	assert.Equal(t, ansiRed, p.statusColor("progressing (CrashLoopBackOff)", ""))
+	assert.Equal(t, ansiRed, p.statusColor("ready (ImagePullBackOff)", ""))
+	assert.Equal(t, ansiRed, p.statusColor("ready (OOMKilled)", ""))
 }
 
 func TestStatusColor_LeadingState(t *testing.T) {
 	p := &progressPrinter{useColor: true}
-	assert.Equal(t, ansiGreen, p.statusColor("ready (1/1)"))
-	assert.Equal(t, ansiGreen, p.statusColor("ready (Running)"))
-	assert.Equal(t, ansiYellow, p.statusColor("progressing (0/1)"))
-	assert.Equal(t, ansiRed, p.statusColor("failed"))
-	assert.Equal(t, ansiCyan, p.statusColor("waiting for update (uid=abc gen=1)"))
-	assert.Equal(t, ansiGray, p.statusColor("unknown"))
+	assert.Equal(t, ansiGreen, p.statusColor("ready (1/1)", ""))
+	assert.Equal(t, ansiGreen, p.statusColor("ready (Running)", ""))
+	assert.Equal(t, ansiYellow, p.statusColor("progressing (0/1)", ""))
+	assert.Equal(t, ansiRed, p.statusColor("failed", ""))
+	assert.Equal(t, ansiCyan, p.statusColor("waiting for update (uid=abc gen=1)", ""))
+	assert.Equal(t, ansiGray, p.statusColor("unknown", ""))
 }
 
 func TestStatusColor_PodPhaseFallback(t *testing.T) {
 	p := &progressPrinter{useColor: true}
-	// Bare pod phases (no leading kubedog state word).
-	assert.Equal(t, ansiGreen, p.statusColor("Running"))
-	assert.Equal(t, ansiGreen, p.statusColor("Completed"))
-	assert.Equal(t, ansiYellow, p.statusColor("ContainerCreating"))
-	assert.Equal(t, ansiYellow, p.statusColor("Pending"))
-	assert.Equal(t, ansiYellow, p.statusColor("Init:0/2"))
-	assert.Equal(t, ansiGray, p.statusColor("Terminating"))
+	// Bare pod phases (no leading kubedog state word), no parent context —
+	// defaults match the long-running workload assumptions (Running = green).
+	assert.Equal(t, ansiGreen, p.statusColor("Running", ""))
+	assert.Equal(t, ansiGreen, p.statusColor("Completed", ""))
+	assert.Equal(t, ansiYellow, p.statusColor("ContainerCreating", ""))
+	assert.Equal(t, ansiYellow, p.statusColor("Pending", ""))
+	assert.Equal(t, ansiYellow, p.statusColor("Init:0/2", ""))
+	assert.Equal(t, ansiGray, p.statusColor("Terminating", ""))
+}
+
+func TestStatusColor_JobChildRunningIsYellow(t *testing.T) {
+	p := &progressPrinter{useColor: true}
+	// A Job pod in Running phase is still working toward Completed, so the
+	// row should render in-progress yellow instead of steady-state green.
+	assert.Equal(t, ansiYellow, p.statusColor("Running", "Job"))
+	// Once the Job pod hits Completed it's done — green.
+	assert.Equal(t, ansiGreen, p.statusColor("ready (Completed)", "Job"))
+	assert.Equal(t, ansiGreen, p.statusColor("Completed", "Job"))
+	// Other workload kinds keep the steady-state semantics for Running.
+	assert.Equal(t, ansiGreen, p.statusColor("Running", "Deployment"))
+	assert.Equal(t, ansiGreen, p.statusColor("Running", "StatefulSet"))
 }
 
 func TestColorize_RespectsUseColor(t *testing.T) {
