@@ -522,17 +522,39 @@ func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
 type DefaultInherits []string
 
 func (r *DefaultInherits) UnmarshalYAML(unmarshal func(any) error) error {
-	var single string
-	if err := unmarshal(&single); err == nil {
-		*r = []string{single}
+	var list []string
+	if err := unmarshal(&list); err == nil {
+		*r = normalizeDefaultInherits(list)
 		return nil
 	}
-	var list []string
-	if err := unmarshal(&list); err != nil {
+
+	var single string
+	if err := unmarshal(&single); err != nil {
 		return err
 	}
-	*r = list
+	*r = normalizeDefaultInherits([]string{single})
 	return nil
+}
+
+func normalizeDefaultInherits(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(in))
+	for _, name := range in {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		out = append(out, name)
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+
+	return out
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.

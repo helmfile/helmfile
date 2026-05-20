@@ -237,13 +237,22 @@ func (st *HelmState) applyDefaultInherit(releaseInherit Inherits) Inherits {
 
 	existing := make(map[string]bool, len(releaseInherit))
 	for _, inh := range releaseInherit {
+		if inh.Template == "" {
+			continue
+		}
 		existing[inh.Template] = true
 	}
 
 	result := make(Inherits, 0, len(st.DefaultInherit)+len(releaseInherit))
 	for _, name := range st.DefaultInherit {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+
 		if !existing[name] {
 			result = append(result, Inherit{Template: name})
+			existing[name] = true
 		}
 	}
 	result = append(result, releaseInherit...)

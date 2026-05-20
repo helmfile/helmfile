@@ -334,6 +334,12 @@ func TestApplyDefaultInherit(t *testing.T) {
 			releaseInherit: nil,
 			want:           Inherits{{Template: "default"}},
 		},
+		{
+			name:           "default inherit deduplicates and skips empty values",
+			defaultInherit: DefaultInherits{"default", " ", "default", "ops"},
+			releaseInherit: Inherits{{Template: "foo"}},
+			want:           Inherits{{Template: "default"}, {Template: "ops"}, {Template: "foo"}},
+		},
 	}
 
 	for i := range tests {
@@ -435,6 +441,21 @@ func TestDefaultInherits_UnmarshalYAML(t *testing.T) {
 		{
 			name:  "list of strings",
 			input: `["a", "b"]`,
+			want:  DefaultInherits{"a", "b"},
+		},
+		{
+			name:  "null value",
+			input: `null`,
+			want:  nil,
+		},
+		{
+			name:  "empty string value",
+			input: `""`,
+			want:  nil,
+		},
+		{
+			name:  "list trims and drops empty names",
+			input: `[" a ", "", " ", "b"]`,
 			want:  DefaultInherits{"a", "b"},
 		},
 	}
