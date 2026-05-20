@@ -95,6 +95,11 @@ type ReleaseSetSpec struct {
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
 
+	// DefaultInherit is a list of template names that all releases inherit by default.
+	// Each release will automatically inherit these templates unless it already explicitly
+	// inherits from the same template.
+	DefaultInherit DefaultInherits `yaml:"defaultInherit,omitempty"`
+
 	Env environment.Environment `yaml:"-"`
 
 	// If set to "Error", return an error when a subhelmfile points to a
@@ -512,6 +517,45 @@ func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 	*r = v0151
 	return nil
+}
+
+type DefaultInherits []string
+
+func (r *DefaultInherits) UnmarshalYAML(unmarshal func(any) error) error {
+	var list []string
+	if err := unmarshal(&list); err == nil {
+		*r = normalizeDefaultInherits(list)
+		return nil
+	}
+
+	var single string
+	if err := unmarshal(&single); err != nil {
+		return err
+	}
+	*r = normalizeDefaultInherits([]string{single})
+	return nil
+}
+
+// normalizeDefaultInherits trims names, drops empty entries, and returns nil for an empty result.
+func normalizeDefaultInherits(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(in))
+	for _, name := range in {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		out = append(out, name)
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+
+	return out
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
