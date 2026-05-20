@@ -458,6 +458,110 @@ func TestHeaderDividerStyled(t *testing.T) {
 		"styled header must contain the plain divider unchanged")
 }
 
+func TestFlushHeartbeat_EmitsWhenIdleWithInFlight(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// One progressing Deployment with a not-yet-ready pod — the heartbeat
+	// should pick this up as a single in-flight task.
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	addPodChild(t, ts, "app-pending", "ns", statestore.ResourceStatusUnknown, "ContainerCreating")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	// Simulate the silent gap: pretend we last printed long enough ago that
+	// the heartbeat ticker would now fire.
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Release 'vray' still tracking")
+	assert.Contains(t, out, "Deployment/ns/app",
+		"heartbeat must name the in-flight resource so operators see what's blocking")
+}
+
+func TestFlushHeartbeat_SuppressedWhenRecentEmit(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	addPodChild(t, ts, "app-pending", "ns", statestore.ResourceStatusUnknown, "ContainerCreating")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	// lastEmit is current — we just printed something, so the heartbeat
+	// should stay quiet.
+	p.lastEmit = time.Now()
+
+	p.flushHeartbeat()
+
+	assert.Empty(t, capturedOutput(buf, mu),
+		"heartbeat must not emit while printer is actively chatty")
+}
+
+func TestFlushHeartbeat_SuppressedWhenAllReady(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// Set the task status explicitly to Ready. kubedog's default condition
+	// function requires 1+replicas resources to be Ready (root + children),
+	// so it's simpler and more direct to assert the post-rollout state by
+	// pinning the task status — that's how kubedog itself flips a task to
+	// Ready at the end of a successful track.
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	ts.SetStatus(statestore.ReadinessTaskStatusReady)
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+
+	assert.Empty(t, capturedOutput(buf, mu),
+		"heartbeat must not emit when every tracked task is Ready")
+}
+
+func TestFlushHeartbeat_CapsResourceListAndShowsOverflow(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// Five progressing tasks — heartbeat caps the display at 3 and reports
+	// the remaining count.
+	for _, name := range []string{"a", "b", "c", "d", "e"} {
+		ts := statestore.NewReadinessTaskState(name, "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+		setRequiredReplicas(t, ts, 1)
+		addPodChild(t, ts, name+"-pod", "ns", statestore.ResourceStatusUnknown, "ContainerCreating")
+		taskStore.RWTransaction(func(s *statestore.TaskStore) {
+			s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+		})
+	}
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+	out := capturedOutput(buf, mu)
+
+	assert.Contains(t, out, "5 in flight")
+	assert.Contains(t, out, "Deployment/ns/a")
+	assert.Contains(t, out, "Deployment/ns/c")
+	assert.Contains(t, out, "…and 2 more")
+	assert.NotContains(t, out, "Deployment/ns/e",
+		"resources beyond the cap must be summarized by overflow count, not listed")
+}
+
 func TestProgressPrinter_FullRun_CancelsAndDrainsOnContextDone(t *testing.T) {
 	// Smoke test that the run loop terminates cleanly on context cancel.
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())

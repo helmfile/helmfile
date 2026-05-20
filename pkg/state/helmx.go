@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/helmfile/chartify"
@@ -395,6 +396,53 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		resultCh <- tracker.TrackResources(trackCtx, resources)
 	}()
 
+	// Safety valve for the kubedog dyntracker race: once helm signals success,
+	// we wait a grace period and then poll the live API. If the cluster
+	// confirms every tracked resource is in its terminal "done" state but the
+	// dyntracker is still wedged (it observed a fast Job completion but never
+	// flipped ResourceStatus to Ready, or a similar race), we cancel the
+	// tracker so wait() can return success instead of blocking until
+	// --track-timeout. safetyValveTriggered tells wait() that the resulting
+	// context.Canceled is a deliberate "we're done" signal, not a failure.
+	helmDoneCh := make(chan struct{})
+	var helmDoneOnce sync.Once
+	var safetyValveTriggered atomic.Bool
+	const (
+		safetyValveGrace = 60 * time.Second
+		safetyValveCheck = 10 * time.Second
+	)
+	go func() {
+		select {
+		case <-helmDoneCh:
+		case <-trackCtx.Done():
+			return
+		}
+		// Helm has signaled success. Wait a grace period to let the
+		// dyntracker observe normal completion before we start second-guessing
+		// it — the race only matters when the tracker has been wedged for a
+		// while.
+		select {
+		case <-time.After(safetyValveGrace):
+		case <-trackCtx.Done():
+			return
+		}
+		ticker := time.NewTicker(safetyValveCheck)
+		defer ticker.Stop()
+		for {
+			if tracker.VerifyAllConverged(trackCtx, resources) {
+				st.logger.Infof("kubedog: cluster confirms all tracked resources converged for release %s; cancelling tracker (worked around dyntracker race)", release.Name)
+				safetyValveTriggered.Store(true)
+				trackCancel()
+				return
+			}
+			select {
+			case <-trackCtx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+
 	var flushOnce sync.Once
 	flush := func() {
 		flushOnce.Do(func() {
@@ -416,6 +464,12 @@ func (st *HelmState) startBackgroundKubedogTracking(
 			// Helm failed and we cancelled the tracker; treat as no-op.
 			return nil
 		}
+		if safetyValveTriggered.Load() {
+			// We deliberately cancelled the tracker after verifying via the
+			// live API that everything was healthy. The resulting trackErr
+			// (typically context.Canceled) is not a real failure.
+			return nil
+		}
 		if trackErr != nil {
 			st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
 			if st.shouldFailOnTrackError(release, opts) {
@@ -430,6 +484,7 @@ func (st *HelmState) startBackgroundKubedogTracking(
 	}
 	notifyHelmDone := func() {
 		tracker.MarkUpstreamCompleted()
+		helmDoneOnce.Do(func() { close(helmDoneCh) })
 	}
 
 	return &kubedogTrackingHandle{

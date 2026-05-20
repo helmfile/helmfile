@@ -3,11 +3,13 @@ package kubedog
 import (
 	"math"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -377,4 +379,166 @@ func TestTrackOptions_Chaining_AllSetters(t *testing.T) {
 	assert.Equal(t, 80, opts.Burst)
 	assert.True(t, opts.Color)
 	assert.Equal(t, baselines, opts.Baselines)
+}
+
+// makeObj builds an *unstructured.Unstructured with the given path/value
+// pairs. Each key is a dotted path (e.g. "status.succeeded"); the value is
+// stored verbatim, with int values written as int64 to match
+// unstructured.NestedInt64 expectations.
+func makeObj(t *testing.T, paths map[string]any) *unstructured.Unstructured {
+	t.Helper()
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	for path, val := range paths {
+		fields := strings.Split(path, ".")
+		// Normalize ints to int64 because that's what the API returns and
+		// what NestedInt64 will type-assert against.
+		if iv, ok := val.(int); ok {
+			val = int64(iv)
+		}
+		require.NoError(t, unstructured.SetNestedField(obj.Object, val, fields...))
+	}
+	return obj
+}
+
+func TestIsJobConverged(t *testing.T) {
+	t.Run("default completions (1) and succeeded 1 — done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"status.succeeded": 1,
+		})
+		assert.True(t, isJobConverged(obj))
+	})
+	t.Run("explicit completions 3 and succeeded 3 — done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"spec.completions": 3,
+			"status.succeeded": 3,
+		})
+		assert.True(t, isJobConverged(obj))
+	})
+	t.Run("succeeded 0 — not done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"status.succeeded": 0,
+		})
+		assert.False(t, isJobConverged(obj))
+	})
+	t.Run("succeeded less than completions — not done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"spec.completions": 5,
+			"status.succeeded": 4,
+		})
+		assert.False(t, isJobConverged(obj))
+	})
+}
+
+func TestIsDeploymentConverged(t *testing.T) {
+	t.Run("observedGeneration caught up and availableReplicas meets replicas — done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":         3,
+			"status.observedGeneration":   3,
+			"spec.replicas":               2,
+			"status.availableReplicas":    2,
+		})
+		assert.True(t, isDeploymentConverged(obj))
+	})
+	t.Run("observedGeneration lags — not done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":         5,
+			"status.observedGeneration":   4,
+			"spec.replicas":               1,
+			"status.availableReplicas":    1,
+		})
+		assert.False(t, isDeploymentConverged(obj))
+	})
+	t.Run("available less than replicas — not done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":         1,
+			"status.observedGeneration":   1,
+			"spec.replicas":               3,
+			"status.availableReplicas":    2,
+		})
+		assert.False(t, isDeploymentConverged(obj))
+	})
+	t.Run("replicas explicitly 0 — done regardless of availability", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":       1,
+			"status.observedGeneration": 1,
+			"spec.replicas":             0,
+		})
+		assert.True(t, isDeploymentConverged(obj))
+	})
+}
+
+func TestIsStatefulSetConverged(t *testing.T) {
+	t.Run("rolling update finished, ready meets replicas — done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":         2,
+			"status.observedGeneration":   2,
+			"status.currentRevision":      "rev-a",
+			"status.updateRevision":       "rev-a",
+			"spec.replicas":               3,
+			"status.readyReplicas":        3,
+		})
+		assert.True(t, isStatefulSetConverged(obj))
+	})
+	t.Run("rolling update in progress (revisions differ) — not done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":         2,
+			"status.observedGeneration":   2,
+			"status.currentRevision":      "rev-a",
+			"status.updateRevision":       "rev-b",
+			"spec.replicas":               3,
+			"status.readyReplicas":        3,
+		})
+		assert.False(t, isStatefulSetConverged(obj))
+	})
+}
+
+func TestIsDaemonSetConverged(t *testing.T) {
+	t.Run("ready meets desired — done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":              1,
+			"status.observedGeneration":        1,
+			"status.desiredNumberScheduled":    4,
+			"status.numberReady":               4,
+		})
+		assert.True(t, isDaemonSetConverged(obj))
+	})
+	t.Run("ready short of desired — not done", func(t *testing.T) {
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":              1,
+			"status.observedGeneration":        1,
+			"status.desiredNumberScheduled":    4,
+			"status.numberReady":               3,
+		})
+		assert.False(t, isDaemonSetConverged(obj))
+	})
+	t.Run("zero desired (no matching nodes) — not yet converged", func(t *testing.T) {
+		// Zero desired typically means the selector matched no nodes yet;
+		// safety-valve must not treat that as success because it could just
+		// be that controllers haven't seen the DaemonSet.
+		obj := makeObj(t, map[string]any{
+			"metadata.generation":              1,
+			"status.observedGeneration":        1,
+			"status.desiredNumberScheduled":    0,
+			"status.numberReady":               0,
+		})
+		assert.False(t, isDaemonSetConverged(obj))
+	})
+}
+
+func TestIsPVCConverged(t *testing.T) {
+	assert.True(t, isPVCConverged(makeObj(t, map[string]any{"status.phase": "Bound"})))
+	assert.False(t, isPVCConverged(makeObj(t, map[string]any{"status.phase": "Pending"})))
+	assert.False(t, isPVCConverged(makeObj(t, map[string]any{})))
+}
+
+func TestIsResourceConverged_DispatchesByKind(t *testing.T) {
+	job := makeObj(t, map[string]any{"status.succeeded": 1})
+	assert.True(t, isResourceConverged("job", job))
+
+	// Canary intentionally has no live-API converged check — we always
+	// return false and defer to dyntracker for its multi-phase progression.
+	assert.False(t, isResourceConverged("canary", job))
+
+	// Unknown kind also returns false to avoid false-positive cancellations.
+	assert.False(t, isResourceConverged("totally-made-up", job))
 }

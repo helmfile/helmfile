@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	progressInterval = 10 * time.Second
-	logsInterval     = 10 * time.Second
+	progressInterval  = 10 * time.Second
+	logsInterval      = 10 * time.Second
+	heartbeatInterval = 2 * time.Minute
 )
 
 // ANSI escape codes. Hard-coded to keep the dependency list small — these are
@@ -124,6 +125,11 @@ type progressPrinter struct {
 	skipped        *skippedKeys
 	useColor       bool
 	startTime      time.Time
+	// lastEmit tracks the most recent time we printed *anything* to the
+	// logger (progress block or log stream). The heartbeat ticker uses it to
+	// suppress its own output while the printer is actively chatty; it only
+	// emits when there's been a silent gap of at least heartbeatInterval.
+	lastEmit       time.Time
 	lastStatus     map[string]string
 	lastCounts     map[string]int
 	// lastLogSource is the "<resourceKey>|<source>" emitted at the tail of
@@ -155,6 +161,7 @@ func newProgressPrinter(
 		skipped:        skipped,
 		useColor:       useColor,
 		startTime:      time.Now(),
+		lastEmit:       time.Now(),
 		lastStatus:     make(map[string]string),
 		lastCounts:     make(map[string]int),
 	}
@@ -165,6 +172,8 @@ func (p *progressPrinter) run(ctx context.Context, done <-chan struct{}) {
 	defer progressTicker.Stop()
 	logsTicker := time.NewTicker(logsInterval)
 	defer logsTicker.Stop()
+	heartbeatTicker := time.NewTicker(heartbeatInterval)
+	defer heartbeatTicker.Stop()
 
 	p.flushProgress()
 
@@ -179,6 +188,8 @@ func (p *progressPrinter) run(ctx context.Context, done <-chan struct{}) {
 			if !p.skipLogs {
 				p.flushLogs()
 			}
+		case <-heartbeatTicker.C:
+			p.flushHeartbeat()
 		case <-done:
 			p.flushProgress()
 			if !p.skipLogs {
@@ -511,6 +522,7 @@ func (p *progressPrinter) flushProgress() {
 		))
 	}
 	p.logger.Info(sb.String())
+	p.lastEmit = time.Now()
 	// A progress block visually breaks any in-flight log stream, so the next
 	// flushLogs call should re-emit the "logs <pod> <container>:" header even
 	// if it continues from the same source.
@@ -615,10 +627,68 @@ func (p *progressPrinter) flushLogs() {
 	}
 	if sb.Len() > 0 {
 		p.logger.Info(sb.String())
+		p.lastEmit = time.Now()
 	}
 	if lastEmitted != "" {
 		p.lastLogSource = lastEmitted
 	}
+}
+
+// flushHeartbeat emits a single-line "still tracking" digest when nothing
+// else has been printed for at least heartbeatInterval. It's the only signal
+// CI operators get during long silent stretches (e.g. an hour-long Job that
+// never changes state and never logs) that helmfile is alive rather than
+// hung. Suppressed when (a) the printer recently produced output already, or
+// (b) every tracked task is Ready — in which case there's no useful content.
+func (p *progressPrinter) flushHeartbeat() {
+	if time.Since(p.lastEmit) < heartbeatInterval {
+		return
+	}
+
+	var inFlight []string
+	p.taskStore.RTransaction(func(s *statestore.TaskStore) {
+		for _, taskC := range s.ReadinessTasksStates() {
+			taskC.RTransaction(func(ts *statestore.ReadinessTaskState) {
+				if ts.Status() == statestore.ReadinessTaskStatusReady {
+					return
+				}
+				if p.skipped != nil && p.skipped.has(kdutil.ResourceID(ts.Name(), ts.Namespace(), ts.GroupVersionKind())) {
+					return
+				}
+				inFlight = append(inFlight, fmt.Sprintf("%s/%s/%s",
+					ts.GroupVersionKind().Kind, ts.Namespace(), ts.Name()))
+			})
+		}
+	})
+
+	if len(inFlight) == 0 {
+		return
+	}
+
+	sort.Strings(inFlight)
+	elapsed := time.Since(p.startTime).Round(time.Second)
+	label := "kubedog"
+	if p.releaseName != "" {
+		label = fmt.Sprintf("Release '%s'", p.releaseName)
+	}
+
+	const maxShown = 3
+	shown := inFlight
+	overflow := ""
+	if len(shown) > maxShown {
+		overflow = fmt.Sprintf(", …and %d more", len(shown)-maxShown)
+		shown = shown[:maxShown]
+	}
+
+	var line string
+	if len(inFlight) == 1 {
+		line = fmt.Sprintf("%s still tracking (%s) — %s", label, elapsed, shown[0])
+	} else {
+		line = fmt.Sprintf("%s still tracking (%s) — %d in flight: %s%s",
+			label, elapsed, len(inFlight), strings.Join(shown, ", "), overflow)
+	}
+	p.logger.Info(p.colorize(line, ansiCyan))
+	p.lastEmit = time.Now()
 }
 
 // collectFailedPodIDs walks the task store and returns the set of pod

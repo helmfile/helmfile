@@ -20,6 +20,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -571,6 +572,146 @@ func (t *Tracker) buildTargets(resources []*resource.Resource) []trackTarget {
 		})
 	}
 	return targets
+}
+
+// VerifyAllConverged returns true if every tracked resource in the list is in
+// a terminal "done" state per its kind's readiness convention, as reported by
+// the live API. It's used as a safety valve in the parallel-tracking flow:
+// once helm has signaled success and a grace period has elapsed, if the
+// cluster confirms everything healthy but the dyntracker is still wedged
+// (a known kubedog race where a Job pod completes faster than the resource
+// graph updates ResourceStatus to Ready), the caller can confidently cancel
+// the tracker instead of waiting out --track-timeout.
+//
+// Conservative on errors: any failure to fetch or any unrecognized kind
+// returns false so the caller keeps polling rather than declaring premature
+// success.
+func (t *Tracker) VerifyAllConverged(ctx context.Context, resources []*resource.Resource) bool {
+	for _, res := range resources {
+		kind, gvk, ok := classifyResource(res.Kind)
+		if !ok {
+			// Resource is not a kind we track — skip it. Same semantics as
+			// buildTargets, so the verification scope matches what kubedog
+			// is actually waiting on.
+			continue
+		}
+		gvr, err := t.gvrFor(gvk)
+		if err != nil {
+			t.logger.Debugf("kubedog safety valve: cannot resolve GVR for %s/%s/%s: %v", kind, res.Namespace, res.Name, err)
+			return false
+		}
+		obj, err := t.dynamicClient.Resource(gvr).Namespace(res.Namespace).Get(ctx, res.Name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// Helm reported success but the resource is missing — that's
+				// not "converged", it's a different problem. Let kubedog
+				// continue waiting and surface whatever error it picks up.
+				return false
+			}
+			t.logger.Debugf("kubedog safety valve: GET %s/%s/%s failed: %v", kind, res.Namespace, res.Name, err)
+			return false
+		}
+		if !isResourceConverged(kind, obj) {
+			return false
+		}
+	}
+	return true
+}
+
+// isResourceConverged dispatches to the kind-specific terminal-done check.
+// Returns false for kinds whose readiness can't be summarized as a single
+// API field (e.g. Canary, which has its own multi-phase state machine) — in
+// those cases we defer to dyntracker rather than risk false positives.
+func isResourceConverged(kind string, obj *unstructured.Unstructured) bool {
+	switch kind {
+	case "deploy":
+		return isDeploymentConverged(obj)
+	case "sts":
+		return isStatefulSetConverged(obj)
+	case "ds":
+		return isDaemonSetConverged(obj)
+	case "job":
+		return isJobConverged(obj)
+	case "pvc":
+		return isPVCConverged(obj)
+	}
+	return false
+}
+
+// isDeploymentConverged: observedGeneration must have caught up with the
+// current spec, and availableReplicas must satisfy the desired replica count.
+// availableReplicas is the right field (not readyReplicas) because it accounts
+// for minReadySeconds — matching kstatus's Current definition.
+func isDeploymentConverged(obj *unstructured.Unstructured) bool {
+	gen, _, _ := unstructured.NestedInt64(obj.Object, "metadata", "generation")
+	observed, _, _ := unstructured.NestedInt64(obj.Object, "status", "observedGeneration")
+	if observed < gen {
+		return false
+	}
+	replicas, found, _ := unstructured.NestedInt64(obj.Object, "spec", "replicas")
+	if !found {
+		replicas = 1
+	}
+	if replicas == 0 {
+		return true
+	}
+	available, _, _ := unstructured.NestedInt64(obj.Object, "status", "availableReplicas")
+	return available >= replicas
+}
+
+// isStatefulSetConverged: same generation gate as Deployment, plus the rolling
+// update must be complete (currentRevision == updateRevision) and readyReplicas
+// must meet the desired count.
+func isStatefulSetConverged(obj *unstructured.Unstructured) bool {
+	gen, _, _ := unstructured.NestedInt64(obj.Object, "metadata", "generation")
+	observed, _, _ := unstructured.NestedInt64(obj.Object, "status", "observedGeneration")
+	if observed < gen {
+		return false
+	}
+	currentRev, _, _ := unstructured.NestedString(obj.Object, "status", "currentRevision")
+	updateRev, _, _ := unstructured.NestedString(obj.Object, "status", "updateRevision")
+	if updateRev != "" && currentRev != updateRev {
+		return false
+	}
+	replicas, found, _ := unstructured.NestedInt64(obj.Object, "spec", "replicas")
+	if !found {
+		replicas = 1
+	}
+	if replicas == 0 {
+		return true
+	}
+	ready, _, _ := unstructured.NestedInt64(obj.Object, "status", "readyReplicas")
+	return ready >= replicas
+}
+
+// isDaemonSetConverged: numberReady must meet desiredNumberScheduled and the
+// rolling update must have observed the current spec.
+func isDaemonSetConverged(obj *unstructured.Unstructured) bool {
+	gen, _, _ := unstructured.NestedInt64(obj.Object, "metadata", "generation")
+	observed, _, _ := unstructured.NestedInt64(obj.Object, "status", "observedGeneration")
+	if observed < gen {
+		return false
+	}
+	desired, _, _ := unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
+	ready, _, _ := unstructured.NestedInt64(obj.Object, "status", "numberReady")
+	return desired > 0 && ready >= desired
+}
+
+// isJobConverged: succeeded count meets the completions target. This is the
+// exact check whose miss in dyntracker motivated the safety valve.
+func isJobConverged(obj *unstructured.Unstructured) bool {
+	completions, found, _ := unstructured.NestedInt64(obj.Object, "spec", "completions")
+	if !found {
+		completions = 1
+	}
+	succeeded, _, _ := unstructured.NestedInt64(obj.Object, "status", "succeeded")
+	return succeeded >= completions
+}
+
+// isPVCConverged: Bound is the only phase that means "usable by workloads."
+func isPVCConverged(obj *unstructured.Unstructured) bool {
+	phase, _, _ := unstructured.NestedString(obj.Object, "status", "phase")
+	return phase == "Bound"
 }
 
 func classifyResource(rawKind string) (string, schema.GroupVersionKind, bool) {
