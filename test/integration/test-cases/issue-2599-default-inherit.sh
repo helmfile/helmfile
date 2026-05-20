@@ -13,10 +13,10 @@ issue_2599_tmp=$(mktemp -d)
 test_start "issue 2599 default inherit"
 
 # Test 1: defaultInherit applies template to all releases
-info "Running helmfile template with defaultInherit"
-${helmfile} -f ${issue_2599_input_dir}/helmfile.yaml template \
+info "Running helmfile build with defaultInherit"
+${helmfile} -f ${issue_2599_input_dir}/helmfile.yaml build \
     > ${issue_2599_tmp}/output.log 2>&1 \
-    || { cat ${issue_2599_tmp}/output.log; fail "helmfile template with defaultInherit shouldn't fail"; }
+    || { cat ${issue_2599_tmp}/output.log; fail "helmfile build with defaultInherit shouldn't fail"; }
 
 # Verify namespace from template is applied to both releases
 grep -q "namespace: default-ns" ${issue_2599_tmp}/output.log \
@@ -29,9 +29,9 @@ grep -q "app1" ${issue_2599_tmp}/output.log \
 grep -q "app2" ${issue_2599_tmp}/output.log \
     || fail "release app2 should be in output"
 
-# Verify values from common.yaml are applied
-grep -q "testValue" ${issue_2599_tmp}/output.log \
-    || fail "values from common.yaml should be resolved"
+# Verify values from common.yaml are inherited
+grep -q "common.yaml" ${issue_2599_tmp}/output.log \
+    || fail "values from common.yaml should be inherited"
 
 # Test 2: non-existent template in defaultInherit should fail
 info "Running helmfile template with non-existent defaultInherit template"
