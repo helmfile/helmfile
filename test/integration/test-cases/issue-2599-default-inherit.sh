@@ -35,11 +35,11 @@ grep -q "testValue" ${issue_2599_tmp}/output.log \
 
 # Test 2: non-existent template in defaultInherit should fail
 info "Running helmfile template with non-existent defaultInherit template"
-cat > ${issue_2599_tmp}/bad-helmfile.yaml <<'EOF'
+cat > ${issue_2599_tmp}/bad-helmfile.yaml <<EOF
 defaultInherit: nonexistent
 releases:
 - name: app1
-  chart: ../../../../charts/raw
+  chart: ${issue_2599_input_dir}/../../../charts/raw
 EOF
 
 ${helmfile} -f ${issue_2599_tmp}/bad-helmfile.yaml template \
