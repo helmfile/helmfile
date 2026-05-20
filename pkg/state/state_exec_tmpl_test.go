@@ -341,6 +341,9 @@ func TestApplyDefaultInherit(t *testing.T) {
 			want:           Inherits{{Template: "default"}, {Template: "ops"}, {Template: "foo"}},
 		},
 		{
+			// Whitespace-only template names in releaseInherit are used verbatim for dedup
+			// (trimmed for map lookup), so the user's explicit entry is preserved in the output
+			// and the default is not prepended again.
 			name:           "release inherit with whitespace template is deduplicated correctly",
 			defaultInherit: DefaultInherits{"default"},
 			releaseInherit: Inherits{{Template: " default "}, {Template: "foo"}},

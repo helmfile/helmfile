@@ -235,14 +235,17 @@ func (st *HelmState) applyDefaultInherit(releaseInherit Inherits) Inherits {
 		return releaseInherit
 	}
 
+	// Build the deduplication set and filter out blank entries in one pass.
 	existing := make(map[string]bool, len(releaseInherit))
+	filtered := make(Inherits, 0, len(releaseInherit))
 	for _, inh := range releaseInherit {
 		if name := strings.TrimSpace(inh.Template); name != "" {
 			existing[name] = true
+			filtered = append(filtered, inh)
 		}
 	}
 
-	result := make(Inherits, 0, len(st.DefaultInherit)+len(releaseInherit))
+	result := make(Inherits, 0, len(st.DefaultInherit)+len(filtered))
 	for _, name := range st.DefaultInherit {
 		name = strings.TrimSpace(name)
 		if name == "" {
@@ -254,10 +257,6 @@ func (st *HelmState) applyDefaultInherit(releaseInherit Inherits) Inherits {
 			existing[name] = true
 		}
 	}
-	for _, inh := range releaseInherit {
-		if strings.TrimSpace(inh.Template) != "" {
-			result = append(result, inh)
-		}
-	}
+	result = append(result, filtered...)
 	return result
 }
