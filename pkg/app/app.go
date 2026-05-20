@@ -2279,20 +2279,57 @@ func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, []error) {
 	// Make the output deterministic for testing purpose
 	sort.Strings(names)
 
-	infoMsg := fmt.Sprintf(`Affected releases are:
+	interactive := c.Interactive()
+
+	var infoMsg string
+	if interactive {
+		if diffC, ok := c.(DiffConfigProvider); ok {
+			detectedKubeVersion := a.detectKubeVersion(st)
+			diffOpts := &state.DiffOpts{
+				Context:                 diffC.Context(),
+				Output:                  diffC.DiffOutput(),
+				Color:                   diffC.Color(),
+				NoColor:                 diffC.NoColor(),
+				Set:                     diffC.Set(),
+				DiffArgs:                diffC.DiffArgs(),
+				SkipDiffOnInstall:       diffC.SkipDiffOnInstall(),
+				ReuseValues:             diffC.ReuseValues(),
+				ResetValues:             diffC.ResetValues(),
+				PostRenderer:            diffC.PostRenderer(),
+				PostRendererArgs:        diffC.PostRendererArgs(),
+				SkipSchemaValidation:    diffC.SkipSchemaValidation(),
+				SuppressOutputLineRegex: diffC.SuppressOutputLineRegex(),
+				TakeOwnership:           diffC.TakeOwnership(),
+				DetectedKubeVersion:     detectedKubeVersion,
+			}
+			infoMsgPtr, _, _, diffErrs := r.diff(false, false, diffC, diffOpts)
+			if len(diffErrs) > 0 {
+				return false, diffErrs
+			}
+			if infoMsgPtr != nil {
+				infoMsg = *infoMsgPtr
+			} else {
+				infoMsg = fmt.Sprintf(`Affected releases are:
 %s
 `, strings.Join(names, "\n"))
+			}
+		} else {
+			infoMsg = fmt.Sprintf(`Affected releases are:
+%s
+`, strings.Join(names, "\n"))
+		}
+	} else {
+		infoMsg = fmt.Sprintf(`Affected releases are:
+%s
+`, strings.Join(names, "\n"))
+		a.Logger.Debug(infoMsg)
+	}
 
 	confMsg := fmt.Sprintf(`%s
 Do you really want to sync?
   Helmfile will sync all your releases, as shown above.
 
 `, infoMsg)
-
-	interactive := c.Interactive()
-	if !interactive {
-		a.Logger.Debug(infoMsg)
-	}
 
 	var errs []error
 

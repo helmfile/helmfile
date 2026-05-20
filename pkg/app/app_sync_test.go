@@ -14,6 +14,179 @@ import (
 	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
+func TestSyncInteractive(t *testing.T) {
+	type testcase struct {
+		interactive bool
+		confirm     bool
+		error       string
+		files       map[string]string
+		selectors   []string
+		lists       map[exectest.ListKey]string
+		diffs       map[exectest.DiffKey]error
+		upgraded    []exectest.Release
+		deleted     []exectest.Release
+	}
+
+	check := func(t *testing.T, tc testcase) {
+		t.Helper()
+
+		wantUpgrades := tc.upgraded
+		wantDeletes := tc.deleted
+
+		var helm = &exectest.Helm{
+			FailOnUnexpectedList: true,
+			FailOnUnexpectedDiff: true,
+			Lists:                tc.lists,
+			Diffs:                tc.diffs,
+			DiffMutex:            &sync.Mutex{},
+			ChartsMutex:          &sync.Mutex{},
+			ReleasesMutex:        &sync.Mutex{},
+		}
+
+		bs := runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
+			t.Helper()
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Errorf("unexpected error creating vals runtime: %v", err)
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              ffs.DefaultFileSystem(),
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, tc.files)
+
+			if tc.selectors != nil {
+				app.Selectors = tc.selectors
+			}
+
+			// Use ForEachState to gain access to the Run so we can inject Ask
+			forEachErr := app.ForEachState(func(run *Run) (bool, []error) {
+				run.Ask = func(msg string) bool {
+					return tc.confirm
+				}
+				return app.SyncState(run, applyConfig{
+					concurrency: 1,
+					interactive: tc.interactive,
+					skipNeeds:   true,
+					logger:      logger,
+				})
+			}, false)
+
+			var gotErr string
+			if forEachErr != nil {
+				gotErr = forEachErr.Error()
+			}
+
+			if d := cmp.Diff(tc.error, gotErr); d != "" {
+				t.Fatalf("unexpected error: want (-), got (+): %s", d)
+			}
+
+			if len(wantUpgrades) > len(helm.Releases) {
+				t.Fatalf("insufficient number of upgrades: got %d, want %d", len(helm.Releases), len(wantUpgrades))
+			}
+
+			for relIdx := range wantUpgrades {
+				if wantUpgrades[relIdx].Name != helm.Releases[relIdx].Name {
+					t.Errorf("releases[%d].name: got %q, want %q", relIdx, helm.Releases[relIdx].Name, wantUpgrades[relIdx].Name)
+				}
+				for flagIdx := range wantUpgrades[relIdx].Flags {
+					if wantUpgrades[relIdx].Flags[flagIdx] != helm.Releases[relIdx].Flags[flagIdx] {
+						t.Errorf("releaes[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Releases[relIdx].Flags[flagIdx], wantUpgrades[relIdx].Flags[flagIdx])
+					}
+				}
+			}
+
+			if len(wantDeletes) > len(helm.Deleted) {
+				t.Fatalf("insufficient number of deletes: got %d, want %d", len(helm.Deleted), len(wantDeletes))
+			}
+		})
+
+		_ = bs
+	}
+
+	t.Run("non-interactive: sync proceeds without diff", func(t *testing.T) {
+		check(t, testcase{
+			interactive: false,
+			confirm:     false,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
+		})
+	})
+
+	t.Run("interactive with diff: user confirms", func(t *testing.T) {
+		check(t, testcase{
+			interactive: true,
+			confirm:     true,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+`,
+			},
+			upgraded: []exectest.Release{
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
+			},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
+		})
+	})
+
+	t.Run("interactive with diff: user rejects", func(t *testing.T) {
+		check(t, testcase{
+			interactive: true,
+			confirm:     false,
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+`,
+			},
+			upgraded: []exectest.Release{},
+			diffs: map[exectest.DiffKey]error{
+				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values"}: helmexec.ExitError{Code: 2},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
+		})
+	})
+}
+
 func TestSync(t *testing.T) {
 	type fields struct {
 		skipNeeds              bool
