@@ -1,0 +1,8 @@
+---
+releases:
+  - name: release1
+    chart: ../chart
+    version: "*"
+    dependencies:
+      - chart: ../chart
+        version: "*"
