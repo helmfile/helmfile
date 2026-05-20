@@ -377,7 +377,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 
 	targets := t.buildTargets(filtered)
 	if len(targets) == 0 {
-		t.logger.Info("No trackable resources found (only Deployment, StatefulSet, DaemonSet, Job, and Canary are supported)")
+		t.logger.Info("No trackable resources found (only Deployment, StatefulSet, DaemonSet, Job, Canary, and PersistentVolumeClaim are supported)")
 		return nil
 	}
 
@@ -585,6 +585,8 @@ func classifyResource(rawKind string) (string, schema.GroupVersionKind, bool) {
 		return "job", schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}, true
 	case "canary":
 		return "canary", schema.GroupVersionKind{Group: "flagger.app", Version: "v1beta1", Kind: "Canary"}, true
+	case "persistentvolumeclaim", "pvc":
+		return "pvc", schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"}, true
 	}
 	return "", schema.GroupVersionKind{}, false
 }

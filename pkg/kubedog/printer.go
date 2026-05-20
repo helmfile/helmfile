@@ -695,6 +695,8 @@ func shortKind(kind string) string {
 		return "job"
 	case "Canary":
 		return "canary"
+	case "PersistentVolumeClaim":
+		return "pvc"
 	}
 	return strings.ToLower(kind)
 }

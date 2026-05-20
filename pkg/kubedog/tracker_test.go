@@ -293,6 +293,8 @@ func TestClassifyResource(t *testing.T) {
 		{"DaemonSet", "ds", schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}, true},
 		{"Job", "job", schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}, true},
 		{"Canary", "canary", schema.GroupVersionKind{Group: "flagger.app", Version: "v1beta1", Kind: "Canary"}, true},
+		{"PersistentVolumeClaim", "pvc", schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"}, true},
+		{"pvc", "pvc", schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"}, true},
 		{"ConfigMap", "", schema.GroupVersionKind{}, false},
 		{"Service", "", schema.GroupVersionKind{}, false},
 		{"", "", schema.GroupVersionKind{}, false},

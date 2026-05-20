@@ -175,6 +175,7 @@ func TestShortKind(t *testing.T) {
 	assert.Equal(t, "ds", shortKind("DaemonSet"))
 	assert.Equal(t, "job", shortKind("Job"))
 	assert.Equal(t, "canary", shortKind("Canary"))
+	assert.Equal(t, "pvc", shortKind("PersistentVolumeClaim"))
 	// Anything else lowercases for safety.
 	assert.Equal(t, "pod", shortKind("Pod"))
 }
