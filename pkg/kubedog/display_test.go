@@ -352,7 +352,7 @@ func TestDisplayChildPodsStatusProgress_NewPodSet(t *testing.T) {
 	assert.Contains(t, out, "pod-old-xyz")
 }
 
-func TestDisplayChildPodsStatusProgress_ManyPodsONCheck(t *testing.T) {
+func TestDisplayChildPodsStatusProgress_ManyPodsO1Check(t *testing.T) {
 	// Verifies O(1) new-pod detection works correctly for many pods
 	var buf bytes.Buffer
 	caption := formatResourceCaption("deploy/myapp", false, false)

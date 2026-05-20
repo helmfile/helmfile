@@ -522,7 +522,7 @@ func (t *Tracker) waitCanaryTracker(ctx context.Context, tr *canary.Tracker, tra
 			return nil
 		case status := <-tr.Failed:
 			displayCanaryStatus(out, formatResourceCaption(resourceName, false, true), CanaryStatusView{
-				Phase:    lastView.Phase,
+				Phase:    status.FailedReason,
 				IsFailed: true,
 			})
 			return fmt.Errorf("canary %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
