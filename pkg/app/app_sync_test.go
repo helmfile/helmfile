@@ -23,6 +23,7 @@ func TestSyncInteractive(t *testing.T) {
 		selectors   []string
 		lists       map[exectest.ListKey]string
 		diffs       map[exectest.DiffKey]error
+		wantDiffs   int
 		upgraded    []exectest.Release
 		deleted     []exectest.Release
 	}
@@ -73,12 +74,13 @@ func TestSyncInteractive(t *testing.T) {
 				run.Ask = func(msg string) bool {
 					return tc.confirm
 				}
-				return app.SyncState(run, applyConfig{
+				ok, _, errs := app.SyncState(run, applyConfig{
 					concurrency: 1,
 					interactive: tc.interactive,
 					skipNeeds:   true,
 					logger:      logger,
 				})
+				return ok, errs
 			}, false)
 
 			var gotErr string
@@ -100,9 +102,13 @@ func TestSyncInteractive(t *testing.T) {
 				}
 				for flagIdx := range wantUpgrades[relIdx].Flags {
 					if wantUpgrades[relIdx].Flags[flagIdx] != helm.Releases[relIdx].Flags[flagIdx] {
-						t.Errorf("releaes[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Releases[relIdx].Flags[flagIdx], wantUpgrades[relIdx].Flags[flagIdx])
+						t.Errorf("releases[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Releases[relIdx].Flags[flagIdx], wantUpgrades[relIdx].Flags[flagIdx])
 					}
 				}
+			}
+
+			if tc.wantDiffs > 0 && len(helm.Diffed) != tc.wantDiffs {
+				t.Fatalf("unexpected number of diffs: got %d, want %d", len(helm.Diffed), tc.wantDiffs)
 			}
 
 			if len(wantDeletes) > len(helm.Deleted) {
@@ -140,6 +146,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 		check(t, testcase{
 			interactive: true,
 			confirm:     true,
+			wantDiffs:   1,
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
 releases:
@@ -166,6 +173,7 @@ my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	def
 		check(t, testcase{
 			interactive: true,
 			confirm:     false,
+			wantDiffs:   1,
 			files: map[string]string{
 				"/path/to/helmfile.yaml": `
 releases:
@@ -282,7 +290,7 @@ func TestSync(t *testing.T) {
 				}
 				for flagIdx := range wantUpgrades[relIdx].Flags {
 					if wantUpgrades[relIdx].Flags[flagIdx] != helm.Releases[relIdx].Flags[flagIdx] {
-						t.Errorf("releaes[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Releases[relIdx].Flags[flagIdx], wantUpgrades[relIdx].Flags[flagIdx])
+						t.Errorf("releases[%d].flags[%d]: got %v, want %v", relIdx, flagIdx, helm.Releases[relIdx].Flags[flagIdx], wantUpgrades[relIdx].Flags[flagIdx])
 					}
 				}
 			}
