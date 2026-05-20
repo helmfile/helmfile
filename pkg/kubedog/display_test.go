@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
 	"github.com/werf/kubedog/pkg/tracker/daemonset"
 	"github.com/werf/kubedog/pkg/tracker/deployment"
 	"github.com/werf/kubedog/pkg/tracker/job"
@@ -131,7 +130,7 @@ func TestDisplayDeploymentStatusProgress_WithWaitingMessage(t *testing.T) {
 	var prev deployment.DeploymentStatus
 	// WaitingForMessages is only rendered when there are pods
 	status := deployment.DeploymentStatus{
-		StatusGeneration: 1,
+		StatusGeneration:   1,
 		WaitingForMessages: []string{"up-to-date 1->3"},
 		Pods: map[string]pod.PodStatus{
 			"myapp-pod-abc": {ReadyContainers: 1, TotalContainers: 1},

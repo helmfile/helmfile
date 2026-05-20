@@ -7,8 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/term"
-
 	"github.com/werf/kubedog/pkg/tracker/daemonset"
 	"github.com/werf/kubedog/pkg/tracker/deployment"
 	"github.com/werf/kubedog/pkg/tracker/indicators"
@@ -16,6 +14,7 @@ import (
 	"github.com/werf/kubedog/pkg/tracker/pod"
 	"github.com/werf/kubedog/pkg/tracker/statefulset"
 	"github.com/werf/kubedog/pkg/utils"
+	"golang.org/x/term"
 )
 
 var statusProgressTableRatio = []float64{.58, .11, .12, .19}
