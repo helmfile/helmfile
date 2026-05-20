@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/werf/kubedog/pkg/display"
 	"github.com/werf/kubedog/pkg/informer"
 	"github.com/werf/kubedog/pkg/tracker"
 	"github.com/werf/kubedog/pkg/tracker/canary"
@@ -234,6 +235,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 		ParentContext: ctx,
 		Timeout:       t.trackOptions.Timeout,
 		LogsFromTime:  time.Now().Add(-t.trackOptions.LogsSince),
+		IgnoreLogs:    !t.trackOptions.Logs,
 	}
 
 	var wg sync.WaitGroup
@@ -312,13 +314,35 @@ func (t *Tracker) runDeploymentTracker(ctx context.Context, tr *deployment.Track
 }
 
 func (t *Tracker) waitDeploymentTracker(ctx context.Context, tr *deployment.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
+	var prevStatus deployment.DeploymentStatus
+	out := statusOutput()
+	resourceName := fmt.Sprintf("deploy/%s", tr.ResourceName)
+
 	for {
 		select {
+		case status := <-tr.Added:
+			displayDeploymentStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
+			prevStatus = status
 		case <-tr.Ready:
-			t.logger.Debugf("Deployment %s/%s is ready", tr.Namespace, tr.ResourceName)
+			displayDeploymentStatusProgress(out, formatResourceCaption(resourceName, true, false), prevStatus, &prevStatus)
+			t.logger.Infof("Deployment %s/%s is ready", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayDeploymentStatusProgress(out, formatResourceCaption(resourceName, false, true), status, &prevStatus)
 			return fmt.Errorf("deployment %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
+		case status := <-tr.Status:
+			if status.StatusGeneration > prevStatus.StatusGeneration {
+				displayDeploymentStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
+				prevStatus = status
+			}
+		case msg := <-tr.EventMsg:
+			t.logger.Infof("deploy/%s: %s", tr.ResourceName, msg)
+		case chunk := <-tr.PodLogChunk:
+			t.logPodLogChunk(chunk.PodName, chunk.LogLines)
+		case report := <-tr.PodError:
+			t.logger.Warnf("deploy/%s pod %s: %s: %s", tr.ResourceName, report.ReplicaSetPodError.PodName, report.ReplicaSetPodError.ContainerName, report.ReplicaSetPodError.Message)
+		case <-tr.AddedReplicaSet:
+		case <-tr.AddedPod:
 		case err := <-trackErrCh:
 			return err
 		case <-doneCh:
@@ -338,13 +362,34 @@ func (t *Tracker) runStatefulSetTracker(ctx context.Context, tr *statefulset.Tra
 }
 
 func (t *Tracker) waitStatefulSetTracker(ctx context.Context, tr *statefulset.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
+	var prevStatus statefulset.StatefulSetStatus
+	out := statusOutput()
+	resourceName := fmt.Sprintf("sts/%s", tr.ResourceName)
+
 	for {
 		select {
+		case status := <-tr.Added:
+			displayStatefulSetStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
+			prevStatus = status
 		case <-tr.Ready:
-			t.logger.Debugf("StatefulSet %s/%s is ready", tr.Namespace, tr.ResourceName)
+			displayStatefulSetStatusProgress(out, formatResourceCaption(resourceName, true, false), prevStatus, &prevStatus)
+			t.logger.Infof("StatefulSet %s/%s is ready", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayStatefulSetStatusProgress(out, formatResourceCaption(resourceName, false, true), status, &prevStatus)
 			return fmt.Errorf("statefulset %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
+		case status := <-tr.Status:
+			if status.StatusGeneration > prevStatus.StatusGeneration {
+				displayStatefulSetStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
+				prevStatus = status
+			}
+		case msg := <-tr.EventMsg:
+			t.logger.Infof("sts/%s: %s", tr.ResourceName, msg)
+		case chunk := <-tr.PodLogChunk:
+			t.logPodLogChunk(chunk.PodName, chunk.LogLines)
+		case report := <-tr.PodError:
+			t.logger.Warnf("sts/%s pod %s: %s: %s", tr.ResourceName, report.ReplicaSetPodError.PodName, report.ReplicaSetPodError.ContainerName, report.ReplicaSetPodError.Message)
+		case <-tr.AddedPod:
 		case err := <-trackErrCh:
 			return err
 		case <-doneCh:
@@ -364,13 +409,34 @@ func (t *Tracker) runDaemonSetTracker(ctx context.Context, tr *daemonset.Tracker
 }
 
 func (t *Tracker) waitDaemonSetTracker(ctx context.Context, tr *daemonset.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
+	var prevStatus daemonset.DaemonSetStatus
+	out := statusOutput()
+	resourceName := fmt.Sprintf("ds/%s", tr.ResourceName)
+
 	for {
 		select {
+		case status := <-tr.Added:
+			displayDaemonSetStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
+			prevStatus = status
 		case <-tr.Ready:
-			t.logger.Debugf("DaemonSet %s/%s is ready", tr.Namespace, tr.ResourceName)
+			displayDaemonSetStatusProgress(out, formatResourceCaption(resourceName, true, false), prevStatus, &prevStatus)
+			t.logger.Infof("DaemonSet %s/%s is ready", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayDaemonSetStatusProgress(out, formatResourceCaption(resourceName, false, true), status, &prevStatus)
 			return fmt.Errorf("daemonset %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
+		case status := <-tr.Status:
+			if status.StatusGeneration > prevStatus.StatusGeneration {
+				displayDaemonSetStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
+				prevStatus = status
+			}
+		case msg := <-tr.EventMsg:
+			t.logger.Infof("ds/%s: %s", tr.ResourceName, msg)
+		case chunk := <-tr.PodLogChunk:
+			t.logPodLogChunk(chunk.PodName, chunk.LogLines)
+		case report := <-tr.PodError:
+			t.logger.Warnf("ds/%s pod %s: %s: %s", tr.ResourceName, report.PodError.PodName, report.PodError.ContainerName, report.PodError.Message)
+		case <-tr.AddedPod:
 		case err := <-trackErrCh:
 			return err
 		case <-doneCh:
@@ -390,13 +456,34 @@ func (t *Tracker) runJobTracker(ctx context.Context, tr *job.Tracker, errCh chan
 }
 
 func (t *Tracker) waitJobTracker(ctx context.Context, tr *job.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
+	var prevStatus job.JobStatus
+	out := statusOutput()
+	resourceName := fmt.Sprintf("job/%s", tr.ResourceName)
+
 	for {
 		select {
+		case status := <-tr.Added:
+			displayJobStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
+			prevStatus = status
 		case <-tr.Succeeded:
-			t.logger.Debugf("Job %s/%s succeeded", tr.Namespace, tr.ResourceName)
+			displayJobStatusProgress(out, formatResourceCaption(resourceName, true, false), prevStatus, &prevStatus)
+			t.logger.Infof("Job %s/%s succeeded", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayJobStatusProgress(out, formatResourceCaption(resourceName, false, true), status, &prevStatus)
 			return fmt.Errorf("job %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
+		case status := <-tr.Status:
+			if status.StatusGeneration > prevStatus.StatusGeneration {
+				displayJobStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
+				prevStatus = status
+			}
+		case msg := <-tr.EventMsg:
+			t.logger.Infof("job/%s: %s", tr.ResourceName, msg)
+		case chunk := <-tr.PodLogChunk:
+			t.logPodLogChunk(chunk.PodName, chunk.LogLines)
+		case report := <-tr.PodError:
+			t.logger.Warnf("job/%s pod %s: %s: %s", tr.ResourceName, report.PodError.PodName, report.PodError.ContainerName, report.PodError.Message)
+		case <-tr.AddedPod:
 		case err := <-trackErrCh:
 			return err
 		case <-doneCh:
@@ -416,13 +503,44 @@ func (t *Tracker) runCanaryTracker(ctx context.Context, tr *canary.Tracker, errC
 }
 
 func (t *Tracker) waitCanaryTracker(ctx context.Context, tr *canary.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
+	out := statusOutput()
+	resourceName := fmt.Sprintf("canary/%s", tr.ResourceName)
+	var lastView CanaryStatusView
+
 	for {
 		select {
+		case status := <-tr.Added:
+			view := CanaryStatusView{
+				Phase:    string(status.CanaryStatus.Phase),
+				IsFailed: status.IsFailed,
+			}
+			displayCanaryStatus(out, formatResourceCaption(resourceName, false, false), view)
+			lastView = view
 		case <-tr.Succeeded:
-			t.logger.Debugf("Canary %s/%s succeeded", tr.Namespace, tr.ResourceName)
+			displayCanaryStatus(out, formatResourceCaption(resourceName, true, false), CanaryStatusView{Phase: lastView.Phase})
+			t.logger.Infof("Canary %s/%s succeeded", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayCanaryStatus(out, formatResourceCaption(resourceName, false, true), CanaryStatusView{
+				Phase:    status.FailedReason,
+				IsFailed: true,
+			})
 			return fmt.Errorf("canary %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
+		case status := <-tr.Status:
+			view := CanaryStatusView{
+				Phase: func() string {
+					if status.StatusIndicator != nil {
+						return status.StatusIndicator.Value
+					}
+					return ""
+				}(),
+				Age:      status.Age,
+				IsFailed: status.IsFailed,
+			}
+			displayCanaryStatus(out, formatResourceCaption(resourceName, false, false), view)
+			lastView = view
+		case msg := <-tr.EventMsg:
+			t.logger.Infof("canary/%s: %s", tr.ResourceName, msg)
 		case err := <-trackErrCh:
 			return err
 		case <-doneCh:
@@ -430,6 +548,12 @@ func (t *Tracker) waitCanaryTracker(ctx context.Context, tr *canary.Tracker, tra
 		case <-ctx.Done():
 			return fmt.Errorf("tracking canceled for canary %s/%s: %w", tr.Namespace, tr.ResourceName, ctx.Err())
 		}
+	}
+}
+
+func (t *Tracker) logPodLogChunk(podName string, logLines []display.LogLine) {
+	for _, line := range logLines {
+		t.logger.Infof("po/%s [%s] %s", podName, line.Timestamp, line.Message)
 	}
 }
 
