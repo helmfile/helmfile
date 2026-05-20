@@ -32,6 +32,8 @@ grep -q "app2" ${issue_2599_tmp}/output.log \
 # Verify inherited values and labels per release
 sed -n '/name: app1/,/name: app2/p' ${issue_2599_tmp}/output.log > ${issue_2599_tmp}/app1.log
 sed -n '/name: app2/,/templates:/p' ${issue_2599_tmp}/output.log > ${issue_2599_tmp}/app2.log
+[ -s ${issue_2599_tmp}/app1.log ] || fail "failed to extract release app1 section from build output"
+[ -s ${issue_2599_tmp}/app2.log ] || fail "failed to extract release app2 section from build output"
 
 grep -q 'managed: "true"' ${issue_2599_tmp}/app1.log \
     || fail "release app1 should inherit managed label from default template"
@@ -39,8 +41,9 @@ grep -q "common.yaml" ${issue_2599_tmp}/app1.log \
     || fail "release app1 should inherit values from common.yaml"
 grep -q "common.yaml" ${issue_2599_tmp}/app2.log \
     || fail "release app2 should inherit values from common.yaml"
-grep -q 'managed: "true"' ${issue_2599_tmp}/app2.log \
-    && fail "release app2 should not inherit managed label due to except"
+if grep -q 'managed: "true"' ${issue_2599_tmp}/app2.log; then
+    fail "release app2 should not inherit managed label due to except"
+fi
 
 # Test 2: non-existent template in defaultInherit should fail
 info "Running helmfile build with non-existent defaultInherit template"
