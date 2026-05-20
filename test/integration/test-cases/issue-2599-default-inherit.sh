@@ -39,7 +39,7 @@ cat > ${issue_2599_tmp}/bad-helmfile.yaml <<EOF
 defaultInherit: nonexistent
 releases:
 - name: app1
-  chart: ${cases_dir}/../charts/raw
+  chart: ${dir}/charts/raw
 EOF
 
 ${helmfile} -f ${issue_2599_tmp}/bad-helmfile.yaml template \
