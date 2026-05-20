@@ -23,7 +23,7 @@ test_start "issue 2599 default inherit"
 
 # Test 1: defaultInherit applies template to all releases
 info "Running helmfile build with defaultInherit"
-"${helmfile}" -f "${issue_2599_input_dir}/helmfile.yaml" build \
+${helmfile} -f "${issue_2599_input_dir}/helmfile.yaml" build \
     > "${issue_2599_tmp}/output.log" 2>&1 \
     || { cat "${issue_2599_tmp}/output.log"; fail "helmfile build with defaultInherit shouldn't fail"; }
 
@@ -65,7 +65,7 @@ releases:
   chart: ${dir}/charts/raw
 EOF
 
-"${helmfile}" -f "${issue_2599_tmp}/bad-helmfile.yaml" build \
+${helmfile} -f "${issue_2599_tmp}/bad-helmfile.yaml" build \
     > "${issue_2599_tmp}/error.log" 2>&1 \
     && fail "helmfile build with non-existent defaultInherit template should fail"
 
