@@ -402,7 +402,7 @@ func (st *HelmState) startBackgroundKubedogTracking(
 			if payload == "" {
 				return
 			}
-			header := kubedog.HeaderDividerStyled(fmt.Sprintf("Helm output for release '%s':", release.Name), useColor)
+			header := kubedog.HeaderDividerStyled(fmt.Sprintf("Helm output for release '%s'", release.Name), useColor)
 			st.logger.Infof("\n%s\n%s", header, payload)
 		})
 	}

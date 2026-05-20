@@ -123,11 +123,12 @@ type progressPrinter struct {
 	gates          *gateStatuses
 	skipped        *skippedKeys
 	useColor       bool
+	startTime      time.Time
 	lastStatus     map[string]string
 	lastCounts     map[string]int
 	// lastLogSource is the "<resourceKey>|<source>" emitted at the tail of
 	// the previous flushLogs call. Carrying it across flushes lets us drop
-	// the redundant "logs <pod> <container>:" header when consecutive flushes
+	// the redundant "logs <pod> <container>" header when consecutive flushes
 	// continue from the same source.
 	lastLogSource string
 }
@@ -153,6 +154,7 @@ func newProgressPrinter(
 		gates:          gates,
 		skipped:        skipped,
 		useColor:       useColor,
+		startTime:      time.Now(),
 		lastStatus:     make(map[string]string),
 		lastCounts:     make(map[string]int),
 	}
@@ -479,9 +481,10 @@ func (p *progressPrinter) flushProgress() {
 	}
 	const statusGap = 2
 
-	title := "kubedog progress:"
+	elapsed := time.Since(p.startTime).Round(time.Second)
+	title := fmt.Sprintf("kubedog progress (%s)", elapsed)
 	if p.releaseName != "" {
-		title = fmt.Sprintf("Release '%s' progress:", p.releaseName)
+		title = fmt.Sprintf("Release '%s' progress (%s)", p.releaseName, elapsed)
 	}
 
 	var sb strings.Builder
@@ -596,7 +599,7 @@ func (p *progressPrinter) flushLogs() {
 				sb.WriteString("\n")
 				startedWithHeader = true
 			}
-			sb.WriteString(HeaderDividerStyled(fmt.Sprintf("Logs %s %s:", e.resourceKey, e.source), p.useColor))
+			sb.WriteString(HeaderDividerStyled(fmt.Sprintf("Logs %s %s", e.resourceKey, e.source), p.useColor))
 			prevKey = key
 		}
 		// Indent each line; the first line of a continuation flush has no

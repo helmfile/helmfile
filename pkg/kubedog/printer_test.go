@@ -244,10 +244,12 @@ func TestFlushProgress_HeaderUsesReleaseName(t *testing.T) {
 	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
 	p.flushProgress()
 	out := capturedOutput(buf, mu)
-	assert.Contains(t, out, "Release 'vray' progress:",
-		"header must use release name when set")
+	assert.Contains(t, out, "Release 'vray' progress (",
+		"header must use release name when set and include elapsed time")
 	assert.Contains(t, out, "==========",
 		"header must include divider that survives CI newline stripping")
+	assert.NotContains(t, out, "Release 'vray' progress:",
+		"header must not carry a trailing colon")
 }
 
 func TestFlushProgress_HeaderFallsBackWithoutReleaseName(t *testing.T) {
@@ -262,8 +264,9 @@ func TestFlushProgress_HeaderFallsBackWithoutReleaseName(t *testing.T) {
 	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
 	p.flushProgress()
 	out := capturedOutput(buf, mu)
-	assert.Contains(t, out, "kubedog progress:")
-	assert.NotContains(t, out, "Release ''", "empty release name must not produce 'Release '' progress:'")
+	assert.Contains(t, out, "kubedog progress (")
+	assert.NotContains(t, out, "Release ''", "empty release name must not produce 'Release '' progress'")
+	assert.NotContains(t, out, "kubedog progress:", "header must not carry a trailing colon")
 }
 
 func TestFlushProgress_NestingAndAlignment(t *testing.T) {
@@ -425,8 +428,10 @@ func TestFlushLogs_HeaderDedupedAcrossFlushes(t *testing.T) {
 	out := capturedOutput(buf, mu)
 	// The header should appear exactly once — second flush is a continuation
 	// of the same source.
-	assert.Equal(t, 1, strings.Count(out, "Logs Pod/ns/app-pod container/main:"),
+	assert.Equal(t, 1, strings.Count(out, "Logs Pod/ns/app-pod container/main"),
 		"continuation flushes must not re-emit the per-source header")
+	assert.NotContains(t, out, "Logs Pod/ns/app-pod container/main:",
+		"log header must not carry a trailing colon")
 	assert.Contains(t, out, "line 1")
 	assert.Contains(t, out, "line 4")
 }
