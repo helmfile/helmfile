@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"golang.org/x/term"
+
 	"github.com/werf/kubedog/pkg/tracker/daemonset"
 	"github.com/werf/kubedog/pkg/tracker/deployment"
 	"github.com/werf/kubedog/pkg/tracker/indicators"
@@ -209,15 +211,16 @@ func displayChildPodsStatusProgress(t *utils.Table, prevPods, pods map[string]po
 	sort.Strings(podsNames)
 
 	var podRows [][]interface{}
+
+	newPodSet := make(map[string]struct{}, len(newPodsNames))
+	for _, name := range newPodsNames {
+		newPodSet[name] = struct{}{}
+	}
+
 	for _, podName := range podsNames {
 		var podRow []interface{}
 
-		isPodNew := false
-		for _, newPodName := range newPodsNames {
-			if newPodName == podName {
-				isPodNew = true
-			}
-		}
+		_, isPodNew := newPodSet[podName]
 
 		prevPodStatus := prevPods[podName]
 		podStatus := pods[podName]
@@ -278,6 +281,9 @@ func formatResourceWarning(reason string) string {
 }
 
 func termWidth() int {
+	if w, _, err := term.GetSize(int(os.Stderr.Fd())); err == nil && w > 0 {
+		return w
+	}
 	return 140
 }
 

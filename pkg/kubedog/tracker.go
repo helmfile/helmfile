@@ -316,21 +316,23 @@ func (t *Tracker) runDeploymentTracker(ctx context.Context, tr *deployment.Track
 func (t *Tracker) waitDeploymentTracker(ctx context.Context, tr *deployment.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
 	var prevStatus deployment.DeploymentStatus
 	out := statusOutput()
-	caption := formatResourceCaption(fmt.Sprintf("deploy/%s", tr.ResourceName), false, false)
+	resourceName := fmt.Sprintf("deploy/%s", tr.ResourceName)
 
 	for {
 		select {
 		case status := <-tr.Added:
-			displayDeploymentStatusProgress(out, caption, status, &prevStatus)
+			displayDeploymentStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
 			prevStatus = status
 		case <-tr.Ready:
+			displayDeploymentStatusProgress(out, formatResourceCaption(resourceName, true, false), prevStatus, &prevStatus)
 			t.logger.Infof("Deployment %s/%s is ready", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayDeploymentStatusProgress(out, formatResourceCaption(resourceName, false, true), status, &prevStatus)
 			return fmt.Errorf("deployment %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
 		case status := <-tr.Status:
 			if status.StatusGeneration > prevStatus.StatusGeneration {
-				displayDeploymentStatusProgress(out, caption, status, &prevStatus)
+				displayDeploymentStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
 				prevStatus = status
 			}
 		case msg := <-tr.EventMsg:
@@ -362,21 +364,23 @@ func (t *Tracker) runStatefulSetTracker(ctx context.Context, tr *statefulset.Tra
 func (t *Tracker) waitStatefulSetTracker(ctx context.Context, tr *statefulset.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
 	var prevStatus statefulset.StatefulSetStatus
 	out := statusOutput()
-	caption := formatResourceCaption(fmt.Sprintf("sts/%s", tr.ResourceName), false, false)
+	resourceName := fmt.Sprintf("sts/%s", tr.ResourceName)
 
 	for {
 		select {
 		case status := <-tr.Added:
-			displayStatefulSetStatusProgress(out, caption, status, &prevStatus)
+			displayStatefulSetStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
 			prevStatus = status
 		case <-tr.Ready:
+			displayStatefulSetStatusProgress(out, formatResourceCaption(resourceName, true, false), prevStatus, &prevStatus)
 			t.logger.Infof("StatefulSet %s/%s is ready", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayStatefulSetStatusProgress(out, formatResourceCaption(resourceName, false, true), status, &prevStatus)
 			return fmt.Errorf("statefulset %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
 		case status := <-tr.Status:
 			if status.StatusGeneration > prevStatus.StatusGeneration {
-				displayStatefulSetStatusProgress(out, caption, status, &prevStatus)
+				displayStatefulSetStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
 				prevStatus = status
 			}
 		case msg := <-tr.EventMsg:
@@ -407,21 +411,23 @@ func (t *Tracker) runDaemonSetTracker(ctx context.Context, tr *daemonset.Tracker
 func (t *Tracker) waitDaemonSetTracker(ctx context.Context, tr *daemonset.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
 	var prevStatus daemonset.DaemonSetStatus
 	out := statusOutput()
-	caption := formatResourceCaption(fmt.Sprintf("ds/%s", tr.ResourceName), false, false)
+	resourceName := fmt.Sprintf("ds/%s", tr.ResourceName)
 
 	for {
 		select {
 		case status := <-tr.Added:
-			displayDaemonSetStatusProgress(out, caption, status, &prevStatus)
+			displayDaemonSetStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
 			prevStatus = status
 		case <-tr.Ready:
+			displayDaemonSetStatusProgress(out, formatResourceCaption(resourceName, true, false), prevStatus, &prevStatus)
 			t.logger.Infof("DaemonSet %s/%s is ready", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayDaemonSetStatusProgress(out, formatResourceCaption(resourceName, false, true), status, &prevStatus)
 			return fmt.Errorf("daemonset %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
 		case status := <-tr.Status:
 			if status.StatusGeneration > prevStatus.StatusGeneration {
-				displayDaemonSetStatusProgress(out, caption, status, &prevStatus)
+				displayDaemonSetStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
 				prevStatus = status
 			}
 		case msg := <-tr.EventMsg:
@@ -452,21 +458,23 @@ func (t *Tracker) runJobTracker(ctx context.Context, tr *job.Tracker, errCh chan
 func (t *Tracker) waitJobTracker(ctx context.Context, tr *job.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
 	var prevStatus job.JobStatus
 	out := statusOutput()
-	caption := formatResourceCaption(fmt.Sprintf("job/%s", tr.ResourceName), false, false)
+	resourceName := fmt.Sprintf("job/%s", tr.ResourceName)
 
 	for {
 		select {
 		case status := <-tr.Added:
-			displayJobStatusProgress(out, caption, status, &prevStatus)
+			displayJobStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
 			prevStatus = status
 		case <-tr.Succeeded:
+			displayJobStatusProgress(out, formatResourceCaption(resourceName, true, false), prevStatus, &prevStatus)
 			t.logger.Infof("Job %s/%s succeeded", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayJobStatusProgress(out, formatResourceCaption(resourceName, false, true), status, &prevStatus)
 			return fmt.Errorf("job %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
 		case status := <-tr.Status:
 			if status.StatusGeneration > prevStatus.StatusGeneration {
-				displayJobStatusProgress(out, caption, status, &prevStatus)
+				displayJobStatusProgress(out, formatResourceCaption(resourceName, false, false), status, &prevStatus)
 				prevStatus = status
 			}
 		case msg := <-tr.EventMsg:
@@ -496,22 +504,30 @@ func (t *Tracker) runCanaryTracker(ctx context.Context, tr *canary.Tracker, errC
 
 func (t *Tracker) waitCanaryTracker(ctx context.Context, tr *canary.Tracker, trackErrCh <-chan error, doneCh <-chan struct{}) error {
 	out := statusOutput()
-	caption := formatResourceCaption(fmt.Sprintf("canary/%s", tr.ResourceName), false, false)
+	resourceName := fmt.Sprintf("canary/%s", tr.ResourceName)
+	var lastView CanaryStatusView
 
 	for {
 		select {
 		case status := <-tr.Added:
-			displayCanaryStatus(out, caption, CanaryStatusView{
+			view := CanaryStatusView{
 				Phase:    string(status.CanaryStatus.Phase),
 				IsFailed: status.IsFailed,
-			})
+			}
+			displayCanaryStatus(out, formatResourceCaption(resourceName, false, false), view)
+			lastView = view
 		case <-tr.Succeeded:
+			displayCanaryStatus(out, formatResourceCaption(resourceName, true, false), CanaryStatusView{Phase: lastView.Phase})
 			t.logger.Infof("Canary %s/%s succeeded", tr.Namespace, tr.ResourceName)
 			return nil
 		case status := <-tr.Failed:
+			displayCanaryStatus(out, formatResourceCaption(resourceName, false, true), CanaryStatusView{
+				Phase:    lastView.Phase,
+				IsFailed: true,
+			})
 			return fmt.Errorf("canary %s/%s failed: %s", tr.Namespace, tr.ResourceName, status.FailedReason)
 		case status := <-tr.Status:
-			displayCanaryStatus(out, caption, CanaryStatusView{
+			view := CanaryStatusView{
 				Phase: func() string {
 					if status.StatusIndicator != nil {
 						return status.StatusIndicator.Value
@@ -520,7 +536,9 @@ func (t *Tracker) waitCanaryTracker(ctx context.Context, tr *canary.Tracker, tra
 				}(),
 				Age:      status.Age,
 				IsFailed: status.IsFailed,
-			})
+			}
+			displayCanaryStatus(out, formatResourceCaption(resourceName, false, false), view)
+			lastView = view
 		case msg := <-tr.EventMsg:
 			t.logger.Infof("canary/%s: %s", tr.ResourceName, msg)
 		case err := <-trackErrCh:
