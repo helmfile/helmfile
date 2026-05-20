@@ -476,10 +476,10 @@ func TestDefaultInherits_UnmarshalYAML(t *testing.T) {
 		},
 	}
 
-	for _, yamlV3 := range []bool{true, false} {
-		t.Run(fmt.Sprintf("GoYamlV3=%t", yamlV3), func(t *testing.T) {
+	for _, enableGoYamlV3 := range []bool{true, false} {
+		t.Run(fmt.Sprintf("GoYamlV3=%t", enableGoYamlV3), func(t *testing.T) {
 			prev := runtime.GoYamlV3
-			runtime.GoYamlV3 = yamlV3
+			runtime.GoYamlV3 = enableGoYamlV3
 			defer func() {
 				runtime.GoYamlV3 = prev
 			}()

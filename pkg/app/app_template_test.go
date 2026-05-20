@@ -646,11 +646,11 @@ func TestTemplate_DefaultInherit_Multiple(t *testing.T) {
 templates:
   ns:
     namespace: from-ns-template
-  ctx:
+  override:
     namespace: from-ctx-template
 defaultInherit:
   - ns
-  - ctx
+  - override
 releases:
 - name: app1
   chart: incubator/raw
@@ -688,7 +688,7 @@ releases:
 		})
 	}
 
-	t.Run("multiple default inherits are applied", func(t *testing.T) {
+	t.Run("multiple default inherits are applied in order", func(t *testing.T) {
 		check(t, testcase{
 			templated: []exectest.Release{
 				{Name: "app1", Flags: []string{"--kube-context", "default", "--namespace", "from-ctx-template"}},
