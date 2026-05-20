@@ -237,9 +237,6 @@ func (st *HelmState) applyDefaultInherit(releaseInherit Inherits) Inherits {
 
 	existing := make(map[string]bool, len(releaseInherit))
 	for _, inh := range releaseInherit {
-		if inh.Template == "" {
-			continue
-		}
 		existing[inh.Template] = true
 	}
 

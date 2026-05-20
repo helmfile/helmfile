@@ -536,6 +536,7 @@ func (r *DefaultInherits) UnmarshalYAML(unmarshal func(any) error) error {
 	return nil
 }
 
+// normalizeDefaultInherits trims names, drops empty entries, and returns nil for an empty result.
 func normalizeDefaultInherits(in []string) []string {
 	if len(in) == 0 {
 		return nil
