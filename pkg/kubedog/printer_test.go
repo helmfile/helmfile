@@ -481,8 +481,72 @@ func TestFlushHeartbeat_EmitsWhenIdleWithInFlight(t *testing.T) {
 
 	out := capturedOutput(buf, mu)
 	assert.Contains(t, out, "Release 'vray' still tracking")
-	assert.Contains(t, out, "Deployment/ns/app",
-		"heartbeat must name the in-flight resource so operators see what's blocking")
+	assert.Contains(t, out, "Deployment/ns/app (progressing)",
+		"heartbeat must name the in-flight resource and tag it as progressing")
+}
+
+func TestFlushHeartbeat_LabelsGatedTasksAsWaiting(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// One task that is mid-rollout, and one that's still gated by the
+	// freshness gate (helm hasn't gotten to it yet) — the heartbeat must
+	// distinguish them so operators know what's running vs what's queued.
+	progressing := statestore.NewReadinessTaskState("running-job", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, progressing, 1)
+	addPodChild(t, progressing, "running-job-pod", "ns", statestore.ResourceStatusUnknown, "Running")
+
+	queued := statestore.NewReadinessTaskState("queued-job", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, queued, 1)
+
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(progressing))
+		s.AddReadinessTaskState(kdutil.NewConcurrent(queued))
+	})
+
+	gates := newGateStatuses()
+	gates.set(BaselineKey("job", "ns", "queued-job"), "waiting for update (uid=abc gen=1)")
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Job/ns/queued-job (waiting)",
+		"freshness-gated task must be tagged as waiting")
+	assert.Contains(t, out, "Job/ns/running-job (progressing)",
+		"non-gated in-flight task must be tagged as progressing")
+}
+
+func TestFlushHeartbeat_DoesNotUpdateLastEmit(t *testing.T) {
+	// Regression: when flushHeartbeat updated p.lastEmit on emit, the next
+	// scheduled ticker tick (which fires on a fixed wall-clock interval from
+	// ticker creation) landed microseconds short of heartbeatInterval after
+	// our processing delay — the time.Since check then suppressed every
+	// other tick, producing an effective 4-minute cadence instead of 2.
+	// Subsequent heartbeats during a silent stretch must rely on p.lastEmit
+	// staying pinned to the previous change-driven flush.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	addPodChild(t, ts, "app-pending", "ns", statestore.ResourceStatusUnknown, "ContainerCreating")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, _, _ := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	pinned := time.Now().Add(-3 * heartbeatInterval)
+	p.lastEmit = pinned
+
+	p.flushHeartbeat()
+
+	assert.Equal(t, pinned, p.lastEmit,
+		"flushHeartbeat must not touch lastEmit — that's what caused the every-other-tick suppression")
 }
 
 func TestFlushHeartbeat_SuppressedWhenRecentEmit(t *testing.T) {

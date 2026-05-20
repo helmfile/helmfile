@@ -641,11 +641,28 @@ func (p *progressPrinter) flushLogs() {
 // hung. Suppressed when (a) the printer recently produced output already, or
 // (b) every tracked task is Ready — in which case there's no useful content.
 func (p *progressPrinter) flushHeartbeat() {
+	// Suppress only if some *change-driven* output (progress block or log
+	// stream) happened recently. We deliberately do NOT update p.lastEmit
+	// from this function: two consecutive heartbeats during a silent stretch
+	// are exactly what the operator needs. Updating lastEmit on every
+	// heartbeat caused the next tick (which fires on a fixed wall-clock
+	// schedule) to land microseconds short of heartbeatInterval after our
+	// processing delay, so it got suppressed — observed effect was a tick
+	// emitted every 4 minutes instead of 2.
 	if time.Since(p.lastEmit) < heartbeatInterval {
 		return
 	}
 
-	var inFlight []string
+	gateSnapshot := map[string]string{}
+	if p.gates != nil {
+		gateSnapshot = p.gates.snapshot()
+	}
+
+	type inflight struct {
+		label  string
+		gated  bool
+	}
+	var items []inflight
 	p.taskStore.RTransaction(func(s *statestore.TaskStore) {
 		for _, taskC := range s.ReadinessTasksStates() {
 			taskC.RTransaction(func(ts *statestore.ReadinessTaskState) {
@@ -655,17 +672,24 @@ func (p *progressPrinter) flushHeartbeat() {
 				if p.skipped != nil && p.skipped.has(kdutil.ResourceID(ts.Name(), ts.Namespace(), ts.GroupVersionKind())) {
 					return
 				}
-				inFlight = append(inFlight, fmt.Sprintf("%s/%s/%s",
-					ts.GroupVersionKind().Kind, ts.Namespace(), ts.Name()))
+				kind := ts.GroupVersionKind().Kind
+				name := ts.Name()
+				ns := ts.Namespace()
+				_, gated := gateSnapshot[BaselineKey(shortKind(kind), ns, name)]
+				items = append(items, inflight{
+					label: fmt.Sprintf("%s/%s/%s", kind, ns, name),
+					gated: gated,
+				})
 			})
 		}
 	})
 
-	if len(inFlight) == 0 {
+	if len(items) == 0 {
 		return
 	}
 
-	sort.Strings(inFlight)
+	sort.Slice(items, func(i, j int) bool { return items[i].label < items[j].label })
+
 	elapsed := time.Since(p.startTime).Round(time.Second)
 	label := "kubedog"
 	if p.releaseName != "" {
@@ -673,22 +697,30 @@ func (p *progressPrinter) flushHeartbeat() {
 	}
 
 	const maxShown = 3
-	shown := inFlight
+	shownItems := items
 	overflow := ""
-	if len(shown) > maxShown {
-		overflow = fmt.Sprintf(", …and %d more", len(shown)-maxShown)
-		shown = shown[:maxShown]
+	if len(shownItems) > maxShown {
+		overflow = fmt.Sprintf(", …and %d more", len(shownItems)-maxShown)
+		shownItems = shownItems[:maxShown]
+	}
+
+	rendered := make([]string, len(shownItems))
+	for i, it := range shownItems {
+		state := "progressing"
+		if it.gated {
+			state = "waiting"
+		}
+		rendered[i] = fmt.Sprintf("%s (%s)", it.label, state)
 	}
 
 	var line string
-	if len(inFlight) == 1 {
-		line = fmt.Sprintf("%s still tracking (%s) — %s", label, elapsed, shown[0])
+	if len(items) == 1 {
+		line = fmt.Sprintf("%s still tracking (%s) — %s", label, elapsed, rendered[0])
 	} else {
 		line = fmt.Sprintf("%s still tracking (%s) — %d in flight: %s%s",
-			label, elapsed, len(inFlight), strings.Join(shown, ", "), overflow)
+			label, elapsed, len(items), strings.Join(rendered, ", "), overflow)
 	}
 	p.logger.Info(p.colorize(line, ansiCyan))
-	p.lastEmit = time.Now()
 }
 
 // collectFailedPodIDs walks the task store and returns the set of pod
