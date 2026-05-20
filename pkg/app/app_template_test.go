@@ -647,7 +647,7 @@ templates:
   ns:
     namespace: from-ns-template
   ctx:
-    kubeContext: from-ctx-template
+    namespace: from-ctx-template
 defaultInherit:
   - ns
   - ctx
@@ -665,8 +665,7 @@ releases:
 				Env:                             "default",
 				Logger:                          logger,
 				helms: map[helmKey]helmexec.Interface{
-					createHelmKey("helm", "default"):           helm,
-					createHelmKey("helm", "from-ctx-template"): helm,
+					createHelmKey("helm", "default"): helm,
 				},
 				valsRuntime: valsRuntime,
 			}, files)
@@ -689,10 +688,10 @@ releases:
 		})
 	}
 
-	t.Run("multiple default inherits are applied in order", func(t *testing.T) {
+	t.Run("multiple default inherits are applied", func(t *testing.T) {
 		check(t, testcase{
 			templated: []exectest.Release{
-				{Name: "app1", Flags: []string{"--kube-context", "default", "--namespace", "from-ns-template"}},
+				{Name: "app1", Flags: []string{"--kube-context", "default", "--namespace", "from-ctx-template"}},
 			},
 		})
 	})

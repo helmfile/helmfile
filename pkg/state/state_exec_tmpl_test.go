@@ -8,10 +8,11 @@ import (
 
 	"github.com/go-test/deep"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/runtime"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 func boolPtrToString(ptr *bool) string {
@@ -475,20 +476,30 @@ func TestDefaultInherits_UnmarshalYAML(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var got DefaultInherits
-			err := yaml.Unmarshal([]byte(tt.input), &got)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if len(got) != len(tt.want) {
-				t.Fatalf("expected %d items, got %d", len(tt.want), len(got))
-			}
-			for i := range got {
-				if got[i] != tt.want[i] {
-					t.Errorf("item[%d]: expected %q, got %q", i, tt.want[i], got[i])
-				}
+	for _, yamlV3 := range []bool{true, false} {
+		t.Run(fmt.Sprintf("GoYamlV3=%t", yamlV3), func(t *testing.T) {
+			prev := runtime.GoYamlV3
+			runtime.GoYamlV3 = yamlV3
+			defer func() {
+				runtime.GoYamlV3 = prev
+			}()
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					var got DefaultInherits
+					err := yaml.Unmarshal([]byte(tt.input), &got)
+					if err != nil {
+						t.Fatalf("unexpected error: %v", err)
+					}
+					if len(got) != len(tt.want) {
+						t.Fatalf("expected %d items, got %d", len(tt.want), len(got))
+					}
+					for i := range got {
+						if got[i] != tt.want[i] {
+							t.Errorf("item[%d]: expected %q, got %q", i, tt.want[i], got[i])
+						}
+					}
+				})
 			}
 		})
 	}
