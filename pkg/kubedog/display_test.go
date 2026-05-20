@@ -2,9 +2,11 @@ package kubedog
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/gookit/color"
 	"github.com/stretchr/testify/assert"
 	"github.com/werf/kubedog/pkg/tracker/daemonset"
 	"github.com/werf/kubedog/pkg/tracker/deployment"
@@ -12,6 +14,13 @@ import (
 	"github.com/werf/kubedog/pkg/tracker/pod"
 	"github.com/werf/kubedog/pkg/tracker/statefulset"
 )
+
+// TestMain forces ANSI color output so that tests asserting on escape codes
+// pass in non-TTY environments such as CI runners.
+func TestMain(m *testing.M) {
+	color.ForceColor()
+	os.Exit(m.Run())
+}
 
 // --- formatResourceCaption ---
 
