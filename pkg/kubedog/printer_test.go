@@ -204,6 +204,34 @@ func TestFlushProgress_HidesStaleReadyPodWithoutAttr(t *testing.T) {
 	assert.NotContains(t, out, "app-old-abc", "stale ready pod without status attribute must be hidden")
 }
 
+func TestFlushProgress_HidesEmptyNameChildPlaceholder(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	ts := statestore.NewReadinessTaskState("init", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	addPodChild(t, ts, "real-pod", "ns", statestore.ResourceStatusReady, "Running")
+	// Placeholder child that dyntracker can insert when it has observed a
+	// reference to a pod but hasn't ingested the object yet — empty name,
+	// no status, no attributes. It must not be rendered.
+	addPodChild(t, ts, "", "ns", statestore.ResourceStatusUnknown, "")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Pod/ns/real-pod")
+	// "Pod/ns/" with no name suffix is the visible footprint of the
+	// placeholder. It must not appear in the rendered output.
+	assert.NotContains(t, out, "Pod/ns/ ",
+		"empty-name placeholder child must not be rendered")
+	assert.NotContains(t, out, "Pod/ns/\n",
+		"empty-name placeholder child must not be rendered as a trailing row")
+}
+
 func TestFlushProgress_HeaderUsesReleaseName(t *testing.T) {
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
 	logStore := kdutil.NewConcurrent(logstore.NewLogStore())

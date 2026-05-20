@@ -340,6 +340,13 @@ func (p *progressPrinter) flushProgress() {
 							}
 							return
 						}
+						// Skip placeholder children that dyntracker inserts when
+						// it has observed a reference to a resource but hasn't
+						// yet ingested the full object — they have no name and
+						// no status, so they can't tell the operator anything.
+						if rs.Name() == "" {
+							return
+						}
 						label := fmt.Sprintf("%s/%s/%s", rs.GroupVersionKind().Kind, rs.Namespace(), rs.Name())
 						var podStatusAttr string
 						for _, attr := range rs.Attributes() {
