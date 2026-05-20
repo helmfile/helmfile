@@ -520,6 +520,47 @@ func TestFlushHeartbeat_LabelsGatedTasksAsWaiting(t *testing.T) {
 		"non-gated in-flight task must be tagged as progressing")
 }
 
+func TestFlushHeartbeat_ProgressingItemsListedBeforeWaiting(t *testing.T) {
+	// Two waiting items with names that sort before the progressing one —
+	// without the gated-aware sort, the alphabetical order would push the
+	// progressing item past the cap or just bury it. We care most about
+	// what's actually running, so progressing must always render first.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	for _, name := range []string{"aaa-queued", "bbb-queued"} {
+		ts := statestore.NewReadinessTaskState(name, "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+		setRequiredReplicas(t, ts, 1)
+		taskStore.RWTransaction(func(s *statestore.TaskStore) {
+			s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+		})
+	}
+	running := statestore.NewReadinessTaskState("zzz-running", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, running, 1)
+	addPodChild(t, running, "zzz-running-pod", "ns", statestore.ResourceStatusUnknown, "Running")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(running))
+	})
+
+	gates := newGateStatuses()
+	gates.set(BaselineKey("job", "ns", "aaa-queued"), "waiting for update (uid=a gen=1)")
+	gates.set(BaselineKey("job", "ns", "bbb-queued"), "waiting for update (uid=b gen=1)")
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+
+	out := capturedOutput(buf, mu)
+	runningIdx := strings.Index(out, "zzz-running (progressing)")
+	firstWaitingIdx := strings.Index(out, "aaa-queued (waiting)")
+	require.Positive(t, runningIdx, "progressing item must appear in the line")
+	require.Positive(t, firstWaitingIdx, "waiting item must appear in the line")
+	assert.Less(t, runningIdx, firstWaitingIdx,
+		"progressing items must be listed before waiting ones so the head of the line surfaces what's actually running")
+}
+
 func TestFlushHeartbeat_DoesNotUpdateLastEmit(t *testing.T) {
 	// Regression: when flushHeartbeat updated p.lastEmit on emit, the next
 	// scheduled ticker tick (which fires on a fixed wall-clock interval from

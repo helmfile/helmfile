@@ -688,7 +688,17 @@ func (p *progressPrinter) flushHeartbeat() {
 		return
 	}
 
-	sort.Slice(items, func(i, j int) bool { return items[i].label < items[j].label })
+	// Sort progressing items before gated ones (and alphabetically within each
+	// bucket) so the heartbeat's truncated head shows what's actually running
+	// — that's the load-bearing signal for "is something stuck?" Waiting
+	// items are queue lookahead, useful but secondary; they survive into the
+	// "…and N more" overflow if the cap is hit.
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].gated != items[j].gated {
+			return !items[i].gated
+		}
+		return items[i].label < items[j].label
+	})
 
 	elapsed := time.Since(p.startTime).Round(time.Second)
 	label := "kubedog"
