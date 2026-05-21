@@ -535,6 +535,19 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 	select {
 	case err := <-errCh:
 		firstErr = err
+		// Surface the error immediately, while it's happening, instead of
+		// silently cancelling everything and only logging at wait() time.
+		// Without this, the operator sees the progress block stop dead and
+		// then nothing for minutes (until helm.SyncRelease returns and
+		// helmfile drains the result channel). A one-line warning here
+		// tells them right away that kubedog tracking failed and that
+		// helmfile is now just waiting for helm to finish on its own.
+		releaseLabel := "kubedog"
+		if t.releaseName != "" {
+			releaseLabel = fmt.Sprintf("release '%s'", t.releaseName)
+		}
+		t.logger.Warnf("kubedog tracker stopped for %s: %v — helmfile will continue waiting for helm to finish; no more progress/log output until then",
+			releaseLabel, err)
 		cancel()
 	case <-trackersDone:
 	case <-trackCtx.Done():
