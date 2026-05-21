@@ -109,12 +109,63 @@ func (g *GlobalImpl) SetSet(set map[string]any) {
 
 // HelmBinary returns the path to the Helm binary.
 func (g *GlobalImpl) HelmBinary() string {
-	return g.GlobalOptions.HelmBinary
+	var helmBinary string
+
+	switch {
+	case g.GlobalOptions.HelmBinary != "":
+		helmBinary = g.GlobalOptions.HelmBinary
+	case os.Getenv("HELMFILE_HELM_BINARY") != "":
+		helmBinary = os.Getenv("HELMFILE_HELM_BINARY")
+	default:
+		helmBinary = state.DefaultHelmBinary
+	}
+	return helmBinary
 }
 
 // KustomizeBinary returns the path to the Kustomize binary.
 func (g *GlobalImpl) KustomizeBinary() string {
-	return g.GlobalOptions.KustomizeBinary
+	var kustomizeBinary string
+
+	switch {
+	case g.GlobalOptions.KustomizeBinary != "":
+		kustomizeBinary = g.GlobalOptions.KustomizeBinary
+	case os.Getenv("HELMFILE_KUSTOMIZE_BINARY") != "":
+		kustomizeBinary = os.Getenv("HELMFILE_KUSTOMIZE_BINARY")
+	default:
+		kustomizeBinary = state.DefaultKustomizeBinary
+	}
+	return kustomizeBinary
+}
+
+// LogLevel returns the log level to use.
+func (g *GlobalImpl) LogLevel() string {
+	var logLevel string
+
+	switch {
+	case g.GlobalOptions.LogLevel != "":
+		logLevel = g.GlobalOptions.LogLevel
+	case os.Getenv("HELMFILE_LOG_LEVEL") != "":
+		logLevel = os.Getenv("HELMFILE_LOG_LEVEL")
+	default:
+		logLevel = "info"
+	}
+	return logLevel
+}
+
+// Debug returns whether debug output is enabled.
+func (g *GlobalImpl) Debug() bool {
+	if g.GlobalOptions.Debug {
+		return true
+	}
+	return os.Getenv(envvar.Debug) == "true"
+}
+
+// Quiet returns whether quiet output is enabled.
+func (g *GlobalImpl) Quiet() bool {
+	if g.GlobalOptions.Quiet {
+		return true
+	}
+	return os.Getenv(envvar.Quiet) == "true"
 }
 
 // Kubeconfig returns the path to the kubeconfig file to use.
@@ -259,7 +310,14 @@ func (g *GlobalImpl) Color() bool {
 
 // NoColor returns the no color flag
 func (g *GlobalImpl) NoColor() bool {
-	return g.GlobalOptions.NoColor
+	if g.GlobalOptions.NoColor {
+		return true
+	}
+	if os.Getenv(envvar.NoColor) == "true" {
+		return true
+	}
+	// Honor the de-facto https://no-color.org/ standard: any non-empty value disables color.
+	return os.Getenv("NO_COLOR") != ""
 }
 
 // Env returns the environment to use.
@@ -296,7 +354,7 @@ func (g *GlobalImpl) Interactive() bool {
 // Args returns the args to use for helm
 func (g *GlobalImpl) Args() string {
 	args := g.GlobalOptions.Args
-	enableHelmDebug := g.Debug
+	enableHelmDebug := g.Debug()
 
 	if enableHelmDebug {
 		args = fmt.Sprintf("%s %s", args, "--debug")

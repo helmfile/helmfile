@@ -119,3 +119,254 @@ func TestNamespace(t *testing.T) {
 	}
 	os.Unsetenv(envvar.Namespace)
 }
+
+// TestHelmBinary tests the helm-binary flag and HELMFILE_HELM_BINARY env var fallback
+func TestHelmBinary(t *testing.T) {
+	tests := []struct {
+		opts     GlobalOptions
+		env      string
+		expected string
+	}{
+		{
+			opts:     GlobalOptions{},
+			env:      "",
+			expected: "helm",
+		},
+		{
+			opts:     GlobalOptions{},
+			env:      "envset",
+			expected: "envset",
+		},
+		{
+			opts:     GlobalOptions{HelmBinary: "flagset"},
+			env:      "",
+			expected: "flagset",
+		},
+		{
+			opts:     GlobalOptions{HelmBinary: "flagset"},
+			env:      "envset",
+			expected: "flagset",
+		},
+	}
+
+	for _, test := range tests {
+		os.Setenv(envvar.HelmBinary, test.env)
+		received := NewGlobalImpl(&test.opts).HelmBinary()
+		require.Equalf(t, test.expected, received, "HelmBinary expected %s, received %s", test.expected, received)
+	}
+	os.Unsetenv(envvar.HelmBinary)
+}
+
+// TestKustomizeBinary tests the kustomize-binary flag and HELMFILE_KUSTOMIZE_BINARY env var fallback
+func TestKustomizeBinary(t *testing.T) {
+	tests := []struct {
+		opts     GlobalOptions
+		env      string
+		expected string
+	}{
+		{
+			opts:     GlobalOptions{},
+			env:      "",
+			expected: "kustomize",
+		},
+		{
+			opts:     GlobalOptions{},
+			env:      "envset",
+			expected: "envset",
+		},
+		{
+			opts:     GlobalOptions{KustomizeBinary: "flagset"},
+			env:      "",
+			expected: "flagset",
+		},
+		{
+			opts:     GlobalOptions{KustomizeBinary: "flagset"},
+			env:      "envset",
+			expected: "flagset",
+		},
+	}
+
+	for _, test := range tests {
+		os.Setenv(envvar.KustomizeBinary, test.env)
+		received := NewGlobalImpl(&test.opts).KustomizeBinary()
+		require.Equalf(t, test.expected, received, "KustomizeBinary expected %s, received %s", test.expected, received)
+	}
+	os.Unsetenv(envvar.KustomizeBinary)
+}
+
+// TestLogLevel tests the log-level flag and HELMFILE_LOG_LEVEL env var fallback
+func TestLogLevel(t *testing.T) {
+	tests := []struct {
+		opts     GlobalOptions
+		env      string
+		expected string
+	}{
+		{
+			opts:     GlobalOptions{},
+			env:      "",
+			expected: "info",
+		},
+		{
+			opts:     GlobalOptions{},
+			env:      "envset",
+			expected: "envset",
+		},
+		{
+			opts:     GlobalOptions{LogLevel: "flagset"},
+			env:      "",
+			expected: "flagset",
+		},
+		{
+			opts:     GlobalOptions{LogLevel: "flagset"},
+			env:      "envset",
+			expected: "flagset",
+		},
+	}
+
+	for _, test := range tests {
+		os.Setenv(envvar.LogLevel, test.env)
+		received := NewGlobalImpl(&test.opts).LogLevel()
+		require.Equalf(t, test.expected, received, "LogLevel expected %s, received %s", test.expected, received)
+	}
+	os.Unsetenv(envvar.LogLevel)
+}
+
+// TestDebug tests the debug flag and HELMFILE_DEBUG env var fallback
+func TestDebug(t *testing.T) {
+	tests := []struct {
+		opts     GlobalOptions
+		env      string
+		expected bool
+	}{
+		{
+			opts:     GlobalOptions{},
+			env:      "",
+			expected: false,
+		},
+		{
+			opts:     GlobalOptions{},
+			env:      "true",
+			expected: true,
+		},
+		{
+			opts:     GlobalOptions{},
+			env:      "anything",
+			expected: false,
+		},
+		{
+			opts:     GlobalOptions{Debug: true},
+			env:      "",
+			expected: true,
+		},
+		{
+			opts:     GlobalOptions{Debug: true},
+			env:      "true",
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		os.Setenv(envvar.Debug, test.env)
+		received := NewGlobalImpl(&test.opts).Debug()
+		require.Equalf(t, test.expected, received, "Debug expected %t, received %t", test.expected, received)
+	}
+	os.Unsetenv(envvar.Debug)
+}
+
+// TestQuiet tests the quiet flag and HELMFILE_QUIET env var fallback
+func TestQuiet(t *testing.T) {
+	tests := []struct {
+		opts     GlobalOptions
+		env      string
+		expected bool
+	}{
+		{
+			opts:     GlobalOptions{},
+			env:      "",
+			expected: false,
+		},
+		{
+			opts:     GlobalOptions{},
+			env:      "true",
+			expected: true,
+		},
+		{
+			opts:     GlobalOptions{},
+			env:      "anything",
+			expected: false,
+		},
+		{
+			opts:     GlobalOptions{Quiet: true},
+			env:      "",
+			expected: true,
+		},
+		{
+			opts:     GlobalOptions{Quiet: true},
+			env:      "true",
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		os.Setenv(envvar.Quiet, test.env)
+		received := NewGlobalImpl(&test.opts).Quiet()
+		require.Equalf(t, test.expected, received, "Quiet expected %t, received %t", test.expected, received)
+	}
+	os.Unsetenv(envvar.Quiet)
+}
+
+// TestNoColor tests the no-color flag, HELMFILE_NO_COLOR and NO_COLOR env var fallbacks
+func TestNoColor(t *testing.T) {
+	tests := []struct {
+		opts        GlobalOptions
+		helmfileEnv string
+		standardEnv string
+		expected    bool
+	}{
+		{
+			opts:        GlobalOptions{},
+			helmfileEnv: "",
+			standardEnv: "",
+			expected:    false,
+		},
+		{
+			opts:        GlobalOptions{},
+			helmfileEnv: "true",
+			standardEnv: "",
+			expected:    true,
+		},
+		{
+			opts:        GlobalOptions{},
+			helmfileEnv: "anything",
+			standardEnv: "",
+			expected:    false,
+		},
+		{
+			opts:        GlobalOptions{},
+			helmfileEnv: "",
+			standardEnv: "1",
+			expected:    true,
+		},
+		{
+			opts:        GlobalOptions{},
+			helmfileEnv: "",
+			standardEnv: "anything",
+			expected:    true,
+		},
+		{
+			opts:        GlobalOptions{NoColor: true},
+			helmfileEnv: "",
+			standardEnv: "",
+			expected:    true,
+		},
+	}
+
+	for _, test := range tests {
+		os.Setenv(envvar.NoColor, test.helmfileEnv)
+		os.Setenv("NO_COLOR", test.standardEnv)
+		received := NewGlobalImpl(&test.opts).NoColor()
+		require.Equalf(t, test.expected, received, "NoColor expected %t, received %t", test.expected, received)
+	}
+	os.Unsetenv(envvar.NoColor)
+	os.Unsetenv("NO_COLOR")
+}
