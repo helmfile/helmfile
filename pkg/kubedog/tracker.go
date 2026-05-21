@@ -452,6 +452,12 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 	printer := newProgressPrinter(t.logger, t.releaseName, taskStore, logStore, skipLogsInPrinter, failedLogsOnly, gateStatuses, t.skipped, t.trackOptions.Color)
 	printerDone := make(chan struct{})
 
+	// Spawn a parallel failure watchdog. It catches pods that genuinely
+	// failed in the cluster but never made it into dyntracker's graph due
+	// to the Pod-before-ReplicaSet linkage race, so they're at least
+	// visible to the operator even when kubedog's tree is missing them.
+	go t.runFailureWatchdog(trackCtx, taskStore, resources)
+
 	var trackerWg sync.WaitGroup
 	errCh := make(chan error, len(entries))
 
