@@ -293,7 +293,7 @@ func (g *GlobalImpl) Color() bool {
 		return c
 	}
 
-	if g.GlobalOptions.NoColor {
+	if g.NoColor() {
 		return false
 	}
 
@@ -312,6 +312,10 @@ func (g *GlobalImpl) Color() bool {
 func (g *GlobalImpl) NoColor() bool {
 	if g.GlobalOptions.NoColor {
 		return true
+	}
+	// Explicit --color short-circuits env-derived no-color: a flag must win over an env var.
+	if g.GlobalOptions.Color {
+		return false
 	}
 	if os.Getenv(envvar.NoColor) == "true" {
 		return true

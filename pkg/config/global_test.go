@@ -370,3 +370,53 @@ func TestNoColor(t *testing.T) {
 	os.Unsetenv(envvar.NoColor)
 	os.Unsetenv("NO_COLOR")
 }
+
+// TestColorRespectsNoColorEnv guards against ValidateConfig() firing when
+// HELMFILE_NO_COLOR / NO_COLOR is set without an explicit --color/--no-color flag.
+// Color() must consult NoColor() (which is env-aware) before falling back to TTY autodetect.
+func TestColorRespectsNoColorEnv(t *testing.T) {
+	tests := []struct {
+		name        string
+		helmfileEnv string
+		standardEnv string
+	}{
+		{name: "HELMFILE_NO_COLOR=true", helmfileEnv: "true"},
+		{name: "NO_COLOR set", standardEnv: "1"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv(envvar.NoColor, test.helmfileEnv)
+			t.Setenv("NO_COLOR", test.standardEnv)
+			g := NewGlobalImpl(&GlobalOptions{})
+			require.True(t, g.NoColor(), "NoColor() should be true when env is set")
+			require.False(t, g.Color(), "Color() should be false when NoColor() is true via env")
+			require.NoError(t, g.ValidateConfig(), "ValidateConfig() should not error from env-only no-color")
+		})
+	}
+}
+
+// TestColorFlagOverridesNoColorEnv guards against ValidateConfig() firing when
+// --color is explicitly passed but HELMFILE_NO_COLOR / NO_COLOR is set in the
+// environment. The flag must win over the env var.
+func TestColorFlagOverridesNoColorEnv(t *testing.T) {
+	tests := []struct {
+		name        string
+		helmfileEnv string
+		standardEnv string
+	}{
+		{name: "HELMFILE_NO_COLOR=true", helmfileEnv: "true"},
+		{name: "NO_COLOR set", standardEnv: "1"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv(envvar.NoColor, test.helmfileEnv)
+			t.Setenv("NO_COLOR", test.standardEnv)
+			g := NewGlobalImpl(&GlobalOptions{Color: true})
+			require.True(t, g.Color(), "Color() should be true when --color is set")
+			require.False(t, g.NoColor(), "NoColor() should be false when --color is set, even if env says otherwise")
+			require.NoError(t, g.ValidateConfig(), "ValidateConfig() should not error when --color overrides env no-color")
+		})
+	}
+}
