@@ -208,7 +208,9 @@ func TestSync(t *testing.T) {
 		concurrency       int
 		timeout           int
 		skipDiffOnInstall bool
+		detailedExitcode  bool
 		error             string
+		errorCode         int
 		files             map[string]string
 		selectors         []string
 		lists             map[exectest.ListKey]string
@@ -269,6 +271,7 @@ func TestSync(t *testing.T) {
 				skipNeeds:              tc.fields.skipNeeds,
 				includeNeeds:           tc.fields.includeNeeds,
 				includeTransitiveNeeds: tc.fields.includeTransitiveNeeds,
+				detailedExitcode:       tc.detailedExitcode,
 			})
 
 			var gotErr string
@@ -278,6 +281,16 @@ func TestSync(t *testing.T) {
 
 			if d := cmp.Diff(tc.error, gotErr); d != "" {
 				t.Fatalf("unexpected error: want (-), got (+): %s", d)
+			}
+
+			if tc.errorCode >= 0 {
+				var gotCode int
+				if appErr, ok := syncErr.(*Error); ok && appErr != nil {
+					gotCode = appErr.Code()
+				}
+				if tc.errorCode != gotCode {
+					t.Fatalf("unexpected error code: got %d, want %d", gotCode, tc.errorCode)
+				}
 			}
 
 			if len(wantUpgrades) > len(helm.Releases) {
@@ -676,6 +689,30 @@ releases:
 			concurrency: 1,
 			upgraded: []exectest.Release{
 				{Name: "my-release", Flags: []string{"--timeout", "600s", "--kube-context", "default", "--namespace", "default"}},
+			},
+			lists: map[exectest.ListKey]string{
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
+my-release 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
+`,
+			},
+		})
+	})
+
+	t.Run("detailed-exitcode returns exit code 2 on successful sync", func(t *testing.T) {
+		check(t, testcase{
+			files: map[string]string{
+				"/path/to/helmfile.yaml": `
+releases:
+- name: my-release
+  chart: incubator/raw
+  namespace: default
+`,
+			},
+			detailedExitcode: true,
+			errorCode:        2,
+			concurrency:      1,
+			upgraded: []exectest.Release{
+				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
 			lists: map[exectest.ListKey]string{
 				{Filter: "^my-release$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
