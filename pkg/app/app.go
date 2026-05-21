@@ -484,7 +484,11 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
-	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+	var any bool
+
+	mut := &sync.Mutex{}
+
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.WithPreparedCharts("sync", state.ChartPrepareOptions{
@@ -500,7 +504,14 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 		}, func() []error {
-			ok, errs = a.SyncState(run, c)
+			matched, updated, es := a.SyncState(run, c)
+
+			mut.Lock()
+			any = any || updated
+			mut.Unlock()
+
+			ok = matched
+			errs = es
 			return errs
 		})
 
@@ -510,6 +521,18 @@ func (a *App) Sync(c SyncConfigProvider) error {
 
 		return
 	}, c.IncludeTransitiveNeeds())
+
+	if err != nil {
+		return err
+	}
+
+	if ec, ok := c.(interface{ DetailedExitcode() bool }); ok && ec.DetailedExitcode() && any {
+		code := 2
+
+		return &Error{msg: "", code: &code}
+	}
+
+	return nil
 }
 
 func (a *App) Apply(c ApplyConfigProvider) error {
@@ -2210,16 +2233,16 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	return true, errs
 }
 
-func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, []error) {
+func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
 	releasesWithNeeds, selectedAndNeededReleases, err := a.GetPlannedAndSelectedReleasesWithNeeds(r, c.SkipNeeds(), c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 	if err != nil {
-		return false, []error{err}
+		return false, false, []error{err}
 	}
 	if len(releasesWithNeeds) == 0 {
-		return false, nil
+		return false, false, nil
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
@@ -2228,7 +2251,7 @@ func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, []error) {
 
 	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, releasesWithNeeds)
 	if err != nil {
-		return false, []error{err}
+		return false, false, []error{err}
 	}
 
 	releasesToDelete := map[string]state.ReleaseSpec{}
@@ -2279,24 +2302,63 @@ func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, []error) {
 	// Make the output deterministic for testing purpose
 	sort.Strings(names)
 
-	infoMsg := fmt.Sprintf(`Affected releases are:
+	interactive := c.Interactive()
+
+	var infoMsg string
+	var errs []error
+
+	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
+
+	operationsAttempted := false
+
+	if interactive {
+		if diffC, ok := c.(DiffConfigProvider); ok {
+			detectedKubeVersion := a.detectKubeVersion(st)
+			diffOpts := &state.DiffOpts{
+				Context:                 diffC.Context(),
+				Output:                  diffC.DiffOutput(),
+				Color:                   diffC.Color(),
+				NoColor:                 diffC.NoColor(),
+				Set:                     diffC.Set(),
+				DiffArgs:                diffC.DiffArgs(),
+				SkipDiffOnInstall:       diffC.SkipDiffOnInstall(),
+				ReuseValues:             diffC.ReuseValues(),
+				ResetValues:             diffC.ResetValues(),
+				PostRenderer:            diffC.PostRenderer(),
+				PostRendererArgs:        diffC.PostRendererArgs(),
+				SkipSchemaValidation:    diffC.SkipSchemaValidation(),
+				SuppressOutputLineRegex: diffC.SuppressOutputLineRegex(),
+				TakeOwnership:           diffC.TakeOwnership(),
+				DetectedKubeVersion:     detectedKubeVersion,
+			}
+			infoMsgPtr, _, _, diffErrs := r.diff(false, diffC.DetailedExitcode(), diffC, diffOpts)
+			if len(diffErrs) > 0 {
+				return false, false, diffErrs
+			}
+			if infoMsgPtr != nil {
+				infoMsg = *infoMsgPtr
+			} else {
+				infoMsg = fmt.Sprintf(`Affected releases are:
 %s
 `, strings.Join(names, "\n"))
+			}
+		} else {
+			infoMsg = fmt.Sprintf(`Affected releases are:
+%s
+`, strings.Join(names, "\n"))
+		}
+	} else {
+		infoMsg = fmt.Sprintf(`Affected releases are:
+%s
+`, strings.Join(names, "\n"))
+		a.Logger.Debug(infoMsg)
+	}
 
 	confMsg := fmt.Sprintf(`%s
 Do you really want to sync?
   Helmfile will sync all your releases, as shown above.
 
 `, infoMsg)
-
-	interactive := c.Interactive()
-	if !interactive {
-		a.Logger.Debug(infoMsg)
-	}
-
-	var errs []error
-
-	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
@@ -2305,6 +2367,7 @@ Do you really want to sync?
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		if len(releasesToDelete) > 0 {
+			operationsAttempted = true
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
@@ -2326,6 +2389,7 @@ Do you really want to sync?
 		}
 
 		if len(releasesToUpdate) > 0 {
+			operationsAttempted = true
 			_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
@@ -2378,7 +2442,9 @@ Do you really want to sync?
 		}
 	}
 
-	return true, errs
+	changesApplied := operationsAttempted && len(errs) == 0
+
+	return true, changesApplied, errs
 }
 
 func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
