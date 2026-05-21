@@ -13,6 +13,7 @@ require (
 	github.com/gofrs/flock v0.13.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
+	github.com/gookit/color v1.5.4
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-cty-funcs v0.1.0
 	github.com/hashicorp/go-getter/v2 v2.2.3
@@ -192,7 +193,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cncf/xds/go v0.0.0-20251210132809-ee656c7534f5 // indirect
-	github.com/containerd/containerd v1.7.30 // indirect
+	github.com/containerd/containerd v1.7.32 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
@@ -254,7 +255,6 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.14 // indirect
-	github.com/gookit/color v1.5.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
