@@ -237,12 +237,57 @@ func TestAppendWaitFlags(t *testing.T) {
 			expected: []string{"--wait"},
 		},
 		{
-			name:     "kubedog track mode skips --wait",
+			// Kubedog tracking with helm v4 must actively pass --wait=legacy
+			// so helm uses the poll-based waiter for its hook execution
+			// instead of helm v4's default hookOnly+kstatus path, which has
+			// the known channel-receive wedge.
+			name:     "kubedog track mode with Helm v4 and wait true uses --wait=legacy",
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0], TrackMode: "kubedog"},
 			syncOpts: nil,
 			helmSpec: HelmSpec{},
 			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{"--wait=legacy"},
+		},
+		{
+			// HelmDefaults.Wait covers the case where the release doesn't
+			// set wait explicitly — kubedog still forces legacy on v4.
+			name:     "kubedog track mode with Helm v4 and defaults wait uses --wait=legacy",
+			release:  &ReleaseSpec{TrackMode: "kubedog"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Wait: true},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{"--wait=legacy"},
+		},
+		{
+			// Per-release wait: false beats defaults — respect operator
+			// intent even though they're then exposed to the kstatus hook
+			// race for any hooks in the release.
+			name:     "kubedog track mode with Helm v4 and explicit wait false skips --wait",
+			release:  &ReleaseSpec{Wait: &[]bool{false}[0], TrackMode: "kubedog"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Wait: true},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
 			expected: []string{},
+		},
+		{
+			// Helm v3 doesn't have wait strategies. With kubedog tracking +
+			// v3 we just pass plain --wait (v3's waiter never had this race).
+			name:     "kubedog track mode with Helm v3 falls back to plain --wait",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0], TrackMode: "kubedog"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("3.15.0"),
+			expected: []string{"--wait"},
+		},
+		{
+			// Track-mode set via syncOpts must produce the same result as
+			// release-level.
+			name:     "kubedog track mode from syncOpts with Helm v4 uses --wait=legacy",
+			release:  &ReleaseSpec{Wait: &[]bool{true}[0]},
+			syncOpts: &SyncOpts{TrackMode: "kubedog"},
+			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{"--wait=legacy"},
 		},
 	}
 

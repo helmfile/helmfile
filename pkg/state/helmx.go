@@ -511,10 +511,6 @@ func (st *HelmState) getTrackMode(release *ReleaseSpec, ops *SyncOpts) string {
 }
 
 func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, ops *SyncOpts) []string {
-	if st.shouldUseKubedog(release, ops) {
-		return flags
-	}
-
 	shouldWait := false
 	switch {
 	case release.Wait != nil && *release.Wait:
@@ -525,9 +521,24 @@ func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, re
 		shouldWait = true
 	}
 
+	usingKubedog := st.shouldUseKubedog(release, ops)
+	if usingKubedog && !shouldWait {
+		// User explicitly opted out of helm waiting on this release (or
+		// neither release nor defaults asked for it). Honor that — pass
+		// nothing. Note: helm v4's default with no --wait is hookOnly,
+		// which still routes hooks through kstatus, so this release is
+		// exposed to the known hook-waiter wedge if any hook is present.
+		// We warn once per release so the operator knows the trade-off.
+		if release.Wait != nil && !*release.Wait && helm != nil && helm.IsHelm4() && st.logger != nil {
+			st.logger.Debugf("release %s has wait: false with --track-mode kubedog; helm v4's default hookOnly waiter still uses kstatus and may wedge on hook completion. Consider wait: true to switch to legacy waiter.", release.Name)
+		}
+		return flags
+	}
+
 	if shouldWait {
 		trackMode := st.getTrackMode(release, ops)
-		if trackMode == string(kubedog.TrackModeHelmLegacy) {
+		switch {
+		case trackMode == string(kubedog.TrackModeHelmLegacy):
 			if helm != nil && helm.IsHelm4() {
 				flags = append(flags, "--wait=legacy")
 			} else {
@@ -536,7 +547,16 @@ func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, re
 				}
 				flags = append(flags, "--wait")
 			}
-		} else {
+		case usingKubedog && helm != nil && helm.IsHelm4():
+			// Kubedog is the authoritative tracker for this release.
+			// Force helm onto the legacy poll-based waiter to bypass the
+			// helm v4 kstatus hook waiter race (statuswait.go:195
+			// channel-receive wedge that fires under parallel-install
+			// load on Job hooks). The wait is then redundant with kubedog
+			// but harmless — legacy polls cheaply and terminates as soon
+			// as the cluster reports ready.
+			flags = append(flags, "--wait=legacy")
+		default:
 			flags = append(flags, "--wait")
 		}
 	}
