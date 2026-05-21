@@ -529,7 +529,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 	if ec, ok := c.(interface{ DetailedExitcode() bool }); ok && ec.DetailedExitcode() && any {
 		code := 2
 
-		return &Error{msg: "Identified at least one change", code: &code}
+		return &Error{msg: "", code: &code}
 	}
 
 	return nil
