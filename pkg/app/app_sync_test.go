@@ -107,7 +107,7 @@ func TestSyncInteractive(t *testing.T) {
 				}
 			}
 
-			if tc.wantDiffs > 0 && len(helm.Diffed) != tc.wantDiffs {
+			if len(helm.Diffed) != tc.wantDiffs {
 				t.Fatalf("unexpected number of diffs: got %d, want %d", len(helm.Diffed), tc.wantDiffs)
 			}
 
