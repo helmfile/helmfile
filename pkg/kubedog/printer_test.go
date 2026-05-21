@@ -199,10 +199,34 @@ func TestFlushProgress_HidesStaleReadyPodWithoutAttr(t *testing.T) {
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
-	assert.Contains(t, out, "Deployment/ns/app")
+	assert.Contains(t, out, "Deployment/app")
 	assert.Contains(t, out, "ready (1/1)", "ready count must be capped to required replicas")
-	assert.Contains(t, out, "Pod/ns/app-new-xyz")
+	assert.Contains(t, out, "Pod/app-new-xyz")
 	assert.NotContains(t, out, "app-old-abc", "stale ready pod without status attribute must be hidden")
+}
+
+func TestFlushProgress_KeepsNamespacesWhenReleaseSpansMultiple(t *testing.T) {
+	// A release that creates workloads in two namespaces must keep the full
+	// Kind/ns/name on every row — there's no single namespace to elide.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	a := statestore.NewReadinessTaskState("app-a", "ns-one", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	b := statestore.NewReadinessTaskState("app-b", "ns-two", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(a))
+		s.AddReadinessTaskState(kdutil.NewConcurrent(b))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+	out := capturedOutput(buf, mu)
+
+	assert.Contains(t, out, "Deployment/ns-one/app-a")
+	assert.Contains(t, out, "Deployment/ns-two/app-b")
+	assert.NotContains(t, out, "in 'ns-one'",
+		"multi-namespace release must not pick one namespace for the header")
+	assert.NotContains(t, out, "in 'ns-two'", "header must not pick a single namespace")
 }
 
 func TestFlushProgress_HidesEmptyNameChildPlaceholder(t *testing.T) {
@@ -224,12 +248,12 @@ func TestFlushProgress_HidesEmptyNameChildPlaceholder(t *testing.T) {
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
-	assert.Contains(t, out, "Pod/ns/real-pod")
+	assert.Contains(t, out, "Pod/real-pod")
 	// "Pod/ns/" with no name suffix is the visible footprint of the
 	// placeholder. It must not appear in the rendered output.
-	assert.NotContains(t, out, "Pod/ns/ ",
+	assert.NotContains(t, out, "Pod/ ",
 		"empty-name placeholder child must not be rendered")
-	assert.NotContains(t, out, "Pod/ns/\n",
+	assert.NotContains(t, out, "Pod/\n",
 		"empty-name placeholder child must not be rendered as a trailing row")
 }
 
@@ -288,8 +312,10 @@ func TestFlushProgress_NestingAndAlignment(t *testing.T) {
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
-	require.Contains(t, out, "Deployment/default/svc")
-	require.Contains(t, out, "  • Pod/default/svc-pod-aaa", "pod rows must be indented with a bullet")
+	require.Contains(t, out, "Deployment/svc")
+	require.Contains(t, out, "in 'default'",
+		"single-namespace release must surface the namespace in the header")
+	require.Contains(t, out, "  • Pod/svc-pod-aaa", "pod rows must be indented with a bullet")
 	require.Contains(t, out, "Running")
 	require.Contains(t, out, "ContainerCreating")
 	// readyChildren counts only Ready pods; one of two is ready.
@@ -322,10 +348,10 @@ func TestFlushProgress_RespectsGateAndSkip(t *testing.T) {
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
-	assert.Contains(t, out, "Deployment/ns/gated")
+	assert.Contains(t, out, "Deployment/gated")
 	assert.Contains(t, out, "waiting for update (uid=abc gen=2)")
-	assert.NotContains(t, out, "Deployment/ns/skipped", "skipped tasks must be omitted")
-	assert.Contains(t, out, "Deployment/ns/visible")
+	assert.NotContains(t, out, "Deployment/skipped", "skipped tasks must be omitted")
+	assert.Contains(t, out, "Deployment/visible")
 	assert.Contains(t, out, "ready (1/1)")
 }
 
@@ -353,7 +379,7 @@ func TestFlushLogs_FailedOnlyMode_GatesUnchanged(t *testing.T) {
 	assert.NotContains(t, out, "good line", "successful-pod logs must be hidden in failed-only mode")
 	assert.Contains(t, out, "bad line 1")
 	assert.Contains(t, out, "panic: boom")
-	assert.Contains(t, out, "Pod/ns/init-bad")
+	assert.Contains(t, out, "Pod/init-bad")
 }
 
 func TestFlushLogs_FailedOnlyMode_DoesNotAdvanceCursorForSuccess(t *testing.T) {
@@ -429,9 +455,9 @@ func TestFlushLogs_HeaderDedupedAcrossFlushes(t *testing.T) {
 	out := capturedOutput(buf, mu)
 	// The header should appear exactly once — second flush is a continuation
 	// of the same source.
-	assert.Equal(t, 1, strings.Count(out, "Logs Pod/ns/app-pod container/main"),
+	assert.Equal(t, 1, strings.Count(out, "Logs Pod/app-pod container/main"),
 		"continuation flushes must not re-emit the per-source header")
-	assert.NotContains(t, out, "Logs Pod/ns/app-pod container/main:",
+	assert.NotContains(t, out, "Logs Pod/app-pod container/main:",
 		"log header must not carry a trailing colon")
 	assert.Contains(t, out, "line 1")
 	assert.Contains(t, out, "line 4")
@@ -480,9 +506,12 @@ func TestFlushHeartbeat_EmitsWhenIdleWithInFlight(t *testing.T) {
 	p.flushHeartbeat()
 
 	out := capturedOutput(buf, mu)
-	assert.Contains(t, out, "Release 'vray' still tracking")
-	assert.Contains(t, out, "Deployment/ns/app (progressing)",
-		"heartbeat must name the in-flight resource and tag it as progressing")
+	assert.Contains(t, out, "Release 'vray' in 'ns' still tracking",
+		"heartbeat header must include release name + namespace when all tasks share one")
+	assert.Contains(t, out, "1 progressing (Deployment/app)",
+		"heartbeat must report the count and name of progressing resources")
+	assert.Regexp(t, `\[\d\d:\d\d:\d\d\]`, out,
+		"heartbeat must be prefixed with a wall-clock timestamp")
 }
 
 func TestFlushHeartbeat_LabelsGatedTasksAsWaiting(t *testing.T) {
@@ -514,10 +543,12 @@ func TestFlushHeartbeat_LabelsGatedTasksAsWaiting(t *testing.T) {
 	p.flushHeartbeat()
 
 	out := capturedOutput(buf, mu)
-	assert.Contains(t, out, "Job/ns/queued-job (waiting)",
-		"freshness-gated task must be tagged as waiting")
-	assert.Contains(t, out, "Job/ns/running-job (progressing)",
-		"non-gated in-flight task must be tagged as progressing")
+	assert.Contains(t, out, "1 progressing (Job/running-job)",
+		"progressing task must be listed by name with the progressing count")
+	assert.Contains(t, out, "1 waiting",
+		"freshness-gated task must appear as a waiting count")
+	assert.NotContains(t, out, "queued-job",
+		"waiting tasks must be summarized by count, not listed by name (keeps the line one-row in CI)")
 }
 
 func TestFlushHeartbeat_ProgressingItemsListedBeforeWaiting(t *testing.T) {
@@ -553,12 +584,42 @@ func TestFlushHeartbeat_ProgressingItemsListedBeforeWaiting(t *testing.T) {
 	p.flushHeartbeat()
 
 	out := capturedOutput(buf, mu)
-	runningIdx := strings.Index(out, "zzz-running (progressing)")
-	firstWaitingIdx := strings.Index(out, "aaa-queued (waiting)")
-	require.Positive(t, runningIdx, "progressing item must appear in the line")
-	require.Positive(t, firstWaitingIdx, "waiting item must appear in the line")
-	assert.Less(t, runningIdx, firstWaitingIdx,
-		"progressing items must be listed before waiting ones so the head of the line surfaces what's actually running")
+	runningIdx := strings.Index(out, "1 progressing (Job/zzz-running)")
+	waitingIdx := strings.Index(out, "2 waiting")
+	require.Positive(t, runningIdx, "progressing group must appear")
+	require.Positive(t, waitingIdx, "waiting group must appear")
+	assert.Less(t, runningIdx, waitingIdx,
+		"progressing group must precede the waiting count so the head of the line surfaces what's actually running")
+	assert.NotContains(t, out, "aaa-queued", "waiting items must not be listed by name")
+	assert.NotContains(t, out, "bbb-queued", "waiting items must not be listed by name")
+}
+
+func TestFlushHeartbeat_AllWaitingShowsCountOnly(t *testing.T) {
+	// Early in a rollout every task can be gated (helm hasn't gotten there
+	// yet). The heartbeat must still emit so operators see "yes, we're
+	// alive, just queued up" — but with only the waiting count, no names.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	gates := newGateStatuses()
+	for _, name := range []string{"q1", "q2", "q3"} {
+		ts := statestore.NewReadinessTaskState(name, "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+		setRequiredReplicas(t, ts, 1)
+		taskStore.RWTransaction(func(s *statestore.TaskStore) {
+			s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+		})
+		gates.set(BaselineKey("job", "ns", name), "waiting for update")
+	}
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+	out := capturedOutput(buf, mu)
+
+	assert.Contains(t, out, "3 waiting")
+	assert.NotContains(t, out, "progressing",
+		"if nothing is progressing the line must not show a zero-count progressing group")
 }
 
 func TestFlushHeartbeat_DoesNotUpdateLastEmit(t *testing.T) {
@@ -659,12 +720,12 @@ func TestFlushHeartbeat_CapsResourceListAndShowsOverflow(t *testing.T) {
 	p.flushHeartbeat()
 	out := capturedOutput(buf, mu)
 
-	assert.Contains(t, out, "5 in flight")
-	assert.Contains(t, out, "Deployment/ns/a")
-	assert.Contains(t, out, "Deployment/ns/c")
-	assert.Contains(t, out, "…and 2 more")
-	assert.NotContains(t, out, "Deployment/ns/e",
-		"resources beyond the cap must be summarized by overflow count, not listed")
+	assert.Contains(t, out, "5 progressing")
+	assert.Contains(t, out, "Deployment/a")
+	assert.Contains(t, out, "Deployment/c")
+	assert.Contains(t, out, "+2", "overflow count must indicate how many progressing items were hidden")
+	assert.NotContains(t, out, "Deployment/e",
+		"progressing items beyond the cap must be summarized by overflow count, not listed")
 }
 
 func TestProgressPrinter_FullRun_CancelsAndDrainsOnContextDone(t *testing.T) {

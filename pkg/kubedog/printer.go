@@ -114,6 +114,19 @@ func (s *skippedKeys) has(id string) bool {
 
 // kubedog's util.ResourceID returns "<ns>:<group>:<kind>:<name>".
 
+// formatResourceLabel renders a resource identifier, omitting the namespace
+// when it matches the printer-wide common namespace. Cluster-scoped
+// resources (empty namespace) always render as Kind/name. The goal is to
+// stop repeating the same namespace on every row of a single-namespace
+// release without losing the namespace when releases genuinely span
+// multiple namespaces.
+func formatResourceLabel(kind, ns, name, commonNS string) string {
+	if ns == "" || (commonNS != "" && ns == commonNS) {
+		return fmt.Sprintf("%s/%s", kind, name)
+	}
+	return fmt.Sprintf("%s/%s/%s", kind, ns, name)
+}
+
 type progressPrinter struct {
 	logger         *zap.SugaredLogger
 	releaseName    string
@@ -200,6 +213,37 @@ func (p *progressPrinter) run(ctx context.Context, done <-chan struct{}) {
 			return
 		}
 	}
+}
+
+// commonNamespace returns the namespace shared by every tracked task, or
+// the empty string when tasks span multiple namespaces or there are no
+// tasks. When non-empty, callers strip the namespace from each row's label
+// and add it once to the block title via the formatResourceLabel helper.
+func (p *progressPrinter) commonNamespace() string {
+	var ns string
+	multiple := false
+	p.taskStore.RTransaction(func(s *statestore.TaskStore) {
+		for _, taskC := range s.ReadinessTasksStates() {
+			if multiple {
+				return
+			}
+			taskC.RTransaction(func(ts *statestore.ReadinessTaskState) {
+				taskNS := ts.Namespace()
+				if taskNS == "" {
+					return
+				}
+				if ns == "" {
+					ns = taskNS
+				} else if ns != taskNS {
+					multiple = true
+				}
+			})
+		}
+	})
+	if multiple {
+		return ""
+	}
+	return ns
 }
 
 func (p *progressPrinter) colorize(s, code string) string {
@@ -310,6 +354,7 @@ func (p *progressPrinter) flushProgress() {
 	if p.gates != nil {
 		gateSnapshot = p.gates.snapshot()
 	}
+	commonNS := p.commonNamespace()
 
 	p.taskStore.RTransaction(func(s *statestore.TaskStore) {
 		for _, taskC := range s.ReadinessTasksStates() {
@@ -317,7 +362,10 @@ func (p *progressPrinter) flushProgress() {
 				kind := ts.GroupVersionKind().Kind
 				name := ts.Name()
 				ns := ts.Namespace()
-				rootLabel := fmt.Sprintf("%s/%s/%s", kind, ns, name)
+				rootLabel := formatResourceLabel(kind, ns, name, commonNS)
+				// sortKey uses the full path so rows still sort deterministically
+				// regardless of how the displayed label was abbreviated.
+				rootSortKey := fmt.Sprintf("%s/%s/%s", kind, ns, name)
 				rootID := kdutil.ResourceID(name, ns, ts.GroupVersionKind())
 				gateKey := BaselineKey(shortKind(kind), ns, name)
 
@@ -327,7 +375,7 @@ func (p *progressPrinter) flushProgress() {
 
 				if gateMsg, gated := gateSnapshot[gateKey]; gated {
 					rows = append(rows, row{
-						sortKey: rootLabel,
+						sortKey: rootSortKey,
 						label:   rootLabel,
 						status:  gateMsg,
 					})
@@ -372,7 +420,7 @@ func (p *progressPrinter) flushProgress() {
 						if rs.Name() == "" {
 							return
 						}
-						label := fmt.Sprintf("%s/%s/%s", rs.GroupVersionKind().Kind, rs.Namespace(), rs.Name())
+						label := formatResourceLabel(rs.GroupVersionKind().Kind, rs.Namespace(), rs.Name(), commonNS)
 						var podStatusAttr string
 						for _, attr := range rs.Attributes() {
 							if attr.Name() == statestore.AttributeNameStatus {
@@ -435,14 +483,14 @@ func (p *progressPrinter) flushProgress() {
 				}
 
 				rows = append(rows, row{
-					sortKey: rootLabel,
+					sortKey: rootSortKey,
 					label:   rootLabel,
 					status:  rootStatus,
 				})
 				sort.Slice(children, func(i, j int) bool { return children[i].label < children[j].label })
 				for _, c := range children {
 					rows = append(rows, row{
-						sortKey:    rootLabel + "/" + c.label,
+						sortKey:    rootSortKey + "/" + c.label,
 						label:      c.label,
 						status:     c.status,
 						indent:     "  • ",
@@ -497,6 +545,9 @@ func (p *progressPrinter) flushProgress() {
 	if p.releaseName != "" {
 		title = fmt.Sprintf("Release '%s' progress (%s)", p.releaseName, elapsed)
 	}
+	if commonNS != "" {
+		title = fmt.Sprintf("%s in '%s'", title, commonNS)
+	}
 
 	var sb strings.Builder
 	// Leading newline visually separates each progress block from helm output
@@ -538,11 +589,17 @@ func (p *progressPrinter) flushLogs() {
 		failedPodIDs = p.collectFailedPodIDs()
 	}
 
+	commonNS := p.commonNamespace()
+
 	type entry struct {
-		resourceKey string
-		source      string
-		line        string
-		ts          time.Time
+		// resourceKey is the full Kind/ns/name path used for cursor
+		// uniqueness across flushes. displayLabel is the ns-stripped form
+		// rendered in the per-source header.
+		resourceKey  string
+		displayLabel string
+		source       string
+		line         string
+		ts           time.Time
 	}
 	var pending []entry
 
@@ -550,6 +607,7 @@ func (p *progressPrinter) flushLogs() {
 		for _, rlC := range s.ResourcesLogs() {
 			rlC.RTransaction(func(rl *logstore.ResourceLogs) {
 				resourceKey := fmt.Sprintf("%s/%s/%s", rl.GroupVersionKind().Kind, rl.Namespace(), rl.Name())
+				displayLabel := formatResourceLabel(rl.GroupVersionKind().Kind, rl.Namespace(), rl.Name(), commonNS)
 				// In failed-only mode, gate emission on the pod's current
 				// status. We keep the cursor frozen for non-failed pods so
 				// their accumulated lines stay queued and get printed in full
@@ -568,10 +626,11 @@ func (p *progressPrinter) flushLogs() {
 					}
 					for _, ll := range lines[start:] {
 						pending = append(pending, entry{
-							resourceKey: resourceKey,
-							source:      source,
-							line:        ll.Line,
-							ts:          ll.Time,
+							resourceKey:  resourceKey,
+							displayLabel: displayLabel,
+							source:       source,
+							line:         ll.Line,
+							ts:           ll.Time,
 						})
 					}
 					p.lastCounts[cursorKey] = len(lines)
@@ -611,7 +670,7 @@ func (p *progressPrinter) flushLogs() {
 				sb.WriteString("\n")
 				startedWithHeader = true
 			}
-			sb.WriteString(HeaderDividerStyled(fmt.Sprintf("Logs %s %s", e.resourceKey, e.source), p.useColor))
+			sb.WriteString(HeaderDividerStyled(fmt.Sprintf("Logs %s %s", e.displayLabel, e.source), p.useColor))
 			prevKey = key
 		}
 		// Indent each line; the first line of a continuation flush has no
@@ -657,12 +716,9 @@ func (p *progressPrinter) flushHeartbeat() {
 	if p.gates != nil {
 		gateSnapshot = p.gates.snapshot()
 	}
+	commonNS := p.commonNamespace()
 
-	type inflight struct {
-		label  string
-		gated  bool
-	}
-	var items []inflight
+	var progressing, waiting []string
 	p.taskStore.RTransaction(func(s *statestore.TaskStore) {
 		for _, taskC := range s.ReadinessTasksStates() {
 			taskC.RTransaction(func(ts *statestore.ReadinessTaskState) {
@@ -675,61 +731,55 @@ func (p *progressPrinter) flushHeartbeat() {
 				kind := ts.GroupVersionKind().Kind
 				name := ts.Name()
 				ns := ts.Namespace()
-				_, gated := gateSnapshot[BaselineKey(shortKind(kind), ns, name)]
-				items = append(items, inflight{
-					label: fmt.Sprintf("%s/%s/%s", kind, ns, name),
-					gated: gated,
-				})
+				label := formatResourceLabel(kind, ns, name, commonNS)
+				if _, gated := gateSnapshot[BaselineKey(shortKind(kind), ns, name)]; gated {
+					waiting = append(waiting, label)
+				} else {
+					progressing = append(progressing, label)
+				}
 			})
 		}
 	})
 
-	if len(items) == 0 {
+	if len(progressing) == 0 && len(waiting) == 0 {
 		return
 	}
 
-	// Sort progressing items before gated ones (and alphabetically within each
-	// bucket) so the heartbeat's truncated head shows what's actually running
-	// — that's the load-bearing signal for "is something stuck?" Waiting
-	// items are queue lookahead, useful but secondary; they survive into the
-	// "…and N more" overflow if the cap is hit.
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].gated != items[j].gated {
-			return !items[i].gated
-		}
-		return items[i].label < items[j].label
-	})
+	sort.Strings(progressing)
+	sort.Strings(waiting)
 
 	elapsed := time.Since(p.startTime).Round(time.Second)
+	timestamp := time.Now().Format("15:04:05")
 	label := "kubedog"
 	if p.releaseName != "" {
 		label = fmt.Sprintf("Release '%s'", p.releaseName)
 	}
-
-	const maxShown = 3
-	shownItems := items
-	overflow := ""
-	if len(shownItems) > maxShown {
-		overflow = fmt.Sprintf(", …and %d more", len(shownItems)-maxShown)
-		shownItems = shownItems[:maxShown]
+	if commonNS != "" {
+		label = fmt.Sprintf("%s in '%s'", label, commonNS)
 	}
 
-	rendered := make([]string, len(shownItems))
-	for i, it := range shownItems {
-		state := "progressing"
-		if it.gated {
-			state = "waiting"
+	// Render the progressing group with its names (capped); the waiting group
+	// is summarized as a count only because listing every queued resource
+	// makes the line too long for one CI log row. Both groups carry their own
+	// count so the split is obvious at a glance.
+	var parts []string
+	if len(progressing) > 0 {
+		const maxShown = 3
+		names := progressing
+		overflow := ""
+		if len(names) > maxShown {
+			overflow = fmt.Sprintf(", +%d", len(names)-maxShown)
+			names = names[:maxShown]
 		}
-		rendered[i] = fmt.Sprintf("%s (%s)", it.label, state)
+		parts = append(parts, fmt.Sprintf("%d progressing (%s%s)",
+			len(progressing), strings.Join(names, ", "), overflow))
+	}
+	if len(waiting) > 0 {
+		parts = append(parts, fmt.Sprintf("%d waiting", len(waiting)))
 	}
 
-	var line string
-	if len(items) == 1 {
-		line = fmt.Sprintf("%s still tracking (%s) — %s", label, elapsed, rendered[0])
-	} else {
-		line = fmt.Sprintf("%s still tracking (%s) — %d in flight: %s%s",
-			label, elapsed, len(items), strings.Join(rendered, ", "), overflow)
-	}
+	line := fmt.Sprintf("[%s] %s still tracking (%s) — %s",
+		timestamp, label, elapsed, strings.Join(parts, ", "))
 	p.logger.Info(p.colorize(line, ansiCyan))
 }
 
