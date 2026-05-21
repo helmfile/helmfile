@@ -70,6 +70,13 @@ type Tracker struct {
 	// for that resource).
 	upstreamDoneCh chan struct{}
 	upstreamOnce   sync.Once
+
+	// skipped records resources whose freshness gate exited without ever
+	// observing a change (helm decided not to create/update them, e.g. a
+	// post-upgrade hook on an install). Shared between TrackResources and
+	// VerifyAllConverged so the safety valve doesn't keep polling for
+	// resources that will never exist.
+	skipped *skippedKeys
 }
 
 type TrackerConfig struct {
@@ -139,6 +146,7 @@ func NewTracker(config *TrackerConfig) (*Tracker, error) {
 		namespace:      config.Namespace,
 		releaseName:    config.ReleaseName,
 		upstreamDoneCh: make(chan struct{}),
+		skipped:        newSkippedKeys(),
 	}, nil
 }
 
@@ -441,8 +449,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 	}
 
 	gateStatuses := newGateStatuses()
-	skippedKeys := newSkippedKeys()
-	printer := newProgressPrinter(t.logger, t.releaseName, taskStore, logStore, skipLogsInPrinter, failedLogsOnly, gateStatuses, skippedKeys, t.trackOptions.Color)
+	printer := newProgressPrinter(t.logger, t.releaseName, taskStore, logStore, skipLogsInPrinter, failedLogsOnly, gateStatuses, t.skipped, t.trackOptions.Color)
 	printerDone := make(chan struct{})
 
 	var trackerWg sync.WaitGroup
@@ -470,7 +477,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 					// Hide this task from the printer output: it never changed,
 					// so the persistent "progressing" we'd otherwise show is
 					// misleading.
-					skippedKeys.add(kdutil.ResourceID(tgt.name, tgt.namespace, tgt.gvk))
+					t.skipped.add(kdutil.ResourceID(tgt.name, tgt.namespace, tgt.gvk))
 					return
 				case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 					return
@@ -593,6 +600,14 @@ func (t *Tracker) VerifyAllConverged(ctx context.Context, resources []*resource.
 			// Resource is not a kind we track — skip it. Same semantics as
 			// buildTargets, so the verification scope matches what kubedog
 			// is actually waiting on.
+			continue
+		}
+		// Skip resources whose freshness gate exited via
+		// errUpstreamDoneNoChange: helm decided not to create or update
+		// them (e.g. a post-upgrade-only hook on an install). They'll
+		// never exist in the cluster, so polling Get on them would
+		// permanently return NotFound and block the safety valve.
+		if t.skipped != nil && t.skipped.has(kdutil.ResourceID(res.Name, res.Namespace, gvk)) {
 			continue
 		}
 		gvr, err := t.gvrFor(gvk)

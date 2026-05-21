@@ -1,6 +1,7 @@
 package kubedog
 
 import (
+	"context"
 	"math"
 	"os"
 	"strings"
@@ -9,9 +10,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic/fake"
+	kdutil "github.com/werf/kubedog/pkg/trackers/dyntracker/util"
 
 	"github.com/helmfile/helmfile/pkg/resource"
 )
@@ -541,4 +547,88 @@ func TestIsResourceConverged_DispatchesByKind(t *testing.T) {
 
 	// Unknown kind also returns false to avoid false-positive cancellations.
 	assert.False(t, isResourceConverged("totally-made-up", job))
+}
+
+// staticRESTMapper resolves a fixed set of GVK -> GVR mappings for the test;
+// avoids spinning up a discovery client.
+type staticRESTMapper struct {
+	meta.RESTMapper
+	mappings map[schema.GroupVersionKind]schema.GroupVersionResource
+}
+
+func (m *staticRESTMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
+	for gvk, gvr := range m.mappings {
+		if gvk.GroupKind() == gk {
+			return &meta.RESTMapping{Resource: gvr, GroupVersionKind: gvk}, nil
+		}
+	}
+	return nil, &meta.NoKindMatchError{GroupKind: gk}
+}
+
+func (m *staticRESTMapper) Reset() {}
+
+func TestVerifyAllConverged_SkipsResourcesThatHelmNeverCreated(t *testing.T) {
+	// The bug: on an install, post-upgrade-only hooks appear in the
+	// templated resource list but helm correctly skips them. Their
+	// freshness gate exits via errUpstreamDoneNoChange and they land in
+	// the skipped set. VerifyAllConverged used to GET them anyway, get
+	// NotFound, and return false — keeping the safety valve permanently
+	// suppressed for any install with post-upgrade hooks present.
+	jobGVK := schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}
+	jobGVR := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+
+	// Only the "real" Job exists in the cluster; the skipped one does not.
+	realJob := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"metadata":   map[string]any{"name": "feeds-db-insert-init", "namespace": "ns"},
+		"spec":       map[string]any{"completions": int64(1)},
+		"status":     map[string]any{"succeeded": int64(1)},
+	}}
+	scheme := runtime.NewScheme()
+	fakeClient := fake.NewSimpleDynamicClient(scheme, realJob)
+
+	tr := &Tracker{
+		logger:        zap.NewNop().Sugar(),
+		dynamicClient: fakeClient,
+		mapper:        &staticRESTMapper{mappings: map[schema.GroupVersionKind]schema.GroupVersionResource{jobGVK: jobGVR}},
+		skipped:       newSkippedKeys(),
+	}
+	// Pretend the freshness gate flagged update-vray-schema as skipped
+	// (post-upgrade hook helm didn't create on this install).
+	tr.skipped.add(kdutil.ResourceID("update-vray-schema", "ns", jobGVK))
+
+	resources := []*resource.Resource{
+		{Kind: "Job", Name: "feeds-db-insert-init", Namespace: "ns"},
+		{Kind: "Job", Name: "update-vray-schema", Namespace: "ns"},
+	}
+
+	assert.True(t, tr.VerifyAllConverged(context.Background(), resources),
+		"safety valve must consider the release converged when the only non-existent resource is one helm deliberately skipped")
+}
+
+func TestVerifyAllConverged_NotFoundForNonSkippedReturnsFalse(t *testing.T) {
+	// Counterexample: if a resource that helm was supposed to create is
+	// genuinely missing from the cluster, VerifyAllConverged must NOT
+	// claim convergence — that's a different problem and we want kubedog
+	// to keep waiting / surface the real error.
+	jobGVK := schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}
+	jobGVR := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+
+	scheme := runtime.NewScheme()
+	fakeClient := fake.NewSimpleDynamicClient(scheme) // cluster is empty
+
+	tr := &Tracker{
+		logger:        zap.NewNop().Sugar(),
+		dynamicClient: fakeClient,
+		mapper:        &staticRESTMapper{mappings: map[schema.GroupVersionKind]schema.GroupVersionResource{jobGVK: jobGVR}},
+		skipped:       newSkippedKeys(),
+	}
+
+	resources := []*resource.Resource{
+		{Kind: "Job", Name: "expected-but-missing", Namespace: "ns"},
+	}
+
+	assert.False(t, tr.VerifyAllConverged(context.Background(), resources),
+		"missing resource that wasn't deliberately skipped must keep the safety valve suppressed")
 }
