@@ -323,7 +323,16 @@ func containsAny(s string, subs ...string) bool {
 // human-readable status attribute. When the bookkeeping value is "unknown"
 // (which it usually is for transient pod phases) the attribute alone is
 // shown; otherwise both are joined.
+//
+// If the attribute is a pre-ready pod phase (Pending, ContainerCreating,
+// PodInitializing, Init:*) the attribute alone is shown even when kubedog
+// reports the pod as ready — the two states are contradictory and the pod
+// phase is what kubectl would show, so we treat it as authoritative for
+// display purposes.
 func describeChildStatus(kdStatus, statusAttr string) string {
+	if isPreReadyPodPhase(statusAttr) {
+		return statusAttr
+	}
 	switch {
 	case statusAttr == "" && kdStatus == "":
 		return "unknown"
@@ -334,6 +343,23 @@ func describeChildStatus(kdStatus, statusAttr string) string {
 	default:
 		return fmt.Sprintf("%s (%s)", kdStatus, statusAttr)
 	}
+}
+
+// isPreReadyPodPhase returns true for kubelet-reported phases that indicate
+// the pod cannot yet be ready — startup transitions before the Ready
+// condition has had a chance to flip. Used to override kubedog's
+// ResourceStatus when the two disagree, so a pod reporting ContainerCreating
+// in the attribute is never displayed or counted as ready.
+func isPreReadyPodPhase(phase string) bool {
+	switch phase {
+	case "Pending", "ContainerCreating", "PodInitializing", "ContainerStarting":
+		return true
+	}
+	// Init:0/3, Init:1/3, etc. — pod is still running init containers.
+	if strings.HasPrefix(phase, "Init:") {
+		return true
+	}
+	return false
 }
 
 func (p *progressPrinter) flushProgress() {
@@ -429,10 +455,17 @@ func (p *progressPrinter) flushProgress() {
 								}
 							}
 						}
+						// A pre-ready phase in the attribute overrides kubedog's
+						// ResourceStatus for counting purposes — without this, a
+						// pod whose attribute is ContainerCreating but whose
+						// ResourceStatus has been flipped to Ready by some other
+						// code path would inflate the (N/M) count even though
+						// the display correctly shows it as ContainerCreating.
+						ready := rs.Status() == statestore.ResourceStatusReady && !isPreReadyPodPhase(podStatusAttr)
 						children = append(children, childRow{
 							label:   label,
 							status:  describeChildStatus(string(rs.Status()), podStatusAttr),
-							ready:   rs.Status() == statestore.ResourceStatusReady,
+							ready:   ready,
 							hasAttr: podStatusAttr != "",
 						})
 					})

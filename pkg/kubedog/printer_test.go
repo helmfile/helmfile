@@ -149,11 +149,27 @@ func TestDescribeChildStatus(t *testing.T) {
 		{"unknown plus attr drops unknown", "unknown", "ContainerCreating", "ContainerCreating"},
 		{"both meaningful", "ready", "Running", "ready (Running)"},
 		{"failed plus error", "failed", "CrashLoopBackOff", "failed (CrashLoopBackOff)"},
+		// Pre-ready phases override kubedog's ResourceStatus — kubedog's
+		// internal flag can briefly disagree with the kubelet-visible phase
+		// and we surface the phase as the source of truth for display.
+		{"ready vs ContainerCreating shows phase", "ready", "ContainerCreating", "ContainerCreating"},
+		{"ready vs Pending shows phase", "ready", "Pending", "Pending"},
+		{"ready vs PodInitializing shows phase", "ready", "PodInitializing", "PodInitializing"},
+		{"ready vs Init:1/3 shows phase", "ready", "Init:1/3", "Init:1/3"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.want, describeChildStatus(tc.kd, tc.attr))
 		})
+	}
+}
+
+func TestIsPreReadyPodPhase(t *testing.T) {
+	for _, phase := range []string{"Pending", "ContainerCreating", "PodInitializing", "ContainerStarting", "Init:0/3", "Init:2/5"} {
+		assert.True(t, isPreReadyPodPhase(phase), "%q should be a pre-ready phase", phase)
+	}
+	for _, phase := range []string{"Running", "Completed", "Terminating", "Error", "", "CrashLoopBackOff"} {
+		assert.False(t, isPreReadyPodPhase(phase), "%q should not be a pre-ready phase", phase)
 	}
 }
 
@@ -203,6 +219,38 @@ func TestFlushProgress_HidesStaleReadyPodWithoutAttr(t *testing.T) {
 	assert.Contains(t, out, "ready (1/1)", "ready count must be capped to required replicas")
 	assert.Contains(t, out, "Pod/app-new-xyz")
 	assert.NotContains(t, out, "app-old-abc", "stale ready pod without status attribute must be hidden")
+}
+
+func TestFlushProgress_PreReadyPhaseAttributeOverridesReady(t *testing.T) {
+	// Recreate the dyntracker discrepancy the operator hit: kubedog's
+	// ResourceStatus is Ready, but the status attribute still says
+	// ContainerCreating from an earlier event. We surface the phase as the
+	// truth — the row reads "ContainerCreating" cleanly, and the parent
+	// task's count doesn't inflate to (1/1) for a pod that hasn't actually
+	// reached ready yet.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("system-manager", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	addPodChild(t, ts, "system-manager-pod", "ns", statestore.ResourceStatusReady, "ContainerCreating")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Pod/system-manager-pod")
+	assert.Contains(t, out, "ContainerCreating",
+		"pod row must show the kubelet-visible phase")
+	assert.NotContains(t, out, "ready (ContainerCreating)",
+		"row must not show the contradictory ready+ContainerCreating combination")
+	assert.Contains(t, out, "progressing (0/1)",
+		"parent count must reflect that the pod isn't yet ready despite kubedog's ResourceStatus")
+	assert.NotContains(t, out, "ready (1/1)",
+		"parent must not claim ready while the pod is still ContainerCreating")
 }
 
 func TestFlushProgress_KeepsNamespacesWhenReleaseSpansMultiple(t *testing.T) {
