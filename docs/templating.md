@@ -68,6 +68,12 @@ Helmfile uses some OS environment variables to override default behaviour:
 * `HELMFILE_ENVIRONMENT` - specify [Helmfile environment](environments.md), it has lower priority than CLI argument `--environment`
 * `HELMFILE_KUBE_CONTEXT` - specify the kubectl context, it has lower priority than CLI argument `--kube-context`
 * `HELMFILE_NAMESPACE` - specify the namespace, it has lower priority than CLI argument `--namespace`
+* `HELMFILE_HELM_BINARY` - specify the path to the helm binary, it has lower priority than CLI argument `--helm-binary`
+* `HELMFILE_KUSTOMIZE_BINARY` - specify the path to the kustomize binary, it has lower priority than CLI argument `--kustomize-binary`
+* `HELMFILE_LOG_LEVEL` - specify the log level, it has lower priority than CLI argument `--log-level`
+* `HELMFILE_DEBUG` - enable debug output, expecting `true` lower case. The same as `--debug` CLI flag
+* `HELMFILE_QUIET` - silence output (equivalent to log-level warn), expecting `true` lower case. The same as `--quiet`/`-q` CLI flag
+* `HELMFILE_NO_COLOR` - disable colored output, expecting `true` lower case. The same as `--no-color` CLI flag. `NO_COLOR` (any non-empty value, per [no-color.org](https://no-color.org/)) is also honored
 * `HELMFILE_TEMPDIR` - specify directory to store temporary files
 * `HELMFILE_UPGRADE_NOTICE_DISABLED` - expecting any non-empty value to skip the check for the latest version of Helmfile in [helmfile version](cli.md#version)
 * `HELMFILE_GO_YAML_V3` - use *go.yaml.in/yaml/v3* instead of *go.yaml.in/yaml/v2*.  It's `false` by default in Helmfile v0.x, and `true` in Helmfile v1.x.
