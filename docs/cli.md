@@ -58,7 +58,8 @@ Flags:
   -l, --selector stringArray                  Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
                                               A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                               "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
-                                              The name of a release can be used as a label: "--selector name=myrelease"
+                                              The name of a release can be used as a label: "--selector name=myrelease".
+                                              The "dir" selector key is special: it matches by directory prefix against the location of the defining helmfile, relative to the root helmfile. Used as "--selector dir=apps/opencloud", it ALSO short-circuits sub-helmfile traversal so non-matching branches are not parsed or templated. The negative form "dir!=apps/opencloud" filters releases post-load but does not skip traversal.
       --skip-deps                             skip running "helm repo update" and "helm dependency build"
       --state-values-file stringArray         specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).
       --state-values-set stringArray          set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).

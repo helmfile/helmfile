@@ -136,6 +136,12 @@ type HelmState struct {
 	basePath string
 	FilePath string
 
+	// rootDir is the absolute directory of the top-level helmfile. Set once
+	// by the loader and inherited unchanged by nested states. Used as the
+	// anchor for the "dir" auto-label applied to releases during selector
+	// matching. Set via SetRootDir.
+	rootDir string
+
 	ReleaseSetSpec `yaml:",inline"`
 
 	logger  *zap.SugaredLogger
@@ -154,6 +160,19 @@ type HelmState struct {
 
 func (st *HelmState) SetKubeconfig(kubeconfig string) {
 	st.kubeconfig = kubeconfig
+}
+
+// SetRootDir sets the absolute directory of the top-level helmfile. Used by
+// the app loader to anchor the "dir" auto-label so it stays stable across
+// nested states.
+func (st *HelmState) SetRootDir(rootDir string) {
+	st.rootDir = rootDir
+}
+
+// RootDir returns the absolute directory of the top-level helmfile, or "" if
+// it has not been set (e.g. for remote roots).
+func (st *HelmState) RootDir() string {
+	return st.rootDir
 }
 
 // SubHelmfileSpec defines the subhelmfile path and options
@@ -3181,16 +3200,70 @@ func (st *HelmState) GetReleasesWithLabels() []ReleaseSpec {
 	return rs
 }
 
+// validateReservedLabels rejects user-defined labels that collide with keys
+// the selector machinery auto-populates. Without this check, a user-defined
+// "dir" label would be silently shadowed at match time.
+func (st *HelmState) validateReservedLabels() error {
+	if _, ok := st.CommonLabels[DirLabel]; ok {
+		return fmt.Errorf("commonLabels uses reserved key %q (auto-populated for dir-based filtering); rename it", DirLabel)
+	}
+	for _, r := range st.Releases {
+		if _, ok := r.Labels[DirLabel]; ok {
+			return fmt.Errorf("release %q uses reserved label key %q (auto-populated for dir-based filtering); rename it", r.Name, DirLabel)
+		}
+	}
+	return nil
+}
+
+// dirLabel returns the auto-populated "dir" label value: basePath relative
+// to rootDir in normalized slash form, or "" when either is unset or basePath
+// escapes rootDir via "..". Releases from such states (remote helmfiles,
+// outside-root sub-helmfiles loaded via `helmfiles: ../shared/...`) carry no
+// dir label and do not participate in dir-based filtering. basePath may be
+// "." in single-file mode; the caller has chdir'd to the state's directory
+// by then so filepath.Abs returns the correct absolute path.
+func (st *HelmState) dirLabel() string {
+	if st.rootDir == "" || st.basePath == "" {
+		return ""
+	}
+	base := st.basePath
+	if !filepath.IsAbs(base) {
+		abs, err := st.absPath(base)
+		if err != nil {
+			return ""
+		}
+		base = abs
+	}
+	rel, err := filepath.Rel(st.rootDir, base)
+	if err != nil {
+		return ""
+	}
+	if strings.HasPrefix(rel, "..") {
+		return ""
+	}
+	return NormalizeDirValue(rel)
+}
+
+// absPath resolves p against the state's filesystem abstraction so paths
+// like "." land in the active state directory both in production (where
+// within() has chdir'd) and in tests (which simulate CWD via a fake FS).
+func (st *HelmState) absPath(p string) (string, error) {
+	if st.fs != nil && st.fs.Abs != nil {
+		return st.fs.Abs(p)
+	}
+	return filepath.Abs(p)
+}
+
 func (st *HelmState) SelectReleases(includeTransitiveNeeds bool) ([]Release, error) {
 	values := st.Values()
-	rs, err := markExcludedReleases(st.Releases, st.Selectors, values, includeTransitiveNeeds)
+	rs, err := markExcludedReleases(st.Releases, st.Selectors, values, st.dirLabel(), includeTransitiveNeeds)
 	if err != nil {
 		return nil, err
 	}
 	return rs, nil
 }
 
-func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]any, includeTransitiveNeeds bool) ([]Release, error) {
+func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map[string]any, dirLabel string, includeTransitiveNeeds bool) ([]Release, error) {
 	var filteredReleases []Release
 	filters := []ReleaseFilter{}
 	for _, label := range selectors {
@@ -3202,8 +3275,12 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 	}
 	for _, r := range releases {
 		var filterMatch bool
+		matchTarget := r
+		if dirLabel != "" {
+			matchTarget = injectLabel(r, DirLabel, dirLabel)
+		}
 		for _, f := range filters {
-			if f.Match(r) {
+			if f.Match(matchTarget) {
 				filterMatch = true
 				break
 			}
