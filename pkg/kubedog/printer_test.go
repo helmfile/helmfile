@@ -515,6 +515,20 @@ func TestHeaderDivider_FormatsBothBorders(t *testing.T) {
 	assert.Equal(t, "========== title: ==========", HeaderDivider("title:"))
 }
 
+func TestStyleWarning(t *testing.T) {
+	// No-op when useColor is false so non-TTY consumers see clean bytes.
+	assert.Equal(t, "watch out", StyleWarning("watch out", false))
+
+	// With color, wrap in bold+yellow and reset. Match prefix/suffix exactly
+	// so accidental style drift surfaces as a test failure.
+	styled := StyleWarning("watch out", true)
+	assert.True(t, strings.HasPrefix(styled, ansiBold+ansiYellow),
+		"styled warning must start with bold+yellow, got %q", styled)
+	assert.True(t, strings.HasSuffix(styled, ansiReset),
+		"styled warning must end with reset, got %q", styled)
+	assert.Contains(t, styled, "watch out")
+}
+
 func TestHeaderDividerStyled(t *testing.T) {
 	// Without color the styled helper must be byte-identical to HeaderDivider —
 	// CI logs and non-TTY consumers should see no ANSI noise.

@@ -247,6 +247,10 @@ type HelmSpec struct {
 	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
 	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
 	TrackMode string `yaml:"trackMode,omitempty"`
+	// HelmStuckGrace, when > 0, enables the helmfile-side safety-valve
+	// helm-killer for releases using --track-mode kubedog. See
+	// ReleaseSpec.HelmStuckGrace for semantics.
+	HelmStuckGrace int `yaml:"helmStuckGrace,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -482,6 +486,13 @@ type ReleaseSpec struct {
 	// (CrashLoopBackOff, Error, etc.). Pods that succeed produce no output.
 	// Has no effect when TrackLogs is true (full streaming wins).
 	TrackFailedLogs *bool `yaml:"trackFailedLogs,omitempty"`
+	// HelmStuckGrace, when > 0, enables the safety-valve helm-killer for
+	// kubedog tracking: if the cluster confirms every tracked resource has
+	// converged but the helm subprocess is still running, helmfile waits
+	// this many seconds before sending SIGINT to helm. Targets the helm v4
+	// hook waiter wedge that --track-timeout would otherwise resolve only
+	// after hours. Zero (or absent) disables the killer.
+	HelmStuckGrace *int `yaml:"helmStuckGrace,omitempty"`
 	// TrackKinds is a whitelist of resource kinds to track
 	TrackKinds []string `yaml:"trackKinds,omitempty"`
 	// SkipKinds is a blacklist of resource kinds to skip tracking
@@ -929,6 +940,7 @@ type SyncOpts struct {
 	TrackTimeout         int
 	TrackLogs            bool
 	TrackFailedLogs      bool
+	HelmStuckGrace       int
 	TrackFailOnError     bool
 	Description          string
 	Color                bool
@@ -1168,7 +1180,16 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					// active. When tracking isn't running it's the original
 					// helm — either path is safe to call directly.
 					releaseHelm := trackHandle.Helm
-					if err := releaseHelm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+					helmErr := releaseHelm.SyncRelease(context, release.Name, chart, release.Namespace, flags...)
+					if helmErr != nil && trackStarted && trackHandle.WasHelmKilled() {
+						// The kubedog safety valve sent SIGINT to helm because
+						// the cluster confirmed convergence while helm was
+						// wedged on its hook waiter. Treat the resulting helm
+						// error as success and proceed via the post-helm-done
+						// path.
+						helmErr = nil
+					}
+					if helmErr != nil {
 						if trackStarted {
 							trackHandle.Cancel()
 							_ = trackHandle.Wait()
@@ -1178,7 +1199,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						m.Lock()
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						m.Unlock()
-						relErr = newReleaseFailedError(release, err)
+						relErr = newReleaseFailedError(release, helmErr)
 					} else {
 						if trackStarted {
 							trackHandle.NotifyHelmDone()
@@ -1186,11 +1207,18 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						m.Lock()
 						affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
 						m.Unlock()
-						installedVersion, err := st.getDeployedVersion(context, releaseHelm, release)
-						if err != nil { // err is not really impacting so just log it
-							st.logger.Debugf("getting deployed release version failed: %v", err)
-						} else {
-							release.installedVersion = installedVersion
+						// Skip the deployed-version probe when helm was killed
+						// by the safety valve — releaseHelm's context is now
+						// cancelled so the probe would just fail noisily, and
+						// the release secret is likely in pending-install
+						// state anyway.
+						if !(trackStarted && trackHandle.WasHelmKilled()) {
+							installedVersion, err := st.getDeployedVersion(context, releaseHelm, release)
+							if err != nil { // err is not really impacting so just log it
+								st.logger.Debugf("getting deployed release version failed: %v", err)
+							} else {
+								release.installedVersion = installedVersion
+							}
 						}
 
 						var trackErr *ReleaseError

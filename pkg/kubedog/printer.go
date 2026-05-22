@@ -53,6 +53,18 @@ func HeaderDividerStyled(title string, useColor bool) string {
 	return ansiBold + ansiBlue + h + ansiReset
 }
 
+// StyleWarning wraps text in bold+yellow so it stands out among the regular
+// info lines in CI logs without screaming "everything is on fire" — that's
+// what red is for. Use this for messages an operator should notice and act
+// on (e.g. orphan resource cleanup) but that don't represent a release-level
+// failure. No-op when useColor is false so non-TTY consumers see clean text.
+func StyleWarning(s string, useColor bool) string {
+	if !useColor {
+		return s
+	}
+	return ansiBold + ansiYellow + s + ansiReset
+}
+
 // gateStatuses holds per-resource "waiting for freshness" messages keyed by
 // BaselineKey. Producers (tracker goroutines) call set/clear; the printer
 // reads via snapshot.

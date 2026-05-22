@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/werf/kubedog/pkg/trackers/dyntracker/logstore"
 	"github.com/werf/kubedog/pkg/trackers/dyntracker/statestore"
 	kdutil "github.com/werf/kubedog/pkg/trackers/dyntracker/util"
 	"go.uber.org/zap"
@@ -177,25 +176,39 @@ func (w *captureWriter) Write(p []byte) (int, error) {
 	return w.buf.Write(p)
 }
 
-func TestScanForMissedFailures_WarnsForUntrackedFailingPod(t *testing.T) {
-	// Cluster contains:
-	//   - Deployment "malware" with selector app=malware
-	//   - Pod "malware-pod-untracked" (the one dyntracker missed linking)
-	//     in CrashLoopBackOff
-	// Task store has the Deployment but no Pod children — simulating the
-	// linkage race the watchdog is built to mitigate.
-	deployGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
-	deployGVR := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+// newWatchdogFakeClient registers the list kinds the watchdog actually
+// needs (Pods, Jobs, Deployments, ReplicaSets). The fake dynamic client
+// panics on List for unregistered list kinds, so this helper is shared by
+// the integration-style tests below.
+func newWatchdogFakeClient(t *testing.T, objs ...runtime.Object) *fake.FakeDynamicClient {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	for _, kind := range []schema.GroupVersionKind{
+		{Group: "", Version: "v1", Kind: "PodList"},
+		{Group: "batch", Version: "v1", Kind: "JobList"},
+		{Group: "apps", Version: "v1", Kind: "DeploymentList"},
+		{Group: "apps", Version: "v1", Kind: "ReplicaSetList"},
+	} {
+		scheme.AddKnownTypeWithName(kind, &unstructured.UnstructuredList{})
+	}
+	return fake.NewSimpleDynamicClient(scheme, objs...)
+}
 
-	deployObj := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "apps/v1",
-		"kind":       "Deployment",
-		"metadata":   map[string]any{"name": "malware", "namespace": "ns"},
+func TestScanForMissedFailures_WarnsForUntrackedFailingPod(t *testing.T) {
+	// Cluster contains a Job and one failing pod owned by it (the one
+	// dyntracker missed linking). Task store has the Job but no Pod
+	// children — simulating the linkage race the watchdog is built to
+	// mitigate. Using a Job keeps the ownership chain direct (Pod → Job).
+	jobGVK := schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}
+	jobGVR := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	const jobUID = "11111111-1111-1111-1111-111111111111"
+
+	jobObj := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"metadata":   map[string]any{"name": "malware", "namespace": "ns", "uid": jobUID},
 		"spec": map[string]any{
-			"selector": map[string]any{
-				"matchLabels": map[string]any{"app": "malware"},
-			},
-			"replicas": int64(1),
+			"selector": map[string]any{"matchLabels": map[string]any{"app": "malware"}},
 		},
 	}}
 	failingPod := &unstructured.Unstructured{Object: map[string]any{
@@ -205,6 +218,9 @@ func TestScanForMissedFailures_WarnsForUntrackedFailingPod(t *testing.T) {
 			"name":      "malware-pod-untracked",
 			"namespace": "ns",
 			"labels":    map[string]any{"app": "malware"},
+			"ownerReferences": []any{
+				map[string]any{"apiVersion": "batch/v1", "kind": "Job", "name": "malware", "uid": jobUID, "controller": true},
+			},
 		},
 		"status": map[string]any{
 			"phase": "Running",
@@ -216,60 +232,106 @@ func TestScanForMissedFailures_WarnsForUntrackedFailingPod(t *testing.T) {
 		},
 	}}
 
-	scheme := runtime.NewScheme()
-	scheme.AddKnownTypeWithName(watchdogPodGVK.GroupVersion().WithKind("PodList"), &unstructured.UnstructuredList{})
-	scheme.AddKnownTypeWithName(deployGVK.GroupVersion().WithKind("DeploymentList"), &unstructured.UnstructuredList{})
-	fakeClient := fake.NewSimpleDynamicClient(scheme, deployObj, failingPod)
+	logger, buf := newCaptureLogger(t)
+	tr := &Tracker{
+		logger:        logger,
+		dynamicClient: newWatchdogFakeClient(t, jobObj, failingPod),
+		mapper: &staticRESTMapper{mappings: map[schema.GroupVersionKind]schema.GroupVersionResource{
+			jobGVK:         jobGVR,
+			watchdogPodGVK: watchdogPodGVR,
+		}},
+		trackOptions: &TrackOptions{},
+	}
+
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	warned := map[string]struct{}{}
+	tr.scanForMissedFailures(context.Background(), taskStore, []watchdogWorkload{
+		{kind: "job", gvk: jobGVK, name: "malware", namespace: "ns"},
+	}, warned)
+
+	out := buf.String()
+	require.Contains(t, out, "malware-pod-untracked", "watchdog must name the missing failing pod")
+	require.Contains(t, out, "CrashLoopBackOff", "watchdog must name the failure reason")
+	require.Contains(t, out, "kubectl", "watchdog must give the operator an actionable inspection command")
+}
+
+func TestScanForMissedFailures_IgnoresStalePodFromPreviousInstall(t *testing.T) {
+	// Reproduces the "stale failing pod" false positive: the current Job
+	// has its own UID, but a leftover failing pod from the previous install
+	// (with a different owner UID) still matches the label selector. The
+	// watchdog must skip it — that's not "our" pod and helm will clean it
+	// up shortly anyway.
+	jobGVK := schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}
+	jobGVR := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	const currentJobUID = "22222222-2222-2222-2222-222222222222"
+	const previousJobUID = "33333333-3333-3333-3333-333333333333"
+
+	currentJob := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"metadata":   map[string]any{"name": "feeds-db-insert-init", "namespace": "ns", "uid": currentJobUID},
+		"spec": map[string]any{
+			"selector": map[string]any{"matchLabels": map[string]any{"app": "feeds-db-insert-init"}},
+		},
+	}}
+	stalePod := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]any{
+			"name":      "feeds-db-insert-init-cbxvc",
+			"namespace": "ns",
+			"labels":    map[string]any{"app": "feeds-db-insert-init"},
+			"ownerReferences": []any{
+				map[string]any{"apiVersion": "batch/v1", "kind": "Job", "name": "feeds-db-insert-init", "uid": previousJobUID, "controller": true},
+			},
+		},
+		"status": map[string]any{"phase": "Failed"},
+	}}
 
 	logger, buf := newCaptureLogger(t)
 	tr := &Tracker{
 		logger:        logger,
-		dynamicClient: fakeClient,
+		dynamicClient: newWatchdogFakeClient(t, currentJob, stalePod),
 		mapper: &staticRESTMapper{mappings: map[schema.GroupVersionKind]schema.GroupVersionResource{
-			deployGVK:      deployGVR,
+			jobGVK:         jobGVR,
 			watchdogPodGVK: watchdogPodGVR,
 		}},
+		trackOptions: &TrackOptions{},
 	}
 
-	// Empty task store — dyntracker has no record of this pod.
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
-	_ = logstore.NewLogStore()
-
 	warned := map[string]struct{}{}
 	tr.scanForMissedFailures(context.Background(), taskStore, []watchdogWorkload{
-		{kind: "deploy", gvk: deployGVK, name: "malware", namespace: "ns"},
+		{kind: "job", gvk: jobGVK, name: "feeds-db-insert-init", namespace: "ns"},
 	}, warned)
 
-	out := buf.String()
-	require.Contains(t, out, "malware-pod-untracked",
-		"watchdog must name the missing failing pod")
-	require.Contains(t, out, "CrashLoopBackOff",
-		"watchdog must name the failure reason")
-	require.Contains(t, out, "kubectl",
-		"watchdog must give the operator an actionable inspection command")
+	assert.NotContains(t, buf.String(), "feeds-db-insert-init-cbxvc",
+		"watchdog must NOT warn about a failing pod left over from a previous install (different owner UID)")
 }
 
 func TestScanForMissedFailures_StaysQuietWhenDyntrackerAlreadyHasPod(t *testing.T) {
-	// Same setup as the previous test, except the task store DOES contain
-	// the failing pod — so dyntracker is already surfacing it via the
-	// normal progress/log pipeline, and the watchdog should stay silent
-	// to avoid duplicate output.
-	deployGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
-	deployGVR := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	// Task store DOES contain the failing pod, so dyntracker is already
+	// surfacing it via the normal pipeline. Watchdog stays silent.
+	jobGVK := schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}
+	jobGVR := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	const jobUID = "44444444-4444-4444-4444-444444444444"
 
-	deployObj := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "apps/v1",
-		"kind":       "Deployment",
-		"metadata":   map[string]any{"name": "app", "namespace": "ns"},
-		"spec": map[string]any{
-			"selector": map[string]any{"matchLabels": map[string]any{"app": "app"}},
-			"replicas": int64(1),
-		},
+	jobObj := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"metadata":   map[string]any{"name": "app", "namespace": "ns", "uid": jobUID},
+		"spec":       map[string]any{"selector": map[string]any{"matchLabels": map[string]any{"app": "app"}}},
 	}}
 	failingPod := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata":   map[string]any{"name": "app-pod", "namespace": "ns", "labels": map[string]any{"app": "app"}},
+		"metadata": map[string]any{
+			"name": "app-pod", "namespace": "ns",
+			"labels": map[string]any{"app": "app"},
+			"ownerReferences": []any{
+				map[string]any{"apiVersion": "batch/v1", "kind": "Job", "name": "app", "uid": jobUID, "controller": true},
+			},
+		},
 		"status": map[string]any{
 			"containerStatuses": []any{
 				map[string]any{"state": map[string]any{
@@ -279,21 +341,19 @@ func TestScanForMissedFailures_StaysQuietWhenDyntrackerAlreadyHasPod(t *testing.
 		},
 	}}
 
-	scheme := runtime.NewScheme()
-	fakeClient := fake.NewSimpleDynamicClient(scheme, deployObj, failingPod)
-
 	logger, buf := newCaptureLogger(t)
 	tr := &Tracker{
 		logger:        logger,
-		dynamicClient: fakeClient,
+		dynamicClient: newWatchdogFakeClient(t, jobObj, failingPod),
 		mapper: &staticRESTMapper{mappings: map[schema.GroupVersionKind]schema.GroupVersionResource{
-			deployGVK:      deployGVR,
+			jobGVK:         jobGVR,
 			watchdogPodGVK: watchdogPodGVR,
 		}},
+		trackOptions: &TrackOptions{},
 	}
 
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
-	ts := statestore.NewReadinessTaskState("app", "ns", deployGVK, statestore.ReadinessTaskStateOptions{})
+	ts := statestore.NewReadinessTaskState("app", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
 	ts.AddResourceState("app-pod", "ns", watchdogPodGVK)
 	ts.AddDependency(ts.Name(), ts.Namespace(), ts.GroupVersionKind(), "app-pod", "ns", watchdogPodGVK)
 	taskStore.RWTransaction(func(s *statestore.TaskStore) {
@@ -302,39 +362,32 @@ func TestScanForMissedFailures_StaysQuietWhenDyntrackerAlreadyHasPod(t *testing.
 
 	warned := map[string]struct{}{}
 	tr.scanForMissedFailures(context.Background(), taskStore, []watchdogWorkload{
-		{kind: "deploy", gvk: deployGVK, name: "app", namespace: "ns"},
+		{kind: "job", gvk: jobGVK, name: "app", namespace: "ns"},
 	}, warned)
 
-	out := buf.String()
-	assert.NotContains(t, out, "watchdog",
-		"watchdog must not warn when dyntracker is already tracking the failing pod")
-	assert.NotContains(t, out, "app-pod", "no per-pod warning expected")
+	assert.NotContains(t, buf.String(), "watchdog", "watchdog must not warn when dyntracker is already tracking the failing pod")
 }
 
 func TestScanForMissedFailures_DoesNotRepeatWarningsAcrossScans(t *testing.T) {
-	// Same untracked-failing-pod scenario as the first test, but we run two
-	// consecutive scans and assert the warning appears exactly once. The
-	// per-pod dedup keeps the periodic ticker from spamming the same line
-	// every minute.
-	deployGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
-	deployGVR := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	jobGVK := schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}
+	jobGVR := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	const jobUID = "55555555-5555-5555-5555-555555555555"
 
-	deployObj := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "apps/v1",
-		"kind":       "Deployment",
-		"metadata":   map[string]any{"name": "malware", "namespace": "ns"},
-		"spec": map[string]any{
-			"selector": map[string]any{"matchLabels": map[string]any{"app": "malware"}},
-			"replicas": int64(1),
-		},
+	jobObj := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"metadata":   map[string]any{"name": "malware", "namespace": "ns", "uid": jobUID},
+		"spec":       map[string]any{"selector": map[string]any{"matchLabels": map[string]any{"app": "malware"}}},
 	}}
 	failingPod := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
 		"metadata": map[string]any{
-			"name":      "malware-pod-untracked",
-			"namespace": "ns",
-			"labels":    map[string]any{"app": "malware"},
+			"name": "malware-pod-untracked", "namespace": "ns",
+			"labels": map[string]any{"app": "malware"},
+			"ownerReferences": []any{
+				map[string]any{"apiVersion": "batch/v1", "kind": "Job", "name": "malware", "uid": jobUID, "controller": true},
+			},
 		},
 		"status": map[string]any{
 			"containerStatuses": []any{
@@ -345,30 +398,91 @@ func TestScanForMissedFailures_DoesNotRepeatWarningsAcrossScans(t *testing.T) {
 		},
 	}}
 
-	scheme := runtime.NewScheme()
-	fakeClient := fake.NewSimpleDynamicClient(scheme, deployObj, failingPod)
+	logger, buf := newCaptureLogger(t)
+	tr := &Tracker{
+		logger:        logger,
+		dynamicClient: newWatchdogFakeClient(t, jobObj, failingPod),
+		mapper: &staticRESTMapper{mappings: map[schema.GroupVersionKind]schema.GroupVersionResource{
+			jobGVK:         jobGVR,
+			watchdogPodGVK: watchdogPodGVR,
+		}},
+		trackOptions: &TrackOptions{},
+	}
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	warned := map[string]struct{}{}
+	workloads := []watchdogWorkload{{kind: "job", gvk: jobGVK, name: "malware", namespace: "ns"}}
+	tr.scanForMissedFailures(context.Background(), taskStore, workloads, warned)
+	tr.scanForMissedFailures(context.Background(), taskStore, workloads, warned)
+
+	count := strings.Count(buf.String(), "[watchdog]")
+	assert.Equal(t, 1, count, "watchdog must warn at most once per pod across consecutive scans")
+}
+
+func TestScanForMissedFailures_DeploymentPodMatchesViaReplicaSet(t *testing.T) {
+	// Deployment pods are not directly owned by the workload; the watchdog
+	// must walk Pod → ReplicaSet → Deployment to recognize a failing pod
+	// as "ours".
+	deployGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
+	deployGVR := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	const deployUID = "66666666-6666-6666-6666-666666666666"
+	const rsUID = "77777777-7777-7777-7777-777777777777"
+
+	deploy := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]any{"name": "app", "namespace": "ns", "uid": deployUID},
+		"spec": map[string]any{
+			"selector": map[string]any{"matchLabels": map[string]any{"app": "app"}},
+			"replicas": int64(1),
+		},
+	}}
+	rs := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "ReplicaSet",
+		"metadata": map[string]any{
+			"name": "app-abc", "namespace": "ns", "uid": rsUID,
+			"ownerReferences": []any{
+				map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "name": "app", "uid": deployUID, "controller": true},
+			},
+		},
+	}}
+	failingPod := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]any{
+			"name": "app-abc-xyz", "namespace": "ns",
+			"labels": map[string]any{"app": "app"},
+			"ownerReferences": []any{
+				map[string]any{"apiVersion": "apps/v1", "kind": "ReplicaSet", "name": "app-abc", "uid": rsUID, "controller": true},
+			},
+		},
+		"status": map[string]any{
+			"containerStatuses": []any{
+				map[string]any{"state": map[string]any{
+					"waiting": map[string]any{"reason": "CrashLoopBackOff"},
+				}},
+			},
+		},
+	}}
 
 	logger, buf := newCaptureLogger(t)
 	tr := &Tracker{
 		logger:        logger,
-		dynamicClient: fakeClient,
+		dynamicClient: newWatchdogFakeClient(t, deploy, rs, failingPod),
 		mapper: &staticRESTMapper{mappings: map[schema.GroupVersionKind]schema.GroupVersionResource{
 			deployGVK:      deployGVR,
 			watchdogPodGVK: watchdogPodGVR,
 		}},
+		trackOptions: &TrackOptions{},
 	}
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
-
 	warned := map[string]struct{}{}
-	workloads := []watchdogWorkload{{kind: "deploy", gvk: deployGVK, name: "malware", namespace: "ns"}}
-	tr.scanForMissedFailures(context.Background(), taskStore, workloads, warned)
-	tr.scanForMissedFailures(context.Background(), taskStore, workloads, warned)
+	tr.scanForMissedFailures(context.Background(), taskStore, []watchdogWorkload{
+		{kind: "deploy", gvk: deployGVK, name: "app", namespace: "ns"},
+	}, warned)
 
-	// The warning template mentions the pod name twice (once in the message,
-	// once in the kubectl-logs hint), so count the "[watchdog]" prefix
-	// instead — that's emitted exactly once per warning line.
-	count := strings.Count(buf.String(), "[watchdog]")
-	assert.Equal(t, 1, count, "watchdog must warn at most once per pod across consecutive scans")
+	assert.Contains(t, buf.String(), "app-abc-xyz",
+		"watchdog must recognize a failing Deployment pod via the Pod → RS → Deployment chain")
 }
 
 func TestWatchdogWorkloads_FiltersUntrackableKinds(t *testing.T) {

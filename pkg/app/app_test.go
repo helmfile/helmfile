@@ -2765,6 +2765,10 @@ func (a applyConfig) TrackFailedLogs() bool {
 	return false
 }
 
+func (a applyConfig) HelmStuckGrace() int {
+	return 0
+}
+
 func (a applyConfig) TrackFailOnError() bool {
 	return a.trackFailOnError
 }

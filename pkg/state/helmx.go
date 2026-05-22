@@ -280,6 +280,11 @@ type kubedogTrackingHandle struct {
 	// etc.) through the real logger in a single block. Safe to call multiple
 	// times — second call is a no-op.
 	FlushBufferedHelmOutput func()
+	// WasHelmKilled reports whether the safety-valve helm-killer fired during
+	// tracking. When true, the caller MUST treat any error returned by helm
+	// SyncRelease as success — helm was deliberately interrupted because the
+	// cluster confirmed convergence and helm wedged on its hook waiter.
+	WasHelmKilled func() bool
 }
 
 // startBackgroundKubedogTracking templates the release upfront and starts a
@@ -299,6 +304,7 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		Cancel:                  func() {},
 		NotifyHelmDone:          func() {},
 		FlushBufferedHelmOutput: func() {},
+		WasHelmKilled:           func() bool { return false },
 	}
 
 	if !st.shouldUseKubedog(release, opts) {
@@ -387,6 +393,19 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		st.logger.Debugf("kubedog: helm implementation does not support logger swap; output will interleave for release %s", release.Name)
 	}
 
+	// Derive a release-scoped context for the helm subprocess so the safety
+	// valve can SIGINT helm directly when the cluster confirms convergence
+	// but helm is wedged on its hook waiter. Without this, the only escape
+	// from a wedged helm is --track-timeout (hours). When the helmexec
+	// implementation supports ContextSwapper (the real one does; mocks
+	// generally don't), we plumb releaseCtx through so cancelling it kicks
+	// the existing ShellRunner SIGINT path. Otherwise releaseCancel is just
+	// bookkeeping with no effect on helm.
+	releaseCtx, releaseCancel := context.WithCancel(ctx)
+	if swapper, ok := bufHelm.(helmexec.ContextSwapper); ok {
+		bufHelm = swapper.WithContext(releaseCtx)
+	}
+
 	trackCtx, trackCancel := context.WithCancel(ctx)
 	resultCh := make(chan error, 1)
 
@@ -396,31 +415,37 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		resultCh <- tracker.TrackResources(trackCtx, resources)
 	}()
 
-	// Safety valve for the kubedog dyntracker race: once helm signals success,
-	// we wait a grace period and then poll the live API. If the cluster
-	// confirms every tracked resource is in its terminal "done" state but the
-	// dyntracker is still wedged (it observed a fast Job completion but never
-	// flipped ResourceStatus to Ready, or a similar race), we cancel the
-	// tracker so wait() can return success instead of blocking until
-	// --track-timeout. safetyValveTriggered tells wait() that the resulting
-	// context.Canceled is a deliberate "we're done" signal, not a failure.
+	// Two related safety valves run alongside the tracker. Both verify cluster
+	// state via the live API rather than trusting kubedog's resource graph.
+	//
+	// 1. Tracker-race safety valve (always runs): once helm signals success,
+	//    wait a grace period and then poll. If the cluster confirms every
+	//    tracked resource converged but the dyntracker is still wedged
+	//    (kubedog race where a fast Job completion never flips ResourceStatus
+	//    to Ready), cancel the tracker so wait() can return success instead
+	//    of blocking until --track-timeout.
+	//
+	// 2. Helm-stuck killer (opt-in via helmStuckGrace): poll alongside helm.
+	//    If the cluster stays converged for helmStuckGrace while helm is
+	//    still running, send SIGINT to helm — that's the helm v4 hook waiter
+	//    wedge (statuswait.go:195 or legacy wait.go:263), recoverable only by
+	//    interrupting the helm subprocess.
 	helmDoneCh := make(chan struct{})
 	var helmDoneOnce sync.Once
 	var safetyValveTriggered atomic.Bool
+	var helmKilledByUs atomic.Bool
 	const (
 		safetyValveGrace = 60 * time.Second
 		safetyValveCheck = 10 * time.Second
 	)
+	helmStuckGrace := st.getHelmStuckGrace(release, opts)
+
 	go func() {
 		select {
 		case <-helmDoneCh:
 		case <-trackCtx.Done():
 			return
 		}
-		// Helm has signaled success. Wait a grace period to let the
-		// dyntracker observe normal completion before we start second-guessing
-		// it — the race only matters when the tracker has been wedged for a
-		// while.
 		select {
 		case <-time.After(safetyValveGrace):
 		case <-trackCtx.Done():
@@ -443,6 +468,46 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		}
 	}()
 
+	if helmStuckGrace > 0 {
+		go func() {
+			ticker := time.NewTicker(safetyValveCheck)
+			defer ticker.Stop()
+			var firstConvergedAt time.Time
+			for {
+				select {
+				case <-trackCtx.Done():
+					return
+				case <-helmDoneCh:
+					return // helm finished on its own; killer not needed
+				case <-ticker.C:
+				}
+				if !tracker.VerifyAllConverged(trackCtx, resources) {
+					firstConvergedAt = time.Time{}
+					continue
+				}
+				if firstConvergedAt.IsZero() {
+					firstConvergedAt = time.Now()
+					continue
+				}
+				if time.Since(firstConvergedAt) < helmStuckGrace {
+					continue
+				}
+				// Cluster has been converged for >= helmStuckGrace while helm
+				// is still running. Treat as the helm v4 hook waiter wedge
+				// and send SIGINT via the release-scoped context. Style the
+				// whole block in bold+yellow so it stands out from the regular
+				// info chatter in CI logs.
+				block := fmt.Sprintf("%s\nCluster has confirmed convergence for %s but helm subprocess is still running.\nSending SIGINT to recover from helm v4 hook waiter wedge.\nRelease secret may need manual cleanup: kubectl -n %s delete secret sh.helm.release.v1.%s.<rev>",
+					kubedog.HeaderDivider(fmt.Sprintf("WARNING: Release '%s' — helm-killer fired", release.Name)),
+					time.Since(firstConvergedAt).Round(time.Second), release.Namespace, release.Name)
+				st.logger.Warnf("\n%s", kubedog.StyleWarning(block, useColor))
+				helmKilledByUs.Store(true)
+				releaseCancel()
+				return
+			}
+		}()
+	}
+
 	var flushOnce sync.Once
 	flush := func() {
 		flushOnce.Do(func() {
@@ -459,12 +524,13 @@ func (st *HelmState) startBackgroundKubedogTracking(
 	wait := func() *ReleaseError {
 		trackErr := <-resultCh
 		trackCancel()
+		releaseCancel()
 		flush()
 		if canceled {
 			// Helm failed and we cancelled the tracker; treat as no-op.
 			return nil
 		}
-		if safetyValveTriggered.Load() {
+		if safetyValveTriggered.Load() || helmKilledByUs.Load() {
 			// We deliberately cancelled the tracker after verifying via the
 			// live API that everything was healthy. The resulting trackErr
 			// (typically context.Canceled) is not a real failure.
@@ -481,10 +547,14 @@ func (st *HelmState) startBackgroundKubedogTracking(
 	cancel := func() {
 		canceled = true
 		trackCancel()
+		releaseCancel()
 	}
 	notifyHelmDone := func() {
 		tracker.MarkUpstreamCompleted()
 		helmDoneOnce.Do(func() { close(helmDoneCh) })
+	}
+	wasHelmKilled := func() bool {
+		return helmKilledByUs.Load()
 	}
 
 	return &kubedogTrackingHandle{
@@ -493,7 +563,26 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		Cancel:                  cancel,
 		NotifyHelmDone:          notifyHelmDone,
 		FlushBufferedHelmOutput: flush,
+		WasHelmKilled:           wasHelmKilled,
 	}, true
+}
+
+// getHelmStuckGrace returns the configured helm-stuck grace period — how long
+// the cluster must be confirmed converged via the live API while helm is
+// still running before we send SIGINT to helm. Zero disables the killer.
+// Lookup order: per-release HelmStuckGrace, SyncOpts.HelmStuckGrace,
+// HelmDefaults.HelmStuckGrace.
+func (st *HelmState) getHelmStuckGrace(release *ReleaseSpec, ops *SyncOpts) time.Duration {
+	if release.HelmStuckGrace != nil && *release.HelmStuckGrace > 0 {
+		return time.Duration(*release.HelmStuckGrace) * time.Second
+	}
+	if ops != nil && ops.HelmStuckGrace > 0 {
+		return time.Duration(ops.HelmStuckGrace) * time.Second
+	}
+	if st.HelmDefaults.HelmStuckGrace > 0 {
+		return time.Duration(st.HelmDefaults.HelmStuckGrace) * time.Second
+	}
+	return 0
 }
 
 func (st *HelmState) getTrackMode(release *ReleaseSpec, ops *SyncOpts) string {
@@ -521,24 +610,9 @@ func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, re
 		shouldWait = true
 	}
 
-	usingKubedog := st.shouldUseKubedog(release, ops)
-	if usingKubedog && !shouldWait {
-		// User explicitly opted out of helm waiting on this release (or
-		// neither release nor defaults asked for it). Honor that — pass
-		// nothing. Note: helm v4's default with no --wait is hookOnly,
-		// which still routes hooks through kstatus, so this release is
-		// exposed to the known hook-waiter wedge if any hook is present.
-		// We warn once per release so the operator knows the trade-off.
-		if release.Wait != nil && !*release.Wait && helm != nil && helm.IsHelm4() && st.logger != nil {
-			st.logger.Debugf("release %s has wait: false with --track-mode kubedog; helm v4's default hookOnly waiter still uses kstatus and may wedge on hook completion. Consider wait: true to switch to legacy waiter.", release.Name)
-		}
-		return flags
-	}
-
 	if shouldWait {
 		trackMode := st.getTrackMode(release, ops)
-		switch {
-		case trackMode == string(kubedog.TrackModeHelmLegacy):
+		if trackMode == string(kubedog.TrackModeHelmLegacy) {
 			if helm != nil && helm.IsHelm4() {
 				flags = append(flags, "--wait=legacy")
 			} else {
@@ -547,16 +621,7 @@ func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, re
 				}
 				flags = append(flags, "--wait")
 			}
-		case usingKubedog && helm != nil && helm.IsHelm4():
-			// Kubedog is the authoritative tracker for this release.
-			// Force helm onto the legacy poll-based waiter to bypass the
-			// helm v4 kstatus hook waiter race (statuswait.go:195
-			// channel-receive wedge that fires under parallel-install
-			// load on Job hooks). The wait is then redundant with kubedog
-			// but harmless — legacy polls cheaply and terminates as soon
-			// as the cluster reports ready.
-			flags = append(flags, "--wait=legacy")
-		default:
+		} else {
 			flags = append(flags, "--wait")
 		}
 	}

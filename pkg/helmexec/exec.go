@@ -2,6 +2,7 @@ package helmexec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -216,6 +217,35 @@ type LoggerSwapper interface {
 func (helm *execer) WithLogger(logger *zap.SugaredLogger) Interface {
 	clone := *helm
 	clone.logger = logger
+	return &clone
+}
+
+// ContextSwapper is the runtime contract for obtaining a context-scoped helm
+// clone. Cancelling the context cancels any helm subprocess started through
+// the clone — the underlying ShellRunner already sends SIGINT to its
+// subprocess on ctx.Done() (runner.go), so this gives callers a clean way to
+// kill an in-flight helm without touching the global app context. Side
+// interface so mocks don't have to implement it.
+type ContextSwapper interface {
+	WithContext(ctx context.Context) Interface
+}
+
+// WithContext returns a shallow copy of the execer whose runner uses the
+// provided context. Cancelling ctx triggers SIGINT to any helm subprocess
+// started through the clone. Falls back gracefully (returns clone with the
+// original runner) when the runner isn't a ShellRunner — only the kill path
+// becomes a no-op in that case.
+func (helm *execer) WithContext(ctx context.Context) Interface {
+	clone := *helm
+	switch r := helm.runner.(type) {
+	case *ShellRunner:
+		rClone := *r
+		rClone.Ctx = ctx
+		clone.runner = &rClone
+	case ShellRunner:
+		r.Ctx = ctx
+		clone.runner = r
+	}
 	return &clone
 }
 

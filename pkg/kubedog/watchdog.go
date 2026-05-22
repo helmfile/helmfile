@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/helmfile/helmfile/pkg/resource"
 )
@@ -23,8 +24,9 @@ import (
 const failureWatchdogInterval = 60 * time.Second
 
 var (
-	watchdogPodGVK = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
-	watchdogPodGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	watchdogPodGVK        = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+	watchdogPodGVR        = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	watchdogReplicaSetGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 )
 
 // watchdogWorkload identifies a workload whose pods we'll independently
@@ -103,6 +105,7 @@ func (t *Tracker) scanForMissedFailures(ctx context.Context, taskStore *kdutil.C
 			}
 			continue
 		}
+		workloadUID := obj.GetUID()
 
 		selector := extractPodSelector(obj)
 		if selector == "" {
@@ -114,6 +117,12 @@ func (t *Tracker) scanForMissedFailures(ctx context.Context, taskStore *kdutil.C
 			t.logger.Debugf("kubedog watchdog: LIST pods for %s/%s/%s failed: %v", wl.kind, wl.namespace, wl.name, err)
 			continue
 		}
+
+		// For Deployments, pods are not directly owned by the workload —
+		// they're owned by a ReplicaSet that's in turn owned by the
+		// Deployment. We lazy-load the RS UIDs only if we actually have a
+		// failing pod that doesn't match the workload UID directly.
+		var deploymentRSUIDs map[string]struct{}
 
 		for i := range pods.Items {
 			pod := &pods.Items[i]
@@ -129,11 +138,82 @@ func (t *Tracker) scanForMissedFailures(ctx context.Context, taskStore *kdutil.C
 			if podIsInTaskStore(taskStore, podName, wl.namespace) {
 				continue
 			}
-			t.logger.Warnf("[watchdog] Pod %s/%s is failing (%s) under %s/%s/%s but kubedog tracker is not tracking it. Inspect with: kubectl -n %s logs %s",
+			// Ownership check: the pod must belong to the current workload,
+			// not to a previous instance whose pods still share the same
+			// labels (e.g., a failed pre-install hook whose Job hasn't been
+			// cleaned up yet). Without this check, the watchdog cries wolf
+			// every time a stale failing pod is still around at the start
+			// of a new install.
+			if !podOwnedBy(pod, workloadUID, wl.kind, func() map[string]struct{} {
+				if deploymentRSUIDs == nil {
+					deploymentRSUIDs = t.rsUIDsOwnedBy(ctx, wl.namespace, workloadUID)
+				}
+				return deploymentRSUIDs
+			}) {
+				continue
+			}
+			msg := fmt.Sprintf("[watchdog] Pod %s/%s is failing (%s) under %s/%s/%s but kubedog tracker is not tracking it. Inspect with: kubectl -n %s logs %s",
 				wl.namespace, podName, reason, wl.kind, wl.namespace, wl.name, wl.namespace, podName)
+			t.logger.Warnf("%s", StyleWarning(msg, t.trackOptions.Color))
 			warned[podID] = struct{}{}
 		}
 	}
+}
+
+// podOwnedBy reports whether the pod's ownerReferences chain leads to the
+// given workload UID. For Job/StatefulSet/DaemonSet the workload directly
+// owns the pod, so a direct UID match suffices. For Deployment the pod is
+// owned by an intermediate ReplicaSet — the caller passes a lazy lookup of
+// "RS UIDs owned by this Deployment" so we only LIST RSes when we actually
+// need to disambiguate.
+func podOwnedBy(pod *unstructured.Unstructured, workloadUID types.UID, workloadKind string, deploymentRSUIDs func() map[string]struct{}) bool {
+	for _, uid := range podOwnerUIDs(pod) {
+		if uid == workloadUID {
+			return true
+		}
+	}
+	if workloadKind != "deploy" {
+		return false
+	}
+	rsUIDs := deploymentRSUIDs()
+	for _, uid := range podOwnerUIDs(pod) {
+		if _, ok := rsUIDs[string(uid)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func podOwnerUIDs(obj *unstructured.Unstructured) []types.UID {
+	refs := obj.GetOwnerReferences()
+	out := make([]types.UID, 0, len(refs))
+	for _, r := range refs {
+		out = append(out, r.UID)
+	}
+	return out
+}
+
+// rsUIDsOwnedBy returns the set of ReplicaSet UIDs in the namespace whose
+// metadata.ownerReferences contain the given workload UID. Used to validate
+// pod ownership for Deployments, whose pods are one indirection away from
+// the workload (Pod → RS → Deployment).
+func (t *Tracker) rsUIDsOwnedBy(ctx context.Context, namespace string, workloadUID types.UID) map[string]struct{} {
+	rsList, err := t.dynamicClient.Resource(watchdogReplicaSetGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		t.logger.Debugf("kubedog watchdog: LIST replicasets in %s failed: %v", namespace, err)
+		return map[string]struct{}{}
+	}
+	out := map[string]struct{}{}
+	for i := range rsList.Items {
+		rs := &rsList.Items[i]
+		for _, uid := range podOwnerUIDs(rs) {
+			if uid == workloadUID {
+				out[string(rs.GetUID())] = struct{}{}
+				break
+			}
+		}
+	}
+	return out
 }
 
 // extractPodSelector pulls the workload's pod label selector. Deployments,
