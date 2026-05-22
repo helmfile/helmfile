@@ -40,21 +40,21 @@ Flags:
       --allow-no-matching-release             Do not exit with an error code if the provided selector has no matching releases.
   -c, --chart string                          Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}
       --color                                 Output with color
-      --debug                                 Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect
+      --debug                                 Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect. Overrides "HELMFILE_DEBUG" OS environment variable when specified
       --disable-force-update                  do not force helm repos to update when executing "helm repo add"
       --enable-live-output                    Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
                                               It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.
   -e, --environment string                    specify the environment name. Overrides "HELMFILE_ENVIRONMENT" OS environment variable when specified. defaults to "default"
   -f, --file helmfile.yaml                    load config from file or directory. defaults to "helmfile.yaml" or "helmfile.yaml.gotmpl" or "helmfile.d" (means "helmfile.d/*.yaml" or "helmfile.d/*.yaml.gotmpl") in this preference. Specify - to load the config from the standard input.
-  -b, --helm-binary string                    Path to the helm binary (default "helm")
+  -b, --helm-binary string                    Path to the helm binary. Overrides "HELMFILE_HELM_BINARY" OS environment variable when specified (default "helm")
   -h, --help                                  help for helmfile
   -i, --interactive                           Request confirmation before attempting to modify clusters
       --kube-context string                   Set kubectl context. Overrides "HELMFILE_KUBE_CONTEXT" OS environment variable when specified. Uses current kubectl context by default
-  -k, --kustomize-binary string               Path to the kustomize binary (default "kustomize")
-      --log-level string                      Set log level, default info (default "info")
+  -k, --kustomize-binary string               Path to the kustomize binary. Overrides "HELMFILE_KUSTOMIZE_BINARY" OS environment variable when specified (default "kustomize")
+      --log-level string                      Set log level. Overrides "HELMFILE_LOG_LEVEL" OS environment variable when specified (default "info")
   -n, --namespace string                      Set namespace. Overrides "HELMFILE_NAMESPACE" OS environment variable when specified. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
-      --no-color                              Output without color
-  -q, --quiet                                 Silence output. Equivalent to log-level warn
+      --no-color                              Output without color. Overrides "HELMFILE_NO_COLOR" and "NO_COLOR" OS environment variables when specified
+  -q, --quiet                                 Silence output. Equivalent to log-level warn. Overrides "HELMFILE_QUIET" OS environment variable when specified
   -l, --selector stringArray                  Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
                                               A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                               "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
