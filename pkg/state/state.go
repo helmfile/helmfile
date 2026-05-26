@@ -39,6 +39,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/kubedog"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -4659,10 +4660,13 @@ func hideChartCredentials(chartCredentials string) (string, error) {
 	return modifiedURL, nil
 }
 
-// DisplayAffectedReleases logs the upgraded, deleted and in error releases
-func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
+// DisplayAffectedReleases logs the upgraded, deleted and in error releases.
+// useColor controls whether the section headers carry the bold+blue style we
+// use elsewhere for visual section breaks; pass false (e.g. when --no-color is
+// set) for clean output in non-TTY consumers.
+func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, useColor bool) {
 	if len(ar.Upgraded) > 0 {
-		logger.Info("\nUPDATED RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Updated Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -4684,7 +4688,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info(tbl.String())
 	}
 	if len(ar.Reinstalled) > 0 {
-		logger.Info("\nREINSTALLED RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Reinstalled Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -4706,7 +4710,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info(tbl.String())
 	}
 	if len(ar.Deleted) > 0 {
-		logger.Info("\nDELETED RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Deleted Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
@@ -4721,7 +4725,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info(tbl.String())
 	}
 	if len(ar.Failed) > 0 {
-		logger.Info("\nFAILED RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Failed Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -4738,7 +4742,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info(tbl.String())
 	}
 	if len(ar.DeleteFailed) > 0 {
-		logger.Info("\nFAILED TO DELETE RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Failed to Delete Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},

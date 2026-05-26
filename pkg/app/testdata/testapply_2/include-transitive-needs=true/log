@@ -48,7 +48,7 @@ processing releases in group 1/3: default//serviceC
 processing releases in group 2/3: default//serviceB
 processing releases in group 3/3: default//serviceA
 
-UPDATED RELEASES:
+[1m[34m========== Updated Releases ==========[0m
 NAME       NAMESPACE   CHART      VERSION   DURATION
 serviceC               my/chart   3.1.0           0s
 serviceB               my/chart   3.1.0           0s

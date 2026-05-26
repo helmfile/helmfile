@@ -1928,7 +1928,7 @@ Do you really want to apply?
 		}
 	}
 
-	affectedReleases.DisplayAffectedReleases(c.Logger())
+	affectedReleases.DisplayAffectedReleases(c.Logger(), !c.NoColor())
 
 	for id := range releasesWithNoChange {
 		r := releasesWithNoChange[id]
@@ -2014,7 +2014,7 @@ Do you really want to delete?
 			}
 		}
 	}
-	affectedReleases.DisplayAffectedReleases(c.Logger())
+	affectedReleases.DisplayAffectedReleases(c.Logger(), !c.NoColor())
 	return true, errs
 }
 
@@ -2377,7 +2377,7 @@ Do you really want to sync?
 		}
 	}
 
-	affectedReleases.DisplayAffectedReleases(c.Logger())
+	affectedReleases.DisplayAffectedReleases(c.Logger(), !c.NoColor())
 
 	for id := range releasesWithNoChange {
 		r := releasesWithNoChange[id]

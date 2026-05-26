@@ -782,7 +782,11 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		// but manifets.
 		//
 		// See https://github.com/roboll/helmfile/pull/1691#issuecomment-805636021 for more information.
-		helm.info(out)
+		//
+		// Helm emits one `wrote <path>` line per resource document in each file, so a
+		// multi-doc template produces N identical lines for the same path. Dedupe them
+		// to keep the output readable.
+		helm.info(dedupeWroteLines(out))
 	} else {
 		// Always write to stdout for use with e.g. `helmfile template | kubectl apply -f -`
 		helm.write(nil, out)
@@ -1126,6 +1130,29 @@ func (helm *execer) azcli(name string) ([]byte, error) {
 		helm.logger.Debugf("%s:", cmd)
 	}
 	return outBytes, err
+}
+
+// dedupeWroteLines collapses repeated `wrote <path>` lines from helm-template
+// stdout into a single occurrence per path (first-seen order). Helm v4 emits
+// one line per resource document, so a multi-doc YAML produces N identical
+// lines for the same file path; the duplicates are pure noise.
+func dedupeWroteLines(out []byte) []byte {
+	if len(out) == 0 {
+		return out
+	}
+	lines := strings.Split(string(out), "\n")
+	seen := make(map[string]struct{}, len(lines))
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if strings.HasPrefix(line, "wrote ") {
+			if _, ok := seen[line]; ok {
+				continue
+			}
+			seen[line] = struct{}{}
+		}
+		kept = append(kept, line)
+	}
+	return []byte(strings.Join(kept, "\n"))
 }
 
 func (helm *execer) info(out []byte) {

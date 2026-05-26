@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/helmfile/chartify"
+	"go.uber.org/zap"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
@@ -316,20 +317,42 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		useColor = opts.Color && !opts.NoColor
 	}
 
-	// Print a release-level divider before any per-release noise (helm
-	// templating, kubedog progress, helm output flush) so consecutive
-	// releases are visually delimited in CI logs.
-	st.logger.Infof("\n%s", kubedog.HeaderDividerStyled(fmt.Sprintf("Release '%s'", release.Name), useColor))
+	// Capture the per-release preamble (header + helm template "Templating
+	// release=" / "wrote ..." lines + "Found N resources" line) into one
+	// buffer and emit it via st.logger as a single atomic entry. Without
+	// this, parallel releases interleave their template output and it
+	// becomes very hard to follow which `wrote ...` line belongs to which
+	// chart. Helm output during install/upgrade is buffered separately
+	// (helmOutputBuf below) and flushed after tracking finishes.
+	preambleBuf := &bytes.Buffer{}
+	preambleLogger := helmexec.NewLogger(preambleBuf, "info")
+	preambleLogger.Infof("\n%s", kubedog.HeaderDividerStyled(fmt.Sprintf("Release '%s'", release.Name), useColor))
 
-	resources, err := st.getReleaseResources(ctx, release, helm)
+	tmplHelm := helm
+	if swapper, ok := helm.(helmexec.LoggerSwapper); ok {
+		tmplHelm = swapper.WithLogger(preambleLogger)
+	}
+
+	flushPreamble := func() {
+		if preambleBuf.Len() == 0 {
+			return
+		}
+		st.logger.Infof("%s", strings.TrimRight(preambleBuf.String(), "\n"))
+		preambleBuf.Reset()
+	}
+
+	resources, err := st.getReleaseResources(ctx, release, tmplHelm, preambleLogger)
 	if err != nil {
+		flushPreamble()
 		st.logger.Warnf("kubedog: failed to template release %s for parallel tracking, falling back to post-helm tracking: %v", release.Name, err)
 		return noop, false
 	}
 	if len(resources) == 0 {
+		flushPreamble()
 		st.logger.Infof("kubedog: no trackable resources templated for release %s", release.Name)
 		return noop, true
 	}
+	flushPreamble()
 
 	timeout := 5 * time.Minute
 	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
@@ -918,7 +941,7 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 		return fmt.Errorf("failed to create kubedog tracker: %w", err)
 	}
 
-	resources, err := st.getReleaseResources(ctx, release, helm)
+	resources, err := st.getReleaseResources(ctx, release, helm, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get release resources: %w", err)
 	}
@@ -937,7 +960,15 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 	return nil
 }
 
-func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec, helm helmexec.Interface) ([]*resource.Resource, error) {
+// getReleaseResources templates a release and returns its parsed resources.
+// outLogger is the logger to use for the user-visible "Found N resources"
+// (and No-manifest / No-resources) messages — pass a buffered logger when
+// the caller wants to flush all per-release preamble output as one atomic
+// block, otherwise pass nil to use st.logger directly.
+func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec, helm helmexec.Interface, outLogger *zap.SugaredLogger) ([]*resource.Resource, error) {
+	if outLogger == nil {
+		outLogger = st.logger
+	}
 	st.logger.Debugf("Getting resources for release %s", release.Name)
 
 	manifest, namespace, err := st.getReleaseManifest(release, helm)
@@ -946,7 +977,7 @@ func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec
 	}
 
 	if len(manifest) == 0 {
-		st.logger.Infof("No manifest found for release %s", release.Name)
+		outLogger.Infof("No manifest found for release %s", release.Name)
 		return nil, nil
 	}
 
@@ -961,11 +992,11 @@ func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec
 	}
 
 	if len(resources) == 0 {
-		st.logger.Infof("No resources found in manifest for release %s", release.Name)
+		outLogger.Infof("No resources found in manifest for release %s", release.Name)
 		return nil, nil
 	}
 
-	st.logger.Infof("Found %d resources in manifest for release %s", len(resources), release.Name)
+	outLogger.Infof("Found %d resources in manifest for release %s", len(resources), release.Name)
 
 	result := make([]*resource.Resource, len(resources))
 	for i := range resources {

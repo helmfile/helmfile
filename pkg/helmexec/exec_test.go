@@ -1708,3 +1708,47 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	checkInstall("secrets-getter-4.7.0.tgz")
 	checkInstall("secrets-post-renderer-4.7.0.tgz")
 }
+
+func Test_dedupeWroteLines(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "empty",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "no wrote lines untouched",
+			in:   "Found 25 resources in manifest for release system\n",
+			want: "Found 25 resources in manifest for release system\n",
+		},
+		{
+			name: "collapses duplicate wrote lines preserving first-seen order",
+			in: "wrote /tmp/a/service_account.yaml\n" +
+				"wrote /tmp/a/service_account.yaml\n" +
+				"wrote /tmp/a/secrets.yaml\n" +
+				"wrote /tmp/a/service_account.yaml\n" +
+				"wrote /tmp/a/secrets.yaml\n" +
+				"Found 25 resources in manifest for release system",
+			want: "wrote /tmp/a/service_account.yaml\n" +
+				"wrote /tmp/a/secrets.yaml\n" +
+				"Found 25 resources in manifest for release system",
+		},
+		{
+			name: "non-wrote duplicates kept",
+			in:   "hello\nhello\n",
+			want: "hello\nhello\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := string(dedupeWroteLines([]byte(c.in)))
+			if got != c.want {
+				t.Errorf("dedupeWroteLines() = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
