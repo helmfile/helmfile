@@ -352,7 +352,6 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		st.logger.Infof("kubedog: no trackable resources templated for release %s", release.Name)
 		return noop, true
 	}
-	flushPreamble()
 
 	timeout := 5 * time.Minute
 	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
@@ -399,6 +398,19 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		return noop, false
 	}
 
+	// Compute the kubedog filter + breakdown summary BEFORE launching the
+	// tracker goroutine so we can fold the "Tracking N..." and "Tracking
+	// breakdown: ..." lines into the same atomic preamble flush as the
+	// header and template output. Doing it any later means those two lines
+	// race with other releases' progress ticks. PreviewBreakdown is pure —
+	// no logging, no API calls.
+	_, breakdown := tracker.PreviewBreakdown(resources)
+	preambleLogger.Infof("Tracking %d resources from release %s with kubedog (in parallel with helm)", len(resources), release.Name)
+	if breakdown != "" {
+		preambleLogger.Infof("Tracking breakdown: %s", breakdown)
+	}
+	flushPreamble()
+
 	// Snapshot UID + generation BEFORE handing off to helm so each tracker
 	// goroutine can wait until the resource actually changes. Without this,
 	// kubedog observes the pre-upgrade "ready" state and exits immediately.
@@ -431,8 +443,6 @@ func (st *HelmState) startBackgroundKubedogTracking(
 
 	trackCtx, trackCancel := context.WithCancel(ctx)
 	resultCh := make(chan error, 1)
-
-	st.logger.Infof("Tracking %d resources from release %s with kubedog (in parallel with helm)", len(resources), release.Name)
 
 	go func() {
 		resultCh <- tracker.TrackResources(trackCtx, resources)
@@ -952,6 +962,9 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 	}
 
 	st.logger.Infof("Tracking %d resources from release %s with kubedog", len(resources), release.Name)
+	if _, breakdown := tracker.PreviewBreakdown(resources); breakdown != "" {
+		st.logger.Infof("Tracking breakdown: %s", breakdown)
+	}
 
 	if err := tracker.TrackResources(ctx, resources); err != nil {
 		return fmt.Errorf("kubedog tracking failed for release %s: %w", release.Name, err)

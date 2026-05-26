@@ -377,9 +377,11 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 		return nil
 	}
 
-	// The "Tracking N resources from release X with kubedog" line is already
-	// emitted by the caller (helmx). Only mention the filter here when it
-	// actually removed something.
+	// The "Tracking N resources from release X with kubedog" line and the
+	// "Tracking breakdown" summary are emitted by the caller (helmx) as part
+	// of the per-release preamble block, so we don't repeat them here. Only
+	// mention the filter when it actually removed something — that's
+	// behavioral info, not preamble.
 	if len(filtered) < len(resources) {
 		t.logger.Infof("kubedog filter kept %d of %d resources", len(filtered), len(resources))
 	}
@@ -389,8 +391,6 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 		t.logger.Info("No trackable resources found (only Deployment, StatefulSet, DaemonSet, Job, Canary, and PersistentVolumeClaim are supported)")
 		return nil
 	}
-
-	t.logger.Infof("Tracking breakdown: %s", t.targetSummary(targets))
 
 	trackCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -764,6 +764,24 @@ func classifyResource(rawKind string) (string, schema.GroupVersionKind, bool) {
 		return "pvc", schema.GroupVersionKind{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"}, true
 	}
 	return "", schema.GroupVersionKind{}, false
+}
+
+// PreviewBreakdown applies the same filtering and classification that
+// TrackResources will, then returns the kept resources and a human-readable
+// breakdown string (e.g. "deploys=3, jobs=2, stss=1") suitable for the
+// per-release preamble. Returns an empty summary if no resources survive
+// filtering or no resources are of a trackable kind. Pure: no logging, no
+// state mutation, no API calls.
+func (t *Tracker) PreviewBreakdown(resources []*resource.Resource) (kept []*resource.Resource, summary string) {
+	filtered := t.filterResources(resources)
+	if len(filtered) == 0 {
+		return nil, ""
+	}
+	targets := t.buildTargets(filtered)
+	if len(targets) == 0 {
+		return filtered, ""
+	}
+	return filtered, t.targetSummary(targets)
 }
 
 func (t *Tracker) targetSummary(targets []trackTarget) string {
