@@ -48,6 +48,8 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 
 // NewRootCmd creates the root command for the CLI.
 func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
+	globalImpl := config.NewGlobalImpl(globalConfig)
+
 	cmd := &cobra.Command{
 		Use:           "helmfile",
 		Short:         globalUsage,
@@ -58,11 +60,11 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// Valid levels:
 			// https://github.com/uber-go/zap/blob/7e7e266a8dbce911a49554b945538c5b950196b8/zapcore/level.go#L126
-			logLevel := globalConfig.LogLevel
+			logLevel := globalImpl.LogLevel()
 			switch {
-			case globalConfig.Debug:
+			case globalImpl.Debug():
 				logLevel = "debug"
-			case globalConfig.Quiet:
+			case globalImpl.Quiet():
 				logLevel = "warn"
 			}
 
@@ -83,8 +85,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 
 	flags.ParseErrorsAllowlist.UnknownFlags = true
 
-	globalImpl := config.NewGlobalImpl(globalConfig)
-
 	// when set environment HELMFILE_UPGRADE_NOTICE_DISABLED any value, skip upgrade notice.
 	var versionOpts []extension.CobraOption
 	if os.Getenv(envvar.UpgradeNoticeDisabled) == "" {
@@ -92,6 +92,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	}
 
 	cmd.AddCommand(
+		NewCreateCmd(globalImpl),
 		NewInitCmd(globalImpl),
 		NewApplyCmd(globalImpl),
 		NewBuildCmd(globalImpl),
@@ -120,8 +121,8 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 }
 
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
-	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", app.DefaultHelmBinary, "Path to the helm binary")
-	fs.StringVarP(&globalOptions.KustomizeBinary, "kustomize-binary", "k", app.DefaultKustomizeBinary, "Path to the kustomize binary")
+	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", "", fmt.Sprintf(`Path to the helm binary. Overrides "HELMFILE_HELM_BINARY" OS environment variable when specified (default %q)`, app.DefaultHelmBinary))
+	fs.StringVarP(&globalOptions.KustomizeBinary, "kustomize-binary", "k", "", fmt.Sprintf(`Path to the kustomize binary. Overrides "HELMFILE_KUSTOMIZE_BINARY" OS environment variable when specified (default %q)`, app.DefaultKustomizeBinary))
 	fs.StringVarP(&globalOptions.File, "file", "f", "", "load config from file or directory. defaults to \"`helmfile.yaml`\" or \"helmfile.yaml.gotmpl\" or \"helmfile.d\" (means \"helmfile.d/*.yaml\" or \"helmfile.d/*.yaml.gotmpl\") in this preference. Specify - to load the config from the standard input.")
 	fs.StringVarP(&globalOptions.Environment, "environment", "e", "", `specify the environment name. Overrides "HELMFILE_ENVIRONMENT" OS environment variable when specified. defaults to "default"`)
 	fs.StringArrayVar(&globalOptions.StateValuesSet, "state-values-set", nil, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).")
@@ -133,14 +134,14 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.BoolVar(&globalOptions.DisableForceUpdate, "disable-force-update", false, `do not force helm repos to update when executing "helm repo add" (Helm 3 only)`)
 	fs.BoolVar(&globalOptions.EnforcePluginVerification, "enforce-plugin-verification", false, `fail plugin installation if verification is not supported (for security purposes)`)
 	fs.BoolVar(&globalOptions.HelmOCIPlainHTTP, "oci-plain-http", false, `use plain HTTP for OCI registries (required for local/insecure registries in Helm 4)`)
-	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, "Silence output. Equivalent to log-level warn")
+	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, `Silence output. Equivalent to log-level warn. Overrides "HELMFILE_QUIET" OS environment variable when specified`)
 	fs.StringVar(&globalOptions.Kubeconfig, "kubeconfig", "", "Use a particular kubeconfig file")
-	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", "Set kubectl context. Uses current context by default")
-	fs.BoolVar(&globalOptions.Debug, "debug", false, "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect")
+	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", `Set kubectl context. Overrides "HELMFILE_KUBE_CONTEXT" OS environment variable when specified. Uses current kubectl context by default`)
+	fs.BoolVar(&globalOptions.Debug, "debug", false, `Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect. Overrides "HELMFILE_DEBUG" OS environment variable when specified`)
 	fs.BoolVar(&globalOptions.Color, "color", false, "Output with color")
-	fs.BoolVar(&globalOptions.NoColor, "no-color", false, "Output without color")
-	fs.StringVar(&globalOptions.LogLevel, "log-level", "info", "Set log level, default info")
-	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}")
+	fs.BoolVar(&globalOptions.NoColor, "no-color", false, `Output without color. Overrides "HELMFILE_NO_COLOR" and "NO_COLOR" OS environment variables when specified`)
+	fs.StringVar(&globalOptions.LogLevel, "log-level", "", `Set log level. Overrides "HELMFILE_LOG_LEVEL" OS environment variable when specified (default "info")`)
+	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", `Set namespace. Overrides "HELMFILE_NAMESPACE" OS environment variable when specified. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}`)
 	fs.StringVarP(&globalOptions.Chart, "chart", "c", "", "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}")
 	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
 A release must match all labels in a group in order to be used. Multiple groups can be specified at once.

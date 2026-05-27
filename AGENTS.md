@@ -4,7 +4,7 @@
 
 ### Essential Setup
 ```bash
-# Check Go version (requires 1.24.2+)
+# Check Go version (requires 1.26.2+)
 go version
 
 # Check Helm dependency (required at runtime)

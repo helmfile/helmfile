@@ -20,7 +20,7 @@ import (
 const (
 	HelmRequiredVersion            = "v3.18.6" // Minimum required version (supports Helm 3.x and 4.x)
 	HelmDiffRecommendedVersion     = "v3.15.3"
-	HelmRecommendedVersion         = "v4.1.0" // Recommended to use latest Helm 4
+	HelmRecommendedVersion         = "v4.2.0" // Recommended Helm 4 version
 	HelmSecretsRecommendedVersion  = "v4.7.4" // v4.7.0+ works with both Helm 3 (single plugin) and Helm 4 (split plugin architecture)
 	HelmGitRecommendedVersion      = "v1.3.0"
 	HelmS3RecommendedVersion       = "v0.16.3"
@@ -217,7 +217,7 @@ func (h *HelmfileInit) CheckHelmPlugins() error {
 			if err != nil {
 				return err
 			}
-			err = helm.UpdatePlugin(p.name)
+			err = helm.UpdatePlugin(p.name, p.repo, p.version)
 			if err != nil {
 				// Check if plugin was updated despite the error
 				updatedVersion, verifyErr := helmexec.GetPluginVersion(p.name, pluginsDir)

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	gocontext "context"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +29,7 @@ import (
 	"github.com/helmfile/vals"
 	"github.com/tatsushid/go-prettytable"
 	"go.uber.org/zap"
+	helmchart "helm.sh/helm/v3/pkg/chart"
 	cliv3 "helm.sh/helm/v3/pkg/cli"
 	cliv4 "helm.sh/helm/v4/pkg/cli"
 
@@ -36,6 +39,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
@@ -49,6 +53,12 @@ const (
 
 	// Valid enum for updateStrategy values
 	UpdateStrategyReinstallIfForbidden = "reinstallIfForbidden"
+
+	// Valid values for environment mergeStrategy.
+	// MergeStrategyOverride (default) makes later values files override earlier ones.
+	// MergeStrategyFallback flips the precedence: earlier files win and later files only fill gaps.
+	MergeStrategyOverride = "override"
+	MergeStrategyFallback = "fallback"
 )
 
 // ReleaseSetSpec is release set spec
@@ -84,6 +94,11 @@ type ReleaseSetSpec struct {
 	Hooks []event.Hook `yaml:"hooks,omitempty"`
 
 	Templates map[string]TemplateSpec `yaml:"templates"`
+
+	// DefaultInherit is a list of template names that all releases inherit by default.
+	// Each release will automatically inherit these templates unless it already explicitly
+	// inherits from the same template.
+	DefaultInherit DefaultInherits `yaml:"defaultInherit,omitempty"`
 
 	Env environment.Environment `yaml:"-"`
 
@@ -156,7 +171,7 @@ type SubHelmfileSpec struct {
 // SubhelmfileEnvironmentSpec is the environment spec for a subhelmfile
 type SubhelmfileEnvironmentSpec struct {
 	OverrideValues       []any `yaml:"values,omitempty"`
-	OverrideValuesAreCLI bool  `yaml:"-"`
+	OverrideCLISetValues []any `yaml:"-"` // CLI --state-values-set values only, merged element-by-element
 }
 
 // HelmSpec to defines helmDefault values
@@ -478,6 +493,8 @@ type ReleaseSpec struct {
 	KubedogQPS *float32 `yaml:"kubedogQPS,omitempty"`
 	// KubedogBurst specifies the burst for kubedog kubernetes client
 	KubedogBurst *int `yaml:"kubedogBurst,omitempty"`
+	// TrackFailOnError controls whether kubedog tracking failures cause a non-zero exit code
+	TrackFailOnError *bool `yaml:"trackFailOnError,omitempty"`
 }
 
 // TrackResourceSpec specifies a resource to track
@@ -500,6 +517,45 @@ func (r *Inherits) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 	*r = v0151
 	return nil
+}
+
+type DefaultInherits []string
+
+func (r *DefaultInherits) UnmarshalYAML(unmarshal func(any) error) error {
+	var list []string
+	if err := unmarshal(&list); err == nil {
+		*r = normalizeDefaultInherits(list)
+		return nil
+	}
+
+	var single string
+	if err := unmarshal(&single); err != nil {
+		return err
+	}
+	*r = normalizeDefaultInherits([]string{single})
+	return nil
+}
+
+// normalizeDefaultInherits trims names, drops empty entries, and returns nil for an empty result.
+func normalizeDefaultInherits(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(in))
+	for _, name := range in {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		out = append(out, name)
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+
+	return out
 }
 
 // ChartPathOrName returns ChartPath if it is non-empty, and returns Chart otherwise.
@@ -920,6 +976,7 @@ type SyncOpts struct {
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
+	TrackFailOnError     bool
 	Description          string
 }
 
@@ -1146,10 +1203,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
-					if relErr == nil && st.shouldUseKubedog(release, opts) {
-						if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
-							st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
-						}
+					if relErr == nil {
+						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
 					}
 				} else {
 					if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
@@ -1168,10 +1223,11 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 							release.installedVersion = installedVersion
 						}
 
-						if st.shouldUseKubedog(release, opts) {
-							if trackErr := st.trackWithKubedog(gocontext.Background(), release, helm, opts); trackErr != nil {
-								st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
-							}
+						if trackErr := st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts); trackErr != nil {
+							m.Lock()
+							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							m.Unlock()
+							relErr = trackErr
 						}
 					}
 				}
@@ -1349,6 +1405,8 @@ type ChartPrepareOptions struct {
 	SkipRefresh   bool
 	SkipResolve   bool
 	SkipCleanup   bool
+	// SkipSchemaValidation configures chartify to pass --skip-schema-validation to helm-template run by it.
+	SkipSchemaValidation bool
 	// Validate configures chartify to pass --validate to helm-template run by it.
 	// It's required when one of your chart relies on Capabilities.APIVersions in a template
 	Validate               bool
@@ -1397,6 +1455,28 @@ func (st *HelmState) GetRepositoryAndNameFromChartName(chartName string) (*Repos
 	return nil, chartName
 }
 
+// resolveOCIAdhocDepChart rewrites a release `dependencies[].chart` value that
+// uses the named-repo prefix form ("repoName/chartName") into a full oci:// URL
+// when the prefix matches a `repositories:` entry with `oci: true`. It returns
+// (rewritten, true) on a hit and ("", false) otherwise.
+//
+// This avoids the chartify path that does `helm repo list` to look up the
+// repository URL: that lookup never finds OCI repos because helm 3+ does not
+// register OCI registries as named repos (it uses `helm registry login`
+// instead). By the time chartify sees an `oci://` URL it already takes the
+// correct branch, so rewriting here is enough to make the named-repo form
+// behave the same as the explicit URL form.
+func (st *HelmState) resolveOCIAdhocDepChart(chart string) (string, bool) {
+	if strings.HasPrefix(chart, "oci://") {
+		return "", false
+	}
+	repo, name := st.GetRepositoryAndNameFromChartName(chart)
+	if repo == nil || !repo.OCI {
+		return "", false
+	}
+	return "oci://" + strings.TrimSuffix(repo.URL, "/") + "/" + name, true
+}
+
 var rwMutexMap sync.Map
 
 // getNamedRWMutex retrieves or creates a sync.RWMutex for a given name.
@@ -1416,42 +1496,28 @@ type PrepareChartKey struct {
 	Namespace, Name, KubeContext string
 }
 
-// PrepareCharts creates temporary directories of charts.
-//
-// Each resulting "chart" can be one of the followings:
-//
-// (1) local chart
-// (2) temporary local chart generated from kustomization or manifests
-// (3) remote chart
-//
-// When running `helmfile template` on helm v2, or `helmfile lint` on both helm v2 and v3,
-// PrepareCharts will download and untar charts for linting and templating.
-//
 // rewriteChartDependencies rewrites relative file:// dependencies in Chart.yaml to absolute paths
-// to ensure they can be resolved from chartify's temporary directory
-func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) {
+// to ensure they can be resolved from chartify's temporary directory.
+// Instead of modifying the original chart in-place (which causes race conditions when multiple
+// releases reference the same local chart), it creates a temporary copy only when a rewrite is
+// needed and rewrites that copy. When a temp copy is created, it reflects the current chart
+// contents so prepare hooks or other steps that mutate the local chart directory are honored.
+// The returned cleanup function removes the temporary directory when one was created and is
+// otherwise a no-op.
+func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(), error) {
 	chartYamlPath := filepath.Join(chartPath, "Chart.yaml")
 
-	// Check if Chart.yaml exists
-	if _, err := os.Stat(chartYamlPath); os.IsNotExist(err) {
-		return func() {}, nil
+	if _, err := st.fs.Stat(chartYamlPath); os.IsNotExist(err) {
+		return chartPath, func() {}, nil
+	} else if err != nil {
+		return chartPath, func() {}, err
 	}
 
-	// Read Chart.yaml
-	data, err := os.ReadFile(chartYamlPath)
+	data, err := st.fs.ReadFile(chartYamlPath)
 	if err != nil {
-		return func() {}, err
+		return chartPath, func() {}, err
 	}
 
-	originalContent := data
-	cleanup := func() {
-		// Restore original Chart.yaml
-		if err := os.WriteFile(chartYamlPath, originalContent, 0644); err != nil {
-			st.logger.Warnf("Failed to restore original Chart.yaml at %s: %v", chartYamlPath, err)
-		}
-	}
-
-	// Parse Chart.yaml
 	type ChartDependency struct {
 		Name       string                 `yaml:"name"`
 		Repository string                 `yaml:"repository"`
@@ -1464,23 +1530,20 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 
 	var chartMeta ChartMeta
 	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
-		return cleanup, err
+		return chartPath, func() {}, err
 	}
 
-	// Rewrite relative file:// dependencies to absolute paths
 	modified := false
 	for i := range chartMeta.Dependencies {
 		dep := &chartMeta.Dependencies[i]
 		if strings.HasPrefix(dep.Repository, "file://") {
 			relPath := strings.TrimPrefix(dep.Repository, "file://")
 
-			// Check if it's a relative path
 			if !filepath.IsAbs(relPath) {
-				// Convert to absolute path relative to the chart directory
 				absPath := filepath.Join(chartPath, relPath)
 				absPath, err = filepath.Abs(absPath)
 				if err != nil {
-					return cleanup, fmt.Errorf("failed to resolve absolute path for dependency %s: %w", dep.Name, err)
+					return chartPath, func() {}, fmt.Errorf("failed to resolve absolute path for dependency %s: %w", dep.Name, err)
 				}
 
 				st.logger.Debugf("Rewriting Chart dependency %s from %s to file://%s", dep.Name, dep.Repository, absPath)
@@ -1490,21 +1553,159 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (func(), error) 
 		}
 	}
 
-	// Write back if modified
-	if modified {
-		updatedData, err := yaml.Marshal(&chartMeta)
-		if err != nil {
-			return cleanup, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
-		}
-
-		if err := os.WriteFile(chartYamlPath, updatedData, 0644); err != nil {
-			return cleanup, fmt.Errorf("failed to write Chart.yaml: %w", err)
-		}
-
-		st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", chartYamlPath)
+	if !modified {
+		return chartPath, func() {}, nil
 	}
 
-	return cleanup, nil
+	updatedData, err := yaml.Marshal(&chartMeta)
+	if err != nil {
+		return chartPath, func() {}, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
+	}
+
+	tempDir, err := st.fs.MkdirTemp("", "chart-deps-rewrite-*")
+	if err != nil {
+		return chartPath, func() {}, fmt.Errorf("failed to create temp directory for chart rewrite: %w", err)
+	}
+
+	if err := st.fs.CopyDir(chartPath, tempDir); err != nil {
+		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
+			st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
+		}
+		return chartPath, func() {}, fmt.Errorf("failed to copy chart to temp directory: %w", err)
+	}
+
+	tempChartYamlPath := filepath.Join(tempDir, "Chart.yaml")
+	if err := st.fs.WriteFile(tempChartYamlPath, updatedData, 0644); err != nil {
+		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
+			st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
+		}
+		return chartPath, func() {}, fmt.Errorf("failed to write Chart.yaml: %w", err)
+	}
+
+	st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", tempChartYamlPath)
+
+	// Rewriting Chart.yaml invalidates Chart.lock's digest, since helm computes the
+	// digest over the JSON-marshaled dependencies block. If the lock isn't refreshed,
+	// downstream `helm dependency build` errors with "lock file is out of sync with
+	// the dependencies file" and falls back to `dependency update`, which re-resolves
+	// version constraints (e.g. `version: "*"`) against the chart repo and silently
+	// pulls newer dependency versions. The version pins in the lock are still the
+	// intended truth — only the rewritten file:// repository URL changed. Mirror the
+	// rewrite into the lock and recompute the digest so `dep build` accepts it.
+	tempChartLockPath := filepath.Join(tempDir, "Chart.lock")
+	lockData, lockErr := st.fs.ReadFile(tempChartLockPath)
+	if lockErr != nil && !os.IsNotExist(lockErr) {
+		st.logger.Warnf("Failed to read Chart.lock at %s: %v", tempChartLockPath, lockErr)
+	}
+	if lockErr == nil {
+		var lock struct {
+			Dependencies []*helmchart.Dependency `yaml:"dependencies,omitempty"`
+			Digest       string                  `yaml:"digest,omitempty"`
+			Generated    string                  `yaml:"generated,omitempty"`
+		}
+		if err := yaml.Unmarshal(lockData, &lock); err != nil {
+			st.logger.Warnf("Failed to parse Chart.lock at %s: %v", tempChartLockPath, err)
+		} else {
+			// Build the request slice (rewritten Chart.yaml dependencies) using helm's
+			// own chart.Dependency type so the JSON used for hashing matches helm's
+			// exactly. All supported fields must be mapped, not just name/repository/
+			// version, because helm's digest algorithm hashes the full Dependency struct.
+			req := make([]*helmchart.Dependency, 0, len(chartMeta.Dependencies))
+			for _, d := range chartMeta.Dependencies {
+				dep := &helmchart.Dependency{
+					Name:       d.Name,
+					Repository: d.Repository,
+				}
+				if v, ok := d.Data["version"].(string); ok {
+					dep.Version = v
+				}
+				if v, ok := d.Data["condition"].(string); ok {
+					dep.Condition = v
+				}
+				if v, ok := d.Data["alias"].(string); ok {
+					dep.Alias = v
+				}
+				if v, ok := d.Data["enabled"].(bool); ok {
+					dep.Enabled = v
+				}
+				if v, ok := d.Data["tags"].([]interface{}); ok {
+					tags := make([]string, 0, len(v))
+					for _, t := range v {
+						if s, ok := t.(string); ok {
+							tags = append(tags, s)
+						}
+					}
+					dep.Tags = tags
+				}
+				if v, ok := d.Data["import-values"].([]interface{}); ok {
+					normalized, err := maputil.RecursivelyStringifyMapKey(v)
+					if err != nil {
+						st.logger.Warnf("Failed to normalize import-values for dependency %s: %v", d.Name, err)
+					} else {
+						dep.ImportValues = normalized.([]interface{})
+					}
+				}
+				req = append(req, dep)
+			}
+
+			// Mirror the rewritten file:// repository URLs onto matching lock entries.
+			// Without this, `helm dependency build` would resolve the lock's relative
+			// file:// paths against the (moved) chart directory and fail with
+			// "directory ... not found". Versions in the lock are left untouched.
+			// Match on Name + Alias to handle charts with duplicate dependency names
+			// distinguished by alias.
+			for _, ld := range lock.Dependencies {
+				if !strings.HasPrefix(ld.Repository, "file://") {
+					continue
+				}
+				for _, rd := range req {
+					if rd.Name == ld.Name && rd.Alias == ld.Alias && strings.HasPrefix(rd.Repository, "file://") {
+						ld.Repository = rd.Repository
+						break
+					}
+				}
+			}
+
+			// Normalize lock.Dependencies ImportValues to avoid json.Marshal failures
+			// when go-yaml v2 decodes nested maps as map[interface{}]interface{}.
+			for _, ld := range lock.Dependencies {
+				if ld.ImportValues != nil {
+					normalized, err := maputil.RecursivelyStringifyMapKey(ld.ImportValues)
+					if err != nil {
+						st.logger.Warnf("Failed to normalize import-values in Chart.lock for dependency %s: %v", ld.Name, err)
+					} else {
+						ld.ImportValues = normalized.([]interface{})
+					}
+				}
+			}
+
+			// Replicates helm's resolver.HashReq:
+			//   json.Marshal([2][]*chart.Dependency{req, lock}) → sha256 hex.
+			// resolver.HashReq lives in helm.sh/helm/v3/internal/resolver, so we
+			// inline the (small, stable) algorithm rather than importing it.
+			if payload, err := json.Marshal([2][]*helmchart.Dependency{req, lock.Dependencies}); err != nil {
+				st.logger.Warnf("Failed to marshal deps for Chart.lock digest at %s: %v", tempChartLockPath, err)
+			} else {
+				sum := sha256.Sum256(payload)
+				lock.Digest = "sha256:" + hex.EncodeToString(sum[:])
+				if updated, err := yaml.Marshal(&lock); err != nil {
+					st.logger.Warnf("Failed to marshal Chart.lock at %s: %v", tempChartLockPath, err)
+				} else if err := st.fs.WriteFile(tempChartLockPath, updated, 0644); err != nil {
+					st.logger.Warnf("Failed to write Chart.lock at %s: %v", tempChartLockPath, err)
+				} else {
+					st.logger.Debugf("Refreshed Chart.lock digest at %s after Chart.yaml rewrite", tempChartLockPath)
+				}
+			}
+		}
+	}
+
+	cleanup := func() {
+		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
+			st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
+		}
+	}
+
+	return tempDir, cleanup, nil
 }
 
 // Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
@@ -1516,11 +1717,12 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// This prevents errors like "Error: directory /tmp/chartify.../argocd-application not found"
 	// when Chart.yaml contains dependencies like "file://../argocd-application"
 	if st.fs.DirectoryExistsAt(chartPath) {
-		restoreChart, err := st.rewriteChartDependencies(chartPath)
+		rewrittenPath, cleanupTempChart, err := st.rewriteChartDependencies(chartPath)
 		if err != nil {
 			return "", false, fmt.Errorf("failed to rewrite chart dependencies: %w", err)
 		}
-		defer restoreChart()
+		chartPath = rewrittenPath
+		defer cleanupTempChart()
 	}
 
 	c := chartify.New(
@@ -1624,6 +1826,12 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 		}
 	}
 
+	chartifyOpts.TemplateArgs = st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(
+		chartifyOpts.TemplateArgs,
+		release,
+		opts.SkipSchemaValidation,
+	)
+
 	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 	if err != nil {
 		return "", false, err
@@ -1634,6 +1842,30 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// explicitly skipped.
 	buildDeps := !skipDeps
 	return chartPath, buildDeps, nil
+}
+
+func (st *HelmState) appendSkipSchemaValidationFlagToChartifyTemplateArgs(templateArgs string, release *ReleaseSpec, skipSchemaValidation bool) string {
+	if !st.shouldSkipSchemaValidation(release, skipSchemaValidation) || hasTemplateArg(templateArgs, "--skip-schema-validation") {
+		return templateArgs
+	}
+
+	return appendTemplateArg(templateArgs, "--skip-schema-validation")
+}
+
+func hasTemplateArg(templateArgs, arg string) bool {
+	for _, token := range strings.Fields(templateArgs) {
+		if token == arg || strings.HasPrefix(token, arg+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+func appendTemplateArg(templateArgs, arg string) string {
+	if templateArgs == "" {
+		return arg
+	}
+	return templateArgs + " " + arg
 }
 
 // processLocalChart handles local chart processing
@@ -3605,7 +3837,10 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	flags, err = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	skipSchemaValidation := false
 	if opt != nil {
@@ -3633,6 +3868,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	var flags []string
 	flags = st.appendChartVersionFlags(flags, release)
 	flags = st.appendHelmXFlags(flags, release)
+	flags = st.appendEnableDNSFlags(flags, release)
 
 	var postRendererArgs []string
 	var showOnly []string
@@ -3647,7 +3883,10 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		skipSchemaValidation = opt.SkipSchemaValidation
 	}
 	flags = st.appendPostRenderFlags(flags, release, postRenderer, helm)
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	flags, err := st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 	flags = st.appendApiVersionsFlags(flags, release, kubeVersion)
 	flags = st.appendChartDownloadFlags(flags, release)
 	flags = st.appendShowOnlyFlags(flags, showOnly)
@@ -3770,7 +4009,11 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	if opt != nil {
 		postRendererArgs = opt.PostRendererArgs
 	}
-	flags = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	var err error
+	flags, err = st.appendPostRenderArgsFlags(flags, release, postRendererArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	skipSchemaValidation := false
 	if opt != nil {
@@ -3800,7 +4043,6 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		takeOwnership = opt.TakeOwnership
 	}
 
-	var err error
 	flags, err = st.appendTakeOwnershipFlagsForDiff(flags, release, takeOwnership, pluginsDir)
 	if err != nil {
 		return nil, nil, err

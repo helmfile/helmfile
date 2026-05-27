@@ -1,6 +1,6 @@
-# The Helmfile Best Practices Guide
+# Writing Helmfile
 
-This guide covers the Helmfile's considered patterns for writing advanced helmfiles. It focuses on how helmfile should be structured and executed.
+This guide covers patterns and best practices for writing helmfiles. It focuses on how helmfile should be structured and executed.
 
 **Before diving into advanced patterns, we strongly recommend reading [Values Merging and Data Flow](values-and-merging.md)** to understand how Helmfile merges values from various sources. This foundational knowledge is essential for writing effective helmfiles.
 
@@ -158,6 +158,48 @@ Thus we added a new way for inheritance, which uses the `inherit` field we intro
 See [issue helmfile/helmfile#435](https://github.com/helmfile/helmfile/issues/435#issuecomment-1362177510) for more context.
 
 You might also find [issue roboll/helmfile#428](https://github.com/roboll/helmfile/issues/428) useful for more context on how we originally designed the release template and what it's supposed to solve.
+
+### Default Template Inheritance
+
+When all releases share the same template, specifying `inherit` on each one becomes repetitive. Use `defaultInherit` to apply a template to all releases automatically:
+
+```yaml
+templates:
+  default:
+    namespace: kube-system
+    missingFileHandler: Warn
+    values:
+    - config/{{`{{ .Release.Name }}`}}/values.yaml
+
+defaultInherit: default
+
+releases:
+- name: heapster
+  chart: stable/heapster
+  version: 0.3.2
+  # inherits from "default" automatically
+- name: kubernetes-dashboard
+  chart: stable/kubernetes-dashboard
+  version: 0.10.0
+  inherit:
+  - template: default
+    except:
+    - values
+```
+
+`defaultInherit` accepts a single template name or a list:
+
+```yaml
+# Single template
+defaultInherit: default
+
+# Multiple templates (merged in order)
+defaultInherit:
+  - ns-template
+  - defaults
+```
+
+If a release already inherits from the same template explicitly, the default is not duplicated. Use `except` in the release's `inherit` to exclude specific fields when needed.
 
 ## Layering Release Values
 

@@ -2,6 +2,7 @@ package state
 
 import (
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/maputil"
 )
 
 // TemplateSpec defines the structure of a reusable and composable template for helm releases.
@@ -21,11 +22,9 @@ type EnvironmentTemplateData struct {
 }
 
 func NewEnvironmentTemplateData(env environment.Environment, namespace string, values map[string]any) *EnvironmentTemplateData {
-	// Create a copy of the environment with merged values for template access.
-	// This ensures templates accessing .Environment.Values see the same merged values
-	// (Defaults + Values + CLIOverrides) as templates accessing .Values directly.
 	envCopy := env
-	envCopy.Values = values
+	envCopy.Values = maputil.MergeMaps(env.Values, env.CLIOverrides,
+		maputil.MergeOptions{ArrayStrategy: maputil.ArrayMergeStrategyMerge})
 	d := EnvironmentTemplateData{envCopy, namespace, values, nil}
 	d.StateValues = &d.Values
 	return &d

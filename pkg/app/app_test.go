@@ -731,8 +731,8 @@ releases:
 	}{
 		{label: "duplicatedOK=yes", expectedReleases: []string{"zipkin", "prometheus", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
 		{label: "name=zipkin", expectedReleases: []string{"zipkin", "prometheus", "grafana", "postgresql"}, expectErr: false},
-		{label: "name=grafana", expectedReleases: []string{"zipkin", "prometheus", "grafana", "grafana", "postgresql"}, expectErr: false},
-		{label: "name=doesnotexists", expectedReleases: []string{"zipkin", "prometheus", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=grafana", expectedReleases: []string{"grafana", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=doesnotexists", expectedReleases: []string{"grafana", "postgresql"}, expectErr: false},
 	}
 	runFilterSubHelmFilesTests(legacyTestcases, files, t, "1st EmbeddedSelectors")
 
@@ -744,7 +744,7 @@ releases:
 		errMsg           string
 	}{
 		{label: "duplicatedOK=yes", expectedReleases: []string{"zipkin", "prometheus", "grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
-		{label: "name=doesnotexists", expectedReleases: []string{"zipkin", "prometheus", "grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
+		{label: "name=doesnotexists", expectedReleases: []string{"grafana", "bar", "bar", "grafana", "postgresql"}, expectErr: false},
 	}
 
 	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
@@ -858,6 +858,89 @@ releases:
 	t.Setenv(envvar.Experimental, ExperimentalSelectorExplicit)
 
 	runFilterSubHelmFilesTests(desiredTestcases, files, t, "2nd inherits")
+}
+
+func TestSubhelmfileSelectorsConflict(t *testing.T) {
+	tests := []struct {
+		name         string
+		cliSelectors []string
+		spec         state.SubHelmfileSpec
+		conflict     bool
+	}{
+		{
+			name:         "no CLI selectors",
+			cliSelectors: nil,
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}},
+			conflict:     false,
+		},
+		{
+			name:         "no subhelmfile selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: nil},
+			conflict:     false,
+		},
+		{
+			name:         "selectorsInherited true",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}, SelectorsInherited: true},
+			conflict:     false,
+		},
+		{
+			name:         "conflicting selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}},
+			conflict:     true,
+		},
+		{
+			name:         "matching selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "b.yaml", Selectors: []string{"name=b"}},
+			conflict:     false,
+		},
+		{
+			name:         "different keys no conflict",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"env=prod"}},
+			conflict:     false,
+		},
+		{
+			name:         "empty CLI selectors slice",
+			cliSelectors: []string{},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}},
+			conflict:     false,
+		},
+		{
+			name:         "empty subhelmfile selectors slice",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{}},
+			conflict:     false,
+		},
+		{
+			name:         "all pairs conflict with multiple subhelmfile selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a", "name=c"}},
+			conflict:     true,
+		},
+		{
+			name:         "one matching pair among multiple subhelmfile selectors",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a", "name=b"}},
+			conflict:     false,
+		},
+		{
+			name:         "selectorsInherited false with conflicting selectors still conflicts",
+			cliSelectors: []string{"name=b"},
+			spec:         state.SubHelmfileSpec{Path: "a.yaml", Selectors: []string{"name=a"}, SelectorsInherited: false},
+			conflict:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := subhelmfileSelectorsConflict(tt.cliSelectors, tt.spec, newAppTestLogger())
+			assert.Equal(t, tt.conflict, got)
+		})
+	}
 }
 
 func runFilterSubHelmFilesTests(testcases []struct {
@@ -1294,6 +1377,67 @@ x:
 				t.Errorf("unexpected namespace: expected=%s, got=%s", testcase.expected, actual[0].Namespace)
 			}
 		})
+	}
+}
+
+// TestStateValuesFileArrayReplace verifies that arrays in --state-values-file
+// replace environment default arrays entirely rather than merging element-by-element.
+// Regression test for https://github.com/helmfile/helmfile/issues/2536
+func TestStateValuesFileArrayReplace(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml.gotmpl": `
+environments:
+  default:
+    values:
+    - env-defaults.yaml
+---
+releases:
+- name: {{ .Values.list | join "," }}
+  chart: stable/noop
+`,
+		// Environment default defines a list with two elements
+		"/path/to/env-defaults.yaml": `
+list:
+- first
+- second
+`,
+		// --state-values-file overrides the list with a single element
+		// This should REPLACE the list, not merge element-by-element.
+		"/path/to/overrides.yaml": `
+list:
+- second
+`,
+	}
+
+	actual := []state.ReleaseSpec{}
+	collectReleases := func(run *Run) (bool, []error) {
+		actual = append(actual, run.state.Releases...)
+		return false, []error{}
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Logger:                          newAppTestLogger(),
+		Selectors:                       []string{},
+		Env:                             "default",
+		ValuesFiles:                     []string{"overrides.yaml"},
+		FileOrDir:                       "helmfile.yaml.gotmpl",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	err := app.ForEachState(collectReleases, false, false, SetFilter(true))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actual) != 1 {
+		t.Fatalf("expected 1 release, got %d", len(actual))
+	}
+	// list should be ["second"] (replaced), not ["second","second"] (merged by position)
+	if actual[0].Name != "second" {
+		t.Errorf("expected release name %q (list replaced), got %q (list was merged)", "second", actual[0].Name)
 	}
 }
 
@@ -2241,6 +2385,8 @@ type configImpl struct {
 	enforceNeedsAreInstalled bool
 	skipCharts               bool
 	kubeVersion              string
+	postRenderer             string
+	postRendererArgs         []string
 }
 
 func (c configImpl) Selectors() []string {
@@ -2328,11 +2474,11 @@ func (c configImpl) SkipCharts() bool {
 }
 
 func (c configImpl) PostRenderer() string {
-	return ""
+	return c.postRenderer
 }
 
 func (c configImpl) PostRendererArgs() []string {
-	return nil
+	return c.postRendererArgs
 }
 
 func (c configImpl) KubeVersion() string {
@@ -2349,6 +2495,10 @@ func (c configImpl) ShowOnly() []string {
 
 func (c configImpl) EnforceNeedsAreInstalled() bool {
 	return c.enforceNeedsAreInstalled
+}
+
+func (c configImpl) WriteOutput() bool {
+	return false
 }
 
 type applyConfig struct {
@@ -2403,6 +2553,7 @@ type applyConfig struct {
 	trackMode                string
 	trackTimeout             int
 	trackLogs                bool
+	trackFailOnError         bool
 
 	// template-only options
 	includeCRDs, skipTests       bool
@@ -2629,6 +2780,10 @@ func (a applyConfig) TrackLogs() bool {
 	return a.trackLogs
 }
 
+func (a applyConfig) TrackFailOnError() bool {
+	return a.trackFailOnError
+}
+
 func (a applyConfig) Description() string {
 	return ""
 }
@@ -2683,8 +2838,9 @@ func MockExecer(logger *zap.SugaredLogger, kubeContext string) (helmexec.Interfa
 // mocking helmexec.Interface
 
 type mockHelmExec struct {
-	templated []mockTemplates
-	repos     []mockRepo
+	templated        []mockTemplates
+	repos            []mockRepo
+	enableLiveOutput bool
 }
 
 type mockTemplates struct {
@@ -2724,6 +2880,7 @@ func (helm *mockHelmExec) SetHelmBinary(bin string) {
 }
 
 func (helm *mockHelmExec) SetEnableLiveOutput(enableLiveOutput bool) {
+	helm.enableLiveOutput = enableLiveOutput
 }
 
 func (helm *mockHelmExec) SetDisableForceUpdate(forceUpdate bool) {
@@ -2948,6 +3105,222 @@ releases:
 				t.Errorf("HelmState.TemplateReleases() = [%v], want %v", helm.templated[i].flags[j], wantReleases[i].flags[j])
 			}
 		}
+	}
+}
+
+// newPostRendererTestApp creates an App and mockHelmExec wired together from a helmfile YAML content map,
+// suitable for testing post-renderer flag propagation.
+func newPostRendererTestApp(t *testing.T, files map[string]string) (*App, *mockHelmExec) {
+	t.Helper()
+	helm := &mockHelmExec{}
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", "default"): helm,
+		},
+		valsRuntime: valsRuntime,
+	}, files)
+	return app, helm
+}
+
+// hasFlagWithValue reports whether flags contains either "--flagName value" as adjacent entries
+// or "--flagName=value" as a single entry.
+func hasFlagWithValue(flags []string, flagName, value string) bool {
+	for i, f := range flags {
+		if f == flagName && i+1 < len(flags) && flags[i+1] == value {
+			return true
+		}
+		if f == flagName+"="+value {
+			return true
+		}
+	}
+	return false
+}
+
+func TestTemplate_HelmDefaultsPostRendererArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --arg1
+    - --arg2
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+		{
+			name: "multi-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --arg1
+    - --arg2
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, helm := newPostRendererTestApp(t, map[string]string{"/path/to/helmfile.yaml": tt.content})
+
+			if err := app.Template(configImpl{}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			if !hasFlagWithValue(flags, "--post-renderer", "foo") {
+				t.Errorf("expected --post-renderer foo in flags, got %v", flags)
+			}
+			if !hasFlagWithValue(flags, "--post-renderer-args", "--arg1") {
+				t.Errorf("expected --post-renderer-args=--arg1 or --post-renderer-args --arg1 in flags, got %v", flags)
+			}
+			if !hasFlagWithValue(flags, "--post-renderer-args", "--arg2") {
+				t.Errorf("expected --post-renderer-args=--arg2 or --post-renderer-args --arg2 in flags, got %v", flags)
+			}
+		})
+	}
+}
+
+func TestTemplate_CLIPostRendererArgsOverridesHelmDefaults(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --default-arg
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+		{
+			name: "multi-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+  postRendererArgs:
+    - --default-arg
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, helm := newPostRendererTestApp(t, map[string]string{"/path/to/helmfile.yaml": tt.content})
+
+			// CLI provides --post-renderer-args which should override helmDefaults.postRendererArgs
+			if err := app.Template(configImpl{postRendererArgs: []string{"--cli-arg"}}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			if !hasFlagWithValue(flags, "--post-renderer-args", "--cli-arg") {
+				t.Errorf("expected --post-renderer-args=--cli-arg or --post-renderer-args --cli-arg in flags (CLI should override helmDefaults), got %v", flags)
+			}
+			if hasFlagWithValue(flags, "--post-renderer-args", "--default-arg") {
+				t.Errorf("unexpected --post-renderer-args --default-arg in flags (CLI should override helmDefaults), got %v", flags)
+			}
+		})
+	}
+}
+
+func TestTemplate_ReleasePostRendererArgsOverridesCLI(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "single-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+
+releases:
+- name: myrelease
+  chart: stable/mychart
+  postRendererArgs:
+    - --release-arg
+`,
+		},
+		{
+			name: "multi-doc",
+			content: `
+helmDefaults:
+  postRenderer: foo
+---
+releases:
+- name: myrelease
+  chart: stable/mychart
+  postRendererArgs:
+    - --release-arg
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, helm := newPostRendererTestApp(t, map[string]string{"/path/to/helmfile.yaml": tt.content})
+
+			// Release explicitly sets postRendererArgs, CLI also provides --post-renderer-args flag; release should win
+			if err := app.Template(configImpl{postRendererArgs: []string{"--cli-arg"}}); err != nil {
+				t.Fatalf("%v", err)
+			}
+
+			if len(helm.templated) != 1 {
+				t.Fatalf("expected 1 release, got %d", len(helm.templated))
+			}
+
+			flags := helm.templated[0].flags
+			if !hasFlagWithValue(flags, "--post-renderer-args", "--release-arg") {
+				t.Errorf("expected --post-renderer-args=--release-arg or --post-renderer-args --release-arg in flags (release should override CLI), got %v", flags)
+			}
+			if hasFlagWithValue(flags, "--post-renderer-args", "--cli-arg") {
+				t.Errorf("unexpected --post-renderer-args --cli-arg in flags (release should override CLI), got %v", flags)
+			}
+		})
 	}
 }
 
@@ -4248,6 +4621,168 @@ releases:
 		"state should contain source helmfile name:\n%s\n", out)
 	assert.True(t, strings.Contains(out, "second.yaml"),
 		"state should contain source helmfile name:\n%s\n", out)
+}
+
+type fetchConfigImpl struct {
+	configImpl
+	outputDir         string
+	outputDirTemplate string
+	writeOutput       bool
+}
+
+func (f fetchConfigImpl) OutputDir() string {
+	return f.outputDir
+}
+
+func (f fetchConfigImpl) OutputDirTemplate() string {
+	return f.outputDirTemplate
+}
+
+func (f fetchConfigImpl) WriteOutput() bool {
+	return f.writeOutput
+}
+
+func TestFetch_WriteOutputRequiresOutputDir(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	err := app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   "",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--output-dir is required")
+}
+
+func TestFetch_WriteOutput_ErrorsOnMultipleStateFiles(t *testing.T) {
+	// Two separate helmfile state files in a helmfile.d directory simulate the
+	// multi-file scenario that --write-output cannot safely handle: the resulting
+	// multi-document YAML stream would be merged by Helmfile in a way that can
+	// alter semantics (helmDefaults override, broken relative paths, etc.).
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+releases:
+- name: release1
+  chart: chart1
+`,
+		"/path/to/helmfile.d/second.yaml": `
+releases:
+- name: release2
+  chart: chart2
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	helm := &mockHelmExec{}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey(DefaultHelmBinary, "default"): helm,
+		},
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+	}, files)
+
+	outputDir := t.TempDir()
+
+	fetchErr := app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   outputDir,
+	})
+	assert.Error(t, fetchErr, "expected error when --write-output is used with multiple state files")
+	assert.Contains(t, fetchErr.Error(), "--write-output requires a single helmfile state file")
+}
+
+func TestFetch_WriteOutputRestoresSequentialHelmfiles(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: myrelease1
+  chart: mychart1
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	// Use a real mock helm exec (not noCallHelmExec) so that Fetch can proceed
+	// past the validation check and enter the SequentialHelmfiles mutation block.
+	// Start with enableLiveOutput = true so the restore path is actually exercised:
+	// Fetch will call SetEnableLiveOutput(false), then the deferred restore call
+	// SetEnableLiveOutput(true) (a.EnableLiveOutput). If the defer were missing,
+	// helm.enableLiveOutput would remain false and the assertion below would fail.
+	helm := &mockHelmExec{enableLiveOutput: true}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey(DefaultHelmBinary, "default"): helm,
+		},
+		Namespace:   "testNamespace",
+		valsRuntime: valsRuntime,
+		// Start with SequentialHelmfiles = false; it must be restored after Fetch.
+		SequentialHelmfiles: false,
+		// Start with EnableLiveOutput = true; the deferred restore must bring it back.
+		EnableLiveOutput: true,
+	}, files)
+
+	outputDir := t.TempDir()
+
+	// Fetch with --write-output + --output-dir enters the mutation block,
+	// temporarily sets SequentialHelmfiles = true and helm.EnableLiveOutput = false,
+	// then restores both when it returns.
+	_ = app.Fetch(fetchConfigImpl{
+		writeOutput: true,
+		outputDir:   outputDir,
+	})
+	assert.False(t, app.SequentialHelmfiles, "SequentialHelmfiles should be restored to false after Fetch returns")
+	assert.True(t, helm.enableLiveOutput, "helm.enableLiveOutput should be restored to true (a.EnableLiveOutput) after Fetch returns")
 }
 
 func TestList(t *testing.T) {

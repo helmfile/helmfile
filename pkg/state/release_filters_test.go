@@ -67,3 +67,105 @@ func TestParseLabelsInvalidFormat(t *testing.T) {
 	expectedErrorMsg := "malformed label: invalid_label. Expected label in form k=v or k!=v"
 	assert.EqualError(t, err, expectedErrorMsg, "unexpected error message")
 }
+
+func TestSelectorsAreCompatible(t *testing.T) {
+	tests := []struct {
+		name       string
+		selectorsA []string
+		selectorsB []string
+		compatible bool
+		wantErr    bool
+	}{
+		{
+			name:       "same key different value",
+			selectorsA: []string{"name=b"},
+			selectorsB: []string{"name=a"},
+			compatible: false,
+		},
+		{
+			name:       "same key same value",
+			selectorsA: []string{"name=b"},
+			selectorsB: []string{"name=b"},
+			compatible: true,
+		},
+		{
+			name:       "different keys no conflict",
+			selectorsA: []string{"name=b"},
+			selectorsB: []string{"env=prod"},
+			compatible: true,
+		},
+		{
+			name:       "one compatible pair among multiple selectors",
+			selectorsA: []string{"name=b"},
+			selectorsB: []string{"name=a", "name=b"},
+			compatible: true,
+		},
+		{
+			name:       "all pairs conflict",
+			selectorsA: []string{"name=b"},
+			selectorsB: []string{"name=a", "name=c"},
+			compatible: false,
+		},
+		{
+			name:       "one compatible pair with same key same value",
+			selectorsA: []string{"name=b", "env=prod"},
+			selectorsB: []string{"name=b"},
+			compatible: true,
+		},
+		{
+			name:       "empty selectorsA always compatible",
+			selectorsA: []string{},
+			selectorsB: []string{"name=a"},
+			compatible: true,
+		},
+		{
+			name:       "empty selectorsB always compatible",
+			selectorsA: []string{"name=a"},
+			selectorsB: []string{},
+			compatible: true,
+		},
+		{
+			name:       "negative labels not compared treated as compatible",
+			selectorsA: []string{"name!=a"},
+			selectorsB: []string{"name=a"},
+			compatible: true,
+		},
+		{
+			name:       "compound selector with conflicting key",
+			selectorsA: []string{"name=a,env=prod"},
+			selectorsB: []string{"name=a,env=staging"},
+			compatible: false,
+		},
+		{
+			name:       "compound selector with matching keys",
+			selectorsA: []string{"name=a,env=prod"},
+			selectorsB: []string{"name=a,env=prod"},
+			compatible: true,
+		},
+		{
+			name:       "compound selector partial overlap different key",
+			selectorsA: []string{"name=a,env=prod"},
+			selectorsB: []string{"name=a"},
+			compatible: true,
+		},
+		{
+			name:       "malformed selector returns conservative true with error",
+			selectorsA: []string{"name=b"},
+			selectorsB: []string{"invalid_label"},
+			compatible: true,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := SelectorsAreCompatible(tt.selectorsA, tt.selectorsB)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.compatible, got)
+		})
+	}
+}

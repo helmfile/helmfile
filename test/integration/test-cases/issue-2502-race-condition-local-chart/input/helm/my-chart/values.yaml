@@ -1,0 +1,9 @@
+raw:
+  templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: test-cm
+      data:
+        key: value

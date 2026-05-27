@@ -16,17 +16,24 @@ docs_dir: docs
 nav:
   - Home: index.md
   - Getting Started:
-    - Paths Overview: paths.md
-    - Templating Funcs: templating_funcs.md
-    - HCL Funcs: hcl_funcs.md
-    - Built-in Objects: builtin-objects.md
-  - Core Concepts:
+    - Writing Helmfile: writing-helmfile.md
     - Values and Merging: values-and-merging.md
-  - Advanced Features:
-    - Best Practices Guide: writing-helmfile.md
+    - Environments: environments.md
+    - Releases & DAG: releases.md
+  - Configuration:
+    - helmfile.yaml Reference: configuration.md
+    - Templating: templating.md
+    - Template Functions: templating_funcs.md
+    - Built-in Objects: builtin-objects.md
+    - HCL Functions: hcl_funcs.md
+    - Paths Overview: paths.md
+  - CLI Reference: cli.md
+  - Advanced:
     - Advanced Features: advanced-features.md
+    - Hooks: hooks.md
     - Secrets: remote-secrets.md
-    - Shared Configuration Across Teams: shared-configuration-across-teams.md
+    - Shared Configuration: shared-configuration-across-teams.md
+    - Integrations: integrations.md
   - Experimental Features: experimental-features.md
   - About:
     - Users: users.md

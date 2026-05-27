@@ -30,7 +30,17 @@ func (o LoadOpts) DeepCopy() LoadOpts {
 		panic(err)
 	}
 
-	new.Environment.OverrideValuesAreCLI = o.Environment.OverrideValuesAreCLI
+	if src := o.Environment.OverrideCLISetValues; src != nil {
+		b, err := yaml.Marshal(src)
+		if err != nil {
+			panic(err)
+		}
+		var dst []any
+		if err := yaml.Unmarshal(b, &dst); err != nil {
+			panic(err)
+		}
+		new.Environment.OverrideCLISetValues = dst
+	}
 
 	return new
 }

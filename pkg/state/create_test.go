@@ -932,3 +932,96 @@ releases:
 		})
 	}
 }
+
+// mergeEnvironments must keep the established "later layer wins over earlier
+// layer" semantics even when the resolved strategy is fallback. Under override
+// the natural append order (dst then src) achieves that because last-wins
+// chooses src; under fallback we have to prepend src so that first-wins still
+// resolves to src. Without this adjustment, a base helmfile's values would
+// silently override values declared in the main helmfile that includes it.
+func TestMergeEnvironments_LaterLayerWinsRegardlessOfStrategy(t *testing.T) {
+	tests := []struct {
+		name         string
+		strategy     string
+		wantOrdering []any
+	}{
+		{
+			name:         "override appends src after dst (last wins)",
+			strategy:     MergeStrategyOverride,
+			wantOrdering: []any{"base.yaml", "main.yaml"},
+		},
+		{
+			name:         "empty strategy defaults to override semantics",
+			strategy:     "",
+			wantOrdering: []any{"base.yaml", "main.yaml"},
+		},
+		{
+			name:         "fallback prepends src (first wins) so main still beats base",
+			strategy:     MergeStrategyFallback,
+			wantOrdering: []any{"main.yaml", "base.yaml"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dst := map[string]EnvironmentSpec{
+				"prod": {Values: []any{"base.yaml"}, MergeStrategy: tt.strategy},
+			}
+			src := map[string]EnvironmentSpec{
+				"prod": {Values: []any{"main.yaml"}, MergeStrategy: tt.strategy},
+			}
+			mergeEnvironments(dst, src)
+			got := dst["prod"].Values
+			if !reflect.DeepEqual(got, tt.wantOrdering) {
+				t.Errorf("Values ordering: want %v, got %v", tt.wantOrdering, got)
+			}
+		})
+	}
+}
+
+// mergeEnvironments must preserve MergeStrategy when layering multiple
+// helmfiles (bases). Without this, an environment that opted into
+// fallback in a base helmfile would silently fall back to the default
+// override behavior in any helmfile that re-declares the environment.
+func TestMergeEnvironments_PreservesMergeStrategy(t *testing.T) {
+	tests := []struct {
+		name     string
+		dst      EnvironmentSpec
+		src      EnvironmentSpec
+		expected string
+	}{
+		{
+			name:     "src declares fallback, dst empty",
+			dst:      EnvironmentSpec{},
+			src:      EnvironmentSpec{MergeStrategy: MergeStrategyFallback},
+			expected: MergeStrategyFallback,
+		},
+		{
+			name:     "dst declares fallback, src empty preserves dst",
+			dst:      EnvironmentSpec{MergeStrategy: MergeStrategyFallback},
+			src:      EnvironmentSpec{},
+			expected: MergeStrategyFallback,
+		},
+		{
+			name:     "src override wins over dst fallback",
+			dst:      EnvironmentSpec{MergeStrategy: MergeStrategyFallback},
+			src:      EnvironmentSpec{MergeStrategy: MergeStrategyOverride},
+			expected: MergeStrategyOverride,
+		},
+		{
+			name:     "both empty stays empty",
+			dst:      EnvironmentSpec{},
+			src:      EnvironmentSpec{},
+			expected: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dst := map[string]EnvironmentSpec{"prod": tt.dst}
+			src := map[string]EnvironmentSpec{"prod": tt.src}
+			mergeEnvironments(dst, src)
+			if got := dst["prod"].MergeStrategy; got != tt.expected {
+				t.Errorf("MergeStrategy after merge: want %q, got %q", tt.expected, got)
+			}
+		})
+	}
+}

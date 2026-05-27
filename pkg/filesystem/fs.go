@@ -27,7 +27,10 @@ func (fs fileStat) Sys() any           { return nil }
 type FileSystem struct {
 	ReadFile          func(string) ([]byte, error)
 	ReadDir           func(string) ([]fs.DirEntry, error)
+	WriteFile         func(string, []byte, fs.FileMode) error
 	DeleteFile        func(string) error
+	MkdirTemp         func(string, string) (string, error)
+	RemoveAll         func(string) error
 	FileExists        func(string) (bool, error)
 	Glob              func(string) ([]string, error)
 	FileExistsAt      func(string) bool
@@ -44,7 +47,10 @@ type FileSystem struct {
 func DefaultFileSystem() *FileSystem {
 	dfs := FileSystem{
 		ReadDir:      os.ReadDir,
+		WriteFile:    os.WriteFile,
 		DeleteFile:   os.Remove,
+		MkdirTemp:    os.MkdirTemp,
+		RemoveAll:    os.RemoveAll,
 		Glob:         filepath.Glob,
 		Getwd:        os.Getwd,
 		Chdir:        os.Chdir,
@@ -106,6 +112,15 @@ func FromFileSystem(params FileSystem) *FileSystem {
 	}
 	if params.CopyDir != nil {
 		dfs.CopyDir = params.CopyDir
+	}
+	if params.WriteFile != nil {
+		dfs.WriteFile = params.WriteFile
+	}
+	if params.MkdirTemp != nil {
+		dfs.MkdirTemp = params.MkdirTemp
+	}
+	if params.RemoveAll != nil {
+		dfs.RemoveAll = params.RemoveAll
 	}
 	return dfs
 }

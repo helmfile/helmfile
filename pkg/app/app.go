@@ -162,10 +162,11 @@ func (a *App) Diff(c DiffConfigProvider) error {
 
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("diff", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("diff", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
+			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			IncludeCRDs:            &includeCRDs,
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
@@ -234,10 +235,11 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		// https://github.com/helmfile/helmfile/issues/1749
 		run.helm.SetExtraArgs()
 
-		prepErr := run.withPreparedCharts("template", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("template", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
+			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			IncludeCRDs:            &includeCRDs,
 			SkipCleanup:            c.SkipCleanup(),
 			Validate:               c.Validate(),
@@ -263,7 +265,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErr := run.withPreparedCharts("write-values", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("write-values", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
@@ -317,7 +319,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		var lintErrs []error
 
 		// `helm lint` on helm v2 and v3 does not support remote charts, that we need to set `forceDownload=true` here
-		prepErr := run.withPreparedCharts("lint", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("lint", state.ChartPrepareOptions{
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
@@ -360,7 +362,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 		var unittestErrs []error
 
 		// helm unittest needs local charts, so force download
-		prepErr := run.withPreparedCharts("unittest", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("unittest", state.ChartPrepareOptions{
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
@@ -397,8 +399,50 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 }
 
 func (a *App) Fetch(c FetchConfigProvider) error {
-	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		prepErr := run.withPreparedCharts("pull", state.ChartPrepareOptions{
+	if c.WriteOutput() && c.OutputDir() == "" {
+		return fmt.Errorf("--output-dir is required when --write-output is set")
+	}
+
+	if c.WriteOutput() {
+		// Force sequential processing to ensure YAML documents are emitted in order
+		// without interleaving when multiple helmfile state files are processed.
+		// Restore the original value when Fetch returns so the App instance is not
+		// permanently mutated (important for tests and library usage).
+		prev := a.SequentialHelmfiles
+		a.SequentialHelmfiles = true
+		defer func() { a.SequentialHelmfiles = prev }()
+	}
+
+	// processedStateFileCount tracks how many state files have been processed when
+	// --write-output is set; used to detect multi-file inputs early and return
+	// a clear error instead of silently producing semantically incorrect YAML.
+	var processedStateFileCount int
+
+	// yamlOutput buffers the generated YAML document so that nothing is written to
+	// stdout until ForEachState completes successfully. This prevents partial/corrupted
+	// output reaching stdout when a later state file (or chart download error) causes
+	// the operation to fail.
+	var yamlOutput strings.Builder
+
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
+		if c.WriteOutput() {
+			processedStateFileCount++
+			if processedStateFileCount > 1 {
+				return false, []error{fmt.Errorf(
+					"--write-output requires a single helmfile state file, but multiple were found; " +
+						"use -f to specify a single helmfile instead of a directory or a helmfile with nested helmfiles: entries",
+				)}
+			}
+
+			// Disable live output to avoid Helm progress/status lines being streamed
+			// to stdout and corrupting the YAML document emitted by --write-output.
+			// Restore the original value when this callback returns so the cached helm
+			// exec instance is not permanently mutated (important for tests and library usage).
+			run.helm.SetEnableLiveOutput(false)
+			defer run.helm.SetEnableLiveOutput(a.EnableLiveOutput)
+		}
+
+		prepErr := run.WithPreparedCharts("pull", state.ChartPrepareOptions{
 			ForceDownload:     true,
 			SkipRefresh:       c.SkipRefresh(),
 			SkipRepos:         c.SkipRefresh() || c.SkipDeps(),
@@ -407,6 +451,27 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			OutputDirTemplate: c.OutputDirTemplate(),
 			Concurrency:       c.Concurrency(),
 		}, func() []error {
+			if c.WriteOutput() {
+				for i := range run.state.Releases {
+					rel := &run.state.Releases[i]
+					if rel.ChartPath != "" {
+						rel.Chart = rel.ChartPath
+						rel.ChartPath = ""
+					}
+				}
+
+				stateYaml, yamlErr := run.state.ToYaml()
+				if yamlErr != nil {
+					return []error{yamlErr}
+				}
+
+				sourceFile, pathErr := run.state.FullFilePath()
+				if pathErr != nil {
+					return []error{pathErr}
+				}
+				fmt.Fprintf(&yamlOutput, "---\n#  Source: %s\n\n%s", sourceFile, stateYaml)
+			}
+
 			return nil
 		})
 
@@ -414,18 +479,29 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			errs = append(errs, prepErr)
 		}
 
-		return
+		return ok, errs
 	}, false, false, SetFilter(true))
+
+	if err == nil && c.WriteOutput() {
+		fmt.Print(yamlOutput.String())
+	}
+
+	return err
 }
 
 func (a *App) Sync(c SyncConfigProvider) error {
-	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
+	var any bool
+
+	mut := &sync.Mutex{}
+
+	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("sync", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("sync", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
+			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			Wait:                   c.Wait(),
 			WaitRetries:            c.WaitRetries(),
 			WaitForJobs:            c.WaitForJobs(),
@@ -435,7 +511,14 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 		}, func() []error {
-			ok, errs = a.sync(run, c)
+			matched, updated, es := a.SyncState(run, c)
+
+			mut.Lock()
+			any = any || updated
+			mut.Unlock()
+
+			ok = matched
+			errs = es
 			return errs
 		})
 
@@ -445,6 +528,18 @@ func (a *App) Sync(c SyncConfigProvider) error {
 
 		return
 	}, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
+
+	if err != nil {
+		return err
+	}
+
+	if ec, ok := c.(interface{ DetailedExitcode() bool }); ok && ec.DetailedExitcode() && any {
+		code := 2
+
+		return &Error{msg: "", code: &code}
+	}
+
+	return nil
 }
 
 func (a *App) Apply(c ApplyConfigProvider) error {
@@ -459,10 +554,11 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 	err := a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		includeCRDs := !c.SkipCRDs()
 
-		prepErr := run.withPreparedCharts("apply", state.ChartPrepareOptions{
+		prepErr := run.WithPreparedCharts("apply", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
 			SkipDeps:               c.SkipDeps(),
+			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			Wait:                   c.Wait(),
 			WaitRetries:            c.WaitRetries(),
 			WaitForJobs:            c.WaitForJobs(),
@@ -505,7 +601,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 
 func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err := run.withPreparedCharts("status", state.ChartPrepareOptions{
+		err := run.WithPreparedCharts("status", state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: c.Concurrency(),
@@ -525,7 +621,7 @@ func (a *App) Status(c StatusesConfigProvider) error {
 func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
-			err := run.withPreparedCharts("destroy", state.ChartPrepareOptions{
+			err := run.WithPreparedCharts("destroy", state.ChartPrepareOptions{
 				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
 				SkipRefresh:   c.SkipRefresh(),
 				SkipDeps:      c.SkipDeps(),
@@ -554,7 +650,7 @@ func (a *App) Test(c TestConfigProvider) error {
 				"or set helm.sh/hook-delete-policy\n")
 		}
 
-		err := run.withPreparedCharts("test", state.ChartPrepareOptions{
+		err := run.WithPreparedCharts("test", state.ChartPrepareOptions{
 			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
@@ -575,7 +671,7 @@ func (a *App) Test(c TestConfigProvider) error {
 func (a *App) PrintDAGState(c DAGConfigProvider) error {
 	var err error
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
-		err = run.withPreparedCharts("show-dag", state.ChartPrepareOptions{
+		err = run.WithPreparedCharts("show-dag", state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
@@ -592,7 +688,7 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
-		err := run.withPreparedCharts("build", state.ChartPrepareOptions{
+		err := run.WithPreparedCharts("build", state.ChartPrepareOptions{
 			SkipRepos:   true,
 			SkipDeps:    true,
 			Concurrency: 2,
@@ -665,7 +761,7 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		var listErr error
 
 		if !c.SkipCharts() {
-			prepErr := run.withPreparedCharts("list", state.ChartPrepareOptions{
+			prepErr := run.WithPreparedCharts("list", state.ChartPrepareOptions{
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
@@ -1015,6 +1111,11 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
 	anyMatched := false
 	for i, m := range st.Helmfiles {
+		if subhelmfileSelectorsConflict(a.Selectors, m, a.Logger) {
+			a.Logger.Debugf("skipping subhelmfile %q: CLI selectors %v conflict with subhelmfile selectors %v", m.Path, a.Selectors, m.Selectors)
+			continue
+		}
+
 		optsForNestedState := LoadOpts{
 			CalleePath:        filepath.Join(absd, file),
 			Environment:       m.Environment,
@@ -1038,6 +1139,24 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 		}
 	}
 	return anyMatched, nil
+}
+
+// subhelmfileSelectorsConflict returns true when the subhelmfile has explicit
+// selectors that are provably incompatible with the CLI selectors,
+// meaning no release could satisfy both. In that case the subhelmfile can be
+// safely skipped without loading or evaluating it.
+// Only CLI selectors (not inherited parent selectors) are used for comparison,
+// so this optimization is restricted to cases where the user explicitly
+// provided selectors via the command line (e.g. -l name=b).
+func subhelmfileSelectorsConflict(cliSelectors []string, m state.SubHelmfileSpec, logger *zap.SugaredLogger) bool {
+	if len(cliSelectors) == 0 || len(m.Selectors) == 0 || m.SelectorsInherited {
+		return false
+	}
+	compatible, err := state.SelectorsAreCompatible(cliSelectors, m.Selectors)
+	if err != nil {
+		logger.Debugf("selector compatibility check failed for subhelmfile %q: %v", m.Path, err)
+	}
+	return !compatible
 }
 
 func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) error {
@@ -1370,14 +1489,12 @@ func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir stri
 	for _, v := range a.ValuesFiles {
 		envvals = append(envvals, v)
 	}
-
-	if len(a.Set) > 0 {
-		envvals = append(envvals, a.Set)
-	}
-
 	if len(envvals) > 0 {
 		opts.Environment.OverrideValues = envvals
-		opts.Environment.OverrideValuesAreCLI = true
+	}
+
+	if len(a.Set) > 0 {
+		opts.Environment.OverrideCLISetValues = []any{a.Set}
 	}
 
 	a.remote = remote.NewRemote(a.Logger, "", a.fs)
@@ -1632,42 +1749,63 @@ func (a *App) getSelectedReleases(r *Run, includeNeeds bool, includeTransitiveNe
 	return selected, deduplicated, nil
 }
 
-func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
+// GetPlannedAndSelectedReleasesWithNeeds returns the planned releases and the selected releases used for planning.
+// The planned releases include dependency releases only when includeNeeds is true and skipNeeds is false.
+func (a *App) GetPlannedAndSelectedReleasesWithNeeds(r *Run, skipNeeds bool, includeNeeds bool, includeTransitiveNeeds bool) ([]state.ReleaseSpec, []state.ReleaseSpec, error) {
 	st := r.state
-	helm := r.helm
 
-	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
-
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
+	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, includeNeeds, includeTransitiveNeeds)
 	if err != nil {
-		return false, false, []error{err}
+		return nil, nil, err
 	}
 	if len(selectedReleases) == 0 {
-		return false, false, nil
+		return nil, nil, nil
 	}
 
 	// This is required when you're trying to deduplicate releases by the selector.
 	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
 	// even if we provided `SelectedReleases: selectedReleases`.
 	// See https://github.com/roboll/helmfile/issues/1818 for more context.
+	originalReleases := st.Releases
 	st.Releases = selectedAndNeededReleases
+	defer func() {
+		st.Releases = originalReleases
+	}()
 
-	plan, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: c.SkipNeeds(), IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()})
+	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, SkipNeeds: skipNeeds, IncludeNeeds: includeNeeds, IncludeTransitiveNeeds: includeTransitiveNeeds})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var releasesWithNeeds []state.ReleaseSpec
+
+	for _, rs := range batches {
+		for _, r := range rs {
+			releasesWithNeeds = append(releasesWithNeeds, r.ReleaseSpec)
+		}
+	}
+
+	return releasesWithNeeds, selectedAndNeededReleases, nil
+}
+
+func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
+	st := r.state
+	helm := r.helm
+
+	helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
+
+	releasesWithNeeds, selectedAndNeededReleases, err := a.GetPlannedAndSelectedReleasesWithNeeds(r, c.SkipNeeds(), c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 	if err != nil {
 		return false, false, []error{err}
 	}
 
-	var toApplyWithNeeds []state.ReleaseSpec
-
-	for _, rs := range plan {
-		for _, r := range rs {
-			toApplyWithNeeds = append(toApplyWithNeeds, r.ReleaseSpec)
-		}
+	if len(releasesWithNeeds) == 0 {
+		return false, false, nil
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
-	st.Releases = toApplyWithNeeds
+	st.Releases = releasesWithNeeds
 
 	// helm must be 2.11+ and helm-diff should be provided `--detailed-exitcode` in order for `helmfile apply` to work properly
 	detailedExitCode := true
@@ -1693,27 +1831,27 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		DetectedKubeVersion:     detectedKubeVersion,
 	}
 
-	infoMsg, releasesToBeUpdated, releasesToBeDeleted, errs := r.diff(false, detailedExitCode, c, diffOpts)
-	if len(errs) > 0 {
-		return false, false, errs
+	infoMsg, releasesToUpdate, releasesToDelete, diffErrs := r.diff(false, detailedExitCode, c, diffOpts)
+	if len(diffErrs) > 0 {
+		return false, false, diffErrs
 	}
 
 	var toDelete []state.ReleaseSpec
-	for _, r := range releasesToBeDeleted {
+	for _, r := range releasesToDelete {
 		toDelete = append(toDelete, r)
 	}
 
 	var toUpdate []state.ReleaseSpec
-	for _, r := range releasesToBeUpdated {
+	for _, r := range releasesToUpdate {
 		toUpdate = append(toUpdate, r)
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
-	for _, r := range toApplyWithNeeds {
+	for _, r := range releasesWithNeeds {
 		release := r
 		id := state.ReleaseToID(&release)
-		_, uninstalled := releasesToBeDeleted[id]
-		_, updated := releasesToBeUpdated[id]
+		_, uninstalled := releasesToDelete[id]
+		_, updated := releasesToUpdate[id]
 		if !uninstalled && !updated {
 			releasesWithNoChange[id] = release
 		}
@@ -1735,19 +1873,18 @@ Do you really want to apply?
 		a.Logger.Debug(infoMsgStr)
 	}
 
-	var applyErrs []error
-
-	affectedReleases := state.AffectedReleases{}
+	var errs []error
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
 
-	if len(releasesToBeUpdated) == 0 && len(releasesToBeDeleted) == 0 {
+	if len(releasesToUpdate) == 0 && len(releasesToDelete) == 0 {
 		return true, false, nil
 	}
+	affectedReleases := state.AffectedReleases{}
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
-		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: toApplyWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		if _, preapplyErrors := withDAG(st, helm, a.Logger, state.PlanOptions{Purpose: "invoking preapply hooks for", Reverse: true, SelectedReleases: releasesWithNeeds, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 			for _, r := range subst.Releases {
 				release := r
 				if _, err := st.TriggerPreapplyEvent(&release, "apply"); err != nil {
@@ -1761,13 +1898,13 @@ Do you really want to apply?
 		}
 
 		// We deleted releases by traversing the DAG in reverse order
-		if len(releasesToBeDeleted) > 0 {
+		if len(releasesToDelete) > 0 {
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
 					release := r
-					if r2, ok := releasesToBeDeleted[state.ReleaseToID(&release)]; ok {
+					if r2, ok := releasesToDelete[state.ReleaseToID(&release)]; ok {
 						rs = append(rs, r2)
 					}
 				}
@@ -1778,18 +1915,18 @@ Do you really want to apply?
 			}))
 
 			if len(deletionErrs) > 0 {
-				applyErrs = append(applyErrs, deletionErrs...)
+				errs = append(errs, deletionErrs...)
 			}
 		}
 
 		// We upgrade releases by traversing the DAG
-		if len(releasesToBeUpdated) > 0 {
-			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, Reverse: false, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
+		if len(releasesToUpdate) > 0 {
+			_, updateErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
 				for _, r := range subst.Releases {
 					release := r
-					if r2, ok := releasesToBeUpdated[state.ReleaseToID(&release)]; ok {
+					if r2, ok := releasesToUpdate[state.ReleaseToID(&release)]; ok {
 						rs = append(rs, r2)
 					}
 				}
@@ -1816,13 +1953,14 @@ Do you really want to apply?
 					TrackMode:            c.TrackMode(),
 					TrackTimeout:         c.TrackTimeout(),
 					TrackLogs:            c.TrackLogs(),
+					TrackFailOnError:     c.TrackFailOnError(),
 					Description:          c.Description(),
 				}
 				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
 
 			if len(updateErrs) > 0 {
-				applyErrs = append(applyErrs, updateErrs...)
+				errs = append(errs, updateErrs...)
 			}
 		}
 	}
@@ -1835,11 +1973,11 @@ Do you really want to apply?
 			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
-	if releasesToBeDeleted == nil && releasesToBeUpdated == nil {
+	if releasesToDelete == nil && releasesToUpdate == nil {
 		return true, false, nil
 	}
 
-	return true, true, applyErrs
+	return true, true, errs
 }
 
 func (a *App) delete(r *Run, purge bool, c DestroyConfigProvider) (bool, []error) {
@@ -2113,44 +2251,25 @@ func (a *App) status(r *Run, c StatusesConfigProvider) (bool, []error) {
 	return true, errs
 }
 
-func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
+func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, bool, []error) {
 	st := r.state
 	helm := r.helm
 
-	selectedReleases, selectedAndNeededReleases, err := a.getSelectedReleases(r, c.IncludeNeeds(), c.IncludeTransitiveNeeds())
+	releasesWithNeeds, selectedAndNeededReleases, err := a.GetPlannedAndSelectedReleasesWithNeeds(r, c.SkipNeeds(), c.IncludeNeeds(), c.IncludeTransitiveNeeds())
 	if err != nil {
-		return false, []error{err}
+		return false, false, []error{err}
 	}
-	if len(selectedReleases) == 0 {
-		return false, nil
-	}
-
-	// This is required when you're trying to deduplicate releases by the selector.
-	// Without this, `PlanReleases` conflates duplicates and return both in `batches`,
-	// even if we provided `SelectedReleases: selectedReleases`.
-	// See https://github.com/roboll/helmfile/issues/1818 for more context.
-	st.Releases = selectedAndNeededReleases
-
-	batches, err := st.PlanReleases(state.PlanOptions{Reverse: false, SelectedReleases: selectedReleases, IncludeNeeds: c.IncludeNeeds(), IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(), SkipNeeds: c.SkipNeeds()})
-	if err != nil {
-		return false, []error{err}
-	}
-
-	var toSyncWithNeeds []state.ReleaseSpec
-
-	for _, rs := range batches {
-		for _, r := range rs {
-			toSyncWithNeeds = append(toSyncWithNeeds, r.ReleaseSpec)
-		}
+	if len(releasesWithNeeds) == 0 {
+		return false, false, nil
 	}
 
 	// Do build deps and prepare only on selected releases so that we won't waste time
 	// on running various helm commands on unnecessary releases
-	st.Releases = toSyncWithNeeds
+	st.Releases = releasesWithNeeds
 
-	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, toSyncWithNeeds)
+	toDelete, err := st.DetectReleasesToBeDeletedForSync(helm, releasesWithNeeds)
 	if err != nil {
-		return false, []error{err}
+		return false, false, []error{err}
 	}
 
 	releasesToDelete := map[string]state.ReleaseSpec{}
@@ -2161,7 +2280,7 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	var toUpdate []state.ReleaseSpec
-	for _, r := range toSyncWithNeeds {
+	for _, r := range releasesWithNeeds {
 		release := r
 		if _, deleted := releasesToDelete[state.ReleaseToID(&release)]; !deleted {
 			if r.Desired() {
@@ -2181,20 +2300,13 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	}
 
 	releasesWithNoChange := map[string]state.ReleaseSpec{}
-	for _, r := range toSyncWithNeeds {
+	for _, r := range releasesWithNeeds {
 		release := r
 		id := state.ReleaseToID(&release)
 		_, uninstalled := releasesToDelete[id]
 		_, updated := releasesToUpdate[id]
 		if !uninstalled && !updated {
 			releasesWithNoChange[id] = release
-		}
-	}
-
-	for id := range releasesWithNoChange {
-		r := releasesWithNoChange[id]
-		if _, err := st.TriggerCleanupEvent(&r, "sync"); err != nil {
-			a.Logger.Warnf("warn: %v\n", err)
 		}
 	}
 
@@ -2208,24 +2320,63 @@ func (a *App) sync(r *Run, c SyncConfigProvider) (bool, []error) {
 	// Make the output deterministic for testing purpose
 	sort.Strings(names)
 
-	infoMsg := fmt.Sprintf(`Affected releases are:
+	interactive := c.Interactive()
+
+	var infoMsg string
+	var errs []error
+
+	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
+
+	operationsAttempted := false
+
+	if interactive {
+		if diffC, ok := c.(DiffConfigProvider); ok {
+			detectedKubeVersion := a.detectKubeVersion(st)
+			diffOpts := &state.DiffOpts{
+				Context:                 diffC.Context(),
+				Output:                  diffC.DiffOutput(),
+				Color:                   diffC.Color(),
+				NoColor:                 diffC.NoColor(),
+				Set:                     diffC.Set(),
+				DiffArgs:                diffC.DiffArgs(),
+				SkipDiffOnInstall:       diffC.SkipDiffOnInstall(),
+				ReuseValues:             diffC.ReuseValues(),
+				ResetValues:             diffC.ResetValues(),
+				PostRenderer:            diffC.PostRenderer(),
+				PostRendererArgs:        diffC.PostRendererArgs(),
+				SkipSchemaValidation:    diffC.SkipSchemaValidation(),
+				SuppressOutputLineRegex: diffC.SuppressOutputLineRegex(),
+				TakeOwnership:           diffC.TakeOwnership(),
+				DetectedKubeVersion:     detectedKubeVersion,
+			}
+			infoMsgPtr, _, _, diffErrs := r.diff(false, diffC.DetailedExitcode(), diffC, diffOpts)
+			if len(diffErrs) > 0 {
+				return false, false, diffErrs
+			}
+			if infoMsgPtr != nil {
+				infoMsg = *infoMsgPtr
+			} else {
+				infoMsg = fmt.Sprintf(`Affected releases are:
 %s
 `, strings.Join(names, "\n"))
+			}
+		} else {
+			infoMsg = fmt.Sprintf(`Affected releases are:
+%s
+`, strings.Join(names, "\n"))
+		}
+	} else {
+		infoMsg = fmt.Sprintf(`Affected releases are:
+%s
+`, strings.Join(names, "\n"))
+		a.Logger.Debug(infoMsg)
+	}
 
 	confMsg := fmt.Sprintf(`%s
 Do you really want to sync?
   Helmfile will sync all your releases, as shown above.
 
 `, infoMsg)
-
-	interactive := c.Interactive()
-	if !interactive {
-		a.Logger.Debug(infoMsg)
-	}
-
-	var errs []error
-
-	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
 
 	// Traverse DAG of all the releases so that we don't suffer from false-positive missing dependencies
 	st.Releases = selectedAndNeededReleases
@@ -2234,6 +2385,7 @@ Do you really want to sync?
 
 	if !interactive || interactive && r.askForConfirmation(confMsg) {
 		if len(releasesToDelete) > 0 {
+			operationsAttempted = true
 			_, deletionErrs := withDAG(st, helm, a.Logger, state.PlanOptions{Reverse: true, SelectedReleases: toDelete, SkipNeeds: true}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
@@ -2255,6 +2407,7 @@ Do you really want to sync?
 		}
 
 		if len(releasesToUpdate) > 0 {
+			operationsAttempted = true
 			_, syncErrs := withDAG(st, helm, a.Logger, state.PlanOptions{SelectedReleases: toUpdate, SkipNeeds: true, IncludeTransitiveNeeds: c.IncludeTransitiveNeeds()}, a.WrapWithoutSelector(func(subst *state.HelmState, helm helmexec.Interface) []error {
 				var rs []state.ReleaseSpec
 
@@ -2267,7 +2420,7 @@ Do you really want to sync?
 
 				subst.Releases = rs
 
-				opts := &state.SyncOpts{
+				syncOpts := &state.SyncOpts{
 					Set:                  c.Set(),
 					SkipCRDs:             c.SkipCRDs(),
 					Wait:                 c.Wait(),
@@ -2286,9 +2439,10 @@ Do you really want to sync?
 					TrackMode:            c.TrackMode(),
 					TrackTimeout:         c.TrackTimeout(),
 					TrackLogs:            c.TrackLogs(),
+					TrackFailOnError:     c.TrackFailOnError(),
 					Description:          c.Description(),
 				}
-				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), opts)
+				return subst.SyncReleases(&affectedReleases, helm, c.Values(), c.Concurrency(), syncOpts)
 			}))
 
 			if len(syncErrs) > 0 {
@@ -2296,8 +2450,19 @@ Do you really want to sync?
 			}
 		}
 	}
+
 	affectedReleases.DisplayAffectedReleases(c.Logger())
-	return true, errs
+
+	for id := range releasesWithNoChange {
+		r := releasesWithNoChange[id]
+		if _, err := st.TriggerCleanupEvent(&r, "sync"); err != nil {
+			a.Logger.Warnf("warn: %v\n", err)
+		}
+	}
+
+	changesApplied := operationsAttempted && len(errs) == 0
+
+	return true, changesApplied, errs
 }
 
 func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {

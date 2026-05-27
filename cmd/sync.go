@@ -57,7 +57,23 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&syncOptions.TrackMode, "track-mode", "", "Track mode for releases: 'helm' (default), 'helm-legacy' (Helm v4 only), or 'kubedog'")
 	f.IntVar(&syncOptions.TrackTimeout, "track-timeout", 0, `Timeout in seconds for kubedog tracking (0 to use default 300s timeout)`)
 	f.BoolVar(&syncOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking")
+	f.BoolVar(&syncOptions.TrackFailOnError, "track-fail-on-error", false, "Fail with non-zero exit code when kubedog tracking fails")
 	f.StringVar(&syncOptions.Description, "description", "", `Set description for all releases. If set, overrides descriptions in helmfile.yaml. Will be passed to "helm upgrade --description"`)
+
+	// Diff-related flags for --interactive mode
+	f.IntVar(&syncOptions.Context, "context", 0, "output NUM lines of context around changes (interactive preview only)")
+	f.StringVar(&syncOptions.DiffOutput, "output", "", "output format for diff plugin (interactive preview only)")
+	f.StringVar(&syncOptions.DiffArgs, "diff-args", "", "pass args to helm-diff (interactive preview only)")
+	f.StringArrayVar(&syncOptions.Suppress, "suppress", nil, "suppress specified Kubernetes objects in the diff output (interactive preview only). Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
+	f.BoolVar(&syncOptions.SuppressSecrets, "suppress-secrets", false, "suppress secrets in the diff output (interactive preview only). highly recommended to specify on CI/CD use-cases")
+	f.BoolVar(&syncOptions.ShowSecrets, "show-secrets", false, "do not redact secret values in the diff output (interactive preview only). should be used for debug purpose only")
+	f.BoolVar(&syncOptions.NoHooks, "no-hooks", false, "do not diff changes made by hooks (interactive preview only)")
+	f.BoolVar(&syncOptions.SuppressDiff, "suppress-diff", false, "suppress diff in the output (interactive preview only). Usable in new installs")
+	f.BoolVar(&syncOptions.SkipDiffOnInstall, "skip-diff-on-install", false, "Skips running helm-diff on releases being newly installed on this sync (interactive preview only). Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all")
+	f.BoolVar(&syncOptions.IncludeTests, "include-tests", false, "enable the diffing of the helm test hooks (interactive preview only)")
+	f.BoolVar(&syncOptions.DetailedExitcode, "detailed-exitcode", false, "return a non-zero exit code 2 instead of 0 when releases are synced (use --interactive to also see a diff preview)")
+	f.BoolVar(&syncOptions.StripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input (interactive preview only)")
+	f.StringArrayVar(&syncOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from diff output (interactive preview only)")
 
 	return cmd
 }

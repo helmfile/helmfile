@@ -19,7 +19,7 @@ $ git checkout -b your-shiny-new-feature origin/main
 
 ...
 
-$ git commit -m 'feat: do whatever for whatever purpose
+$ git commit -s -m 'feat: do whatever for whatever purpose
 
 This adds ... by:
 
@@ -29,6 +29,9 @@ This adds ... by:
 
 Resolves #ISSUE_NUMBER
 '
+
+Remember to include a `Signed-off-by: Author Name <authoremail@example.com>`
+line in the commit message, either manually or using the `-s` flag.
 
 $ hub fork
 $ git push YOUR_GITHUB_USER your-shiny-new-feature

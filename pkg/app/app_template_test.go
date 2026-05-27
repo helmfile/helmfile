@@ -527,3 +527,239 @@ releases:
 		})
 	})
 }
+
+func TestTemplate_DefaultInherit(t *testing.T) {
+	type testcase struct {
+		error     string
+		templated []exectest.Release
+	}
+
+	check := func(t *testing.T, tc testcase) {
+		t.Helper()
+
+		var helm = &exectest.Helm{
+			FailOnUnexpectedList: true,
+			FailOnUnexpectedDiff: true,
+			DiffMutex:            &sync.Mutex{},
+			ChartsMutex:          &sync.Mutex{},
+			ReleasesMutex:        &sync.Mutex{},
+		}
+
+		_ = runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
+			t.Helper()
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Errorf("unexpected error creating vals runtime: %v", err)
+			}
+
+			files := map[string]string{
+				"/path/to/helmfile.yaml": `
+templates:
+  default:
+    namespace: default-ns
+    labels:
+      managed: "true"
+defaultInherit: default
+releases:
+- name: app1
+  chart: incubator/raw
+- name: app2
+  chart: incubator/raw
+  inherit:
+  - template: default
+    except:
+    - labels
+`,
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              &ffs.FileSystem{Glob: filepath.Glob},
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			tmplErr := app.Template(applyConfig{
+				concurrency: 1,
+				logger:      logger,
+			})
+
+			var gotErr string
+			if tmplErr != nil {
+				gotErr = tmplErr.Error()
+			}
+
+			if d := cmp.Diff(tc.error, gotErr); d != "" {
+				t.Fatalf("unexpected error: want (-), got (+): %s", d)
+			}
+
+			require.Equal(t, tc.templated, helm.Templated)
+		})
+	}
+
+	t.Run("default inherit applies template to all releases", func(t *testing.T) {
+		check(t, testcase{
+			templated: []exectest.Release{
+				{Name: "app1", Flags: []string{"--kube-context", "default", "--namespace", "default-ns"}},
+				{Name: "app2", Flags: []string{"--kube-context", "default", "--namespace", "default-ns"}},
+			},
+		})
+	})
+}
+
+func TestTemplate_DefaultInherit_Multiple(t *testing.T) {
+	type testcase struct {
+		error     string
+		templated []exectest.Release
+	}
+
+	check := func(t *testing.T, tc testcase) {
+		t.Helper()
+
+		var helm = &exectest.Helm{
+			FailOnUnexpectedList: true,
+			FailOnUnexpectedDiff: true,
+			DiffMutex:            &sync.Mutex{},
+			ChartsMutex:          &sync.Mutex{},
+			ReleasesMutex:        &sync.Mutex{},
+		}
+
+		_ = runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
+			t.Helper()
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Errorf("unexpected error creating vals runtime: %v", err)
+			}
+
+			files := map[string]string{
+				"/path/to/helmfile.yaml": `
+templates:
+  ns:
+    namespace: from-ns-template
+  override:
+    namespace: from-ctx-template
+defaultInherit:
+  - ns
+  - override
+releases:
+- name: app1
+  chart: incubator/raw
+`,
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              &ffs.FileSystem{Glob: filepath.Glob},
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			tmplErr := app.Template(applyConfig{
+				concurrency: 1,
+				logger:      logger,
+			})
+
+			var gotErr string
+			if tmplErr != nil {
+				gotErr = tmplErr.Error()
+			}
+
+			if d := cmp.Diff(tc.error, gotErr); d != "" {
+				t.Fatalf("unexpected error: want (-), got (+): %s", d)
+			}
+
+			require.Equal(t, tc.templated, helm.Templated)
+		})
+	}
+
+	t.Run("multiple default inherits are applied in order", func(t *testing.T) {
+		check(t, testcase{
+			templated: []exectest.Release{
+				{Name: "app1", Flags: []string{"--kube-context", "default", "--namespace", "from-ctx-template"}},
+			},
+		})
+	})
+}
+
+func TestTemplate_DefaultInherit_NonExistent(t *testing.T) {
+	type testcase struct {
+		error string
+	}
+
+	check := func(t *testing.T, tc testcase) {
+		t.Helper()
+
+		var helm = &exectest.Helm{
+			FailOnUnexpectedList: true,
+			FailOnUnexpectedDiff: true,
+			DiffMutex:            &sync.Mutex{},
+			ChartsMutex:          &sync.Mutex{},
+			ReleasesMutex:        &sync.Mutex{},
+		}
+
+		_ = runWithLogCapture(t, "debug", func(t *testing.T, logger *zap.SugaredLogger) {
+			t.Helper()
+
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			if err != nil {
+				t.Errorf("unexpected error creating vals runtime: %v", err)
+			}
+
+			files := map[string]string{
+				"/path/to/helmfile.yaml": `
+defaultInherit: nonexistent
+releases:
+- name: app1
+  chart: incubator/raw
+`,
+			}
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              &ffs.FileSystem{Glob: filepath.Glob},
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          logger,
+				helms: map[helmKey]helmexec.Interface{
+					createHelmKey("helm", "default"): helm,
+				},
+				valsRuntime: valsRuntime,
+			}, files)
+
+			tmplErr := app.Template(applyConfig{
+				concurrency: 1,
+				logger:      logger,
+			})
+
+			var gotErr string
+			if tmplErr != nil {
+				gotErr = tmplErr.Error()
+			}
+
+			if d := cmp.Diff(tc.error, gotErr); d != "" {
+				t.Fatalf("unexpected error: want (-), got (+): %s", d)
+			}
+		})
+	}
+
+	t.Run("fail due to non-existent template in defaultInherit", func(t *testing.T) {
+		check(t, testcase{
+			error: `in ./helmfile.yaml: failed executing release templates in "helmfile.yaml": release "app1" tried to inherit inexistent release template "nonexistent"`,
+		})
+	})
+}

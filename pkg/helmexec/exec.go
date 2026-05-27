@@ -256,7 +256,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		if username != "" && password != "" {
 			args = append(args, "--username", username, "--password-stdin")
 			buffer := bytes.Buffer{}
-			buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+			fmt.Fprintf(&buffer, "%s\n", password)
 			out, err = helm.execStdIn(args, map[string]string{}, &buffer)
 		} else {
 			out, err = helm.exec(args, map[string]string{}, nil)
@@ -311,7 +311,7 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 
 	args = append(args, "--username", username, "--password-stdin")
 	buffer := bytes.Buffer{}
-	buffer.Write([]byte(fmt.Sprintf("%s\n", password)))
+	fmt.Fprintf(&buffer, "%s\n", password)
 
 	helm.logger.Info("Logging in to registry")
 	out, err := helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
@@ -651,16 +651,76 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 	helm.logger.Infof("Templating release=%v, chart=%v", name, redactedURL(chart))
 	args := []string{"template", name, chart}
 
-	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
-
 	var outputToFile bool
+	var hasPostRenderer bool
 
 	for _, f := range flags {
-		if strings.HasPrefix("--output-dir", f) {
+		if f == "--output-dir" || strings.HasPrefix(f, "--output-dir=") {
 			outputToFile = true
-			break
+		}
+		if f == "--post-renderer" || strings.HasPrefix(f, "--post-renderer=") {
+			hasPostRenderer = true
 		}
 	}
+
+	if outputToFile && hasPostRenderer && helm.IsHelm3() {
+		// Helm 3 does not apply --post-renderer to files written by --output-dir.
+		// It writes pre-post-renderer content to files and sends post-renderer output to stdout.
+		// Helm 4 handles this correctly, so the workaround is only needed for Helm 3.
+		// Workaround: run without --output-dir, capture stdout (with post-renderer applied),
+		// and write the output to the output directory ourselves.
+		var outputDir string
+		filteredFlags := make([]string, 0, len(flags))
+		for i := 0; i < len(flags); i++ {
+			if flags[i] == "--output-dir" && i+1 < len(flags) {
+				outputDir = flags[i+1]
+				i++
+				continue
+			}
+			if strings.HasPrefix(flags[i], "--output-dir=") {
+				outputDir = strings.TrimPrefix(flags[i], "--output-dir=")
+				continue
+			}
+			filteredFlags = append(filteredFlags, flags[i])
+		}
+
+		if outputDir == "" {
+			return fmt.Errorf("output dir not found for template command")
+		}
+
+		out, err := helm.exec(append(args, filteredFlags...), map[string]string{}, nil)
+		if err != nil {
+			return err
+		}
+
+		templatesDir := filepath.Join(outputDir, "templates")
+		legacyOutputPath := filepath.Join(outputDir, name+".yaml")
+		outputPath := filepath.Join(templatesDir, name+".yaml")
+
+		if removeErr := os.Remove(legacyOutputPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return fmt.Errorf("failed to remove legacy output file %s: %w", legacyOutputPath, removeErr)
+		}
+
+		// Remove only the specific file written by the previous run to avoid clobbering
+		// unrelated files in a shared output directory.
+		if removeErr := os.Remove(outputPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return fmt.Errorf("failed to remove stale output file %s: %w", outputPath, removeErr)
+		}
+
+		if len(out) > 0 {
+			if mkdirErr := os.MkdirAll(templatesDir, 0755); mkdirErr != nil {
+				return fmt.Errorf("failed to create templates directory %s: %w", templatesDir, mkdirErr)
+			}
+
+			if writeErr := os.WriteFile(outputPath, append(out, '\n'), 0644); writeErr != nil {
+				return fmt.Errorf("failed to write output file %s: %w", outputPath, writeErr)
+			}
+			helm.logger.Debugf("Wrote post-renderer output to %s", outputPath)
+		}
+		return nil
+	}
+
+	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
 
 	if outputToFile {
 		// With --output-dir is passed to helm-template,
@@ -856,7 +916,7 @@ func (helm *execer) AddPlugin(name, path, version string) error {
 	helm.logger.Infof("Install helm plugin %v", name)
 
 	// Special handling for helm-secrets 4.7.0+ with Helm 4 which uses split plugin architecture
-	if name == "secrets" && version >= "v4.7.0" && helm.IsHelm4() {
+	if name == "secrets" && helmSecretsRequiresSplitInstall(version) && helm.IsHelm4() {
 		return helm.installHelmSecretsV4(version)
 	}
 
@@ -911,11 +971,59 @@ func (helm *execer) installHelmSecretsV4(version string) error {
 	return nil
 }
 
-func (helm *execer) UpdatePlugin(name string) error {
-	helm.logger.Infof("Update helm plugin %v", name)
+// helmSecretsV4SplitMinVersion is the minimum helm-secrets version that uses the
+// split plugin architecture (secrets, secrets-getter, secrets-post-renderer) with Helm 4.
+var helmSecretsV4SplitMinVersion = semver.MustParse("4.7.0")
+
+// helmSecretsRequiresSplitInstall returns true when the given helm-secrets version
+// requires the split plugin architecture introduced in v4.7.0 for Helm 4.
+func helmSecretsRequiresSplitInstall(version string) bool {
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return !v.LessThan(helmSecretsV4SplitMinVersion)
+}
+
+func (helm *execer) uninstallPlugin(name string) error {
+	helm.logger.Infof("Uninstalling helm plugin %v", name)
+	out, err := helm.exec([]string{"plugin", "uninstall", name}, map[string]string{}, nil)
+	if err == nil {
+		helm.info(out)
+	}
+	return err
+}
+
+func (helm *execer) UpdatePlugin(name, repo, version string) error {
+	helm.logger.Infof("Updating helm plugin %v", name)
+
+	// Special handling for helm-secrets 4.7.0+ with Helm 4 which uses split plugin architecture
+	if name == "secrets" && helmSecretsRequiresSplitInstall(version) && helm.IsHelm4() {
+		// Uninstall existing secrets plugins; ignore errors as some may not exist
+		for _, secretsPlugin := range []string{"secrets", "secrets-getter", "secrets-post-renderer"} {
+			if err := helm.uninstallPlugin(secretsPlugin); err != nil {
+				helm.logger.Debugf("Failed to uninstall helm plugin %v (may not exist): %v", secretsPlugin, err)
+			}
+		}
+		return helm.installHelmSecretsV4(version)
+	}
+
+	// Try standard helm plugin update
 	out, err := helm.exec([]string{"plugin", "update", name}, map[string]string{}, nil)
 	helm.info(out)
-	return err
+	if err != nil {
+		// If standard update failed, fall back to uninstall + reinstall with specific version
+		updateErr := err
+		helm.logger.Infof("helm plugin update %v failed (%v), falling back to reinstall with version %v", name, updateErr, version)
+		if uninstallErr := helm.uninstallPlugin(name); uninstallErr != nil {
+			return fmt.Errorf("helm plugin update failed (%w) and uninstall for reinstall also failed: %w", updateErr, uninstallErr)
+		}
+		if reinstallErr := helm.AddPlugin(name, repo, version); reinstallErr != nil {
+			return fmt.Errorf("helm plugin update failed (%w) and reinstall also failed: %w", updateErr, reinstallErr)
+		}
+		return nil
+	}
+	return nil
 }
 
 func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {

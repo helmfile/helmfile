@@ -169,7 +169,7 @@ func (c *StateCreator) LoadEnvValues(target *HelmState, env string, failOnMissin
 		return nil, &StateLoadError{fmt.Sprintf("failed to read %s", state.FilePath), err}
 	}
 
-	newDefaults, err := state.loadValuesEntries(nil, state.DefaultValues, c.remote, ctxEnv, env)
+	newDefaults, err := state.loadValuesEntries(nil, state.DefaultValues, c.remote, ctxEnv, env, "")
 	if err != nil {
 		return nil, err
 	}
@@ -237,17 +237,12 @@ func mergeEnvironments(dst, src map[string]EnvironmentSpec) {
 
 	for envName, srcEnv := range src {
 		if dstEnv, exists := dst[envName]; exists {
-			// Environment exists in both - merge the Values slices
-			mergedValues := append([]any{}, dstEnv.Values...)
-			mergedValues = append(mergedValues, srcEnv.Values...)
-
 			// Merge Secrets slices
 			mergedSecrets := append([]string{}, dstEnv.Secrets...)
 			mergedSecrets = append(mergedSecrets, srcEnv.Secrets...)
 
 			// Create merged environment
 			merged := EnvironmentSpec{
-				Values:  mergedValues,
 				Secrets: mergedSecrets,
 			}
 
@@ -270,6 +265,26 @@ func mergeEnvironments(dst, src map[string]EnvironmentSpec) {
 				merged.MissingFileHandlerConfig = srcEnv.MissingFileHandlerConfig
 			} else {
 				merged.MissingFileHandlerConfig = dstEnv.MissingFileHandlerConfig
+			}
+
+			// Override MergeStrategy if src has it
+			if srcEnv.MergeStrategy != "" {
+				merged.MergeStrategy = srcEnv.MergeStrategy
+			} else {
+				merged.MergeStrategy = dstEnv.MergeStrategy
+			}
+
+			// Concatenate Values so the later layer (src, e.g. main helmfile)
+			// always takes precedence over the earlier one (dst, e.g. a base
+			// helmfile). Under override the natural append order achieves that
+			// (last-file-wins). Under fallback we have to prepend src so that
+			// "first-file-wins" still resolves to "later layer wins".
+			if merged.MergeStrategy == MergeStrategyFallback {
+				mergedValues := append([]any{}, srcEnv.Values...)
+				merged.Values = append(mergedValues, dstEnv.Values...)
+			} else {
+				mergedValues := append([]any{}, dstEnv.Values...)
+				merged.Values = append(mergedValues, srcEnv.Values...)
 			}
 
 			dst[envName] = merged
@@ -394,7 +409,7 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		if err != nil {
 			return nil, err
 		}
-		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, loadValuesEntriesEnv, name)
+		valuesVals, err = st.loadValuesEntries(envSpec.MissingFileHandler, envValuesEntries, c.remote, loadValuesEntriesEnv, name, envSpec.MergeStrategy)
 		if err != nil {
 			return nil, err
 		}
@@ -550,13 +565,13 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 	return decryptedFilesKeeper, nil
 }
 
-func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []any, remote *remote.Remote, ctxEnv *environment.Environment, envName string) (map[string]any, error) {
+func (st *HelmState) loadValuesEntries(missingFileHandler *string, entries []any, remote *remote.Remote, ctxEnv *environment.Environment, envName string, mergeStrategy string) (map[string]any, error) {
 	var envVals map[string]any
 
 	valuesEntries := append([]any{}, entries...)
 	ld := NewEnvironmentValuesLoader(st.storage(), st.fs, st.logger, remote)
 	var err error
-	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries, ctxEnv, envName)
+	envVals, err = ld.LoadEnvironmentValues(missingFileHandler, valuesEntries, ctxEnv, envName, mergeStrategy)
 	if err != nil {
 		return nil, err
 	}

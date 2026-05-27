@@ -252,4 +252,8 @@ func TestFs_DefaultBuilder(t *testing.T) {
 	assert.NotNil(t, ffs.Chdir)
 	assert.NotNil(t, ffs.Abs)
 	assert.NotNil(t, ffs.EvalSymlinks)
+	assert.NotNil(t, ffs.WriteFile)
+	assert.NotNil(t, ffs.MkdirTemp)
+	assert.NotNil(t, ffs.RemoveAll)
+	assert.NotNil(t, ffs.CopyDir)
 }
