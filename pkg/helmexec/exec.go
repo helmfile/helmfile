@@ -1156,8 +1156,15 @@ func dedupeWroteLines(out []byte) []byte {
 }
 
 func (helm *execer) info(out []byte) {
-	if len(out) > 0 {
-		helm.logger.Infof("%s", out)
+	// Trim trailing newlines so the encoder's appended newline is the only
+	// one. Without this, helm stdout that ends in "\n" (e.g. a chart whose
+	// template renders only hooks) becomes a "\n" payload, and the encoder
+	// produces "\n\n" — extra blank lines that are very visible in
+	// timestamp-per-line CI logs. Skip the call entirely when the trim
+	// leaves nothing.
+	trimmed := bytes.TrimRight(out, "\n")
+	if len(trimmed) > 0 {
+		helm.logger.Infof("%s", trimmed)
 	}
 }
 

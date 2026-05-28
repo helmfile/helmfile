@@ -350,6 +350,12 @@ func (st *HelmState) startBackgroundKubedogTracking(
 	if len(resources) == 0 {
 		flushPreamble()
 		st.logger.Infof("kubedog: no trackable resources templated for release %s", release.Name)
+		// Emit the same "Helm output for release 'X'" divider tracked
+		// releases get at flush time, so a hook-only release (which has
+		// nothing for kubedog to track) still gets the visual delimiter.
+		// Helm output flows live after this line — there's no buffering
+		// because we have nothing to interleave with.
+		st.logger.Infof("\n%s", kubedog.HeaderDividerStyled(fmt.Sprintf("Helm output for release '%s'", release.Name), useColor))
 		return noop, true
 	}
 
