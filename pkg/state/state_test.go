@@ -2096,7 +2096,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					SetValues: []SetValue{
 						{
 							Name: "foo.bar[0]",
-							Values: []string{
+							Values: []any{
 								"A",
 								"B",
 							},
@@ -2106,6 +2106,26 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			},
 			helm:         &exectest.Helm{},
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}", "--reset-values"}}},
+		},
+		{
+			name: "set array of map values",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name: "source.helm.parameters",
+							Values: []any{
+								map[string]any{"name": "demo"},
+								map[string]any{"version": "v2"},
+							},
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "source.helm.parameters={\\{\"name\":\"demo\"\\},\\{\"version\":\"v2\"\\}}", "--reset-values"}}},
 		},
 		{
 			name: "post renderer helm 3",
@@ -2709,7 +2729,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 					SetValues: []SetValue{
 						{
 							Name: "foo.bar[0]",
-							Values: []string{
+							Values: []any{
 								"A",
 								"B",
 							},
@@ -5698,7 +5718,7 @@ func TestHelmState_setStringFlags(t *testing.T) {
 			setStringValues: []SetValue{
 				{
 					Name:   "key",
-					Values: []string{"value1", "value2"},
+					Values: []any{"value1", "value2"},
 				},
 			},
 			want:    []string{"--set-string", "key={value1,value2}"},

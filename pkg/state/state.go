@@ -576,10 +576,10 @@ type Release struct {
 
 // SetValue are the key values to set on a helm release
 type SetValue struct {
-	Name   string   `yaml:"name,omitempty"`
-	Value  string   `yaml:"value,omitempty"`
-	File   string   `yaml:"file,omitempty"`
-	Values []string `yaml:"values,omitempty"`
+	Name   string `yaml:"name,omitempty"`
+	Value  string `yaml:"value,omitempty"`
+	File   string `yaml:"file,omitempty"`
+	Values []any  `yaml:"values,omitempty"`
 }
 
 // AffectedReleases hold the list of released that where updated, deleted, or in error
@@ -4570,7 +4570,7 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 		} else if set.File != "" {
 			flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizeSetFilePath(set.File, runtime.GOOS)))
 		} else if len(set.Values) > 0 {
-			renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
+			renderedValues, err := renderValsSecretsAny(st.valsRuntime, set.Values)
 			if err != nil {
 				return nil, err
 			}
@@ -4598,7 +4598,7 @@ func (st *HelmState) setStringFlags(setValues []SetValue) ([]string, error) {
 			}
 			flags = append(flags, "--set-string", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
 		} else if len(set.Values) > 0 {
-			renderedValues, err := renderValsSecrets(st.valsRuntime, set.Values...)
+			renderedValues, err := renderValsSecretsAny(st.valsRuntime, set.Values)
 			if err != nil {
 				return nil, err
 			}
@@ -4632,6 +4632,43 @@ func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 			output[i] = fmt.Sprintf("%v", rendered[i])
 		}
 	}
+	return output, nil
+}
+
+// renderValsSecretsAny renders 'ref+.*' secrets in a slice of any-typed values.
+// Map values are serialized to JSON; string values are rendered via vals.
+func renderValsSecretsAny(e vals.Evaluator, input []any) ([]string, error) {
+	output := make([]string, len(input))
+	if len(input) == 0 {
+		return output, nil
+	}
+
+	strInputs := make([]string, 0, len(input))
+	strIndexMap := make([]int, 0, len(input))
+	for i, v := range input {
+		switch tv := v.(type) {
+		case string:
+			strInputs = append(strInputs, tv)
+			strIndexMap = append(strIndexMap, i)
+		default:
+			jsonBytes, err := json.Marshal(tv)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal set value at index %d: %w", i, err)
+			}
+			output[i] = string(jsonBytes)
+		}
+	}
+
+	if len(strInputs) > 0 {
+		rendered, err := renderValsSecrets(e, strInputs...)
+		if err != nil {
+			return nil, err
+		}
+		for idx, renderedIdx := range strIndexMap {
+			output[renderedIdx] = rendered[idx]
+		}
+	}
+
 	return output, nil
 }
 

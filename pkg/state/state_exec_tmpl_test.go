@@ -96,7 +96,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				SetValuesTemplate: []SetValue{
 					{Name: "val1", Value: "{{ .Release.Name }}-val1"},
 					{Name: "val2", File: "{{ .Release.Name }}.yml"},
-					{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
+					{Name: "val3", Values: []any{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
 					{Name: "val4", Value: "{{ .Release.Chart }}-{{ .Release.ChartVersion}}"},
 				},
 			},
@@ -108,7 +108,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				SetValues: []SetValue{
 					{Name: "val1", Value: "test-app-val1"},
 					{Name: "val2", File: "test-app.yml"},
-					{Name: "val3", Values: []string{"test-app-val2", "test-app-val3"}},
+					{Name: "val3", Values: []any{"test-app-val2", "test-app-val3"}},
 					{Name: "val4", Value: "test-charts/chart-1.5"},
 				},
 			},
