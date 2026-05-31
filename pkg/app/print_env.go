@@ -73,7 +73,7 @@ func (a *App) PrintEnv(c PrintEnvConfigProvider) error {
 
 		firstDoc = false
 		return false, nil
-	}, false)
+	}, false, false)
 
 	// Close JSON array
 	if c.Output() == "json" {

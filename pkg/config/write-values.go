@@ -51,6 +51,11 @@ func (c *WriteValuesImpl) SkipCleanup() bool {
 	return false
 }
 
+// IncludeNeeds returns the include needs
+func (c *WriteValuesImpl) IncludeNeeds() bool {
+	return false
+}
+
 // IncludeTransitiveNeeds returns the include transitive needs
 func (c *WriteValuesImpl) IncludeTransitiveNeeds() bool {
 	return false

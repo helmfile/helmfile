@@ -32,6 +32,11 @@ func (d *DepsImpl) SkipRepos() bool {
 	return d.DepsOptions.SkipRepos
 }
 
+// IncludeNeeds returns the includeNeeds
+func (d *DepsImpl) IncludeNeeds() bool {
+	return false
+}
+
 // IncludeTransitiveNeeds returns the includeTransitiveNeeds
 func (d *DepsImpl) IncludeTransitiveNeeds() bool {
 	return false

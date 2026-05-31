@@ -1,0 +1,60 @@
+releases:
+  - name: service-a
+    chart: ../../../charts/raw
+    namespace: helmfile-tests
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}
+              namespace: {{ .Release.Namespace }}
+            data:
+              name: {{ .Release.Name }}
+    needs:
+      - service-b
+
+  - name: service-b
+    chart: ../../../charts/raw
+    namespace: helmfile-tests
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}
+              namespace: {{ .Release.Namespace }}
+            data:
+              name: {{ .Release.Name }}
+    needs:
+      - service-c
+
+  - name: service-c
+    chart: ../../../charts/raw
+    namespace: helmfile-tests
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}
+              namespace: {{ .Release.Namespace }}
+            data:
+              name: {{ .Release.Name }}
+
+  - name: service-d
+    chart: ../../../charts/raw
+    namespace: helmfile-tests
+    values:
+      - templates:
+          - |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ .Release.Name }}
+              namespace: {{ .Release.Namespace }}
+            data:
+              name: {{ .Release.Name }}

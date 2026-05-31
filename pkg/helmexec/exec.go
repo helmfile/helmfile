@@ -526,8 +526,13 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	//
 	// This fixes it by removing the header from the v3 output, so that the output is formatted the same as that of v2.
 	lines := strings.Split(string(out), "\n")
-	lines = lines[1:]
-	out = []byte(strings.Join(lines, "\n"))
+	var filtered []string
+	for _, line := range lines[1:] {
+		if strings.TrimSpace(line) != "" {
+			filtered = append(filtered, line)
+		}
+	}
+	out = []byte(strings.Join(filtered, "\n"))
 	helm.info(out)
 	return string(out), err
 }
@@ -1136,7 +1141,8 @@ func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
 
 func (helm *execer) ShowChart(chartPath string) (chart.Metadata, error) {
 	var helmArgs = []string{"show", "chart", chartPath}
-	out, error := helm.exec(helmArgs, map[string]string{}, nil)
+	enableLiveOutput := false
+	out, error := helm.exec(helmArgs, map[string]string{}, &enableLiveOutput)
 	if error != nil {
 		return chart.Metadata{}, error
 	}

@@ -1,21 +1,18 @@
 package app
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/helmfile/vals"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/exectest"
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/testhelper"
 )
 
 func TestLint(t *testing.T) {
@@ -144,30 +141,7 @@ releases:
 			require.Equal(t, wantLints, helm.Linted)
 		})
 
-		testNameComponents := strings.Split(t.Name(), "/")
-		testBaseName := strings.ToLower(
-			strings.ReplaceAll(
-				testNameComponents[len(testNameComponents)-1],
-				" ",
-				"_",
-			),
-		)
-		wantLogFileDir := filepath.Join("testdata", "app_lint_test")
-		wantLogFile := filepath.Join(wantLogFileDir, testBaseName)
-		wantLogData, err := os.ReadFile(wantLogFile)
-		updateLogFile := err != nil
-		wantLog := string(wantLogData)
-		gotLog := bs.String()
-		if updateLogFile {
-			if err := os.MkdirAll(wantLogFileDir, 0755); err != nil {
-				t.Fatalf("unable to create directory %q: %v", wantLogFileDir, err)
-			}
-			if err := os.WriteFile(wantLogFile, bs.Bytes(), 0644); err != nil {
-				t.Fatalf("unable to update lint log snapshot: %v", err)
-			}
-		}
-
-		assert.Equal(t, wantLog, gotLog)
+		testhelper.RequireLog(t, "app_lint_test", bs)
 	}
 
 	t.Run("fail on unselected need by default", func(t *testing.T) {
@@ -199,8 +173,6 @@ releases:
 			error:     ``,
 			selectors: []string{"app=test"},
 			linted: []exectest.Release{
-				// TODO: Turned out we can't differentiate needs vs transitive needs in this case :thinking:
-				{Name: "logging", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system"}},
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
 				{Name: "my-release", Flags: []string{"--namespace", "default"}},

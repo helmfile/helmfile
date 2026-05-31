@@ -81,7 +81,7 @@ func TestSyncInteractive(t *testing.T) {
 					logger:      logger,
 				})
 				return ok, errs
-			}, false)
+			}, false, false)
 
 			var gotErr string
 			if forEachErr != nil {

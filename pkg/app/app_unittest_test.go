@@ -190,12 +190,10 @@ releases:
 	})
 
 	t.Run("with dedicated flags", func(t *testing.T) {
-		// --color is skipped on Helm 4 due to flag parsing issues
-		expectedFlags := []string{"--namespace", "kube-system", "--failfast"}
+		expectedFlags := []string{"--namespace", "kube-system", "--failfast", "--debugPlugin", "--file", "tests/logging/*_test.yaml"}
 		if !exectest.IsHelm4Enabled() {
-			expectedFlags = append(expectedFlags, "--color")
+			expectedFlags = []string{"--namespace", "kube-system", "--failfast", "--color", "--debugPlugin", "--file", "tests/logging/*_test.yaml"}
 		}
-		expectedFlags = append(expectedFlags, "--debugPlugin", "--file", "tests/logging/*_test.yaml")
 
 		check(t, testcase{
 			fields: fields{
@@ -231,7 +229,6 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			unittested: []exectest.Release{
-				{Name: "logging", Flags: []string{"--namespace", "kube-system", "--file", "tests/logging/*_test.yaml"}},
 				{Name: "kubernetes-external-secrets", Flags: []string{"--namespace", "kube-system", "--file", "tests/secrets/*_test.yaml"}},
 				{Name: "external-secrets", Flags: []string{"--namespace", "default", "--file", "tests/external/*_test.yaml"}},
 				{Name: "my-release", Flags: []string{"--namespace", "default", "--file", "tests/myrelease/*_test.yaml"}},
