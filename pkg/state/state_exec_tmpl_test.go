@@ -7,9 +7,12 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
+	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/runtime"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 func boolPtrToString(ptr *bool) string {
@@ -93,7 +96,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				SetValuesTemplate: []SetValue{
 					{Name: "val1", Value: "{{ .Release.Name }}-val1"},
 					{Name: "val2", File: "{{ .Release.Name }}.yml"},
-					{Name: "val3", Values: []string{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
+					{Name: "val3", Values: []any{"{{ .Release.Name }}-val2", "{{ .Release.Name }}-val3"}},
 					{Name: "val4", Value: "{{ .Release.Chart }}-{{ .Release.ChartVersion}}"},
 				},
 			},
@@ -105,7 +108,7 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				SetValues: []SetValue{
 					{Name: "val1", Value: "test-app-val1"},
 					{Name: "val2", File: "test-app.yml"},
-					{Name: "val3", Values: []string{"test-app-val2", "test-app-val3"}},
+					{Name: "val3", Values: []any{"test-app-val2", "test-app-val3"}},
 					{Name: "val4", Value: "test-charts/chart-1.5"},
 				},
 			},
@@ -290,6 +293,213 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 			if err == nil {
 				t.Errorf("Expected error, got valid response: %v", r)
 				t.FailNow()
+			}
+		})
+	}
+}
+
+func TestApplyDefaultInherit(t *testing.T) {
+	tests := []struct {
+		name           string
+		defaultInherit DefaultInherits
+		releaseInherit Inherits
+		want           Inherits
+	}{
+		{
+			name:           "no default inherit",
+			defaultInherit: nil,
+			releaseInherit: Inherits{{Template: "foo"}},
+			want:           Inherits{{Template: "foo"}},
+		},
+		{
+			name:           "default inherit prepended",
+			defaultInherit: DefaultInherits{"default"},
+			releaseInherit: Inherits{{Template: "foo"}},
+			want:           Inherits{{Template: "default"}, {Template: "foo"}},
+		},
+		{
+			name:           "default inherit already in release inherit is not duplicated",
+			defaultInherit: DefaultInherits{"default"},
+			releaseInherit: Inherits{{Template: "default"}, {Template: "foo"}},
+			want:           Inherits{{Template: "default"}, {Template: "foo"}},
+		},
+		{
+			name:           "multiple default inherits",
+			defaultInherit: DefaultInherits{"a", "b"},
+			releaseInherit: Inherits{{Template: "c"}},
+			want:           Inherits{{Template: "a"}, {Template: "b"}, {Template: "c"}},
+		},
+		{
+			name:           "release inherit empty with defaults",
+			defaultInherit: DefaultInherits{"default"},
+			releaseInherit: nil,
+			want:           Inherits{{Template: "default"}},
+		},
+		{
+			name:           "default inherit deduplicates and skips empty values",
+			defaultInherit: DefaultInherits{"default", " ", "default", "ops"},
+			releaseInherit: Inherits{{Template: "foo"}},
+			want:           Inherits{{Template: "default"}, {Template: "ops"}, {Template: "foo"}},
+		},
+		{
+			// Whitespace-only template names in releaseInherit are used verbatim for dedup
+			// (trimmed for map lookup), so the user's explicit entry is preserved in the output
+			// and the default is not prepended again.
+			name:           "release inherit with whitespace template is deduplicated correctly",
+			defaultInherit: DefaultInherits{"default"},
+			releaseInherit: Inherits{{Template: " default "}, {Template: "foo"}},
+			want:           Inherits{{Template: " default "}, {Template: "foo"}},
+		},
+		{
+			name:           "release inherit with blank template is skipped",
+			defaultInherit: DefaultInherits{"default"},
+			releaseInherit: Inherits{{Template: ""}, {Template: "foo"}},
+			want:           Inherits{{Template: "default"}, {Template: "foo"}},
+		},
+	}
+
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					DefaultInherit: tt.defaultInherit,
+				},
+			}
+			got := st.applyDefaultInherit(tt.releaseInherit)
+			if len(got) != len(tt.want) {
+				t.Fatalf("expected %d inherits, got %d", len(tt.want), len(got))
+			}
+			for j := range got {
+				if got[j].Template != tt.want[j].Template {
+					t.Errorf("inherit[%d]: expected template %q, got %q", j, tt.want[j].Template, got[j].Template)
+				}
+				if len(got[j].Except) != len(tt.want[j].Except) {
+					t.Errorf("inherit[%d]: expected %d except, got %d", j, len(tt.want[j].Except), len(got[j].Except))
+				}
+			}
+		})
+	}
+}
+
+func TestHelmState_executeTemplatesWithDefaultTemplates(t *testing.T) {
+	logger := zap.NewNop().Sugar()
+	state := &HelmState{
+		logger: logger,
+		fs: &filesystem.FileSystem{
+			Glob: func(s string) ([]string, error) { return nil, nil },
+		},
+		basePath: ".",
+		ReleaseSetSpec: ReleaseSetSpec{
+			HelmDefaults: HelmSpec{
+				KubeContext: "test_context",
+			},
+			Env: environment.Environment{Name: "test_env"},
+			Templates: map[string]TemplateSpec{
+				"default": {
+					ReleaseSpec: ReleaseSpec{
+						Namespace: "default-ns",
+						Labels:    map[string]string{"managed": "true"},
+					},
+				},
+			},
+			DefaultInherit: DefaultInherits{"default"},
+			Releases: []ReleaseSpec{
+				{
+					Name:  "app1",
+					Chart: "test-chart",
+				},
+				{
+					Name:  "app2",
+					Chart: "test-chart-2",
+					Inherit: Inherits{
+						{Template: "default", Except: []string{"labels"}},
+					},
+				},
+			},
+		},
+		RenderedValues: map[string]any{},
+	}
+
+	r, err := state.ExecuteTemplates()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	app1 := r.Releases[0]
+	if app1.Namespace != "default-ns" {
+		t.Errorf("app1: expected namespace %q, got %q", "default-ns", app1.Namespace)
+	}
+	if app1.Labels["managed"] != "true" {
+		t.Errorf("app1: expected label managed=true, got %v", app1.Labels)
+	}
+
+	app2 := r.Releases[1]
+	if app2.Namespace != "default-ns" {
+		t.Errorf("app2: expected namespace %q, got %q", "default-ns", app2.Namespace)
+	}
+	if _, ok := app2.Labels["managed"]; ok {
+		t.Errorf("app2: expected labels to be excluded, but got %v", app2.Labels)
+	}
+}
+
+func TestDefaultInherits_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  DefaultInherits
+	}{
+		{
+			name:  "single string",
+			input: `default`,
+			want:  DefaultInherits{"default"},
+		},
+		{
+			name:  "list of strings",
+			input: `["a", "b"]`,
+			want:  DefaultInherits{"a", "b"},
+		},
+		{
+			name:  "null value",
+			input: `null`,
+			want:  nil,
+		},
+		{
+			name:  "empty string value",
+			input: `""`,
+			want:  nil,
+		},
+		{
+			name:  "list trims and drops empty names",
+			input: `[" a ", "", " ", "b"]`,
+			want:  DefaultInherits{"a", "b"},
+		},
+	}
+
+	for _, enableGoYamlV3 := range []bool{true, false} {
+		t.Run(fmt.Sprintf("GoYamlV3=%t", enableGoYamlV3), func(t *testing.T) {
+			prev := runtime.GoYamlV3
+			runtime.GoYamlV3 = enableGoYamlV3
+			defer func() {
+				runtime.GoYamlV3 = prev
+			}()
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					var got DefaultInherits
+					err := yaml.Unmarshal([]byte(tt.input), &got)
+					if err != nil {
+						t.Fatalf("unexpected error: %v", err)
+					}
+					if len(got) != len(tt.want) {
+						t.Fatalf("expected %d items, got %d", len(tt.want), len(got))
+					}
+					for i := range got {
+						if got[i] != tt.want[i] {
+							t.Errorf("item[%d]: expected %q, got %q", i, tt.want[i], got[i])
+						}
+					}
+				})
 			}
 		})
 	}

@@ -27,7 +27,7 @@ export HELM_DATA_HOME="${helm_dir}/data"
 export HELM_HOME="${HELM_DATA_HOME}"
 export HELM_PLUGINS="${HELM_DATA_HOME}/plugins"
 export HELM_CONFIG_HOME="${helm_dir}/config"
-HELM_DIFF_VERSION="${HELM_DIFF_VERSION:-3.15.3}"
+HELM_DIFF_VERSION="${HELM_DIFF_VERSION:-3.15.7}"
 HELM_GIT_VERSION="${HELM_GIT_VERSION:-1.4.1}"
 HELM_SECRETS_VERSION="${HELM_SECRETS_VERSION:-4.7.4}"
 export GNUPGHOME="${PWD}/${dir}/.gnupg"
@@ -143,6 +143,8 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-2424-sequential-values-paths.sh
 . ${dir}/test-cases/issue-2431.sh
 . ${dir}/test-cases/issue-2544.sh
+. ${dir}/test-cases/issue-2596-local-deps-multiple-files.sh
+. ${dir}/test-cases/issue-2599-default-inherit.sh
 . ${dir}/test-cases/kubedog-tracking.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------

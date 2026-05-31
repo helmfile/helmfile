@@ -85,7 +85,10 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 	vals := st.Values()
 
 	for i, rt := range st.Releases {
-		release, err := st.releaseWithInheritedTemplate(&rt, nil)
+		rtWithDefaults := rt
+		rtWithDefaults.Inherit = st.applyDefaultInherit(rt.Inherit)
+
+		release, err := st.releaseWithInheritedTemplate(&rtWithDefaults, nil)
 		if err != nil {
 			var cyclicInheritanceErr CyclicReleaseTemplateInheritanceError
 			if errors.As(err, &cyclicInheritanceErr) {
@@ -223,4 +226,37 @@ func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePat
 	merged.Inherit = nil
 
 	return &merged, nil
+}
+
+// applyDefaultInherit prepends default inherit templates to the release's inherit list.
+// Templates that are already explicitly referenced by the release are not duplicated.
+func (st *HelmState) applyDefaultInherit(releaseInherit Inherits) Inherits {
+	if len(st.DefaultInherit) == 0 {
+		return releaseInherit
+	}
+
+	// Build the deduplication set and filter out blank entries in one pass.
+	existing := make(map[string]bool, len(releaseInherit))
+	filtered := make(Inherits, 0, len(releaseInherit))
+	for _, inh := range releaseInherit {
+		if name := strings.TrimSpace(inh.Template); name != "" {
+			existing[name] = true
+			filtered = append(filtered, inh)
+		}
+	}
+
+	result := make(Inherits, 0, len(st.DefaultInherit)+len(filtered))
+	for _, name := range st.DefaultInherit {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+
+		if !existing[name] {
+			result = append(result, Inherit{Template: name})
+			existing[name] = true
+		}
+	}
+	result = append(result, filtered...)
+	return result
 }

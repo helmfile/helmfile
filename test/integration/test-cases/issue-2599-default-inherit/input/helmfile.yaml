@@ -1,0 +1,19 @@
+templates:
+  default:
+    namespace: default-ns
+    labels:
+      managed: "true"
+    values:
+    - common.yaml
+
+defaultInherit: default
+
+releases:
+- name: app1
+  chart: ../../../charts/raw
+- name: app2
+  chart: ../../../charts/raw
+  inherit:
+  - template: default
+    except:
+    - labels

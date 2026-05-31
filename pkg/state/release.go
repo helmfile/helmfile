@@ -193,13 +193,18 @@ func (r ReleaseSpec) ExecuteTemplateExpressions(renderer *tmpl.FileRenderer) (*R
 				}
 				result.SetValuesTemplate[i].File = s.String()
 			}
-			for j, ts := range val.Values {
+			for j, tv := range val.Values {
 				// values
-				s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
-				if err != nil {
-					return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].values[%d] = \"%s\": %v", r.Name, i, j, ts, err)
+				switch ts := tv.(type) {
+				case string:
+					s, err := renderer.RenderTemplateContentToBuffer([]byte(ts))
+					if err != nil {
+						return nil, fmt.Errorf("failed executing template expressions in release \"%s\".set[%d].values[%d] = \"%s\": %v", r.Name, i, j, ts, err)
+					}
+					result.SetValuesTemplate[i].Values[j] = s.String()
+				default:
+					result.SetValuesTemplate[i].Values[j] = ts
 				}
-				result.SetValuesTemplate[i].Values[j] = s.String()
 			}
 		}
 

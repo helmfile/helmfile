@@ -63,6 +63,21 @@ type SyncOptions struct {
 	TrackFailOnError bool
 	// Description is the description that will be passed to helm upgrade --description
 	Description string
+
+	// Diff-related options for --interactive mode
+	SuppressOutputLineRegex []string
+	IncludeTests            bool
+	Suppress                []string
+	SuppressSecrets         bool
+	ShowSecrets             bool
+	NoHooks                 bool
+	SuppressDiff            bool
+	SkipDiffOnInstall       bool
+	DiffArgs                string
+	DetailedExitcode        bool
+	StripTrailingCR         bool
+	Context                 int
+	DiffOutput              string
 }
 
 // NewSyncOptions creates a new Apply
@@ -226,6 +241,71 @@ func (t *SyncImpl) TrackFailOnError() bool {
 // Description returns the description.
 func (t *SyncImpl) Description() string {
 	return t.SyncOptions.Description
+}
+
+// SuppressOutputLineRegex returns the SuppressOutputLineRegex.
+func (t *SyncImpl) SuppressOutputLineRegex() []string {
+	return t.SyncOptions.SuppressOutputLineRegex
+}
+
+// IncludeTests returns the IncludeTests.
+func (t *SyncImpl) IncludeTests() bool {
+	return t.SyncOptions.IncludeTests
+}
+
+// Suppress returns the Suppress.
+func (t *SyncImpl) Suppress() []string {
+	return t.SyncOptions.Suppress
+}
+
+// SuppressSecrets returns the SuppressSecrets.
+func (t *SyncImpl) SuppressSecrets() bool {
+	return t.SyncOptions.SuppressSecrets
+}
+
+// ShowSecrets returns the ShowSecrets.
+func (t *SyncImpl) ShowSecrets() bool {
+	return t.SyncOptions.ShowSecrets
+}
+
+// NoHooks returns the NoHooks.
+func (t *SyncImpl) NoHooks() bool {
+	return t.SyncOptions.NoHooks
+}
+
+// SuppressDiff returns the SuppressDiff.
+func (t *SyncImpl) SuppressDiff() bool {
+	return t.SyncOptions.SuppressDiff
+}
+
+// SkipDiffOnInstall returns the SkipDiffOnInstall.
+func (t *SyncImpl) SkipDiffOnInstall() bool {
+	return t.SyncOptions.SkipDiffOnInstall
+}
+
+// DiffArgs returns the DiffArgs.
+func (t *SyncImpl) DiffArgs() string {
+	return t.SyncOptions.DiffArgs
+}
+
+// DetailedExitcode returns the DetailedExitcode.
+func (t *SyncImpl) DetailedExitcode() bool {
+	return t.SyncOptions.DetailedExitcode
+}
+
+// StripTrailingCR returns the StripTrailingCR.
+func (t *SyncImpl) StripTrailingCR() bool {
+	return t.SyncOptions.StripTrailingCR
+}
+
+// Context returns the Context.
+func (t *SyncImpl) Context() int {
+	return t.SyncOptions.Context
+}
+
+// DiffOutput returns the DiffOutput.
+func (t *SyncImpl) DiffOutput() string {
+	return t.SyncOptions.DiffOutput
 }
 
 func (t *SyncImpl) ValidateConfig() error {
