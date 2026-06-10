@@ -238,6 +238,10 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 		IgnoreLogs:    !t.trackOptions.Logs,
 	}
 
+        if t.trackOptions.Logs {
+              opts.SaveLogsOnlyForNumberOfReplicas = 10
+        }
+
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(targets))
 
