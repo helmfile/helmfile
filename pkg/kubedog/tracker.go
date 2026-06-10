@@ -201,6 +201,32 @@ type trackTarget struct {
 	namespace string
 }
 
+// defaultSaveLogsReplicas is the number of pods per resource for which kubedog
+// will stream logs when log tracking is enabled. kubedog ignores logs unless
+// SaveLogsOnlyForNumberOfReplicas is positive (see ignoreLogs in
+// pkg/tracker/deployment/tracker.go), so leaving it at 0 silently suppresses
+// all log output even when trackLogs is true.
+const defaultSaveLogsReplicas = 10
+
+// buildTrackerOptions constructs the kubedog tracker options from the tracker's
+// configured TrackOptions. It is factored out of TrackResources so the option
+// mapping (in particular enabling log streaming) can be unit tested without a
+// live cluster.
+func (t *Tracker) buildTrackerOptions(ctx context.Context) tracker.Options {
+	opts := tracker.Options{
+		ParentContext: ctx,
+		Timeout:       t.trackOptions.Timeout,
+		LogsFromTime:  time.Now().Add(-t.trackOptions.LogsSince),
+		IgnoreLogs:    !t.trackOptions.Logs,
+	}
+
+	if t.trackOptions.Logs {
+		opts.SaveLogsOnlyForNumberOfReplicas = defaultSaveLogsReplicas
+	}
+
+	return opts
+}
+
 func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Resource) error {
 	if len(resources) == 0 {
 		t.logger.Info("No resources to track")
@@ -231,16 +257,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 		informer.ConcurrentInformerFactoryOptions{},
 	)
 
-	opts := tracker.Options{
-		ParentContext: ctx,
-		Timeout:       t.trackOptions.Timeout,
-		LogsFromTime:  time.Now().Add(-t.trackOptions.LogsSince),
-		IgnoreLogs:    !t.trackOptions.Logs,
-	}
-
-	if t.trackOptions.Logs {
-		opts.SaveLogsOnlyForNumberOfReplicas = 10
-	}
+	opts := t.buildTrackerOptions(ctx)
 
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(targets))

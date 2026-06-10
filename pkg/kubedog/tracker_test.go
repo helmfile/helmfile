@@ -1,6 +1,7 @@
 package kubedog
 
 import (
+	"context"
 	"math"
 	"os"
 	"testing"
@@ -274,4 +275,32 @@ users:
 		// If no error, tracker should be created successfully
 		assert.NotNil(t, tr)
 	}
+}
+
+func TestBuildTrackerOptions_LogsEnabled(t *testing.T) {
+	tr := &Tracker{
+		trackOptions: NewTrackOptions().WithLogs(true),
+	}
+
+	opts := tr.buildTrackerOptions(context.Background())
+
+	// With logs enabled, kubedog must be told to stream logs and to save logs
+	// for a positive number of replicas, otherwise log output is silently
+	// suppressed.
+	assert.False(t, opts.IgnoreLogs)
+	assert.Equal(t, defaultSaveLogsReplicas, opts.SaveLogsOnlyForNumberOfReplicas)
+	assert.Equal(t, 5*time.Minute, opts.Timeout)
+}
+
+func TestBuildTrackerOptions_LogsDisabled(t *testing.T) {
+	tr := &Tracker{
+		trackOptions: NewTrackOptions().WithLogs(false),
+	}
+
+	opts := tr.buildTrackerOptions(context.Background())
+
+	// With logs disabled, kubedog should ignore logs and not save any replicas'
+	// logs (leaving the default zero value).
+	assert.True(t, opts.IgnoreLogs)
+	assert.Zero(t, opts.SaveLogsOnlyForNumberOfReplicas)
 }
