@@ -474,9 +474,38 @@ func (st *HelmState) startBackgroundKubedogTracking(
 	var safetyValveTriggered atomic.Bool
 	var helmKilledByUs atomic.Bool
 	const (
-		safetyValveGrace = 60 * time.Second
-		safetyValveCheck = 10 * time.Second
+		safetyValveGrace         = 60 * time.Second
+		safetyValveCheck         = 10 * time.Second
+		safetyValveTrackerWindup = 30 * time.Second
 	)
+	// safetyFiredCh is closed by either safety valve when it triggers, so
+	// wait() can break out of its resultCh receive without depending on
+	// dyntracker actually unwinding. Background: in production we hit an
+	// upstream-kubedog bug where one of N parallel tracker goroutines did
+	// not respect ctx.Done(), so TrackResources blocked on trackerWg.Wait()
+	// forever and never sent on resultCh. With only `trackErr := <-resultCh`
+	// in wait(), helmfile hung indefinitely even though the safety valve
+	// had already confirmed cluster convergence.
+	safetyFiredCh := make(chan struct{})
+	var safetyFiredOnce sync.Once
+	signalSafetyFired := func() {
+		safetyFiredOnce.Do(func() { close(safetyFiredCh) })
+	}
+	// scheduleResultChBackstop runs after a safety valve fires to guarantee
+	// resultCh is unblocked even if the dyntracker goroutines are wedged.
+	// resultCh has capacity 1: if the tracker has already (or later) sent
+	// its real result, our non-blocking send drops harmlessly. If the
+	// tracker is hung, our nil unblocks wait().
+	scheduleResultChBackstop := func() {
+		go func() {
+			time.Sleep(safetyValveTrackerWindup)
+			select {
+			case resultCh <- nil:
+				st.logger.Warnf("kubedog: tracker for release %s did not return %s after safety valve fired; pushing nil to unblock wait() (dyntracker likely wedged)", release.Name, safetyValveTrackerWindup)
+			default:
+			}
+		}()
+	}
 	helmStuckGrace := st.getHelmStuckGrace(release, opts)
 
 	go func() {
@@ -497,6 +526,8 @@ func (st *HelmState) startBackgroundKubedogTracking(
 				st.logger.Infof("kubedog: cluster confirms all tracked resources converged for release %s; cancelling tracker (worked around dyntracker race)", release.Name)
 				safetyValveTriggered.Store(true)
 				trackCancel()
+				signalSafetyFired()
+				scheduleResultChBackstop()
 				return
 			}
 			select {
@@ -542,6 +573,8 @@ func (st *HelmState) startBackgroundKubedogTracking(
 				st.logger.Warnf("\n%s", kubedog.StyleWarning(block, useColor))
 				helmKilledByUs.Store(true)
 				releaseCancel()
+				signalSafetyFired()
+				scheduleResultChBackstop()
 				return
 			}
 		}()
@@ -561,7 +594,46 @@ func (st *HelmState) startBackgroundKubedogTracking(
 
 	canceled := false
 	wait := func() *ReleaseError {
-		trackErr := <-resultCh
+		// Race resultCh against three other paths so a wedged dyntracker
+		// goroutine that won't return on ctx.Done() cannot pin helmfile
+		// forever. In production we hit exactly this: one of N parallel
+		// tracker goroutines ignored cancellation, trackerWg.Wait() never
+		// completed, resultCh never received, and helmfile hung for 15
+		// hours despite the safety valve having confirmed cluster
+		// convergence minutes earlier.
+		var trackErr error
+		hardTimeout := st.getReleaseHardTimeout(release, opts)
+		hardTimer := time.NewTimer(hardTimeout)
+		defer hardTimer.Stop()
+
+		select {
+		case trackErr = <-resultCh:
+			// Normal path — tracker returned (success, error, or nil
+			// pushed by a safety-valve backstop).
+		case <-safetyFiredCh:
+			// A safety valve fired and already confirmed cluster
+			// convergence via the live API. Give dyntracker a brief
+			// grace to wind down on its own; otherwise proceed without
+			// waiting (cluster is healthy regardless).
+			select {
+			case trackErr = <-resultCh:
+			case <-time.After(safetyValveTrackerWindup):
+				st.logger.Warnf("kubedog: tracker for release %s did not return %s after safety valve fired; proceeding (cluster confirmed converged)", release.Name, safetyValveTrackerWindup)
+			}
+		case <-hardTimer.C:
+			// Absolute ceiling: neither dyntracker nor any safety valve
+			// returned within the release timeout. We have no
+			// confirmation of cluster state, so treat as failure rather
+			// than silent success. This is the seatbelt for "everything
+			// else failed" — the user's mental model is that a release
+			// should not exceed its own timeout.
+			st.logger.Warnf("kubedog: tracker for release %s did not return within release timeout %s; treating as failure", release.Name, hardTimeout)
+			trackCancel()
+			releaseCancel()
+			flush()
+			return newReleaseFailedError(release, fmt.Errorf("kubedog tracker did not return within release timeout %s", hardTimeout))
+		}
+
 		trackCancel()
 		releaseCancel()
 		flush()
@@ -604,6 +676,31 @@ func (st *HelmState) startBackgroundKubedogTracking(
 		FlushBufferedHelmOutput: flush,
 		WasHelmKilled:           wasHelmKilled,
 	}, true
+}
+
+// getReleaseHardTimeout returns the absolute ceiling on how long wait()
+// should block. Matches the user's mental model of "a release should not
+// exceed its own timeout" — the same timeout we pass to helm via --timeout.
+// Priority mirrors timeoutFlags(): ops.Timeout > release.Timeout >
+// HelmDefaults.Timeout. Falls back to track-timeout when no helm timeout
+// is configured, and finally to 10 minutes as a safe hard default.
+func (st *HelmState) getReleaseHardTimeout(release *ReleaseSpec, ops *SyncOpts) time.Duration {
+	if ops != nil && ops.Timeout > 0 {
+		return time.Duration(ops.Timeout) * time.Second
+	}
+	if release.Timeout != nil && *release.Timeout > 0 {
+		return time.Duration(*release.Timeout) * time.Second
+	}
+	if st.HelmDefaults.Timeout > 0 {
+		return time.Duration(st.HelmDefaults.Timeout) * time.Second
+	}
+	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
+		return time.Duration(*release.TrackTimeout) * time.Second
+	}
+	if ops != nil && ops.TrackTimeout > 0 {
+		return time.Duration(ops.TrackTimeout) * time.Second
+	}
+	return 10 * time.Minute
 }
 
 // getHelmStuckGrace returns the configured helm-stuck grace period — how long
