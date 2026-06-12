@@ -44,7 +44,7 @@ require (
 
 replace (
 	// kubedog's flagger dependency still imports k8s.io/api/autoscaling/v2beta2,
-	// while Helm 4.2.0 requires k8s.io/apimachinery/content.IsPathSegmentName from v0.36+.
+	// while Helm 4.2.1 requires k8s.io/apimachinery/content.IsPathSegmentName from v0.36+.
 	k8s.io/api => k8s.io/api v0.35.4
 	k8s.io/apimachinery => k8s.io/apimachinery v0.36.0
 	k8s.io/client-go => k8s.io/client-go v0.35.4
