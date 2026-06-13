@@ -29,6 +29,9 @@ var (
 	chartGitFullPathRegex = regexp.MustCompile(`chart=.*git\.ref=.*/charts/.*`)
 	// helm short version regex. e.g. v3.10.2+g50f003e
 	helmShortVersionRegex = regexp.MustCompile(`v\d+\.\d+\.\d+\+[a-z0-9]+`)
+	// OCI digest regex. e.g. Digest: sha256:abc123...
+	// The digest is non-deterministic because helm packages include build timestamps.
+	ociDigestRegex = regexp.MustCompile(`Digest: sha256:[0-9a-f]+`)
 )
 
 type Config struct {
@@ -399,6 +402,10 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 				// Normalize the dynamic port to $REGISTRY_PORT placeholder for test comparison
 				gotStr = strings.ReplaceAll(gotStr, fmt.Sprintf("localhost:%d", hostPort), "localhost:$REGISTRY_PORT")
 				gotStr = strings.ReplaceAll(gotStr, fmt.Sprintf("oci__localhost_%d", hostPort), "oci__localhost_$REGISTRY_PORT")
+
+				// Normalize OCI digest values that change between test runs because
+				// helm packages include build timestamps making each digest unique.
+				gotStr = ociDigestRegex.ReplaceAllString(gotStr, "Digest: sha256:$DIGEST")
 
 				sc := bufio.NewScanner(strings.NewReader(gotStr))
 				for sc.Scan() {

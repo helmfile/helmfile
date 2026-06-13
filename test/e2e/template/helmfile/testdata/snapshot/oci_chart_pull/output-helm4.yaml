@@ -1,0 +1,15 @@
+Pulling localhost:$REGISTRY_PORT/myrepo/raw:0.1.0
+Pulled: localhost:$REGISTRY_PORT/myrepo/raw:0.1.0
+Digest: sha256:$DIGEST
+
+Templating release=foo, chart=$HELMFILE_CACHE_HOME/myrepo/raw/0.1.0/raw
+---
+# Source: raw/templates/resources.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo
+  namespace: default
+data:
+  foo: FOO
+
