@@ -103,6 +103,12 @@ func New(conf ConfigProvider) *App {
 	})
 }
 
+// WithFileSystem swaps the FileSystem this App reads through while loading state.
+func (a *App) WithFileSystem(fs *filesystem.FileSystem) *App {
+	a.fs = fs
+	return a
+}
+
 func Init(app *App) *App {
 	var err error
 	app.valsRuntime, err = plugins.ValsInstance()

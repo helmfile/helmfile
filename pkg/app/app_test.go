@@ -48,6 +48,16 @@ func injectFs(app *App, fs *testhelper.TestFs) *App {
 	return app
 }
 
+func TestAppWithFileSystem(t *testing.T) {
+	app := &App{}
+	fs := ffs.DefaultFileSystem()
+
+	got := app.WithFileSystem(fs)
+
+	require.Same(t, app, got)
+	require.Same(t, fs, app.fs)
+}
+
 func expectNoCallsToHelm(app *App) {
 	expectNoCallsToHelmVersion(app)
 }
