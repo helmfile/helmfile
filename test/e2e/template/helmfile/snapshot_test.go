@@ -31,7 +31,7 @@ var (
 	helmShortVersionRegex = regexp.MustCompile(`v\d+\.\d+\.\d+\+[a-z0-9]+`)
 	// OCI digest regex. e.g. Digest: sha256:abc123...
 	// The digest is non-deterministic because helm packages include build timestamps.
-	ociDigestRegex = regexp.MustCompile(`Digest: sha256:[0-9a-f]+`)
+	ociDigestRegex = regexp.MustCompile(`Digest: sha256:[0-9a-f]*`)
 )
 
 type Config struct {
@@ -405,7 +405,7 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 
 				// Normalize OCI digest values that change between test runs because
 				// helm packages include build timestamps making each digest unique.
-				gotStr = ociDigestRegex.ReplaceAllString(gotStr, "Digest: sha256:$DIGEST")
+				gotStr = ociDigestRegex.ReplaceAllString(gotStr, "Digest: sha256:$$DIGEST")
 
 				sc := bufio.NewScanner(strings.NewReader(gotStr))
 				for sc.Scan() {
