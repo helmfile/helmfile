@@ -1,0 +1,4 @@
+Pulling localhost:$REGISTRY_PORT/myrepo/raw:0.1.0
+Pulled: localhost:$REGISTRY_PORT/myrepo/raw:0.1.0
+Digest: sha256:$DIGEST
+
