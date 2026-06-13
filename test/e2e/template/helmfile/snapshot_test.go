@@ -540,8 +540,9 @@ func requiresPlainHTTPForOCI(t *testing.T) bool {
 		return false
 	}
 
-	// Fallback to environment variable
-	return os.Getenv("HELMFILE_HELM4") == "1"
+	// Fallback: default to true (require --plain-http) when version detection fails,
+	// as any Helm that supports `helm push` also supports --plain-http.
+	return true
 }
 
 // installTestPlugin copies a test plugin directory to the helm plugins directory
