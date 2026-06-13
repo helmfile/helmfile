@@ -358,7 +358,7 @@ func testHelmfileTemplateWithBuildCommand(t *testing.T, GoYamlV3 bool) {
 			defer cancel()
 
 			args := []string{"-f", inputFile}
-			// Add --oci-plain-http flag for tests using local Docker registry (Helm 4 requirement)
+			// Add --oci-plain-http flag for tests using local Docker registry (required for HTTP-only OCI registries)
 			if config.LocalDockerRegistry.Enabled {
 				args = append(args, "--oci-plain-http")
 			}
@@ -505,6 +505,45 @@ func isHelm4(t *testing.T) bool {
 	return os.Getenv("HELMFILE_HELM4") == "1"
 }
 
+// requiresPlainHTTPForOCI returns true if the current Helm binary requires the --plain-http
+// flag when pushing to or pulling from HTTP-only OCI registries.
+// Helm 4.x always requires this flag. Helm 3.21+ also requires it due to stricter
+// security checks that reject scheme downgrades from HTTPS to HTTP.
+func requiresPlainHTTPForOCI(t *testing.T) bool {
+	t.Helper()
+
+	helmBinary := os.Getenv("HELM_BIN")
+	if helmBinary == "" {
+		helmBinary = "helm"
+	}
+
+	cmd := exec.Command(helmBinary, "version", "--template={{.Version}}")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		version := string(output)
+		// Helm 4.x requires --plain-http
+		if len(version) > 2 && version[0] == 'v' && version[1] == '4' {
+			return true
+		}
+		// Helm 3.21+ requires --plain-http for HTTP-only OCI registries
+		// Version format: v3.21.1+g8d45f12
+		if len(version) > 4 && version[0] == 'v' && version[1] == '3' && version[2] == '.' {
+			rest := version[3:] // "21.1+g..." or "10.2+g..."
+			dotIdx := strings.Index(rest, ".")
+			if dotIdx > 0 {
+				minor, parseErr := strconv.Atoi(rest[:dotIdx])
+				if parseErr == nil && minor >= 21 {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Fallback to environment variable
+	return os.Getenv("HELMFILE_HELM4") == "1"
+}
+
 // installTestPlugin copies a test plugin directory to the helm plugins directory
 func installTestPlugin(t *testing.T, helmPluginsDir, pluginName, sourcePath string) {
 	t.Helper()
@@ -576,9 +615,9 @@ func copyDir(src, dst string) error {
 func execHelmPush(t *testing.T, tgzPath, remoteUrl string) (string, error) {
 	t.Helper()
 
-	// Helm 4 requires --plain-http for HTTP-only OCI registries (not HTTPS with self-signed certs)
+	// Helm 3.21+ and Helm 4 require --plain-http for HTTP-only OCI registries
 	args := []string{"push", tgzPath, remoteUrl}
-	if isHelm4(t) {
+	if requiresPlainHTTPForOCI(t) {
 		args = append(args, "--plain-http")
 	}
 	out := execHelm(t, args...)
