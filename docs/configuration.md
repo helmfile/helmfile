@@ -433,6 +433,7 @@ The following `helmDefaults` fields are also available but not shown in the exam
 | `skipRefresh` | bool | false | Skip running `helm dependency up` |
 | `forceConflicts` | bool | false | Force server-side apply changes against conflicts (Helm 4 only) |
 | `takeOwnership` | bool | false | Take ownership of existing resources |
+| `serverSide` | string | | Controls the helm 4 `--server-side` flag. Must be `"true"`, `"false"`, or `"auto"` (Helm 4 only) |
 | `trackMode` | string | `""` | Default tracking mode for resources. See [Advanced Features](advanced-features.md#resource-tracking-with-kubedog) |
 | `disableAutoDetectedKubeVersionForDiff` | bool | false | Disable auto-detected kubeVersion being passed to helm diff |
 
@@ -456,6 +457,7 @@ The following per-release fields are also available:
 | `skipRefresh` | bool | false | Per-release skip for `helm dependency up` |
 | `disableAutoDetectedKubeVersionForDiff` | bool | false | Disable auto-detected kubeVersion for helm diff on this release |
 | `takeOwnership` | bool | false | Take ownership of existing resources for this release |
+| `serverSide` | string | | Controls the helm 4 `--server-side` flag for this release. Must be `"true"`, `"false"`, or `"auto"` (Helm 4 only) |
 | `forceConflicts` | bool | false | Force server-side apply against conflicts (Helm 4 only) |
 | `description` | string | | Description of the release |
 | `enableDNS` | bool | false | Enable DNS lookups when rendering templates |

@@ -572,3 +572,157 @@ func TestFormatLabels(t *testing.T) {
 		})
 	}
 }
+
+func strPtr(s string) *string {
+	return &s
+}
+
+func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
+	type args struct {
+		flags    []string
+		helm     helmexec.Interface
+		helmSpec HelmSpec
+		opt      *SyncOpts
+		release  *ReleaseSpec
+		expected []string
+		wantErr  bool
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "no server-side when not configured",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewHelmExec(true),
+				release:  &ReleaseSpec{},
+				opt:      &SyncOpts{},
+				expected: []string{},
+			},
+		},
+		{
+			name: "server-side from cmd flag",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewHelmExec(true),
+				release:  &ReleaseSpec{},
+				opt:      &SyncOpts{ServerSide: "true"},
+				expected: []string{"--server-side", "true"},
+			},
+		},
+		{
+			name: "server-side from release",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewHelmExec(true),
+				release:  &ReleaseSpec{ServerSide: strPtr("false")},
+				opt:      &SyncOpts{},
+				expected: []string{"--server-side", "false"},
+			},
+		},
+		{
+			name: "server-side from helmDefaults",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewHelmExec(true),
+				helmSpec: HelmSpec{ServerSide: strPtr("auto")},
+				release:  &ReleaseSpec{},
+				opt:      &SyncOpts{},
+				expected: []string{"--server-side", "auto"},
+			},
+		},
+		{
+			name: "release-level overrides cmd flag",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewHelmExec(true),
+				release:  &ReleaseSpec{ServerSide: strPtr("true")},
+				opt:      &SyncOpts{ServerSide: "false"},
+				expected: []string{"--server-side", "true"},
+			},
+		},
+		{
+			name: "cmd flag overrides helmDefaults",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewHelmExec(true),
+				helmSpec: HelmSpec{ServerSide: strPtr("false")},
+				release:  &ReleaseSpec{},
+				opt:      &SyncOpts{ServerSide: "true"},
+				expected: []string{"--server-side", "true"},
+			},
+		},
+		{
+			name: "helm 3 with no config is ignored",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewVersionHelmExec("3.17.0"),
+				release:  &ReleaseSpec{},
+				opt:      &SyncOpts{},
+				expected: []string{},
+			},
+		},
+		{
+			name: "helm 3 with release-level config errors",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewVersionHelmExec("3.17.0"),
+				release:  &ReleaseSpec{ServerSide: strPtr("true")},
+				opt:      &SyncOpts{},
+				expected: []string{},
+				wantErr:  true,
+			},
+		},
+		{
+			name: "helm 3 with helmDefaults config errors",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewVersionHelmExec("3.17.0"),
+				helmSpec: HelmSpec{ServerSide: strPtr("true")},
+				release:  &ReleaseSpec{},
+				opt:      &SyncOpts{},
+				expected: []string{},
+				wantErr:  true,
+			},
+		},
+		{
+			name: "invalid value errors",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewHelmExec(true),
+				release:  &ReleaseSpec{},
+				opt:      &SyncOpts{ServerSide: "yes"},
+				expected: []string{},
+				wantErr:  true,
+			},
+		},
+		{
+			name: "empty release-level value falls through to cmd flag",
+			args: args{
+				flags:    []string{},
+				helm:     testutil.NewHelmExec(true),
+				release:  &ReleaseSpec{ServerSide: strPtr("")},
+				opt:      &SyncOpts{ServerSide: "auto"},
+				expected: []string{"--server-side", "auto"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.args.helmSpec
+			optServerSide := ""
+			if tt.args.opt != nil {
+				optServerSide = tt.args.opt.ServerSide
+			}
+			got, err := st.appendServerSideFlagsForUpgrade(tt.args.flags, tt.args.helm, tt.args.release, optServerSide)
+			if tt.args.wantErr {
+				require.Error(t, err, "appendServerSideFlagsForUpgrade() should return error")
+			} else {
+				require.NoError(t, err, "appendServerSideFlagsForUpgrade() should not return error")
+				require.Equalf(t, tt.args.expected, got, "appendServerSideFlagsForUpgrade() = %v, want %v", got, tt.args.expected)
+			}
+		})
+	}
+}

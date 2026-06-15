@@ -354,6 +354,44 @@ func (st *HelmState) appendTakeOwnershipFlagsForUpgrade(flags []string, helm hel
 	return flags
 }
 
+// validServerSideValues are the allowed values for the helm 4 --server-side flag.
+var validServerSideValues = map[string]struct{}{"true": {}, "false": {}, "auto": {}}
+
+// appendServerSideFlagsForUpgrade appends the helm 4 --server-side flag when appropriate.
+// Precedence: release-level > CLI flag > helmDefaults.
+func (st *HelmState) appendServerSideFlagsForUpgrade(flags []string, helm helmexec.Interface, release *ReleaseSpec, serverSide string) ([]string, error) {
+	if !helm.IsHelm4() {
+		// --server-side with a string value is helm 4 only. Guard against misconfiguration
+		// when the user is running helm 3.
+		if release.ServerSide != nil && *release.ServerSide != "" {
+			return nil, fmt.Errorf("serverSide requires Helm 4 or greater (set via releases[].serverSide)")
+		}
+		if st.HelmDefaults.ServerSide != nil && *st.HelmDefaults.ServerSide != "" {
+			return nil, fmt.Errorf("serverSide requires Helm 4 or greater (set via helmDefaults.serverSide)")
+		}
+		return flags, nil
+	}
+
+	var value string
+	switch {
+	case release.ServerSide != nil && *release.ServerSide != "":
+		value = *release.ServerSide
+	case serverSide != "":
+		value = serverSide
+	case st.HelmDefaults.ServerSide != nil && *st.HelmDefaults.ServerSide != "":
+		value = *st.HelmDefaults.ServerSide
+	default:
+		return flags, nil
+	}
+
+	if _, ok := validServerSideValues[value]; !ok {
+		return nil, fmt.Errorf("invalid serverSide value %q: must be \"true\", \"false\", or \"auto\"", value)
+	}
+
+	flags = append(flags, "--server-side", value)
+	return flags, nil
+}
+
 // append show-only flags to helm flags
 func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []string {
 	showOnlyFlags := []string{}

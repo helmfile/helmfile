@@ -1816,6 +1816,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		SkipSchemaValidation:    c.SkipSchemaValidation(),
 		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
 		TakeOwnership:           c.TakeOwnership(),
+		ServerSide:              c.ServerSide(),
 		DetectedKubeVersion:     detectedKubeVersion,
 	}
 
@@ -1937,6 +1938,7 @@ Do you really want to apply?
 					SyncArgs:             c.SyncArgs(),
 					HideNotes:            c.HideNotes(),
 					TakeOwnership:        c.TakeOwnership(),
+					ServerSide:           c.ServerSide(),
 					SyncReleaseLabels:    c.SyncReleaseLabels(),
 					TrackMode:            c.TrackMode(),
 					TrackTimeout:         c.TrackTimeout(),
@@ -2096,6 +2098,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			SkipSchemaValidation:    c.SkipSchemaValidation(),
 			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
 			TakeOwnership:           c.TakeOwnership(),
+			ServerSide:              c.ServerSide(),
 			DetectedKubeVersion:     detectedKubeVersion,
 		}
 
@@ -2335,6 +2338,7 @@ func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, bool, []error) {
 				SkipSchemaValidation:    diffC.SkipSchemaValidation(),
 				SuppressOutputLineRegex: diffC.SuppressOutputLineRegex(),
 				TakeOwnership:           diffC.TakeOwnership(),
+				ServerSide:              diffC.ServerSide(),
 				DetectedKubeVersion:     detectedKubeVersion,
 			}
 			infoMsgPtr, _, _, diffErrs := r.diff(false, diffC.DetailedExitcode(), diffC, diffOpts)
@@ -2422,6 +2426,7 @@ Do you really want to sync?
 					SyncArgs:             c.SyncArgs(),
 					HideNotes:            c.HideNotes(),
 					TakeOwnership:        c.TakeOwnership(),
+					ServerSide:           c.ServerSide(),
 					SkipSchemaValidation: c.SkipSchemaValidation(),
 					SyncReleaseLabels:    c.SyncReleaseLabels(),
 					TrackMode:            c.TrackMode(),

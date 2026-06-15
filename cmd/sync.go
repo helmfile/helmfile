@@ -44,6 +44,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&syncOptions.EnforceNeedsAreInstalled, "enforce-needs-are-installed", false, "enforce that all 'needs' dependencies are installable before applying changes")
 	f.BoolVar(&syncOptions.HideNotes, "hide-notes", false, "add --hide-notes flag to helm")
 	f.BoolVar(&syncOptions.TakeOwnership, "take-ownership", false, `add --take-ownership flag to helm`)
+	f.StringVar(&syncOptions.ServerSide, "server-side", "", `add --server-side flag to helm upgrade (Helm 4 only). Must be "true", "false", or "auto"`)
 	f.BoolVar(&syncOptions.SyncReleaseLabels, "sync-release-labels", false, "sync release labels to the target release")
 	f.BoolVar(&syncOptions.Wait, "wait", false, `Override helmDefaults.wait setting "helm upgrade --install --wait"`)
 	f.BoolVar(&syncOptions.WaitForJobs, "wait-for-jobs", false, `Override helmDefaults.waitForJobs setting "helm upgrade --install --wait-for-jobs"`)

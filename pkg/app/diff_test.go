@@ -47,6 +47,7 @@ type diffConfig struct {
 	reuseValues              bool
 	logger                   *zap.SugaredLogger
 	takeOwnership            bool
+	serverSide               string
 	enforceNeedsAreInstalled bool
 }
 
@@ -187,6 +188,9 @@ func (a diffConfig) SuppressOutputLineRegex() []string {
 }
 func (a diffConfig) TakeOwnership() bool {
 	return a.takeOwnership
+}
+func (a diffConfig) ServerSide() string {
+	return a.serverSide
 }
 
 func (a diffConfig) EnforceNeedsAreInstalled() bool {
