@@ -487,7 +487,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			cachedPatchTemplateDataSet = true
 			cachedPatchTemplateData, cachedPatchTemplateDataErr = st.mergedReleaseTemplateData(release)
 			if cachedPatchTemplateDataErr != nil {
-				cachedPatchTemplateDataErr = fmt.Errorf("failed to compute merged release values for patch rendering: %v", cachedPatchTemplateDataErr)
+				cachedPatchTemplateDataErr = fmt.Errorf("failed to compute merged release values for patch rendering: %w", cachedPatchTemplateDataErr)
 			}
 		}
 		return cachedPatchTemplateData, cachedPatchTemplateDataErr

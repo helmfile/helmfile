@@ -1192,7 +1192,6 @@ func TestMergedReleaseTemplateData_InlineValues(t *testing.T) {
 	if ingressMap["enabled"] != true {
 		t.Errorf("expected ingress.enabled to be true, got %v", ingressMap["enabled"])
 	}
-	}
 }
 
 func newTestHelmStateWithFiles(t *testing.T, files map[string]string) *HelmState {
