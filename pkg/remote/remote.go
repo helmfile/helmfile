@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"net/http"
 	neturl "net/url"
@@ -330,8 +329,26 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 
 		switch {
 		case u.Getter == "normal" && u.Scheme == "s3":
-			err := r.S3Getter.Get(r.Home, path, cacheDirPath)
-			if err != nil {
+			if err := r.S3Getter.Get(r.Home, path, cacheDirPath); err != nil {
+				rmerr := os.RemoveAll(cacheDirPath)
+				if rmerr != nil {
+					return "", errors.Join(err, rmerr)
+				}
+				return "", err
+			}
+		case u.Getter == "s3":
+			// go-getter forced-getter syntax (e.g. "s3::https://bucket.s3.region.amazonaws.com/key").
+			// go-getter v2 no longer ships an S3 getter, so route these to the
+			// built-in AWS SDK v2 S3Getter which understands vhost/path-style URLs.
+			// helmfile's Parse splits a "@<file>" selector (if any) into u.File;
+			// strip it from the source so the S3 object key is derived from the
+			// URL path only, matching how the go-getter branch feeds u.Dir.
+			s3Src := stripSubdirSelector(path)
+			if err := r.S3Getter.Get(r.Home, s3Src, cacheDirPath); err != nil {
+				rmerr := os.RemoveAll(cacheDirPath)
+				if rmerr != nil {
+					return "", errors.Join(err, rmerr)
+				}
 				return "", err
 			}
 		case u.Getter == "normal" && (u.Scheme == "https" || u.Scheme == "http"):
@@ -393,21 +410,21 @@ func (g *GoGetter) Get(wd, src, dst string) error {
 }
 
 func (g *S3Getter) Get(wd, src, dst string) error {
-	u, err := url.Parse(src)
+	region, bucket, key, err := ParseS3Url(src)
 	if err != nil {
 		return err
 	}
-	file := path.Base(u.Path)
+	file := path.Base(key)
 	targetFilePath := filepath.Join(dst, file)
 
-	region, err := g.S3FileExists(src)
+	// If the region could not be derived from the URL, S3FileExists resolves it
+	// via GetBucketLocation.
+	resolvedRegion, err := g.S3FileExists(src, region)
 	if err != nil {
 		return err
 	}
-
-	bucket, key, err := ParseS3Url(src)
-	if err != nil {
-		return err
+	if resolvedRegion != "" {
+		region = resolvedRegion
 	}
 
 	err = os.MkdirAll(dst, os.FileMode(0700))
@@ -441,18 +458,34 @@ func (g *S3Getter) Get(wd, src, dst string) error {
 		Key:    &key,
 	}
 	resp, err := s3Client.GetObject(context.TODO(), getObjectInput)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			g.Logger.Errorf("Error closing connection to remote data source \n%v", err)
-		}
-	}(resp.Body)
-
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			g.Logger.Errorf("Error closing connection to remote data source \n%v", err)
+		}
+	}()
 
-	localFile, err := os.Create(targetFilePath)
+	// go-getter v2 no longer ships an S3 getter, but it still ships archive
+	// decompressors. To preserve go-getter v1's automatic archive extraction
+	// (used with the "@<file>" selector to reference a file inside a tarball),
+	// download archives to a temp file and decompress them into dst.
+	decompressor := decompressorForFile(file)
+	downloadPath := targetFilePath
+	if decompressor != nil {
+		tmp, terr := os.CreateTemp(dst, ".s3-archive-*")
+		if terr != nil {
+			return terr
+		}
+		if cerr := tmp.Close(); cerr != nil {
+			return cerr
+		}
+		downloadPath = tmp.Name()
+		defer func() { _ = os.Remove(downloadPath) }()
+	}
+
+	localFile, err := os.Create(downloadPath)
 	if err != nil {
 		return err
 	}
@@ -464,8 +497,35 @@ func (g *S3Getter) Get(wd, src, dst string) error {
 	}(localFile)
 
 	_, err = localFile.ReadFrom(resp.Body)
+	if err != nil {
+		return err
+	}
 
-	return err
+	if decompressor != nil {
+		if err := decompressor.Decompress(dst, downloadPath, true, os.FileMode(0)); err != nil {
+			return fmt.Errorf("decompress %s: %w", file, err)
+		}
+	}
+
+	return nil
+}
+
+// decompressorForFile returns the go-getter decompressor matching the file's
+// archive extension (e.g. ".tar.gz", ".zip"), or nil if the file is not a
+// recognized archive. The detection mirrors go-getter's own suffix matching.
+func decompressorForFile(file string) getter.Decompressor {
+	matchLen := 0
+	var match string
+	for k := range getter.Decompressors {
+		if strings.HasSuffix(file, "."+k) && len(k) > matchLen {
+			match = k
+			matchLen = len(k)
+		}
+	}
+	if match == "" {
+		return nil
+	}
+	return getter.Decompressors[match]
 }
 
 func (g *HttpGetter) Get(wd, src, dst string) error {
@@ -516,44 +576,47 @@ func (g *HttpGetter) Get(wd, src, dst string) error {
 	return err
 }
 
-func (g *S3Getter) S3FileExists(path string) (string, error) {
+func (g *S3Getter) S3FileExists(path, regionHint string) (string, error) {
 	g.Logger.Debugf("Parsing S3 URL %s", path)
-	bucket, key, err := ParseS3Url(path)
+	_, bucket, key, err := ParseS3Url(path)
 	if err != nil {
 		return "", err
 	}
 
-	// Region
-	g.Logger.Debugf("Creating config for determining S3 region %s", path)
-	// Suppress AWS SDK debug logging by default to prevent sensitive information from being logged
-	// Can be configured via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
-	// See issue #2270
-	var configOpts []func(*config.LoadOptions) error
-	if awsSDKLogLevel == "off" {
-		// ClientLogMode(0) disables all AWS SDK logging (no LogRequest, LogResponse, etc.)
-		configOpts = append(configOpts, config.WithClientLogMode(0))
-	}
-	cfg, err := config.LoadDefaultConfig(context.TODO(), configOpts...)
-	if err != nil {
-		return "", err
-	}
+	bucketRegion := regionHint
+	if bucketRegion == "" {
+		// Region
+		g.Logger.Debugf("Creating config for determining S3 region %s", path)
+		// Suppress AWS SDK debug logging by default to prevent sensitive information from being logged
+		// Can be configured via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
+		// See issue #2270
+		var configOpts []func(*config.LoadOptions) error
+		if awsSDKLogLevel == "off" {
+			// ClientLogMode(0) disables all AWS SDK logging (no LogRequest, LogResponse, etc.)
+			configOpts = append(configOpts, config.WithClientLogMode(0))
+		}
+		cfg, err := config.LoadDefaultConfig(context.TODO(), configOpts...)
+		if err != nil {
+			return "", err
+		}
 
-	g.Logger.Debugf("Getting bucket %s location %s", bucket, path)
-	s3Client := s3.NewFromConfig(cfg)
-	bucketRegion := "us-east-1"
-	getBucketLocationInput := &s3.GetBucketLocationInput{
-		Bucket: &bucket,
+		g.Logger.Debugf("Getting bucket %s location %s", bucket, path)
+		s3Client := s3.NewFromConfig(cfg)
+		bucketRegion = "us-east-1"
+		getBucketLocationInput := &s3.GetBucketLocationInput{
+			Bucket: &bucket,
+		}
+		resp, err := s3Client.GetBucketLocation(context.TODO(), getBucketLocationInput)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve bucket location: %v", err)
+		}
+		if resp == nil || string(resp.LocationConstraint) == "" {
+			g.Logger.Debugf("Bucket has no location Assuming us-east-1")
+		} else {
+			bucketRegion = string(resp.LocationConstraint)
+		}
+		g.Logger.Debugf("Got bucket location %s", bucketRegion)
 	}
-	resp, err := s3Client.GetBucketLocation(context.TODO(), getBucketLocationInput)
-	if err != nil {
-		return "", fmt.Errorf("failed to retrieve bucket location: %v", err)
-	}
-	if resp == nil || string(resp.LocationConstraint) == "" {
-		g.Logger.Debugf("Bucket has no location Assuming us-east-1")
-	} else {
-		bucketRegion = string(resp.LocationConstraint)
-	}
-	g.Logger.Debugf("Got bucket location %s", bucketRegion)
 
 	// File existence
 	g.Logger.Debugf("Creating new config with region to see if file exists")
@@ -573,7 +636,7 @@ func (g *S3Getter) S3FileExists(path string) (string, error) {
 		return bucketRegion, err
 	}
 	g.Logger.Debugf("Creating new s3 client to check if object exists")
-	s3Client = s3.NewFromConfig(regionCfg)
+	s3Client := s3.NewFromConfig(regionCfg)
 	headObjectInput := &s3.HeadObjectInput{
 		Bucket: &bucket,
 		Key:    &key,
@@ -596,20 +659,116 @@ func HttpFileExists(path string) error {
 	return err
 }
 
-func ParseS3Url(s3URL string) (string, string, error) {
-	parsedURL, err := url.Parse(s3URL)
+// stripSubdirSelector removes the helmfile "@<file>" selector from a remote
+// source URL, preserving any query string.
+//
+// helmfile's Parse splits the URL path on "@" into the download source (before
+// "@") and the file selector (after "@") — see the comment in Parse. The
+// selector lives in the path component only, so a "@" inside the query string
+// is left intact. When the path contains no "@" (single-file downloads) the URL
+// is returned unchanged.
+func stripSubdirSelector(src string) string {
+	pathPart := src
+	queryPart := ""
+	if q := strings.Index(src, "?"); q >= 0 {
+		pathPart = src[:q]
+		queryPart = src[q:]
+	}
+	// Mirror Parse: only treat a single "@" as the dir/file separator.
+	if parts := strings.Split(pathPart, "@"); len(parts) == 2 {
+		pathPart = parts[0]
+	}
+	return pathPart + queryPart
+}
+
+// ParseS3Url parses an S3 URL and returns the region, bucket, and object key.
+//
+// Supported URL formats:
+//   - s3://<bucket>/<key>                    (region resolved dynamically via GetBucketLocation)
+//   - s3::https://s3.amazonaws.com/<bucket>/<key>
+//   - s3::https://s3-<region>.amazonaws.com/<bucket>/<key>
+//   - s3::https://<bucket>.s3.<region>.amazonaws.com/<key>
+//   - s3::https://<bucket>.s3-<region>.amazonaws.com/<key>
+//   - s3::http://...                         (same amazonaws.com forms over plain HTTP)
+//
+// The "s3::" forced-getter prefix (the go-getter syntax for selecting the S3
+// getter with an HTTPS URL) is optional and stripped before parsing.
+func ParseS3Url(s3URL string) (region, bucket, key string, err error) {
+	raw := s3URL
+	// Strip any forced-getter prefix like "s3::" so that vhost-style URLs such
+	// as "s3::https://bucket.s3.region.amazonaws.com/key" parse correctly.
+	if idx := strings.Index(raw, "::"); idx >= 0 {
+		raw = raw[idx+2:]
+	}
+
+	parsedURL, err := url.Parse(raw)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to parse S3 URL: %w", err)
+		return "", "", "", fmt.Errorf("failed to parse S3 URL: %w", err)
 	}
 
-	if parsedURL.Scheme != "s3" {
-		return "", "", fmt.Errorf("invalid URL scheme (expected 's3')")
+	switch parsedURL.Scheme {
+	case "s3":
+		// Path-style: s3://<bucket>/<key>
+		bucket = parsedURL.Host
+		key = strings.TrimPrefix(parsedURL.Path, "/")
+		// Region is unknown for the bare s3:// form; it is resolved later
+		// via GetBucketLocation.
+		return "", bucket, key, nil
+	case "http", "https":
+		// Continue to amazonaws.com vhost/path-style parsing below.
+	default:
+		return "", "", "", fmt.Errorf("invalid URL scheme (expected 's3', 'http', or 'https'): %s", s3URL)
 	}
 
-	bucket := parsedURL.Host
-	key := strings.TrimPrefix(parsedURL.Path, "/")
+	// Amazon S3 supports both virtual-hosted-style and path-style URLs.
+	// See https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html
+	if !strings.Contains(parsedURL.Host, "amazonaws.com") {
+		return "", "", "", fmt.Errorf("URL is not a valid S3 URL (host must be amazonaws.com): %s", s3URL)
+	}
 
-	return bucket, key, nil
+	hostParts := strings.Split(parsedURL.Host, ".")
+	switch len(hostParts) {
+	case 3:
+		// Path-style: s3.amazonaws.com/<bucket>/<key> or s3-<region>.amazonaws.com/<bucket>/<key>
+		region = strings.TrimPrefix(strings.TrimPrefix(hostParts[0], "s3-"), "s3")
+		if region == "" {
+			region = "us-east-1"
+		}
+		pathParts := strings.SplitN(parsedURL.Path, "/", 3)
+		if len(pathParts) < 3 {
+			return "", "", "", fmt.Errorf("URL is not a valid S3 URL: %s", s3URL)
+		}
+		bucket = pathParts[1]
+		key = pathParts[2]
+	case 4:
+		// Virtual-hosted-style, dash region: <bucket>.s3-<region>.amazonaws.com/<key>
+		region = strings.TrimPrefix(strings.TrimPrefix(hostParts[1], "s3-"), "s3")
+		if region == "" {
+			return "", "", "", fmt.Errorf("URL is not a valid S3 URL: %s", s3URL)
+		}
+		pathParts := strings.SplitN(parsedURL.Path, "/", 2)
+		if len(pathParts) < 2 {
+			return "", "", "", fmt.Errorf("URL is not a valid S3 URL: %s", s3URL)
+		}
+		bucket = hostParts[0]
+		key = pathParts[1]
+	case 5:
+		// Virtual-hosted-style, dot region: <bucket>.s3.<region>.amazonaws.com/<key>
+		region = hostParts[2]
+		if region == "" {
+			return "", "", "", fmt.Errorf("URL is not a valid S3 URL: %s", s3URL)
+		}
+		pathParts := strings.SplitN(parsedURL.Path, "/", 2)
+		if len(pathParts) < 2 {
+			return "", "", "", fmt.Errorf("URL is not a valid S3 URL: %s", s3URL)
+		}
+		bucket = hostParts[0]
+		key = pathParts[1]
+	default:
+		return "", "", "", fmt.Errorf("URL is not a valid S3 URL: %s", s3URL)
+	}
+
+	return region, bucket, key, nil
 }
 
 func NewRemote(logger *zap.SugaredLogger, homeDir string, fs *filesystem.FileSystem) *Remote {
