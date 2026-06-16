@@ -49,6 +49,7 @@ type ApplyConfigProvider interface {
 	Cascade() string
 	HideNotes() bool
 	TakeOwnership() bool
+	ServerSide() string
 	SuppressOutputLineRegex() []string
 
 	Values() []string
@@ -108,6 +109,7 @@ type SyncConfigProvider interface {
 	PostRendererArgs() []string
 	HideNotes() bool
 	TakeOwnership() bool
+	ServerSide() string
 	Cascade() string
 
 	Values() []string
@@ -176,6 +178,7 @@ type DiffConfigProvider interface {
 	Context() int
 	DiffOutput() string
 	TakeOwnership() bool
+	ServerSide() string
 
 	concurrencyConfig
 	valuesControlMode

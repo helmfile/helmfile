@@ -54,6 +54,7 @@ func NewDiffCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&diffOptions.ReuseValues, "reuse-values", false, `Override helmDefaults.reuseValues "helm diff upgrade --install --reuse-values"`)
 	f.BoolVar(&diffOptions.ResetValues, "reset-values", false, `Override helmDefaults.reuseValues "helm diff upgrade --install --reset-values"`)
 	f.BoolVar(&diffOptions.TakeOwnership, "take-ownership", false, "add --take-ownership flag to helm")
+	f.StringVar(&diffOptions.ServerSide, "server-side", "", `add --server-side flag to helm diff upgrade (Helm 4 only). Must be "true", "false", or "auto"`)
 	f.StringVar(&diffOptions.PostRenderer, "post-renderer", "", `pass --post-renderer to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&diffOptions.PostRendererArgs, "post-renderer-args", nil, `pass --post-renderer-args to "helm template" or "helm upgrade --install"`)
 	f.StringArrayVar(&diffOptions.SuppressOutputLineRegex, "suppress-output-line-regex", nil, "a list of regex patterns to suppress output lines from the diff output")

@@ -81,6 +81,9 @@ type ApplyOptions struct {
 	// TakeOwnership is true if the ownership should be taken
 	TakeOwnership bool
 
+	// ServerSide controls the helm 4 --server-side flag. Must be "true", "false", or "auto".
+	ServerSide string
+
 	SyncReleaseLabels bool
 	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
 	TrackMode string
@@ -296,6 +299,11 @@ func (a *ApplyImpl) HideNotes() bool {
 // TakeOwnership returns the TakeOwnership.
 func (a *ApplyImpl) TakeOwnership() bool {
 	return a.ApplyOptions.TakeOwnership
+}
+
+// ServerSide returns the ServerSide.
+func (a *ApplyImpl) ServerSide() string {
+	return a.ApplyOptions.ServerSide
 }
 
 // SyncReleaseLabels returns the SyncReleaseLabels.

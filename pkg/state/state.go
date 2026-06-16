@@ -250,6 +250,8 @@ type HelmSpec struct {
 	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
 	// TakeOwnership is true if the helmfile should take ownership of the release
 	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
+	// ServerSide controls the helm 4 --server-side flag for upgrade. Must be "true", "false", or "auto".
+	ServerSide *string `yaml:"serverSide,omitempty"`
 	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
 	TrackMode string `yaml:"trackMode,omitempty"`
 }
@@ -477,6 +479,8 @@ type ReleaseSpec struct {
 	SyncReleaseLabels *bool `yaml:"syncReleaseLabels,omitempty"`
 	// TakeOwnership is true if release should take ownership of resources
 	TakeOwnership *bool `yaml:"takeOwnership,omitempty"`
+	// ServerSide controls the helm 4 --server-side flag for this release. Must be "true", "false", or "auto".
+	ServerSide *string `yaml:"serverSide,omitempty"`
 	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
 	TrackMode string `yaml:"trackMode,omitempty"`
 	// TrackTimeout specifies timeout for kubedog tracking (in seconds)
@@ -965,6 +969,7 @@ type SyncOpts struct {
 	SyncArgs             string
 	HideNotes            bool
 	TakeOwnership        bool
+	ServerSide           string
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
@@ -2908,6 +2913,7 @@ type DiffOpts struct {
 	SuppressOutputLineRegex []string
 	SkipSchemaValidation    bool
 	TakeOwnership           bool
+	ServerSide              string
 	// DetectedKubeVersion is the Kubernetes version detected from the cluster.
 	// This is used when kubeVersion is not specified in helmfile.yaml
 	DetectedKubeVersion string
@@ -3766,10 +3772,12 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 	postRenderer := ""
 	syncReleaseLabels := false
 	takeOwnership := false
+	serverSide := ""
 	if opt != nil {
 		postRenderer = opt.PostRenderer
 		syncReleaseLabels = opt.SyncReleaseLabels
 		takeOwnership = opt.TakeOwnership
+		serverSide = opt.ServerSide
 	}
 
 	flags = st.appendConnectionFlags(flags, release)
@@ -3807,6 +3815,13 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	// append take-ownership flag
 	flags = st.appendTakeOwnershipFlagsForUpgrade(flags, helm, release, takeOwnership)
+
+	// append server-side flag
+	var ssErr error
+	flags, ssErr = st.appendServerSideFlagsForUpgrade(flags, helm, release, serverSide)
+	if ssErr != nil {
+		return nil, nil, ssErr
+	}
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
@@ -3992,11 +4007,19 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 
 	takeOwnership := false
+	serverSide := ""
 	if opt != nil {
 		takeOwnership = opt.TakeOwnership
+		serverSide = opt.ServerSide
 	}
 
 	flags, err = st.appendTakeOwnershipFlagsForDiff(flags, release, takeOwnership, pluginsDir)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// append server-side flag
+	flags, err = st.appendServerSideFlagsForUpgrade(flags, helm, release, serverSide)
 	if err != nil {
 		return nil, nil, err
 	}

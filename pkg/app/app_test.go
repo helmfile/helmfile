@@ -2539,6 +2539,7 @@ type applyConfig struct {
 	showOnly                 []string
 	hideNotes                bool
 	takeOwnership            bool
+	serverSide               string
 	syncReleaseLabels        bool
 	enforceNeedsAreInstalled bool
 	trackMode                string
@@ -2753,6 +2754,10 @@ func (a applyConfig) HideNotes() bool {
 
 func (a applyConfig) TakeOwnership() bool {
 	return a.takeOwnership
+}
+
+func (a applyConfig) ServerSide() string {
+	return a.serverSide
 }
 
 func (a applyConfig) SyncReleaseLabels() bool {

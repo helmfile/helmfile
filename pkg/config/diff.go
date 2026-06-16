@@ -53,6 +53,8 @@ type DiffOptions struct {
 	SkipSchemaValidation    bool
 	// TakeOwnership is true if the ownership should be taken
 	TakeOwnership bool
+	// ServerSide controls the helm 4 --server-side flag. Must be "true", "false", or "auto".
+	ServerSide string
 }
 
 // NewDiffOptions creates a new Apply
@@ -218,4 +220,9 @@ func (t *DiffImpl) SkipSchemaValidation() bool {
 // TakeOwnership returns the TakeOwnership.
 func (t *DiffImpl) TakeOwnership() bool {
 	return t.DiffOptions.TakeOwnership
+}
+
+// ServerSide returns the ServerSide.
+func (t *DiffImpl) ServerSide() string {
+	return t.DiffOptions.ServerSide
 }
