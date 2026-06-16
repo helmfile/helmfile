@@ -13,6 +13,7 @@ type ConfigProvider interface {
 	HelmOCIPlainHTTP() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SequentialHelmfiles() bool
 
 	FileOrDir() string
@@ -57,6 +58,7 @@ type ApplyConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
@@ -117,6 +119,7 @@ type SyncConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
@@ -158,6 +161,7 @@ type DiffConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 
 	IncludeTests() bool
 
@@ -190,6 +194,7 @@ type DestroyConfigProvider interface {
 
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCharts() bool
 	DeleteWait() bool
 	DeleteTimeout() int
@@ -204,6 +209,7 @@ type TestConfigProvider interface {
 
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Timeout() int
 	Cleanup() bool
 	Logs() bool
@@ -218,6 +224,7 @@ type LintConfigProvider interface {
 	Set() []string
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 
 	DAGConfig
@@ -235,6 +242,7 @@ type UnittestConfigProvider interface {
 	DebugPlugin() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 
 	DAGConfig
@@ -245,6 +253,7 @@ type UnittestConfigProvider interface {
 type FetchConfigProvider interface {
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	OutputDir() string
 	OutputDirTemplate() string
 	WriteOutput() bool
@@ -264,6 +273,7 @@ type TemplateConfigProvider interface {
 	Validate() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 	SkipTests() bool
 	OutputDir() string
@@ -290,6 +300,7 @@ type WriteValuesConfigProvider interface {
 	OutputFileTemplate() string
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 	IncludeTransitiveNeeds() bool
 

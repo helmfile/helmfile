@@ -34,6 +34,8 @@ type GlobalOptions struct {
 	SkipDeps bool
 	// SkipRefresh is true if the running "helm repo update" should be skipped
 	SkipRefresh bool
+	// AllowFailedReleases is true if partial errors during release processing are allowed
+	AllowFailedReleases bool
 	// StripArgsValuesOnExitError is true if the ARGS output on exit error should be suppressed
 	StripArgsValuesOnExitError bool
 	// DisableForceUpdate is true if force updating repos is not desirable when executing "helm repo add" (Helm 3)
@@ -256,6 +258,11 @@ func (g *GlobalImpl) SkipDeps() bool {
 // SkipRefresh return if running "helm repo update"
 func (g *GlobalImpl) SkipRefresh() bool {
 	return g.GlobalOptions.SkipRefresh
+}
+
+// AllowFailedReleases return if partial errors during release processing are allowed
+func (g *GlobalImpl) AllowFailedReleases() bool {
+	return g.GlobalOptions.AllowFailedReleases
 }
 
 // StripArgsValuesOnExitError return if the ARGS output on exit error should be suppressed

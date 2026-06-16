@@ -1396,15 +1396,18 @@ func filterReleasesForBuild(releases []ReleaseSpec) []ReleaseSpec {
 }
 
 type ChartPrepareOptions struct {
-	ForceDownload bool
-	SkipRepos     bool
-	SkipDeps      bool
-	SkipRefresh   bool
-	SkipResolve   bool
-	SkipCleanup   bool
+	ForceDownload       bool
+	SkipRepos           bool
+	SkipDeps            bool
+	SkipRefresh         bool
+	AllowFailedReleases bool
+	SkipResolve         bool
+	SkipCleanup         bool
 	// SkipSchemaValidation configures chartify to pass --skip-schema-validation to helm-template run by it.
 	SkipSchemaValidation bool
 	// Validate configures chartify to pass --validate to helm-template run by it.
+	// Note: In Helm 4, --validate and --dry-run are mutually exclusive (see issue #2355),
+	// so helmfile may adjust other template flags when Validate is true.
 	// It's required when one of your chart relies on Capabilities.APIVersions in a template
 	Validate               bool
 	IncludeCRDs            *bool
@@ -2108,7 +2111,13 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				if downloadRes.err != nil {
 					errs = append(errs, downloadRes.err)
-					return
+
+					if !opts.AllowFailedReleases {
+						return
+					} else {
+						// continue processing other releases even if one fails
+						continue
+					}
 				}
 				func() {
 					prepareChartInfoMutex.Lock()
@@ -2129,7 +2138,15 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	)
 
 	if len(errs) > 0 {
-		return nil, errs
+		if !opts.AllowFailedReleases {
+			return nil, errs
+		} else {
+			// continue processing other releases even if one fails, return partial results with errors for the failed ones
+			st.logger.Warnf("Some charts failed to prepare")
+			for _, err := range errs {
+				st.logger.Warnf(" - %v", err)
+			}
+		}
 	}
 
 	if len(builds) > 0 {
@@ -2138,7 +2155,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		}
 	}
 
-	return prepareChartInfo, nil
+	return prepareChartInfo, errs
 }
 
 // nolint: unparam
