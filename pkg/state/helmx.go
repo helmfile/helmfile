@@ -357,6 +357,21 @@ func (st *HelmState) appendTakeOwnershipFlagsForUpgrade(flags []string, helm hel
 // validServerSideValues are the allowed values for the helm 4 --server-side flag.
 var validServerSideValues = map[string]struct{}{"true": {}, "false": {}, "auto": {}}
 
+// resolveServerSideValue resolves the server-side value following precedence:
+// release-level > CLI flag > helmDefaults. Returns empty string if no value is configured.
+func (st *HelmState) resolveServerSideValue(release *ReleaseSpec, serverSide string) string {
+	switch {
+	case release.ServerSide != nil && *release.ServerSide != "":
+		return *release.ServerSide
+	case serverSide != "":
+		return serverSide
+	case st.HelmDefaults.ServerSide != nil && *st.HelmDefaults.ServerSide != "":
+		return *st.HelmDefaults.ServerSide
+	default:
+		return ""
+	}
+}
+
 // appendServerSideFlagsForUpgrade appends the helm 4 --server-side flag when appropriate.
 // Precedence: release-level > CLI flag > helmDefaults.
 func (st *HelmState) appendServerSideFlagsForUpgrade(flags []string, helm helmexec.Interface, release *ReleaseSpec, serverSide string) ([]string, error) {
@@ -372,15 +387,8 @@ func (st *HelmState) appendServerSideFlagsForUpgrade(flags []string, helm helmex
 		return flags, nil
 	}
 
-	var value string
-	switch {
-	case release.ServerSide != nil && *release.ServerSide != "":
-		value = *release.ServerSide
-	case serverSide != "":
-		value = serverSide
-	case st.HelmDefaults.ServerSide != nil && *st.HelmDefaults.ServerSide != "":
-		value = *st.HelmDefaults.ServerSide
-	default:
+	value := st.resolveServerSideValue(release, serverSide)
+	if value == "" {
 		return flags, nil
 	}
 

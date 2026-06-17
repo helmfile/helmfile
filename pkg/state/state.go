@@ -4019,7 +4019,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	}
 
 	// append server-side flag
-	flags, err = st.appendServerSideFlagsForUpgrade(flags, helm, release, serverSide)
+	flags, err = st.appendServerSideFlagsForDiff(flags, helm, release, serverSide, pluginsDir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -4056,6 +4056,27 @@ func (st *HelmState) appendTakeOwnershipFlagsForDiff(flags []string, release *Re
 		flags = append(flags, "--take-ownership")
 	}
 	return flags, nil
+}
+
+// appendServerSideFlagsForDiff appends the helm 4 --server-side flag for helm-diff.
+// It requires helm-diff plugin version v3.15.10 or later.
+func (st *HelmState) appendServerSideFlagsForDiff(flags []string, helm helmexec.Interface, release *ReleaseSpec, serverSide string, pluginsDir string) ([]string, error) {
+	if helm.IsHelm4() {
+		value := st.resolveServerSideValue(release, serverSide)
+		if value != "" {
+			diffVersion, err := helmexec.GetPluginVersion("diff", pluginsDir)
+			if err != nil {
+				return flags, err
+			}
+			minVersion, _ := semver.NewVersion("v3.15.10")
+
+			if diffVersion.LessThan(minVersion) {
+				return flags, fmt.Errorf("server-side is not supported by helm-diff plugin version %s, please use at least v3.15.10", diffVersion)
+			}
+		}
+	}
+
+	return st.appendServerSideFlagsForUpgrade(flags, helm, release, serverSide)
 }
 
 func (st *HelmState) appendChartVersionFlags(flags []string, release *ReleaseSpec) []string {
