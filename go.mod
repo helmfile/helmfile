@@ -37,14 +37,14 @@ require (
 	golang.org/x/term v0.44.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.21.1
-	helm.sh/helm/v4 v4.2.1
+	helm.sh/helm/v4 v4.2.2
 	k8s.io/apimachinery v0.36.1
 	k8s.io/client-go v0.36.1
 )
 
 replace (
 	// kubedog's flagger dependency still imports k8s.io/api/autoscaling/v2beta2,
-	// while Helm 4.2.1 requires k8s.io/apimachinery/content.IsPathSegmentName from v0.36+.
+	// while Helm 4.2.2 requires k8s.io/apimachinery/content.IsPathSegmentName from v0.36+.
 	k8s.io/api => k8s.io/api v0.35.4
 	k8s.io/apimachinery => k8s.io/apimachinery v0.36.0
 	k8s.io/client-go => k8s.io/client-go v0.35.4
