@@ -3746,9 +3746,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--recreate-pods")
 	}
 
-	if release.Atomic != nil && *release.Atomic || release.Atomic == nil && st.HelmDefaults.Atomic {
-		flags = append(flags, "--atomic")
-	}
+	flags = st.appendAtomicFlags(flags, release, opt)
 
 	if release.CleanupOnFail != nil && *release.CleanupOnFail || release.CleanupOnFail == nil && st.HelmDefaults.CleanupOnFail {
 		flags = append(flags, "--cleanup-on-fail")
