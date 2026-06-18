@@ -330,7 +330,7 @@ length([1,2,3])
 # 3
 ```
 #### log
-`log` returns returns the logarithm of a given number in a given base.
+`log` returns the logarithm of a given number in a given base.
 ```
 log(number, base)
 ```
