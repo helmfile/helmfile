@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestShellRunner_Execute(t *testing.T) {
@@ -96,5 +97,75 @@ Usage:  helm template [NAME] [CHART] [flags]
 				t.Errorf("LiveOutput() got unespected %v", got)
 			}
 		})
+	}
+}
+
+// TestOutput_NilProcessOnCanceledContext verifies that Output does not panic
+// when the context is already canceled. The command is started synchronously
+// before the select, so a canceled context no longer races on c.Process.
+// See helmfile issue #2448.
+func TestOutput_NilProcessOnCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	cmd := exec.Command("sleep", "10")
+	_, err := Output(ctx, cmd, false, &logWriterGenerator{
+		log: NewLogger(&bytes.Buffer{}, "debug"),
+	})
+	if err == nil {
+		t.Fatal("expected error due to canceled context, got nil")
+	}
+}
+
+// TestLiveOutput_CanceledContextNoPanic verifies that LiveOutput does not
+// panic when the context is canceled while or after a fast command runs.
+func TestLiveOutput_CanceledContextNoPanic(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			<-time.After(time.Millisecond)
+			cancel()
+		}()
+
+		cmd := exec.Command("true")
+		_, _ = LiveOutput(ctx, cmd, false, &bytes.Buffer{})
+	}
+}
+
+// TestOutput_StartFailureErrorWrapping verifies that a Start() failure (e.g.
+// binary not found) is wrapped through the same "unexpected error:" path as
+// the previous c.Run()-in-goroutine implementation did. This guards against
+// behavioral regressions in the error message format.
+func TestOutput_StartFailureErrorWrapping(t *testing.T) {
+	cmd := exec.Command("this-binary-does-not-exist-2448")
+	_, err := Output(context.Background(), cmd, false, &logWriterGenerator{
+		log: NewLogger(&bytes.Buffer{}, "debug"),
+	})
+	if err == nil {
+		t.Fatal("expected error from non-existent command, got nil")
+	}
+	if !strings.Contains(err.Error(), "unexpected error:") {
+		t.Errorf("expected error to be wrapped as 'unexpected error:', got: %v", err)
+	}
+}
+
+// TestOutput_CanceledContextAfterExit verifies Output does not panic when the
+// context is canceled right after a fast command finishes. This stresses the
+// race between the command exiting (Process could be reaped) and ctx.Done().
+func TestOutput_CanceledContextAfterExit(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		cmd := exec.Command("true")
+		go func() {
+			<-time.After(time.Millisecond)
+			cancel()
+		}()
+
+		_, err := Output(ctx, cmd, false, &logWriterGenerator{
+			log: NewLogger(&bytes.Buffer{}, "debug"),
+		})
+		// "true" should exit 0; even if canceled we tolerate a context error.
+		_ = err
 	}
 }

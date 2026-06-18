@@ -264,6 +264,91 @@ func TestAppendWaitFlags(t *testing.T) {
 	}
 }
 
+func TestAppendAtomicFlags(t *testing.T) {
+	enable := true
+	disable := false
+	tests := []struct {
+		name     string
+		release  *ReleaseSpec
+		syncOpts *SyncOpts
+		helmSpec HelmSpec
+		expected []string
+	}{
+		{
+			name:     "release atomic",
+			release:  &ReleaseSpec{Atomic: &enable},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{"--atomic"},
+		},
+		{
+			name:     "helm defaults atomic",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Atomic: true},
+			expected: []string{"--atomic"},
+		},
+		{
+			name:     "release atomic false overrides default",
+			release:  &ReleaseSpec{Atomic: &disable},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Atomic: true},
+			expected: []string{},
+		},
+		{
+			name:     "no atomic",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{},
+		},
+		{
+			name:     "kubedog track mode skips --atomic from release",
+			release:  &ReleaseSpec{Atomic: &enable, TrackMode: "kubedog"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{},
+		},
+		{
+			name:     "kubedog track mode skips --atomic from syncOpts",
+			release:  &ReleaseSpec{Atomic: &enable},
+			syncOpts: &SyncOpts{TrackMode: "kubedog"},
+			helmSpec: HelmSpec{},
+			expected: []string{},
+		},
+		{
+			name:     "kubedog track mode skips --atomic from helmDefaults",
+			release:  &ReleaseSpec{Atomic: &enable},
+			syncOpts: nil,
+			helmSpec: HelmSpec{TrackMode: "kubedog"},
+			expected: []string{},
+		},
+		{
+			name:     "kubedog track mode skips --atomic from helmDefaults atomic",
+			release:  &ReleaseSpec{},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Atomic: true, TrackMode: "kubedog"},
+			expected: []string{},
+		},
+		{
+			name:     "helm track mode keeps --atomic",
+			release:  &ReleaseSpec{Atomic: &enable, TrackMode: "helm"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{},
+			expected: []string{"--atomic"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.HelmDefaults = tt.helmSpec
+			got := st.appendAtomicFlags([]string{}, tt.release, tt.syncOpts)
+			require.Equalf(t, tt.expected, got, "appendAtomicFlags() = %v, want %v", got, tt.expected)
+		})
+	}
+}
+
 func TestAppendCascadeFlags(t *testing.T) {
 	type args struct {
 		flags    []string

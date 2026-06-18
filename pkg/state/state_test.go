@@ -695,6 +695,57 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "atomic-suppressed-by-kubedog-trackmode-from-release",
+			defaults: HelmSpec{
+				Atomic: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+				TrackMode: "kubedog",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "atomic-suppressed-by-kubedog-trackmode-from-cli",
+			defaults: HelmSpec{
+				Atomic: true,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			syncOpts: &SyncOpts{TrackMode: "kubedog"},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "atomic-suppressed-by-kubedog-trackmode-from-defaults",
+			defaults: HelmSpec{
+				Atomic:    true,
+				TrackMode: "kubedog",
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "cleanup-on-fail",
 			defaults: HelmSpec{
 				CleanupOnFail: false,

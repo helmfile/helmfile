@@ -93,15 +93,32 @@ func Output(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, l
 	c.Stderr = io.MultiWriter(append([]io.Writer{&stderr, &combined}, logWriters...)...)
 
 	var err error
-	ch := make(chan error)
-	go func() {
-		ch <- c.Run()
-	}()
-	select {
-	case err = <-ch:
-	case <-ctx.Done():
-		_ = c.Process.Signal(os.Interrupt)
-		err = <-ch
+	// Start the command synchronously so that c.Process is fully initialized
+	// before we spawn the Wait goroutine below. Previously this used c.Run()
+	// inside the goroutine, which raced the select's ctx.Done() branch on
+	// c.Process (Start writes it, Done read it). See helmfile issue #2448.
+	//
+	// On Start failure we fall through to the shared error-handling switch below
+	// (the default branch wraps it as "unexpected error: ..."), matching the
+	// previous behavior where Run()'s error flowed through the same path.
+	if startErr := c.Start(); startErr != nil {
+		err = startErr
+	} else {
+		ch := make(chan error)
+		go func() {
+			ch <- c.Wait()
+		}()
+		select {
+		case err = <-ch:
+		case <-ctx.Done():
+			// Guard against nil Process: defensively skip the signal if the
+			// process has not been initialized. After a successful Start this
+			// should not happen, but we keep the guard for safety.
+			if c.Process != nil {
+				_ = c.Process.Signal(os.Interrupt)
+			}
+			err = <-ch
+		}
 	}
 
 	if err != nil {
@@ -162,7 +179,12 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError boo
 		select {
 		case err = <-ch:
 		case <-ctx.Done():
-			_ = c.Process.Signal(os.Interrupt)
+			// Guard against nil Process for safety/consistency with Output.
+			// After a successful Start c.Process is always non-nil, but we
+			// keep the guard defensive. See helmfile issue #2448.
+			if c.Process != nil {
+				_ = c.Process.Signal(os.Interrupt)
+			}
 			err = <-ch
 		}
 		_ = writer.Close()

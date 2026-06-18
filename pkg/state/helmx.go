@@ -303,6 +303,24 @@ func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, re
 	return flags
 }
 
+// appendAtomicFlags appends the helm --atomic flag (a.k.a. --rollback-on-failure
+// in Helm 4) when the user requested it via release-level or helmDefaults
+// configuration. When trackMode is "kubedog", the flag is suppressed: Helm's own
+// --atomic would wait for resources and roll back on failure, deleting the
+// failing pods before kubedog gets a chance to observe and report on them.
+// Helmfile relies on kubedog to detect readiness/failure in that mode instead.
+func (st *HelmState) appendAtomicFlags(flags []string, release *ReleaseSpec, ops *SyncOpts) []string {
+	if st.shouldUseKubedog(release, ops) {
+		return flags
+	}
+
+	if release.Atomic != nil && *release.Atomic || release.Atomic == nil && st.HelmDefaults.Atomic {
+		flags = append(flags, "--atomic")
+	}
+
+	return flags
+}
+
 // append post-renderer flags to helm flags
 func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, cascade string) []string {
 	// see https://github.com/helm/helm/releases/tag/v3.12.1
