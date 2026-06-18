@@ -3139,6 +3139,133 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 }
 
+func TestHelmState_UpdateDeps_OCIUnderscores(t *testing.T) {
+	helm := &exectest.Helm{
+		UpdateDepsCallbacks: map[string]func(string) error{},
+	}
+
+	var generatedDir string
+	var generatedChartYaml string
+	tempDir := func(dir, prefix string) (string, error) {
+		var err error
+		generatedDir, err = os.MkdirTemp(dir, prefix)
+		if err != nil {
+			return "", err
+		}
+		helm.UpdateDepsCallbacks[generatedDir] = func(string) error {
+			// Read the Chart.yaml that helmfile generated to verify its content
+			chartYamlBytes, readErr := os.ReadFile(filepath.Join(generatedDir, "Chart.yaml"))
+			if readErr == nil {
+				generatedChartYaml = string(chartYamlBytes)
+			}
+			// Simulate helm writing Chart.lock with the basename as dependency name
+			content := []byte(`dependencies:
+- name: example
+  repository: oci://harbor.custom.com/path_with_underscores
+  version: 1.0.0
+digest: sha256:abc123def456
+generated: 2023-08-01T23:04:02Z
+`)
+			return os.WriteFile(filepath.Join(generatedDir, "Chart.lock"), content, 0644)
+		}
+		return generatedDir, nil
+	}
+
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	basePath := filepath.ToSlash(t.TempDir())
+	state := &HelmState{
+		basePath: basePath,
+		FilePath: filepath.Join(basePath, "helmfile.yaml"),
+		ReleaseSetSpec: ReleaseSetSpec{
+			Releases: []ReleaseSpec{
+				{
+					Name:      "example",
+					Chart:     "myrepo/path_with_underscores/example",
+					Version:   "1.0.0",
+					Namespace: "myns",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "myrepo",
+					URL:  "harbor.custom.com",
+					OCI:  true,
+				},
+			},
+		},
+		tempDir: tempDir,
+		logger:  logger,
+	}
+
+	fs := testhelper.NewTestFs(map[string]string{})
+	fs.Cwd = basePath
+	state = injectFs(state, fs)
+	errs := state.UpdateDeps(helm, false)
+	if len(errs) != 0 {
+		t.Fatalf("HelmState.UpdateDeps() - unexpected %d errors: %v", len(errs), errs)
+	}
+
+	// Verify the generated Chart.yaml has basename as name and path prefix in repository
+	assert.Contains(t, generatedChartYaml, "name: example")
+	assert.Contains(t, generatedChartYaml, "repository: oci://harbor.custom.com/path_with_underscores")
+	// It should NOT contain the full path as the name
+	assert.NotContains(t, generatedChartYaml, "name: path_with_underscores/example")
+
+	// Verify the lock file was written with the correct resolved version
+	resolved, err := state.ResolveDeps()
+	assert.NoError(t, err)
+	assert.Equal(t, "1.0.0", resolved.Releases[0].Version)
+}
+
+func TestHelmState_ResolveDeps_OCIUnderscores_BackwardCompat(t *testing.T) {
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	basePath := filepath.ToSlash(t.TempDir())
+
+	// Old-format lock file using the full path as the dependency name
+	oldLockContent := `version: 0.155.0
+dependencies:
+- name: path_with_underscores/example
+  repository: oci://harbor.custom.com
+  version: 1.0.0
+digest: sha256:abc123
+generated: 2023-08-01T23:04:02Z
+`
+	lockPath := filepath.Join(basePath, "helmfile.lock")
+	err := os.WriteFile(lockPath, []byte(oldLockContent), 0644)
+	require.NoError(t, err)
+
+	state := &HelmState{
+		basePath: basePath,
+		FilePath: filepath.Join(basePath, "helmfile.yaml"),
+		ReleaseSetSpec: ReleaseSetSpec{
+			Releases: []ReleaseSpec{
+				{
+					Name:    "example",
+					Chart:   "myrepo/path_with_underscores/example",
+					Version: "1.0.0",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "myrepo",
+					URL:  "harbor.custom.com",
+					OCI:  true,
+				},
+			},
+		},
+		logger: logger,
+	}
+
+	fs := testhelper.NewTestFs(map[string]string{})
+	fs.Cwd = basePath
+	state = injectFs(state, fs)
+
+	resolved, err := state.ResolveDeps()
+	require.NoError(t, err)
+	assert.Equal(t, "1.0.0", resolved.Releases[0].Version,
+		"old lock file with full-path name should still resolve via backward-compat fallback")
+}
+
 func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	logger := helmexec.NewLogger(io.Discard, "debug")
 	state := &HelmState{
