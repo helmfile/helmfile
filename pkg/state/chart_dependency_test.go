@@ -77,7 +77,57 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 		expectDeps *UnresolvedDependencies
 	}{
 		{
-			name: "oci chart",
+			name: "oci chart with path prefix and underscores (issue #954)",
+			helmState: &HelmState{
+				FilePath: "helmfile.yaml",
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: []ReleaseSpec{
+						{
+							Name:      "example",
+							Chart:     "myrepo/path_with_underscores/example",
+							Version:   "1.0.0",
+							Namespace: "myns",
+						},
+						{
+							Name:      "another",
+							Chart:     "myrepo/another_path/chart",
+							Version:   "2.0.0",
+							Namespace: "myns",
+						},
+					},
+					Repositories: []RepositorySpec{
+						{
+							Name: "myrepo",
+							URL:  "harbor.custom.com",
+							OCI:  true,
+						},
+					},
+				},
+			},
+			expectfile: "helmfile",
+			expectDeps: &UnresolvedDependencies{
+				deps: map[string][]unresolvedChartDependency{
+					"example": {
+						{
+							ChartName:         "example",
+							Repository:        "oci://harbor.custom.com/path_with_underscores",
+							VersionConstraint: "1.0.0",
+							Alias:             "myns-example",
+						},
+					},
+					"chart": {
+						{
+							ChartName:         "chart",
+							Repository:        "oci://harbor.custom.com/another_path",
+							VersionConstraint: "2.0.0",
+							Alias:             "myns-another",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "oci chart without path prefix (unchanged behavior)",
 			helmState: &HelmState{
 				FilePath: "helmfile.yaml",
 				ReleaseSetSpec: ReleaseSetSpec{
@@ -224,5 +274,68 @@ func TestChartDependenciesAlias(t *testing.T) {
 		if result != tc.expected {
 			t.Errorf("Expected %s, but got %s", tc.expected, result)
 		}
+	}
+}
+
+func TestOciDependencyChartName(t *testing.T) {
+	tests := []struct {
+		name  string
+		chart string
+		want  string
+	}{
+		{name: "simple chart name", chart: "example", want: "example"},
+		{name: "path with underscores", chart: "path_with_underscores/example", want: "example"},
+		{name: "deep nested path", chart: "deep/nested/chart", want: "chart"},
+		{name: "single segment with underscore", chart: "my_chart", want: "my_chart"},
+		{name: "path with hyphens", chart: "path-with-hyphens/example", want: "example"},
+		{name: "empty string", chart: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ociDependencyChartName(tt.chart)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestOciDependencyRepoURL(t *testing.T) {
+	tests := []struct {
+		name       string
+		chart      string
+		ociBaseURL string
+		want       string
+	}{
+		{
+			name:       "simple chart (no path prefix)",
+			chart:      "example",
+			ociBaseURL: "oci://registry.example.com",
+			want:       "oci://registry.example.com",
+		},
+		{
+			name:       "chart with path prefix and underscores",
+			chart:      "path_with_underscores/example",
+			ociBaseURL: "oci://harbor.custom.com",
+			want:       "oci://harbor.custom.com/path_with_underscores",
+		},
+		{
+			name:       "deeply nested path",
+			chart:      "deep/nested/chart",
+			ociBaseURL: "oci://registry.example.com",
+			want:       "oci://registry.example.com/deep/nested",
+		},
+		{
+			name:       "base URL with trailing slash",
+			chart:      "path/example",
+			ociBaseURL: "oci://registry.example.com/",
+			want:       "oci://registry.example.com/path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ociDependencyRepoURL(tt.chart, tt.ociBaseURL)
+			require.Equal(t, tt.want, got)
+		})
 	}
 }

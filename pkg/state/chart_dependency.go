@@ -183,10 +183,10 @@ func resolveDependencies(st *HelmState, depMan *chartDependencyManager, unresolv
 		return st, nil
 	}
 
-	repoToURL := map[string]string{}
+	repoToSpec := map[string]RepositorySpec{}
 
 	for _, r := range st.Repositories {
-		repoToURL[r.Name] = r.URL
+		repoToSpec[r.Name] = r
 	}
 
 	updated := *st
@@ -196,14 +196,26 @@ func resolveDependencies(st *HelmState, depMan *chartDependencyManager, unresolv
 			continue
 		}
 
-		_, ok = repoToURL[repo]
+		repoSpec, ok := repoToSpec[repo]
 		// Skip this chart from dependency management, as there's no matching `repository` in the helmfile state,
 		// which may imply that this is a local chart within a directory, like `charts/myapp`
 		if !ok {
 			continue
 		}
 
-		ver, err := resolved.Get(chart, r.Version)
+		// For OCI charts, the dependency name in the lock file is the chart basename
+		// (last path segment), not the full path. Apply the same transformation as
+		// getUnresolvedDependenciess to ensure the lookup matches (see issue #954).
+		lookupChart := chart
+		if repoSpec.OCI {
+			lookupChart = ociDependencyChartName(chart)
+		}
+
+		ver, err := resolved.Get(lookupChart, r.Version)
+		if err != nil && repoSpec.OCI && lookupChart != chart {
+			// Backward compatibility: old lock files may use the full path as name
+			ver, err = resolved.Get(chart, r.Version)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -238,6 +250,35 @@ func chartDependenciesAlias(namespace, releaseName string) string {
 	return fmt.Sprintf("%s-%s", namespace, releaseName)
 }
 
+// ociDependencyChartName returns the last path segment of a chart name, which is
+// used as the dependency name in Chart.yaml for OCI charts. For example:
+//
+//	"path_with_underscores/example" → "example"
+//	"example"                       → "example"
+//
+// This avoids issues with slashes, underscores, and other special characters in
+// the chart path when helm processes OCI references during dependency update.
+// See issue #954.
+func ociDependencyChartName(chart string) string {
+	if idx := strings.LastIndex(chart, "/"); idx >= 0 {
+		return chart[idx+1:]
+	}
+	return chart
+}
+
+// ociDependencyRepoURL builds the repository URL for an OCI chart dependency by
+// combining the base registry URL with any path prefix from the chart name.
+// For example:
+//
+//	chart="path_with_underscores/example", baseURL="oci://registry.example.com"
+//	→ "oci://registry.example.com/path_with_underscores"
+func ociDependencyRepoURL(chart, ociBaseURL string) string {
+	if idx := strings.LastIndex(chart, "/"); idx >= 0 {
+		return strings.TrimSuffix(ociBaseURL, "/") + "/" + chart[:idx]
+	}
+	return ociBaseURL
+}
+
 func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies) {
 	repoToURL := map[string]RepositorySpec{}
 
@@ -263,7 +304,13 @@ func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies)
 		url := repoSpec.URL
 
 		if repoSpec.OCI {
-			url = fmt.Sprintf("oci://%s", url)
+			ociBaseURL := fmt.Sprintf("oci://%s", url)
+			// For OCI charts with multi-segment paths (e.g., "path/chart"), put the
+			// path prefix into the repository URL and use just the chart basename as
+			// the dependency name. This avoids issues with underscores and other
+			// special characters in OCI references during helm dependency update.
+			url = ociDependencyRepoURL(chart, ociBaseURL)
+			chart = ociDependencyChartName(chart)
 		}
 
 		unresolved.Add(chart, url, r.Version, chartDependenciesAlias(r.Namespace, r.Name))
