@@ -237,10 +237,23 @@ func TestAppendWaitFlags(t *testing.T) {
 			expected: []string{"--wait"},
 		},
 		{
-			name:     "kubedog track mode skips --wait",
+			// Kubedog tracking does not customize the helm --wait strategy.
+			// helm runs with its default waiter — wedges are recovered by
+			// the safety-valve helm-killer in helmx.go, so we don't try to
+			// pick a "less buggy" wait strategy in advance. This keeps the
+			// wait-flag logic identical to upstream helmfile.
+			name:     "kubedog track mode with Helm v4 and wait true uses plain --wait",
 			release:  &ReleaseSpec{Wait: &[]bool{true}[0], TrackMode: "kubedog"},
 			syncOpts: nil,
 			helmSpec: HelmSpec{},
+			helm:     testutil.NewVersionHelmExec("4.0.0"),
+			expected: []string{"--wait"},
+		},
+		{
+			name:     "kubedog track mode with Helm v4 and explicit wait false skips --wait",
+			release:  &ReleaseSpec{Wait: &[]bool{false}[0], TrackMode: "kubedog"},
+			syncOpts: nil,
+			helmSpec: HelmSpec{Wait: true},
 			helm:     testutil.NewVersionHelmExec("4.0.0"),
 			expected: []string{},
 		},
@@ -569,6 +582,68 @@ func TestFormatLabels(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := formatLabels(tt.labels)
 			require.Equal(t, tt.want, got, "formatLabels() = %v, want %v", got, tt.want)
+		})
+	}
+}
+
+func TestGetReleaseHardTimeout(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
+	tests := []struct {
+		name     string
+		state    HelmState
+		release  ReleaseSpec
+		opts     *SyncOpts
+		wantSecs int
+	}{
+		{
+			name:     "ops.Timeout wins over release.Timeout and HelmDefaults.Timeout",
+			state:    HelmState{ReleaseSetSpec: ReleaseSetSpec{HelmDefaults: HelmSpec{Timeout: 100}}},
+			release:  ReleaseSpec{Timeout: intPtr(200)},
+			opts:     &SyncOpts{Timeout: 300},
+			wantSecs: 300,
+		},
+		{
+			name:     "release.Timeout wins over HelmDefaults.Timeout when ops is unset",
+			state:    HelmState{ReleaseSetSpec: ReleaseSetSpec{HelmDefaults: HelmSpec{Timeout: 100}}},
+			release:  ReleaseSpec{Timeout: intPtr(200)},
+			opts:     nil,
+			wantSecs: 200,
+		},
+		{
+			name:     "HelmDefaults.Timeout used when neither ops nor release set",
+			state:    HelmState{ReleaseSetSpec: ReleaseSetSpec{HelmDefaults: HelmSpec{Timeout: 100}}},
+			release:  ReleaseSpec{},
+			opts:     nil,
+			wantSecs: 100,
+		},
+		{
+			name:     "falls back to release.TrackTimeout when no helm timeout configured",
+			state:    HelmState{},
+			release:  ReleaseSpec{TrackTimeout: intPtr(450)},
+			opts:     nil,
+			wantSecs: 450,
+		},
+		{
+			name:     "falls back to ops.TrackTimeout when no other timeout configured",
+			state:    HelmState{},
+			release:  ReleaseSpec{},
+			opts:     &SyncOpts{TrackTimeout: 450},
+			wantSecs: 450,
+		},
+		{
+			name:     "10-minute default when nothing configured",
+			state:    HelmState{},
+			release:  ReleaseSpec{},
+			opts:     nil,
+			wantSecs: 600,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.state.getReleaseHardTimeout(&tt.release, tt.opts)
+			if int(got.Seconds()) != tt.wantSecs {
+				t.Errorf("getReleaseHardTimeout() = %v, want %ds", got, tt.wantSecs)
+			}
 		})
 	}
 }

@@ -90,6 +90,10 @@ func (d destroyConfig) DeleteTimeout() int {
 	return d.deleteTimeout
 }
 
+func (d destroyConfig) NoColor() bool {
+	return true
+}
+
 func TestDestroy(t *testing.T) {
 	type testcase struct {
 		ns            string
