@@ -369,76 +369,76 @@ Here's the complete data flow when running `helmfile sync`:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                         HELMFILE DATA FLOW                                  │
+│                         HELMFILE DATA FLOW                                          │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 
 1. INITIALIZATION PHASE (app.go, desired_state_file_loader.go)
    ┌──────────────────┐
-   │ Parse CLI flags │ ──> --state-values-set / --state-values-file
+   │ Parse CLI flags  │ ──> --state-values-set / --state-values-file
    └──────────────────┘
            │
            ▼
    ┌──────────────────────────────────────────────────────────────────────────┐
-   │ Create Environment {                                               │
-   │   Name: "default" or --environment value                        │
-   │   Defaults: {} (will hold root-level values:)                  │
-   │   Values: {} (will hold environment values + secrets)          │
-   │   CLIOverrides: <parsed CLI values> (highest priority)    │
-   │ }                                                                   │
+   │ Create Environment {                                                     │
+   │   Name: "default" or --environment value                                 │
+   │   Defaults: {} (will hold root-level values:)                            │
+   │   Values: {} (will hold environment values + secrets)                    │
+   │   CLIOverrides: <parsed CLI values> (highest priority)                   │
+   │ }                                                                        │
    └──────────────────────────────────────────────────────────────────────────┘
 
 2. LOAD PHASE (for each helmfile.yaml) (create.go: LoadEnvValues)
    ┌──────────────┐
-   │ bases:        │ ──> Load and merge base files (if any)
+   │ bases:       │ ──> Load and merge base files (if any)
    └──────────────┘
            │
            ▼
    ┌──────────────────────────────────────────────────────────────────────────┐
-   │ values: (root-level)│ ──> Load via loadValuesEntries()                            │
-   │                    │     Store in Environment.Defaults                              │
+   │ values: (root-level) │ ──> Load via loadValuesEntries()                  │
+   │                      │     Store in Environment.Defaults                 │
    └──────────────────────────────────────────────────────────────────────────┘
            │
            ▼
-   ┌──────────────────────────────────────────────────────────────────────────┐
-   │ environments:      │ ──> loadEnvValues() processes in order:                   │
-   │                      │     1. Decrypt all secrets (HCL and non-HCL)                  │
-   │                      │     2. Load environment values:                                 │
-   │                      │        - yaml/yaml.gotmpl files (merged)                        │
+   ┌───────────────────────────────────────────────────────────────────────────────────┐
+   │ environments:        │ ──> loadEnvValues() processes in order:                    │
+   │                      │     1. Decrypt all secrets (HCL and non-HCL)               │
+   │                      │     2. Load environment values:                            │
+   │                      │        - yaml/yaml.gotmpl files (merged)                   │
    │                      │        - HCL files incl. decrypted HCL (merged)            │
    │                      │     3. Merge non-HCL decrypted secrets (highest priority)  │
-   │                      │     Store result in Environment.Values                          │
-   └──────────────────────────────────────────────────────────────────────────┘
+   │                      │     Store result in Environment.Values                     │
+   └───────────────────────────────────────────────────────────────────────────────────┘
            │
            ▼
    ┌───────────────────────────────────────────────────────────────────┐
-   │ Update Environment from ctxEnv and overrodeEnv:                     │
-   │   - Merge ctxEnv values (for multi-part helmfiles)                 │
-   │   - Merge overrodeEnv (CLIOverrides already included here)         │
+   │ Update Environment from ctxEnv and overrodeEnv:                   │
+   │   - Merge ctxEnv values (for multi-part helmfiles)                │
+   │   - Merge overrodeEnv (CLIOverrides already included here)        │
    └───────────────────────────────────────────────────────────────────┘
 
 3. FINAL MERGE PHASE (environment.go: GetMergedValues)
-   ┌───────────────────────────────────────────────────────────────────┐
-   │ GetMergedValues() called when accessing .Values in templates:      │
-   │   result = {}                                                        │
-   │   result = merge(result, Defaults)      # Root-level values:        │
-   │   result = merge(result, Values)        # Environment values+secrets│
-   │   result = merge(result, CLIOverrides)  # CLI flags (highest priority)│
-   │                                                                     │
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │ GetMergedValues() called when accessing .Values in templates:          │
+   │   result = {}                                                          │
+   │   result = merge(result, Defaults)      # Root-level values:           │
+   │   result = merge(result, Values)        # Environment values+secrets   │
+   │   result = merge(result, CLIOverrides)  # CLI flags (highest priority) │
+   │                                                                        │
    │ Special: CLIOverrides uses ArrayMergeStrategyMerge (element-by-element)│
    │         Defaults and Values use ArrayMergeStrategySparse (auto-detect) │
-   └───────────────────────────────────────────────────────────────────┘
+   └────────────────────────────────────────────────────────────────────────┘
            │
            ▼
    ┌───────────────────────────────────────────────────────────────────┐
-   │ state.RenderedValues = result                                    │
+   │ state.RenderedValues = result                                     │
    │ Accessible via {{ .Values.KEY }} in all templates                 │
    └───────────────────────────────────────────────────────────────────┘
 
 4. TEMPLATE RENDERING PHASE
    ┌──────────────────────────────────────────────┐
-   │ Render helmfile.yaml templates             │
-   │ Render .gotmpl values files                │
-   │ Prepare release-specific values            │
+   │ Render helmfile.yaml templates               │
+   │ Render .gotmpl values files                  │
+   │ Prepare release-specific values              │
    └──────────────────────────────────────────────┘
 
 5. HELM EXECUTION PHASE
