@@ -139,17 +139,17 @@ Under `fallback`:
 - Within a single `values:` entry that expands to multiple files (e.g. via a glob), the **first** file in the expansion wins.
 - A later `.gotmpl` values file can reference values from earlier files via `.Values`, so derived defaults work natively:
 
-  ```yaml
-  # cluster-specific.yaml
-  cluster:
-    domain: prod.example.com
-  ```
+```yaml
+# cluster-specific.yaml
+cluster:
+  domain: prod.example.com
+```
 
-  ```yaml
-  # shared-defaults.yaml.gotmpl
-  service:
-    domain: "service.{{ .Values.cluster.domain }}"
-  ```
+```yaml
+# shared-defaults.yaml.gotmpl
+service:
+  domain: "service.{{ .Values.cluster.domain }}"
+```
 
   → `service.domain: service.prod.example.com`. Under `mergeStrategy: override` this cross-file template reference is not available.
 
@@ -266,46 +266,46 @@ Within environment values files (yaml/yaml.gotmpl/hcl), arrays use sparse auto-d
 **Recommendation:** To avoid confusion, treat arrays in one of these ways:
 
 1. **Complete replacement** (default for most cases)
-   ```yaml
-   # Override array completely
-   environments:
-     production:
-       values:
-         - servers: [prod1.example.com, prod2.example.com, prod3.example.com]
-   ```
+```yaml
+# Override array completely
+environments:
+  production:
+    values:
+      - servers: [prod1.example.com, prod2.example.com, prod3.example.com]
+```
 
 2. **Sparse array merge** (using explicit nil/null values)
-   ```yaml
-   # Merge specific array indices
-   environments:
-     production:
-       values:
-         - servers:
-             - prod1.example.com  # index 0: override
-             - null                 # index 1: preserve from base
-             - prod3.example.com    # index 2: add new
-   ```
+```yaml
+# Merge specific array indices
+environments:
+  production:
+    values:
+      - servers:
+          - prod1.example.com  # index 0: override
+          - null                 # index 1: preserve from base
+          - prod3.example.com    # index 2: add new
+```
 
 3. **Use maps instead of arrays** (recommended for complex configurations)
-   ```yaml
-   # Use maps for better control and merging
-   servers:
-     server1:
-       host: server1.example.com
-       enabled: true
-     server2:
-       host: server2.example.com
-       enabled: true
-   
-   # Environment can add or override specific servers
-   environments:
-     production:
-       values:
-         - servers:
-             server3:
-               host: prod3.example.com
-               enabled: true
-   ```
+```yaml
+# Use maps for better control and merging
+servers:
+  server1:
+    host: server1.example.com
+    enabled: true
+  server2:
+    host: server2.example.com
+    enabled: true
+
+# Environment can add or override specific servers
+environments:
+  production:
+    values:
+      - servers:
+          server3:
+            host: prod3.example.com
+            enabled: true
+```
 
 ## Release-Level Values
 
