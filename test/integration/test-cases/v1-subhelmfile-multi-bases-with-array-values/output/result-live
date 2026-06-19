@@ -1,7 +1,6 @@
 Live output is enabled
 Adding repo incubator https://charts.helm.sh/incubator/
 "incubator" has been added to your repositories
-
 Templating release=helmfile-test, chart=incubator/raw
 ---
 # Source: raw/templates/resources.yaml
