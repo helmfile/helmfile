@@ -1088,47 +1088,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 }
 
 func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface, ops *SyncOpts) error {
-	timeout := 5 * time.Minute
-	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
-		timeout = time.Duration(*release.TrackTimeout) * time.Second
-	} else if ops != nil && ops.TrackTimeout > 0 {
-		timeout = time.Duration(ops.TrackTimeout) * time.Second
-	}
-
-	trackLogs := release.TrackLogs != nil && *release.TrackLogs
-	if release.TrackLogs == nil && ops != nil {
-		trackLogs = ops.TrackLogs
-	}
-
-	trackFailedLogs := release.TrackFailedLogs != nil && *release.TrackFailedLogs
-	if release.TrackFailedLogs == nil && ops != nil {
-		trackFailedLogs = ops.TrackFailedLogs
-	}
-
-	filterConfig := &resource.FilterConfig{
-		TrackKinds:     release.TrackKinds,
-		SkipKinds:      release.SkipKinds,
-		TrackResources: convertTrackResources(release.TrackResources),
-	}
-
-	kubeContext := st.getKubeContext(release)
-
-	trackOpts := kubedog.NewTrackOptions().
-		WithTimeout(timeout).
-		WithLogs(trackLogs).
-		WithFailedLogsOnly(trackFailedLogs).
-		WithFilterConfig(filterConfig)
-
-	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
-		Logger:       st.logger,
-		Namespace:    release.Namespace,
-		KubeContext:  kubeContext,
-		Kubeconfig:   st.kubeconfig,
-		ReleaseName:  release.Name,
-		TrackOptions: trackOpts,
-		KubedogQPS:   release.KubedogQPS,
-		KubedogBurst: release.KubedogBurst,
-	})
+	tracker, _, err := st.buildReleaseTracker(release, ops, false)
 	if err != nil {
 		return fmt.Errorf("failed to create kubedog tracker: %w", err)
 	}
