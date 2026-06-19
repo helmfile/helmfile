@@ -306,7 +306,3 @@ type CanaryStatusView struct {
 	Age      string
 	IsFailed bool
 }
-
-func statusOutput() io.Writer {
-	return os.Stderr
-}

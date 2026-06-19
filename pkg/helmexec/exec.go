@@ -2,6 +2,7 @@ package helmexec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -40,19 +41,25 @@ type HelmExecOptions struct {
 }
 
 type execer struct {
-	helmBinary           string
-	options              HelmExecOptions
-	version              *semver.Version
-	runner               Runner
-	logger               *zap.SugaredLogger
-	kubeconfig           string
-	kubeContext          string
-	extra                []string
-	decryptedSecretMutex sync.Mutex
+	helmBinary  string
+	options     HelmExecOptions
+	version     *semver.Version
+	runner      Runner
+	logger      *zap.SugaredLogger
+	kubeconfig  string
+	kubeContext string
+	extra       []string
+	// decryptedSecretMutex guards decryptedSecrets. It's a pointer so that
+	// WithLogger() can shallow-copy the execer and share the same lock+map
+	// across clones (the underlying secret cache must remain a single source
+	// of truth across all clones).
+	decryptedSecretMutex *sync.Mutex
 	decryptedSecrets     map[string]*decryptedSecret
 	writeTempFile        func([]byte) (string, error)
-	unittestPluginOnce   sync.Once
-	unittestPluginErr    error
+	// unittestPluginOnce is a pointer so WithLogger() clones share the
+	// detection result with the original execer.
+	unittestPluginOnce *sync.Once
+	unittestPluginErr  error
 }
 
 func NewLogger(writer io.Writer, logLevel string) *zap.SugaredLogger {
@@ -182,15 +189,64 @@ func New(helmBinary string, options HelmExecOptions, logger *zap.SugaredLogger, 
 	}
 
 	return &execer{
-		helmBinary:       helmBinary,
-		options:          options,
-		version:          version,
-		logger:           logger,
-		kubeconfig:       kubeconfig,
-		kubeContext:      kubeContext,
-		runner:           runner,
-		decryptedSecrets: make(map[string]*decryptedSecret),
+		helmBinary:           helmBinary,
+		options:              options,
+		version:              version,
+		logger:               logger,
+		kubeconfig:           kubeconfig,
+		kubeContext:          kubeContext,
+		runner:               runner,
+		decryptedSecretMutex: &sync.Mutex{},
+		decryptedSecrets:     make(map[string]*decryptedSecret),
+		unittestPluginOnce:   &sync.Once{},
 	}, nil
+}
+
+// LoggerSwapper is the runtime contract that callers use to obtain a logger-
+// scoped helm clone for capturing helm output into a buffer. It's a side
+// interface (not part of helmexec.Interface) so mock implementations don't
+// have to provide it.
+type LoggerSwapper interface {
+	WithLogger(logger *zap.SugaredLogger) Interface
+}
+
+// WithLogger returns a shallow copy of the execer that writes its log output
+// to the given logger. The clone shares mutable state (decrypted-secret cache
+// and its lock) with the original via the pointer mutex, so concurrent use
+// of clone + original for decryption is safe.
+func (helm *execer) WithLogger(logger *zap.SugaredLogger) Interface {
+	clone := *helm
+	clone.logger = logger
+	return &clone
+}
+
+// ContextSwapper is the runtime contract for obtaining a context-scoped helm
+// clone. Canceling the context cancels any helm subprocess started through
+// the clone — the underlying ShellRunner already sends SIGINT to its
+// subprocess on ctx.Done() (runner.go), so this gives callers a clean way to
+// kill an in-flight helm without touching the global app context. Side
+// interface so mocks don't have to implement it.
+type ContextSwapper interface {
+	WithContext(ctx context.Context) Interface
+}
+
+// WithContext returns a shallow copy of the execer whose runner uses the
+// provided context. Canceling ctx triggers SIGINT to any helm subprocess
+// started through the clone. Falls back gracefully (returns clone with the
+// original runner) when the runner isn't a ShellRunner — only the kill path
+// becomes a no-op in that case.
+func (helm *execer) WithContext(ctx context.Context) Interface {
+	clone := *helm
+	switch r := helm.runner.(type) {
+	case *ShellRunner:
+		rClone := *r
+		rClone.Ctx = ctx
+		clone.runner = &rClone
+	case ShellRunner:
+		r.Ctx = ctx
+		clone.runner = r
+	}
+	return &clone
 }
 
 func (helm *execer) SetExtraArgs(args ...string) {
@@ -726,7 +782,11 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		// but manifets.
 		//
 		// See https://github.com/roboll/helmfile/pull/1691#issuecomment-805636021 for more information.
-		helm.info(out)
+		//
+		// Helm emits one `wrote <path>` line per resource document in each file, so a
+		// multi-doc template produces N identical lines for the same path. Dedupe them
+		// to keep the output readable.
+		helm.info(dedupeWroteLines(out))
 	} else {
 		// Always write to stdout for use with e.g. `helmfile template | kubectl apply -f -`
 		helm.write(nil, out)
@@ -1072,9 +1132,39 @@ func (helm *execer) azcli(name string) ([]byte, error) {
 	return outBytes, err
 }
 
+// dedupeWroteLines collapses repeated `wrote <path>` lines from helm-template
+// stdout into a single occurrence per path (first-seen order). Helm v4 emits
+// one line per resource document, so a multi-doc YAML produces N identical
+// lines for the same file path; the duplicates are pure noise.
+func dedupeWroteLines(out []byte) []byte {
+	if len(out) == 0 {
+		return out
+	}
+	lines := strings.Split(string(out), "\n")
+	seen := make(map[string]struct{}, len(lines))
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if strings.HasPrefix(line, "wrote ") {
+			if _, ok := seen[line]; ok {
+				continue
+			}
+			seen[line] = struct{}{}
+		}
+		kept = append(kept, line)
+	}
+	return []byte(strings.Join(kept, "\n"))
+}
+
 func (helm *execer) info(out []byte) {
-	if len(out) > 0 {
-		helm.logger.Infof("%s", out)
+	// Trim trailing newlines so the encoder's appended newline is the only
+	// one. Without this, helm stdout that ends in "\n" (e.g. a chart whose
+	// template renders only hooks) becomes a "\n" payload, and the encoder
+	// produces "\n\n" — extra blank lines that are very visible in
+	// timestamp-per-line CI logs. Skip the call entirely when the trim
+	// leaves nothing.
+	trimmed := bytes.TrimRight(out, "\n")
+	if len(trimmed) > 0 {
+		helm.logger.Infof("%s", trimmed)
 	}
 }
 
