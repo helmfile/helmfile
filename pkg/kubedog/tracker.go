@@ -343,6 +343,12 @@ func (t *Tracker) waitForFreshness(ctx context.Context, tgt trackTarget, baselin
 	}
 
 	var upstreamDoneAt time.Time
+	// upstreamCh is a local view of t.upstreamDoneCh. We nil it out the first
+	// time it fires so the select below can't busy-loop on the closed channel
+	// (a closed channel is always ready, so without this each iteration would
+	// re-probe the API as fast as the round-trip allows for the whole grace
+	// window). After it fires once, polling continues ticker-bound.
+	upstreamCh := t.upstreamDoneCh
 	for {
 		if probe() {
 			return nil
@@ -354,12 +360,13 @@ func (t *Tracker) waitForFreshness(ctx context.Context, tgt trackTarget, baselin
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-t.upstreamDoneCh:
+		case <-upstreamCh:
 			if upstreamDoneAt.IsZero() {
 				upstreamDoneAt = time.Now()
 			}
-			// Fast retry once helm finishes, then fall through to the next
-			// ticker to enforce the grace window.
+			// Record the timestamp once, then stop selecting on the (now
+			// closed) channel so subsequent polls are ticker-throttled.
+			upstreamCh = nil
 		case <-ticker.C:
 		}
 	}
