@@ -1,0 +1,863 @@
+package kubedog
+
+import (
+	"bytes"
+	"context"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/werf/kubedog/pkg/trackers/dyntracker/logstore"
+	"github.com/werf/kubedog/pkg/trackers/dyntracker/statestore"
+	kdutil "github.com/werf/kubedog/pkg/trackers/dyntracker/util"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+// newBufferedLogger returns a zap.SugaredLogger whose Info-level writes are
+// captured into a buffer for inspection in tests.
+func newBufferedLogger(t *testing.T) (*zap.SugaredLogger, *bytes.Buffer, *sync.Mutex) {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	mu := &sync.Mutex{}
+	w := &syncedBuffer{buf: buf, mu: mu}
+
+	var cfg zapcore.EncoderConfig
+	cfg.MessageKey = "message"
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(cfg), zapcore.AddSync(w), zapcore.InfoLevel)
+	return zap.New(core).Sugar(), buf, mu
+}
+
+type syncedBuffer struct {
+	buf *bytes.Buffer
+	mu  *sync.Mutex
+}
+
+func (s *syncedBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func capturedOutput(buf *bytes.Buffer, mu *sync.Mutex) string {
+	mu.Lock()
+	defer mu.Unlock()
+	return buf.String()
+}
+
+var (
+	deploymentGVK = schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
+	podGVK        = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+	jobGVK        = schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}
+)
+
+// addPodChild attaches a pod resource state under a task and sets its status
+// + optional pod-phase attribute. Returns the wrapped ResourceState.
+func addPodChild(t *testing.T, ts *statestore.ReadinessTaskState, podName, namespace string,
+	status statestore.ResourceStatus, statusAttr string) {
+	t.Helper()
+	ts.AddResourceState(podName, namespace, podGVK)
+	ts.AddDependency(ts.Name(), ts.Namespace(), ts.GroupVersionKind(), podName, namespace, podGVK)
+	rs := ts.ResourceState(podName, namespace, podGVK)
+	rs.RWTransaction(func(rs *statestore.ResourceState) {
+		rs.SetStatus(status)
+		if statusAttr != "" {
+			rs.AddAttribute(statestore.NewAttribute(statestore.AttributeNameStatus, statusAttr))
+		}
+	})
+}
+
+// setRequiredReplicas writes the AttributeNameRequiredReplicas on the root
+// resource state of a task — what kubedog's deployment handler populates from
+// Status.Replicas in real runs.
+func setRequiredReplicas(t *testing.T, ts *statestore.ReadinessTaskState, count int) {
+	t.Helper()
+	root := ts.ResourceState(ts.Name(), ts.Namespace(), ts.GroupVersionKind())
+	root.RWTransaction(func(rs *statestore.ResourceState) {
+		rs.AddAttribute(statestore.NewAttribute(statestore.AttributeNameRequiredReplicas, count))
+	})
+}
+
+func TestStatusColor_FailingPhaseOverridesReady(t *testing.T) {
+	p := &progressPrinter{useColor: true}
+
+	// kubedog reports the pod's ResourceStatus as "ready" because the parent
+	// task is ready, but the pod's actual phase is "Error" — must render red.
+	assert.Equal(t, ansiRed, p.statusColor("ready (Error)", ""))
+	assert.Equal(t, ansiRed, p.statusColor("progressing (CrashLoopBackOff)", ""))
+	assert.Equal(t, ansiRed, p.statusColor("ready (ImagePullBackOff)", ""))
+	assert.Equal(t, ansiRed, p.statusColor("ready (OOMKilled)", ""))
+}
+
+func TestStatusColor_LeadingState(t *testing.T) {
+	p := &progressPrinter{useColor: true}
+	assert.Equal(t, ansiGreen, p.statusColor("ready (1/1)", ""))
+	assert.Equal(t, ansiGreen, p.statusColor("ready (Running)", ""))
+	assert.Equal(t, ansiYellow, p.statusColor("progressing (0/1)", ""))
+	assert.Equal(t, ansiRed, p.statusColor("failed", ""))
+	assert.Equal(t, ansiCyan, p.statusColor("waiting for update (uid=abc gen=1)", ""))
+	assert.Equal(t, ansiGray, p.statusColor("unknown", ""))
+}
+
+func TestStatusColor_PodPhaseFallback(t *testing.T) {
+	p := &progressPrinter{useColor: true}
+	// Bare pod phases (no leading kubedog state word), no parent context —
+	// defaults match the long-running workload assumptions (Running = green).
+	assert.Equal(t, ansiGreen, p.statusColor("Running", ""))
+	assert.Equal(t, ansiGreen, p.statusColor("Completed", ""))
+	assert.Equal(t, ansiYellow, p.statusColor("ContainerCreating", ""))
+	assert.Equal(t, ansiYellow, p.statusColor("Pending", ""))
+	assert.Equal(t, ansiYellow, p.statusColor("Init:0/2", ""))
+	assert.Equal(t, ansiGray, p.statusColor("Terminating", ""))
+}
+
+func TestStatusColor_JobChildRunningIsYellow(t *testing.T) {
+	p := &progressPrinter{useColor: true}
+	// A Job pod in Running phase is still working toward Completed, so the
+	// row should render in-progress yellow instead of steady-state green.
+	assert.Equal(t, ansiYellow, p.statusColor("Running", "Job"))
+	// Once the Job pod hits Completed it's done — green.
+	assert.Equal(t, ansiGreen, p.statusColor("ready (Completed)", "Job"))
+	assert.Equal(t, ansiGreen, p.statusColor("Completed", "Job"))
+	// Other workload kinds keep the steady-state semantics for Running.
+	assert.Equal(t, ansiGreen, p.statusColor("Running", "Deployment"))
+	assert.Equal(t, ansiGreen, p.statusColor("Running", "StatefulSet"))
+}
+
+func TestColorize_RespectsUseColor(t *testing.T) {
+	with := &progressPrinter{useColor: true}
+	assert.Equal(t, ansiGreen+"ready"+ansiReset, with.colorize("ready", ansiGreen))
+
+	without := &progressPrinter{useColor: false}
+	assert.Equal(t, "ready", without.colorize("ready", ansiGreen),
+		"colorize must be a no-op when useColor is false")
+}
+
+func TestDescribeChildStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		kd, attr string
+		want     string
+	}{
+		{"both empty", "", "", "unknown"},
+		{"attr only", "", "Running", "Running"},
+		{"kd only", "ready", "", "ready"},
+		{"unknown plus attr drops unknown", "unknown", "ContainerCreating", "ContainerCreating"},
+		{"both meaningful", "ready", "Running", "ready (Running)"},
+		{"failed plus error", "failed", "CrashLoopBackOff", "failed (CrashLoopBackOff)"},
+		// Pre-ready phases override kubedog's ResourceStatus — kubedog's
+		// internal flag can briefly disagree with the kubelet-visible phase
+		// and we surface the phase as the source of truth for display.
+		{"ready vs ContainerCreating shows phase", "ready", "ContainerCreating", "ContainerCreating"},
+		{"ready vs Pending shows phase", "ready", "Pending", "Pending"},
+		{"ready vs PodInitializing shows phase", "ready", "PodInitializing", "PodInitializing"},
+		{"ready vs Init:1/3 shows phase", "ready", "Init:1/3", "Init:1/3"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, describeChildStatus(tc.kd, tc.attr))
+		})
+	}
+}
+
+func TestIsPreReadyPodPhase(t *testing.T) {
+	for _, phase := range []string{"Pending", "ContainerCreating", "PodInitializing", "ContainerStarting", "Init:0/3", "Init:2/5"} {
+		assert.True(t, isPreReadyPodPhase(phase), "%q should be a pre-ready phase", phase)
+	}
+	for _, phase := range []string{"Running", "Completed", "Terminating", "Error", "", "CrashLoopBackOff"} {
+		assert.False(t, isPreReadyPodPhase(phase), "%q should not be a pre-ready phase", phase)
+	}
+}
+
+func TestIsFailingPodPhase(t *testing.T) {
+	for _, p := range []string{"Error", "Failed", "CrashLoopBackOff", "ImagePullBackOff",
+		"ErrImagePull", "OOMKilled", "CreateContainerConfigError", "CreateContainerError",
+		"InvalidImageName"} {
+		assert.True(t, isFailingPodPhase(p), "%q should be classified as failing", p)
+	}
+	for _, p := range []string{"Running", "Completed", "ContainerCreating", "Pending",
+		"PodInitializing", "Terminating", ""} {
+		assert.False(t, isFailingPodPhase(p), "%q should not be classified as failing", p)
+	}
+}
+
+func TestShortKind(t *testing.T) {
+	assert.Equal(t, "deploy", shortKind("Deployment"))
+	assert.Equal(t, "sts", shortKind("StatefulSet"))
+	assert.Equal(t, "ds", shortKind("DaemonSet"))
+	assert.Equal(t, "job", shortKind("Job"))
+	assert.Equal(t, "canary", shortKind("Canary"))
+	assert.Equal(t, "pvc", shortKind("PersistentVolumeClaim"))
+	// Anything else lowercases for safety.
+	assert.Equal(t, "pod", shortKind("Pod"))
+}
+
+func TestFlushProgress_HidesStaleReadyPodWithoutAttr(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	// New pod that kubedog has observed (status attr set).
+	addPodChild(t, ts, "app-new-xyz", "ns", statestore.ResourceStatusReady, "Running")
+	// Stale leftover from previous ReplicaSet: ready but no Status attribute.
+	addPodChild(t, ts, "app-old-abc", "ns", statestore.ResourceStatusReady, "")
+
+	taskC := kdutil.NewConcurrent(ts)
+	taskStore.RWTransaction(func(s *statestore.TaskStore) { s.AddReadinessTaskState(taskC) })
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true /*skipLogs*/, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Deployment/app")
+	assert.Contains(t, out, "ready (1/1)", "ready count must be capped to required replicas")
+	assert.Contains(t, out, "Pod/app-new-xyz")
+	assert.NotContains(t, out, "app-old-abc", "stale ready pod without status attribute must be hidden")
+}
+
+func TestFlushProgress_PreReadyPhaseAttributeOverridesReady(t *testing.T) {
+	// Recreate the dyntracker discrepancy the operator hit: kubedog's
+	// ResourceStatus is Ready, but the status attribute still says
+	// ContainerCreating from an earlier event. We surface the phase as the
+	// truth — the row reads "ContainerCreating" cleanly, and the parent
+	// task's count doesn't inflate to (1/1) for a pod that hasn't actually
+	// reached ready yet.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("system-manager", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	addPodChild(t, ts, "system-manager-pod", "ns", statestore.ResourceStatusReady, "ContainerCreating")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Pod/system-manager-pod")
+	assert.Contains(t, out, "ContainerCreating",
+		"pod row must show the kubelet-visible phase")
+	assert.NotContains(t, out, "ready (ContainerCreating)",
+		"row must not show the contradictory ready+ContainerCreating combination")
+	assert.Contains(t, out, "progressing (0/1)",
+		"parent count must reflect that the pod isn't yet ready despite kubedog's ResourceStatus")
+	assert.NotContains(t, out, "ready (1/1)",
+		"parent must not claim ready while the pod is still ContainerCreating")
+}
+
+func TestFlushProgress_KeepsNamespacesWhenReleaseSpansMultiple(t *testing.T) {
+	// A release that creates workloads in two namespaces must keep the full
+	// Kind/ns/name on every row — there's no single namespace to elide.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	a := statestore.NewReadinessTaskState("app-a", "ns-one", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	b := statestore.NewReadinessTaskState("app-b", "ns-two", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(a))
+		s.AddReadinessTaskState(kdutil.NewConcurrent(b))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+	out := capturedOutput(buf, mu)
+
+	assert.Contains(t, out, "Deployment/ns-one/app-a")
+	assert.Contains(t, out, "Deployment/ns-two/app-b")
+	assert.NotContains(t, out, "in 'ns-one'",
+		"multi-namespace release must not pick one namespace for the header")
+	assert.NotContains(t, out, "in 'ns-two'", "header must not pick a single namespace")
+}
+
+func TestFlushProgress_HidesEmptyNameChildPlaceholder(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	ts := statestore.NewReadinessTaskState("init", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	addPodChild(t, ts, "real-pod", "ns", statestore.ResourceStatusReady, "Running")
+	// Placeholder child that dyntracker can insert when it has observed a
+	// reference to a pod but hasn't ingested the object yet — empty name,
+	// no status, no attributes. It must not be rendered.
+	addPodChild(t, ts, "", "ns", statestore.ResourceStatusUnknown, "")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Pod/real-pod")
+	// "Pod/ns/" with no name suffix is the visible footprint of the
+	// placeholder. It must not appear in the rendered output.
+	assert.NotContains(t, out, "Pod/ ",
+		"empty-name placeholder child must not be rendered")
+	assert.NotContains(t, out, "Pod/\n",
+		"empty-name placeholder child must not be rendered as a trailing row")
+}
+
+func TestFlushProgress_HeaderUsesReleaseName(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Release 'vray' progress (",
+		"header must use release name when set and include elapsed time")
+	assert.Contains(t, out, "==========",
+		"header must include divider that survives CI newline stripping")
+	assert.NotContains(t, out, "Release 'vray' progress:",
+		"header must not carry a trailing colon")
+}
+
+func TestFlushProgress_HeaderFallsBackWithoutReleaseName(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "kubedog progress (")
+	assert.NotContains(t, out, "Release ''", "empty release name must not produce 'Release '' progress'")
+	assert.NotContains(t, out, "kubedog progress:", "header must not carry a trailing colon")
+}
+
+func TestFlushProgress_NestingAndAlignment(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	ts := statestore.NewReadinessTaskState("svc", "default", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 2)
+	addPodChild(t, ts, "svc-pod-aaa", "default", statestore.ResourceStatusReady, "Running")
+	addPodChild(t, ts, "svc-pod-bbb", "default", statestore.ResourceStatusUnknown, "ContainerCreating")
+
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.flushProgress()
+
+	out := capturedOutput(buf, mu)
+	require.Contains(t, out, "Deployment/svc")
+	require.Contains(t, out, "in 'default'",
+		"single-namespace release must surface the namespace in the header")
+	require.Contains(t, out, "  • Pod/svc-pod-aaa", "pod rows must be indented with a bullet")
+	require.Contains(t, out, "Running")
+	require.Contains(t, out, "ContainerCreating")
+	// readyChildren counts only Ready pods; one of two is ready.
+	require.Contains(t, out, "progressing (1/2)")
+}
+
+func TestFlushProgress_RespectsGateAndSkip(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	gated := statestore.NewReadinessTaskState("gated", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	skipped := statestore.NewReadinessTaskState("skipped", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	visible := statestore.NewReadinessTaskState("visible", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, visible, 1)
+	addPodChild(t, visible, "visible-aaa", "ns", statestore.ResourceStatusReady, "Running")
+
+	for _, ts := range []*statestore.ReadinessTaskState{gated, skipped, visible} {
+		taskStore.RWTransaction(func(s *statestore.TaskStore) {
+			s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+		})
+	}
+
+	gates := newGateStatuses()
+	gates.set(BaselineKey("deploy", "ns", "gated"), "waiting for update (uid=abc gen=2)")
+	skips := newSkippedKeys()
+	skips.add(kdutil.ResourceID("skipped", "ns", deploymentGVK))
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, gates, skips, false)
+	p.flushProgress()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Deployment/gated")
+	assert.Contains(t, out, "waiting for update (uid=abc gen=2)")
+	assert.NotContains(t, out, "Deployment/skipped", "skipped tasks must be omitted")
+	assert.Contains(t, out, "Deployment/visible")
+	assert.Contains(t, out, "ready (1/1)")
+}
+
+func TestFlushLogs_FailedOnlyMode_GatesUnchanged(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// Job with two pods: one Completed (success), one Error (failed).
+	ts := statestore.NewReadinessTaskState("init", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	addPodChild(t, ts, "init-good", "ns", statestore.ResourceStatusReady, "Completed")
+	addPodChild(t, ts, "init-bad", "ns", statestore.ResourceStatusReady, "Error")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	// Both pods have log lines accumulated in the log store.
+	addPodLogs(t, logStore, "init-good", "good line 1", "good line 2")
+	addPodLogs(t, logStore, "init-bad", "bad line 1", "panic: boom")
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false /*skipLogs*/, true /*failedLogsOnly*/, newGateStatuses(), newSkippedKeys(), false)
+	p.flushLogs()
+
+	out := capturedOutput(buf, mu)
+	assert.NotContains(t, out, "good line", "successful-pod logs must be hidden in failed-only mode")
+	assert.Contains(t, out, "bad line 1")
+	assert.Contains(t, out, "panic: boom")
+	assert.Contains(t, out, "Pod/init-bad")
+}
+
+func TestFlushLogs_FailedOnlyMode_DoesNotAdvanceCursorForSuccess(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// Pod is currently classified as successful (Completed) — its lines must
+	// stay queued. When the pod transitions to a failing phase, all lines
+	// since the start should be emitted.
+	ts := statestore.NewReadinessTaskState("flaky", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	addPodChild(t, ts, "flaky-pod", "ns", statestore.ResourceStatusReady, "Completed")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+	addPodLogs(t, logStore, "flaky-pod", "early line A", "early line B")
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, true, newGateStatuses(), newSkippedKeys(), false)
+
+	p.flushLogs()
+	assert.NotContains(t, capturedOutput(buf, mu), "early line",
+		"flushLogs must skip successful pods in failed-only mode")
+
+	// Pod transitions to failing — re-flush should now drain the buffered lines.
+	flipPodPhase(t, ts, "flaky-pod", "ns", "CrashLoopBackOff")
+	p.flushLogs()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "early line A", "lines accumulated before failure must be emitted on flip")
+	assert.Contains(t, out, "early line B")
+}
+
+func TestFlushLogs_AllPodsMode_EmitsEverything(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	ts := statestore.NewReadinessTaskState("init", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	addPodChild(t, ts, "init-good", "ns", statestore.ResourceStatusReady, "Completed")
+	addPodChild(t, ts, "init-bad", "ns", statestore.ResourceStatusReady, "Error")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+	addPodLogs(t, logStore, "init-good", "good line 1")
+	addPodLogs(t, logStore, "init-bad", "bad line 1")
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false /*failedLogsOnly=off*/, newGateStatuses(), newSkippedKeys(), false)
+	p.flushLogs()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "good line 1")
+	assert.Contains(t, out, "bad line 1")
+}
+
+func TestFlushLogs_HeaderDedupedAcrossFlushes(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	addPodChild(t, ts, "app-pod", "ns", statestore.ResourceStatusReady, "Running")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false)
+
+	addPodLogs(t, logStore, "app-pod", "line 1", "line 2")
+	p.flushLogs()
+	addPodLogs(t, logStore, "app-pod", "line 3", "line 4")
+	p.flushLogs()
+
+	out := capturedOutput(buf, mu)
+	// The header should appear exactly once — second flush is a continuation
+	// of the same source.
+	assert.Equal(t, 1, strings.Count(out, "Logs Pod/app-pod container/main"),
+		"continuation flushes must not re-emit the per-source header")
+	assert.NotContains(t, out, "Logs Pod/app-pod container/main:",
+		"log header must not carry a trailing colon")
+	assert.Contains(t, out, "line 1")
+	assert.Contains(t, out, "line 4")
+}
+
+func TestHeaderDivider_FormatsBothBorders(t *testing.T) {
+	assert.Equal(t, "========== title: ==========", HeaderDivider("title:"))
+}
+
+func TestStyleWarning(t *testing.T) {
+	// No-op when useColor is false so non-TTY consumers see clean bytes.
+	assert.Equal(t, "watch out", StyleWarning("watch out", false))
+
+	// With color, wrap in bold+yellow and reset. Match prefix/suffix exactly
+	// so accidental style drift surfaces as a test failure.
+	styled := StyleWarning("watch out", true)
+	assert.True(t, strings.HasPrefix(styled, ansiBold+ansiYellow),
+		"styled warning must start with bold+yellow, got %q", styled)
+	assert.True(t, strings.HasSuffix(styled, ansiReset),
+		"styled warning must end with reset, got %q", styled)
+	assert.Contains(t, styled, "watch out")
+}
+
+func TestHeaderDividerStyled(t *testing.T) {
+	// Without color the styled helper must be byte-identical to HeaderDivider —
+	// CI logs and non-TTY consumers should see no ANSI noise.
+	assert.Equal(t, HeaderDivider("title:"), HeaderDividerStyled("title:", false))
+
+	// With color enabled, the divider is wrapped in bold + blue and ends with
+	// a single reset. We match the exact prefix/suffix so future drift in the
+	// style is a deliberate change.
+	styled := HeaderDividerStyled("title:", true)
+	assert.True(t, strings.HasPrefix(styled, ansiBold+ansiBlue),
+		"styled header must start with bold+blue, got %q", styled)
+	assert.True(t, strings.HasSuffix(styled, ansiReset),
+		"styled header must end with reset, got %q", styled)
+	assert.Contains(t, styled, HeaderDivider("title:"),
+		"styled header must contain the plain divider unchanged")
+}
+
+func TestFlushHeartbeat_EmitsWhenIdleWithInFlight(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// One progressing Deployment with a not-yet-ready pod — the heartbeat
+	// should pick this up as a single in-flight task.
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	addPodChild(t, ts, "app-pending", "ns", statestore.ResourceStatusUnknown, "ContainerCreating")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	// Simulate the silent gap: pretend we last printed long enough ago that
+	// the heartbeat ticker would now fire.
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "Release 'vray' in 'ns' still tracking",
+		"heartbeat header must include release name + namespace when all tasks share one")
+	assert.Contains(t, out, "1 progressing (Deployment/app)",
+		"heartbeat must report the count and name of progressing resources")
+	assert.Regexp(t, `\[\d\d:\d\d:\d\d\]`, out,
+		"heartbeat must be prefixed with a wall-clock timestamp")
+}
+
+func TestFlushHeartbeat_LabelsGatedTasksAsWaiting(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// One task that is mid-rollout, and one that's still gated by the
+	// freshness gate (helm hasn't gotten to it yet) — the heartbeat must
+	// distinguish them so operators know what's running vs what's queued.
+	progressing := statestore.NewReadinessTaskState("running-job", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, progressing, 1)
+	addPodChild(t, progressing, "running-job-pod", "ns", statestore.ResourceStatusUnknown, "Running")
+
+	queued := statestore.NewReadinessTaskState("queued-job", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, queued, 1)
+
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(progressing))
+		s.AddReadinessTaskState(kdutil.NewConcurrent(queued))
+	})
+
+	gates := newGateStatuses()
+	gates.set(BaselineKey("job", "ns", "queued-job"), "waiting for update (uid=abc gen=1)")
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "1 progressing (Job/running-job)",
+		"progressing task must be listed by name with the progressing count")
+	assert.Contains(t, out, "1 waiting",
+		"freshness-gated task must appear as a waiting count")
+	assert.NotContains(t, out, "queued-job",
+		"waiting tasks must be summarized by count, not listed by name (keeps the line one-row in CI)")
+}
+
+func TestFlushHeartbeat_ProgressingItemsListedBeforeWaiting(t *testing.T) {
+	// Two waiting items with names that sort before the progressing one —
+	// without the gated-aware sort, the alphabetical order would push the
+	// progressing item past the cap or just bury it. We care most about
+	// what's actually running, so progressing must always render first.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	for _, name := range []string{"aaa-queued", "bbb-queued"} {
+		ts := statestore.NewReadinessTaskState(name, "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+		setRequiredReplicas(t, ts, 1)
+		taskStore.RWTransaction(func(s *statestore.TaskStore) {
+			s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+		})
+	}
+	running := statestore.NewReadinessTaskState("zzz-running", "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, running, 1)
+	addPodChild(t, running, "zzz-running-pod", "ns", statestore.ResourceStatusUnknown, "Running")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(running))
+	})
+
+	gates := newGateStatuses()
+	gates.set(BaselineKey("job", "ns", "aaa-queued"), "waiting for update (uid=a gen=1)")
+	gates.set(BaselineKey("job", "ns", "bbb-queued"), "waiting for update (uid=b gen=1)")
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+
+	out := capturedOutput(buf, mu)
+	runningIdx := strings.Index(out, "1 progressing (Job/zzz-running)")
+	waitingIdx := strings.Index(out, "2 waiting")
+	require.Positive(t, runningIdx, "progressing group must appear")
+	require.Positive(t, waitingIdx, "waiting group must appear")
+	assert.Less(t, runningIdx, waitingIdx,
+		"progressing group must precede the waiting count so the head of the line surfaces what's actually running")
+	assert.NotContains(t, out, "aaa-queued", "waiting items must not be listed by name")
+	assert.NotContains(t, out, "bbb-queued", "waiting items must not be listed by name")
+}
+
+func TestFlushHeartbeat_AllWaitingShowsCountOnly(t *testing.T) {
+	// Early in a rollout every task can be gated (helm hasn't gotten there
+	// yet). The heartbeat must still emit so operators see "yes, we're
+	// alive, just queued up" — but with only the waiting count, no names.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	gates := newGateStatuses()
+	for _, name := range []string{"q1", "q2", "q3"} {
+		ts := statestore.NewReadinessTaskState(name, "ns", jobGVK, statestore.ReadinessTaskStateOptions{})
+		setRequiredReplicas(t, ts, 1)
+		taskStore.RWTransaction(func(s *statestore.TaskStore) {
+			s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+		})
+		gates.set(BaselineKey("job", "ns", name), "waiting for update")
+	}
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+	out := capturedOutput(buf, mu)
+
+	assert.Contains(t, out, "3 waiting")
+	assert.NotContains(t, out, "progressing",
+		"if nothing is progressing the line must not show a zero-count progressing group")
+}
+
+func TestFlushHeartbeat_DoesNotUpdateLastEmit(t *testing.T) {
+	// Regression: when flushHeartbeat updated p.lastEmit on emit, the next
+	// scheduled ticker tick (which fires on a fixed wall-clock interval from
+	// ticker creation) landed microseconds short of heartbeatInterval after
+	// our processing delay — the time.Since check then suppressed every
+	// other tick, producing an effective 4-minute cadence instead of 2.
+	// Subsequent heartbeats during a silent stretch must rely on p.lastEmit
+	// staying pinned to the previous change-driven flush.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	addPodChild(t, ts, "app-pending", "ns", statestore.ResourceStatusUnknown, "ContainerCreating")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, _, _ := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	pinned := time.Now().Add(-3 * heartbeatInterval)
+	p.lastEmit = pinned
+
+	p.flushHeartbeat()
+
+	assert.Equal(t, pinned, p.lastEmit,
+		"flushHeartbeat must not touch lastEmit — that's what caused the every-other-tick suppression")
+}
+
+func TestFlushHeartbeat_SuppressedWhenRecentEmit(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	setRequiredReplicas(t, ts, 1)
+	addPodChild(t, ts, "app-pending", "ns", statestore.ResourceStatusUnknown, "ContainerCreating")
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	// lastEmit is current — we just printed something, so the heartbeat
+	// should stay quiet.
+	p.lastEmit = time.Now()
+
+	p.flushHeartbeat()
+
+	assert.Empty(t, capturedOutput(buf, mu),
+		"heartbeat must not emit while printer is actively chatty")
+}
+
+func TestFlushHeartbeat_SuppressedWhenAllReady(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// Set the task status explicitly to Ready. kubedog's default condition
+	// function requires 1+replicas resources to be Ready (root + children),
+	// so it's simpler and more direct to assert the post-rollout state by
+	// pinning the task status — that's how kubedog itself flips a task to
+	// Ready at the end of a successful track.
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	ts.SetStatus(statestore.ReadinessTaskStatusReady)
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+
+	assert.Empty(t, capturedOutput(buf, mu),
+		"heartbeat must not emit when every tracked task is Ready")
+}
+
+func TestFlushHeartbeat_CapsResourceListAndShowsOverflow(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+
+	// Five progressing tasks — heartbeat caps the display at 3 and reports
+	// the remaining count.
+	for _, name := range []string{"a", "b", "c", "d", "e"} {
+		ts := statestore.NewReadinessTaskState(name, "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+		setRequiredReplicas(t, ts, 1)
+		addPodChild(t, ts, name+"-pod", "ns", statestore.ResourceStatusUnknown, "ContainerCreating")
+		taskStore.RWTransaction(func(s *statestore.TaskStore) {
+			s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+		})
+	}
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
+
+	p.flushHeartbeat()
+	out := capturedOutput(buf, mu)
+
+	assert.Contains(t, out, "5 progressing")
+	assert.Contains(t, out, "Deployment/a")
+	assert.Contains(t, out, "Deployment/c")
+	assert.Contains(t, out, "+2", "overflow count must indicate how many progressing items were hidden")
+	assert.NotContains(t, out, "Deployment/e",
+		"progressing items beyond the cap must be summarized by overflow count, not listed")
+}
+
+func TestProgressPrinter_FullRun_CancelsAndDrainsOnContextDone(t *testing.T) {
+	// Smoke test that the run loop terminates cleanly on context cancel.
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	logger, _, _ := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	returned := make(chan struct{})
+	go func() {
+		p.run(ctx, done)
+		close(returned)
+	}()
+	cancel()
+	select {
+	case <-returned:
+	case <-time.After(2 * time.Second):
+		t.Fatal("printer.run did not return after ctx cancel")
+	}
+}
+
+// addPodLogs appends log lines to a pod's ResourceLogs entry in the log
+// store, creating the entry if needed. Uses an incrementing timestamp so
+// the printer's chronological sort is deterministic.
+func addPodLogs(t *testing.T, logStore *kdutil.Concurrent[*logstore.LogStore], podName string, lines ...string) {
+	t.Helper()
+	logStore.RWTransaction(func(s *logstore.LogStore) {
+		var existing *kdutil.Concurrent[*logstore.ResourceLogs]
+		for _, rlC := range s.ResourcesLogs() {
+			rlC.RTransaction(func(rl *logstore.ResourceLogs) {
+				if rl.Name() == podName && rl.Namespace() == "ns" {
+					existing = rlC
+				}
+			})
+			if existing != nil {
+				break
+			}
+		}
+		if existing == nil {
+			existing = kdutil.NewConcurrent(logstore.NewResourceLogs(podName, "ns", podGVK))
+			s.AddResourceLogs(existing)
+		}
+		base := time.Unix(0, 0)
+		existing.RWTransaction(func(rl *logstore.ResourceLogs) {
+			for i, line := range lines {
+				rl.AddLogLine(line, "container/main", base.Add(time.Duration(i)*time.Millisecond))
+			}
+		})
+	})
+}
+
+// flipPodPhase mutates an existing pod child's Status attribute in place.
+// Used to simulate transitions like "Completed" -> "CrashLoopBackOff".
+func flipPodPhase(t *testing.T, ts *statestore.ReadinessTaskState, podName, namespace, newPhase string) {
+	t.Helper()
+	rs := ts.ResourceState(podName, namespace, podGVK)
+	rs.RWTransaction(func(rs *statestore.ResourceState) {
+		// Find existing Status attribute and rewrite its Value, if it exists.
+		for _, attr := range rs.Attributes() {
+			if attr.Name() == statestore.AttributeNameStatus {
+				if a, ok := attr.(*statestore.Attribute[string]); ok {
+					a.Value = newPhase
+					return
+				}
+			}
+		}
+		// Otherwise add one.
+		rs.AddAttribute(statestore.NewAttribute(statestore.AttributeNameStatus, newPhase))
+	})
+}

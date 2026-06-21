@@ -92,6 +92,8 @@ type ApplyConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackFailedLogs() bool
+	HelmStuckGrace() int
 	TrackFailOnError() bool
 
 	Description() string
@@ -133,7 +135,12 @@ type SyncConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackFailedLogs() bool
+	HelmStuckGrace() int
 	TrackFailOnError() bool
+
+	Color() bool
+	NoColor() bool
 
 	Description() string
 
@@ -193,6 +200,7 @@ type DestroyConfigProvider interface {
 	SkipCharts() bool
 	DeleteWait() bool
 	DeleteTimeout() int
+	NoColor() bool
 
 	interactive
 	loggingConfig

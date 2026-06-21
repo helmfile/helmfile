@@ -61,6 +61,11 @@ type SyncOptions struct {
 	TrackTimeout int
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs bool
+	// TrackFailedLogs streams logs only for pods that enter a failed state.
+	TrackFailedLogs bool
+	// HelmStuckGrace, when > 0, enables the helm-killer safety valve. See
+	// ReleaseSpec.HelmStuckGrace for details. Value is in seconds.
+	HelmStuckGrace int
 	// TrackFailOnError controls whether kubedog tracking failures cause a non-zero exit code
 	TrackFailOnError bool
 	// Description is the description that will be passed to helm upgrade --description
@@ -238,6 +243,16 @@ func (t *SyncImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (t *SyncImpl) TrackLogs() bool {
 	return t.SyncOptions.TrackLogs
+}
+
+// TrackFailedLogs returns the track-failed-logs flag.
+func (t *SyncImpl) TrackFailedLogs() bool {
+	return t.SyncOptions.TrackFailedLogs
+}
+
+// HelmStuckGrace returns the helm-stuck-grace value (seconds, 0 = disabled).
+func (t *SyncImpl) HelmStuckGrace() int {
+	return t.SyncOptions.HelmStuckGrace
 }
 
 // TrackFailOnError returns whether kubedog tracking failures should cause a non-zero exit code.

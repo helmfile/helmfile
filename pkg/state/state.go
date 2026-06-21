@@ -39,6 +39,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
+	"github.com/helmfile/helmfile/pkg/kubedog"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -254,6 +255,10 @@ type HelmSpec struct {
 	ServerSide *string `yaml:"serverSide,omitempty"`
 	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
 	TrackMode string `yaml:"trackMode,omitempty"`
+	// HelmStuckGrace, when > 0, enables the helmfile-side safety-valve
+	// helm-killer for releases using --track-mode kubedog. See
+	// ReleaseSpec.HelmStuckGrace for semantics.
+	HelmStuckGrace int `yaml:"helmStuckGrace,omitempty"`
 }
 
 // RepositorySpec that defines values for a helm repo
@@ -487,6 +492,17 @@ type ReleaseSpec struct {
 	TrackTimeout *int `yaml:"trackTimeout,omitempty"`
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs *bool `yaml:"trackLogs,omitempty"`
+	// TrackFailedLogs streams logs only for pods that enter a failed state
+	// (CrashLoopBackOff, Error, etc.). Pods that succeed produce no output.
+	// Has no effect when TrackLogs is true (full streaming wins).
+	TrackFailedLogs *bool `yaml:"trackFailedLogs,omitempty"`
+	// HelmStuckGrace, when > 0, enables the safety-valve helm-killer for
+	// kubedog tracking: if the cluster confirms every tracked resource has
+	// converged but the helm subprocess is still running, helmfile waits
+	// this many seconds before sending SIGINT to helm. Targets the helm v4
+	// hook waiter wedge that --track-timeout would otherwise resolve only
+	// after hours. Zero (or absent) disables the killer.
+	HelmStuckGrace *int `yaml:"helmStuckGrace,omitempty"`
 	// TrackKinds is a whitelist of resource kinds to track
 	TrackKinds []string `yaml:"trackKinds,omitempty"`
 	// SkipKinds is a blacklist of resource kinds to skip tracking
@@ -973,8 +989,12 @@ type SyncOpts struct {
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
+	TrackFailedLogs      bool
+	HelmStuckGrace       int
 	TrackFailOnError     bool
 	Description          string
+	Color                bool
+	NoColor              bool
 }
 
 type SyncOpt interface{ Apply(*SyncOpts) }
@@ -1204,23 +1224,60 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
 					}
 				} else {
-					if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+					trackHandle, trackStarted := st.startBackgroundKubedogTracking(gocontext.Background(), release, helm, opts)
+					// trackHandle.Helm is a logger-scoped helm clone that
+					// captures output to an in-memory buffer while tracking is
+					// active. When tracking isn't running it's the original
+					// helm — either path is safe to call directly.
+					releaseHelm := trackHandle.Helm
+					helmErr := releaseHelm.SyncRelease(context, release.Name, chart, release.Namespace, flags...)
+					if helmErr != nil && trackStarted && trackHandle.WasHelmKilled() {
+						// The kubedog safety valve sent SIGINT to helm because
+						// the cluster confirmed convergence while helm was
+						// wedged on its hook waiter. Treat the resulting helm
+						// error as success and proceed via the post-helm-done
+						// path.
+						helmErr = nil
+					}
+					if helmErr != nil {
+						if trackStarted {
+							trackHandle.Cancel()
+							_ = trackHandle.Wait()
+						} else {
+							trackHandle.FlushBufferedHelmOutput()
+						}
 						m.Lock()
 						affectedReleases.Failed = append(affectedReleases.Failed, release)
 						m.Unlock()
-						relErr = newReleaseFailedError(release, err)
+						relErr = newReleaseFailedError(release, helmErr)
 					} else {
+						if trackStarted {
+							trackHandle.NotifyHelmDone()
+						}
 						m.Lock()
 						affectedReleases.Upgraded = append(affectedReleases.Upgraded, release)
 						m.Unlock()
-						installedVersion, err := st.getDeployedVersion(context, helm, release)
-						if err != nil { // err is not really impacting so just log it
-							st.logger.Debugf("getting deployed release version failed: %v", err)
-						} else {
-							release.installedVersion = installedVersion
+						// Skip the deployed-version probe when helm was killed
+						// by the safety valve — releaseHelm's context is now
+						// canceled so the probe would just fail noisily, and
+						// the release secret is likely in pending-install
+						// state anyway.
+						if !(trackStarted && trackHandle.WasHelmKilled()) {
+							installedVersion, err := st.getDeployedVersion(context, releaseHelm, release)
+							if err != nil { // err is not really impacting so just log it
+								st.logger.Debugf("getting deployed release version failed: %v", err)
+							} else {
+								release.installedVersion = installedVersion
+							}
 						}
 
-						if trackErr := st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts); trackErr != nil {
+						var trackErr *ReleaseError
+						if trackStarted {
+							trackErr = trackHandle.Wait()
+						} else {
+							trackErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+						}
+						if trackErr != nil {
 							m.Lock()
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							m.Unlock()
@@ -4868,10 +4925,13 @@ func hideChartCredentials(chartCredentials string) (string, error) {
 	return modifiedURL, nil
 }
 
-// DisplayAffectedReleases logs the upgraded, deleted and in error releases
-func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
+// DisplayAffectedReleases logs the upgraded, deleted and in error releases.
+// useColor controls whether the section headers carry the bold+blue style we
+// use elsewhere for visual section breaks; pass false (e.g. when --no-color is
+// set) for clean output in non-TTY consumers.
+func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, useColor bool) {
 	if len(ar.Upgraded) > 0 {
-		logger.Info("\nUPDATED RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Updated Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -4893,7 +4953,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info(tbl.String())
 	}
 	if len(ar.Reinstalled) > 0 {
-		logger.Info("\nREINSTALLED RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Reinstalled Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -4915,7 +4975,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info(tbl.String())
 	}
 	if len(ar.Deleted) > 0 {
-		logger.Info("\nDELETED RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Deleted Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
@@ -4930,7 +4990,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info(tbl.String())
 	}
 	if len(ar.Failed) > 0 {
-		logger.Info("\nFAILED RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Failed Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -4947,7 +5007,7 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger) {
 		logger.Info(tbl.String())
 	}
 	if len(ar.DeleteFailed) > 0 {
-		logger.Info("\nFAILED TO DELETE RELEASES:")
+		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Failed to Delete Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},

@@ -20,7 +20,7 @@ GROUP RELEASES
 processing releases in group 1/2: default//bar
 processing releases in group 2/2: default//foo
 
-DELETED RELEASES:
+[1m[34m========== Deleted Releases ==========[0m
 NAME   NAMESPACE   DURATION
 bar                      0s
 foo                      0s

@@ -5,7 +5,6 @@ Downloading raw from repo oci://localhost:$REGISTRY_PORT/myrepo
 Pulled: localhost:$REGISTRY_PORT/myrepo/raw:0.1.0
 Digest: sha256:$DIGEST
 Deleting outdated charts
-
 Templating release=foo, chart=$WD/testdata/charts/raw-0.1.0
 ---
 # Source: generated-by-postrender-1.yaml
