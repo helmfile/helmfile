@@ -533,7 +533,7 @@ func requiresPlainHTTPForOCI(t *testing.T) bool {
 			return true
 		}
 		// Helm 3.21+ requires --plain-http for HTTP-only OCI registries
-		// Version format: v3.21.1+g8d45f12
+		// Version format: v3.21.2+g8d45f12
 		if len(version) > 4 && version[0] == 'v' && version[1] == '3' && version[2] == '.' {
 			rest := version[3:] // "21.1+g..." or "10.2+g..."
 			dotIdx := strings.Index(rest, ".")
