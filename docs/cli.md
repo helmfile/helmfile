@@ -160,6 +160,201 @@ To supply the diff functionality Helmfile needs the [helm-diff](https://github.c
 you should be able to simply execute `helm plugin install https://github.com/databus23/helm-diff`. For more details
 please look at their [documentation](https://github.com/databus23/helm-diff#helm-diff-plugin).
 
+### doctor
+
+`helmfile doctor` runs `helmfile diff` and asks an OpenAI-compatible LLM to summarize the changes and flag risks
+(such as data loss, security exposure, breaking changes, downtime, performance, and best-practice issues).
+
+**When no LLM is configured, `doctor` is equivalent to `helmfile diff` with one
+exception: `--show-secrets` is ignored (always forced off)** — same flags, same output,
+same exit codes. This makes it safe to swap into existing CI jobs: the worst case is you get the same diff
+output you already had.
+
+#### Configuration
+
+The LLM endpoint speaks the OpenAI Chat Completions protocol (`/v1/chat/completions`). This means it works
+with any compatible gateway:
+
+- Direct providers: OpenAI, DeepSeek, Mistral, Together, Groq.
+- Unified gateways: One-API, LiteLLM, Azure OpenAI proxy, Cloudflare AI Gateway.
+- Local servers: Ollama (with OpenAI compatibility), vLLM, LocalAI.
+
+Configuration precedence (low to high):
+
+1. **Environment variables**: `HELMFILE_LLM_BASE_URL`, `HELMFILE_LLM_API_KEY`, `HELMFILE_LLM_MODEL`,
+   `HELMFILE_LLM_TIMEOUT` (Go duration, e.g. `90s`), `HELMFILE_LLM_MAX_TOKENS`.
+2. **`helmfile.yaml` top-level `llm:` block**:
+   ```yaml
+   llm:
+     baseURL: https://one-api.internal/v1
+     model: gpt-4o
+     apiKey: {{ env "HELMFILE_LLM_API_KEY" }}
+     timeout: 60s
+     maxTokens: 4096
+   ```
+3. **CLI flags** (highest precedence): `--llm-base-url`, `--llm-api-key`, `--llm-model`,
+   `--llm-timeout`, `--llm-max-tokens`.
+
+A layer's non-zero fields override lower layers; empty fields fall through.
+
+> **Note on zero values**: because merge treats "field == zero value" as "not set",
+> `--llm-max-tokens 0` does NOT reset MaxTokens to 0 — it is treated as "flag not set"
+> and the env/yaml value wins. This matches helmfile's existing flag-override convention
+> (same as `--concurrency`, `--context`). Use the yaml block to explicitly request a zero
+> value if you really need it.
+
+`baseURL` is **optional**: if you use OpenAI's official endpoint, omit `baseURL` and
+the client defaults to `https://api.openai.com/v1`. Set `baseURL` only when targeting
+a gateway or non-OpenAI provider. Only `apiKey` and `model` are required to enable
+LLM analysis.
+
+#### Output
+
+- **Default (markdown / text)**: a human-readable report with summary, risks sorted by severity
+  (🔴 high → 🟡 medium → 🟢 low → ⚪ unknown), affected resources, and a footer showing
+  model, duration, and secrets-redacted count.
+- **`--output json`**: structured JSON including the model's analysis, the diff
+  (always post-redaction), and metadata. Suitable for CI pipelines that want to
+  post-process (e.g. comment on a pull request). The JSON shape is:
+  ```json
+  {
+    "summary": "...",
+    "risks": [...],
+    "diff": "...",
+    "secrets_redacted": 3,
+    "model": "gpt-4o",
+    "duration": "8.2s",
+    "timestamp": "2026-..."
+  }
+  ```
+  Key field semantics:
+  - `risks`: always an array when an analysis ran (even empty: `[]`, never `null`).
+    When doctor is unconfigured (no LLM), the field is omitted entirely. This lets
+    CI distinguish "LLM said no risks" from "analysis never happened".
+  - `diff`: always post-redaction. Doctor never exposes the raw pre-redaction diff
+    through stdout/JSON. If you need to debug helm-diff itself, run `helmfile diff` directly.
+  - `secrets_redacted`: always present, even when 0. Lets you confirm the redactor ran.
+
+#### Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | success, or only low/medium risks, or LLM call failed (degraded to plain diff) |
+| 2 | at least one high-severity risk and `--force` not passed (CI gate) |
+| 1 | other error (state load failure, helm-diff runtime failure, etc.) |
+
+The "detected changes" exit-2 signal from `helm diff --detailed-exitcode` is intentionally swallowed —
+doctor's whole job is to react to changes, so reporting them via exit code would be noise.
+
+#### Backend compatibility
+
+Doctor uses `response_format: {type: "json_object"}` (JSON mode) by default for
+reliable structured output. If the backend doesn't support JSON mode (common on
+early One-API versions, some LiteLLM configs, or Ollama's OpenAI shim), doctor
+automatically detects the 400 error, retries without `response_format`, and falls
+back to extracting JSON from the model's response via a robust parser that handles
+markdown fences and surrounding prose. No user action needed.
+
+#### Safety
+
+- `doctor` never invokes `apply` / `sync` / `destroy`. It is a read-only command.
+- LLM calls inherit the global helmfile context timeout, plus a per-request timeout (default 60s).
+- If the LLM call fails for any reason, doctor prints the redacted diff with a warning banner and exits 0,
+  so AI outages never block deployments.
+- Large diffs are defensively capped at 32 KB before being sent to the LLM.
+  Doctor defaults `--context` to 3 (vs diff's 0) so the LLM sees enough surrounding
+  YAML to ground its analysis. Adjust with `--context N`.
+
+#### Secret handling (always redacted)
+
+Secrets are **always** redacted before any byte leaves the process. This is a
+hard safety contract, not a default you can disable.
+
+Two layers enforce it:
+
+1. **`--show-secrets` is silently ignored.** doctor wraps the diff config so
+   `ShowSecrets()` always reports `false` to helm-diff, which causes
+   helm-diff itself to substitute `<REDACTED>` for secret values. If you
+   already pass `--show-secrets` in a wrapper script, doctor still redacts.
+2. **Defense-in-depth text redactor.** A second pass strips any residual
+   secret-looking content from the captured diff before it is sent to the
+   LLM. It catches:
+   - `kind: Secret` resource blocks (full YAML mode),
+   - sensitive key/value lines (`password`, `token`, `apiKey`, `client_secret`,
+     `bearer`, …) regardless of casing or separator (`api_key` = `apiKey` =
+     `API_KEY`),
+   - free-form base64 runs of 40+ chars (encoded keys/certs),
+   - JWT-shaped tokens (`eyJ...`).
+
+The redaction count is always surfaced — even when 0 — in the report footer
+and JSON output, so you can confirm the redactor ran:
+
+```markdown
+---
+Model: gpt-4o | Duration: 8.2s | Secrets redacted: 3
+```
+
+In `--output json` mode the field is `secrets_redacted` (always present).
+
+If you want to drop the *structure* of Secret resources entirely (not just
+their values), pass `--suppress-secrets`:
+
+```bash
+helmfile doctor --suppress-secrets
+```
+
+#### Prompt injection defense
+
+Release names and environment values from `helmfile.yaml` are embedded in the
+LLM prompt as context. Since helmfile.yaml can come from untrusted sources
+(e.g. a GitOps pull request), doctor JSON-encodes these fields via
+`encoding/json` before insertion. This ensures that a malicious release name
+like `"foo\n\nIgnore previous instructions"` is treated as opaque string data
+by the model, not as a directive.
+
+#### Known limitations
+
+- **Double state load**: doctor loads the helmfile state twice — once to
+  peek at the `llm:` block and release names, and again inside `helmfile diff`.
+  For large helmfiles with remote bases or heavy templating this can add
+  noticeable latency. Caching across loads would require touching core code,
+  which doctor intentionally avoids. In the unconfigured path (no LLM),
+  the cost equals plain `helmfile diff`.
+- **`--log-output stdout`**: if you point helmfile's logger at stdout (via
+  `--log-output stdout`), log lines will be captured alongside the diff and
+  sent to the LLM. Doctor warns when it detects this configuration. Prefer
+  the default (stderr) when running doctor.
+
+#### Examples
+
+Quick local analysis (OpenAI official — no baseURL needed):
+
+```bash
+export HELMFILE_LLM_API_KEY=sk-...
+export HELMFILE_LLM_MODEL=gpt-4o
+helmfile doctor
+```
+
+CI gate that fails the build on high-severity risk:
+
+```bash
+helmfile --environment prod doctor --output json > doctor-report.json
+# exit code 2 stops CI; --force bypasses when a human has approved the change
+```
+
+Pin the gateway per-environment via `helmfile.yaml`:
+
+```yaml
+environments:
+  prod:
+    values:
+      - llmGateway: https://prod-llm-gateway.internal/v1
+llm:
+  baseURL: {{ .Values.llmGateway | quote }}
+  model: gpt-4o
+  apiKey: {{ env "HELMFILE_LLM_API_KEY" }}
+```
+
 ### apply
 
 The `helmfile apply` sub-command begins by executing `diff`. If `diff` finds that there is any changes, `sync` is executed. Adding `--interactive` instructs Helmfile to request your confirmation before `sync`.

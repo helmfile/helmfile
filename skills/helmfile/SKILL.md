@@ -161,6 +161,7 @@ helmfile init                    # Initialize dependencies (helm, plugins)
 helmfile sync                    # Sync cluster state (helm upgrade --install)
 helmfile apply                   # Apply only when changes detected (diff + sync)
 helmfile diff                    # Show differences before applying
+helmfile doctor                  # AI-assisted diff analysis (summarize + flag risks)
 helmfile destroy                 # Uninstall all releases
 helmfile template                # Render manifests locally
 helmfile lint                    # Lint charts
@@ -177,6 +178,13 @@ helmfile show-dag                # Show release dependency graph (GROUP, RELEASE
 helmfile cache                   # Cache management
 helmfile create                  # Create a helmfile deployment project scaffold
 ```
+
+> **`helmfile doctor`** runs `helmfile diff` and asks an OpenAI-compatible LLM to
+> summarize the changes and flag risks (data loss, security, breaking changes, etc).
+> When no LLM is configured (`HELMFILE_LLM_API_KEY` / `HELMFILE_LLM_MODEL`), it
+> degrades to plain `helmfile diff`. Secrets are always redacted before LLM
+> transmission. Supports `--llm-base-url` / `--llm-model` / `--llm-api-key` flags
+> and a `llm:` block in `helmfile.yaml`. See `helmfile doctor --help` for details.
 
 ### Common Flags
 | Flag | Description |
