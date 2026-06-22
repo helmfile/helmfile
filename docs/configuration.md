@@ -24,6 +24,7 @@ A `helmfile.yaml` has these top-level sections:
 | `defaultInherit` | Default template(s) for all releases to inherit |
 | `hooks` | Global lifecycle hooks |
 | `apiVersions` / `kubeVersion` | Kubernetes version capabilities |
+| `llm` | OpenAI-compatible LLM config for `helmfile doctor` (optional) |
 
 ## Full Reference
 
@@ -529,3 +530,30 @@ releases:
   values:
   - labels: {{ include "myapp.labels" . | toYaml | nindent 4 }}
 ```
+
+### LLM Configuration (doctor)
+
+The optional top-level `llm` block configures the OpenAI-compatible LLM endpoint
+used by `helmfile doctor` for AI-assisted diff analysis. When absent, doctor
+degrades to plain `helmfile diff`.
+
+```yaml
+llm:
+  # baseURL is optional. Defaults to https://api.openai.com/v1.
+  # Set this when using a gateway (One-API, LiteLLM, etc.) or non-OpenAI provider.
+  baseURL: https://one-api.internal/v1
+
+  # apiKey is required. Use template expressions to pull from env:
+  apiKey: {{ env "HELMFILE_LLM_API_KEY" }}
+
+  # model is required (e.g. "gpt-4o", "claude-3-5-sonnet" via gateway, "deepseek-chat").
+  model: gpt-4o
+
+  # Optional: per-request timeout (default: 60s).
+  timeout: 90s
+
+  # Optional: max completion tokens (default: 4096).
+  maxTokens: 8192
+```
+
+Configuration precedence: environment variables (`HELMFILE_LLM_*`) < this `llm:` block < CLI flags (`--llm-*`). See [CLI Reference > doctor](cli.md#doctor) for the full documentation including secret redaction, exit codes, and backend compatibility.

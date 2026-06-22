@@ -33,6 +33,7 @@ import (
 	cliv3 "helm.sh/helm/v3/pkg/cli"
 	cliv4 "helm.sh/helm/v4/pkg/cli"
 
+	"github.com/helmfile/helmfile/pkg/agent/llm"
 	"github.com/helmfile/helmfile/pkg/argparser"
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/envvar"
@@ -84,6 +85,12 @@ type ReleaseSetSpec struct {
 	Releases            []ReleaseSpec     `yaml:"releases,omitempty"`
 	OrginReleases       []ReleaseSpec     `yaml:"-"`
 	Selectors           []string          `yaml:"-"`
+
+	// LLM is the optional OpenAI-compatible configuration used by AI-assisted
+	// subcommands such as `helmfile doctor`. When absent (the default),
+	// those commands degrade to their non-AI equivalents (e.g. plain `diff`).
+	// This field is read at app layer; the state layer treats it as inert.
+	LLM llm.Config `yaml:"llm,omitempty"`
 
 	// Capabilities.APIVersions
 	ApiVersions []string `yaml:"apiVersions,omitempty"`

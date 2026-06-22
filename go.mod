@@ -20,6 +20,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/helmfile/chartify v0.27.0
 	github.com/helmfile/vals v0.44.2
+	github.com/sashabaranov/go-openai v1.41.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1

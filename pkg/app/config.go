@@ -1,6 +1,10 @@
 package app
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/agent/llm"
+)
 
 type ConfigProvider interface {
 	Args() string
@@ -189,6 +193,29 @@ type DiffConfigProvider interface {
 
 	concurrencyConfig
 	valuesControlMode
+}
+
+// DoctorConfigProvider is the configuration surface required by App.Doctor.
+// It embeds DiffConfigProvider because doctor is a strict superset of diff:
+// the same helm-diff flags plus a handful of AI-specific knobs.
+//
+// The LLM-related accessors return the flag-sourced config only; env and
+// helmfile.yaml sources are resolved by the doctor package itself
+// (see pkg/agent/doctor/config.go).
+type DoctorConfigProvider interface {
+	DiffConfigProvider
+
+	// FlagLLMConfig returns the LLM configuration sourced from --llm-* flags.
+	// Empty fields mean "flag not set" and do not override env/yaml.
+	FlagLLMConfig() llm.Config
+
+	// Force skips the high-risk exit-code-2 gate.
+	Force() bool
+
+	// DoctorOutput returns the report format ("text" or "json"). Named
+	// DoctorOutput to avoid colliding with DiffConfigProvider.DiffOutput
+	// which is the helm-diff plugin output format.
+	DoctorOutput() string
 }
 
 type DestroyConfigProvider interface {
