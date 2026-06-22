@@ -141,7 +141,14 @@ func GetPluginVersion(name, pluginsDir string) (*semver.Version, error) {
 		}
 
 		for _, entry := range entries {
-			if !entry.IsDir() {
+			isDir := entry.IsDir()
+			if !isDir && entry.Type()&os.ModeSymlink != 0 {
+				info, err := os.Stat(filepath.Join(dir, entry.Name()))
+				if err == nil {
+					isDir = info.IsDir()
+				}
+			}
+			if !isDir {
 				continue
 			}
 
