@@ -1402,6 +1402,27 @@ func Test_GetPluginVersion_XDGPaths(t *testing.T) {
 	assert.Contains(t, err.Error(), "plugin nonexistent-plugin not installed")
 }
 
+func Test_GetPluginVersion_Symlink(t *testing.T) {
+	// Simulate a nix/devbox environment where the plugin directory is a symlink
+	tmpDir := t.TempDir()
+
+	// Create a real plugin directory with plugin.yaml
+	realPluginDir := filepath.Join(tmpDir, "real", "helm-diff")
+	require.NoError(t, os.MkdirAll(realPluginDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(realPluginDir, "plugin.yaml"), []byte(`name: "diff"
+version: "3.12.0"
+`), 0o644))
+
+	// Create a plugins directory where helm-diff is a symlink (like nix/devbox)
+	symlinkPluginsDir := filepath.Join(tmpDir, "plugins")
+	require.NoError(t, os.MkdirAll(symlinkPluginsDir, 0o755))
+	require.NoError(t, os.Symlink(realPluginDir, filepath.Join(symlinkPluginsDir, "helm-diff")))
+
+	version, err := GetPluginVersion("diff", symlinkPluginsDir)
+	require.NoError(t, err)
+	assert.Equal(t, "3.12.0", version.String())
+}
+
 func Test_GetVersion(t *testing.T) {
 	helm2Runner := mockRunner{output: []byte("Client: v2.16.1+ge13bc94\n")}
 	helm, err := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm2Runner)
