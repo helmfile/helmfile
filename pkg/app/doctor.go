@@ -15,9 +15,10 @@ import (
 // Doctor runs `helmfile diff` and (when an LLM is configured) asks the model
 // to summarize the diff and flag risks.
 //
-// When no LLM is configured, doctor degrades to `helmfile diff` with one
-// exception: ShowSecrets is forced to false (even if the user passed
-// --show-secrets) so that doctor never echoes raw secrets to stdout.
+// When no LLM is configured, doctor falls back to `helmfile diff` with
+// ShowSecrets forced to false. Most diff flags are accepted; note that
+// --output is reserved for the doctor report format (use --diff-output for
+// helm-diff's plugin output format).
 //
 // LLM configuration precedence: env (HELMFILE_LLM_*) < helmfile.yaml (llm:)
 // < CLI flags (--llm-*).

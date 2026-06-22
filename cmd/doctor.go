@@ -11,7 +11,9 @@ import (
 //
 // `helmfile doctor` runs `helmfile diff` and, when an OpenAI-compatible LLM
 // endpoint is configured, asks the model to summarize the diff and flag risks.
-// When no LLM is configured the command is strictly equivalent to `helmfile diff`.
+// When no LLM is configured the command falls back to `helmfile diff` with
+// --show-secrets forced off. Note: --output is reserved for the doctor report
+// format; helm-diff's output format is exposed as --diff-output.
 //
 // Configuration precedence: env (HELMFILE_LLM_*) < helmfile.yaml (llm:) < flags (--llm-*).
 //
@@ -32,8 +34,10 @@ func NewDoctorCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Short: "AI-assisted diff analysis: summarize changes and flag risks",
 		Long: `Runs ` + "`helmfile diff`" + ` and asks an LLM to summarize the changes and flag risks.
 
-With no LLM configured (HELMFILE_LLM_BASE_URL / HELMFILE_LLM_API_KEY / helmfile.yaml llm: block /
---llm-base-url / --llm-api-key), behaves exactly like ` + "`helmfile diff`" + `.
+With no LLM configured (HELMFILE_LLM_API_KEY / HELMFILE_LLM_MODEL / helmfile.yaml llm: block /
+--llm-base-url / --llm-api-key), falls back to ` + "`helmfile diff`" + ` with --show-secrets forced off.
+Most diff flags are accepted; --output is reserved for the doctor report format
+(use --diff-output for helm-diff's plugin output format).
 
 SECURITY: secrets are ALWAYS redacted before any byte leaves the process.
 ` + "`--show-secrets`" + ` is silently ignored by doctor (helm-diff is forced to emit

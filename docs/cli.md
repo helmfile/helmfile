@@ -165,9 +165,12 @@ please look at their [documentation](https://github.com/databus23/helm-diff#helm
 `helmfile doctor` runs `helmfile diff` and asks an OpenAI-compatible LLM to summarize the changes and flag risks
 (such as data loss, security exposure, breaking changes, downtime, performance, and best-practice issues).
 
-**When no LLM is configured, `doctor` is equivalent to `helmfile diff` with one
-exception: `--show-secrets` is ignored (always forced off)** — same flags, same output,
-same exit codes. This makes it safe to swap into existing CI jobs: the worst case is you get the same diff
+**When no LLM is configured, `doctor` falls back to running `helmfile diff`**
+with `--show-secrets` forced off. Most diff flags are accepted for
+compatibility, but note two differences: `--output` is reserved for the doctor
+report format (use `--diff-output` for helm-diff's plugin output format), and
+`--show-secrets` is silently ignored (secrets are always redacted). This makes
+it safe to swap into existing CI jobs: the worst case is you get the same diff
 output you already had.
 
 #### Configuration
