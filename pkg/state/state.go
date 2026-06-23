@@ -1237,7 +1237,9 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					// active. When tracking isn't running it's the original
 					// helm — either path is safe to call directly.
 					releaseHelm := trackHandle.Helm
-					helmErr := releaseHelm.SyncRelease(context, release.Name, chart, release.Namespace, flags...)
+					helmErr := st.withChartOperationLock(release, chart, func() error {
+						return releaseHelm.SyncRelease(context, release.Name, chart, release.Namespace, flags...)
+					})
 					if helmErr != nil && trackStarted && trackHandle.WasHelmKilled() {
 						// The kubedog safety valve sent SIGINT to helm because
 						// the cluster confirmed convergence while helm was
@@ -1336,7 +1338,9 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 }
 
 func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedReleases, helm helmexec.Interface, context helmexec.HelmContext, release *ReleaseSpec, chart string, m *sync.Mutex, flags ...string) *ReleaseError {
-	if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+	if err := st.withChartOperationLock(release, chart, func() error {
+		return helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...)
+	}); err != nil {
 		st.logger.Debugf("update strategy - sync failed: %s", err.Error())
 		// Only fail if a different error than forbidden updates
 		if !strings.Contains(err.Error(), "Forbidden: updates") {
@@ -1387,7 +1391,9 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 		}
 		m.Unlock()
 	}
-	if err := helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...); err != nil {
+	if err := st.withChartOperationLock(release, chart, func() error {
+		return helm.SyncRelease(context, release.Name, chart, release.Namespace, flags...)
+	}); err != nil {
 		m.Lock()
 		affectedReleases.Failed = append(affectedReleases.Failed, release)
 		m.Unlock()
@@ -1550,6 +1556,33 @@ func (st *HelmState) getNamedRWMutex(name string) *sync.RWMutex {
 	newMu := &sync.RWMutex{}
 	actualMu, _ := rwMutexMap.LoadOrStore(name, newMu)
 	return actualMu.(*sync.RWMutex)
+}
+
+// withChartOperationLock serializes helm operations (upgrade, diff) per
+// chart+version for remote charts to prevent concurrent download races on
+// helm's repository cache (issue #768). When multiple releases use the same
+// remote chart, concurrent `helm upgrade`/`helm diff` calls race on helm's
+// internal cache file rename, causing "Access is denied" errors on Windows.
+//
+// For local or pre-fetched charts (release.ChartPath is set), no lock is
+// acquired because the chart is already available locally and helm won't
+// download it.
+//
+// Trade-off: the lock wraps the entire helm operation (download + template +
+// deploy), not just the download. Same-chart releases are fully serialized.
+// This is unavoidable without pre-fetching because helm downloads and deploys
+// atomically. Releases with different charts are unaffected and remain fully
+// parallel. If kubedog tracking is enabled, note that it starts before this
+// lock is acquired, so a release waiting on the lock may have its kubedog
+// watcher active before helm begins.
+func (st *HelmState) withChartOperationLock(release *ReleaseSpec, chart string, fn func() error) error {
+	if release.ChartPath != "" {
+		return fn()
+	}
+	mu := st.getNamedRWMutex("helm-op:" + chart + ":" + release.Version)
+	mu.Lock()
+	defer mu.Unlock()
+	return fn()
 }
 
 type PrepareChartKey struct {
@@ -1947,14 +1980,34 @@ func (st *HelmState) processLocalChart(normalizedChart, dir string, release *Rel
 
 // forcedDownloadChart handles forced chart downloads.
 // Locks are acquired during download and released immediately after.
+// A per-chart+version mutex serializes downloads within the process so that
+// concurrent releases using the same chart don't race on helm's repository
+// cache (issue #768).
 func (st *HelmState) forcedDownloadChart(chartName, dir string, release *ReleaseSpec, helm helmexec.Interface, opts ChartPrepareOptions) (string, error) {
-	// Check global chart cache first for non-OCI charts
+	cacheKey := st.getChartCacheKey(release)
+
+	// Fast path: check in-process cache without acquiring any lock.
 	// If found, another worker in this process already downloaded the chart.
 	// We don't need to acquire a lock - the tempDir won't be deleted until
 	// after helm operations complete (cleanup is deferred in withPreparedCharts).
-	cacheKey := st.getChartCacheKey(release)
 	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
 		st.logger.Debugf("Chart %s:%s already downloaded, using cached version at %s", chartName, release.Version, cachedPath)
+		return cachedPath, nil
+	}
+
+	// Serialize downloads per chart+version within this process.
+	// The chartPath generated below includes the release name (see
+	// DefaultFetchOutputDirTemplate), so per-chartPath file locks do NOT
+	// prevent concurrent `helm fetch` of the same chart by different releases.
+	// Without this mutex, two workers downloading the same chart concurrently
+	// race on helm's repository cache on Windows (issue #768).
+	downloadMu := st.getNamedRWMutex("chart-download:" + cacheKey.Chart + ":" + cacheKey.Version)
+	downloadMu.Lock()
+	defer downloadMu.Unlock()
+
+	// Double-check: another worker may have completed the download while we waited.
+	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
+		st.logger.Debugf("Chart %s:%s downloaded by another worker, using cached version at %s", chartName, release.Version, cachedPath)
 		return cachedPath, nil
 	}
 
@@ -3056,7 +3109,9 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 
 				if prep.upgradeDueToSkippedDiff {
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
-				} else if err := helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...); err != nil {
+				} else if err := st.withChartOperationLock(release, chartPath, func() error {
+					return helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
+				}); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
@@ -5615,6 +5670,8 @@ func (st *HelmState) acquireExclusiveLock(result *chartLockResult, chartPath str
 
 // getOCIChart downloads or retrieves an OCI chart from cache.
 // Locks are acquired during download and released immediately after.
+// A per-chart+version mutex serializes downloads within the process so that
+// concurrent releases using the same OCI chart don't race (issue #768).
 func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helmexec.Interface, opts ChartPrepareOptions) (*string, error) {
 	qualifiedChartName, chartName, chartVersion, err := st.getOCIQualifiedChartName(release)
 	if err != nil {
@@ -5625,13 +5682,22 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return nil, nil
 	}
 
-	// Check global chart cache first (in-memory cache)
-	// If found, another worker in this process already downloaded the chart.
-	// We don't need to acquire a lock - the tempDir won't be deleted until
-	// after helm operations complete (cleanup is deferred in withPreparedCharts).
 	cacheKey := st.getChartCacheKey(release)
+
+	// Fast path: check in-process cache without acquiring any lock.
 	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
 		st.logger.Debugf("OCI chart %s:%s already downloaded, using cached version at %s", chartName, chartVersion, cachedPath)
+		return &cachedPath, nil
+	}
+
+	// Serialize downloads per chart+version within this process (issue #768).
+	downloadMu := st.getNamedRWMutex("chart-download:" + cacheKey.Chart + ":" + cacheKey.Version)
+	downloadMu.Lock()
+	defer downloadMu.Unlock()
+
+	// Double-check: another worker may have completed the download while we waited.
+	if cachedPath, exists := st.checkChartCache(cacheKey); exists && st.fs.DirectoryExistsAt(cachedPath) {
+		st.logger.Debugf("OCI chart %s:%s downloaded by another worker, using cached version at %s", chartName, chartVersion, cachedPath)
 		return &cachedPath, nil
 	}
 
