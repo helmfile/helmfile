@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -33,7 +34,8 @@ type DiffKey struct {
 type Helm struct {
 	Charts               []string
 	Repo                 []string
-	RegistryLoginHost    string // Captures the host passed to RegistryLogin
+	RegistryLoginHost    string   // Captures the host passed to RegistryLogin
+	PulledCharts         []string // Captures the OCI chart refs passed to ChartPull
 	Releases             []Release
 	Deleted              []Release
 	Linted               []Release
@@ -233,7 +235,16 @@ func (helm *Helm) TemplateRelease(name, chart string, flags ...string) error {
 	return nil
 }
 func (helm *Helm) ChartPull(chart string, path string, flags ...string) error {
-	return nil
+	helm.sync(helm.ChartsMutex, func() {
+		helm.PulledCharts = append(helm.PulledCharts, chart)
+	})
+	// Create a minimal chart structure so getOCIChart's findChartDirectory succeeds
+	chartDir := filepath.Join(path, "chart")
+	if err := os.MkdirAll(chartDir, 0755); err != nil {
+		return err
+	}
+	chartYaml := "apiVersion: v2\nname: test-chart\ndescription: A test chart\ntype: application\nversion: 0.1.0\nappVersion: \"1.0.0\"\n"
+	return os.WriteFile(filepath.Join(chartDir, "Chart.yaml"), []byte(chartYaml), 0644)
 }
 func (helm *Helm) ChartExport(chart string, path string) error {
 	return nil

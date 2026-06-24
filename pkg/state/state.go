@@ -5356,6 +5356,13 @@ func (st *HelmState) addToChartCache(key ChartCacheKey, path string) {
 	downloadedCharts[key] = path
 }
 
+// resetChartCacheForTest clears the global chart cache. For testing only.
+func resetChartCacheForTest() {
+	downloadedChartsMutex.Lock()
+	defer downloadedChartsMutex.Unlock()
+	downloadedCharts = make(map[ChartCacheKey]string)
+}
+
 // isSharedCachePath returns true if the chartPath is within the shared cache directory.
 // Charts in the shared cache should not be deleted during refresh to prevent race conditions
 // when multiple processes are using the same cached chart.

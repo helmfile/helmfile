@@ -208,7 +208,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		}
 
 		return matched, criticalErrs
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds())
 
 	if err != nil {
 		return err
@@ -264,7 +264,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds())
 }
 
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
@@ -343,7 +343,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds())
 
 	if err != nil {
 		return err
@@ -385,7 +385,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds())
 
 	if err != nil {
 		return err
@@ -526,7 +526,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds())
+	}, c.IncludeNeeds())
 
 	if err != nil {
 		return err
@@ -582,7 +582,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		}
 
 		return
-	}, c.IncludeTransitiveNeeds(), opts...)
+	}, c.IncludeNeeds(), opts...)
 
 	if err != nil {
 		return err
@@ -1356,6 +1356,14 @@ var (
 	}
 )
 
+// ForEachState iterates over each loaded state file and invokes do.
+//
+// includeTransitiveNeeds controls whether releases reachable via "needs" are
+// un-filtered when SetFilter(true) is used. Despite the name, passing true
+// unmarks ALL needs (both direct and transitive) via collectNeedsWithTransitives.
+// Callers that support --include-needs should pass c.IncludeNeeds() (which is
+// true for both --include-needs and --include-transitive-needs) so that chart
+// preparation and early filtering stay consistent. See issue #923.
 func (a *App) ForEachState(do func(*Run) (bool, []error), includeTransitiveNeeds bool, o ...LoadOption) error {
 	ctx := NewContext()
 	err := a.visitStatesWithSelectorsAndRemoteSupportWithContext(a.FileOrDir, func(st *state.HelmState) (bool, []error) {

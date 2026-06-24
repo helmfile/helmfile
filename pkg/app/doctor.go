@@ -196,7 +196,7 @@ func (a *App) peekDoctorContext(c DoctorConfigProvider) (llm.Config, []string, e
 			}
 		}
 		return false, nil
-	}, c.IncludeTransitiveNeeds(), SetFilter(true))
+	}, c.IncludeNeeds(), SetFilter(true))
 
 	return yamlLLM, releases, err
 }
