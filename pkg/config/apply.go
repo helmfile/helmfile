@@ -100,6 +100,9 @@ type ApplyOptions struct {
 	TrackFailOnError bool
 	// Description is the description that will be passed to helm upgrade --description
 	Description string
+	// TemplateArgs are extra args appended to the helm template run by chartify
+	// during chart preparation (e.g. "--dry-run=server" for lookup() support).
+	TemplateArgs string
 }
 
 // NewApply creates a new Apply
@@ -349,6 +352,11 @@ func (a *ApplyImpl) TrackFailOnError() bool {
 // Description returns the description.
 func (a *ApplyImpl) Description() string {
 	return a.ApplyOptions.Description
+}
+
+// TemplateArgs returns extra args to pass to chartify's helm template.
+func (a *ApplyImpl) TemplateArgs() string {
+	return a.ApplyOptions.TemplateArgs
 }
 
 func (a *ApplyImpl) ValidateConfig() error {

@@ -559,6 +559,25 @@ The following global flags are also available but not shown in the main help out
 
 This is useful for air-gapped environments: download charts with `--output-dir` and `--write-output`, then transfer the output directory and the generated helmfile.yaml to the air-gapped environment.
 
+#### template-args (template / apply / sync)
+
+| Flag | Default | Available on | Description |
+|------|---------|--------------|-------------|
+| `--template-args` | `""` | `template`, `apply`, `sync` | Extra args appended to the `helm template` invocation. For `template` these reach the final `helm template` output; for `apply`/`sync` they reach chartify's internal `helm template` pre-render. |
+
+The most common use case is enabling Helm's [`lookup`](https://helm.sh/docs/chart_template_guide/functions_and_pipelines/#using-the-lookup-function) function, which queries the live cluster during rendering. `lookup` requires a server-side connection, so pass `--dry-run=server`:
+
+```bash
+# Render manifests with cluster access so lookup() resolves live values
+helmfile template --template-args="--dry-run=server"
+
+# apply/sync already connect to the cluster; use --template-args to pass
+# additional helm template flags to chartify's pre-render step
+helmfile apply --template-args="--dry-run=server"
+```
+
+For `apply` and `sync`, helmfile already injects `--dry-run=server` (and the relevant `--kube-context`/`--kubeconfig`) into chartify's pre-render automatically, so `lookup` works out of the box. The `--template-args` flag is only needed for the `template` subcommand, or to pass other extra flags.
+
 #### destroy flags
 
 | Flag | Default | Description |

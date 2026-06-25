@@ -254,6 +254,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Values:                 c.Values(),
 			KubeVersion:            c.KubeVersion(),
 			HelmOCIPlainHTTP:       a.HelmOCIPlainHTTP,
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() []error {
 			ok, errs = a.template(run, c)
 			return errs
@@ -509,6 +510,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() []error {
 			matched, updated, es := a.SyncState(run, c)
 
@@ -566,6 +568,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() []error {
 			matched, updated, es := a.apply(run, c)
 
@@ -2499,6 +2502,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			KubeVersion:          c.KubeVersion(),
 			ShowOnly:             c.ShowOnly(),
 			SkipSchemaValidation: c.SkipSchemaValidation(),
+			TemplateArgs:         c.TemplateArgs(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

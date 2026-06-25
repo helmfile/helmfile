@@ -2484,6 +2484,11 @@ func (c configImpl) ShowOnly() []string {
 	return nil
 }
 
+// TemplateArgs satisfies TemplateConfigProvider.
+func (c configImpl) TemplateArgs() string {
+	return ""
+}
+
 func (c configImpl) EnforceNeedsAreInstalled() bool {
 	return c.enforceNeedsAreInstalled
 }
@@ -2746,6 +2751,11 @@ func (a applyConfig) SkipSchemaValidation() bool {
 
 func (a applyConfig) ShowOnly() []string {
 	return a.showOnly
+}
+
+// TemplateArgs satisfies ApplyConfigProvider.
+func (a applyConfig) TemplateArgs() string {
+	return ""
 }
 
 func (a applyConfig) HideNotes() bool {

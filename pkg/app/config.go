@@ -88,6 +88,7 @@ type ApplyConfigProvider interface {
 
 	DiffArgs() string
 	SyncArgs() string
+	TemplateArgs() string
 
 	SyncReleaseLabels() bool
 
@@ -147,6 +148,8 @@ type SyncConfigProvider interface {
 	NoColor() bool
 
 	Description() string
+
+	TemplateArgs() string
 
 	DAGConfig
 
@@ -306,6 +309,7 @@ type TemplateConfigProvider interface {
 	NoHooks() bool
 	KubeVersion() string
 	ShowOnly() []string
+	TemplateArgs() string
 
 	DAGConfig
 

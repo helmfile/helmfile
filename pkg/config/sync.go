@@ -70,6 +70,9 @@ type SyncOptions struct {
 	TrackFailOnError bool
 	// Description is the description that will be passed to helm upgrade --description
 	Description string
+	// TemplateArgs are extra args appended to the helm template run by chartify
+	// during chart preparation (e.g. "--dry-run=server" for lookup() support).
+	TemplateArgs string
 
 	// Diff-related options for --interactive mode
 	SuppressOutputLineRegex []string
@@ -328,6 +331,11 @@ func (t *SyncImpl) Context() int {
 // DiffOutput returns the DiffOutput.
 func (t *SyncImpl) DiffOutput() string {
 	return t.SyncOptions.DiffOutput
+}
+
+// TemplateArgs returns extra args to pass to chartify's helm template.
+func (t *SyncImpl) TemplateArgs() string {
+	return t.SyncOptions.TemplateArgs
 }
 
 func (t *SyncImpl) ValidateConfig() error {

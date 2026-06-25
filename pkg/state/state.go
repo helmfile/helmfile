@@ -1493,6 +1493,9 @@ type ChartPrepareOptions struct {
 	DeleteTimeout int
 	// HelmOCIPlainHTTP uses plain HTTP for OCI registries (required for local/insecure registries in Helm 4)
 	HelmOCIPlainHTTP bool
+	// TemplateArgs are extra args appended to the helm template run by chartify
+	// during chart preparation (e.g. "--dry-run=server" to enable the lookup() function).
+	TemplateArgs string
 }
 
 type chartPrepareResult struct {
@@ -1859,6 +1862,18 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	}
 	chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
 
+	// Merge user-provided template args (e.g. from the --template-args flag) into
+	// chartify's helm template args. This is done before the cluster-connectivity
+	// injection below so that any duplicates (such as --dry-run) are deduplicated
+	// by the existing strings.Contains checks.
+	if opts.TemplateArgs != "" {
+		if chartifyOpts.TemplateArgs == "" {
+			chartifyOpts.TemplateArgs = strings.TrimSpace(opts.TemplateArgs)
+		} else {
+			chartifyOpts.TemplateArgs = strings.TrimSpace(chartifyOpts.TemplateArgs + " " + opts.TemplateArgs)
+		}
+	}
+
 	// Enable cluster connectivity for lookup functions when using kustomize patches
 	// Issue #2271: helm template runs client-side by default, causing lookup() to return empty values
 	// Pass --dry-run=server to enable cluster access for lookup while still using client-side rendering
@@ -1885,7 +1900,13 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// Issue #2355: In Helm 4, --validate and --dry-run are mutually exclusive flags.
 	// When --validate is set, we skip adding --dry-run=server since --validate already
 	// provides server-side validation.
-	if requiresCluster {
+	// Inject kube connection flags (and --dry-run=server) into chartify's internal
+	// helm template so that the lookup() function can reach the cluster.
+	// Issue #1833: also do this when the user explicitly opts into server-side
+	// templating via --template-args (e.g. `helmfile template --template-args=--dry-run=server`),
+	// so that lookup() works for the template subcommand too.
+	needsKubeConnection := requiresCluster || strings.Contains(chartifyOpts.TemplateArgs, "--dry-run")
+	if needsKubeConnection {
 		// Get the effective kube-context for this release
 		kubeContext := st.getKubeContext(release)
 
@@ -1903,9 +1924,11 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 			additionalArgs = append(additionalArgs, "--kube-context", kubeContext)
 		}
 
-		// Add --dry-run=server if not already present (Issue #2271)
-		// Skip if --validate is set to avoid Helm 4 mutual exclusion error (Issue #2355)
-		if !opts.Validate && !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
+		// Add --dry-run=server for cluster-requiring commands when not already present.
+		// It is NOT auto-added for `helmfile template` (the user opts in explicitly via
+		// --template-args), to avoid surprising server-side connections.
+		// Issue #2355: In Helm 4, --validate and --dry-run are mutually exclusive flags.
+		if requiresCluster && !opts.Validate && !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
 			additionalArgs = append(additionalArgs, "--dry-run=server")
 		}
 
@@ -2332,6 +2355,9 @@ type TemplateOpts struct {
 	ShowOnly          []string
 	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
+	// TemplateArgs are extra args appended to "helm template" (e.g. "--dry-run=server"
+	// to enable the lookup() function for `helmfile template`).
+	TemplateArgs string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -3980,6 +4006,10 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
 	// Issue #2309: Add kube-context flags for helm template when using jsonPatches with --dry-run=server
 	flags = st.appendConnectionFlags(flags, release)
+	// Append user-provided template args (e.g. --dry-run=server from --template-args)
+	if opt != nil && opt.TemplateArgs != "" {
+		flags = append(flags, argparser.CollectArgs(opt.TemplateArgs)...)
+	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {
