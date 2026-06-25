@@ -59,6 +59,10 @@ func (a diffConfig) DiffArgs() string {
 	return a.diffArgs
 }
 
+func (a diffConfig) TemplateArgs() string {
+	return ""
+}
+
 func (a diffConfig) Values() []string {
 	return a.values
 }

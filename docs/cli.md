@@ -559,11 +559,11 @@ The following global flags are also available but not shown in the main help out
 
 This is useful for air-gapped environments: download charts with `--output-dir` and `--write-output`, then transfer the output directory and the generated helmfile.yaml to the air-gapped environment.
 
-#### template-args (template / apply / sync)
+#### template-args (template / apply / sync / diff)
 
 | Flag | Default | Available on | Description |
 |------|---------|--------------|-------------|
-| `--template-args` | `""` | `template`, `apply`, `sync` | Extra args appended to the `helm template` invocation. For `template` these reach the final `helm template` output; for `apply`/`sync` they reach chartify's internal `helm template` pre-render. |
+| `--template-args` | `""` | `template`, `apply`, `sync`, `diff` | Extra args appended to the helm rendering invocation. Reaches the final `helm template` for `template`; reaches both the `helm diff` rendering and chartify's internal `helm template` pre-render for `apply`/`sync`/`diff`. |
 
 The most common use case is enabling Helm's [`lookup`](https://helm.sh/docs/chart_template_guide/functions_and_pipelines/#using-the-lookup-function) function, which queries the live cluster during rendering. `lookup` requires a server-side connection, so pass `--dry-run=server`:
 
@@ -571,12 +571,17 @@ The most common use case is enabling Helm's [`lookup`](https://helm.sh/docs/char
 # Render manifests with cluster access so lookup() resolves live values
 helmfile template --template-args="--dry-run=server"
 
-# apply/sync already connect to the cluster; use --template-args to pass
-# additional helm template flags to chartify's pre-render step
-helmfile apply --template-args="--dry-run=server"
+# Enable lookup() during the helm-diff phase of apply (and during diff/sync)
+helmfile apply  --template-args="--dry-run=server"
+helmfile diff   --template-args="--dry-run=server"
 ```
 
-For `apply` and `sync`, helmfile already injects `--dry-run=server` (and the relevant `--kube-context`/`--kubeconfig`) into chartify's pre-render automatically, so `lookup` works out of the box. The `--template-args` flag is only needed for the `template` subcommand, or to pass other extra flags.
+Notes:
+
+- For `template`, the args reach the final `helm template` output.
+- For `apply` and `diff`, the args reach the `helm diff upgrade` rendering so `lookup()` resolves live values during the diff phase (helm-diff supports `--dry-run=server`, which enables the lookup template function).
+- For `sync`, the real `helm upgrade` already connects to the cluster, so `lookup()` works without this flag; `--template-args` is only needed there to pass additional flags to chartify's pre-render step.
+- Charts that use `lookup()` should always guard against the empty result (e.g. with `default dict`), because helm renders client-side whenever it has no server connection.
 
 #### destroy flags
 

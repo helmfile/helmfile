@@ -182,6 +182,7 @@ type DiffConfigProvider interface {
 	SuppressDiff() bool
 	SkipDiffOnInstall() bool
 	DiffArgs() string
+	TemplateArgs() string
 
 	DAGConfig
 

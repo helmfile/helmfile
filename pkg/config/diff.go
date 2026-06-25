@@ -48,6 +48,9 @@ type DiffOptions struct {
 	PostRendererArgs []string
 	// DiffArgs is the list of arguments to pass to helm-diff.
 	DiffArgs string
+	// TemplateArgs are extra args appended to the helm template/diff rendering
+	// (e.g. "--dry-run=server" to enable the helm lookup function).
+	TemplateArgs string
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string
 	SkipSchemaValidation    bool
@@ -168,6 +171,11 @@ func (t *DiffImpl) SkipDiffOnInstall() bool {
 // DiffArgs returns the list of arguments to pass to helm-diff.
 func (t *DiffImpl) DiffArgs() string {
 	return t.DiffOptions.DiffArgs
+}
+
+// TemplateArgs returns extra args to pass to the helm template/diff rendering.
+func (t *DiffImpl) TemplateArgs() string {
+	return t.DiffOptions.TemplateArgs
 }
 
 // Suppress returns the suppress

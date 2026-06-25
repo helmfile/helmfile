@@ -33,8 +33,10 @@ assert_cluster_key_is_init() {
 assert_apply() {
   local hf_file="$1"
   reset_live_secret
-  info "Applying ${hf_file}"
-  ${helmfile} -f "${hf_file}" apply -q || fail "apply failed"
+  # Pass --template-args="--dry-run=server" so the helm-diff phase of `apply`
+  # also resolves lookup() against the live cluster (issue #1833).
+  info "Applying ${hf_file} with --template-args=\"--dry-run=server\""
+  ${helmfile} -f "${hf_file}" apply -q --template-args="--dry-run=server" || fail "apply failed"
   assert_cluster_key_is_init
 }
 

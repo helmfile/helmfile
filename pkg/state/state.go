@@ -3044,11 +3044,15 @@ type DiffOpts struct {
 	Color bool
 	// NoColor forces disabling the color output on helm-diff.
 	// If this is true, Color has no effect.
-	NoColor                 bool
-	Set                     []string
-	SkipCleanup             bool
-	SkipDiffOnInstall       bool
-	DiffArgs                string
+	NoColor           bool
+	Set               []string
+	SkipCleanup       bool
+	SkipDiffOnInstall bool
+	DiffArgs          string
+	// TemplateArgs are extra args appended to the helm template/diff rendering
+	// (e.g. "--dry-run=server" to enable the helm lookup function during `helmfile
+	// apply`/`diff`, which render via helm-diff). See issue #1833.
+	TemplateArgs            string
 	ReuseValues             bool
 	ResetValues             bool
 	PostRenderer            string
@@ -3682,6 +3686,12 @@ func (st *HelmState) appendExtraDiffFlags(flags []string, opt *DiffOpts) []strin
 		flags = append(flags, argparser.CollectArgs(opt.DiffArgs)...)
 	case st.HelmDefaults.DiffArgs != nil:
 		flags = append(flags, argparser.CollectArgs(strings.Join(st.HelmDefaults.DiffArgs, " "))...)
+	}
+	// Append user-provided template args (e.g. --dry-run=server from --template-args)
+	// so that helm lookup() also resolves during the helm-diff rendering phase of
+	// `helmfile apply`/`diff`. Issue #1833.
+	if opt != nil && opt.TemplateArgs != "" {
+		flags = append(flags, argparser.CollectArgs(opt.TemplateArgs)...)
 	}
 	return flags
 }
