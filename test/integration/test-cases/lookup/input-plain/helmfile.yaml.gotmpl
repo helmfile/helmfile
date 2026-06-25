@@ -13,4 +13,9 @@ releases:
               name: lookup-result
             type: Opaque
             stringData:
-              key: {{`{{ index (index (lookup "v1" "Secret" .Release.Namespace "my-secret") "data") "key" | b64dec | default "overwritten" }}`}}
+              # lookup() returns an empty map when the chart is rendered without a
+              # cluster connection (e.g. the helm-diff phase of `helmfile apply`).
+              # Guard every index with `default dict` so we never index into nil.
+              # With cluster access (--dry-run=server or a real upgrade) this resolves
+              # to the live value ("init"); otherwise it falls back to "overwritten".
+              key: {{`{{ default "" (index (default dict (index (default dict (lookup "v1" "Secret" .Release.Namespace "my-secret")) "data")) "key") | b64dec | default "overwritten" }}`}}
