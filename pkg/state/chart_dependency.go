@@ -91,6 +91,8 @@ func (d *UnresolvedDependencies) ToChartRequirements() *ChartRequirements {
 
 type ResolvedDependencies struct {
 	deps map[string][]ResolvedChartDependency
+
+	logger *zap.SugaredLogger
 }
 
 // nolint: unparam
@@ -111,22 +113,41 @@ func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, err
 	}
 
 	deps, exists := d.deps[chart]
-	if exists {
-		for _, dep := range deps {
-			constraint, err := semver.NewConstraint(versionConstraint)
-			if err != nil {
-				return "", err
-			}
-			version, err := semver.NewVersion(dep.Version)
-			if err != nil {
-				return "", err
-			}
-			if constraint.Check(version) {
-				return dep.Version, nil
-			}
+	if !exists {
+		return "", fmt.Errorf("no resolved dependency found for \"%s\", running \"helmfile deps\" may resolve the issue", chart)
+	}
+
+	constraint, err := semver.NewConstraint(versionConstraint)
+	if err != nil {
+		return "", err
+	}
+
+	// Prefer a locked version that satisfies the constraint declared in helmfile.yaml.
+	for _, dep := range deps {
+		version, err := semver.NewVersion(dep.Version)
+		if err != nil {
+			return "", err
+		}
+		if constraint.Check(version) {
+			return dep.Version, nil
 		}
 	}
-	return "", fmt.Errorf("no resolved dependency found for \"%s\", running \"helmfile deps\" may resolve the issue", chart)
+
+	// No locked version satisfied the constraint. The lock file is the source of
+	// truth for pinned versions, so fall back to the locked version instead of
+	// failing. This allows per-environment lock files to pin a different version
+	// than the one declared in helmfile.yaml (e.g. rolling out a new chart
+	// version progressively across environments without breaking the environments
+	// whose lock files still reference the previous version).
+	// See https://github.com/helmfile/helmfile/issues/870
+	lockedVersion := deps[0].Version
+	if d.logger != nil {
+		d.logger.Warnf(
+			"locked version %q for chart %q does not satisfy the constraint %q from helmfile.yaml; using the locked version from the lock file. Run \"helmfile deps\" to update the lock file.",
+			lockedVersion, chart, versionConstraint,
+		)
+	}
+	return lockedVersion, nil
 }
 
 func dedupResolvedDependencies(deps []ResolvedChartDependency) []ResolvedChartDependency {
@@ -478,7 +499,7 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 		// See https://github.com/helmfile/helmfile/issues/1473
 	}
 
-	resolved := &ResolvedDependencies{deps: map[string][]ResolvedChartDependency{}}
+	resolved := &ResolvedDependencies{deps: map[string][]ResolvedChartDependency{}, logger: m.logger}
 	for _, d := range lockedReqs.ResolvedDependencies {
 		if err := resolved.add(d); err != nil {
 			return nil, false, err

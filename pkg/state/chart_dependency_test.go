@@ -3,8 +3,80 @@ package state
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestResolvedDependencies_Get(t *testing.T) {
+	tests := []struct {
+		name              string
+		deps              map[string][]ResolvedChartDependency
+		chart             string
+		versionConstraint string
+		wantVersion       string
+		wantErr           bool
+	}{
+		{
+			name: "satisfying version returns it",
+			deps: map[string][]ResolvedChartDependency{
+				"mongodb": {{ChartName: "mongodb", Version: "13.10.3"}},
+			},
+			chart:             "mongodb",
+			versionConstraint: "13.10.3",
+			wantVersion:       "13.10.3",
+		},
+		{
+			name: "wildcard constraint matches locked version",
+			deps: map[string][]ResolvedChartDependency{
+				"mongodb": {{ChartName: "mongodb", Version: "13.10.2"}},
+			},
+			chart:             "mongodb",
+			versionConstraint: "*",
+			wantVersion:       "13.10.2",
+		},
+		{
+			name: "constraint mismatch falls back to locked version (issue #870)",
+			deps: map[string][]ResolvedChartDependency{
+				"mongodb": {{ChartName: "mongodb", Version: "13.10.2"}},
+			},
+			chart:             "mongodb",
+			versionConstraint: "13.10.3",
+			wantVersion:       "13.10.2",
+		},
+		{
+			name: "range constraint picks satisfying locked version among several",
+			deps: map[string][]ResolvedChartDependency{
+				"envoy": {
+					{ChartName: "envoy", Version: "1.4.0"},
+					{ChartName: "envoy", Version: "1.5.0"},
+				},
+			},
+			chart:             "envoy",
+			versionConstraint: ">=1.5.0",
+			wantVersion:       "1.5.0",
+		},
+		{
+			name:              "unknown chart errors",
+			deps:              map[string][]ResolvedChartDependency{},
+			chart:             "missing",
+			versionConstraint: "*",
+			wantErr:           true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &ResolvedDependencies{deps: tt.deps}
+			got, err := d.Get(tt.chart, tt.versionConstraint)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantVersion, got)
+		})
+	}
+}
 
 func TestDedupResolvedDependencies(t *testing.T) {
 	tests := []struct {
