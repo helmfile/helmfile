@@ -118,6 +118,15 @@ type ReleaseSetSpec struct {
 	MissingFileHandlerConfig *MissingFileHandlerConfig `yaml:"missingFileHandlerConfig,omitempty"`
 
 	LockFile string `yaml:"lockFilePath,omitempty"`
+
+	// AllowLockedVersionMismatch permits a per-environment lock file to pin a
+	// chart version that does not satisfy the version declared in helmfile.yaml.
+	// When enabled, helmfile falls back to the locked version (with a warning)
+	// instead of failing, which supports progressive rollouts where one
+	// environment is bumped ahead of others while the others keep their pins.
+	// Defaults to false (strict) so that a stale lock file still fails loudly.
+	// See https://github.com/helmfile/helmfile/issues/870
+	AllowLockedVersionMismatch bool `yaml:"allowLockedVersionMismatch,omitempty"`
 }
 
 type MissingFileHandlerConfig struct {

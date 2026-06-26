@@ -3366,6 +3366,107 @@ func TestHelmState_ResolveDeps_NoLockFile_WithCustomLockFile(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+// TestHelmState_ResolveDeps_LockFile_VersionMismatchFallback reproduces issue #870:
+// when a per-environment lock file pins a chart version that does not satisfy the
+// version declared in helmfile.yaml, and "allowLockedVersionMismatch: true" is set,
+// ResolveDeps should fall back to the locked version (the lock file is authoritative)
+// instead of failing.
+func TestHelmState_ResolveDeps_LockFile_VersionMismatchFallback(t *testing.T) {
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	state := &HelmState{
+		basePath: "/src",
+		FilePath: "/src/helmfile.yaml",
+		ReleaseSetSpec: ReleaseSetSpec{
+			LockFile:                   "lock-file",
+			AllowLockedVersionMismatch: true,
+			Releases: []ReleaseSpec{
+				{
+					Name:    "mongodb",
+					Chart:   "bitnami/mongodb",
+					Version: "13.10.3",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "bitnami",
+					URL:  "https://charts.bitnami.com/bitnami",
+				},
+			},
+		},
+		logger: logger,
+		fs: &filesystem.FileSystem{
+			ReadFile: func(f string) ([]byte, error) {
+				if f == filepath.Join("/src", "lock-file") {
+					return []byte(`
+version: 1.0.0
+dependencies:
+- name: mongodb
+  repository: https://charts.bitnami.com/bitnami
+  version: 13.10.2
+digest: sha256:abc123
+generated: 2023-01-01T00:00:00Z
+`), nil
+				}
+				return nil, fmt.Errorf("stub: unexpected file: %s", f)
+			},
+		},
+	}
+
+	resolved, err := state.ResolveDeps()
+	require.NoError(t, err, "ResolveDeps should not fail when the lock file pins a different version and allowLockedVersionMismatch is set")
+	assert.Equal(t, "13.10.2", resolved.Releases[0].Version,
+		"the locked version should be used even though it does not satisfy the helmfile.yaml constraint")
+}
+
+// TestHelmState_ResolveDeps_LockFile_VersionMismatch_StrictErrors asserts the
+// default behavior: a lock file whose version does not satisfy the helmfile.yaml
+// constraint fails loudly (no silent fallback), guarding against stale lock files.
+func TestHelmState_ResolveDeps_LockFile_VersionMismatch_StrictErrors(t *testing.T) {
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	state := &HelmState{
+		basePath: "/src",
+		FilePath: "/src/helmfile.yaml",
+		ReleaseSetSpec: ReleaseSetSpec{
+			LockFile: "lock-file",
+			Releases: []ReleaseSpec{
+				{
+					Name:    "mongodb",
+					Chart:   "bitnami/mongodb",
+					Version: "13.10.3",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "bitnami",
+					URL:  "https://charts.bitnami.com/bitnami",
+				},
+			},
+		},
+		logger: logger,
+		fs: &filesystem.FileSystem{
+			ReadFile: func(f string) ([]byte, error) {
+				if f == filepath.Join("/src", "lock-file") {
+					return []byte(`
+version: 1.0.0
+dependencies:
+- name: mongodb
+  repository: https://charts.bitnami.com/bitnami
+  version: 13.10.2
+digest: sha256:abc123
+generated: 2023-01-01T00:00:00Z
+`), nil
+				}
+				return nil, fmt.Errorf("stub: unexpected file: %s", f)
+			},
+		},
+	}
+
+	_, err := state.ResolveDeps()
+	require.Error(t, err, "ResolveDeps should fail by default when the lock file version does not satisfy the helmfile.yaml constraint")
+	assert.Contains(t, err.Error(), "allowLockedVersionMismatch", "error should guide users to the opt-in field")
+}
+
 func TestHelmState_ReleaseStatuses(t *testing.T) {
 	tests := []struct {
 		name     string
