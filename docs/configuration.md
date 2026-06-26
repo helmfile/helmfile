@@ -173,7 +173,7 @@ releases:
       foo: bar
     chart: roboll/vault-secret-manager     # the chart being installed to create this release, referenced by `repository/chart` syntax
     version: ~1.24.1                       # the semver of the chart. range constraint is supported
-    condition: vault.enabled               # The values lookup key for filtering releases. Corresponds to the boolean value of `vault.enabled`, where `vault` is an arbitrary value
+    condition: vault.enabled               # Filters releases by the boolean value at `vault.enabled`. Can also be set directly to true or false
     missingFileHandler: Warn # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
     missingFileHandlerConfig:
       # Ignores missing git branch error so that the Debug/Info/Warn handler can treat a missing branch as non-error.
@@ -457,6 +457,7 @@ The following per-release fields are also available:
 | `verifyTemplate` | string | | Templated verify flag (e.g., `{{ .Values.verify \| default "false" }}`) |
 | `waitTemplate` | string | | Templated wait flag |
 | `installedTemplate` | string | | Templated installed flag |
+| `conditionTemplate` | string | | Templated condition flag. Must render to a boolean. When set, takes precedence over `condition` |
 | `adopt` | list | | List of resources to adopt (passes `--adopt` to Helm) |
 | `forceGoGetter` | bool | false | Force go-getter URL parsing for the chart field. Useful when go-getter URL parsing fails unexpectedly |
 | `forceNamespace` | string | | Force namespace on all K8s resources rendered by the chart, even when the template doesn't use `{{ .Namespace }}`. Use with caution |

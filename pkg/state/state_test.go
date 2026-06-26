@@ -3606,6 +3606,7 @@ func TestConditionEnabled(t *testing.T) {
 	tests := []struct {
 		name      string
 		condition string
+		template  *string
 		values    map[string]any
 		want      bool
 		wantErr   bool
@@ -3730,11 +3731,33 @@ func TestConditionEnabled(t *testing.T) {
 			condition: "",
 			want:      true,
 		},
+		{
+			name:      "condition true literal enabled",
+			condition: "true",
+			values:    map[string]any{},
+			want:      true,
+		},
+		{
+			name:      "condition false literal disabled",
+			condition: "false",
+			values:    map[string]any{},
+			want:      false,
+		},
+		{
+			name:      "condition true literal takes precedence over values lookup",
+			condition: "true",
+			values: map[string]any{
+				"foo": map[string]any{
+					"enabled": false,
+				},
+			},
+			want: true,
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := ConditionEnabled(ReleaseSpec{Condition: tt.condition}, tt.values)
+			res, err := ConditionEnabled(ReleaseSpec{Condition: tt.condition, ConditionTemplate: tt.template}, tt.values)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("ConditionEnabled() for %s expected err response", tt.name)

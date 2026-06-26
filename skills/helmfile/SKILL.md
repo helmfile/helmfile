@@ -112,6 +112,7 @@ repositories:
 | `verifyTemplate` | string | | Templated verify flag |
 | `waitTemplate` | string | | Templated wait flag |
 | `installedTemplate` | string | | Templated installed flag |
+| `conditionTemplate` | string | | Templated condition flag |
 | `adopt` | list | | Resources to adopt (passes `--adopt` to Helm) |
 | `forceGoGetter` | bool | false | Force go-getter URL parsing for chart field |
 | `forceNamespace` | string | | Force namespace on all K8s resources |
