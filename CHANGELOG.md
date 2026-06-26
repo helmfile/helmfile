@@ -1,5 +1,9 @@
 ## [1.4.1] - 2026-03-03
 
+### Added
+
+- Add support for `conditionTemplate` and allow `condition` to be set directly to `true` or `false`.
+
 ### Fixed
 
 - Fix `--kubeconfig` not being passed to chartify's helm template call (#2449)

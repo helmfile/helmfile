@@ -120,7 +120,8 @@ Release Templating supports the following parts of release definition:
 
 - boolean fields: `installed`, `wait`, `waitForJobs`, `verify`, `condition` by the means of additional text
   fields designed for templating only: `installedTemplate`, `waitTemplate`, `verifyTemplate`, `conditionTemplate`.
-  `condition` also accepts the existing values lookup path form, for example `condition: vault.enabled`.
+  `conditionTemplate` must render to a boolean. When set with `condition`, the rendered value replaces `condition`.
+  `condition` accepts direct `true`/`false` values or a values lookup path ending in `.enabled`, for example `condition: vault.enabled`.
 
         # ...
           installedTemplate: '{{`{{ eq .Release.Namespace "kube-system" }}`}}'

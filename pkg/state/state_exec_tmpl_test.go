@@ -89,6 +89,37 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			},
 		},
 		{
+			name: "Condition template renders false",
+			input: ReleaseSpec{
+				Chart:             "test-chart",
+				Name:              "app-dev",
+				Namespace:         "dev",
+				ConditionTemplate: func(i string) *string { return &i }(`{{ false }}`),
+			},
+			want: ReleaseSpec{
+				Chart:     "test-chart",
+				Name:      "app-dev",
+				Namespace: "dev",
+				Condition: "false",
+			},
+		},
+		{
+			name: "Condition template takes precedence over condition",
+			input: ReleaseSpec{
+				Chart:             "test-chart",
+				Name:              "app-dev",
+				Namespace:         "dev",
+				Condition:         "foo.enabled",
+				ConditionTemplate: func(i string) *string { return &i }(`{{ true }}`),
+			},
+			want: ReleaseSpec{
+				Chart:     "test-chart",
+				Name:      "app-dev",
+				Namespace: "dev",
+				Condition: "true",
+			},
+		},
+		{
 			name: "Has template in set-values",
 			input: ReleaseSpec{
 				Chart:     "test-charts/chart",
@@ -238,6 +269,12 @@ func TestHelmState_executeTemplates(t *testing.T) {
 					boolPtrToString(tt.want.Wait), boolPtrToString(actual.Wait),
 				)
 			}
+			if !reflect.DeepEqual(actual.Condition, tt.want.Condition) {
+				t.Errorf("expected Condition %+v, got %+v", tt.want.Condition, actual.Condition)
+			}
+			if actual.ConditionTemplate != nil {
+				t.Errorf("expected ConditionTemplate to be nil, got %q", *actual.ConditionTemplate)
+			}
 		})
 	}
 }
@@ -258,13 +295,23 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 			},
 		},
 		{
-			name: "Has unresolvable boolean templates",
+			name: "Has unresolvable wait templates",
 			input: ReleaseSpec{
 				Name:         "app-dev",
 				Chart:        "test-charts/app",
 				Verify:       nil,
 				Namespace:    "dev",
 				WaitTemplate: func(i string) *string { return &i }("hi"),
+			},
+		},
+		{
+			name: "Has unresolvable condition template",
+			input: ReleaseSpec{
+				Name:              "app-dev",
+				Chart:             "test-charts/app",
+				Verify:            nil,
+				Namespace:         "dev",
+				ConditionTemplate: func(i string) *string { return &i }(`{{ "maybe" }}`),
 			},
 		},
 	}

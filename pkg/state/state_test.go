@@ -18,6 +18,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 var logger = helmexec.NewLogger(io.Discard, "warn")
@@ -3606,7 +3607,6 @@ func TestConditionEnabled(t *testing.T) {
 	tests := []struct {
 		name      string
 		condition string
-		template  *string
 		values    map[string]any
 		want      bool
 		wantErr   bool
@@ -3757,7 +3757,7 @@ func TestConditionEnabled(t *testing.T) {
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := ConditionEnabled(ReleaseSpec{Condition: tt.condition, ConditionTemplate: tt.template}, tt.values)
+			res, err := ConditionEnabled(ReleaseSpec{Condition: tt.condition}, tt.values)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("ConditionEnabled() for %s expected err response", tt.name)
@@ -3772,6 +3772,16 @@ func TestConditionEnabled(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReleaseSpecConditionUnmarshalsBoolLiteral(t *testing.T) {
+	var got ReleaseSpec
+	require.NoError(t, yaml.Unmarshal([]byte("condition: true"), &got))
+	assert.Equal(t, "true", got.Condition)
+
+	enabled, err := ConditionEnabled(got, map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, enabled)
 }
 
 func TestHelmState_NoReleaseMatched(t *testing.T) {
