@@ -93,6 +93,8 @@ type ResolvedDependencies struct {
 	deps map[string][]ResolvedChartDependency
 
 	logger *zap.SugaredLogger
+
+	allowMismatch bool
 }
 
 // nolint: unparam
@@ -133,14 +135,27 @@ func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, err
 		}
 	}
 
-	// No locked version satisfied the constraint. The lock file is the source of
-	// truth for pinned versions, so fall back to the locked version instead of
-	// failing. This allows per-environment lock files to pin a different version
-	// than the one declared in helmfile.yaml (e.g. rolling out a new chart
-	// version progressively across environments without breaking the environments
-	// whose lock files still reference the previous version).
+	// No locked version satisfied the constraint declared in helmfile.yaml.
+	// By default treat this as drift (e.g. a stale lock file) and fail loudly,
+	// because the chart version requested by helmfile.yaml is not the one
+	// recorded in the lock file. Opt in to the per-environment progressive-rollout
+	// behavior by setting "allowLockedVersionMismatch: true" in helmfile.yaml.
 	// See https://github.com/helmfile/helmfile/issues/870
-	lockedVersion := deps[0].Version
+	if !d.allowMismatch {
+		return "", fmt.Errorf("locked version for chart %q does not satisfy the constraint %q from helmfile.yaml; run \"helmfile deps\" to update the lock file, or set \"allowLockedVersionMismatch: true\" to use the locked version anyway", chart, versionConstraint)
+	}
+
+	// The lock file is the source of truth for pinned versions, so fall back to
+	// the highest locked version instead of failing. This allows per-environment
+	// lock files to pin a different version than the one declared in helmfile.yaml
+	// (e.g. rolling out a new chart version progressively across environments
+	// without breaking the environments whose lock files still reference the
+	// previous version).
+	// See https://github.com/helmfile/helmfile/issues/870
+	lockedVersion, err := highestVersion(deps)
+	if err != nil {
+		return "", err
+	}
 	if d.logger != nil {
 		d.logger.Warnf(
 			"locked version %q for chart %q does not satisfy the constraint %q from helmfile.yaml; using the locked version from the lock file. Run \"helmfile deps\" to update the lock file.",
@@ -148,6 +163,24 @@ func (d *ResolvedDependencies) Get(chart, versionConstraint string) (string, err
 		)
 	}
 	return lockedVersion, nil
+}
+
+// highestVersion returns the original version string of the highest semver
+// among deps. The first entry wins on ties. deps must be non-empty.
+func highestVersion(deps []ResolvedChartDependency) (string, error) {
+	var best string
+	var bestSV *semver.Version
+	for _, dep := range deps {
+		sv, err := semver.NewVersion(dep.Version)
+		if err != nil {
+			return "", err
+		}
+		if bestSV == nil || sv.GreaterThan(bestSV) {
+			bestSV = sv
+			best = dep.Version
+		}
+	}
+	return best, nil
 }
 
 func dedupResolvedDependencies(deps []ResolvedChartDependency) []ResolvedChartDependency {
@@ -187,6 +220,7 @@ func (st *HelmState) mergeLockedDependencies() (*HelmState, error) {
 	}
 
 	depMan := NewChartDependencyManager(filename, st.logger, lockFile)
+	depMan.allowMismatch = st.AllowLockedVersionMismatch
 
 	if st.fs.ReadFile != nil {
 		depMan.readFile = st.fs.ReadFile
@@ -357,6 +391,7 @@ func updateDependencies(st *HelmState, shell helmexec.DependencyUpdater, unresol
 	}
 
 	depMan := NewChartDependencyManager(filename, st.logger, lockFile)
+	depMan.allowMismatch = st.AllowLockedVersionMismatch
 
 	_, err := depMan.Update(shell, wd, unresolved)
 	if err != nil {
@@ -372,6 +407,12 @@ type chartDependencyManager struct {
 	lockFilePath string
 
 	logger *zap.SugaredLogger
+
+	// allowMismatch, when true, lets ResolvedDependencies.Get fall back to the
+	// locked version instead of erroring when no locked version satisfies the
+	// helmfile.yaml constraint. Mirrors ReleaseSetSpec.AllowLockedVersionMismatch.
+	// See issue #870.
+	allowMismatch bool
 
 	readFile  func(string) ([]byte, error)
 	writeFile func(string, []byte, os.FileMode) error
@@ -499,7 +540,7 @@ func (m *chartDependencyManager) Resolve(unresolved *UnresolvedDependencies) (*R
 		// See https://github.com/helmfile/helmfile/issues/1473
 	}
 
-	resolved := &ResolvedDependencies{deps: map[string][]ResolvedChartDependency{}, logger: m.logger}
+	resolved := &ResolvedDependencies{deps: map[string][]ResolvedChartDependency{}, logger: m.logger, allowMismatch: m.allowMismatch}
 	for _, d := range lockedReqs.ResolvedDependencies {
 		if err := resolved.add(d); err != nil {
 			return nil, false, err

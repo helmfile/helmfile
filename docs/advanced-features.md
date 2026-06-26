@@ -466,3 +466,35 @@ releases:
 - name: myapp
   chart: charts/myapp
 ```
+
+### Handling version drift between environments
+
+By default, if a per-environment lock file pins a chart version that does **not**
+satisfy the `version` declared in `helmfile.yaml`, helmfile fails loudly:
+
+```
+locked version for chart "mongodb" does not satisfy the constraint "13.10.3"
+from helmfile.yaml; run "helmfile deps" to update the lock file, or set
+"allowLockedVersionMismatch: true" to use the locked version anyway
+```
+
+This protects you from accidentally deploying a stale version when you bump a
+chart in `helmfile.yaml` but forget to re-run `helmfile deps`.
+
+For progressive rollouts — where you intentionally bump a chart in one
+environment while others keep their existing pin — opt in per state file:
+
+```yaml
+lockFilePath: .helmfile.{{ .Environment.Name}}.lock
+allowLockedVersionMismatch: true
+
+releases:
+- name: myapp
+  chart: bitnami/mongodb
+  version: 13.10.3   # bumped; staging's lock still pins 13.10.2 and keeps using it
+```
+
+When enabled and no locked version satisfies the constraint, helmfile falls back
+to the **highest** version recorded in the lock file and emits a `warn`-level
+message advising you to run `helmfile deps`. Only a chart that is entirely absent
+from the lock file remains a hard error.

@@ -84,6 +84,11 @@ kustomizeBinary: path/to/kustomize
 # Path to alternative lock file. The default is <state file name>.lock, i.e for helmfile.yaml it's helmfile.lock.
 lockFilePath: path/to/lock.file
 
+# Allow a per-environment lock file to pin a chart version that does not satisfy
+# the version declared above. When true, helmfile falls back to the locked version
+# (with a warning) instead of failing. Useful for progressive rollouts. Default: false.
+allowLockedVersionMismatch: true
+
 # Default values to set for args along with dedicated keys that can be set by contributors, cli args take precedence over these.
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.

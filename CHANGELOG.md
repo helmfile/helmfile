@@ -1,3 +1,13 @@
+## [Unreleased]
+
+### Added
+
+- Add `allowLockedVersionMismatch` helmfile.yaml option to let a per-environment lock file pin a chart version that differs from the one declared in `helmfile.yaml`, enabling progressive rollouts across environments (#870)
+
+### Fixed
+
+- Fix per-environment lock files failing when their pinned version does not satisfy the helmfile.yaml constraint; the default behavior is now a clear error guiding users to `helmfile deps` or `allowLockedVersionMismatch`, instead of a generic "no resolved dependency found" message (#870)
+
 ## [1.4.1] - 2026-03-03
 
 ### Fixed

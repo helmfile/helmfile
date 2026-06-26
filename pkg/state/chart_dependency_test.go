@@ -5,6 +5,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestResolvedDependencies_Get(t *testing.T) {
@@ -13,6 +16,7 @@ func TestResolvedDependencies_Get(t *testing.T) {
 		deps              map[string][]ResolvedChartDependency
 		chart             string
 		versionConstraint string
+		allowMismatch     bool
 		wantVersion       string
 		wantErr           bool
 	}{
@@ -35,13 +39,32 @@ func TestResolvedDependencies_Get(t *testing.T) {
 			wantVersion:       "13.10.2",
 		},
 		{
-			name: "constraint mismatch falls back to locked version (issue #870)",
+			// Default (strict) behavior: a lock file whose version does not satisfy
+			// the helmfile.yaml constraint fails loudly instead of silently
+			// deploying the wrong chart version (issue #870).
+			name: "constraint mismatch errors by default (strict)",
 			deps: map[string][]ResolvedChartDependency{
 				"mongodb": {{ChartName: "mongodb", Version: "13.10.2"}},
 			},
 			chart:             "mongodb",
 			versionConstraint: "13.10.3",
-			wantVersion:       "13.10.2",
+			wantErr:           true,
+		},
+		{
+			// Opt-in behavior: with allowLockedVersionMismatch the highest locked
+			// version is used even though it does not satisfy the constraint.
+			name: "constraint mismatch falls back to highest locked version when allowed",
+			deps: map[string][]ResolvedChartDependency{
+				"mongodb": {
+					{ChartName: "mongodb", Version: "13.10.1"},
+					{ChartName: "mongodb", Version: "13.10.3"},
+					{ChartName: "mongodb", Version: "13.10.2"},
+				},
+			},
+			chart:             "mongodb",
+			versionConstraint: "14.0.0",
+			allowMismatch:     true,
+			wantVersion:       "13.10.3",
 		},
 		{
 			name: "range constraint picks satisfying locked version among several",
@@ -66,7 +89,7 @@ func TestResolvedDependencies_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := &ResolvedDependencies{deps: tt.deps}
+			d := &ResolvedDependencies{deps: tt.deps, allowMismatch: tt.allowMismatch}
 			got, err := d.Get(tt.chart, tt.versionConstraint)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -76,6 +99,45 @@ func TestResolvedDependencies_Get(t *testing.T) {
 			assert.Equal(t, tt.wantVersion, got)
 		})
 	}
+}
+
+// TestResolvedDependencies_Get_MismatchWarning asserts that, when mismatch
+// fallback is allowed, a warning describing the drift is emitted.
+func TestResolvedDependencies_Get_MismatchWarning(t *testing.T) {
+	core, obs := observer.New(zapcore.WarnLevel)
+	d := &ResolvedDependencies{
+		deps: map[string][]ResolvedChartDependency{
+			"mongodb": {{ChartName: "mongodb", Version: "13.10.2"}},
+		},
+		logger:        zap.New(core).Sugar(),
+		allowMismatch: true,
+	}
+
+	got, err := d.Get("mongodb", "13.10.3")
+	require.NoError(t, err)
+	assert.Equal(t, "13.10.2", got)
+
+	warns := obs.FilterMessageSnippet("does not satisfy").All()
+	require.Len(t, warns, 1, "expected a single drift warning")
+	assert.Equal(t, zapcore.WarnLevel, warns[0].Level)
+	assert.Contains(t, warns[0].Message, "mongodb", "warning should name the chart")
+}
+
+// TestResolvedDependencies_Get_StrictNoWarning asserts the default (strict)
+// path emits no fallback warning, only an error.
+func TestResolvedDependencies_Get_StrictNoWarning(t *testing.T) {
+	core, obs := observer.New(zapcore.DebugLevel)
+	d := &ResolvedDependencies{
+		deps: map[string][]ResolvedChartDependency{
+			"mongodb": {{ChartName: "mongodb", Version: "13.10.2"}},
+		},
+		logger:        zap.New(core).Sugar(),
+		allowMismatch: false,
+	}
+
+	_, err := d.Get("mongodb", "13.10.3")
+	require.Error(t, err)
+	assert.Empty(t, obs.All(), "strict path must not emit a fallback warning")
 }
 
 func TestDedupResolvedDependencies(t *testing.T) {
