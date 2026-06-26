@@ -154,10 +154,26 @@ type HelmState struct {
 
 	kubeconfig string
 
+	// chartifyTempDirs tracks temporary directories created by chartify during
+	// chart preparation. These directories contain the chartified charts and must
+	// survive until all helm operations complete, after which they are cleaned up
+	// via CleanupChartifyTempDirs. It is a pointer so that copying HelmState
+	// (which happens in several places) does not copy the embedded mutex.
+	// See issue #1799.
+	chartifyTempDirs *chartifyTempDirTracker
+
 	// RenderedValues is the helmfile-wide values that is `.Values`
 	// which is accessible from within the whole helmfile go template.
 	// Note that this is usually computed by DesiredStateLoader from ReleaseSetSpec.Env
 	RenderedValues map[string]any
+}
+
+// chartifyTempDirTracker holds the set of chartify output directories to be
+// cleaned up after helm operations complete. The mutex guards concurrent access
+// from chart-preparation workers. See issue #1799.
+type chartifyTempDirTracker struct {
+	mu   sync.Mutex
+	dirs []string
 }
 
 func (st *HelmState) SetKubeconfig(kubeconfig string) {
@@ -1931,6 +1947,10 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	}
 
 	chartPath = out
+	// Track the chartify output directory for cleanup after all helm operations
+	// complete. The chartified chart at `out` is used by subsequent helm commands,
+	// so it cannot be removed yet. See issue #1799.
+	st.addChartifyTempDir(out)
 	// Skip `helm dep build` and `helm dep up` altogether when the chart is from remote or the dep is
 	// explicitly skipped.
 	buildDeps := !skipDeps
@@ -2192,6 +2212,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	if helmfileCommand == "build" {
 		releases = filterReleasesForBuild(releases)
 	}
+
+	// Initialize the chartify temp dir tracker before concurrent workers start,
+	// so that all workers share a single tracker instance. See issue #1799.
+	st.chartifyTempDirs = &chartifyTempDirTracker{}
 
 	var prepareChartInfoMutex sync.Mutex
 
@@ -4525,6 +4549,65 @@ func (st *HelmState) removeFiles(files []string) {
 			st.logger.Warnf("Removing %s: %v", d, err)
 		} else {
 			st.logger.Debugf("Removed %s", d)
+		}
+	}
+}
+
+// addChartifyTempDir records a chartify output directory for deferred cleanup.
+// The directory is removed by CleanupChartifyTempDirs after all helm operations
+// have completed, since the chartified chart may still be in use. See issue #1799.
+func (st *HelmState) addChartifyTempDir(dir string) {
+	if st.chartifyTempDirs == nil {
+		st.chartifyTempDirs = &chartifyTempDirTracker{}
+	}
+	st.chartifyTempDirs.mu.Lock()
+	defer st.chartifyTempDirs.mu.Unlock()
+	st.chartifyTempDirs.dirs = append(st.chartifyTempDirs.dirs, dir)
+}
+
+// CleanupChartifyTempDirs removes all chartify output directories tracked via
+// addChartifyTempDir. It should be called after all helm operations complete.
+// See issue #1799.
+func (st *HelmState) CleanupChartifyTempDirs() {
+	if st.chartifyTempDirs == nil {
+		return
+	}
+
+	st.chartifyTempDirs.mu.Lock()
+	dirs := st.chartifyTempDirs.dirs
+	st.chartifyTempDirs.dirs = nil
+	st.chartifyTempDirs.mu.Unlock()
+
+	seen := make(map[string]bool, len(dirs))
+	parents := make([]string, 0, len(dirs))
+
+	for _, dir := range dirs {
+		if dir == "" || seen[dir] {
+			continue
+		}
+		seen[dir] = true
+
+		if err := st.fs.RemoveAll(dir); err != nil {
+			st.logger.Warnf("Removing chartify temp dir %s: %v", dir, err)
+		} else {
+			st.logger.Debugf("Removed chartify temp dir %s", dir)
+		}
+
+		// Collect the parent temp directory (e.g. /tmp/chartify<random>) for
+		// later removal. os.Remove only succeeds on empty directories, so we
+		// attempt it after all child directories have been removed.
+		parent := filepath.Dir(dir)
+		if parent != "" && parent != "/" && !seen[parent] {
+			seen[parent] = true
+			parents = append(parents, parent)
+		}
+	}
+
+	for _, parent := range parents {
+		if err := os.Remove(parent); err != nil {
+			st.logger.Debugf("Not removing parent temp dir %s: %v", parent, err)
+		} else {
+			st.logger.Debugf("Removed parent temp dir %s", parent)
 		}
 	}
 }
