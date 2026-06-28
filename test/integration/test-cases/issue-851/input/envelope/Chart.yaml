@@ -1,0 +1,11 @@
+apiVersion: v2
+name: envelope
+version: 0.1.0
+description: Envelope chart with nested subcharts (issue 851 reproduction)
+dependencies:
+  - name: sub1
+    version: 0.1.0
+    repository: file://charts/sub1
+  - name: sub2
+    version: 0.1.0
+    repository: file://charts/sub2

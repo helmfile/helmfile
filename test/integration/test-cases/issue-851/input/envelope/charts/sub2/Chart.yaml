@@ -1,0 +1,8 @@
+apiVersion: v2
+name: sub2
+version: 0.1.0
+description: Subchart with its own nested subchart via relative file:// dep
+dependencies:
+  - name: nested
+    version: 0.1.0
+    repository: file://../nested

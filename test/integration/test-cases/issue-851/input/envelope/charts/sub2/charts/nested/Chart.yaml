@@ -1,0 +1,4 @@
+apiVersion: v2
+name: nested
+version: 0.1.0
+description: Deepest nested subchart

@@ -1,0 +1,46 @@
+# Test for issue #851: Strategic merge with envelope charts does not work
+# https://github.com/helmfile/helmfile/issues/851
+#
+# Problem: When an envelope chart's subchart has its own local file:// dependencies
+# (e.g. charts/sub2/Chart.yaml references file://../nested), chartify's helm dependency
+# build resolves the subchart's relative path against its own temporary directory. Since
+# the nested subchart source isn't a sibling of the temp dir, the nested subchart fails
+# to load and resources defined in it are silently dropped from the patched output.
+# strategicMergePatches targeting those resources then fail with "no resource matches".
+#
+# Fix: rewriteChartDependencies now recursively rewrites relative file:// dependencies
+# in nested subcharts' Chart.yaml files, converting them to absolute paths before chartify
+# runs helm dependency build.
+
+releases:
+  - name: envelope
+    namespace: test
+    chart: ./envelope
+    strategicMergePatches:
+      - apiVersion: monitoring.coreos.com/v1
+        kind: ServiceMonitor
+        metadata:
+          name: sub1-sm
+        spec:
+          endpoints:
+            - port: metrics-sub1
+              interval: 10s
+      - apiVersion: monitoring.coreos.com/v1
+        kind: ServiceMonitor
+        metadata:
+          name: sub2-sm
+        spec:
+          endpoints:
+            - port: metrics-sub2
+              interval: 15s
+      # The critical patch: targets a resource defined in the DEEPEST nested subchart
+      # (envelope/charts/sub2/charts/nested). Without the fix, this resource is missing
+      # from chartify's patching set and the patch fails with "no resource matches".
+      - apiVersion: monitoring.coreos.com/v1
+        kind: ServiceMonitor
+        metadata:
+          name: nested-sm
+        spec:
+          endpoints:
+            - port: metrics-nested
+              interval: 20s

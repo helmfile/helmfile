@@ -1109,3 +1109,294 @@ generated: "2024-01-01T00:00:00Z"
 		t.Errorf("digest mismatch with Helm's HashReq algorithm:\n  got:  %s\n  want: %s", lock.Digest, expectedDigest)
 	}
 }
+
+// TestRewriteChartDependencies_NestedSubcharts verifies that relative file:// dependencies
+// in nested subcharts' Chart.yaml (e.g. charts/SUBCHART/Chart.yaml) are also rewritten to
+// absolute paths. Without this, an envelope chart whose subcharts have their own local
+// file:// dependencies breaks when chartify copies the chart into its temporary directory:
+// the relative paths resolve against the temp dir instead of the original chart location,
+// the nested subcharts fail to resolve, and strategicMergePatches/jsonPatches targeting
+// resources from those nested subcharts silently miss them.
+// See https://github.com/helmfile/helmfile/issues/851.
+func TestRewriteChartDependencies_NestedSubcharts(t *testing.T) {
+	rootDir, err := os.MkdirTemp("", "helmfile-nested-")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	// Lay out a chart tree that mirrors the issue 851 scenario:
+	//   envelope/Chart.yaml                      (deps: sub1, sub2 via file://)
+	//   envelope/charts/sub1/Chart.yaml          (no deps)
+	//   envelope/charts/sub2/Chart.yaml          (deps: nested via file://../nested)
+	//   envelope/charts/sub2/charts/nested/Chart.yaml  (no deps)
+	// sub2 has a RELATIVE file:// dep on `nested`. After chartify copies the chart to its
+	// temp dir, that path needs to resolve back to the original `nested` source directory.
+	topChartYaml := `apiVersion: v2
+name: envelope
+version: 0.1.0
+dependencies:
+  - name: sub1
+    repository: file://../sub1
+    version: 0.1.0
+  - name: sub2
+    repository: file://../sub2
+    version: 0.1.0
+`
+	sub1ChartYaml := `apiVersion: v2
+name: sub1
+version: 0.1.0
+`
+	sub2ChartYaml := `apiVersion: v2
+name: sub2
+version: 0.1.0
+dependencies:
+  - name: nested
+    repository: file://../nested
+    version: 0.1.0
+`
+	nestedChartYaml := `apiVersion: v2
+name: nested
+version: 0.1.0
+`
+
+	// Create source subchart directories as siblings of envelope, so file://../X resolves.
+	if err := os.MkdirAll(filepath.Join(rootDir, "envelope"), 0755); err != nil {
+		t.Fatalf("mkdir envelope: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(rootDir, "sub1"), 0755); err != nil {
+		t.Fatalf("mkdir sub1: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(rootDir, "sub2"), 0755); err != nil {
+		t.Fatalf("mkdir sub2: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(rootDir, "nested"), 0755); err != nil {
+		t.Fatalf("mkdir nested: %v", err)
+	}
+
+	// Mirror the subchart sources inside envelope/charts/ to exercise the nested-rewrite path.
+	if err := os.MkdirAll(filepath.Join(rootDir, "envelope", "charts", "sub1"), 0755); err != nil {
+		t.Fatalf("mkdir envelope/charts/sub1: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(rootDir, "envelope", "charts", "sub2", "charts", "nested"), 0755); err != nil {
+		t.Fatalf("mkdir envelope/charts/sub2/charts/nested: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(rootDir, "envelope", "Chart.yaml"), []byte(topChartYaml), 0644); err != nil {
+		t.Fatalf("write envelope/Chart.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "envelope", "charts", "sub1", "Chart.yaml"), []byte(sub1ChartYaml), 0644); err != nil {
+		t.Fatalf("write envelope/charts/sub1/Chart.yaml: %v", err)
+	}
+	// sub2's Chart.yaml has a RELATIVE file:// dep — this is what we expect to be rewritten.
+	if err := os.WriteFile(filepath.Join(rootDir, "envelope", "charts", "sub2", "Chart.yaml"), []byte(sub2ChartYaml), 0644); err != nil {
+		t.Fatalf("write envelope/charts/sub2/Chart.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "envelope", "charts", "sub2", "charts", "nested", "Chart.yaml"), []byte(nestedChartYaml), 0644); err != nil {
+		t.Fatalf("write envelope/charts/sub2/charts/nested/Chart.yaml: %v", err)
+	}
+
+	logger := zap.NewNop().Sugar()
+	st := &HelmState{
+		logger: logger,
+		fs:     filesystem.DefaultFileSystem(),
+	}
+
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(filepath.Join(rootDir, "envelope"))
+	if err != nil {
+		t.Fatalf("rewriteChartDependencies failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if rewrittenPath != filepath.Join(rootDir, "envelope") {
+			cleanup()
+		}
+	})
+
+	// Rewrite must produce a temp copy because both the top-level Chart.yaml AND sub2's
+	// Chart.yaml contain relative file:// dependencies.
+	if rewrittenPath == filepath.Join(rootDir, "envelope") {
+		t.Fatalf("expected a rewritten temp copy, got the original path")
+	}
+
+	// Top-level Chart.yaml: relative file:// must be rewritten to absolute.
+	topData, err := os.ReadFile(filepath.Join(rewrittenPath, "Chart.yaml"))
+	if err != nil {
+		t.Fatalf("read top-level Chart.yaml: %v", err)
+	}
+	topContent := string(topData)
+	if strings.Contains(topContent, "file://../sub1") || strings.Contains(topContent, "file://../sub2") {
+		t.Errorf("top-level Chart.yaml still contains relative file:// paths:\n%s", topContent)
+	}
+	if !strings.Contains(topContent, "file://") {
+		t.Errorf("top-level Chart.yaml should still contain file:// absolute paths")
+	}
+
+	// The critical assertion: sub2's Chart.yaml (nested under charts/sub2/) must also be
+	// rewritten to absolute paths. Without this fix, the original `file://../nested` would
+	// resolve against the temp dir and the nested subchart would silently fail to load.
+	sub2Data, err := os.ReadFile(filepath.Join(rewrittenPath, "charts", "sub2", "Chart.yaml"))
+	if err != nil {
+		t.Fatalf("read charts/sub2/Chart.yaml: %v", err)
+	}
+	sub2Content := string(sub2Data)
+	if strings.Contains(sub2Content, "file://../nested") {
+		t.Errorf("nested sub2 Chart.yaml still contains relative file://../nested path:\n%s", sub2Content)
+	}
+	if !strings.Contains(sub2Content, "file://") {
+		t.Errorf("nested sub2 Chart.yaml should contain absolute file:// path after rewrite")
+	}
+	// The rewritten path must reflect how Helm resolves relative paths in subchart
+	// Chart.yaml: `file://../nested` in `charts/sub2/Chart.yaml` is relative to the
+	// sub2 directory, so it resolves to `charts/nested` (a sibling of sub2 inside the
+	// chart). The rewrite preserves that resolution while making the result absolute.
+	expectedNestedAbs := "file://" + filepath.Join(rootDir, "envelope", "charts", "nested")
+	if !strings.Contains(sub2Content, expectedNestedAbs) {
+		t.Errorf("nested sub2 Chart.yaml should reference %s\nGot:\n%s", expectedNestedAbs, sub2Content)
+	}
+
+	// Source directories must NOT be modified.
+	origSub2, err := os.ReadFile(filepath.Join(rootDir, "envelope", "charts", "sub2", "Chart.yaml"))
+	if err != nil {
+		t.Fatalf("read original sub2 Chart.yaml: %v", err)
+	}
+	if string(origSub2) != sub2ChartYaml {
+		t.Errorf("original sub2 Chart.yaml must not be modified by the rewrite")
+	}
+
+	// sub1 has no file:// deps — its Chart.yaml should be unchanged in the temp copy.
+	sub1Data, err := os.ReadFile(filepath.Join(rewrittenPath, "charts", "sub1", "Chart.yaml"))
+	if err != nil {
+		t.Fatalf("read charts/sub1/Chart.yaml: %v", err)
+	}
+	if string(sub1Data) != sub1ChartYaml {
+		t.Errorf("sub1 Chart.yaml (no file:// deps) should be unchanged, got:\n%s", string(sub1Data))
+	}
+}
+
+// TestRewriteChartDependencies_NoNestedRewriteForAbsolutePaths ensures that absolute
+// file:// paths in nested subcharts' Chart.yaml are left untouched.
+func TestRewriteChartDependencies_NoNestedRewriteForAbsolutePaths(t *testing.T) {
+	rootDir, err := os.MkdirTemp("", "helmfile-nested-abs-")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	// Only the top-level Chart.yaml has a relative path that triggers a rewrite.
+	// The nested subchart uses an absolute path and should not require rewriting itself.
+	topChartYaml := `apiVersion: v2
+name: envelope
+version: 0.1.0
+dependencies:
+  - name: sub1
+    repository: file://../sub1
+    version: 0.1.0
+`
+	sub1ChartYaml := fmt.Sprintf(`apiVersion: v2
+name: sub1
+version: 0.1.0
+dependencies:
+  - name: nested
+    repository: file://%s
+    version: 0.1.0
+`, filepath.Join(rootDir, "nested"))
+
+	if err := os.MkdirAll(filepath.Join(rootDir, "envelope", "charts", "sub1"), 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "envelope", "Chart.yaml"), []byte(topChartYaml), 0644); err != nil {
+		t.Fatalf("write Chart.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "envelope", "charts", "sub1", "Chart.yaml"), []byte(sub1ChartYaml), 0644); err != nil {
+		t.Fatalf("write sub1 Chart.yaml: %v", err)
+	}
+
+	st := &HelmState{
+		logger: zap.NewNop().Sugar(),
+		fs:     filesystem.DefaultFileSystem(),
+	}
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(filepath.Join(rootDir, "envelope"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	t.Cleanup(func() {
+		if rewrittenPath != filepath.Join(rootDir, "envelope") {
+			cleanup()
+		}
+	})
+
+	if rewrittenPath == filepath.Join(rootDir, "envelope") {
+		t.Fatalf("expected a temp copy because the top-level Chart.yaml needs rewriting")
+	}
+
+	// sub1's Chart.yaml must be preserved verbatim (it only has an absolute path).
+	sub1Data, err := os.ReadFile(filepath.Join(rewrittenPath, "charts", "sub1", "Chart.yaml"))
+	if err != nil {
+		t.Fatalf("read sub1 Chart.yaml: %v", err)
+	}
+	if string(sub1Data) != sub1ChartYaml {
+		t.Errorf("sub1 Chart.yaml with only absolute file:// dep should be unchanged:\nwant:\n%s\ngot:\n%s", sub1ChartYaml, string(sub1Data))
+	}
+}
+
+// TestRewriteChartDependencies_NoOpWhenOnlyNestedRelativeDeps verifies that the function
+// still triggers a rewrite (and temp copy) when only nested subchart Chart.yaml files have
+// relative file:// deps, even if the top-level chart has none.
+func TestRewriteChartDependencies_NoOpWhenOnlyNestedRelativeDeps(t *testing.T) {
+	rootDir, err := os.MkdirTemp("", "helmfile-only-nested-")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	// Top-level chart has no relative file:// deps.
+	topChartYaml := `apiVersion: v2
+name: envelope
+version: 0.1.0
+`
+	// Nested subchart has a relative file:// dep.
+	subChartYaml := `apiVersion: v2
+name: sub1
+version: 0.1.0
+dependencies:
+  - name: nested
+    repository: file://../nested
+    version: 0.1.0
+`
+
+	if err := os.MkdirAll(filepath.Join(rootDir, "envelope", "charts", "sub1"), 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "envelope", "Chart.yaml"), []byte(topChartYaml), 0644); err != nil {
+		t.Fatalf("write Chart.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "envelope", "charts", "sub1", "Chart.yaml"), []byte(subChartYaml), 0644); err != nil {
+		t.Fatalf("write sub1 Chart.yaml: %v", err)
+	}
+
+	st := &HelmState{
+		logger: zap.NewNop().Sugar(),
+		fs:     filesystem.DefaultFileSystem(),
+	}
+	rewrittenPath, cleanup, err := st.rewriteChartDependencies(filepath.Join(rootDir, "envelope"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	t.Cleanup(func() {
+		if rewrittenPath != filepath.Join(rootDir, "envelope") {
+			cleanup()
+		}
+	})
+
+	if rewrittenPath == filepath.Join(rootDir, "envelope") {
+		t.Fatalf("expected a temp copy because nested subchart Chart.yaml has a relative file:// dep")
+	}
+
+	sub1Data, err := os.ReadFile(filepath.Join(rewrittenPath, "charts", "sub1", "Chart.yaml"))
+	if err != nil {
+		t.Fatalf("read sub1 Chart.yaml: %v", err)
+	}
+	if strings.Contains(string(sub1Data), "file://../nested") {
+		t.Errorf("nested subchart relative path should have been rewritten:\n%s", string(sub1Data))
+	}
+}

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: sub1
+version: 0.1.0
+description: Subchart with no nested deps

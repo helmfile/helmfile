@@ -1620,62 +1620,24 @@ type PrepareChartKey struct {
 // contents so prepare hooks or other steps that mutate the local chart directory are honored.
 // The returned cleanup function removes the temporary directory when one was created and is
 // otherwise a no-op.
+//
+// In addition to the top-level Chart.yaml, this also rewrites relative file:// dependencies in
+// nested subcharts' Chart.yaml files (e.g. charts/SUBCHART/Chart.yaml,
+// charts/SUBCHART/charts/NESTED/Chart.yaml). Without this, an envelope chart whose subcharts
+// have their own local file:// dependencies breaks when chartify copies the chart into its
+// temporary directory: the relative paths resolve against the temp dir instead of the original
+// chart location, the nested subcharts fail to resolve, and strategicMergePatches/jsonPatches
+// targeting resources from those nested subcharts silently miss them.
+// See https://github.com/helmfile/helmfile/issues/851.
 func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(), error) {
-	chartYamlPath := filepath.Join(chartPath, "Chart.yaml")
-
-	if _, err := st.fs.Stat(chartYamlPath); os.IsNotExist(err) {
-		return chartPath, func() {}, nil
-	} else if err != nil {
-		return chartPath, func() {}, err
-	}
-
-	data, err := st.fs.ReadFile(chartYamlPath)
+	// Collect every Chart.yaml that needs to be rewritten. The top-level chart and any
+	// nested subcharts under charts/*/charts/*/... are candidates.
+	chartYamlByDir, err := st.collectChartsNeedingRewrite(chartPath)
 	if err != nil {
 		return chartPath, func() {}, err
 	}
-
-	type ChartDependency struct {
-		Name       string                 `yaml:"name"`
-		Repository string                 `yaml:"repository"`
-		Data       map[string]interface{} `yaml:",inline"`
-	}
-	type ChartMeta struct {
-		Dependencies []ChartDependency      `yaml:"dependencies,omitempty"`
-		Data         map[string]interface{} `yaml:",inline"`
-	}
-
-	var chartMeta ChartMeta
-	if err := yaml.Unmarshal(data, &chartMeta); err != nil {
-		return chartPath, func() {}, err
-	}
-
-	modified := false
-	for i := range chartMeta.Dependencies {
-		dep := &chartMeta.Dependencies[i]
-		if strings.HasPrefix(dep.Repository, "file://") {
-			relPath := strings.TrimPrefix(dep.Repository, "file://")
-
-			if !filepath.IsAbs(relPath) {
-				absPath := filepath.Join(chartPath, relPath)
-				absPath, err = filepath.Abs(absPath)
-				if err != nil {
-					return chartPath, func() {}, fmt.Errorf("failed to resolve absolute path for dependency %s: %w", dep.Name, err)
-				}
-
-				st.logger.Debugf("Rewriting Chart dependency %s from %s to file://%s", dep.Name, dep.Repository, absPath)
-				dep.Repository = "file://" + absPath
-				modified = true
-			}
-		}
-	}
-
-	if !modified {
+	if len(chartYamlByDir) == 0 {
 		return chartPath, func() {}, nil
-	}
-
-	updatedData, err := yaml.Marshal(&chartMeta)
-	if err != nil {
-		return chartPath, func() {}, fmt.Errorf("failed to marshal Chart.yaml: %w", err)
 	}
 
 	tempDir, err := st.fs.MkdirTemp("", "chart-deps-rewrite-*")
@@ -1690,12 +1652,173 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 		return chartPath, func() {}, fmt.Errorf("failed to copy chart to temp directory: %w", err)
 	}
 
-	tempChartYamlPath := filepath.Join(tempDir, "Chart.yaml")
-	if err := st.fs.WriteFile(tempChartYamlPath, updatedData, 0644); err != nil {
+	// Rewrite each affected Chart.yaml inside the temp copy and refresh its Chart.lock
+	// digest so downstream `helm dependency build` doesn't reject the lock as stale.
+	// chartYamlByDir preserves insertion order (top-level first, then nested), which
+	// matches the order helm resolves dependencies.
+	for origDir, meta := range chartYamlByDir {
+		relDir, relErr := filepath.Rel(chartPath, origDir)
+		if relErr != nil {
+			if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
+				st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
+			}
+			return chartPath, func() {}, fmt.Errorf("failed to compute relative path for %s: %w", origDir, relErr)
+		}
+		tempSubDir := filepath.Join(tempDir, relDir)
+		if err := st.applyChartYamlRewrite(tempSubDir, meta); err != nil {
+			if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
+				st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
+			}
+			return chartPath, func() {}, err
+		}
+	}
+
+	cleanup := func() {
 		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
 			st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
 		}
-		return chartPath, func() {}, fmt.Errorf("failed to write Chart.yaml: %w", err)
+	}
+
+	return tempDir, cleanup, nil
+}
+
+// chartRewriteMeta captures the parsed Chart.yaml content and the rewritten dependency list
+// for a single chart (top-level or nested subchart) that needs its relative file://
+// dependencies converted to absolute paths.
+type chartRewriteMeta struct {
+	// rewrittenMeta is the Chart.yaml structure with file:// repos rewritten to absolute paths.
+	rewrittenMeta *chartMetaForRewrite
+}
+
+// chartMetaForRewrite is the on-disk representation of Chart.yaml used during the rewrite.
+type chartMetaForRewrite struct {
+	Dependencies []chartDependencyForRewrite `yaml:"dependencies,omitempty"`
+	Data         map[string]interface{}      `yaml:",inline"`
+}
+
+// chartDependencyForRewrite models a single Chart.yaml dependency entry. The inline Data
+// map captures any other fields (version, condition, alias, tags, import-values, ...) so
+// they round-trip unchanged through marshal/unmarshal.
+type chartDependencyForRewrite struct {
+	Name       string                 `yaml:"name"`
+	Repository string                 `yaml:"repository"`
+	Data       map[string]interface{} `yaml:",inline"`
+}
+
+// collectChartsNeedingRewrite walks chartPath looking for Chart.yaml files (the top-level
+// chart plus any nested subcharts under charts/<name>/). It returns a map from the absolute
+// chart directory to the parsed-and-rewritten metadata, but only for charts whose Chart.yaml
+// actually contains relative file:// dependencies. Insertion order is top-level first, then
+// subcharts in discovery order (see walkChartDirs).
+func (st *HelmState) collectChartsNeedingRewrite(chartPath string) (map[string]*chartRewriteMeta, error) {
+	dirs, err := st.walkChartDirs(chartPath)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]*chartRewriteMeta, len(dirs))
+	for _, dir := range dirs {
+		chartYamlPath := filepath.Join(dir, "Chart.yaml")
+		data, readErr := st.fs.ReadFile(chartYamlPath)
+		if readErr != nil {
+			if os.IsNotExist(readErr) {
+				continue
+			}
+			return nil, readErr
+		}
+
+		var meta chartMetaForRewrite
+		if err := yaml.Unmarshal(data, &meta); err != nil {
+			return nil, fmt.Errorf("failed to parse %s: %w", chartYamlPath, err)
+		}
+
+		anyRewritten := false
+		for i := range meta.Dependencies {
+			dep := &meta.Dependencies[i]
+			if !strings.HasPrefix(dep.Repository, "file://") {
+				continue
+			}
+			relPath := strings.TrimPrefix(dep.Repository, "file://")
+			if filepath.IsAbs(relPath) {
+				continue
+			}
+			absPath := filepath.Join(dir, relPath)
+			absPath, absErr := filepath.Abs(absPath)
+			if absErr != nil {
+				return nil, fmt.Errorf("failed to resolve absolute path for dependency %s in %s: %w", dep.Name, chartYamlPath, absErr)
+			}
+			st.logger.Debugf("Rewriting Chart dependency %s from %s to file://%s (in %s)", dep.Name, dep.Repository, absPath, chartYamlPath)
+			dep.Repository = "file://" + absPath
+			anyRewritten = true
+		}
+
+		if anyRewritten {
+			rewritten := meta
+			result[dir] = &chartRewriteMeta{rewrittenMeta: &rewritten}
+		}
+	}
+
+	return result, nil
+}
+
+// walkChartDirs returns the absolute paths of chart directories under chartPath that may
+// contain a Chart.yaml: chartPath itself, followed by every unpacked subchart under
+// charts/<name>/, recursively. Subcharts packaged as .tgz archives are not descended into
+// (helm treats them as opaque). The order is deterministic: parents before children,
+// siblings in lexical order.
+func (st *HelmState) walkChartDirs(chartPath string) ([]string, error) {
+	var dirs []string
+	var walk func(dir string) error
+	walk = func(dir string) error {
+		chartYamlPath := filepath.Join(dir, "Chart.yaml")
+		_, err := st.fs.Stat(chartYamlPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		dirs = append(dirs, dir)
+
+		chartsDir := filepath.Join(dir, "charts")
+		entries, err := st.fs.ReadDir(chartsDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			if err := walk(filepath.Join(chartsDir, e.Name())); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if err := walk(chartPath); err != nil {
+		return nil, err
+	}
+	return dirs, nil
+}
+
+// applyChartYamlRewrite writes the rewritten Chart.yaml into tempSubDir and refreshes the
+// co-located Chart.lock digest so `helm dependency build` doesn't reject the lock as stale.
+// meta describes the Chart.yaml content with file:// repositories already rewritten to
+// absolute paths.
+func (st *HelmState) applyChartYamlRewrite(tempSubDir string, meta *chartRewriteMeta) error {
+	tempChartYamlPath := filepath.Join(tempSubDir, "Chart.yaml")
+
+	updatedData, err := yaml.Marshal(meta.rewrittenMeta)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Chart.yaml at %s: %w", tempChartYamlPath, err)
+	}
+
+	if err := st.fs.WriteFile(tempChartYamlPath, updatedData, 0644); err != nil {
+		return fmt.Errorf("failed to write Chart.yaml at %s: %w", tempChartYamlPath, err)
 	}
 
 	st.logger.Debugf("Rewrote Chart.yaml with absolute dependency paths at %s", tempChartYamlPath)
@@ -1708,120 +1831,123 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 	// pulls newer dependency versions. The version pins in the lock are still the
 	// intended truth — only the rewritten file:// repository URL changed. Mirror the
 	// rewrite into the lock and recompute the digest so `dep build` accepts it.
-	tempChartLockPath := filepath.Join(tempDir, "Chart.lock")
+	tempChartLockPath := filepath.Join(tempSubDir, "Chart.lock")
 	lockData, lockErr := st.fs.ReadFile(tempChartLockPath)
 	if lockErr != nil && !os.IsNotExist(lockErr) {
 		st.logger.Warnf("Failed to read Chart.lock at %s: %v", tempChartLockPath, lockErr)
 	}
-	if lockErr == nil {
-		var lock struct {
-			Dependencies []*helmchart.Dependency `yaml:"dependencies,omitempty"`
-			Digest       string                  `yaml:"digest,omitempty"`
-			Generated    string                  `yaml:"generated,omitempty"`
+	if lockErr != nil {
+		// No lock file (or unreadable): nothing more to do. If the lock is missing,
+		// helm will resolve from Chart.yaml directly.
+		return nil
+	}
+
+	var lock struct {
+		Dependencies []*helmchart.Dependency `yaml:"dependencies,omitempty"`
+		Digest       string                  `yaml:"digest,omitempty"`
+		Generated    string                  `yaml:"generated,omitempty"`
+	}
+	if err := yaml.Unmarshal(lockData, &lock); err != nil {
+		st.logger.Warnf("Failed to parse Chart.lock at %s: %v", tempChartLockPath, err)
+		return nil
+	}
+
+	// Build the request slice (rewritten Chart.yaml dependencies) using helm's
+	// own chart.Dependency type so the JSON used for hashing matches helm's
+	// exactly. All supported fields must be mapped, not just name/repository/
+	// version, because helm's digest algorithm hashes the full Dependency struct.
+	rewrittenDeps := meta.rewrittenMeta.Dependencies
+	req := make([]*helmchart.Dependency, 0, len(rewrittenDeps))
+	for _, d := range rewrittenDeps {
+		dep := &helmchart.Dependency{
+			Name:       d.Name,
+			Repository: d.Repository,
 		}
-		if err := yaml.Unmarshal(lockData, &lock); err != nil {
-			st.logger.Warnf("Failed to parse Chart.lock at %s: %v", tempChartLockPath, err)
-		} else {
-			// Build the request slice (rewritten Chart.yaml dependencies) using helm's
-			// own chart.Dependency type so the JSON used for hashing matches helm's
-			// exactly. All supported fields must be mapped, not just name/repository/
-			// version, because helm's digest algorithm hashes the full Dependency struct.
-			req := make([]*helmchart.Dependency, 0, len(chartMeta.Dependencies))
-			for _, d := range chartMeta.Dependencies {
-				dep := &helmchart.Dependency{
-					Name:       d.Name,
-					Repository: d.Repository,
-				}
-				if v, ok := d.Data["version"].(string); ok {
-					dep.Version = v
-				}
-				if v, ok := d.Data["condition"].(string); ok {
-					dep.Condition = v
-				}
-				if v, ok := d.Data["alias"].(string); ok {
-					dep.Alias = v
-				}
-				if v, ok := d.Data["enabled"].(bool); ok {
-					dep.Enabled = v
-				}
-				if v, ok := d.Data["tags"].([]interface{}); ok {
-					tags := make([]string, 0, len(v))
-					for _, t := range v {
-						if s, ok := t.(string); ok {
-							tags = append(tags, s)
-						}
-					}
-					dep.Tags = tags
-				}
-				if v, ok := d.Data["import-values"].([]interface{}); ok {
-					normalized, err := maputil.RecursivelyStringifyMapKey(v)
-					if err != nil {
-						st.logger.Warnf("Failed to normalize import-values for dependency %s: %v", d.Name, err)
-					} else {
-						dep.ImportValues = normalized.([]interface{})
-					}
-				}
-				req = append(req, dep)
-			}
-
-			// Mirror the rewritten file:// repository URLs onto matching lock entries.
-			// Without this, `helm dependency build` would resolve the lock's relative
-			// file:// paths against the (moved) chart directory and fail with
-			// "directory ... not found". Versions in the lock are left untouched.
-			// Match on Name + Alias to handle charts with duplicate dependency names
-			// distinguished by alias.
-			for _, ld := range lock.Dependencies {
-				if !strings.HasPrefix(ld.Repository, "file://") {
-					continue
-				}
-				for _, rd := range req {
-					if rd.Name == ld.Name && rd.Alias == ld.Alias && strings.HasPrefix(rd.Repository, "file://") {
-						ld.Repository = rd.Repository
-						break
-					}
+		if v, ok := d.Data["version"].(string); ok {
+			dep.Version = v
+		}
+		if v, ok := d.Data["condition"].(string); ok {
+			dep.Condition = v
+		}
+		if v, ok := d.Data["alias"].(string); ok {
+			dep.Alias = v
+		}
+		if v, ok := d.Data["enabled"].(bool); ok {
+			dep.Enabled = v
+		}
+		if v, ok := d.Data["tags"].([]interface{}); ok {
+			tags := make([]string, 0, len(v))
+			for _, t := range v {
+				if s, ok := t.(string); ok {
+					tags = append(tags, s)
 				}
 			}
-
-			// Normalize lock.Dependencies ImportValues to avoid json.Marshal failures
-			// when go-yaml v2 decodes nested maps as map[interface{}]interface{}.
-			for _, ld := range lock.Dependencies {
-				if ld.ImportValues != nil {
-					normalized, err := maputil.RecursivelyStringifyMapKey(ld.ImportValues)
-					if err != nil {
-						st.logger.Warnf("Failed to normalize import-values in Chart.lock for dependency %s: %v", ld.Name, err)
-					} else {
-						ld.ImportValues = normalized.([]interface{})
-					}
-				}
-			}
-
-			// Replicates helm's resolver.HashReq:
-			//   json.Marshal([2][]*chart.Dependency{req, lock}) → sha256 hex.
-			// resolver.HashReq lives in helm.sh/helm/v3/internal/resolver, so we
-			// inline the (small, stable) algorithm rather than importing it.
-			if payload, err := json.Marshal([2][]*helmchart.Dependency{req, lock.Dependencies}); err != nil {
-				st.logger.Warnf("Failed to marshal deps for Chart.lock digest at %s: %v", tempChartLockPath, err)
+			dep.Tags = tags
+		}
+		if v, ok := d.Data["import-values"].([]interface{}); ok {
+			normalized, err := maputil.RecursivelyStringifyMapKey(v)
+			if err != nil {
+				st.logger.Warnf("Failed to normalize import-values for dependency %s: %v", d.Name, err)
 			} else {
-				sum := sha256.Sum256(payload)
-				lock.Digest = "sha256:" + hex.EncodeToString(sum[:])
-				if updated, err := yaml.Marshal(&lock); err != nil {
-					st.logger.Warnf("Failed to marshal Chart.lock at %s: %v", tempChartLockPath, err)
-				} else if err := st.fs.WriteFile(tempChartLockPath, updated, 0644); err != nil {
-					st.logger.Warnf("Failed to write Chart.lock at %s: %v", tempChartLockPath, err)
-				} else {
-					st.logger.Debugf("Refreshed Chart.lock digest at %s after Chart.yaml rewrite", tempChartLockPath)
-				}
+				dep.ImportValues = normalized.([]interface{})
+			}
+		}
+		req = append(req, dep)
+	}
+
+	// Mirror the rewritten file:// repository URLs onto matching lock entries.
+	// Without this, `helm dependency build` would resolve the lock's relative
+	// file:// paths against the (moved) chart directory and fail with
+	// "directory ... not found". Versions in the lock are left untouched.
+	// Match on Name + Alias to handle charts with duplicate dependency names
+	// distinguished by alias.
+	for _, ld := range lock.Dependencies {
+		if !strings.HasPrefix(ld.Repository, "file://") {
+			continue
+		}
+		for _, rd := range req {
+			if rd.Name == ld.Name && rd.Alias == ld.Alias && strings.HasPrefix(rd.Repository, "file://") {
+				ld.Repository = rd.Repository
+				break
 			}
 		}
 	}
 
-	cleanup := func() {
-		if removeErr := st.fs.RemoveAll(tempDir); removeErr != nil {
-			st.logger.Warnf("Failed to remove temp chart directory %s: %v", tempDir, removeErr)
+	// Normalize lock.Dependencies ImportValues to avoid json.Marshal failures
+	// when go-yaml v2 decodes nested maps as map[interface{}]interface{}.
+	for _, ld := range lock.Dependencies {
+		if ld.ImportValues != nil {
+			normalized, err := maputil.RecursivelyStringifyMapKey(ld.ImportValues)
+			if err != nil {
+				st.logger.Warnf("Failed to normalize import-values in Chart.lock for dependency %s: %v", ld.Name, err)
+			} else {
+				ld.ImportValues = normalized.([]interface{})
+			}
 		}
 	}
 
-	return tempDir, cleanup, nil
+	// Replicates helm's resolver.HashReq:
+	//   json.Marshal([2][]*chart.Dependency{req, lock}) → sha256 hex.
+	// resolver.HashReq lives in helm.sh/helm/v3/internal/resolver, so we
+	// inline the (small, stable) algorithm rather than importing it.
+	payload, err := json.Marshal([2][]*helmchart.Dependency{req, lock.Dependencies})
+	if err != nil {
+		st.logger.Warnf("Failed to marshal deps for Chart.lock digest at %s: %v", tempChartLockPath, err)
+		return nil
+	}
+	sum := sha256.Sum256(payload)
+	lock.Digest = "sha256:" + hex.EncodeToString(sum[:])
+	updated, err := yaml.Marshal(&lock)
+	if err != nil {
+		st.logger.Warnf("Failed to marshal Chart.lock at %s: %v", tempChartLockPath, err)
+		return nil
+	}
+	if err := st.fs.WriteFile(tempChartLockPath, updated, 0644); err != nil {
+		st.logger.Warnf("Failed to write Chart.lock at %s: %v", tempChartLockPath, err)
+		return nil
+	}
+	st.logger.Debugf("Refreshed Chart.lock digest at %s after Chart.yaml rewrite", tempChartLockPath)
+	return nil
 }
 
 // Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.

@@ -285,6 +285,18 @@ There's also `releases[].jsonPatches` that works similarly to `strategicMergePat
 
 Please also see [test/advanced/helmfile.yaml](https://github.com/helmfile/helmfile/tree/master/test/advanced/helmfile.yaml) for an example of patching support and more.
 
+#### Patching envelope charts (charts with nested subcharts)
+
+`strategicMergePatches`, `jsonPatches`, and `transformers` all work on resources defined
+anywhere in the chart, including resources rendered by nested subcharts of nested subcharts.
+For local envelope charts whose subcharts declare their own `file://` dependencies, Helmfile
+rewrites those relative dependencies to absolute paths in **every** `Chart.yaml` in the chart
+tree (top-level plus every unpacked subchart under `charts/`) before handing the chart to
+chartify. Without this, chartify's copy of the chart would resolve nested `file://` paths
+against its temporary directory and silently drop the nested subcharts' resources, causing
+patches targeting those resources to fail with `no resource matches`.
+See [issue #851](https://github.com/helmfile/helmfile/issues/851).
+
 ### `transformers`
 
 You can set `transformers` to apply [Kustomize's transformers](https://github.com/kubernetes-sigs/kustomize/blob/master/examples/configureBuiltinPlugin.md#configuring-the-builtin-plugins-instead).
