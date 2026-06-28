@@ -3,6 +3,7 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -121,7 +122,7 @@ func TestPreBuildTransitiveSubchartDeps_VisitsAllTransitiveDeps(t *testing.T) {
 }
 
 func hasNestedTgzPrefix(name string) bool {
-	return len(name) > len("nested-") && name[:7] == "nested-"
+	return strings.HasPrefix(name, "nested-")
 }
 
 // TestPreBuildTransitiveSubchartDeps_HandlesMissingChartYaml verifies the

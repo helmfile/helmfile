@@ -1927,14 +1927,31 @@ func (st *HelmState) preBuildSubchartDepsRecursive(chartDir string, visited map[
 
 // runHelmDependencyBuild runs `helm dependency build` on chartDir, falling back
 // to `helm dependency update` if the lock file is missing or out of sync. It
-// uses --skip-refresh to avoid hitting the network for local file:// deps (the
-// only kind preBuildSubchartDepsRecursive descends into). Errors are logged at
-// debug level and otherwise discarded.
+// acquires a per-chartDir mutex (via getNamedRWMutex) so that concurrent
+// releases referencing the same local chart don't race on helm's writes to the
+// chart's charts/ and Chart.lock (same pattern as forcedDownloadChart for #768).
+//
+// `--skip-refresh` is passed to avoid a slow `helm repo update` for every
+// subchart in the tree. This is safe for file://-only deps (the common case for
+// envelope charts). For subcharts that also declare https:// deps, users should
+// run `helm repo update` separately; chartify's own `helm dependency build`
+// (which does NOT skip refresh) runs afterwards and will catch stale repos.
+//
+// Errors from lock-out-of-sync are expected and logged at debug level; other
+// failures (helm missing, network errors for remote deps) are logged at warn
+// level so users can diagnose why patches later fail with "no resource matches".
 func (st *HelmState) runHelmDependencyBuild(chartDir string) {
 	helmBin := st.DefaultHelmBinary
 	if helmBin == "" {
 		helmBin = "helm"
 	}
+
+	// Serialize per-chart-dir so concurrent releases referencing the same local
+	// chart tree don't corrupt charts/*.tgz or Chart.lock. The mutex is
+	// process-wide (rwMutexMap), matching forcedDownloadChart's approach (#768).
+	mu := st.getNamedRWMutex("prebuild-deps:" + chartDir)
+	mu.Lock()
+	defer mu.Unlock()
 
 	// Prefer `dependency build` (honors Chart.lock) over `dependency update`
 	// (re-resolves version constraints against repos, which can silently pull
@@ -1952,7 +1969,11 @@ func (st *HelmState) runHelmDependencyBuild(chartDir string) {
 		}
 	}
 	if err != nil {
-		st.logger.Debugf("preBuildSubchartDeps: helm dependency command failed for %s: %v\n%s", chartDir, err, string(output))
+		// Non-lock errors (helm missing, network failures, malformed Chart.yaml)
+		// surface as warnings so users can diagnose why strategicMergePatches
+		// later fail with "no resource matches". Lock-out-of-sync errors that
+		// also fail on `dependency update` are also warned here.
+		st.logger.Warnf("preBuildSubchartDeps: helm dependency command failed for %s: %v\n%s", chartDir, err, string(output))
 		return
 	}
 	st.logger.Debugf("preBuildSubchartDeps: built dependencies for %s", chartDir)
