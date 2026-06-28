@@ -3,6 +3,8 @@ package state
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestKubeconfigPassedToChartify verifies that when --kubeconfig is set,
@@ -14,6 +16,9 @@ import (
 // The lookup() helm function requires cluster access (--dry-run=server).
 // Without --kubeconfig being passed to the internal helm template call,
 // it fails to connect to the cluster when the user's kubeconfig is not in the default location.
+//
+// These tests exercise the real HelmState.buildChartifyTemplateArgs method (the pure
+// helper that processChartification delegates to), not a duplicated copy of the logic.
 func TestKubeconfigPassedToChartify(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -83,18 +88,17 @@ func TestKubeconfigPassedToChartify(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			templateArgs := buildChartifyTemplateArgs(tt.helmfileCommand, tt.kubeconfig, tt.kubeContext, false, "")
+			st := &HelmState{kubeconfig: tt.kubeconfig}
+			got := st.buildChartifyTemplateArgs(tt.helmfileCommand, tt.kubeContext, false, "", "")
 
 			for _, flag := range tt.expectedFlags {
-				if !strings.Contains(templateArgs, flag) {
-					t.Errorf("buildChartifyTemplateArgs() = %q; want to contain %q", templateArgs, flag)
-				}
+				assert.Truef(t, strings.Contains(got, flag),
+					"buildChartifyTemplateArgs() = %q; want to contain %q", got, flag)
 			}
 
 			for _, flag := range tt.unexpectedFlags {
-				if strings.Contains(templateArgs, flag) {
-					t.Errorf("buildChartifyTemplateArgs() = %q; want NOT to contain %q", templateArgs, flag)
-				}
+				assert.Falsef(t, strings.Contains(got, flag),
+					"buildChartifyTemplateArgs() = %q; want NOT to contain %q", got, flag)
 			}
 		})
 	}
@@ -131,65 +135,91 @@ func TestKubeconfigNotDuplicated(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			templateArgs := buildChartifyTemplateArgs(tt.helmfileCommand, tt.kubeconfig, "", false, tt.existingArgs)
+			st := &HelmState{kubeconfig: tt.kubeconfig}
+			got := st.buildChartifyTemplateArgs(tt.helmfileCommand, "", false, "", tt.existingArgs)
 
-			if !strings.Contains(templateArgs, tt.expectedContains) {
-				t.Errorf("buildChartifyTemplateArgs() = %q; want to contain %q", templateArgs, tt.expectedContains)
-			}
+			assert.Truef(t, strings.Contains(got, tt.expectedContains),
+				"buildChartifyTemplateArgs() = %q; want to contain %q", got, tt.expectedContains)
 
-			count := strings.Count(templateArgs, "--kubeconfig")
-			if count != tt.expectedCount {
-				t.Errorf("buildChartifyTemplateArgs() has --kubeconfig %d times; want %d", count, tt.expectedCount)
-			}
+			assert.Equalf(t, tt.expectedCount, strings.Count(got, "--kubeconfig"),
+				"buildChartifyTemplateArgs() has --kubeconfig %d times; want %d", strings.Count(got, "--kubeconfig"), tt.expectedCount)
 		})
 	}
 }
 
-// buildChartifyTemplateArgs simulates the logic from processChartification
-// for building template args passed to chartify.
-// This helper encapsulates the flag-building logic for testing.
-//
-// NOTE: This function intentionally duplicates the logic from processChartification()
-// in state.go (lines 1549-1602). See issue_2355_test.go for rationale on this duplication.
-//
-// SYNC WARNING: If the flag-building logic in processChartification() changes
-// (state.go lines 1549-1602), this function must be updated to match.
-func buildChartifyTemplateArgs(helmfileCommand, kubeconfig, kubeContext string, validate bool, existingTemplateArgs string) string {
-	var requiresCluster bool
-	switch helmfileCommand {
-	case "diff", "apply", "sync", "destroy", "delete", "test", "status":
-		requiresCluster = true
-	case "template", "lint", "build", "pull", "fetch", "write-values", "list", "show-dag", "deps", "repos", "cache", "init", "completion", "help", "version":
-		requiresCluster = false
-	default:
-		requiresCluster = true
+// TestTemplateArgsDryRunTriggersKubeInjection verifies that when the user passes
+// --template-args="--dry-run=server" to an offline command (e.g. `helmfile template`),
+// the kubeconfig and kube-context ARE injected into chartify's internal helm template
+// so lookup() can actually reach the cluster. Regression test for issue #1833.
+func TestTemplateArgsDryRunTriggersKubeInjection(t *testing.T) {
+	st := &HelmState{kubeconfig: "/path/to/kubeconfig"}
+
+	got := st.buildChartifyTemplateArgs("template", "my-context", false, "--dry-run=server", "")
+
+	// User-provided arg is preserved
+	assert.Contains(t, got, "--dry-run=server")
+	// Cluster connection flags are injected even though "template" is offline
+	assert.Contains(t, got, "--kubeconfig /path/to/kubeconfig")
+	assert.Contains(t, got, "--kube-context my-context")
+	// --dry-run=server is NOT duplicated (only the user's copy is present)
+	assert.Equal(t, 1, strings.Count(got, "--dry-run"))
+}
+
+// TestTemplateArgsMergedBeforeInjection verifies that user-provided template args
+// are merged into chartify's existing template args before the cluster-connectivity
+// injection, so that duplicate --dry-run / --kubeconfig flags are deduplicated.
+func TestTemplateArgsMergedBeforeInjection(t *testing.T) {
+	st := &HelmState{kubeconfig: "/path/to/kubeconfig"}
+
+	got := st.buildChartifyTemplateArgs(
+		"sync", "ctx", false,
+		"--dry-run=server", // user arg
+		"--enable-dns",     // existing chartify arg
+	)
+
+	assert.Contains(t, got, "--enable-dns")
+	assert.Contains(t, got, "--dry-run=server")
+	// kubeconfig injected once, dry-run appears once (not duplicated)
+	assert.Equal(t, 1, strings.Count(got, "--dry-run"))
+	assert.Equal(t, 1, strings.Count(got, "--kubeconfig"))
+}
+
+// TestEffectiveTemplateArgs verifies CLI args take precedence over helmDefaults.templateArgs,
+// mirroring the DiffArgs precedence (switch: CLI wins, else helmDefaults, else empty).
+func TestEffectiveTemplateArgs(t *testing.T) {
+	tests := []struct {
+		name         string
+		cliArgs      string
+		helmDefaults []string
+		want         string
+	}{
+		{
+			name:         "CLI args win over helmDefaults",
+			cliArgs:      "--dry-run=server",
+			helmDefaults: []string{"--enable-dns"},
+			want:         "--dry-run=server",
+		},
+		{
+			name:         "helmDefaults used when CLI empty",
+			cliArgs:      "",
+			helmDefaults: []string{"--dry-run=server", "--enable-dns"},
+			want:         "--dry-run=server --enable-dns",
+		},
+		{
+			name:    "empty when neither set",
+			cliArgs: "",
+			want:    "",
+		},
 	}
 
-	templateArgs := existingTemplateArgs
-
-	if requiresCluster {
-		var additionalArgs []string
-
-		if kubeconfig != "" && !strings.Contains(templateArgs, "--kubeconfig") {
-			additionalArgs = append(additionalArgs, "--kubeconfig", kubeconfig)
-		}
-
-		if kubeContext != "" && !strings.Contains(templateArgs, "--kube-context") {
-			additionalArgs = append(additionalArgs, "--kube-context", kubeContext)
-		}
-
-		if !validate && !strings.Contains(templateArgs, "--dry-run") {
-			additionalArgs = append(additionalArgs, "--dry-run=server")
-		}
-
-		if len(additionalArgs) > 0 {
-			if templateArgs == "" {
-				templateArgs = strings.Join(additionalArgs, " ")
-			} else {
-				templateArgs += " " + strings.Join(additionalArgs, " ")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					HelmDefaults: HelmSpec{TemplateArgs: tt.helmDefaults},
+				},
 			}
-		}
+			assert.Equal(t, tt.want, st.effectiveTemplateArgs(tt.cliArgs))
+		})
 	}
-
-	return templateArgs
 }

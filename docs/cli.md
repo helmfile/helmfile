@@ -583,6 +583,16 @@ Notes:
 - For `sync`, the real `helm upgrade` already connects to the cluster, so `lookup()` works without this flag; `--template-args` is only needed there to pass additional flags to chartify's pre-render step.
 - Charts that use `lookup()` should always guard against the empty result (e.g. with `default dict`), because helm renders client-side whenever it has no server connection.
 
+To avoid passing the flag on every invocation, set it permanently under `helmDefaults`:
+
+```yaml
+helmDefaults:
+  templateArgs:
+    - --dry-run=server
+```
+
+The CLI `--template-args` flag overrides `helmDefaults.templateArgs` on a per-invocation basis (it does not merge with it), mirroring the precedence of `diffArgs`/`syncArgs`.
+
 #### destroy flags
 
 | Flag | Default | Description |

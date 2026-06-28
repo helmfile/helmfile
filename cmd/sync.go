@@ -62,7 +62,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&syncOptions.HelmStuckGrace, "helm-stuck-grace", 0, "When using --track-mode kubedog: if the cluster confirms all tracked resources have converged but the helm subprocess is still running, wait this many seconds before sending SIGINT to helm. Recovers from helm v4 hook waiter wedges. May leave the release secret in pending-install state requiring manual cleanup. 0 disables.")
 	f.BoolVar(&syncOptions.TrackFailOnError, "track-fail-on-error", false, "Fail with non-zero exit code when kubedog tracking fails")
 	f.StringVar(&syncOptions.Description, "description", "", `Set description for all releases. If set, overrides descriptions in helmfile.yaml. Will be passed to "helm upgrade --description"`)
-	f.StringVar(&syncOptions.TemplateArgs, "template-args", "", `pass extra args to the helm template run by chartify during chart preparation (e.g. --template-args="--dry-run=server" to enable the helm lookup function)`)
+	f.StringVar(&syncOptions.TemplateArgs, "template-args", "", `Pass extra args to the helm template run by chartify during chart preparation (e.g. --template-args="--dry-run=server" to enable the helm lookup function). Overrides helmDefaults.templateArgs.`)
 
 	// Diff-related flags for --interactive mode
 	f.IntVar(&syncOptions.Context, "context", 0, "output NUM lines of context around changes (interactive preview only)")

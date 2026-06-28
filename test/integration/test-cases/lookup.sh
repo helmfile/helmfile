@@ -25,6 +25,19 @@ assert_template_outputs() {
   rm -f "${out}"
 }
 
+# Negative case: WITHOUT --template-args, `helmfile template` renders client-side,
+# so lookup() returns an empty map and the chart must fall back to "overwritten".
+# This guards against a regression that silently always connects to the cluster.
+assert_template_fallback() {
+  reset_live_secret
+  local hf_file="$1"
+  info "Templating ${hf_file} WITHOUT --template-args (expecting fallback to 'overwritten')"
+  out=$(mktemp)
+  ${helmfile} -f "${hf_file}" template >"${out}"
+  grep -q "key: overwritten" "${out}" || fail "template fallback did not contain 'key: overwritten' (client-side render should not reach the cluster)"
+  rm -f "${out}"
+}
+
 assert_cluster_key_is_init() {
   v=$(${kubectl} get secret lookup-result -n ${test_ns} -o jsonpath='{.data.key}' | base64 -d)
   [ "${v}" = "init" ] || fail "expected lookup-result key to be 'init', got '${v}'"
@@ -51,6 +64,7 @@ assert_sync() {
 # Non-chartify scenario
 plain_hf="${cases_dir}/lookup/input-plain/helmfile.yaml.gotmpl"
 assert_template_outputs "${plain_hf}"
+assert_template_fallback "${plain_hf}"
 assert_apply "${plain_hf}"
 assert_sync "${plain_hf}"
 test_pass "lookup without chartify"
@@ -58,6 +72,7 @@ test_pass "lookup without chartify"
 # Chartify scenario (e.g. forceNamespace triggers chartify)
 chartify_hf="${cases_dir}/lookup/input-chartify/helmfile.yaml.gotmpl"
 assert_template_outputs "${chartify_hf}"
+assert_template_fallback "${chartify_hf}"
 assert_apply "${chartify_hf}"
 assert_sync "${chartify_hf}"
 test_pass "lookup with chartify"
