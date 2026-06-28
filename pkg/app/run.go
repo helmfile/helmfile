@@ -95,6 +95,12 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		return err
 	}
 
+	// Ensure chartify temp directories are always cleaned up, even when chart
+	// preparation or helm operations fail. The deferred call runs at function
+	// exit — after f() and TriggerGlobalCleanupEvent — so chartified charts
+	// remain available for the entire operation lifecycle. See issue #1799.
+	defer r.state.CleanupChartifyTempDirs()
+
 	releaseToChart, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
 	if err != nil {
 		return err
