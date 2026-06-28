@@ -1667,6 +1667,87 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		{
+			name:    "template-args appended to helm template (issue #1833 lookup support)",
+			version: semver.MustParse("3.10.0"),
+			defaults: HelmSpec{
+				Verify: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			templateOpts: TemplateOpts{
+				TemplateArgs: "--dry-run=server --enable-dns",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--dry-run=server",
+				"--enable-dns",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name:    "empty template-args are not appended",
+			version: semver.MustParse("3.10.0"),
+			defaults: HelmSpec{
+				Verify: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name:    "helmDefaults.templateArgs used when no CLI template-args",
+			version: semver.MustParse("3.10.0"),
+			defaults: HelmSpec{
+				Verify:       false,
+				TemplateArgs: []string{"--dry-run=server", "--enable-dns"},
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--dry-run=server",
+				"--enable-dns",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name:    "CLI template-args overrides helmDefaults.templateArgs",
+			version: semver.MustParse("3.10.0"),
+			defaults: HelmSpec{
+				Verify:       false,
+				TemplateArgs: []string{"--enable-dns"},
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			templateOpts: TemplateOpts{
+				TemplateArgs: "--dry-run=server",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--dry-run=server",
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -5223,10 +5304,11 @@ func TestHideChartURL(t *testing.T) {
 
 func Test_appendExtraDiffFlags(t *testing.T) {
 	tests := []struct {
-		name          string
-		inputFlags    []string
-		inputOpts     *DiffOpts
-		inputDefaults []string
+		name                  string
+		inputFlags            []string
+		inputOpts             *DiffOpts
+		inputDefaults         []string
+		inputTemplateDefaults []string
 
 		expected []string
 	}{
@@ -5251,6 +5333,45 @@ func Test_appendExtraDiffFlags(t *testing.T) {
 			inputDefaults: []string{"-d=ddd", "non-flag", "--eeee"},
 			expected:      []string{"aaaaa", "-d=ddd", "--eeee"},
 		},
+		{
+			name:       "TemplateArgs are appended after DiffArgs (issue #1833 lookup support)",
+			inputFlags: []string{"aaaaa"},
+			inputOpts: &DiffOpts{
+				DiffArgs:     "-bbbb",
+				TemplateArgs: "--dry-run=server",
+			},
+			expected: []string{"aaaaa", "-bbbb", "--dry-run=server"},
+		},
+		{
+			name:       "TemplateArgs are appended even without DiffArgs",
+			inputFlags: []string{"aaaaa"},
+			inputOpts: &DiffOpts{
+				TemplateArgs: "--dry-run=server --enable-dns",
+			},
+			expected: []string{"aaaaa", "--dry-run=server", "--enable-dns"},
+		},
+		{
+			name:       "Empty TemplateArgs are not appended",
+			inputFlags: []string{"aaaaa"},
+			inputOpts: &DiffOpts{
+				DiffArgs:     "-bbbb",
+				TemplateArgs: "",
+			},
+			expected: []string{"aaaaa", "-bbbb"},
+		},
+		{
+			name:                  "helmDefaults.templateArgs used when no CLI TemplateArgs",
+			inputFlags:            []string{"aaaaa"},
+			inputTemplateDefaults: []string{"--dry-run=server", "--enable-dns"},
+			expected:              []string{"aaaaa", "--dry-run=server", "--enable-dns"},
+		},
+		{
+			name:                  "CLI TemplateArgs overrides helmDefaults.templateArgs",
+			inputFlags:            []string{"aaaaa"},
+			inputOpts:             &DiffOpts{TemplateArgs: "--dry-run=server"},
+			inputTemplateDefaults: []string{"--enable-dns"},
+			expected:              []string{"aaaaa", "--dry-run=server"},
+		},
 	}
 
 	for _, test := range tests {
@@ -5258,7 +5379,8 @@ func Test_appendExtraDiffFlags(t *testing.T) {
 			result := (&HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{
-						DiffArgs: test.inputDefaults,
+						DiffArgs:     test.inputDefaults,
+						TemplateArgs: test.inputTemplateDefaults,
 					},
 				},
 			}).appendExtraDiffFlags(test.inputFlags, test.inputOpts)

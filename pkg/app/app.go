@@ -254,6 +254,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 			Values:                 c.Values(),
 			KubeVersion:            c.KubeVersion(),
 			HelmOCIPlainHTTP:       a.HelmOCIPlainHTTP,
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() []error {
 			ok, errs = a.template(run, c)
 			return errs
@@ -509,6 +510,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() []error {
 			matched, updated, es := a.SyncState(run, c)
 
@@ -566,6 +568,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			Validate:               c.Validate(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			TemplateArgs:           c.TemplateArgs(),
 		}, func() []error {
 			matched, updated, es := a.apply(run, c)
 
@@ -1819,6 +1822,7 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 		ReuseValues:             c.ReuseValues(),
 		ResetValues:             c.ResetValues(),
 		DiffArgs:                c.DiffArgs(),
+		TemplateArgs:            c.TemplateArgs(),
 		PostRenderer:            c.PostRenderer(),
 		PostRendererArgs:        c.PostRendererArgs(),
 		SkipSchemaValidation:    c.SkipSchemaValidation(),
@@ -2102,6 +2106,7 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 			NoColor:                 c.NoColor(),
 			Set:                     c.Set(),
 			DiffArgs:                c.DiffArgs(),
+			TemplateArgs:            c.TemplateArgs(),
 			SkipDiffOnInstall:       c.SkipDiffOnInstall(),
 			ReuseValues:             c.ReuseValues(),
 			ResetValues:             c.ResetValues(),
@@ -2342,6 +2347,7 @@ func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, bool, []error) {
 				NoColor:                 diffC.NoColor(),
 				Set:                     diffC.Set(),
 				DiffArgs:                diffC.DiffArgs(),
+				TemplateArgs:            diffC.TemplateArgs(),
 				SkipDiffOnInstall:       diffC.SkipDiffOnInstall(),
 				ReuseValues:             diffC.ReuseValues(),
 				ResetValues:             diffC.ResetValues(),
@@ -2499,6 +2505,7 @@ func (a *App) template(r *Run, c TemplateConfigProvider) (bool, []error) {
 			KubeVersion:          c.KubeVersion(),
 			ShowOnly:             c.ShowOnly(),
 			SkipSchemaValidation: c.SkipSchemaValidation(),
+			TemplateArgs:         c.TemplateArgs(),
 		}
 		return st.TemplateReleases(helm, c.OutputDir(), c.Values(), args, c.Concurrency(), c.Validate(), opts)
 	})

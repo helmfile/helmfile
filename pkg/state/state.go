@@ -204,8 +204,12 @@ type HelmSpec struct {
 	Args        []string `yaml:"args,omitempty"`
 	DiffArgs    []string `yaml:"diffArgs,omitempty"`
 	SyncArgs    []string `yaml:"syncArgs,omitempty"`
-	Verify      bool     `yaml:"verify"`
-	Keyring     string   `yaml:"keyring,omitempty"`
+	// TemplateArgs are extra args appended to the helm template / helm diff rendering
+	// (e.g. "--dry-run=server" to enable the helm lookup function). Overridden by the
+	// --template-args CLI flag on a per-invocation basis.
+	TemplateArgs []string `yaml:"templateArgs,omitempty"`
+	Verify       bool     `yaml:"verify"`
+	Keyring      string   `yaml:"keyring,omitempty"`
 	// EnableDNS, when set to true, enable DNS lookups when rendering templates
 	EnableDNS bool `yaml:"enableDNS"`
 	// Propagate '--skip-schema-validation' to helmv3 template and helm install
@@ -1509,6 +1513,9 @@ type ChartPrepareOptions struct {
 	DeleteTimeout int
 	// HelmOCIPlainHTTP uses plain HTTP for OCI registries (required for local/insecure registries in Helm 4)
 	HelmOCIPlainHTTP bool
+	// TemplateArgs are extra args appended to the helm template run by chartify
+	// during chart preparation (e.g. "--dry-run=server" to enable the lookup() function).
+	TemplateArgs string
 }
 
 type chartPrepareResult struct {
@@ -1875,65 +1882,16 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	}
 	chartifyOpts.SetFlags = append(chartifyOpts.SetFlags, flags...)
 
-	// Enable cluster connectivity for lookup functions when using kustomize patches
-	// Issue #2271: helm template runs client-side by default, causing lookup() to return empty values
-	// Pass --dry-run=server to enable cluster access for lookup while still using client-side rendering
-	// Only do this for operations that already require cluster access
-	var requiresCluster bool
-	switch helmfileCommand {
-	case "diff", "apply", "sync", "destroy", "delete", "test", "status":
-		// Commands that interact with the cluster
-		requiresCluster = true
-	case "template", "lint", "build", "pull", "fetch", "write-values", "list", "show-dag", "deps", "repos", "cache", "init", "completion", "help", "version":
-		// Commands that work locally without cluster access
-		requiresCluster = false
-	default:
-		// For unknown commands, assume cluster access (safer default)
-		requiresCluster = true
-	}
-
-	// Enable --dry-run=server for cluster-requiring commands to support lookup() function
-	// Issue #2271: helm template runs client-side by default, causing lookup() to return empty values
-	// The lookup() function can be used with or without patches, so we enable cluster access
-	// for all cluster-requiring operations (diff, apply, sync, etc.) but not for offline
-	// commands (template, lint, build, etc.)
-	// Issue #2309: Also pass --kube-context to chartify's internal helm template call
-	// Issue #2355: In Helm 4, --validate and --dry-run are mutually exclusive flags.
-	// When --validate is set, we skip adding --dry-run=server since --validate already
-	// provides server-side validation.
-	if requiresCluster {
-		// Get the effective kube-context for this release
-		kubeContext := st.getKubeContext(release)
-
-		// Build the additional args needed for cluster-requiring commands
-		var additionalArgs []string
-
-		// Add --kubeconfig if configured (Issue #2444)
-		if st.kubeconfig != "" && !strings.Contains(chartifyOpts.TemplateArgs, "--kubeconfig") {
-			additionalArgs = append(additionalArgs, "--kubeconfig", st.kubeconfig)
-		}
-
-		// Add --kube-context if configured (Issue #2309)
-		// Note: kube-context is independent of the validate/dry-run mutual exclusion
-		if kubeContext != "" && !strings.Contains(chartifyOpts.TemplateArgs, "--kube-context") {
-			additionalArgs = append(additionalArgs, "--kube-context", kubeContext)
-		}
-
-		// Add --dry-run=server if not already present (Issue #2271)
-		// Skip if --validate is set to avoid Helm 4 mutual exclusion error (Issue #2355)
-		if !opts.Validate && !strings.Contains(chartifyOpts.TemplateArgs, "--dry-run") {
-			additionalArgs = append(additionalArgs, "--dry-run=server")
-		}
-
-		// Append the additional args to TemplateArgs
-		if len(additionalArgs) > 0 {
-			if chartifyOpts.TemplateArgs == "" {
-				chartifyOpts.TemplateArgs = strings.Join(additionalArgs, " ")
-			} else {
-				chartifyOpts.TemplateArgs += " " + strings.Join(additionalArgs, " ")
-			}
-		}
-	}
+	// Build chartify's TemplateArgs: merge user-provided args (from --template-args
+	// or helmDefaults.templateArgs) and inject cluster-connectivity flags so the
+	// helm lookup() function can reach the cluster. See buildChartifyTemplateArgs.
+	chartifyOpts.TemplateArgs = st.buildChartifyTemplateArgs(
+		helmfileCommand,
+		st.getKubeContext(release),
+		opts.Validate,
+		st.effectiveTemplateArgs(opts.TemplateArgs),
+		chartifyOpts.TemplateArgs,
+	)
 
 	chartifyOpts.TemplateArgs = st.appendSkipSchemaValidationFlagToChartifyTemplateArgs(
 		chartifyOpts.TemplateArgs,
@@ -2356,6 +2314,9 @@ type TemplateOpts struct {
 	ShowOnly          []string
 	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
+	// TemplateArgs are extra args appended to "helm template" (e.g. "--dry-run=server"
+	// to enable the lookup() function for `helmfile template`).
+	TemplateArgs string
 }
 
 type TemplateOpt interface{ Apply(*TemplateOpts) }
@@ -3042,11 +3003,15 @@ type DiffOpts struct {
 	Color bool
 	// NoColor forces disabling the color output on helm-diff.
 	// If this is true, Color has no effect.
-	NoColor                 bool
-	Set                     []string
-	SkipCleanup             bool
-	SkipDiffOnInstall       bool
-	DiffArgs                string
+	NoColor           bool
+	Set               []string
+	SkipCleanup       bool
+	SkipDiffOnInstall bool
+	DiffArgs          string
+	// TemplateArgs are extra args appended to the helm template/diff rendering
+	// (e.g. "--dry-run=server" to enable the helm lookup function during `helmfile
+	// apply`/`diff`, which render via helm-diff). See issue #1833.
+	TemplateArgs            string
 	ReuseValues             bool
 	ResetValues             bool
 	PostRenderer            string
@@ -3663,6 +3628,102 @@ func findChartDirectory(topLevelDir string) (string, error) {
 	return topLevelDir, errors.New("no Chart.yaml found")
 }
 
+// commandRequiresCluster reports whether the helmfile subcommand interacts with
+// the cluster. Offline commands (template, lint, build, etc.) return false.
+// Unknown commands default to true (safer).
+func commandRequiresCluster(helmfileCommand string) bool {
+	switch helmfileCommand {
+	case "diff", "apply", "sync", "destroy", "delete", "test", "status":
+		// Commands that interact with the cluster
+		return true
+	case "template", "lint", "build", "pull", "fetch", "write-values", "list", "show-dag", "deps", "repos", "cache", "init", "completion", "help", "version":
+		// Commands that work locally without cluster access
+		return false
+	default:
+		// For unknown commands, assume cluster access (safer default)
+		return true
+	}
+}
+
+// effectiveTemplateArgs resolves the extra template args to pass to helm rendering,
+// preferring the CLI flag over helmDefaults.templateArgs. Returns "" if neither
+// is set. Mirrors the precedence of DiffArgs (CLI wins over helmDefaults).
+func (st *HelmState) effectiveTemplateArgs(cliArgs string) string {
+	switch {
+	case cliArgs != "":
+		return cliArgs
+	case st.HelmDefaults.TemplateArgs != nil:
+		return strings.Join(st.HelmDefaults.TemplateArgs, " ")
+	}
+	return ""
+}
+
+// buildChartifyTemplateArgs builds the TemplateArgs string passed to chartify's
+// internal helm template invocation. It:
+//  1. Merges user-provided args (from --template-args or helmDefaults.templateArgs)
+//     into any args already present in chartifyOpts, before the connectivity
+//     injection so duplicates (e.g. --dry-run) are deduplicated by Contains checks.
+//  2. Injects --kubeconfig / --kube-context when the rendering needs cluster access.
+//  3. Auto-adds --dry-run=server for cluster-requiring commands (apply/sync/diff/...)
+//     unless --validate is set (Helm 4 mutual exclusion, issue #2355) or --dry-run is
+//     already present.
+//
+// Cluster access is needed when the command inherently requires it OR when the user
+// has explicitly opted into server-side templating by passing --dry-run in the
+// template args (issue #1833: enables lookup() for `helmfile template`).
+//
+// This is a pure function (no receiver state read except via params) so it can be
+// unit-tested directly. Keep it in sync with processChartification's only caller.
+func (st *HelmState) buildChartifyTemplateArgs(helmfileCommand, kubeContext string, validate bool, userTemplateArgs, existingTemplateArgs string) string {
+	templateArgs := existingTemplateArgs
+
+	// Step 1: merge user-provided args first so dedup checks below see them.
+	if userTemplateArgs != "" {
+		if templateArgs == "" {
+			templateArgs = strings.TrimSpace(userTemplateArgs)
+		} else {
+			templateArgs = strings.TrimSpace(templateArgs + " " + userTemplateArgs)
+		}
+	}
+
+	requiresCluster := commandRequiresCluster(helmfileCommand)
+
+	// Step 2 + 3: inject kube-connection flags and (for cluster commands) --dry-run=server.
+	needsKubeConnection := requiresCluster || strings.Contains(templateArgs, "--dry-run")
+	if !needsKubeConnection {
+		return templateArgs
+	}
+
+	var additionalArgs []string
+
+	// Add --kubeconfig if configured (Issue #2444)
+	if st.kubeconfig != "" && !strings.Contains(templateArgs, "--kubeconfig") {
+		additionalArgs = append(additionalArgs, "--kubeconfig", st.kubeconfig)
+	}
+
+	// Add --kube-context if configured (Issue #2309)
+	// Note: kube-context is independent of the validate/dry-run mutual exclusion
+	if kubeContext != "" && !strings.Contains(templateArgs, "--kube-context") {
+		additionalArgs = append(additionalArgs, "--kube-context", kubeContext)
+	}
+
+	// Add --dry-run=server for cluster-requiring commands when not already present.
+	// It is NOT auto-added for `helmfile template` (the user opts in explicitly via
+	// --template-args), to avoid surprising server-side connections.
+	// Issue #2355: In Helm 4, --validate and --dry-run are mutually exclusive flags.
+	if requiresCluster && !validate && !strings.Contains(templateArgs, "--dry-run") {
+		additionalArgs = append(additionalArgs, "--dry-run=server")
+	}
+
+	if len(additionalArgs) == 0 {
+		return templateArgs
+	}
+	if templateArgs == "" {
+		return strings.Join(additionalArgs, " ")
+	}
+	return templateArgs + " " + strings.Join(additionalArgs, " ")
+}
+
 // appendConnectionFlags append all the helm command-line flags related to K8s API including the kubecontext
 func (st *HelmState) appendConnectionFlags(flags []string, release *ReleaseSpec) []string {
 	kubeFlagAdds := st.kubeConnectionFlags(release)
@@ -3680,6 +3741,16 @@ func (st *HelmState) appendExtraDiffFlags(flags []string, opt *DiffOpts) []strin
 		flags = append(flags, argparser.CollectArgs(opt.DiffArgs)...)
 	case st.HelmDefaults.DiffArgs != nil:
 		flags = append(flags, argparser.CollectArgs(strings.Join(st.HelmDefaults.DiffArgs, " "))...)
+	}
+	// Append user-provided template args (e.g. --dry-run=server from --template-args
+	// or helmDefaults.templateArgs) so that helm lookup() also resolves during the
+	// helm-diff rendering phase of `helmfile apply`/`diff`. Issue #1833.
+	var cliTemplateArgs string
+	if opt != nil {
+		cliTemplateArgs = opt.TemplateArgs
+	}
+	if targs := st.effectiveTemplateArgs(cliTemplateArgs); targs != "" {
+		flags = append(flags, argparser.CollectArgs(targs)...)
 	}
 	return flags
 }
@@ -4004,6 +4075,13 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 	flags = st.appendSkipSchemaValidationFlags(flags, release, skipSchemaValidation)
 	// Issue #2309: Add kube-context flags for helm template when using jsonPatches with --dry-run=server
 	flags = st.appendConnectionFlags(flags, release)
+	// Append user-provided template args (e.g. --dry-run=server from --template-args
+	// or helmDefaults.templateArgs)
+	if opt != nil {
+		if targs := st.effectiveTemplateArgs(opt.TemplateArgs); targs != "" {
+			flags = append(flags, argparser.CollectArgs(targs)...)
+		}
+	}
 
 	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
 	if err != nil {

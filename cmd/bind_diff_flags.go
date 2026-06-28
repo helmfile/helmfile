@@ -19,7 +19,8 @@ import (
 //   - --output            diff uses "output"; doctor renames to "diff-output"
 //     (doctor's --output selects the report format)
 func bindCommonDiffFlags(f *pflag.FlagSet, opts *config.DiffOptions, globalArgs *string) {
-	f.StringVar(&opts.DiffArgs, "diff-args", "", `pass args to helm helm-diff`)
+	f.StringVar(&opts.DiffArgs, "diff-args", "", `Pass args to helm-diff`)
+	f.StringVar(&opts.TemplateArgs, "template-args", "", `Pass extra args to the helm template/diff rendering (e.g. --template-args="--dry-run=server" to enable the helm lookup function). Overrides helmDefaults.templateArgs.`)
 	f.StringVar(globalArgs, "args", "", "pass args to helm diff")
 	f.StringArrayVar(&opts.Set, "set", nil, "additional values to be merged into the helm command --set flag")
 	f.StringArrayVar(&opts.Values, "values", nil, "additional value files to be merged into the helm command --values flag")

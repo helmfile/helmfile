@@ -97,6 +97,11 @@ helmDefaults:
     - "--suppress-secrets"
   syncArgs:
     - "--labels=app.kubernetes.io/managed-by=helmfile"
+  # extra args appended to the helm template / helm diff rendering (default "").
+  # most commonly "--dry-run=server" to enable the helm lookup() function.
+  # overridden by the --template-args CLI flag on a per-invocation basis.
+  templateArgs:
+    - "--dry-run=server"
   # verify the chart before upgrading (only works with packaged charts not directories) (default false)
   verify: true
   keyring: path/to/keyring.gpg
