@@ -27,8 +27,8 @@ info "Testing helmfile template with transformers and file:// dependency"
 
 cd "${issue_1880_input_dir}"
 
-${helmfile_real} template > "${issue_1880_tmp}/output.yaml" 2>&1
-result=$?
+result=0
+${helmfile_real} template > "${issue_1880_tmp}/output.yaml" 2>&1 || result=$?
 
 cd - > /dev/null
 

@@ -18,8 +18,8 @@ bash -c "${helmfile} -f ${happypath_case_input_dir}/${config_file} diff --output
 
 info "Templating ${happypath_case_input_dir}/${config_file}"
 rm -rf ${dir}/tmp
-${helmfile} -f ${happypath_case_input_dir}/${config_file} --debug template --output-dir tmp
-code=$?
+code=0
+${helmfile} -f ${happypath_case_input_dir}/${config_file} --debug template --output-dir tmp || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile template: ${code}"
 for output in $(ls -d ${dir}/tmp/*); do
     # e.g. test/integration/tmp/happypath-877c0dd4-helmx/helmx
@@ -53,18 +53,18 @@ done
 [ ${retry_result} -eq 0 ] || fail "httpbin failed to return 200 OK"
 
 info "Applying ${happypath_case_input_dir}/${config_file}"
-${helmfile} -f ${happypath_case_input_dir}/${config_file} apply --detailed-exitcode
-code=$?
+code=0
+${helmfile} -f ${happypath_case_input_dir}/${config_file} apply --detailed-exitcode || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
 
 info "Locking dependencies"
-${helmfile} -f ${happypath_case_input_dir}/${config_file} deps
-code=$?
+code=0
+${helmfile} -f ${happypath_case_input_dir}/${config_file} deps || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile deps: ${code}"
 
 info "Applying ${happypath_case_input_dir}/${config_file} with locked dependencies"
-${helmfile} -f ${happypath_case_input_dir}/${config_file} apply
-code=$?
+code=0
+${helmfile} -f ${happypath_case_input_dir}/${config_file} apply || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
 ${helm} list --namespace=${test_ns} || fail "unable to list releases"
 
@@ -76,8 +76,8 @@ info "Ensuring \"helmfile destroy\" doesn't fail when no releases installed"
 ${helmfile} -f ${happypath_case_input_dir}/${config_file} destroy || fail "\"helmfile delete\" shouldn't fail when there are no installed releases"
 
 info "Re-applying ${happypath_case_input_dir}/${config_file} with locked dependencies"
-${helmfile} -f ${happypath_case_input_dir}/${config_file} apply
-code=$?
+code=0
+${helmfile} -f ${happypath_case_input_dir}/${config_file} apply || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: ${code}"
 ${helm} list --namespace=${test_ns} || fail "unable to list releases"
 

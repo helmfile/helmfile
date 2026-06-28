@@ -31,8 +31,8 @@ info "Testing helmfile template with local chart dependencies across multiple re
 
 cd "${issue_2596_input_dir}"
 
-${helmfile_real} template > "${issue_2596_tmp}/output.yaml" 2>&1
-result=$?
+result=0
+${helmfile_real} template > "${issue_2596_tmp}/output.yaml" 2>&1 || result=$?
 
 cd - > /dev/null
 

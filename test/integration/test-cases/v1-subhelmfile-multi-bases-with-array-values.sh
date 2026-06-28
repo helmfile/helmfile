@@ -15,8 +15,8 @@ for i in $(seq 10); do
     info "Comparing build/v1-subhelmfile-multi-bases-with-array-values #$i"
     # Remove incubator repo to ensure consistent output (repo addition message)
     ${helm} repo remove incubator 2>/dev/null || true
-    ${helmfile} -f ${v1_subhelmfile_multi_bases_with_array_values_input_dir}/helmfile.yaml.gotmpl template -e dev &> ${yaml_overwrite_reverse}
-    exit_code=$?
+    exit_code=0
+    ${helmfile} -f ${v1_subhelmfile_multi_bases_with_array_values_input_dir}/helmfile.yaml.gotmpl template -e dev &> ${yaml_overwrite_reverse} || exit_code=$?
     if [ $exit_code -ne 0 ]; then
         info "ERROR: helmfile template command failed with exit code $exit_code"
         info "ERROR: Output from failed command:"
