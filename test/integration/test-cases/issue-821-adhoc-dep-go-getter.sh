@@ -54,10 +54,16 @@ EOF
 issue_821_out="${issue_821_tmp}/out.yaml"
 
 info "Running helmfile template with a go-getter ad-hoc dependency"
+# run.sh runs with `set -e`; temporarily disable it so a helmfile failure is
+# captured and reported (otherwise the shell exits before we can print the
+# redirected output, hiding the real error).
+set +e
 ${helmfile} -f "${issue_821_tmp}/helmfile.yaml" template > "${issue_821_out}" 2>&1
 issue_821_rc=$?
+set -e
 
 if [ ${issue_821_rc} -ne 0 ]; then
+    info "helmfile template failed with exit code ${issue_821_rc}; full output:"
     cat "${issue_821_out}"
     fail "helmfile template should not fail for a go-getter ad-hoc dependency"
 fi
