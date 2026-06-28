@@ -1,0 +1,46 @@
+# Test for issue #851: Strategic merge with envelope charts does not work
+# https://github.com/helmfile/helmfile/issues/851
+#
+# Problem: When an envelope chart's subchart declares its own local file://
+# dependency, helm's `dependency build` on the parent chart fetches the subchart
+# and packages it as .tgz, but does NOT recursively build the subchart's own deps
+# first. The resulting .tgz lacks the nested subchart's resources. When chartify
+# runs helm template, resources from the nested subchart are silently absent,
+# and strategicMergePatches targeting them fail with "no resource matches".
+#
+# Fix: preBuildTransitiveSubchartDeps walks the transitive file:// dep tree and
+# runs `helm dependency build` bottom-up on each subchart source dir before
+# chartify runs, so every subchart .tgz includes its own nested deps.
+
+releases:
+  - name: envelope
+    namespace: test
+    chart: ./envelope
+    strategicMergePatches:
+      - apiVersion: monitoring.coreos.com/v1
+        kind: ServiceMonitor
+        metadata:
+          name: sub1-sm
+        spec:
+          endpoints:
+            - port: metrics-sub1
+              interval: 10s
+      - apiVersion: monitoring.coreos.com/v1
+        kind: ServiceMonitor
+        metadata:
+          name: sub2-sm
+        spec:
+          endpoints:
+            - port: metrics-sub2
+              interval: 15s
+      # The critical patch: targets a resource defined in sub2's OWN dependency
+      # (nested). Without the fix, this resource is dropped from chartify's
+      # patching set and the patch fails with "no resource matches".
+      - apiVersion: monitoring.coreos.com/v1
+        kind: ServiceMonitor
+        metadata:
+          name: nested-sm
+        spec:
+          endpoints:
+            - port: metrics-nested
+              interval: 20s
