@@ -1,0 +1,8 @@
+apiVersion: v2
+name: service
+version: 0.1.0
+description: A test chart for issue #1880 - has a relative file:// dependency
+dependencies:
+  - name: library
+    version: 0.1.0
+    repository: file://../library
