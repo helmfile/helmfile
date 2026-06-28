@@ -914,6 +914,34 @@ func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
 	return st.goGetterChart(r.Chart, r.Directory, cacheDir, r.ForceGoGetter)
 }
 
+// downloadAdhocDepChartWithGoGetter fetches a go-getter URL referenced by an
+// ad-hoc release dependency (release.dependencies[].chart) to a local cache
+// directory and returns the local path.
+//
+// Ad-hoc dependencies were previously passed to chartify as-is. chartify then
+// tried to resolve non-local, non-OCI values via `helm repo list`, which fails
+// for go-getter URLs like "git::https://host/repo.git@path?ref=tag" with
+// "no helm list entry found for repository". This mirrors the primary-chart
+// fetch path (downloadChartWithGoGetter) so go-getter URLs work uniformly.
+// See issue #821.
+func (st *HelmState) downloadAdhocDepChartWithGoGetter(release *ReleaseSpec, chart string) (string, error) {
+	var pathElems []string
+
+	if release.Namespace != "" {
+		pathElems = append(pathElems, release.Namespace)
+	}
+
+	if release.KubeContext != "" {
+		pathElems = append(pathElems, release.KubeContext)
+	}
+
+	pathElems = append(pathElems, release.Name, "deps")
+
+	cacheDir := filepath.Join(pathElems...)
+
+	return st.goGetterChart(chart, "", cacheDir, release.ForceGoGetter)
+}
+
 func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (string, error) {
 	if dir != "" && chart == "" {
 		chart = dir
@@ -985,6 +1013,20 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		} else if rewritten, ok := st.resolveOCIAdhocDepChart(d.Chart); ok {
 			st.logger.Debugf("ad-hoc dependency %q rewritten to %q (matched OCI repo entry)", d.Chart, rewritten)
 			chart = rewritten
+		} else if remote.IsRemote(chart) {
+			// Ad-hoc dependency uses a go-getter URL (e.g.
+			// "git::https://host/repo.git@path?ref=tag"). Fetch it to a local
+			// cache directory so chartify treats it as a local chart instead of
+			// trying to resolve it via `helm repo list`, which fails with
+			// "no helm list entry found for repository" for go-getter URLs.
+			// The primary chart already does this via downloadChartWithGoGetter;
+			// this mirrors that path for ad-hoc deps. See issue #821.
+			fetched, err := st.downloadAdhocDepChartWithGoGetter(release, chart)
+			if err != nil {
+				return nil, clean, fmt.Errorf("ad-hoc dependency %q: %w", d.Chart, err)
+			}
+			st.logger.Debugf("ad-hoc dependency %q fetched to %q via go-getter", d.Chart, fetched)
+			chart = fetched
 		}
 
 		c.Opts.AdhocChartDependencies = append(c.Opts.AdhocChartDependencies, chartify.ChartDependency{

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: issue-821-main
+version: 0.1.0
+description: Main chart for issue #821 integration test (host of the ad-hoc go-getter dependency).

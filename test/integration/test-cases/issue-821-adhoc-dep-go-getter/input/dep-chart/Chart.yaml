@@ -1,0 +1,9 @@
+apiVersion: v2
+name: crd
+version: 0.1.0
+description: >-
+  Ad-hoc dependency chart for issue #821. This is committed to a throwaway git
+  repo by the test script and referenced via a "git::file://..." go-getter URL.
+  The name "crd" matches the go-getter "@charts/crd" subdir basename, which is
+  what chartify derives as the dependency name (filepath.Base of the fetched
+  path) so helm's dependency build and template steps stay aligned.
