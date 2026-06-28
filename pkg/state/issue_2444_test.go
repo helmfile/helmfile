@@ -223,3 +223,29 @@ func TestEffectiveTemplateArgs(t *testing.T) {
 		})
 	}
 }
+
+// TestHelmDefaultsTemplateArgsReachesChartify is a belt-and-suspenders test for the
+// composition used by processChartification: it resolves the effective template args
+// (CLI vs helmDefaults) and feeds them to buildChartifyTemplateArgs. Verifies that
+// setting helmDefaults.templateArgs=[--dry-run=server] makes an offline `template`
+// command opt into server-side templating + kube-connection injection end-to-end.
+func TestHelmDefaultsTemplateArgsReachesChartify(t *testing.T) {
+	st := &HelmState{
+		kubeconfig: "/path/to/kubeconfig",
+		ReleaseSetSpec: ReleaseSetSpec{
+			HelmDefaults: HelmSpec{TemplateArgs: []string{"--dry-run=server"}},
+		},
+	}
+
+	// Mirror processChartification's exact call shape.
+	resolved := st.effectiveTemplateArgs("")
+	got := st.buildChartifyTemplateArgs("template", "my-context", false, resolved, "")
+
+	// helmDefaults --dry-run=server is present
+	assert.Contains(t, got, "--dry-run=server")
+	// ...and triggered kube-connection injection for an otherwise-offline command
+	assert.Contains(t, got, "--kubeconfig /path/to/kubeconfig")
+	assert.Contains(t, got, "--kube-context my-context")
+	// not duplicated
+	assert.Equal(t, 1, strings.Count(got, "--dry-run"))
+}
