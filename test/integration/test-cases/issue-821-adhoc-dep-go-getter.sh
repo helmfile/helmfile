@@ -12,7 +12,11 @@
 # the test deterministic and network-free while exercising the exact fix path
 # (remote.IsRemote + downloadAdhocDepChartWithGoGetter in PrepareChartify).
 
-issue_821_case_dir="${cases_dir}/issue-821-adhoc-dep-go-getter"
+# Resolve to an absolute path: the helmfile.yaml is generated in a temp
+# directory below, and helmfile resolves `chart:` relative to that directory
+# (its basePath), not the integration CWD. A relative case_dir here would make
+# the main chart unresolvable.
+issue_821_case_dir="$(cd "${cases_dir}/issue-821-adhoc-dep-go-getter" && pwd)"
 issue_821_tmp=""
 
 cleanup_issue_821() {
@@ -54,16 +58,12 @@ EOF
 issue_821_out="${issue_821_tmp}/out.yaml"
 
 info "Running helmfile template with a go-getter ad-hoc dependency"
-# run.sh runs with `set -e`; temporarily disable it so a helmfile failure is
-# captured and reported (otherwise the shell exits before we can print the
-# redirected output, hiding the real error).
-set +e
-${helmfile} -f "${issue_821_tmp}/helmfile.yaml" template > "${issue_821_out}" 2>&1
-issue_821_rc=$?
-set -e
+# run.sh sets -e, so guard the helmfile invocation: capture its exit code
+# without letting errexit abort the script before we can report the output.
+issue_821_rc=0
+${helmfile} -f "${issue_821_tmp}/helmfile.yaml" template > "${issue_821_out}" 2>&1 || issue_821_rc=$?
 
 if [ ${issue_821_rc} -ne 0 ]; then
-    info "helmfile template failed with exit code ${issue_821_rc}; full output:"
     cat "${issue_821_out}"
     fail "helmfile template should not fail for a go-getter ad-hoc dependency"
 fi
