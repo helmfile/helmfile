@@ -3344,8 +3344,8 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 // ConditionEnabled checks if a release condition is enabled based on the provided values.
 // It takes a ReleaseSpec and a map of values as input.
 // If the condition is not specified, it returns true.
-// If the condition is a casted boolean value, it returns the corresponding boolean value.
-// If the condition is specified but not in the form 'foo.enabled', it returns an error.
+// If the condition is a cast boolean value, it returns the corresponding boolean value.
+// If the condition is specified but not a boolean value or in the form 'foo.enabled', it returns an error.
 // If the condition is specified and the corresponding value is found in the values map,
 // it checks if the 'enabled' field is set to true. If so, it returns true.
 // Otherwise, it returns false.
