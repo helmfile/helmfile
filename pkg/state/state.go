@@ -1508,10 +1508,25 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	return result
 }
 
+// triggersChartifyRemote mirrors the conditions in PrepareChartify (helmx.go)
+// that set shouldRun=true and require network access to fetch or template a
+// remote chart. The build command runs with SkipRepos: true, so any release
+// matching these conditions fails with "repo not found". The local-directory
+// case (NeedsChartifyForLocalDir) is intentionally excluded because it
+// operates on a local path and does not require remote repos.
+// See issue #1859.
+func triggersChartifyRemote(r ReleaseSpec) bool {
+	return len(r.Dependencies) > 0 ||
+		len(r.JSONPatches) > 0 ||
+		len(r.StrategicMergePatches) > 0 ||
+		len(r.Transformers) > 0 ||
+		r.ForceNamespace != ""
+}
+
 func filterReleasesForBuild(releases []ReleaseSpec) []ReleaseSpec {
 	var filteredReleases []ReleaseSpec
 	for _, r := range releases {
-		if len(r.JSONPatches) == 0 && len(r.StrategicMergePatches) == 0 && len(r.Transformers) == 0 {
+		if !triggersChartifyRemote(r) {
 			filteredReleases = append(filteredReleases, r)
 		}
 	}

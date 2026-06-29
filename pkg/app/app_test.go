@@ -4582,6 +4582,62 @@ releases:
 		"state should contain releases:\n%s\n", out)
 }
 
+// TestPrint_WithDependencies is a regression test for issue #1859.
+// `helmfile build` must not call helm fetch/pull/template for releases
+// with dependencies, forceNamespace, jsonPatches, strategicMergePatches,
+// or transformers, because build runs with SkipRepos: true.
+func TestPrint_WithDependencies(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+repositories:
+- name: examples
+  url: https://helm.github.io/examples
+releases:
+- name: with-deps
+  chart: examples/hello-world
+  version: 0.1.0
+  dependencies:
+  - chart: examples/hello-world
+    version: 0.1.0
+- name: with-fn
+  chart: examples/hello-world
+  version: 0.1.0
+  forceNamespace: my-ns
+- name: plain
+  chart: examples/hello-world
+  version: 0.1.0
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	out, err := testutil.CaptureStdout(func() {
+		err := app.PrintState(configImpl{})
+		assert.Nil(t, err)
+	})
+
+	assert.NoError(t, err)
+	assert.Contains(t, out, "with-deps")
+	assert.Contains(t, out, "with-fn")
+	assert.Contains(t, out, "plain")
+	assert.Contains(t, out, "dependencies")
+	assert.Contains(t, out, "forceNamespace")
+}
+
 func TestPrint_MultiStateFile(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.d/first.yaml": `
