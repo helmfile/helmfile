@@ -237,3 +237,71 @@ func TestEnvironment_GetMergedValues_Issue2527_ValuesOverrideDefaults(t *testing
 	assert.Equal(t, true, hd["wait"])
 	assert.Equal(t, 300, hd["timeout"])
 }
+
+// TestEnvironment_DeepCopy_Issue973_SecretSpecialChars verifies that DeepCopy
+// preserves all keys when values contain special characters (colons, quotes,
+// braces, etc.) typical of SOPS/KMS-encrypted secrets.
+// Regression test for https://github.com/helmfile/helmfile/issues/973.
+func TestEnvironment_DeepCopy_Issue973_SecretSpecialChars(t *testing.T) {
+	env := &Environment{
+		Name: "myEnv",
+		Values: map[string]any{
+			"masked1": map[string]any{
+				"masked2": "xxxxxxxxxx",
+				"masked3": "xxxxxxxxxx",
+			},
+			"masked85": map[string]any{
+				"masked86": map[string]any{"masked87": "xxxxxxxxxx"},
+				"masked88": map[string]any{"masked89": "~masked:ab#7i7!;{'\"."},
+			},
+			// myValue must survive the deep copy alongside the secret values.
+			"myValue": "valueOfMyValue",
+		},
+		Defaults: map[string]any{
+			"aDependentValue": "{{.Values.myValue}}",
+		},
+	}
+
+	copied := env.DeepCopy()
+
+	// myValue must be preserved.
+	assert.Equal(t, "valueOfMyValue", copied.Values["myValue"], "myValue must survive DeepCopy")
+	// The secret value must be preserved exactly, not mangled.
+	masked85 := copied.Values["masked85"].(map[string]any)
+	masked88 := masked85["masked88"].(map[string]any)
+	assert.Equal(t, "~masked:ab#7i7!;{'\".", masked88["masked89"],
+		"secret value with special chars must survive DeepCopy unchanged")
+	// Defaults must be preserved too.
+	assert.Equal(t, "{{.Values.myValue}}", copied.Defaults["aDependentValue"])
+
+	// Mutating the copy must not affect the original.
+	copied.Values["myValue"] = "changed"
+	assert.Equal(t, "valueOfMyValue", env.Values["myValue"], "DeepCopy must be independent")
+}
+
+// TestEnvironment_Merge_Issue973_NoDataLoss verifies that Merge (which calls
+// DeepCopy internally) does not drop any keys when secret values with special
+// characters are present.
+func TestEnvironment_Merge_Issue973_NoDataLoss(t *testing.T) {
+	base := &Environment{
+		Name:   "myEnv",
+		Values: map[string]any{},
+	}
+
+	loaded := &Environment{
+		Name: "myEnv",
+		Values: map[string]any{
+			"masked1":  map[string]any{"masked2": "xxxxxxxxxx"},
+			"masked89": "~masked:ab#7i7!;{'\".",
+			"myValue":  "valueOfMyValue",
+		},
+	}
+
+	merged, err := base.Merge(loaded)
+	require.NoError(t, err)
+
+	assert.Equal(t, "valueOfMyValue", merged.Values["myValue"],
+		"myValue must survive Merge with secret values present")
+	assert.Equal(t, "~masked:ab#7i7!;{'\".", merged.Values["masked89"],
+		"secret value must survive Merge unchanged")
+}
