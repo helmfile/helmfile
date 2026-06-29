@@ -14,8 +14,8 @@ info "Testing helmfile apply with chart requiring Kubernetes >=1.25.0"
 info "Expected: Success with auto-detected cluster version"
 
 # Test 1: Apply should succeed with auto-detected cluster version
-${helmfile} apply --skip-diff-on-install --suppress-diff > "${issue_2275_tmp_dir}/test-2275-output.txt" 2>&1
-code=$?
+code=0
+${helmfile} apply --skip-diff-on-install --suppress-diff > "${issue_2275_tmp_dir}/test-2275-output.txt" 2>&1 || code=$?
 
 if [ $code -ne 0 ]; then
   if grep -q "incompatible with Kubernetes v1.20.0" "${issue_2275_tmp_dir}/test-2275-output.txt"; then
@@ -34,8 +34,8 @@ info "Chart installed successfully with auto-detected version"
 # Test 2: Diff should work with auto-detected version
 info "Testing helmfile diff with auto-detected cluster version"
 
-${helmfile} diff > "${issue_2275_tmp_dir}/test-2275-diff-output.txt" 2>&1
-code=$?
+code=0
+${helmfile} diff > "${issue_2275_tmp_dir}/test-2275-diff-output.txt" 2>&1 || code=$?
 
 if [ $code -ne 0 ] && [ $code -ne 2 ]; then
   if grep -q "incompatible with Kubernetes v1.20.0" "${issue_2275_tmp_dir}/test-2275-diff-output.txt"; then
@@ -62,8 +62,8 @@ sed -i.bak 's/version: 1.0.0/version: 1.0.1/' test-chart/Chart.yaml
 info "Running helmfile apply to upgrade chart (this will run diff)"
 info "This would fail with 'incompatible with Kubernetes v1.20.0' before the fix"
 
-${helmfile} apply --suppress-diff > "${issue_2275_tmp_dir}/test-2275-apply2-output.txt" 2>&1
-code=$?
+code=0
+${helmfile} apply --suppress-diff > "${issue_2275_tmp_dir}/test-2275-apply2-output.txt" 2>&1 || code=$?
 
 # Restore original chart version
 mv test-chart/Chart.yaml.bak test-chart/Chart.yaml

@@ -17,8 +17,8 @@ test_start "issue-2269: helmDefaults.skipDeps and skipRefresh prevent repo opera
 # The helmDefaults in helmfile.yaml should be sufficient to skip repo operations.
 # We use a fake repo URL that would fail if helmfile tried to contact it.
 info "Running helmfile template with helmDefaults.skipDeps=true and skipRefresh=true"
-${helmfile} -f "${issue_2269_input_dir}/helmfile.yaml" template > "${issue_2269_output}" 2>&1
-code=$?
+code=0
+${helmfile} -f "${issue_2269_input_dir}/helmfile.yaml" template > "${issue_2269_output}" 2>&1 || code=$?
 
 if [ $code -ne 0 ]; then
   cat "${issue_2269_output}"

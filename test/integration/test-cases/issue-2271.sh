@@ -12,8 +12,8 @@ test_start "issue-2271: lookup function with strategicMergePatches and jsonPatch
 
 # Test 1: Install chart without kustomize patches
 info "Installing chart without kustomize patches"
-${helmfile} -f helmfile-no-kustomize.yaml apply --suppress-diff > "${issue_2271_tmp_dir}/test-2271-install.txt" 2>&1
-code=$?
+code=0
+${helmfile} -f helmfile-no-kustomize.yaml apply --suppress-diff > "${issue_2271_tmp_dir}/test-2271-install.txt" 2>&1 || code=$?
 
 if [ $code -ne 0 ]; then
   cat "${issue_2271_tmp_dir}/test-2271-install.txt"
@@ -44,8 +44,8 @@ assert_lookup_preserved() {
 
   info "Testing diff with ${label} - lookup should preserve value"
 
-  ${helmfile} -f "${helmfile_path}" diff > "${output_path}" 2>&1
-  code=$?
+  code=0
+  ${helmfile} -f "${helmfile_path}" diff > "${output_path}" 2>&1 || code=$?
 
   if [ $code -ne 0 ] && [ $code -ne 2 ]; then
     cat "${output_path}"

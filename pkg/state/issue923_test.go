@@ -1,6 +1,7 @@
 package state
 
 import (
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -12,11 +13,26 @@ import (
 	"github.com/helmfile/helmfile/pkg/exectest"
 )
 
+// cleanupLeakedChartDirs removes chart directories and lock files that
+// PrepareCharts may leak into the CWD when OutputDirTemplate does not include
+// {{ .OutputDir }}. This is a safety net; the proper fix is to always
+// include {{ .OutputDir }}.
+func cleanupLeakedChartDirs(t *testing.T, dirs ...string) {
+	t.Helper()
+	t.Cleanup(func() {
+		for _, d := range dirs {
+			_ = os.RemoveAll(d)
+			_ = os.Remove(d + ".lock")
+		}
+	})
+}
+
 // TestIssue923_OCIChartPreparedForNeededRelease verifies that OCI charts are
 // prepared (pulled) for releases that are included via --include-needs.
 // See https://github.com/helmfile/helmfile/issues/923
 func TestIssue923_OCIChartPreparedForNeededRelease(t *testing.T) {
 	resetChartCacheForTest()
+	cleanupLeakedChartDirs(t, "argocd", "argocd-secrets")
 	helmfileContent := []byte(`
 repositories:
   - name: huma
@@ -61,12 +77,13 @@ releases:
 	// PrepareCharts uses opts.IncludeTransitiveNeeds to determine which releases
 	// to prepare charts for. When --include-needs is set, this should be true,
 	// matching c.IncludeNeeds() in the app layer.
-	// OutputDirTemplate is set to force charts into tempDir (not the global cache).
+	// OutputDirTemplate includes .OutputDir so charts go into tempDir (auto-cleaned
+	// by t.TempDir), not the global cache or CWD.
 	opts := ChartPrepareOptions{
 		SkipResolve:            true,
 		IncludeTransitiveNeeds: true,
 		Concurrency:            1,
-		OutputDirTemplate:      "{{ .Release.Name }}",
+		OutputDirTemplate:      "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
 	releaseToChart, errs := st.PrepareCharts(helm, tempDir, 1, "apply", opts)
@@ -89,6 +106,7 @@ releases:
 // --include-needs, the OCI chart for the needed release is NOT prepared.
 func TestIssue923_OCIChartNotPreparedWithoutIncludeNeeds(t *testing.T) {
 	resetChartCacheForTest()
+	cleanupLeakedChartDirs(t, "argocd", "argocd-secrets")
 	helmfileContent := []byte(`
 repositories:
   - name: huma
@@ -131,7 +149,7 @@ releases:
 		SkipResolve:            true,
 		IncludeTransitiveNeeds: false,
 		Concurrency:            1,
-		OutputDirTemplate:      "{{ .Release.Name }}",
+		OutputDirTemplate:      "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
 	releaseToChart, errs := st.PrepareCharts(helm, tempDir, 1, "apply", opts)
