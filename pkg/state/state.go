@@ -5317,6 +5317,12 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(any) error) error {
 	if hf.SelectorsInherited && len(hf.Selectors) > 0 {
 		return fmt.Errorf("you cannot use 'SelectorsInherited: true' along with and explicit selector for path: %v", hf.Path)
 	}
+	// inherits: only makes sense on a concrete sub-helmfile entry with a path;
+	// reject a map-form entry that sets inherits without a path, mirroring the
+	// selectors-without-path guard above.
+	if len(hf.Inherits) > 0 && hf.Path == "" {
+		return fmt.Errorf("found 'inherits' definition without path: %v", hf.Inherits)
+	}
 	// validate inherits: entries against the allowed set, failing fast on typos
 	// (an unknown key would otherwise silently do nothing)
 	for _, key := range hf.Inherits {

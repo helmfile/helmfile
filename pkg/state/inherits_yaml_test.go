@@ -49,6 +49,16 @@ inherits:
 	assert.Contains(t, err.Error(), "bunkKey")
 }
 
+func TestSubHelmfileSpec_RejectsInheritsWithoutPath(t *testing.T) {
+	var hf SubHelmfileSpec
+	err := yaml.Unmarshal([]byte(`
+inherits:
+- repositories
+`), &hf)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "found 'inherits' definition without path")
+}
+
 func TestSubHelmfileSpec_AllAllowedKeysAccepted(t *testing.T) {
 	for _, key := range AllowedInherits {
 		var hf SubHelmfileSpec

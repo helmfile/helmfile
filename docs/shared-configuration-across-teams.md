@@ -183,7 +183,7 @@ environment values, without having to re-declare them.
 | Key | What is inherited |
 |-----|-------------------|
 | `repositories` | Parent repository definitions (appended; child entry wins on name conflict). |
-| `helmDefaults` | Parent helm defaults; parent fills the child's unset sub-fields, child's set sub-fields win. |
+| `helmDefaults` | Parent helm defaults; parent fills the child's unset sub-fields, child's set sub-fields win (see caveat below). |
 | `commonLabels` | Parent common labels; child's keys win on conflict. |
 | `apiVersions` | Parent API versions (appended and de-duplicated). |
 | `kubeVersion` | Parent kube version, only when the child left it empty. |
@@ -196,6 +196,16 @@ environment values, without having to re-declare them.
 `repositories` accumulate (parent first); maps (`commonLabels`, `templates`) are
 unioned with the child's keys winning; `helmDefaults` is deep-merged so the child
 overrides individual sub-fields it sets.
+
+#### Caveat: `helmDefaults` and zero values
+
+`helmDefaults` is deep-merged field-by-field, and Go value types cannot
+distinguish an explicitly-set zero value from "unset". So a child that sets a
+sub-field to its zero value (for example `atomic: false` to disable an inherited
+`atomic: true`) will still see the parent's non-zero value fill in. To override
+such a field, set it to a non-zero value, or omit `helmDefaults` from `inherits:`
+and declare the block in full on the child. The common case — a child that omits
+`helmDefaults` entirely and inherits the parent's — is unaffected.
 
 ### Note on `environments`
 
