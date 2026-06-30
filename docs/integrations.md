@@ -121,6 +121,28 @@ export MY_OCI_REGISTRY_USERNAME=spongebob
 export MY_OCI_REGISTRY_PASSWORD=squarepants
 ```
 
+### Troubleshooting OCI registry authentication
+
+If Helmfile fails with an error such as `401 Unauthorized`, `403 Forbidden`, `insufficient_scope`, `failed to authorize`, or `pull access denied` while reading an OCI chart, verify the same registry access with Helm first. Helmfile delegates the registry login and chart pull to Helm, so a failing `helm pull` usually indicates a credential, token, or registry-permission problem rather than a Helmfile templating problem.
+
+```shell
+helm registry login myregistry.azurecr.io --username "$MYOCIREGISTRY_USERNAME" --password-stdin <<<"$MYOCIREGISTRY_PASSWORD"
+helm pull oci://myregistry.azurecr.io/helm-repo/my-chart --version 1.2.3 --destination /tmp/helmfile-oci-check
+```
+
+Recommended checks:
+
+- Set `oci: true` on the matching entry in `repositories`; otherwise Helmfile treats the entry like a classic chart repository instead of an OCI registry.
+- Keep the repository `url` as the registry host only, without `https://` or `oci://`; use the `oci://` scheme only in chart references such as `oci://myregistry.azurecr.io/helm-repo/my-chart`.
+- Make sure the repository `name` matches the environment variable prefix exactly after uppercasing and replacing hyphens with underscores, for example `my-oci-registry` reads `MY_OCI_REGISTRY_USERNAME` and `MY_OCI_REGISTRY_PASSWORD`.
+- In CI, store registry credentials as secret variables and export them before running Helmfile; masked secrets that are unavailable to pull-request builds or protected branches will look like empty usernames or passwords.
+- Prefer short-lived tokens generated immediately before `helmfile sync` or `helmfile template` when using cloud registries such as ACR, ECR, GAR, or GHCR, because registry tokens can expire between pipeline stages.
+- Confirm that the token has permission to pull the chart repository/path and not only the container image repository/path; some registries scope Helm charts separately from images.
+- If credentials were refreshed, remove stale local auth with `helm registry logout <registry-host>` and log in again, or point Helm at a clean registry config with `HELM_REGISTRY_CONFIG`.
+- When debugging, run Helmfile with `--debug` and retry the equivalent `helm registry login` and `helm pull` command shown above on the same runner or workstation.
+- For HTTP-only local registries, also check whether your Helm version requires Helmfile's `--oci-plain-http` option.
+- Avoid committing usernames, passwords, or access tokens in `helmfile.yaml`; use environment variables, CI secrets, or another secret manager instead.
+
 ### OCI Chart Caching
 
 OCI charts are automatically cached in the shared cache directory (`~/.cache/helmfile` by default, or the directory specified by `HELMFILE_CACHE_HOME`). This improves performance by avoiding redundant downloads.
