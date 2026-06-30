@@ -1,0 +1,13 @@
+releases:
+  - name: rel1
+    chart: ../../../charts/httpbin
+    labels:
+      tier: label1
+    values:
+      - image:
+          repository: {{ requiredEnv "ISSUE_1172_BUZZ" }}
+
+  - name: rel2
+    chart: ../../../charts/httpbin
+    labels:
+      tier: label2
