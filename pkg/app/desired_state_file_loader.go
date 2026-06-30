@@ -101,10 +101,33 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		file = filepath.Base(f)
 	}
 
-	st, err := ld.loadFileWithOverrides(nil, overrodeEnv, dir, file, true)
+	// environments inheritance must be injected pre-load: environment values are
+	// baked into RenderedValues during ParseAndLoad (see create.go), so merging
+	// them post-load would leave stale values. Passing the parent's resolved
+	// env as ctxEnv makes the parent's values the base, which the child's own
+	// environments: block then overrides per key (create.go loadEnvValues).
+	var inheritedEnv *environment.Environment
+	if opts.Inherited != nil {
+		inheritedEnv = opts.Inherited.Env
+	}
+
+	st, err := ld.loadFileWithOverrides(inheritedEnv, overrodeEnv, dir, file, true)
 	if err != nil {
 		return nil, err
 	}
+
+	// Apply inherited parent config for the 6 pure fields (environments was
+	// handled above via inheritedEnv). Child wins; parent fills gaps.
+	if opts.Inherited != nil {
+		if err := st.MergeInherited(opts.Inherited); err != nil {
+			return nil, err
+		}
+	}
+
+	// Footgun guard for issue #1495: a release references a repository the
+	// parent declares but the child lacks (and did not inherit). Suggests
+	// `inherits: [repositories]`. No-op when ParentRepoNames is empty.
+	st.WarnUninheritedRepos(opts.ParentRepoNames, ld.logger)
 
 	if opts.Reverse {
 		st.Reverse()

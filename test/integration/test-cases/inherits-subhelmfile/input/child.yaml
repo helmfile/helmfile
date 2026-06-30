@@ -1,0 +1,15 @@
+# Sub-helmfile that references a repository ("incubator") it does NOT declare.
+# It only resolves when the parent passes the repository down via inherits:.
+releases:
+- name: inherits-test
+  chart: incubator/raw
+  version: 0.2.3
+  values:
+  - resources:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: inherits-test-cm
+        namespace: default
+      data:
+        source: inherited-repository
