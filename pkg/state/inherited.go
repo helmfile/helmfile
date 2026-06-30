@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 // AllowedInherits is the single source of truth for the keys accepted by the
@@ -47,39 +48,60 @@ type InheritedConfig struct {
 	Env          *environment.Environment `yaml:"-"`
 }
 
-// BuildInheritedConfig extracts the requested fields from the parent state.
-// Struct fields are copied before taking their address so the result never
-// aliases the parent's memory; Env is deep-copied for the same reason.
-func (st *HelmState) BuildInheritedConfig(want []string) *InheritedConfig {
+// BuildInheritedConfig extracts the requested fields from the parent state and
+// returns a fully independent copy. The pure fields are deep-copied via a YAML
+// round-trip (these structs ARE the helmfile model, so the round-trip is
+// lossless for the user-declared fields and avoids hand-maintained per-field
+// copy logic), and Env is deep-copied via environment.DeepCopy. The returned
+// config therefore never aliases the parent state's memory.
+func (st *HelmState) BuildInheritedConfig(want []string) (*InheritedConfig, error) {
 	set := make(map[string]bool, len(want))
 	for _, w := range want {
 		set[w] = true
 	}
-	in := &InheritedConfig{}
+
+	// src temporarily references the parent; the round-trip below decouples it.
+	src := &InheritedConfig{}
 	if set["repositories"] {
-		in.Repositories = st.Repositories
+		src.Repositories = st.Repositories
 	}
 	if set["helmDefaults"] {
-		hds := st.HelmDefaults
-		in.HelmDefaults = &hds
+		src.HelmDefaults = &st.HelmDefaults
 	}
 	if set["commonLabels"] {
-		in.CommonLabels = st.CommonLabels
+		src.CommonLabels = st.CommonLabels
 	}
 	if set["apiVersions"] {
-		in.ApiVersions = st.ApiVersions
+		src.ApiVersions = st.ApiVersions
 	}
 	if set["kubeVersion"] {
-		in.KubeVersion = st.KubeVersion
+		src.KubeVersion = st.KubeVersion
 	}
 	if set["templates"] {
-		in.Templates = st.Templates
+		src.Templates = st.Templates
 	}
+
+	in := &InheritedConfig{}
+	// Deep-copy the pure fields so the result never shares slices/maps with the
+	// parent. Skipped only when no pure field was requested.
+	if set["repositories"] || set["helmDefaults"] || set["commonLabels"] ||
+		set["apiVersions"] || set["kubeVersion"] || set["templates"] {
+		b, err := yaml.Marshal(src)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling inherited config for deep copy: %w", err)
+		}
+		if err := yaml.Unmarshal(b, in); err != nil {
+			return nil, fmt.Errorf("unmarshaling inherited config for deep copy: %w", err)
+		}
+	}
+
+	// Env is tagged yaml:"-" so it does not survive the round-trip; deep-copy it
+	// explicitly via its own DeepCopy (handles nested value maps).
 	if set["environments"] {
 		e := st.Env.DeepCopy()
 		in.Env = &e
 	}
-	return in
+	return in, nil
 }
 
 // MergeInherited merges the 6 pure fields into the child state. Semantics:

@@ -1139,7 +1139,11 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 		// for the warning, down to the sub-helmfile load path.
 		optsForNestedState.ParentRepoNames = parentRepoNames
 		if len(m.Inherits) > 0 {
-			optsForNestedState.Inherited = st.BuildInheritedConfig(m.Inherits)
+			inherited, err := st.BuildInheritedConfig(m.Inherits)
+			if err != nil {
+				return anyMatched, appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+			}
+			optsForNestedState.Inherited = inherited
 		}
 
 		if err := a.visitStatesWithContext(m.Path, optsForNestedState, converge, sharedCtx); err != nil {

@@ -156,7 +156,7 @@ $ PRODUCT_ID=2 helmfile -f product/helmfile.yaml apply
 By default a sub-helmfile is independent: it does **not** see the `repositories:`,
 `helmDefaults:`, `environments:`, etc. declared in the parent that includes it. To
 share configuration you either extract it into a separate file referenced via
-[`bases:`](#) from each sub-helmfile, or — more concisely — let each sub-helmfile
+[`bases:`](writing-helmfile.md#layering-state-files) from each sub-helmfile, or — more concisely — let each sub-helmfile
 opt into inheriting specific categories from its parent with `inherits:`.
 
 ```yaml

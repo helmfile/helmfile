@@ -24,7 +24,8 @@ func TestBuildInheritedConfig_OnlyRequestedFields(t *testing.T) {
 	}}
 
 	t.Run("repositories only", func(t *testing.T) {
-		in := st.BuildInheritedConfig([]string{"repositories"})
+		in, err := st.BuildInheritedConfig([]string{"repositories"})
+		require.NoError(t, err)
 		assert.Equal(t, []RepositorySpec{{Name: "a"}, {Name: "b"}}, in.Repositories)
 		assert.Nil(t, in.HelmDefaults)
 		assert.Nil(t, in.CommonLabels)
@@ -32,7 +33,8 @@ func TestBuildInheritedConfig_OnlyRequestedFields(t *testing.T) {
 	})
 
 	t.Run("helmDefaults becomes pointer", func(t *testing.T) {
-		in := st.BuildInheritedConfig([]string{"helmDefaults"})
+		in, err := st.BuildInheritedConfig([]string{"helmDefaults"})
+		require.NoError(t, err)
 		require.NotNil(t, in.HelmDefaults)
 		assert.Equal(t, 300, in.HelmDefaults.Timeout)
 		assert.True(t, in.HelmDefaults.Atomic)
@@ -40,7 +42,8 @@ func TestBuildInheritedConfig_OnlyRequestedFields(t *testing.T) {
 	})
 
 	t.Run("environments deep-copies env", func(t *testing.T) {
-		in := st.BuildInheritedConfig([]string{"environments"})
+		in, err := st.BuildInheritedConfig([]string{"environments"})
+		require.NoError(t, err)
 		require.NotNil(t, in.Env)
 		assert.Equal(t, "prod", in.Env.Name)
 		// mutating the copy must not affect the parent
@@ -49,12 +52,47 @@ func TestBuildInheritedConfig_OnlyRequestedFields(t *testing.T) {
 	})
 
 	t.Run("nothing requested yields empty config", func(t *testing.T) {
-		in := st.BuildInheritedConfig(nil)
+		in, err := st.BuildInheritedConfig(nil)
+		require.NoError(t, err)
 		require.NotNil(t, in)
 		assert.Nil(t, in.Repositories)
 		assert.Nil(t, in.HelmDefaults)
 		assert.Nil(t, in.Env)
 	})
+}
+
+// TestBuildInheritedConfig_PureFieldsAreDeepCopied verifies the returned config
+// does not alias the parent's slices/maps — mutating the copy must not affect
+// the parent state. This guards against the cross-state coupling noted in review.
+func TestBuildInheritedConfig_PureFieldsAreDeepCopied(t *testing.T) {
+	st := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
+		Repositories: []RepositorySpec{{Name: "a"}, {Name: "b"}},
+		HelmDefaults: HelmSpec{Timeout: 300, Args: []string{"--parent-arg"}},
+		CommonLabels: map[string]string{"team": "platform"},
+		ApiVersions:  []string{"v1"},
+		Templates:    map[string]TemplateSpec{"base": {ReleaseSpec: ReleaseSpec{Namespace: "parent-ns"}}},
+	}}
+	in, err := st.BuildInheritedConfig([]string{
+		"repositories", "helmDefaults", "commonLabels", "apiVersions", "templates",
+	})
+	require.NoError(t, err)
+
+	// Mutate every reference field on the copy.
+	in.Repositories = append(in.Repositories, RepositorySpec{Name: "c"})
+	in.Repositories[0].Name = "mutated"
+	in.HelmDefaults.Args[0] = "--mutated"
+	in.CommonLabels["team"] = "mutated"
+	in.ApiVersions[0] = "mutated"
+	tb := in.Templates["base"]
+	tb.Namespace = "mutated"
+	in.Templates["base"] = tb
+
+	// The parent must be unaffected.
+	assert.Equal(t, []RepositorySpec{{Name: "a"}, {Name: "b"}}, st.Repositories)
+	assert.Equal(t, []string{"--parent-arg"}, st.HelmDefaults.Args)
+	assert.Equal(t, "platform", st.CommonLabels["team"])
+	assert.Equal(t, []string{"v1"}, st.ApiVersions)
+	assert.Equal(t, "parent-ns", st.Templates["base"].Namespace)
 }
 
 func TestMergeInherited_NilIsNoop(t *testing.T) {
@@ -67,7 +105,8 @@ func TestMergeInherited_RepositoriesAppendsAndDedupsChildWins(t *testing.T) {
 	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
 		Repositories: []RepositorySpec{{Name: "shared", URL: "parent-url"}, {Name: "only-parent"}},
 	}}
-	in := parent.BuildInheritedConfig([]string{"repositories"})
+	in, err := parent.BuildInheritedConfig([]string{"repositories"})
+	require.NoError(t, err)
 
 	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
 		Repositories: []RepositorySpec{{Name: "shared", URL: "child-url"}, {Name: "only-child"}},
@@ -88,7 +127,8 @@ func TestMergeInherited_HelmDefaultsParentFillsChildGaps(t *testing.T) {
 	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
 		HelmDefaults: HelmSpec{Timeout: 300, Atomic: true},
 	}}
-	in := parent.BuildInheritedConfig([]string{"helmDefaults"})
+	in, err := parent.BuildInheritedConfig([]string{"helmDefaults"})
+	require.NoError(t, err)
 
 	t.Run("child omits helmDefaults entirely", func(t *testing.T) {
 		child := &HelmState{}
@@ -110,7 +150,8 @@ func TestMergeInherited_CommonLabelsUnionChildWins(t *testing.T) {
 	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
 		CommonLabels: map[string]string{"team": "platform", "shared": "parent"},
 	}}
-	in := parent.BuildInheritedConfig([]string{"commonLabels"})
+	in, err := parent.BuildInheritedConfig([]string{"commonLabels"})
+	require.NoError(t, err)
 
 	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
 		CommonLabels: map[string]string{"shared": "child", "local": "c"},
@@ -126,7 +167,8 @@ func TestMergeInherited_TemplatesUnionChildWins(t *testing.T) {
 	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
 		Templates: map[string]TemplateSpec{"base": {ReleaseSpec: ReleaseSpec{Namespace: "a"}}, "shared": {ReleaseSpec: ReleaseSpec{Namespace: "p"}}},
 	}}
-	in := parent.BuildInheritedConfig([]string{"templates"})
+	in, err := parent.BuildInheritedConfig([]string{"templates"})
+	require.NoError(t, err)
 
 	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
 		Templates: map[string]TemplateSpec{"shared": {ReleaseSpec: ReleaseSpec{Namespace: "c"}}, "local": {ReleaseSpec: ReleaseSpec{Namespace: "x"}}},
@@ -140,7 +182,8 @@ func TestMergeInherited_TemplatesUnionChildWins(t *testing.T) {
 
 func TestMergeInherited_ApiVersionsAppendsAndDedups(t *testing.T) {
 	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{ApiVersions: []string{"v1", "v2"}}}
-	in := parent.BuildInheritedConfig([]string{"apiVersions"})
+	in, err := parent.BuildInheritedConfig([]string{"apiVersions"})
+	require.NoError(t, err)
 
 	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{ApiVersions: []string{"v2", "v3"}}}
 	require.NoError(t, child.MergeInherited(in))
@@ -151,14 +194,16 @@ func TestMergeInherited_ApiVersionsAppendsAndDedups(t *testing.T) {
 func TestMergeInherited_KubeVersionChildWinsParentFillsGap(t *testing.T) {
 	t.Run("child empty inherits parent", func(t *testing.T) {
 		parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{KubeVersion: "1.30.0"}}
-		in := parent.BuildInheritedConfig([]string{"kubeVersion"})
+		in, err := parent.BuildInheritedConfig([]string{"kubeVersion"})
+		require.NoError(t, err)
 		child := &HelmState{}
 		require.NoError(t, child.MergeInherited(in))
 		assert.Equal(t, "1.30.0", child.KubeVersion)
 	})
 	t.Run("child set keeps its own", func(t *testing.T) {
 		parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{KubeVersion: "1.30.0"}}
-		in := parent.BuildInheritedConfig([]string{"kubeVersion"})
+		in, err := parent.BuildInheritedConfig([]string{"kubeVersion"})
+		require.NoError(t, err)
 		child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{KubeVersion: "1.29.0"}}
 		require.NoError(t, child.MergeInherited(in))
 		assert.Equal(t, "1.29.0", child.KubeVersion)
