@@ -61,6 +61,9 @@ type App struct {
 	helms      map[helmKey]helmexec.Interface
 	helmsMutex sync.Mutex
 
+	rootHelmfileDir         string
+	rootHelmfileDirResolved bool
+
 	ctx goContext.Context
 }
 
@@ -1044,6 +1047,7 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 	}
 
 	st.Selectors = opts.Selectors
+	st.SetRootDir(a.RootHelmfileDir())
 
 	// Track whether any releases matched across nested helmfiles and converge.
 	// Aggregate into a single send to matchChan to avoid overfilling the buffer
@@ -1110,6 +1114,9 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 // It returns true if any nested helmfile successfully found matching releases,
 // which is used to update the caller's noMatchInHelmfiles tracking.
 func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
+	rootDir := st.RootDir()
+	stateDir := absd
+
 	anyMatched := false
 	for i, m := range st.Helmfiles {
 		if subhelmfileSelectorsConflict(a.Selectors, m, a.Logger) {
@@ -1117,16 +1124,33 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 			continue
 		}
 
+		// Selectors that govern this sub-tree. Matches the inheritance model:
+		// CLI (parent) selectors flow down when the entry has none of its own
+		// (and explicit-selector-inheritance is off), or when SelectorsInherited
+		// is set; otherwise the entry's own selectors take over. Used both for
+		// the dir-skip decision below and for the nested LoadOpts.
+		var effectiveSelectors []string
+		if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
+			effectiveSelectors = opts.Selectors
+		} else {
+			effectiveSelectors = m.Selectors
+		}
+
+		if rootDir != "" && !remote.IsRemote(m.Path) {
+			if dirTargets := extractDirSelectorTargets(effectiveSelectors); len(dirTargets) > 0 {
+				if !shouldDescendForDirFilter(rootDir, stateDir, m.Path, dirTargets) {
+					a.Logger.Debugf("skipping subhelmfile %q: outside dir= selector scope", m.Path)
+					continue
+				}
+			}
+		}
+
 		optsForNestedState := LoadOpts{
 			CalleePath:        filepath.Join(absd, file),
 			Environment:       m.Environment,
 			Reverse:           defOpts.Reverse,
 			RetainValuesFiles: defOpts.RetainValuesFiles,
-		}
-		if (m.Selectors == nil && !isExplicitSelectorInheritanceEnabled()) || m.SelectorsInherited {
-			optsForNestedState.Selectors = opts.Selectors
-		} else {
-			optsForNestedState.Selectors = m.Selectors
+			Selectors:         effectiveSelectors,
 		}
 
 		if err := a.visitStatesWithContext(m.Path, optsForNestedState, converge, sharedCtx); err != nil {
@@ -1265,6 +1289,7 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 				}
 
 				st.Selectors = opts.Selectors
+				st.SetRootDir(a.RootHelmfileDir())
 
 				if !opts.Reverse && len(st.Helmfiles) > 0 {
 					matched, err := a.processNestedHelmfiles(st, absd, file, defOpts, opts, converge, sharedCtx)
@@ -1485,6 +1510,11 @@ type Opts struct {
 }
 
 func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir string, converge func(*state.HelmState) (bool, []error), includeTransitiveNeeds bool, sharedCtx *Context, opt ...LoadOption) error {
+	// Resolve the root helmfile directory anchor for dir= filtering before
+	// any chdir or goroutine fan-out happens further down; computeRoot uses
+	// the process CWD at command start, which is the user's intent.
+	a.resolveRootHelmfileDir()
+
 	opts := LoadOpts{
 		Selectors: a.Selectors,
 	}

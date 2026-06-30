@@ -4,6 +4,8 @@ import (
 	stderrors "errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -83,6 +85,10 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	// Set the global options for the root command.
 	setGlobalOptionsForRootCmd(flags, globalConfig)
 
+	if err := cmd.RegisterFlagCompletionFunc("selector", selectorFlagCompletion); err != nil {
+		return nil, fmt.Errorf("registering selector flag completion: %w", err)
+	}
+
 	flags.ParseErrorsAllowlist.UnknownFlags = true
 
 	// when set environment HELMFILE_UPGRADE_NOTICE_DISABLED any value, skip upgrade notice.
@@ -121,6 +127,62 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	return cmd, nil
 }
 
+// selectorFlagCompletion provides shell completion for `-l/--selector`.
+// When the user types a value whose last comma-separated condition starts with
+// `dir=`, this enumerates directories matching the partial path after `=`.
+// Other selector keys/values are too open-ended to enumerate, so the function
+// suppresses default file completion in that case.
+func selectorFlagCompletion(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	const dirPrefix = "dir="
+
+	groups := strings.Split(toComplete, ",")
+	last := groups[len(groups)-1]
+	if !strings.HasPrefix(last, dirPrefix) {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	leading := strings.Join(groups[:len(groups)-1], ",")
+	if leading != "" {
+		leading += ","
+	}
+
+	partial := strings.TrimPrefix(last, dirPrefix)
+
+	var scanDir, matchPrefix string
+	switch {
+	case partial == "":
+		scanDir, matchPrefix = ".", ""
+	case strings.HasSuffix(partial, "/"):
+		scanDir, matchPrefix = filepath.FromSlash(partial), ""
+	default:
+		scanDir = filepath.FromSlash(filepath.Dir(partial))
+		matchPrefix = filepath.Base(partial)
+	}
+
+	entries, err := os.ReadDir(scanDir)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	suggestions := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasPrefix(name, matchPrefix) {
+			continue
+		}
+		joined := name
+		if scanDir != "." {
+			joined = filepath.Join(scanDir, name)
+		}
+		suggestions = append(suggestions, leading+dirPrefix+filepath.ToSlash(joined))
+	}
+
+	return suggestions, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+}
+
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
 	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", "", fmt.Sprintf(`Path to the helm binary. Overrides "HELMFILE_HELM_BINARY" OS environment variable when specified (default %q)`, app.DefaultHelmBinary))
 	fs.StringVarP(&globalOptions.KustomizeBinary, "kustomize-binary", "k", "", fmt.Sprintf(`Path to the kustomize binary. Overrides "HELMFILE_KUSTOMIZE_BINARY" OS environment variable when specified (default %q)`, app.DefaultKustomizeBinary))
@@ -147,7 +209,8 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
 A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
 "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
-The name of a release can be used as a label: "--selector name=myrelease"`)
+The name of a release can be used as a label: "--selector name=myrelease".
+The "dir" selector key is special: it matches by directory prefix against the location of the defining helmfile, relative to the root helmfile. Used as "--selector dir=apps/opencloud", it ALSO short-circuits sub-helmfile traversal so non-matching branches are not parsed or templated. The negative form "dir!=apps/opencloud" filters releases post-load but does not skip traversal.`)
 	fs.BoolVar(&globalOptions.AllowNoMatchingRelease, "allow-no-matching-release", false, `Do not exit with an error code if the provided selector has no matching releases.`)
 	fs.BoolVar(&globalOptions.EnableLiveOutput, "enable-live-output", globalOptions.EnableLiveOutput, `Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
 It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.`)

@@ -223,6 +223,10 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 	}
 	state.RenderedValues = vals
 
+	if err := state.validateReservedLabels(); err != nil {
+		return nil, err
+	}
+
 	return state, nil
 }
 
