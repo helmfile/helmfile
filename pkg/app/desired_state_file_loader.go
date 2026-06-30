@@ -38,11 +38,6 @@ type desiredStateLoader struct {
 	fs        *filesystem.FileSystem
 	baseDir   string // Base directory for resolving relative paths, empty means use cwd
 
-	// selectors holds the active CLI selector labels (e.g. from -l / --selector).
-	// When non-empty, rendering retries with lenient requiredEnv if a requiredEnv
-	// error occurs, so that releases excluded by selectors do not block rendering.
-	selectors []string
-
 	getHelm func(*state.HelmState) (helmexec.Interface, error)
 
 	remote      *remote.Remote
@@ -53,8 +48,6 @@ type desiredStateLoader struct {
 }
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
-	ld.selectors = opts.Selectors
-
 	var overrodeEnv *environment.Environment
 
 	fileArgs := opts.Environment.OverrideValues

@@ -525,37 +525,6 @@ func TestRequiredEnv(t *testing.T) {
 	require.Equalf(t, expected, envVal, "Expected %s to be returned when environment variable %s is set to a non-empty string", expected, envKey)
 }
 
-// TestRequiredEnv_Lenient tests that the lenient funcMap override for
-// requiredEnv returns an empty string instead of an error when
-// lenientRequiredEnv is true on the Context.
-func TestRequiredEnv_Lenient(t *testing.T) {
-	envKey := "HelmFile_Lenient_Test"
-
-	// Strict mode (lenientRequiredEnv=false): requiredEnv should error when unset.
-	ctx := &Context{basePath: ".", lenientRequiredEnv: false}
-	funcMap := ctx.createFuncMap()
-	requiredEnvFn := funcMap["requiredEnv"].(func(string) (string, error))
-	val, err := requiredEnvFn(envKey)
-	require.Error(t, err)
-	require.Empty(t, val)
-	require.Nil(t, ctx.GetMissingRequiredEnvs())
-
-	// Lenient mode (lenientRequiredEnv=true): requiredEnv should return empty string.
-	ctx2 := &Context{basePath: ".", lenientRequiredEnv: true}
-	funcMap2 := ctx2.createFuncMap()
-	requiredEnvFn2 := funcMap2["requiredEnv"].(func(string) (string, error))
-	val, err = requiredEnvFn2(envKey)
-	require.NoError(t, err)
-	require.Empty(t, val)
-	require.Equal(t, []string{envKey}, ctx2.GetMissingRequiredEnvs())
-
-	// Lenient mode: should return the value when the env var IS set.
-	t.Setenv(envKey, "value")
-	val, err = requiredEnvFn2(envKey)
-	require.NoError(t, err)
-	require.Equal(t, "value", val)
-}
-
 // TestExec tests that Exec returns the expected output.
 func TestExec(t *testing.T) {
 	ctx := &Context{basePath: "."}

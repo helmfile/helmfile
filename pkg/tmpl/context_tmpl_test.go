@@ -419,28 +419,3 @@ func TestContext_RenderTemplateToBuffer(t *testing.T) {
 		t.Errorf("unexpected result: expected=%s, actual=%s", expected, actual)
 	}
 }
-
-// TestNewLenientFileRenderer_RequiredEnv tests that the lenient renderer does not
-// fail when requiredEnv references an unset env var, and tracks the missing var.
-// See https://github.com/helmfile/helmfile/issues/1172
-func TestNewLenientFileRenderer_RequiredEnv(t *testing.T) {
-	fs := ffs.DefaultFileSystem()
-	r := NewLenientFileRenderer(fs, ".", nil)
-
-	content := []byte(`val: {{ requiredEnv "HF_LENIENT_UNSET" }}`)
-	buf, err := r.RenderTemplateContentToBuffer(content)
-	if err != nil {
-		t.Fatalf("expected no error in lenient mode, got: %v", err)
-	}
-
-	got := buf.String()
-	want := "val: "
-	if got != want {
-		t.Errorf("expected %q, got %q", want, got)
-	}
-
-	missing := r.Context.GetMissingRequiredEnvs()
-	if len(missing) != 1 || missing[0] != "HF_LENIENT_UNSET" {
-		t.Errorf("expected missing env [HF_LENIENT_UNSET], got %v", missing)
-	}
-}

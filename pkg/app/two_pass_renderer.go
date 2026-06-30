@@ -58,45 +58,12 @@ func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *en
 	}
 
 	tmplData := state.NewEnvironmentTemplateData(*finalEnv, r.namespace, vals)
-	yamlBuf, err := r.renderWithSelectorFallback(content, baseDir, filename, tmplData)
+	renderer := tmpl.NewFileRenderer(r.fs, baseDir, tmplData)
+	yamlBuf, err := renderer.RenderTemplateContentToBuffer(content)
 	if err != nil {
 		r.logger.Debugf("%srendering failed, input of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(string(content)))
 		return nil, err
 	}
 	r.logger.Debugf("%srendering result of \"%s\":\n%s", renderingPhase, filename, prependLineNumbers(yamlBuf.String()))
 	return yamlBuf, nil
-}
-
-// renderWithSelectorFallback renders content and, when selectors are active,
-// retries with lenient requiredEnv if the first attempt fails due to a
-// requiredEnv error. This lets the document parse so selector filtering can
-// exclude releases whose env vars were not set.
-// See https://github.com/helmfile/helmfile/issues/1172
-func (r *desiredStateLoader) renderWithSelectorFallback(content []byte, baseDir, filename string, tmplData any) (*bytes.Buffer, error) {
-	yamlBuf, err := tmpl.NewFileRenderer(r.fs, baseDir, tmplData).RenderTemplateContentToBuffer(content)
-	if err == nil || len(r.selectors) == 0 || !isRequiredEnvError(err) {
-		return yamlBuf, err
-	}
-
-	r.logger.Warnf(
-		"rendering of \"%s\" failed due to a requiredEnv error; retrying with lenient requiredEnv "+
-			"because selectors %v are active. See https://github.com/helmfile/helmfile/issues/1172",
-		filename, r.selectors,
-	)
-
-	lenientRenderer := tmpl.NewLenientFileRenderer(r.fs, baseDir, tmplData)
-	yamlBuf, err = lenientRenderer.RenderTemplateContentToBuffer(content)
-	if err != nil {
-		return nil, err
-	}
-
-	if missing := lenientRenderer.Context.GetMissingRequiredEnvs(); len(missing) > 0 {
-		r.logger.Warnf("required env vars were unset/empty and rendered as empty strings in \"%s\": %v", filename, missing)
-	}
-
-	return yamlBuf, nil
-}
-
-func isRequiredEnvError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "required env var")
 }
