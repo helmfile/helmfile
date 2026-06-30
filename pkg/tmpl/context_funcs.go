@@ -98,6 +98,20 @@ func (c *Context) createFuncMap() template.FuncMap {
 			return nil, DisableInsecureFeaturesErr
 		}
 	}
+	if c.lenientRequiredEnv {
+		// Override requiredEnv to return an empty string instead of failing.
+		// RequiredEnv itself is not modified. This is used when selectors are
+		// active so that releases excluded by selectors do not block rendering.
+		// See https://github.com/helmfile/helmfile/issues/1172
+		funcMap["requiredEnv"] = func(name string) (string, error) {
+			val, err := RequiredEnv(name)
+			if err != nil {
+				c.missingRequiredEnvs = append(c.missingRequiredEnvs, name)
+				return "", nil
+			}
+			return val, nil
+		}
+	}
 
 	return funcMap
 }

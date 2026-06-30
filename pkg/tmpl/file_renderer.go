@@ -14,28 +14,43 @@ type FileRenderer struct {
 	Data    any
 }
 
+// FileRendererOption configures a FileRenderer's Context.
+type FileRendererOption func(*Context)
+
+// WithPreRender configures the renderer to run in pre-render mode,
+// disabling side-effect template functions (exec, readFile, etc.).
+func WithPreRender() FileRendererOption {
+	return func(c *Context) { c.preRender = true }
+}
+
+// WithLenientRequiredEnv configures the renderer to treat requiredEnv leniently:
+// unset/empty environment variables produce empty strings instead of failing.
+func WithLenientRequiredEnv() FileRendererOption {
+	return func(c *Context) { c.lenientRequiredEnv = true }
+}
+
 func NewFileRenderer(fs *filesystem.FileSystem, basePath string, data any) *FileRenderer {
-	return &FileRenderer{
-		fs: fs,
-		Context: &Context{
-			basePath: basePath,
-			fs:       fs,
-		},
-		Data: data,
-	}
+	return newFileRenderer(fs, basePath, data)
 }
 
 func NewFirstPassRenderer(basePath string, data any) *FileRenderer {
-	fs := filesystem.DefaultFileSystem()
-	return &FileRenderer{
-		fs: fs,
-		Context: &Context{
-			preRender: true,
-			basePath:  basePath,
-			fs:        fs,
-		},
-		Data: data,
+	return newFileRenderer(filesystem.DefaultFileSystem(), basePath, data, WithPreRender())
+}
+
+// NewLenientFileRenderer creates a FileRenderer that treats requiredEnv leniently.
+// This is used when selectors are active so that releases excluded by selectors
+// do not block rendering of the whole document.
+// See https://github.com/helmfile/helmfile/issues/1172
+func NewLenientFileRenderer(fs *filesystem.FileSystem, basePath string, data any) *FileRenderer {
+	return newFileRenderer(fs, basePath, data, WithLenientRequiredEnv())
+}
+
+func newFileRenderer(fs *filesystem.FileSystem, basePath string, data any, opts ...FileRendererOption) *FileRenderer {
+	ctx := &Context{basePath: basePath, fs: fs}
+	for _, opt := range opts {
+		opt(ctx)
 	}
+	return &FileRenderer{fs: fs, Context: ctx, Data: data}
 }
 
 func (r *FileRenderer) RenderTemplateFileToBuffer(file string) (*bytes.Buffer, error) {

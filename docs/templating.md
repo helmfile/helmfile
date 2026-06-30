@@ -56,6 +56,36 @@ releases:
 
 If you wish to treat your enviroment variables as strings always, even if they are boolean or numeric values you can use `{{ env "ENV_NAME" | quote }}` or `"{{ env "ENV_NAME" }}"`. These approaches also work with `requiredEnv`.
 
+### `requiredEnv` with selectors
+
+When a helmfile is rendered (`.gotmpl` files or when `HELMFILE_RENDER_YAML=true`), the **entire** document is rendered as a Go template before selectors (`-l`/`--selector`) are applied to filter releases. This means `requiredEnv` calls in all releases — including those excluded by selectors — are evaluated during rendering.
+
+When selectors are active and a `requiredEnv` call fails because the environment variable is unset, Helmfile automatically retries rendering in **lenient mode**: unset `requiredEnv` calls produce empty strings instead of failing. This allows releases excluded by selectors to be rendered without requiring their environment variables to be set, and the document can then be parsed and filtered normally.
+
+```yaml
+releases:
+  - name: rel1
+    chart: repo/chart1
+    labels:
+      tier: label1
+    values:
+      - global:
+          BUZZ: {{ requiredEnv "BUZZ" }}  # only needed by rel1
+
+  - name: rel2
+    chart: repo/chart2
+    labels:
+      tier: label2
+```
+
+```bash
+# rel1 is excluded by the selector, so BUZZ does not need to be set.
+# Helmfile retries rendering leniently and logs a warning about the missing env var.
+helmfile sync -l tier=label2
+```
+
+Without selectors, `requiredEnv` always fails when the variable is unset (existing behavior is preserved). If you want an environment variable to be optional regardless of selectors, use [`env`](templating_funcs.md#env) instead.
+
 ### Useful internal Helmfile environment variables
 
 Helmfile uses some OS environment variables to override default behaviour:
