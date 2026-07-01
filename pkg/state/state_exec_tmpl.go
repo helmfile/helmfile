@@ -64,7 +64,7 @@ func updateBoolTemplatedValues(r *ReleaseSpec) error {
 			return fmt.Errorf("conditionTemplate: %v", err)
 		} else {
 			r.ConditionTemplate = nil
-			setConditionFromBool(r, *condition)
+			r.Condition = fmt.Sprintf("%t", *condition)
 		}
 	}
 
