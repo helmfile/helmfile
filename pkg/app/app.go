@@ -1112,7 +1112,9 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
 	anyMatched := false
 	// Parent repo names are constant across sub-helmfiles; compute once for the
-	// "did you mean inherits: [repositories]?" footgun warning.
+	// "did you mean inherits: [repositories]?" footgun warning. These come from
+	// st.Repositories — the parent's *effective* set, which includes repositories
+	// brought in via bases: or inherits:, not just those declared inline here.
 	parentRepoNames := make([]string, 0, len(st.Repositories))
 	for _, r := range st.Repositories {
 		parentRepoNames = append(parentRepoNames, r.Name)

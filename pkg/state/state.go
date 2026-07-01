@@ -5327,7 +5327,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(any) error) error {
 	// (an unknown key would otherwise silently do nothing)
 	for _, key := range hf.Inherits {
 		if !IsValidInherit(key) {
-			return fmt.Errorf("invalid inherits entry %q for path %q: allowed values are %v", key, hf.Path, AllowedInherits)
+			return fmt.Errorf("invalid inherits entry %q for path %q: allowed values are %v", key, hf.Path, AllowedInherits())
 		}
 	}
 	return nil

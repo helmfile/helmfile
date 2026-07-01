@@ -11,9 +11,11 @@ import (
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
-// AllowedInherits is the single source of truth for the keys accepted by the
-// sub-helmfile `inherits:` field. Validation, docs and tests all reference it.
-var AllowedInherits = []string{
+// allowedInherits is the single source of truth for the keys accepted by the
+// sub-helmfile `inherits:` field. It is unexported so external packages cannot
+// mutate it at runtime; validation, docs and tests reach it via AllowedInherits
+// (which returns a defensive copy) and IsValidInherit.
+var allowedInherits = []string{
 	"repositories",
 	"helmDefaults",
 	"commonLabels",
@@ -23,9 +25,18 @@ var AllowedInherits = []string{
 	"environments",
 }
 
+// AllowedInherits returns a defensive copy of the keys accepted by the
+// sub-helmfile `inherits:` field. The returned slice is safe for callers to
+// mutate without affecting validation behavior.
+func AllowedInherits() []string {
+	out := make([]string, len(allowedInherits))
+	copy(out, allowedInherits)
+	return out
+}
+
 // IsValidInherit reports whether key is an allowed inherits: entry.
 func IsValidInherit(key string) bool {
-	for _, k := range AllowedInherits {
+	for _, k := range allowedInherits {
 		if k == key {
 			return true
 		}
@@ -176,11 +187,13 @@ func (st *HelmState) MergeInherited(in *InheritedConfig) error {
 }
 
 // WarnUninheritedRepos emits a one-time warning per repository that a release
-// references, which is declared in the parent (parentRepoNames) but missing
-// from the child's effective repositories (after any inheritance merge). It is
-// a footgun guard for issue #1495: when repositories are not inherited, a
-// release chart like "release-charts/myapp" fails with a confusing
-// "repo not found". The warning suggests `inherits: [repositories]`.
+// references, which is present in the parent's effective repository set
+// (parentRepoNames — derived from the parent's st.Repositories, so it includes
+// repositories brought in via bases: or inherits:) but missing from the child's
+// effective repositories (after any inheritance merge). It is a footgun guard
+// for issue #1495: when repositories are not inherited, a release chart like
+// "release-charts/myapp" fails with a confusing "repo not found". The warning
+// suggests `inherits: [repositories]`.
 //
 // When `inherits: [repositories]` is in effect, the parent's repos are already
 // part of the child's st.Repositories, so the condition is naturally false and
@@ -219,7 +232,7 @@ func (st *HelmState) WarnUninheritedRepos(parentRepoNames []string, logger *zap.
 		if parentSet[repo] && !childSet[repo] && !warned[repo] {
 			warned[repo] = true
 			logger.Warnf(
-				`release %q references repository %q which is defined in the parent helmfile but not inherited. `+
+				`release %q references repository %q which is available in the parent helmfile but not inherited. `+
 					`Add "inherits: [repositories]" to this sub-helmfile entry, or declare the repository here.`,
 				rel.Name, repo,
 			)

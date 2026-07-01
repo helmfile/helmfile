@@ -22,8 +22,9 @@ type LoadOpts struct {
 	// via `inherits:`. See state.InheritedConfig and state.MergeInherited.
 	Inherited *state.InheritedConfig
 
-	// ParentRepoNames is the list of repository names declared in the parent
-	// helmfile. It is used by the "did you mean inherits: [repositories]?"
+	// ParentRepoNames is the parent's effective repository set (derived from
+	// st.Repositories, so it includes repositories brought in via bases: or
+	// inherits:). It is used by the "did you mean inherits: [repositories]?"
 	// footgun warning (state.WarnUninheritedRepos).
 	ParentRepoNames []string `yaml:"parentRepoNames,omitempty"`
 }

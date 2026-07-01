@@ -60,12 +60,28 @@ inherits:
 }
 
 func TestSubHelmfileSpec_AllAllowedKeysAccepted(t *testing.T) {
-	for _, key := range AllowedInherits {
+	for _, key := range AllowedInherits() {
 		var hf SubHelmfileSpec
 		err := yaml.Unmarshal([]byte("path: x.yaml\ninherits:\n- "+key+"\n"), &hf)
 		require.NoErrorf(t, err, "key %q should be valid", key)
 		assert.Equal(t, []string{key}, hf.Inherits)
 	}
+}
+
+func TestAllowedInherits_DefensiveCopy(t *testing.T) {
+	orig := AllowedInherits()
+	require.NotEmpty(t, orig)
+
+	// Mutating the returned slice must not affect validation, which backs onto
+	// the unexported allowedInherits.
+	mutated := AllowedInherits()
+	mutated[0] = "tampered"
+
+	// A genuinely valid key is still valid, the tampered value is not, and a fresh
+	// call still returns the pristine set.
+	assert.True(t, IsValidInherit("repositories"))
+	assert.False(t, IsValidInherit("tampered"))
+	assert.Equal(t, orig, AllowedInherits())
 }
 
 func TestSubHelmfileSpec_MarshalRoundTripInherits(t *testing.T) {
