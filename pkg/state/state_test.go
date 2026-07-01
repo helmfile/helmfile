@@ -18,6 +18,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 var logger = helmexec.NewLogger(io.Discard, "warn")
@@ -3730,6 +3731,28 @@ func TestConditionEnabled(t *testing.T) {
 			condition: "",
 			want:      true,
 		},
+		{
+			name:      "condition true literal enabled",
+			condition: "true",
+			values:    map[string]any{},
+			want:      true,
+		},
+		{
+			name:      "condition false literal disabled",
+			condition: "false",
+			values:    map[string]any{},
+			want:      false,
+		},
+		{
+			name:      "condition true literal takes precedence over values lookup",
+			condition: "true",
+			values: map[string]any{
+				"foo": map[string]any{
+					"enabled": false,
+				},
+			},
+			want: true,
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -3749,6 +3772,16 @@ func TestConditionEnabled(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReleaseSpecConditionUnmarshalsBoolLiteral(t *testing.T) {
+	var got ReleaseSpec
+	require.NoError(t, yaml.Unmarshal([]byte("condition: true"), &got))
+	assert.Equal(t, "true", got.Condition)
+
+	enabled, err := ConditionEnabled(got, map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, enabled)
 }
 
 func TestHelmState_NoReleaseMatched(t *testing.T) {

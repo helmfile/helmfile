@@ -448,6 +448,7 @@ type ReleaseSpec struct {
 	VerifyTemplate    *string `yaml:"verifyTemplate,omitempty"`
 	WaitTemplate      *string `yaml:"waitTemplate,omitempty"`
 	InstalledTemplate *string `yaml:"installedTemplate,omitempty"`
+	ConditionTemplate *string `yaml:"conditionTemplate,omitempty"`
 
 	// These settings requires helm-x integration to work
 	Dependencies          []Dependency `yaml:"dependencies,omitempty"`
@@ -3351,7 +3352,8 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 // ConditionEnabled checks if a release condition is enabled based on the provided values.
 // It takes a ReleaseSpec and a map of values as input.
 // If the condition is not specified, it returns true.
-// If the condition is specified but not in the form 'foo.enabled', it returns an error.
+// If the condition is a boolean literal (true/false), it returns the corresponding boolean value.
+// If the condition is specified but not a boolean literal or in the form 'foo.enabled', it returns an error.
 // If the condition is specified and the corresponding value is found in the values map,
 // it checks if the 'enabled' field is set to true. If so, it returns true.
 // Otherwise, it returns false.
@@ -3361,6 +3363,14 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 	if len(r.Condition) == 0 {
 		return true, nil
 	}
+
+	switch strings.ToLower(r.Condition) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	}
+
 	iValues := values
 	keys := strings.Split(r.Condition, ".")
 	if keys[len(keys)-1] != "enabled" {

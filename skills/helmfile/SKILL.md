@@ -95,7 +95,7 @@ repositories:
 | `set`/`setString` | list | | Override specific values |
 | `secrets` | list | | Encrypted values files (requires helm-secrets plugin) |
 | `installed` | bool | | Set false to uninstall on sync |
-| `condition` | string | | Values lookup key for filtering releases |
+| `condition` | string | | Direct `true`/`false` or values lookup key ending in `.enabled` for filtering releases |
 | `wait` | bool | false | Wait for resources to be ready |
 | `waitForJobs` | bool | false | Wait until all Jobs have completed |
 | `timeout` | int | 300 | Operation timeout in seconds |
@@ -112,6 +112,7 @@ repositories:
 | `verifyTemplate` | string | | Templated verify flag |
 | `waitTemplate` | string | | Templated wait flag |
 | `installedTemplate` | string | | Templated installed flag |
+| `conditionTemplate` | string | | Templated condition flag. Must render to boolean. When set with `condition`, the rendered value replaces `condition` |
 | `adopt` | list | | Resources to adopt (passes `--adopt` to Helm) |
 | `forceGoGetter` | bool | false | Force go-getter URL parsing for chart field |
 | `forceNamespace` | string | | Force namespace on all K8s resources |
