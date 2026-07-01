@@ -1,6 +1,8 @@
 package state
 
 import (
+	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,16 +13,53 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 // skipIfNoHelm skips the calling test when the helm binary is not available on
-// PATH. Tests that exercise runHelmDepBuild need helm installed to produce
-// meaningful results.
+// PATH. Tests that exercise runHelmDepBuild through a real helmexec need helm
+// installed to produce meaningful results.
 func skipIfNoHelm(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("helm"); err != nil {
 		t.Skipf("skipping: helm binary not found in PATH (%v)", err)
 	}
+}
+
+// newRealHelmExec builds a helmexec.Interface backed by the real helm binary on
+// PATH, for tests that assert actual `helm dependency build` side effects.
+func newRealHelmExec(t *testing.T) helmexec.Interface {
+	t.Helper()
+	logger := zap.NewNop().Sugar()
+	runner := &helmexec.ShellRunner{Ctx: context.Background(), Logger: logger}
+	helm, err := helmexec.New("helm", helmexec.HelmExecOptions{}, logger, "", "", runner)
+	if err != nil {
+		t.Fatalf("helmexec.New: %v", err)
+	}
+	return helm
+}
+
+// stubHelm is a minimal helmexec.Interface for prebuild tests that should NOT
+// invoke a real helm binary (avoids network I/O and the helm dependency). It
+// records BuildDeps/UpdateDeps calls so tests can assert which charts were
+// visited. Only BuildDeps/UpdateDeps are exercised by the prebuild path, so the
+// embedded nil Interface satisfies the rest of the contract without being
+// dereferenced.
+type stubHelm struct {
+	helmexec.Interface
+	buildErr error
+	builds   []string
+	updates  []string
+}
+
+func (s *stubHelm) BuildDeps(name, chart string, flags ...string) error {
+	s.builds = append(s.builds, chart)
+	return s.buildErr
+}
+
+func (s *stubHelm) UpdateDeps(chart string) error {
+	s.updates = append(s.updates, chart)
+	return s.buildErr
 }
 
 // writeChart creates a chart directory with Chart.yaml and the given templates.
@@ -97,7 +136,7 @@ func TestPreBuildTransitiveSubchartDeps_VisitsAllTransitiveDeps(t *testing.T) {
 		},
 	}
 
-	st.preBuildTransitiveSubchartDeps(filepath.Join(rootDir, "envelope"))
+	st.preBuildTransitiveSubchartDeps(filepath.Join(rootDir, "envelope"), newRealHelmExec(t))
 
 	// The critical assertion: sub2/charts/ should now contain nested (as
 	// .tgz or unpacked). Without the fix, helm dep build on the parent chart
@@ -138,7 +177,8 @@ func hasNestedTgzPrefix(name string) bool {
 }
 
 // TestPreBuildTransitiveSubchartDeps_HandlesMissingChartYaml verifies the
-// function is a no-op (no panic) when the chart dir has no Chart.yaml.
+// function is a no-op (no panic) when the chart dir has no Chart.yaml. A stub
+// helm is used since the missing Chart.yaml short-circuits before any helm call.
 func TestPreBuildTransitiveSubchartDeps_HandlesMissingChartYaml(t *testing.T) {
 	rootDir, err := os.MkdirTemp("", "helmfile-prebuild-noyaml-")
 	if err != nil {
@@ -155,7 +195,7 @@ func TestPreBuildTransitiveSubchartDeps_HandlesMissingChartYaml(t *testing.T) {
 	}
 
 	// Should not panic.
-	st.preBuildTransitiveSubchartDeps(rootDir)
+	st.preBuildTransitiveSubchartDeps(rootDir, &stubHelm{})
 }
 
 // TestPreBuildTransitiveSubchartDeps_HandlesCircularDeps verifies the function
@@ -190,7 +230,7 @@ func TestPreBuildTransitiveSubchartDeps_HandlesCircularDeps(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		st.preBuildTransitiveSubchartDeps(aDir)
+		st.preBuildTransitiveSubchartDeps(aDir, newRealHelmExec(t))
 	}()
 	select {
 	case <-done:
@@ -202,8 +242,12 @@ func TestPreBuildTransitiveSubchartDeps_HandlesCircularDeps(t *testing.T) {
 
 // TestPreBuildTransitiveSubchartDeps_DoesNotRecurseIntoRemoteDeps verifies the
 // function does not recurse into dependencies declared with non-file://
-// repositories (https://, oci://). It still runs helm dep build on the chart
-// dir itself, but the failure to resolve the remote is logged and swallowed.
+// repositories (https://, oci://). It still runs helm dep build on the chart dir
+// itself, but does not follow the remote dependency.
+//
+// A stub helm whose BuildDeps returns an error is used so the test fails fast
+// and deterministically without performing any network I/O (a real helm would
+// try to fetch https://charts.example.com).
 func TestPreBuildTransitiveSubchartDeps_DoesNotRecurseIntoRemoteDeps(t *testing.T) {
 	rootDir, err := os.MkdirTemp("", "helmfile-prebuild-remote-")
 	if err != nil {
@@ -212,9 +256,9 @@ func TestPreBuildTransitiveSubchartDeps_DoesNotRecurseIntoRemoteDeps(t *testing.
 	defer os.RemoveAll(rootDir)
 
 	// Chart with only a remote dep. preBuildTransitiveSubchartDeps should not
-	// recurse into anything (no file:// deps to follow) and should not panic
-	// when helm dep build can't resolve the remote dep in the test environment.
-	writeChart(t, filepath.Join(rootDir, "chart"), "chart",
+	// recurse into anything (no file:// deps to follow).
+	chartDir := filepath.Join(rootDir, "chart")
+	writeChart(t, chartDir, "chart",
 		map[string]string{"remote": "https://charts.example.com"},
 		nil,
 	)
@@ -227,6 +271,20 @@ func TestPreBuildTransitiveSubchartDeps_DoesNotRecurseIntoRemoteDeps(t *testing.
 		},
 	}
 
-	// Should not panic; helm dep build failure is logged and swallowed.
-	st.preBuildTransitiveSubchartDeps(filepath.Join(rootDir, "chart"))
+	helm := &stubHelm{buildErr: errors.New("stub: dependency build unavailable")}
+	st.preBuildTransitiveSubchartDeps(chartDir, helm)
+
+	// BuildDeps must be called exactly once, on the chart dir itself — proving
+	// the function did not recurse into the remote dep.
+	if len(helm.builds) != 1 {
+		t.Fatalf("expected exactly one BuildDeps call (chart dir, no recursion into remote), got %v", helm.builds)
+	}
+	if got, want := filepath.Base(helm.builds[0]), "chart"; got != want {
+		t.Fatalf("BuildDeps called on %q, want chart dir %q", helm.builds[0], want)
+	}
+	// The stub error is not a lock-out-of-sync signal, so there must be no
+	// fallback to UpdateDeps.
+	if len(helm.updates) != 0 {
+		t.Fatalf("expected no UpdateDeps fallback, got %v", helm.updates)
+	}
 }
