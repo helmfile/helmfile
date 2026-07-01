@@ -1483,10 +1483,32 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	return result
 }
 
+// triggersChartifyHelmRun reports whether release r triggers chartify's
+// helm-execution path. The build command runs with SkipRepos (no
+// `helm repo update`), so any release that makes chartify invoke helm — to
+// download or template the chart — fails with "repo not found". This predicate
+// mirrors the PrepareChartify (helmx.go) conditions that set shouldRun=true and
+// route through helm: dependencies, jsonPatches, strategicMergePatches,
+// transformers, and forceNamespace.
+//
+// The local-directory chartify case (NeedsChartifyForLocalDir) is intentionally
+// excluded: it also runs chartify, but on a chart already on disk, so it never
+// triggers repo resolution. Note that these fields do not strictly imply a
+// remote chart (e.g. patches/forceNamespace can apply to local charts too);
+// they are grouped here because they share the build-time failure mode of
+// forcing helm execution under SkipRepos. See issue #1859.
+func triggersChartifyHelmRun(r ReleaseSpec) bool {
+	return len(r.Dependencies) > 0 ||
+		len(r.JSONPatches) > 0 ||
+		len(r.StrategicMergePatches) > 0 ||
+		len(r.Transformers) > 0 ||
+		r.ForceNamespace != ""
+}
+
 func filterReleasesForBuild(releases []ReleaseSpec) []ReleaseSpec {
 	var filteredReleases []ReleaseSpec
 	for _, r := range releases {
-		if len(r.JSONPatches) == 0 && len(r.StrategicMergePatches) == 0 && len(r.Transformers) == 0 {
+		if !triggersChartifyHelmRun(r) {
 			filteredReleases = append(filteredReleases, r)
 		}
 	}
