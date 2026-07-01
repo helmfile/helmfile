@@ -48,9 +48,6 @@ func getBoolRefFromStringTemplate(templateRef string) (*bool, error) {
 	return &result, nil
 }
 
-func setConditionFromBool(r *ReleaseSpec, condition bool) {
-	r.Condition = fmt.Sprintf("%t", condition)
-}
 
 func updateBoolTemplatedValues(r *ReleaseSpec) error {
 	if r.InstalledTemplate != nil {
