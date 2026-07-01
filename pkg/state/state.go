@@ -1508,14 +1508,21 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	return result
 }
 
-// triggersChartifyRemote mirrors the conditions in PrepareChartify (helmx.go)
-// that set shouldRun=true and require network access to fetch or template a
-// remote chart. The build command runs with SkipRepos: true, so any release
-// matching these conditions fails with "repo not found". The local-directory
-// case (NeedsChartifyForLocalDir) is intentionally excluded because it
-// operates on a local path and does not require remote repos.
-// See issue #1859.
-func triggersChartifyRemote(r ReleaseSpec) bool {
+// triggersChartifyHelmRun reports whether release r triggers chartify's
+// helm-execution path. The build command runs with SkipRepos (no
+// `helm repo update`), so any release that makes chartify invoke helm — to
+// download or template the chart — fails with "repo not found". This predicate
+// mirrors the PrepareChartify (helmx.go) conditions that set shouldRun=true and
+// route through helm: dependencies, jsonPatches, strategicMergePatches,
+// transformers, and forceNamespace.
+//
+// The local-directory chartify case (NeedsChartifyForLocalDir) is intentionally
+// excluded: it also runs chartify, but on a chart already on disk, so it never
+// triggers repo resolution. Note that these fields do not strictly imply a
+// remote chart (e.g. patches/forceNamespace can apply to local charts too);
+// they are grouped here because they share the build-time failure mode of
+// forcing helm execution under SkipRepos. See issue #1859.
+func triggersChartifyHelmRun(r ReleaseSpec) bool {
 	return len(r.Dependencies) > 0 ||
 		len(r.JSONPatches) > 0 ||
 		len(r.StrategicMergePatches) > 0 ||
@@ -1526,7 +1533,7 @@ func triggersChartifyRemote(r ReleaseSpec) bool {
 func filterReleasesForBuild(releases []ReleaseSpec) []ReleaseSpec {
 	var filteredReleases []ReleaseSpec
 	for _, r := range releases {
-		if !triggersChartifyRemote(r) {
+		if !triggersChartifyHelmRun(r) {
 			filteredReleases = append(filteredReleases, r)
 		}
 	}
