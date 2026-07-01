@@ -15,6 +15,7 @@ type ConfigProvider interface {
 	DisableForceUpdate() bool
 	EnforcePluginVerification() bool
 	HelmOCIPlainHTTP() bool
+	RepoRetry() int
 	SkipDeps() bool
 	SkipRefresh() bool
 	SequentialHelmfiles() bool

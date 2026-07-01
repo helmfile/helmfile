@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
@@ -24,9 +25,31 @@ type mockRunner struct {
 	output        []byte
 	versionOutput []byte // if set, returned for "helm version --short" probe; overrides default Helm 4 fallback
 	err           error
+	// failCount is the number of times Execute/ExecuteStdIn fail (with
+	// errTransientNet) before succeeding. Used to exercise retry logic.
+	failCount int
+	calls     int
+	// stdins records the stdin content passed to each ExecuteStdIn call,
+	// so tests can assert that retries still pass the full payload (e.g. the
+	// password is not consumed by a prior attempt).
+	stdins []string
+	// execArgs records the args passed to each Execute/ExecuteStdIn call, so
+	// tests can assert that retries don't accumulate duplicated flags.
+	execArgs [][]string
 }
 
+var errTransientNet = fmt.Errorf("transient network error")
+
 func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	mock.calls++
+	mock.execArgs = append(mock.execArgs, append([]string{}, args...))
+	if stdin != nil {
+		b, _ := io.ReadAll(stdin)
+		mock.stdins = append(mock.stdins, string(b))
+	}
+	if mock.failCount > 0 && mock.calls <= mock.failCount {
+		return nil, errTransientNet
+	}
 	return mock.output, mock.err
 }
 
@@ -38,6 +61,11 @@ func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string
 		if len(mock.output) == 0 {
 			return []byte("v4.0.1+g12500dd"), nil
 		}
+	}
+	mock.calls++
+	mock.execArgs = append(mock.execArgs, append([]string{}, args...))
+	if mock.failCount > 0 && mock.calls <= mock.failCount {
+		return nil, errTransientNet
 	}
 	return mock.output, mock.err
 }
@@ -386,6 +414,110 @@ exec: helm --kubeconfig config --kube-context dev registry login repo.example.co
 	if buffer.String() != expected {
 		t.Errorf("helmexec.RegistryLogin()\nactual = %v\nexpect = %v", buffer.String(), expected)
 	}
+}
+
+// newRetryExecer builds an execer with the given RepoRetry option and a
+// mockRunner that fails failCount times before succeeding.
+func newRetryExecer(t *testing.T, repoRetry, failCount int) (*execer, *mockRunner) {
+	t.Helper()
+	logger := NewLogger(os.Stdout, "debug")
+	runner := &mockRunner{failCount: failCount}
+	helm, err := New("helm", HelmExecOptions{RepoRetry: repoRetry}, logger, "config", "dev", runner)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	return helm, runner
+}
+
+// withTestBackoff shrinks repoRetryBaseBackoff for the test's duration so retry
+// tests don't sleep for real. The restore is via t.Cleanup so it always runs.
+func withTestBackoff(t *testing.T) {
+	t.Helper()
+	original := repoRetryBaseBackoff
+	repoRetryBaseBackoff = time.Millisecond
+	t.Cleanup(func() { repoRetryBaseBackoff = original })
+}
+
+// retryTestCase is the shared shape for the AddRepo/UpdateRepo/RegistryLogin
+// retry table tests.
+type retryTestCase struct {
+	name      string
+	repoRetry int
+	failCount int
+	wantErr   bool
+	wantCalls int // expected number of exec (non-version) calls
+	managed   string
+}
+
+func runRetryCases(t *testing.T, run func(*testing.T, *execer, *mockRunner, retryTestCase), cases []retryTestCase) {
+	t.Helper()
+	withTestBackoff(t)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			helm, runner := newRetryExecer(t, tt.repoRetry, tt.failCount)
+			run(t, helm, runner, tt)
+			if runner.calls != tt.wantCalls {
+				t.Errorf("runner.calls = %d, want %d", runner.calls, tt.wantCalls)
+			}
+		})
+	}
+}
+
+func Test_AddRepo_Retry(t *testing.T) {
+	runRetryCases(t, func(t *testing.T, helm *execer, runner *mockRunner, tt retryTestCase) {
+		err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "user", "pass", tt.managed, false, false)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("AddRepo() error = %v, wantErr %v", err, tt.wantErr)
+		}
+		// For the normal (non-acr) path, each attempt's args must contain
+		// --username exactly once: guards against the username/password flags
+		// accumulating across retries.
+		if tt.managed == "" {
+			for i, a := range runner.execArgs {
+				if c := strings.Count(strings.Join(a, " "), "--username"); c != 1 {
+					t.Errorf("AddRepo() attempt %d: --username count = %d, want 1 (args=%v)", i+1, c, a)
+				}
+			}
+		}
+	}, []retryTestCase{
+		{name: "succeeds after one retry", repoRetry: 2, failCount: 1, wantErr: false, wantCalls: 2},
+		{name: "retries exhausted", repoRetry: 1, failCount: 2, wantErr: true, wantCalls: 2},
+		{name: "retry disabled runs once", repoRetry: 0, failCount: 1, wantErr: true, wantCalls: 1},
+		{name: "acr managed retries", repoRetry: 3, failCount: 2, wantErr: false, wantCalls: 3, managed: "acr"},
+	})
+}
+
+func Test_UpdateRepo_Retry(t *testing.T) {
+	runRetryCases(t, func(t *testing.T, helm *execer, _ *mockRunner, tt retryTestCase) {
+		err := helm.UpdateRepo()
+		if (err != nil) != tt.wantErr {
+			t.Errorf("UpdateRepo() error = %v, wantErr %v", err, tt.wantErr)
+		}
+	}, []retryTestCase{
+		{name: "succeeds after one retry", repoRetry: 2, failCount: 1, wantErr: false, wantCalls: 2},
+		{name: "retries exhausted", repoRetry: 1, failCount: 2, wantErr: true, wantCalls: 2},
+		{name: "retry disabled runs once", repoRetry: 0, failCount: 1, wantErr: true, wantCalls: 1},
+	})
+}
+
+func Test_RegistryLogin_Retry(t *testing.T) {
+	runRetryCases(t, func(t *testing.T, helm *execer, runner *mockRunner, tt retryTestCase) {
+		err := helm.RegistryLogin("repo.example.com", "user", "pass", "", "", "", false)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("RegistryLogin() error = %v, wantErr %v", err, tt.wantErr)
+		}
+		// Every attempt must carry the full password (regression guard:
+		// the password buffer must not be consumed by a prior attempt).
+		for i, s := range runner.stdins {
+			if s != "pass\n" {
+				t.Errorf("RegistryLogin() attempt %d stdin = %q, want %q", i+1, s, "pass\n")
+			}
+		}
+	}, []retryTestCase{
+		{name: "succeeds after one retry", repoRetry: 2, failCount: 1, wantErr: false, wantCalls: 2},
+		{name: "retries exhausted", repoRetry: 1, failCount: 2, wantErr: true, wantCalls: 2},
+		{name: "retry disabled runs once", repoRetry: 0, failCount: 1, wantErr: true, wantCalls: 1},
+	})
 }
 
 func Test_SyncRelease(t *testing.T) {

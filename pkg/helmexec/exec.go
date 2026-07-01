@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"github.com/Masterminds/semver/v3"
@@ -38,6 +39,10 @@ type HelmExecOptions struct {
 	DisableForceUpdate        bool // If true, do not force helm repos to update when executing "helm repo add" (Helm 3)
 	EnforcePluginVerification bool // If true, fail plugin installation if verification is not supported
 	HelmOCIPlainHTTP          bool // If true, use plain HTTP for OCI registries
+	// RepoRetry is the number of times to retry helm repo and registry login
+	// operations on transient network errors, with exponential backoff.
+	// 0 disables retries.
+	RepoRetry int
 }
 
 type execer struct {
@@ -272,11 +277,35 @@ func (helm *execer) SetDisableForceUpdate(forceUpdate bool) {
 	helm.options.DisableForceUpdate = forceUpdate
 }
 
-func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {
-	var args []string
+// repoRetryBaseBackoff is the base unit for exponential backoff between repo
+// operation retries (doubles each attempt, capped at 30x). Exposed as a
+// package-level variable so tests can shrink it to avoid real sleeps.
+var repoRetryBaseBackoff = time.Second
+
+// retryRepoOp runs op, retrying up to helm.options.RepoRetry times on failure
+// with exponential backoff (1x, 2x, 4x, ..., capped at 30x the base unit). It
+// returns the output from the (last) attempt. A zero/negative RepoRetry
+// disables retrying — op runs exactly once.
+func (helm *execer) retryRepoOp(name string, op func() ([]byte, error)) ([]byte, error) {
+	maxRetries := helm.options.RepoRetry
 	var out []byte
 	var err error
+	for attempt := 0; ; attempt++ {
+		out, err = op()
+		if err == nil || maxRetries <= 0 || attempt >= maxRetries {
+			return out, err
+		}
+		backoff := repoRetryBaseBackoff * time.Duration(1<<attempt) // 1x, 2x, 4x, 8x...
+		if backoff > 30*repoRetryBaseBackoff {
+			backoff = 30 * repoRetryBaseBackoff
+		}
+		helm.logger.Warnf("repo operation %q failed (attempt %d/%d): %v; retrying in %v",
+			name, attempt+1, maxRetries, err, backoff)
+		time.Sleep(backoff)
+	}
+}
 
+func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {
 	if name == "" && repository != "" {
 		helm.logger.Infof("empty field name\n")
 		return fmt.Errorf("empty field name")
@@ -288,46 +317,51 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		helm.extra = savedExtra
 	}()
 
+	var out []byte
+	var err error
 	switch managed {
 	case "acr":
 		helm.logger.Infof("Adding repo %v (acr)", name)
-		out, err = helm.azcli(name)
+		out, err = helm.retryRepoOp(fmt.Sprintf("add %s (acr)", name), func() ([]byte, error) {
+			return helm.azcli(name)
+		})
 	case "":
-		args = append(args, "repo", "add", name, repository)
-
-		// --force-update is needed for both Helm 3.3.2+ and Helm 4
-		// to ensure repository indexes are updated when a repository already exists
-		// See https://github.com/helm/helm/pull/8777
-		if !helm.options.DisableForceUpdate && (helm.IsHelm4() || helm.IsVersionAtLeast("3.3.2")) {
-			args = append(args, "--force-update")
-		}
-
-		if certfile != "" && keyfile != "" {
-			args = append(args, "--cert-file", certfile, "--key-file", keyfile)
-		}
-		if cafile != "" {
-			args = append(args, "--ca-file", cafile)
-		}
-
-		if passCredentials {
-			args = append(args, "--pass-credentials")
-		}
-		if skipTLSVerify {
-			args = append(args, "--insecure-skip-tls-verify")
-		}
 		helm.logger.Infof("Adding repo %v %v", name, repository)
-		if username != "" && password != "" {
-			args = append(args, "--username", username, "--password-stdin")
-			buffer := bytes.Buffer{}
-			fmt.Fprintf(&buffer, "%s\n", password)
-			out, err = helm.execStdIn(args, map[string]string{}, &buffer)
-		} else {
-			out, err = helm.exec(args, map[string]string{}, nil)
-		}
+		out, err = helm.retryRepoOp(fmt.Sprintf("add %s", name), func() ([]byte, error) {
+			// args is local to each attempt, so the username/password append
+			// below can't accumulate across retries.
+			args := []string{"repo", "add", name, repository}
+
+			// --force-update is needed for both Helm 3.3.2+ and Helm 4
+			// to ensure repository indexes are updated when a repository already exists
+			// See https://github.com/helm/helm/pull/8777
+			if !helm.options.DisableForceUpdate && (helm.IsHelm4() || helm.IsVersionAtLeast("3.3.2")) {
+				args = append(args, "--force-update")
+			}
+
+			if certfile != "" && keyfile != "" {
+				args = append(args, "--cert-file", certfile, "--key-file", keyfile)
+			}
+			if cafile != "" {
+				args = append(args, "--ca-file", cafile)
+			}
+
+			if passCredentials {
+				args = append(args, "--pass-credentials")
+			}
+			if skipTLSVerify {
+				args = append(args, "--insecure-skip-tls-verify")
+			}
+			if username != "" && password != "" {
+				args = append(args, "--username", username, "--password-stdin")
+				buffer := bytes.Buffer{}
+				fmt.Fprintf(&buffer, "%s\n", password)
+				return helm.execStdIn(args, map[string]string{}, &buffer)
+			}
+			return helm.exec(args, map[string]string{}, nil)
+		})
 	default:
 		helm.logger.Errorf("ERROR: unknown type '%v' for repository %v", managed, name)
-		out = nil
-		err = nil
 	}
 
 	helm.info(out)
@@ -341,7 +375,9 @@ func (helm *execer) UpdateRepo() error {
 	defer func() {
 		helm.extra = savedExtra
 	}()
-	out, err := helm.exec([]string{"repo", "update"}, map[string]string{}, nil)
+	out, err := helm.retryRepoOp("update", func() ([]byte, error) {
+		return helm.exec([]string{"repo", "update"}, map[string]string{}, nil)
+	})
 	helm.info(out)
 	return err
 }
@@ -373,11 +409,13 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 	}
 
 	args = append(args, "--username", username, "--password-stdin")
-	buffer := bytes.Buffer{}
-	fmt.Fprintf(&buffer, "%s\n", password)
 
 	helm.logger.Info("Logging in to registry")
-	out, err := helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
+	out, err := helm.retryRepoOp(fmt.Sprintf("registry login %s", repository), func() ([]byte, error) {
+		buffer := bytes.Buffer{}
+		fmt.Fprintf(&buffer, "%s\n", password)
+		return helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
+	})
 	helm.info(out)
 	return err
 }
