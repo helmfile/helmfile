@@ -449,7 +449,7 @@ The following `helmDefaults` fields are also available but not shown in the exam
 
 `condition` controls whether a release is enabled. An empty condition enables the release. A direct `true` or `false` value is treated as a literal boolean and bypasses values lookup. Any other condition must be a values lookup path ending in `.enabled`, such as `vault.enabled`.
 
-`conditionTemplate` is evaluated before `condition` is checked. It must render to a boolean value; when both `condition` and `conditionTemplate` are set, the rendered `conditionTemplate` value replaces `condition`.
+`conditionTemplate` is evaluated before `condition` is checked. It must render to a boolean value; when both `condition` and `conditionTemplate` are set, the rendered `conditionTemplate` value replaces `condition`. Like other `*Template` fields, `conditionTemplate` is not evaluated by the `list` command.
 
 The following per-release fields are also available:
 
