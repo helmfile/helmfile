@@ -48,7 +48,6 @@ func getBoolRefFromStringTemplate(templateRef string) (*bool, error) {
 	return &result, nil
 }
 
-
 func updateBoolTemplatedValues(r *ReleaseSpec) error {
 	if r.InstalledTemplate != nil {
 		if installed, err := getBoolRefFromStringTemplate(*r.InstalledTemplate); err != nil {
