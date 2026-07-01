@@ -1921,9 +1921,16 @@ func (st *HelmState) resolveFileDep(repo, parentDir string) (string, bool) {
 // to prevent concurrent releases from corrupting charts/*.tgz (same pattern as
 // forcedDownloadChart for #768). It dispatches through the shared helmexec
 // runner so the command inherits Helmfile's standard wiring (binary resolution,
-// logging, flag handling, context cancellation) instead of shelling out
-// directly. Falls back to `helm dependency update` when Chart.lock is missing or
-// stale.
+// flag handling, context cancellation) instead of shelling out directly. Falls
+// back to `helm dependency update` when Chart.lock is missing or stale.
+//
+// The prebuild is best-effort and runs for every transitive subchart, so it must
+// stay user-silent: helmexec.BuildDeps emits "Building dependency release=..."
+// at Info, which would clutter output for envelope charts with many subcharts.
+// We therefore run on a shallow clone whose logger is raised above Info
+// (LoggerSwapper, same pattern as helmx.go). Command wiring is shared via the
+// clone; failures are surfaced at Debug through st.logger, and the helmexec
+// ExitError message embeds helm's combined output for diagnostics.
 //
 // --skip-refresh avoids a slow `helm repo update` per subchart; file:// deps
 // (the envelope-chart use case) don't need the repo cache. For mixed file:// +
@@ -1934,13 +1941,32 @@ func (st *HelmState) runHelmDepBuild(chartDir string, helm helmexec.Interface) {
 	mu.Lock()
 	defer mu.Unlock()
 
+	// Clone the runner with a quiet logger so the per-subchart
+	// "Building dependency release=..." Info line and helm stdout do not leak
+	// into user output. Live output is also disabled on the clone so helm stdout
+	// can't bypass the logger in --enable-live-output mode. The clone shares the
+	// runner and its options are a value copy, so this does not mutate the
+	// original execer. Mocks that don't implement LoggerSwapper fall back to the
+	// original interface (they don't emit that line anyway).
+	quietHelm := helm
+	if swapper, ok := helm.(helmexec.LoggerSwapper); ok {
+		quietHelm = swapper.WithLogger(helmexec.NewLogger(io.Discard, "warn"))
+		quietHelm.SetEnableLiveOutput(false)
+	}
+
 	// Try `dependency build` first (honors Chart.lock). Fall back to `update`
 	// (re-resolves from Chart.yaml) when the lock is missing or stale. BuildDeps
 	// returns a helmexec.ExitError whose message embeds the combined output, so
 	// isLockOutOfSync can inspect err.Error() without a separate os/exec call.
-	if err := helm.BuildDeps(filepath.Base(chartDir), chartDir, "--skip-refresh"); err != nil && isLockOutOfSync(err.Error()) {
-		st.logger.Debugf("runHelmDepBuild: falling back to `dependency update` for %s", chartDir)
-		_ = helm.UpdateDeps(chartDir)
+	if err := quietHelm.BuildDeps(filepath.Base(chartDir), chartDir, "--skip-refresh"); err != nil {
+		if isLockOutOfSync(err.Error()) {
+			st.logger.Debugf("runHelmDepBuild: falling back to `dependency update` for %s", chartDir)
+			if err := quietHelm.UpdateDeps(chartDir); err != nil {
+				st.logger.Debugf("runHelmDepBuild: helm dependency update failed for %s: %v", chartDir, err)
+			}
+		} else {
+			st.logger.Debugf("runHelmDepBuild: helm dependency build failed for %s: %v", chartDir, err)
+		}
 	}
 }
 
