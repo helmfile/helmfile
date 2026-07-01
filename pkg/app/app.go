@@ -1111,6 +1111,14 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 // which is used to update the caller's noMatchInHelmfiles tracking.
 func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
 	anyMatched := false
+	// Parent repo names are constant across sub-helmfiles; compute once for the
+	// "did you mean inherits: [repositories]?" footgun warning. These come from
+	// st.Repositories — the parent's *effective* set, which includes repositories
+	// brought in via bases: or inherits:, not just those declared inline here.
+	parentRepoNames := make([]string, 0, len(st.Repositories))
+	for _, r := range st.Repositories {
+		parentRepoNames = append(parentRepoNames, r.Name)
+	}
 	for i, m := range st.Helmfiles {
 		if subhelmfileSelectorsConflict(a.Selectors, m, a.Logger) {
 			a.Logger.Debugf("skipping subhelmfile %q: CLI selectors %v conflict with subhelmfile selectors %v", m.Path, a.Selectors, m.Selectors)
@@ -1127,6 +1135,17 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 			optsForNestedState.Selectors = opts.Selectors
 		} else {
 			optsForNestedState.Selectors = m.Selectors
+		}
+
+		// Carry parent config requested via `inherits:`, and parent repo names
+		// for the warning, down to the sub-helmfile load path.
+		optsForNestedState.ParentRepoNames = parentRepoNames
+		if len(m.Inherits) > 0 {
+			inherited, err := st.BuildInheritedConfig(m.Inherits)
+			if err != nil {
+				return anyMatched, appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+			}
+			optsForNestedState.Inherited = inherited
 		}
 
 		if err := a.visitStatesWithContext(m.Path, optsForNestedState, converge, sharedCtx); err != nil {

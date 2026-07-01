@@ -1,0 +1,17 @@
+# Leaf sub-helmfile (templated): consumes an environment value that was
+# transitively inherited across two levels (parent -> middle -> here). Uses the
+# local raw chart so no repository or network is required.
+releases:
+- name: transitive-test
+  chart: ../../../charts/raw
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: transitive-cm
+        namespace: default
+      data:
+        hop-count: "3"
+        source: {{ .Values.inheritedvalue }}
