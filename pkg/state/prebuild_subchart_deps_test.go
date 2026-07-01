@@ -2,6 +2,7 @@ package state
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,6 +12,16 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/filesystem"
 )
+
+// skipIfNoHelm skips the calling test when the helm binary is not available on
+// PATH. Tests that exercise runHelmDepBuild need helm installed to produce
+// meaningful results.
+func skipIfNoHelm(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("helm"); err != nil {
+		t.Skipf("skipping: helm binary not found in PATH (%v)", err)
+	}
+}
 
 // writeChart creates a chart directory with Chart.yaml and the given templates.
 // deps maps dependency name → repository URL (skipped if empty).
@@ -53,6 +64,7 @@ func TestPreBuildTransitiveSubchartDeps_VisitsAllTransitiveDeps(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode (requires helm)")
 	}
+	skipIfNoHelm(t)
 
 	rootDir, err := os.MkdirTemp("", "helmfile-prebuild-")
 	if err != nil {
@@ -152,6 +164,7 @@ func TestPreBuildTransitiveSubchartDeps_HandlesCircularDeps(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode (requires helm)")
 	}
+	skipIfNoHelm(t)
 
 	rootDir, err := os.MkdirTemp("", "helmfile-prebuild-cycle-")
 	if err != nil {
@@ -187,9 +200,11 @@ func TestPreBuildTransitiveSubchartDeps_HandlesCircularDeps(t *testing.T) {
 	}
 }
 
-// TestPreBuildTransitiveSubchartDeps_NoOpOnRemoteDeps verifies the function
-// skips dependencies declared with non-file:// repositories (https://, oci://).
-func TestPreBuildTransitiveSubchartDeps_NoOpOnRemoteDeps(t *testing.T) {
+// TestPreBuildTransitiveSubchartDeps_DoesNotRecurseIntoRemoteDeps verifies the
+// function does not recurse into dependencies declared with non-file://
+// repositories (https://, oci://). It still runs helm dep build on the chart
+// dir itself, but the failure to resolve the remote is logged and swallowed.
+func TestPreBuildTransitiveSubchartDeps_DoesNotRecurseIntoRemoteDeps(t *testing.T) {
 	rootDir, err := os.MkdirTemp("", "helmfile-prebuild-remote-")
 	if err != nil {
 		t.Fatalf("mkdtemp: %v", err)

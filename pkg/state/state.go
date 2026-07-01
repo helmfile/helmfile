@@ -1871,7 +1871,8 @@ func (st *HelmState) prebuildChartDeps(chartDir string, visited map[string]bool)
 
 // parseLocalFileDeps reads chartDir/Chart.yaml and returns the absolute paths
 // of all local file:// dependencies that exist as directories. Returns ok=false
-// if Chart.yaml is missing, unreadable, or has no file:// deps.
+// only when Chart.yaml is missing, unreadable, or unparseable. When ok=true the
+// returned slice may be empty (e.g. no file:// deps present).
 func (st *HelmState) parseLocalFileDeps(chartDir string) (depDirs []string, ok bool) {
 	data, err := st.fs.ReadFile(filepath.Join(chartDir, "Chart.yaml"))
 	if err != nil {
@@ -1886,7 +1887,7 @@ func (st *HelmState) parseLocalFileDeps(chartDir string) (depDirs []string, ok b
 	}
 	var meta chartMeta
 	if err := yaml.Unmarshal(data, &meta); err != nil {
-		st.logger.Debugf("preBuildSubchartDeps: failed to parse %s/Chart.yaml: %v", chartDir, err)
+		st.logger.Debugf("parseLocalFileDeps: failed to parse %s/Chart.yaml: %v", chartDir, err)
 		return nil, false
 	}
 
@@ -1940,7 +1941,7 @@ func (st *HelmState) runHelmDepBuild(chartDir string) {
 	// (re-resolves from Chart.yaml) when the lock is missing or stale.
 	output, err := st.execHelmDep(helmBin, "build", chartDir)
 	if err != nil && isLockOutOfSync(output) {
-		st.logger.Debugf("preBuildSubchartDeps: falling back to `dependency update` for %s", chartDir)
+		st.logger.Debugf("runHelmDepBuild: falling back to `dependency update` for %s", chartDir)
 		_, _ = st.execHelmDep(helmBin, "update", chartDir)
 	}
 }
@@ -1950,9 +1951,9 @@ func (st *HelmState) runHelmDepBuild(chartDir string) {
 func (st *HelmState) execHelmDep(helmBin, subcmd, chartDir string) ([]byte, error) {
 	output, err := exec.Command(helmBin, "dependency", subcmd, chartDir, "--skip-refresh").CombinedOutput()
 	if err != nil {
-		st.logger.Warnf("preBuildSubchartDeps: helm dependency %s failed for %s: %v\n%s", subcmd, chartDir, err, string(output))
+		st.logger.Debugf("execHelmDep: helm dependency %s failed for %s: %v\n%s", subcmd, chartDir, err, string(output))
 	} else {
-		st.logger.Debugf("preBuildSubchartDeps: helm dependency %s succeeded for %s", subcmd, chartDir)
+		st.logger.Debugf("execHelmDep: helm dependency %s succeeded for %s", subcmd, chartDir)
 	}
 	return output, err
 }
