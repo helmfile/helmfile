@@ -1833,11 +1833,168 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 	return tempDir, cleanup, nil
 }
 
+// preBuildTransitiveSubchartDeps walks the transitive tree of local file://
+// dependencies declared in chartPath/Chart.yaml and runs `helm dependency build`
+// on each chart's source directory bottom-up (dependencies before dependents).
+//
+// This fixes envelope charts whose subcharts declare their own file:// deps:
+// helm's `dependency build` on the parent packages each subchart as .tgz without
+// recursively building the subchart's own deps, so the nested subchart's
+// resources are silently absent and patches targeting them fail with
+// "no resource matches". See https://github.com/helmfile/helmfile/issues/851.
+//
+// Best-effort: errors are logged, not returned, so a single broken subchart
+// doesn't abort the entire release.
+func (st *HelmState) preBuildTransitiveSubchartDeps(chartPath string, helm helmexec.Interface) {
+	st.prebuildChartDeps(chartPath, make(map[string]bool), helm)
+}
+
+// prebuildChartDeps is the recursive worker. It visits each file:// dependency
+// depth-first, then runs helm dependency build on chartDir itself.
+func (st *HelmState) prebuildChartDeps(chartDir string, visited map[string]bool, helm helmexec.Interface) {
+	absChartDir, err := filepath.Abs(chartDir)
+	if err != nil || visited[absChartDir] {
+		return
+	}
+	visited[absChartDir] = true
+
+	deps, ok := st.parseLocalFileDeps(absChartDir)
+	if !ok {
+		return
+	}
+	for _, depDir := range deps {
+		st.prebuildChartDeps(depDir, visited, helm)
+	}
+	st.runHelmDepBuild(absChartDir, helm)
+}
+
+// parseLocalFileDeps reads chartDir/Chart.yaml and returns the absolute paths
+// of all local file:// dependencies that exist as directories. Returns ok=false
+// only when Chart.yaml is missing, unreadable, or unparseable. When ok=true the
+// returned slice may be empty (e.g. no file:// deps present).
+func (st *HelmState) parseLocalFileDeps(chartDir string) (depDirs []string, ok bool) {
+	data, err := st.fs.ReadFile(filepath.Join(chartDir, "Chart.yaml"))
+	if err != nil {
+		return nil, false
+	}
+
+	type chartDep struct {
+		Repository string `yaml:"repository"`
+	}
+	type chartMeta struct {
+		Dependencies []chartDep `yaml:"dependencies,omitempty"`
+	}
+	var meta chartMeta
+	if err := yaml.Unmarshal(data, &meta); err != nil {
+		st.logger.Debugf("parseLocalFileDeps: failed to parse %s/Chart.yaml: %v", chartDir, err)
+		return nil, false
+	}
+
+	for _, dep := range meta.Dependencies {
+		dir, found := st.resolveFileDep(dep.Repository, chartDir)
+		if found {
+			depDirs = append(depDirs, dir)
+		}
+	}
+	return depDirs, true
+}
+
+// resolveFileDep resolves a file:// repository URL to an absolute directory path.
+// Returns (dir, true) if the dependency is a local file:// URL pointing to an
+// existing directory; ("", false) otherwise.
+func (st *HelmState) resolveFileDep(repo, parentDir string) (string, bool) {
+	const fileScheme = "file://"
+	if !strings.HasPrefix(repo, fileScheme) {
+		return "", false
+	}
+	path := strings.TrimPrefix(repo, fileScheme)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(parentDir, path)
+	}
+	if !st.fs.DirectoryExistsAt(path) {
+		return "", false
+	}
+	return path, true
+}
+
+// runHelmDepBuild runs `helm dependency build` on chartDir with a per-dir lock
+// to prevent concurrent releases from corrupting charts/*.tgz (same pattern as
+// forcedDownloadChart for #768). It dispatches through the shared helmexec
+// runner so the command inherits Helmfile's standard wiring (binary resolution,
+// flag handling, context cancellation) instead of shelling out directly. Falls
+// back to `helm dependency update` when Chart.lock is missing or stale.
+//
+// The prebuild is best-effort and runs for every transitive subchart, so it must
+// stay user-silent: helmexec.BuildDeps emits "Building dependency release=..."
+// at Info, which would clutter output for envelope charts with many subcharts.
+// We therefore run on a shallow clone whose logger is raised above Info
+// (LoggerSwapper, same pattern as helmx.go). Command wiring is shared via the
+// clone; failures are surfaced at Debug through st.logger, and the helmexec
+// ExitError message embeds helm's combined output for diagnostics.
+//
+// --skip-refresh avoids a slow `helm repo update` per subchart; file:// deps
+// (the envelope-chart use case) don't need the repo cache. For mixed file:// +
+// https:// deps, chartify's own helm dep build (without --skip-refresh) runs
+// afterwards as a safety net.
+func (st *HelmState) runHelmDepBuild(chartDir string, helm helmexec.Interface) {
+	mu := st.getNamedRWMutex("prebuild-deps:" + chartDir)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Clone the runner with a quiet logger so the per-subchart
+	// "Building dependency release=..." Info line and helm stdout do not leak
+	// into user output. Live output is also disabled on the clone so helm stdout
+	// can't bypass the logger in --enable-live-output mode. The clone shares the
+	// runner and its options are a value copy, so this does not mutate the
+	// original execer. Mocks that don't implement LoggerSwapper fall back to the
+	// original interface (they don't emit that line anyway).
+	quietHelm := helm
+	if swapper, ok := helm.(helmexec.LoggerSwapper); ok {
+		quietHelm = swapper.WithLogger(helmexec.NewLogger(io.Discard, "warn"))
+		quietHelm.SetEnableLiveOutput(false)
+	}
+
+	// Try `dependency build` first (honors Chart.lock). Fall back to `update`
+	// (re-resolves from Chart.yaml) when the lock is missing or stale. BuildDeps
+	// returns a helmexec.ExitError whose message embeds the combined output, so
+	// isLockOutOfSync can inspect err.Error() without a separate os/exec call.
+	if err := quietHelm.BuildDeps(filepath.Base(chartDir), chartDir, "--skip-refresh"); err != nil {
+		if isLockOutOfSync(err.Error()) {
+			st.logger.Debugf("runHelmDepBuild: falling back to `dependency update` for %s", chartDir)
+			if err := quietHelm.UpdateDeps(chartDir); err != nil {
+				st.logger.Debugf("runHelmDepBuild: helm dependency update failed for %s: %v", chartDir, err)
+			}
+		} else {
+			st.logger.Debugf("runHelmDepBuild: helm dependency build failed for %s: %v", chartDir, err)
+		}
+	}
+}
+
+// isLockOutOfSync returns true when helm's error/output indicates Chart.lock is
+// missing or stale — the signal to fall back from `build` to `update`.
+func isLockOutOfSync(msg string) bool {
+	return strings.Contains(msg, "out of sync") ||
+		strings.Contains(msg, "lock file is out of date") ||
+		strings.Contains(msg, "no lock file") ||
+		strings.Contains(msg, "Chart.lock not found")
+}
+
 // Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
 //
 // If exists, it will also patch resources by json patches, strategic-merge patches, and injectors.
 // processChartification handles the chartification process
-func (st *HelmState) processChartification(chartification *Chartify, release *ReleaseSpec, chartPath string, opts ChartPrepareOptions, skipDeps bool, helmfileCommand string) (string, bool, error) {
+func (st *HelmState) processChartification(chartification *Chartify, release *ReleaseSpec, chartPath string, helm helmexec.Interface, opts ChartPrepareOptions, skipDeps bool, helmfileCommand string) (string, bool, error) {
+	// Pre-build transitive local file:// subchart dependencies before chartify runs.
+	// helm's `dependency build` on the parent chart fetches each file:// subchart and
+	// packages it as .tgz, but does NOT recursively build the subchart's own deps.
+	// Without this pre-build step, envelope charts whose subcharts have their own
+	// local file:// dependencies silently drop the nested subcharts' resources, and
+	// strategicMergePatches/jsonPatches targeting those resources fail with
+	// "no resource matches". See https://github.com/helmfile/helmfile/issues/851.
+	if !skipDeps && st.fs.DirectoryExistsAt(chartPath) {
+		st.preBuildTransitiveSubchartDeps(chartPath, helm)
+	}
+
 	// Rewrite relative file:// dependencies in Chart.yaml to absolute paths before chartify processes them
 	// This prevents errors like "Error: directory /tmp/chartify.../argocd-application not found"
 	// when Chart.yaml contains dependencies like "file://../argocd-application"
@@ -2112,7 +2269,7 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 		if isLocal {
 			chartPath = normalizeChart(st.basePath, chartPath)
 		}
-		chartPath, buildDeps, err = st.processChartification(chartification, release, chartPath, opts, skipDeps, helmfileCommand)
+		chartPath, buildDeps, err = st.processChartification(chartification, release, chartPath, helm, opts, skipDeps, helmfileCommand)
 		if err != nil {
 			return &chartPrepareResult{err: err}
 		}

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: envelope
+version: 0.1.0
+description: Envelope chart whose subchart has its own local file:// dep (issue 851)
+dependencies:
+  - name: sub1
+    version: 0.1.0
+    repository: file://../sub1
+  - name: sub2
+    version: 0.1.0
+    repository: file://../sub2

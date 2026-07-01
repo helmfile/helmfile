@@ -1,0 +1,8 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sub2-sm
+spec:
+  endpoints:
+    - port: web
+      interval: 30s
