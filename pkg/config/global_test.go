@@ -423,18 +423,21 @@ func TestColorFlagOverridesNoColorEnv(t *testing.T) {
 
 // TestRepoRetry tests the repo-retries flag and HELMFILE_REPO_RETRIES env var fallback
 func TestRepoRetry(t *testing.T) {
+	// RepoRetry < 0 means the flag was not specified (CLI default sentinel).
+	unset := GlobalOptions{RepoRetry: -1}
 	tests := []struct {
 		name     string
 		opts     GlobalOptions
 		env      string
 		expected int
 	}{
-		{name: "default", opts: GlobalOptions{}, env: "", expected: 0},
-		{name: "env set", opts: GlobalOptions{}, env: "3", expected: 3},
+		{name: "default (unset)", opts: unset, env: "", expected: 0},
+		{name: "env set", opts: unset, env: "3", expected: 3},
 		{name: "flag set", opts: GlobalOptions{RepoRetry: 5}, env: "", expected: 5},
 		{name: "flag overrides env", opts: GlobalOptions{RepoRetry: 5}, env: "3", expected: 5},
-		{name: "invalid env ignored", opts: GlobalOptions{}, env: "abc", expected: 0},
-		{name: "negative env ignored", opts: GlobalOptions{}, env: "-1", expected: 0},
+		{name: "flag zero disables env", opts: GlobalOptions{RepoRetry: 0}, env: "3", expected: 0},
+		{name: "invalid env ignored", opts: unset, env: "abc", expected: 0},
+		{name: "negative env ignored", opts: unset, env: "-1", expected: 0},
 	}
 
 	for _, test := range tests {

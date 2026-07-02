@@ -2,6 +2,7 @@ package helmexec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -518,6 +519,55 @@ func Test_RegistryLogin_Retry(t *testing.T) {
 		{name: "retries exhausted", repoRetry: 1, failCount: 2, wantErr: true, wantCalls: 2},
 		{name: "retry disabled runs once", repoRetry: 0, failCount: 1, wantErr: true, wantCalls: 1},
 	})
+}
+
+// Test_Retry_LargeCount_NoOverflow verifies that a large --repo-retries value
+// doesn't overflow the backoff duration (the shift exponent must be capped).
+func Test_Retry_LargeCount_NoOverflow(t *testing.T) {
+	withTestBackoff(t)
+	// failCount > repoRetry so every attempt fails; attempt indices exceed the
+	// shift cap of 5, exercising the overflow guard without panicking.
+	const retries = 10
+	helm, runner := newRetryExecer(t, retries, retries+1)
+	err := helm.UpdateRepo()
+	if err == nil {
+		t.Fatal("UpdateRepo() expected error, got nil")
+	}
+	if runner.calls != retries+1 { // 1 initial + retries
+		t.Errorf("runner.calls = %d, want %d", runner.calls, retries+1)
+	}
+}
+
+// Test_SleepCtx_Canceled verifies sleepCtx returns promptly when the runner's
+// context is already canceled, rather than blocking for the full duration.
+func Test_SleepCtx_Canceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+	helm := &execer{
+		runner: &ShellRunner{Ctx: ctx},
+		logger: NewLogger(io.Discard, "debug"),
+	}
+	start := time.Now()
+	helm.sleepCtx(30 * time.Second)
+	elapsed := time.Since(start)
+	if elapsed > time.Second {
+		t.Errorf("sleepCtx blocked for %v with a canceled context; expected prompt return", elapsed)
+	}
+}
+
+// Test_SleepCtx_NoContext verifies sleepCtx falls back to time.Sleep when the
+// runner has no context (e.g. mockRunner).
+func Test_SleepCtx_NoContext(t *testing.T) {
+	helm := &execer{
+		runner: &mockRunner{},
+		logger: NewLogger(io.Discard, "debug"),
+	}
+	start := time.Now()
+	helm.sleepCtx(5 * time.Millisecond)
+	elapsed := time.Since(start)
+	if elapsed < 4*time.Millisecond {
+		t.Errorf("sleepCtx returned in %v without a context; expected to sleep ~5ms", elapsed)
+	}
 }
 
 func Test_SyncRelease(t *testing.T) {

@@ -3,6 +3,7 @@ package helmexec
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -295,14 +296,61 @@ func (helm *execer) retryRepoOp(name string, op func() ([]byte, error)) ([]byte,
 		if err == nil || maxRetries <= 0 || attempt >= maxRetries {
 			return out, err
 		}
-		backoff := repoRetryBaseBackoff * time.Duration(1<<attempt) // 1x, 2x, 4x, 8x...
+		// Cap the shift exponent at 5 (2^5 = 32x already exceeds the 30x cap)
+		// so very large --repo-retries values can't overflow time.Duration.
+		shift := attempt
+		if shift > 5 {
+			shift = 5
+		}
+		backoff := repoRetryBaseBackoff * time.Duration(1<<shift)
 		if backoff > 30*repoRetryBaseBackoff {
 			backoff = 30 * repoRetryBaseBackoff
 		}
-		helm.logger.Warnf("repo operation %q failed (attempt %d/%d): %v; retrying in %v",
-			name, attempt+1, maxRetries, err, backoff)
-		time.Sleep(backoff)
+		helm.logger.Warnf("repo operation %q failed (%s); retry %d/%d in %v",
+			name, conciseError(err), attempt+1, maxRetries, backoff)
+		helm.sleepCtx(backoff)
 	}
+}
+
+// conciseError returns a short reason for logging. For a helm ExitError it
+// reports just the exit status, avoiding the very verbose PATH/ARGS/OUTPUT
+// dump that Error() produces.
+func conciseError(err error) string {
+	var ee ExitError
+	if errors.As(err, &ee) {
+		return fmt.Sprintf("exit status %d", ee.ExitStatus())
+	}
+	return err.Error()
+}
+
+// sleepCtx sleeps for d but returns early if the runner's context is canceled,
+// so an interrupt (Ctrl+C) aborts the retry loop promptly rather than blocking
+// until the full backoff elapses. Falls back to time.Sleep for runners without
+// a context (e.g. the test mockRunner).
+func (helm *execer) sleepCtx(d time.Duration) {
+	ctx := helm.runnerContext()
+	if ctx == nil {
+		time.Sleep(d)
+		return
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+	}
+}
+
+// runnerContext returns the ShellRunner's context if the runner is a
+// ShellRunner (pointer or value), else nil.
+func (helm *execer) runnerContext() context.Context {
+	switch r := helm.runner.(type) {
+	case *ShellRunner:
+		return r.Ctx
+	case ShellRunner:
+		return r.Ctx
+	}
+	return nil
 }
 
 func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {
