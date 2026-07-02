@@ -41,8 +41,7 @@ type HelmExecOptions struct {
 	EnforcePluginVerification bool // If true, fail plugin installation if verification is not supported
 	HelmOCIPlainHTTP          bool // If true, use plain HTTP for OCI registries
 	// RepoRetry is the number of times to retry helm repo and registry login
-	// operations on transient network errors, with exponential backoff.
-	// 0 disables retries.
+	// operations on failure, with exponential backoff. 0 disables retries.
 	RepoRetry int
 }
 
@@ -308,7 +307,12 @@ func (helm *execer) retryRepoOp(name string, op func() ([]byte, error)) ([]byte,
 		}
 		helm.logger.Warnf("repo operation %q failed (%s); retry %d/%d in %v",
 			name, conciseError(err), attempt+1, maxRetries, backoff)
-		helm.sleepCtx(backoff)
+		// sleepCtx returns false if interrupted by context cancellation; in that
+		// case stop retrying so a canceled context (Ctrl+C) doesn't spin into a
+		// tight loop of rapid helm invocations.
+		if !helm.sleepCtx(backoff) {
+			return out, err
+		}
 	}
 }
 
@@ -323,21 +327,25 @@ func conciseError(err error) string {
 	return err.Error()
 }
 
-// sleepCtx sleeps for d but returns early if the runner's context is canceled,
+// sleepCtx sleeps for d, returning early if the runner's context is canceled,
 // so an interrupt (Ctrl+C) aborts the retry loop promptly rather than blocking
-// until the full backoff elapses. Falls back to time.Sleep for runners without
-// a context (e.g. the test mockRunner).
-func (helm *execer) sleepCtx(d time.Duration) {
+// until the full backoff elapses. It returns true if the full duration elapsed,
+// or false if it was interrupted by context cancellation. Falls back to
+// time.Sleep (returning true) for runners without a context (e.g. the test
+// mockRunner).
+func (helm *execer) sleepCtx(d time.Duration) bool {
 	ctx := helm.runnerContext()
 	if ctx == nil {
 		time.Sleep(d)
-		return
+		return true
 	}
 	timer := time.NewTimer(d)
 	defer timer.Stop()
 	select {
 	case <-timer.C:
+		return true
 	case <-ctx.Done():
+		return false
 	}
 }
 

@@ -136,6 +136,12 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.BoolVar(&globalOptions.EnforcePluginVerification, "enforce-plugin-verification", false, `fail plugin installation if verification is not supported (for security purposes)`)
 	fs.BoolVar(&globalOptions.HelmOCIPlainHTTP, "oci-plain-http", false, `use plain HTTP for OCI registries (required for local/insecure registries in Helm 4)`)
 	fs.IntVar(&globalOptions.RepoRetry, "repo-retries", -1, `Number of times to retry "helm repo add/update" and "helm registry login" on failure, with exponential backoff (1s, 2s, 4s, ..., capped at 30s). Set to 0 to disable retries. Overrides "HELMFILE_REPO_RETRIES" OS environment variable when specified`)
+	// The actual default is -1 (a sentinel meaning "flag not set, fall back to
+	// the env var"); display "0" in --help to match the documented default and
+	// avoid confusing users with a negative value.
+	if f := fs.Lookup("repo-retries"); f != nil {
+		f.DefValue = "0"
+	}
 	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, `Silence output. Equivalent to log-level warn. Overrides "HELMFILE_QUIET" OS environment variable when specified`)
 	fs.StringVar(&globalOptions.Kubeconfig, "kubeconfig", "", "Use a particular kubeconfig file")
 	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", `Set kubectl context. Overrides "HELMFILE_KUBE_CONTEXT" OS environment variable when specified. Uses current kubectl context by default`)
