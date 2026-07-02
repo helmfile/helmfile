@@ -583,6 +583,7 @@ func Test_SleepCtx_NoContext(t *testing.T) {
 func Test_Retry_AbortsOnCanceledContext(t *testing.T) {
 	withTestBackoff(t)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	runner := &mockRunner{failCount: 100} // always fails
 	helm := &execer{
 		options: HelmExecOptions{RepoRetry: 100},
@@ -590,26 +591,24 @@ func Test_Retry_AbortsOnCanceledContext(t *testing.T) {
 		runner:  &ShellRunner{Ctx: ctx},
 		logger:  NewLogger(io.Discard, "debug"),
 	}
-	// Cancel after the first attempt fails so the retry loop should bail out
-	// instead of running all 100 retries.
-	go func() {
-		time.Sleep(20 * time.Millisecond)
-		cancel()
-	}()
-	start := time.Now()
+	// Cancel deterministically inside the op after the first attempt runs, so
+	// the retry loop must bail out at sleepCtx — no timing-based flakiness.
+	calls := 0
 	_, err := helm.retryRepoOp("test", func() ([]byte, error) {
-		return runner.Execute("helm", []string{"repo", "update"}, nil, false)
+		calls++
+		out, e := runner.Execute("helm", []string{"repo", "update"}, nil, false)
+		if calls == 1 {
+			cancel()
+		}
+		return out, e
 	})
-	elapsed := time.Since(start)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	// Should have run only a couple attempts (not 101) and returned promptly.
-	if runner.calls > 5 {
-		t.Errorf("runner.calls = %d after cancellation; expected <= 5 (no tight loop)", runner.calls)
-	}
-	if elapsed > time.Second {
-		t.Errorf("retryRepoOp took %v after cancellation; expected prompt abort", elapsed)
+	// The context is canceled during the first attempt; sleepCtx must observe
+	// it and abort, so only the first attempt should run.
+	if calls > 2 {
+		t.Errorf("calls = %d after cancellation; expected <= 2 (no tight loop)", calls)
 	}
 }
 

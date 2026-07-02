@@ -470,7 +470,9 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 	out, err := helm.retryRepoOp(fmt.Sprintf("registry login %s", repository), func() ([]byte, error) {
 		buffer := bytes.Buffer{}
 		fmt.Fprintf(&buffer, "%s\n", password)
-		return helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
+		// Copy args so execStdIn's internal append (for helm.extra) can't alias
+		// the shared slice across retries.
+		return helm.execStdIn(append([]string{}, args...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
 	})
 	helm.info(out)
 	return err
