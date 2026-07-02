@@ -37,6 +37,7 @@ type App struct {
 	DisableForceUpdate              bool
 	EnforcePluginVerification       bool
 	HelmOCIPlainHTTP                bool
+	RepoRetry                       int
 	DisableKubeVersionAutoDetection bool
 	SequentialHelmfiles             bool
 
@@ -87,6 +88,7 @@ func New(conf ConfigProvider) *App {
 		DisableForceUpdate:         conf.DisableForceUpdate(),
 		EnforcePluginVerification:  conf.EnforcePluginVerification(),
 		HelmOCIPlainHTTP:           conf.HelmOCIPlainHTTP(),
+		RepoRetry:                  conf.RepoRetry(),
 		SequentialHelmfiles:        conf.SequentialHelmfiles(),
 		Logger:                     conf.Logger(),
 		Kubeconfig:                 conf.Kubeconfig(),
@@ -983,6 +985,7 @@ func (a *App) getHelm(st *state.HelmState) (helmexec.Interface, error) {
 			DisableForceUpdate:        a.DisableForceUpdate,
 			EnforcePluginVerification: a.EnforcePluginVerification,
 			HelmOCIPlainHTTP:          a.HelmOCIPlainHTTP,
+			RepoRetry:                 a.RepoRetry,
 		}, a.Logger, kubeconfig, kubectx, &helmexec.ShellRunner{
 			Logger:                     a.Logger,
 			Ctx:                        a.ctx,

@@ -55,6 +55,7 @@ Flags:
   -n, --namespace string                      Set namespace. Overrides "HELMFILE_NAMESPACE" OS environment variable when specified. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
       --no-color                              Output without color. Overrides "HELMFILE_NO_COLOR" and "NO_COLOR" OS environment variables when specified
   -q, --quiet                                 Silence output. Equivalent to log-level warn. Overrides "HELMFILE_QUIET" OS environment variable when specified
+      --repo-retries int                      Number of times to retry "helm repo add/update" and "helm registry login" on failure, with exponential backoff (1s, 2s, 4s, ..., capped at 30s). Set to 0 to disable retries. Overrides "HELMFILE_REPO_RETRIES" OS environment variable when specified
   -l, --selector stringArray                  Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
                                               A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                               "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
@@ -547,6 +548,7 @@ The following global flags are also available but not shown in the main help out
 | `--skip-refresh` | false | Skip running `helm repo update` (lighter than `--skip-deps` which also skips dependency build) |
 | `--enforce-plugin-verification` | false | Fail plugin installation if verification is not supported |
 | `--oci-plain-http` | false | Use plain HTTP for OCI registries (required for local/insecure registries in Helm 4) |
+| `--repo-retries` | `0` | Number of times to retry `helm repo add/update` and `helm registry login` on failure, with exponential backoff (1s, 2s, 4s, ..., capped at 30s). Set to 0 to disable retries. Overrides `HELMFILE_REPO_RETRIES` |
 
 #### fetch flags
 
