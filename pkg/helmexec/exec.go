@@ -418,6 +418,7 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		})
 	default:
 		helm.logger.Errorf("ERROR: unknown type '%v' for repository %v", managed, name)
+		err = fmt.Errorf("unknown managed type %q for repository %v", managed, name)
 	}
 
 	helm.info(out)

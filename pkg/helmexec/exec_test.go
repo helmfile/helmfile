@@ -289,8 +289,8 @@ exec: az acr helm repo add --name acrRepo:
 	err = helm.AddRepo("otherRepo", "", "", "", "", "", "", "unknown", false, false)
 	expected = `ERROR: unknown type 'unknown' for repository otherRepo
 `
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Errorf("expected error for unknown managed type, got nil")
 	}
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
