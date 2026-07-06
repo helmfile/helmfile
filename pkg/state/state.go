@@ -1534,6 +1534,7 @@ type ChartPrepareOptions struct {
 	SkipRepos                  bool
 	SkipDeps                   bool
 	SkipRefresh                bool
+	AllowFailedReleases        bool
 	SkipResolve                bool
 	SkipCleanup                bool
 	// SkipSchemaValidation configures chartify to pass --skip-schema-validation to helm-template run by it.
@@ -2341,7 +2342,13 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				if downloadRes.err != nil {
 					errs = append(errs, downloadRes.err)
-					return
+
+					if !opts.AllowFailedReleases {
+						return
+					} else {
+						// continue processing other releases even if one fails
+						continue
+					}
 				}
 				func() {
 					prepareChartInfoMutex.Lock()
@@ -2362,16 +2369,22 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	)
 
 	if len(errs) > 0 {
-		return nil, errs
+		if !opts.AllowFailedReleases {
+			return nil, errs
+		}
+		// else if AllowFailedReleases: return partial results along with errs.
 	}
 
 	if len(builds) > 0 {
 		if err := st.runHelmDepBuilds(helm, concurrency, builds, opts); err != nil {
-			return nil, []error{err}
+			if !opts.AllowFailedReleases {
+				return nil, []error{err}
+			}
+			errs = append(errs, err)
 		}
 	}
 
-	return prepareChartInfo, nil
+	return prepareChartInfo, errs
 }
 
 // nolint: unparam
