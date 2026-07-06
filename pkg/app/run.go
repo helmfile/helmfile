@@ -51,7 +51,13 @@ func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurre
 
 	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("%v", errs)
+		if !opts.AllowFailedReleases {
+			// abort on first error
+			return nil, &MultiError{Errors: errs}
+		} else {
+			// return partial results with errors for the failed ones
+			return releaseToChart, &MultiError{Errors: errs}
+		}
 	}
 
 	return releaseToChart, nil
@@ -101,9 +107,16 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	// remain available for the entire operation lifecycle. See issue #1799.
 	defer r.state.CleanupChartifyTempDirs()
 
-	releaseToChart, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
-	if err != nil {
-		return err
+	releaseToChart, prepareErr := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
+	// IMPORTANT: on opts.AllowFailedReleases: do not abort only on error here, just forward it to the caller in order to allow for partial results
+	// Only in case prepareCharts failed with a general error and returned to processable release abort anyways
+	if prepareErr != nil && releaseToChart == nil {
+		return prepareErr
+	}
+	if !opts.AllowFailedReleases {
+		if prepareErr != nil {
+			return prepareErr
+		}
 	}
 
 	for i := range r.state.Releases {
@@ -113,7 +126,7 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 			Namespace:   rel.Namespace,
 			KubeContext: rel.KubeContext,
 		}
-		if chart := releaseToChart[key]; chart != rel.Chart {
+		if chart, ok := releaseToChart[key]; ok && chart != rel.Chart {
 			// The chart has been downloaded and modified by Helmfile (and chartify under the hood).
 			// We let the later step use the modified version of the chart, located under the `chart` variable,
 			// instead of the original chart path.
@@ -134,8 +147,28 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		}
 	}
 
-	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand, firstErr)
-	return err
+	_, cleanupErr := r.state.TriggerGlobalCleanupEvent(helmfileCommand, firstErr)
+	if !opts.AllowFailedReleases {
+		// return directly on first error
+		return cleanupErr
+	} else {
+		// merge the two errors into a single error output
+		var merged []error
+		if prepareErr != nil {
+			if me, ok := prepareErr.(*MultiError); ok {
+				merged = append(merged, me.Errors...)
+			} else {
+				merged = append(merged, prepareErr)
+			}
+		}
+		if cleanupErr != nil {
+			merged = append(merged, fmt.Errorf("error during global cleanup event: %w", cleanupErr))
+		}
+		if len(merged) > 0 {
+			return &MultiError{Errors: merged}
+		}
+		return nil
+	}
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {

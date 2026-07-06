@@ -2369,6 +2369,7 @@ type configImpl struct {
 	skipTests            bool
 	skipSchemaValidation bool
 	skipRefresh          bool
+	allowFailedReleases  bool
 
 	skipNeeds                bool
 	includeNeeds             bool
@@ -2414,6 +2415,10 @@ func (c configImpl) SkipDeps() bool {
 
 func (c configImpl) SkipRefresh() bool {
 	return c.skipRefresh
+}
+
+func (c configImpl) AllowFailedReleases() bool {
+	return c.allowFailedReleases
 }
 
 func (c configImpl) SkipNeeds() bool {
@@ -2508,6 +2513,7 @@ type applyConfig struct {
 	skipCRDs                 bool
 	skipDeps                 bool
 	skipRefresh              bool
+	allowFailedReleases      bool
 	skipNeeds                bool
 	includeNeeds             bool
 	includeTransitiveNeeds   bool
@@ -2607,6 +2613,10 @@ func (a applyConfig) SkipDeps() bool {
 
 func (a applyConfig) SkipRefresh() bool {
 	return a.skipRefresh
+}
+
+func (a applyConfig) AllowFailedReleases() bool {
+	return a.allowFailedReleases
 }
 
 func (a applyConfig) SkipNeeds() bool {

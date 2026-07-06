@@ -171,6 +171,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		prepErr := run.WithPreparedCharts("diff", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			IncludeCRDs:            &includeCRDs,
@@ -243,6 +244,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		prepErr := run.WithPreparedCharts("template", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			IncludeCRDs:            &includeCRDs,
@@ -271,11 +273,12 @@ func (a *App) Template(c TemplateConfigProvider) error {
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.WithPreparedCharts("write-values", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh: c.SkipRefresh(),
-			SkipDeps:    c.SkipDeps(),
-			SkipCleanup: c.SkipCleanup(),
-			Concurrency: c.Concurrency(),
+			SkipRepos:           c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:         c.SkipRefresh(),
+			AllowFailedReleases: c.AllowFailedReleases(),
+			SkipDeps:            c.SkipDeps(),
+			SkipCleanup:         c.SkipCleanup(),
+			Concurrency:         c.Concurrency(),
 		}, func() []error {
 			ok, errs = a.writeValues(run, c)
 			return errs
@@ -326,6 +329,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
@@ -444,13 +448,14 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 		}
 
 		prepErr := run.WithPreparedCharts("pull", state.ChartPrepareOptions{
-			ForceDownload:     true,
-			SkipRefresh:       c.SkipRefresh(),
-			SkipRepos:         c.SkipRefresh() || c.SkipDeps(),
-			SkipDeps:          c.SkipDeps(),
-			OutputDir:         c.OutputDir(),
-			OutputDirTemplate: c.OutputDirTemplate(),
-			Concurrency:       c.Concurrency(),
+			ForceDownload:       true,
+			SkipRefresh:         c.SkipRefresh(),
+			AllowFailedReleases: c.AllowFailedReleases(),
+			SkipRepos:           c.SkipRefresh() || c.SkipDeps(),
+			SkipDeps:            c.SkipDeps(),
+			OutputDir:           c.OutputDir(),
+			OutputDirTemplate:   c.OutputDirTemplate(),
+			Concurrency:         c.Concurrency(),
 		}, func() []error {
 			if c.WriteOutput() {
 				for i := range run.state.Releases {
@@ -501,6 +506,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		prepErr := run.WithPreparedCharts("sync", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			Wait:                   c.Wait(),
@@ -558,6 +564,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		prepErr := run.WithPreparedCharts("apply", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			Wait:                   c.Wait(),
@@ -623,12 +630,13 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
 			err := run.WithPreparedCharts("destroy", state.ChartPrepareOptions{
-				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
-				SkipRefresh:   c.SkipRefresh(),
-				SkipDeps:      c.SkipDeps(),
-				Concurrency:   c.Concurrency(),
-				DeleteWait:    c.DeleteWait(),
-				DeleteTimeout: c.DeleteTimeout(),
+				SkipRepos:           c.SkipRefresh() || c.SkipDeps(),
+				SkipRefresh:         c.SkipRefresh(),
+				AllowFailedReleases: c.AllowFailedReleases(),
+				SkipDeps:            c.SkipDeps(),
+				Concurrency:         c.Concurrency(),
+				DeleteWait:          c.DeleteWait(),
+				DeleteTimeout:       c.DeleteTimeout(),
 			}, func() []error {
 				ok, errs = a.delete(run, true, c)
 				return errs
@@ -652,10 +660,11 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		err := run.WithPreparedCharts("test", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh: c.SkipRefresh(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
+			SkipRepos:           c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:         c.SkipRefresh(),
+			AllowFailedReleases: c.AllowFailedReleases(),
+			SkipDeps:            c.SkipDeps(),
+			Concurrency:         c.Concurrency(),
 		}, func() []error {
 			errs = a.test(run, c)
 			return errs
@@ -673,9 +682,10 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 	var err error
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err = run.WithPreparedCharts("show-dag", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: 2,
+			SkipRepos:           true,
+			AllowFailedReleases: false,
+			SkipDeps:            true,
+			Concurrency:         2,
 		}, func() []error {
 			err = a.dag(run)
 			if err != nil {
@@ -690,9 +700,10 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.WithPreparedCharts("build", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: 2,
+			SkipRepos:           true,
+			AllowFailedReleases: false,
+			SkipDeps:            true,
+			Concurrency:         2,
 		}, func() []error {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
@@ -763,9 +774,10 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 
 		if !c.SkipCharts() {
 			prepErr := run.WithPreparedCharts("list", state.ChartPrepareOptions{
-				SkipRepos:   true,
-				SkipDeps:    true,
-				Concurrency: 2,
+				SkipRepos:           true,
+				AllowFailedReleases: true,
+				SkipDeps:            true,
+				Concurrency:         2,
 			}, func() []error {
 				rel, err := a.list(run)
 				if err != nil {
