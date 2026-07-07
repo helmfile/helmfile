@@ -28,7 +28,7 @@ require (
 	github.com/tj/assert v0.0.3
 	github.com/variantdev/dag v1.1.0
 	github.com/werf/kubedog v0.13.1-0.20260217150136-ed58edf34eac
-	github.com/zclconf/go-cty v1.18.1
+	github.com/zclconf/go-cty v1.19.0
 	github.com/zclconf/go-cty-yaml v1.2.0
 	go.szostok.io/version v1.2.0
 	go.uber.org/zap v1.28.0
@@ -161,6 +161,7 @@ require (
 	github.com/antchfx/xpath v1.3.6 // indirect
 	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
+	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
