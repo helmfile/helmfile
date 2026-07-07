@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -41,6 +42,32 @@ func (r *runner) Execute(cmd string, args []string, env map[string]string, enabl
 		}
 	}
 	return []byte(""), nil
+}
+
+func TestTrigger_DisabledHooks(t *testing.T) {
+	currentVal := disableHooks
+
+	{
+		disableHooks = true
+		bus := &Bus{Hooks: []Hook{{}}}
+		_, err := bus.Trigger("foo", nil, nil)
+		require.EqualError(t, err, "HELMFILE_DISABLE_HOOKS is active, hooks are disabled")
+	}
+
+	disableHooks = currentVal
+}
+
+func TestTrigger_DisabledHooksWithEmptyHooks(t *testing.T) {
+	currentVal := disableHooks
+
+	{
+		disableHooks = true
+		bus := &Bus{}
+		_, err := bus.Trigger("foo", nil, nil)
+		require.NoError(t, err)
+	}
+
+	disableHooks = currentVal
 }
 
 func TestTrigger(t *testing.T) {

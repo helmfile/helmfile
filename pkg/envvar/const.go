@@ -2,6 +2,7 @@ package envvar
 
 const (
 	DisableInsecureFeatures = "HELMFILE_DISABLE_INSECURE_FEATURES"
+	DisableHooks            = "HELMFILE_DISABLE_HOOKS"
 
 	// use helm status to check if a release exists before installing it
 	UseHelmStatusToCheckReleaseExistence = "HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE"
