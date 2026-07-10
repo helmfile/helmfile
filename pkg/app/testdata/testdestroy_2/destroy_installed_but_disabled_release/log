@@ -13,7 +13,7 @@ release "frontend-v1" processed
 processing releases in group 2/2: backend-v1
 release "backend-v1" processed
 
-========== Deleted Releases ==========
+======== Deleted Releases ========
 NAME          NAMESPACE   DURATION
 frontend-v1                     0s
 backend-v1                      0s

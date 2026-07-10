@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/werf/kubedog/pkg/trackers/dyntracker/logstore"
 	"github.com/werf/kubedog/pkg/trackers/dyntracker/statestore"
 	kdutil "github.com/werf/kubedog/pkg/trackers/dyntracker/util"
@@ -47,6 +48,48 @@ func HeaderDivider(title string) string {
 // non-TTY/CI-without-color callers see identical bytes.
 func HeaderDividerStyled(title string, useColor bool) string {
 	h := HeaderDivider(title)
+	if !useColor {
+		return h
+	}
+	return ansiBold + ansiBlue + h + ansiReset
+}
+
+// TableVisualWidth returns the maximum visual width of any line in the
+// given table string, using runewidth for correct wide-character handling.
+// Trailing spaces are trimmed before measuring because prettytable omits
+// trailing padding on left-aligned last columns.
+func TableVisualWidth(tableStr string) int {
+	max := 0
+	for _, line := range strings.Split(tableStr, "\n") {
+		line = strings.TrimRight(line, " ")
+		w := runewidth.StringWidth(line)
+		if w > max {
+			max = w
+		}
+	}
+	return max
+}
+
+// HeaderDividerCentered returns a section header where the title is centered
+// within a line of '=' characters whose total visual width matches width.
+// Falls back to HeaderDivider when the table is too narrow for the title.
+func HeaderDividerCentered(title string, width int) string {
+	content := " " + title + " "
+	contentWidth := runewidth.StringWidth(content)
+	if width <= contentWidth {
+		return HeaderDivider(title)
+	}
+	padding := width - contentWidth
+	left := padding / 2
+	right := padding - left
+	return strings.Repeat("=", left) + content + strings.Repeat("=", right)
+}
+
+// HeaderDividerCenteredStyled is HeaderDividerCentered with the bold+blue
+// style used for section titles. When useColor is false it returns the plain
+// centered divider so non-TTY/CI-without-color callers see identical bytes.
+func HeaderDividerCenteredStyled(title string, width int, useColor bool) string {
+	h := HeaderDividerCentered(title, width)
 	if !useColor {
 		return h
 	}

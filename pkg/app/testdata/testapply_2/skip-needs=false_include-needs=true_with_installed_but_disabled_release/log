@@ -59,13 +59,13 @@ processing releases in group 1/2: default/default/external-secrets
 WARNING: release external-secrets needs kubernetes-external-secrets, but kubernetes-external-secrets is not installed due to installed: false. Either mark kubernetes-external-secrets as installed or remove kubernetes-external-secrets from external-secrets's needs
 processing releases in group 2/2: default/default/my-release
 
-[1m[34m========== Updated Releases ==========[0m
+[1m[34m======================= Updated Releases ========================[0m
 NAME               NAMESPACE   CHART           VERSION   DURATION
 external-secrets   default     incubator/raw   3.1.0           0s
 my-release         default     incubator/raw   3.1.0           0s
 
 
-[1m[34m========== Deleted Releases ==========[0m
+[1m[34m================= Deleted Releases =================[0m
 NAME                          NAMESPACE     DURATION
 kubernetes-external-secrets   kube-system         0s
 
