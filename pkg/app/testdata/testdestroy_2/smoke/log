@@ -25,7 +25,7 @@ processing releases in group 5/5: front-proxy, logging
 release "front-proxy" processed
 release "logging" processed
 
-========== Deleted Releases ==========
+========= Deleted Releases ==========
 NAME             NAMESPACE   DURATION
 frontend-v3                        0s
 frontend-v2                        0s

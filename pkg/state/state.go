@@ -5167,12 +5167,11 @@ func hideChartCredentials(chartCredentials string) (string, error) {
 }
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases.
-// useColor controls whether the section headers carry the bold+blue style we
-// use elsewhere for visual section breaks; pass false (e.g. when --no-color is
-// set) for clean output in non-TTY consumers.
+// Each section header is centered within a line of '=' characters whose width
+// matches the table below it. useColor controls whether the headers carry
+// the bold+blue style used for visual section breaks.
 func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, useColor bool) {
 	if len(ar.Upgraded) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Updated Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -5191,10 +5190,11 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Updated Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 	if len(ar.Reinstalled) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Reinstalled Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -5213,10 +5213,11 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Reinstalled Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 	if len(ar.Deleted) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Deleted Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
@@ -5228,10 +5229,11 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Deleted Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 	if len(ar.Failed) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Failed Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -5245,10 +5247,11 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Failed Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 	if len(ar.DeleteFailed) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Failed to Delete Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
@@ -5260,7 +5263,9 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Failed to Delete Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 }
 

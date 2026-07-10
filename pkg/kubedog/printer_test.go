@@ -546,6 +546,71 @@ func TestHeaderDividerStyled(t *testing.T) {
 		"styled header must contain the plain divider unchanged")
 }
 
+func TestHeaderDividerCentered_TitleCenteredWithinWidth(t *testing.T) {
+	// "Updated Releases" = 16 chars; content with spaces = 18.
+	// width 71 → padding 53, left 26, right 27.
+	got := HeaderDividerCentered("Updated Releases", 71)
+	assert.Equal(t, 71, len(got))
+	assert.Contains(t, got, " Updated Releases ")
+	assert.True(t, strings.HasPrefix(got, "="))
+	assert.True(t, strings.HasSuffix(got, "="))
+}
+
+func TestHeaderDividerCentered_OddPaddingPutsExtraOnRight(t *testing.T) {
+	// content " hi " = 4 chars; width 10 → padding 6, left 3, right 3.
+	got := HeaderDividerCentered("hi", 10)
+	assert.Equal(t, "=== hi ===", got)
+	// width 11 → padding 7, left 3, right 4.
+	got = HeaderDividerCentered("hi", 11)
+	assert.Equal(t, "=== hi ====", got)
+}
+
+func TestHeaderDividerCentered_FallsBackWhenTooNarrow(t *testing.T) {
+	// "Updated Releases" with spaces = 18 chars.
+	// width 18 → exactly fits content, no room for '=' → fallback.
+	got := HeaderDividerCentered("Updated Releases", 18)
+	assert.Equal(t, HeaderDivider("Updated Releases"), got)
+
+	// width 10 → narrower than content → fallback.
+	got = HeaderDividerCentered("Updated Releases", 10)
+	assert.Equal(t, HeaderDivider("Updated Releases"), got)
+}
+
+func TestHeaderDividerCenteredStyled_NoColorIdenticalToPlain(t *testing.T) {
+	assert.Equal(t,
+		HeaderDividerCentered("title:", 30),
+		HeaderDividerCenteredStyled("title:", 30, false),
+	)
+}
+
+func TestHeaderDividerCenteredStyled_WithColorWrapsAnsi(t *testing.T) {
+	styled := HeaderDividerCenteredStyled("title:", 30, true)
+	assert.True(t, strings.HasPrefix(styled, ansiBold+ansiBlue),
+		"styled header must start with bold+blue, got %q", styled)
+	assert.True(t, strings.HasSuffix(styled, ansiReset),
+		"styled header must end with reset, got %q", styled)
+	assert.Contains(t, styled, HeaderDividerCentered("title:", 30),
+		"styled header must contain the plain centered divider unchanged")
+}
+
+func TestTableVisualWidth_MeasuresMaxLine(t *testing.T) {
+	// "NAME   CHART" = 12, "foo    charts/bar" = 17 → max is 17.
+	table := "NAME   CHART\nfoo    charts/bar\n"
+	assert.Equal(t, 17, TableVisualWidth(table))
+}
+
+func TestTableVisualWidth_TrimsTrailingSpaces(t *testing.T) {
+	// Last column left-aligned → trailing spaces on data rows.
+	// Header line "NAME   CHART" = 12, data "foo    baz   " = 12 (with trailing).
+	// After trimming, data = "foo    baz" = 10, so max is 12.
+	table := "NAME   CHART\nfoo    baz   \n"
+	assert.Equal(t, 12, TableVisualWidth(table))
+}
+
+func TestTableVisualWidth_EmptyString(t *testing.T) {
+	assert.Equal(t, 0, TableVisualWidth(""))
+}
+
 func TestFlushHeartbeat_EmitsWhenIdleWithInFlight(t *testing.T) {
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
 	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
