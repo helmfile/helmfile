@@ -4421,6 +4421,80 @@ func TestHelmState_SyncRepos_OCI(t *testing.T) {
 	}
 }
 
+func TestHelmState_SyncRepos_OCIOnly(t *testing.T) {
+	tests := []struct {
+		name                  string
+		repos                 []RepositorySpec
+		opts                  []SyncOption
+		wantRegistryLoginHost string
+		wantRepoSet           bool
+	}{
+		{
+			name: "WithOCIOnly logs into OCI registry",
+			repos: []RepositorySpec{
+				{
+					Name:     "ociregistry",
+					URL:      "quay.io/myorg",
+					OCI:      true,
+					Username: "user",
+					Password: "pass",
+				},
+			},
+			opts:                  []SyncOption{WithOCIOnly()},
+			wantRegistryLoginHost: "quay.io",
+			wantRepoSet:           false,
+		},
+		{
+			name: "WithOCIOnly skips non-OCI repo",
+			repos: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://charts.helm.sh/stable",
+				},
+			},
+			opts:                  []SyncOption{WithOCIOnly()},
+			wantRegistryLoginHost: "",
+			wantRepoSet:           false,
+		},
+		{
+			name: "without options processes non-OCI repo via AddRepo",
+			repos: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://charts.helm.sh/stable",
+				},
+			},
+			opts:                  nil,
+			wantRegistryLoginHost: "",
+			wantRepoSet:           true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			helm := &exectest.Helm{}
+			state := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: tt.repos,
+				},
+			}
+			_, err := state.SyncRepos(helm, map[string]bool{}, tt.opts...)
+			if err != nil {
+				t.Errorf("SyncRepos() error = %v", err)
+				return
+			}
+			if tt.wantRegistryLoginHost != "" && helm.RegistryLoginHost != tt.wantRegistryLoginHost {
+				t.Errorf("RegistryLogin host = %q, want %q", helm.RegistryLoginHost, tt.wantRegistryLoginHost)
+			}
+			if tt.wantRegistryLoginHost == "" && helm.RegistryLoginHost != "" {
+				t.Errorf("RegistryLogin should not have been called, got host = %q", helm.RegistryLoginHost)
+			}
+			if len(helm.Repo) > 0 != tt.wantRepoSet {
+				t.Errorf("AddRepo called = %v, want %v", len(helm.Repo) > 0, tt.wantRepoSet)
+			}
+		})
+	}
+}
+
 func TestGenerateOutputFilePath(t *testing.T) {
 	tests := []struct {
 		envName            string
