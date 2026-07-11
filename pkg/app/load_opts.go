@@ -17,6 +17,16 @@ type LoadOpts struct {
 	Reverse bool
 
 	Filter bool
+
+	// Inherited carries parent-helmfile config that this sub-helmfile opts into
+	// via `inherits:`. See state.InheritedConfig and state.MergeInherited.
+	Inherited *state.InheritedConfig
+
+	// ParentRepoNames is the parent's effective repository set (derived from
+	// st.Repositories, so it includes repositories brought in via bases: or
+	// inherits:). It is used by the "did you mean inherits: [repositories]?"
+	// footgun warning (state.WarnUninheritedRepos).
+	ParentRepoNames []string `yaml:"parentRepoNames,omitempty"`
 }
 
 func (o LoadOpts) DeepCopy() LoadOpts {
@@ -40,6 +50,18 @@ func (o LoadOpts) DeepCopy() LoadOpts {
 			panic(err)
 		}
 		new.Environment.OverrideCLISetValues = dst
+	}
+
+	// InheritedConfig.Env is tagged yaml:"-" so it does not survive the
+	// marshal/unmarshal round-trip above. Deep-copy it explicitly (mirroring
+	// the OverrideCLISetValues handling) so sub-helmfile processing never
+	// shares the parent's environment maps by reference.
+	if o.Inherited != nil && o.Inherited.Env != nil {
+		e := o.Inherited.Env.DeepCopy()
+		if new.Inherited == nil {
+			new.Inherited = &state.InheritedConfig{}
+		}
+		new.Inherited.Env = &e
 	}
 
 	return new

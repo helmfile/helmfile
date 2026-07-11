@@ -1,0 +1,12 @@
+repositories:
+- name: incubator
+  url: https://charts.helm.sh/incubator
+
+# An unknown inherits key must be rejected at parse time with a clear error,
+# rather than silently doing nothing. The parse fails before any chart is
+# fetched, so this scenario needs no network.
+helmfiles:
+- path: child.yaml
+  inherits:
+  - repositories
+  - bogusKey

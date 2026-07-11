@@ -8,7 +8,7 @@ GROUP RELEASES
 processing releases in group 1/1: default//logging
 release "logging" processed
 
-========== Deleted Releases ==========
+====== Deleted Releases ======
 NAME      NAMESPACE   DURATION
 logging                     0s
 

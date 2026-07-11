@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Added
+
+- Add support for `conditionTemplate` and allow `condition` to be set directly to `true` or `false`.
+
 ## [1.4.1] - 2026-03-03
 
 ### Fixed

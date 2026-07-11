@@ -189,6 +189,14 @@ type SubHelmfileSpec struct {
 	//do the sub helmfiles inherits from parent selectors
 	SelectorsInherited bool `yaml:"selectorsInherited,omitempty"`
 
+	// Inherits is the list of parent-helmfile config categories this
+	// sub-helmfile inherits. Allowed values are listed in AllowedInherits
+	// (repositories, helmDefaults, commonLabels, apiVersions, kubeVersion,
+	// templates, environments). Child values win; parent fills gaps. See
+	// MergeInherited. Empty (the default) preserves the historical behavior
+	// where sub-helmfiles are independent.
+	Inherits []string `yaml:"inherits,omitempty"`
+
 	Environment SubhelmfileEnvironmentSpec
 }
 
@@ -440,6 +448,7 @@ type ReleaseSpec struct {
 	VerifyTemplate    *string `yaml:"verifyTemplate,omitempty"`
 	WaitTemplate      *string `yaml:"waitTemplate,omitempty"`
 	InstalledTemplate *string `yaml:"installedTemplate,omitempty"`
+	ConditionTemplate *string `yaml:"conditionTemplate,omitempty"`
 
 	// These settings requires helm-x integration to work
 	Dependencies          []Dependency `yaml:"dependencies,omitempty"`
@@ -3343,7 +3352,8 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 // ConditionEnabled checks if a release condition is enabled based on the provided values.
 // It takes a ReleaseSpec and a map of values as input.
 // If the condition is not specified, it returns true.
-// If the condition is specified but not in the form 'foo.enabled', it returns an error.
+// If the condition is a boolean literal (true/false), it returns the corresponding boolean value.
+// If the condition is specified but not a boolean literal or in the form 'foo.enabled', it returns an error.
 // If the condition is specified and the corresponding value is found in the values map,
 // it checks if the 'enabled' field is set to true. If so, it returns true.
 // Otherwise, it returns false.
@@ -3353,6 +3363,14 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 	if len(r.Condition) == 0 {
 		return true, nil
 	}
+
+	switch strings.ToLower(r.Condition) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	}
+
 	iValues := values
 	keys := strings.Split(r.Condition, ".")
 	if keys[len(keys)-1] != "enabled" {
@@ -5149,12 +5167,11 @@ func hideChartCredentials(chartCredentials string) (string, error) {
 }
 
 // DisplayAffectedReleases logs the upgraded, deleted and in error releases.
-// useColor controls whether the section headers carry the bold+blue style we
-// use elsewhere for visual section breaks; pass false (e.g. when --no-color is
-// set) for clean output in non-TTY consumers.
+// Each section header is centered within a line of '=' characters whose width
+// matches the table below it. useColor controls whether the headers carry
+// the bold+blue style used for visual section breaks.
 func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, useColor bool) {
 	if len(ar.Upgraded) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Updated Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -5173,10 +5190,11 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Updated Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 	if len(ar.Reinstalled) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Reinstalled Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -5195,10 +5213,11 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Reinstalled Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 	if len(ar.Deleted) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Deleted Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
@@ -5210,10 +5229,11 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Deleted Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 	if len(ar.Failed) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Failed Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "CHART", MinWidth: 6},
@@ -5227,10 +5247,11 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Failed Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 	if len(ar.DeleteFailed) > 0 {
-		logger.Infof("\n%s", kubedog.HeaderDividerStyled("Failed to Delete Releases", useColor))
 		tbl, _ := prettytable.NewTable(prettytable.Column{Header: "NAME"},
 			prettytable.Column{Header: "NAMESPACE", MinWidth: 6},
 			prettytable.Column{Header: "DURATION", AlignRight: true},
@@ -5242,7 +5263,9 @@ func (ar *AffectedReleases) DisplayAffectedReleases(logger *zap.SugaredLogger, u
 				logger.Warn("Could not add row, %v", err)
 			}
 		}
-		logger.Info(tbl.String())
+		tableStr := tbl.String()
+		logger.Infof("\n%s", kubedog.HeaderDividerCenteredStyled("Failed to Delete Releases", kubedog.TableVisualWidth(tableStr), useColor))
+		logger.Info(tableStr)
 	}
 }
 
@@ -5259,12 +5282,14 @@ func (p SubHelmfileSpec) MarshalYAML() (any, error) {
 		Path               string   `yaml:"path,omitempty"`
 		Selectors          []string `yaml:"selectors,omitempty"`
 		SelectorsInherited bool     `yaml:"selectorsInherited,omitempty"`
+		Inherits           []string `yaml:"inherits,omitempty"`
 		OverrideValues     []any    `yaml:"values,omitempty"`
 	}
 	return &SubHelmfileSpecTmp{
 		Path:               p.Path,
 		Selectors:          p.Selectors,
 		SelectorsInherited: p.SelectorsInherited,
+		Inherits:           p.Inherits,
 		OverrideValues:     p.Environment.OverrideValues,
 	}, nil
 }
@@ -5285,6 +5310,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(any) error) error {
 			Path               string   `yaml:"path"`
 			Selectors          []string `yaml:"selectors"`
 			SelectorsInherited bool     `yaml:"selectorsInherited"`
+			Inherits           []string `yaml:"inherits"`
 
 			Environment SubhelmfileEnvironmentSpec `yaml:",inline"`
 		}
@@ -5294,6 +5320,7 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(any) error) error {
 		hf.Path = subHelmfileSpecTmp.Path
 		hf.Selectors = subHelmfileSpecTmp.Selectors
 		hf.SelectorsInherited = subHelmfileSpecTmp.SelectorsInherited
+		hf.Inherits = subHelmfileSpecTmp.Inherits
 		hf.Environment = subHelmfileSpecTmp.Environment
 	}
 	// since we cannot make sur the "console" string can be red after the "path" we must check we don't have
@@ -5304,6 +5331,19 @@ func (hf *SubHelmfileSpec) UnmarshalYAML(unmarshal func(any) error) error {
 	// also exclude SelectorsInherited to true and explicit selectors
 	if hf.SelectorsInherited && len(hf.Selectors) > 0 {
 		return fmt.Errorf("you cannot use 'SelectorsInherited: true' along with and explicit selector for path: %v", hf.Path)
+	}
+	// inherits: only makes sense on a concrete sub-helmfile entry with a path;
+	// reject a map-form entry that sets inherits without a path, mirroring the
+	// selectors-without-path guard above.
+	if len(hf.Inherits) > 0 && hf.Path == "" {
+		return fmt.Errorf("found 'inherits' definition without path: %v", hf.Inherits)
+	}
+	// validate inherits: entries against the allowed set, failing fast on typos
+	// (an unknown key would otherwise silently do nothing)
+	for _, key := range hf.Inherits {
+		if !IsValidInherit(key) {
+			return fmt.Errorf("invalid inherits entry %q for path %q: allowed values are %v", key, hf.Path, AllowedInherits())
+		}
 	}
 	return nil
 }

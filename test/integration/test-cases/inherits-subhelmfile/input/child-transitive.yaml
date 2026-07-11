@@ -1,0 +1,6 @@
+# Middle sub-helmfile: inherits environment values from the parent, then passes
+# them further down to its own sub-helmfile. It has no releases of its own.
+helmfiles:
+- path: grandchild-transitive.yaml.gotmpl
+  inherits:
+  - environments

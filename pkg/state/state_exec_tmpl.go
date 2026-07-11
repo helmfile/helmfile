@@ -58,6 +58,15 @@ func updateBoolTemplatedValues(r *ReleaseSpec) error {
 		}
 	}
 
+	if r.ConditionTemplate != nil {
+		if condition, err := getBoolRefFromStringTemplate(*r.ConditionTemplate); err != nil {
+			return fmt.Errorf("conditionTemplate: %v", err)
+		} else {
+			r.ConditionTemplate = nil
+			r.Condition = fmt.Sprintf("%t", *condition)
+		}
+	}
+
 	if r.WaitTemplate != nil {
 		if wait, err := getBoolRefFromStringTemplate(*r.WaitTemplate); err != nil {
 			return fmt.Errorf("waitTemplate: %v", err)

@@ -52,7 +52,7 @@ processing releases in group 1/3: kube-system/kubernetes-external-secrets
 processing releases in group 2/3: default/external-secrets
 processing releases in group 3/3: default/my-release
 
-[1m[34m========== Updated Releases ==========[0m
+[1m[34m============================== Updated Releases ==============================[0m
 NAME                          NAMESPACE     CHART           VERSION   DURATION
 kubernetes-external-secrets   kube-system   incubator/raw   3.1.0           0s
 external-secrets              default       incubator/raw   3.1.0           0s
