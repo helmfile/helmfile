@@ -42,8 +42,10 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-// commandsSkipChartPrep lists commands that don't prepare or pull charts,
-// so they can skip OCI registry login and chart preparation entirely.
+// commandsSkipChartPrep lists commands that don't prepare or pull charts.
+// These commands skip chart preparation, and when skipRepos is true they also
+// skip the OCI-only registry login (since no chart pulls need authentication).
+// When skipRepos is false, SyncReposOnce still runs normally for all repos.
 var commandsSkipChartPrep = []string{"write-values", "list"}
 
 func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
