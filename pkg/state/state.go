@@ -758,11 +758,35 @@ type RepoUpdater interface {
 	RegistryLogin(name, username, password, caFile, certFile, keyFile string, skipTLSVerify bool) error
 }
 
-func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool) ([]string, error) {
+// SyncOption configures SyncRepos behavior.
+type SyncOption func(*syncConfig)
+
+type syncConfig struct {
+	ociOnly bool
+}
+
+// WithOCIOnly limits repo processing to OCI registries (helm registry login),
+// skipping classic repo add/update. This allows callers that skip classic repos
+// to still authenticate with OCI registries before chart pulls (issue #1847).
+func WithOCIOnly() SyncOption {
+	return func(c *syncConfig) {
+		c.ociOnly = true
+	}
+}
+
+func (st *HelmState) SyncRepos(helm RepoUpdater, shouldSkip map[string]bool, opts ...SyncOption) ([]string, error) {
+	cfg := syncConfig{}
+	for _, o := range opts {
+		o(&cfg)
+	}
+
 	var updated []string
 
 	for _, repo := range st.Repositories {
 		if shouldSkip[repo.Name] {
+			continue
+		}
+		if cfg.ociOnly && !repo.OCI {
 			continue
 		}
 		username, password := gatherUsernamePassword(repo.Name, repo.Username, repo.Password)

@@ -42,10 +42,15 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
+// commandsSkipChartPrep lists commands that don't prepare or pull charts.
+// These commands skip chart preparation, and when skipRepos is true they also
+// skip the OCI-only registry login (since no chart pulls need authentication).
+// When skipRepos is false, SyncReposOnce still runs normally for all repos.
+var commandsSkipChartPrep = []string{"write-values", "list"}
+
 func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
-	// Skip chart preparation for certain commands
-	skipCommands := []string{"write-values", "list"}
-	if slices.Contains(skipCommands, strings.ToLower(helmfileCommand)) {
+	// Skip chart preparation for commands that don't need chart pulls
+	if slices.Contains(commandsSkipChartPrep, strings.ToLower(helmfileCommand)) {
 		return nil, nil
 	}
 
@@ -67,10 +72,17 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	// - skipRefresh explicitly means "don't update repos"
 	// - skipDeps implies "I have all dependencies locally" which means repo data isn't needed
 	// This matches the CLI behavior where --skip-deps and --skip-refresh both skip repo operations.
+	// However, OCI registries need `helm registry login` before chart pulls when
+	// credentials are configured (issue #1847), so when skipRepos is true we still
+	// perform OCI-only login — but only for commands that actually pull charts.
+	needsChartPrep := !slices.Contains(commandsSkipChartPrep, strings.ToLower(helmfileCommand))
 	skipRepos := opts.SkipRepos || r.state.HelmDefaults.SkipDeps || r.state.HelmDefaults.SkipRefresh
 	if !skipRepos {
-		ctx := r.ctx
-		if err := ctx.SyncReposOnce(r.state, r.helm); err != nil {
+		if err := r.ctx.SyncReposOnce(r.state, r.helm); err != nil {
+			return err
+		}
+	} else if needsChartPrep {
+		if err := r.ctx.SyncReposOnce(r.state, r.helm, state.WithOCIOnly()); err != nil {
 			return err
 		}
 	}
@@ -140,12 +152,16 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 
 func (r *Run) Deps(c DepsConfigProvider) []error {
 	// Check both CLI options and helmDefaults for skipping repos (issue #2296)
-	// Both skipDeps and skipRefresh cause repo sync to be skipped (see withPreparedCharts for rationale)
+	// Both skipDeps and skipRefresh cause repo sync to be skipped (see WithPreparedCharts for rationale).
+	// OCI registries need login before chart pulls when credentials are
+	// configured (issue #1847), so skipRepos=true still performs OCI-only login.
 	skipRepos := c.SkipRepos() || r.state.HelmDefaults.SkipDeps || r.state.HelmDefaults.SkipRefresh
-	if !skipRepos {
-		if err := r.ctx.SyncReposOnce(r.state, r.helm); err != nil {
-			return []error{err}
-		}
+	var repoOpts []state.SyncOption
+	if skipRepos {
+		repoOpts = append(repoOpts, state.WithOCIOnly())
+	}
+	if err := r.ctx.SyncReposOnce(r.state, r.helm, repoOpts...); err != nil {
+		return []error{err}
 	}
 
 	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
