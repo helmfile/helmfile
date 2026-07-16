@@ -3,11 +3,14 @@ package event
 import (
 	goContext "context"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/tmpl"
@@ -42,7 +45,19 @@ type Bus struct {
 	Logger *zap.SugaredLogger
 }
 
+var (
+	disableHooks bool
+)
+
+func init() {
+	disableHooks, _ = strconv.ParseBool(os.Getenv(envvar.DisableHooks))
+}
+
 func (bus *Bus) Trigger(evt string, evtErr error, context map[string]any) (bool, error) {
+	if disableHooks && len(bus.Hooks) > 0 {
+		return false, fmt.Errorf("%s is active, hooks are disabled", envvar.DisableHooks)
+	}
+
 	if bus.Runner == nil {
 		bus.Runner = helmexec.ShellRunner{
 			Dir:    bus.BasePath,
