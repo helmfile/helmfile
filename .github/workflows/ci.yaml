@@ -24,7 +24,7 @@ jobs:
           large-packages: true
           docker-images: true
           swap-storage: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: check disk usage
@@ -52,7 +52,7 @@ jobs:
           large-packages: true
           docker-images: true
           swap-storage: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: check disk usage
@@ -138,7 +138,7 @@ jobs:
           large-packages: true
           docker-images: true
           swap-storage: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: check disk usage
