@@ -24,22 +24,23 @@ import (
 
 type Values = map[string]any
 
-var DisableInsecureFeaturesErr = DisableInsecureFeaturesError{envvar.DisableInsecureFeatures + " is active, insecure function calls are disabled"}
+var DisableInsecureFunctionsErr = DisableInsecureFunctionsError{envvar.DisableInsecureFeatures + " or " + envvar.DisableInsecureTemplateFunctions + " is active, insecure function calls are disabled"}
 
-type DisableInsecureFeaturesError struct {
+type DisableInsecureFunctionsError struct {
 	err string
 }
 
-func (e DisableInsecureFeaturesError) Error() string {
+func (e DisableInsecureFunctionsError) Error() string {
 	return e.err
 }
 
 var (
-	disableInsecureFeatures bool
+	disableInsecureFeatures, disableInsecureTemplateFunctions bool
 )
 
 func init() {
 	disableInsecureFeatures, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureFeatures))
+	disableInsecureTemplateFunctions, _ = strconv.ParseBool(os.Getenv(envvar.DisableInsecureTemplateFunctions))
 }
 
 func (c *Context) createFuncMap() template.FuncMap {
@@ -80,22 +81,22 @@ func (c *Context) createFuncMap() template.FuncMap {
 			return []fs.DirEntry{}, nil
 		}
 	}
-	if disableInsecureFeatures {
+	if disableInsecureFeatures || disableInsecureTemplateFunctions {
 		// disable insecure functions
 		funcMap["exec"] = func(string, []any, ...string) (string, error) {
-			return "", DisableInsecureFeaturesErr
+			return "", DisableInsecureFunctionsErr
 		}
 		funcMap["envExec"] = func(map[string]any, string, []any, ...string) (string, error) {
-			return "", DisableInsecureFeaturesErr
+			return "", DisableInsecureFunctionsErr
 		}
 		funcMap["readFile"] = func(string) (string, error) {
-			return "", DisableInsecureFeaturesErr
+			return "", DisableInsecureFunctionsErr
 		}
 		funcMap["readDir"] = func(string) ([]string, error) {
-			return nil, DisableInsecureFeaturesErr
+			return nil, DisableInsecureFunctionsErr
 		}
 		funcMap["readDirEntries"] = func(string) ([]string, error) {
-			return nil, DisableInsecureFeaturesErr
+			return nil, DisableInsecureFunctionsErr
 		}
 	}
 
