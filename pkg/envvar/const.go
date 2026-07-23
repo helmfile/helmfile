@@ -25,6 +25,7 @@ const (
 	GoYamlV3              = "HELMFILE_GO_YAML_V3"
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
+	RepoRetry             = "HELMFILE_REPO_RETRIES"
 	RenderYaml            = "HELMFILE_RENDER_YAML" // force helmfile.yaml to be rendered as template regardless of extension, expecting "true" lower case
 
 	// AWSSDKLogLevel controls AWS SDK logging level

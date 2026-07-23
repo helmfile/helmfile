@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"go.uber.org/zap"
 	"golang.org/x/term"
@@ -42,6 +43,11 @@ type GlobalOptions struct {
 	EnforcePluginVerification bool
 	// HelmOCIPlainHTTP is true if Helm should use plain HTTP for OCI registries
 	HelmOCIPlainHTTP bool
+	// RepoRetry is the number of times to retry "helm repo add/update" and
+	// "helm registry login" on failure with exponential backoff.
+	// A negative value (the CLI default sentinel) means "unset" and falls back
+	// to the HELMFILE_REPO_RETRIES env var; 0 explicitly disables retries.
+	RepoRetry int
 	// Quiet is true if the output should be quiet.
 	Quiet bool
 	// Kubeconfig is the path to the kubeconfig file to use.
@@ -276,6 +282,21 @@ func (g *GlobalImpl) EnforcePluginVerification() bool {
 // HelmOCIPlainHTTP returns whether to use plain HTTP for OCI registries
 func (g *GlobalImpl) HelmOCIPlainHTTP() bool {
 	return g.GlobalOptions.HelmOCIPlainHTTP
+}
+
+// RepoRetry returns the number of times to retry helm repo and registry login
+// operations on failure, with exponential backoff. A negative value means the
+// flag was not specified, so the HELMFILE_REPO_RETRIES env var is consulted;
+// this lets --repo-retries=0 explicitly disable retries even when the env var
+// is set.
+func (g *GlobalImpl) RepoRetry() int {
+	if g.GlobalOptions.RepoRetry >= 0 {
+		return g.GlobalOptions.RepoRetry
+	}
+	if v, err := strconv.Atoi(os.Getenv(envvar.RepoRetry)); err == nil && v > 0 {
+		return v
+	}
+	return 0
 }
 
 // SequentialHelmfiles returns whether to process helmfile.d files sequentially
