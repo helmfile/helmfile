@@ -1940,6 +1940,16 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 
 	out, err := c.Chartify(release.Name, chartPath, chartify.WithChartifyOpts(chartifyOpts))
 	if err != nil {
+		if isChartifyEmptyRenderOutputError(err) {
+			// The chart rendered zero resources (e.g. everything is gated behind a
+			// `{{- if .Values.enabled }}` that evaluated to false), so chartify has
+			// nothing to replace templates/charts/crds with and fails its internal
+			// "there must be exactly one rendered output dir" assertion. Treat this
+			// as a no-op: use the chart as-is, since there's nothing to chartify.
+			// See https://github.com/helmfile/helmfile/issues/1757
+			st.logger.Debugf("release %q: chart rendered no resources, skipping chartification: %v", release.Name, err)
+			return chartPath, !skipDeps, nil
+		}
 		return "", false, err
 	}
 
@@ -1952,6 +1962,23 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 	// explicitly skipped.
 	buildDeps := !skipDeps
 	return chartPath, buildDeps, nil
+}
+
+// chartifyEmptyRenderOutputErrSubstring is the distinctive part of the error that
+// github.com/helmfile/chartify (as of v0.28.0, see replace.go) returns when `helm template`
+// renders zero resources for a chart: it expects exactly one directory entry under its
+// `--output-dir`, and an empty render leaves that directory empty, so the "must be the abs
+// path to the output directory" assertion fails on the resulting empty string. Chartify does
+// not expose a typed/sentinel error for this case, so we match on the error text; if this
+// substring ever stops matching a real chartify error, chartify's wording has changed and
+// this check needs to be revisited (and ideally fixed upstream in chartify instead).
+const chartifyEmptyRenderOutputErrSubstring = "it must be the abs path to the output directory"
+
+// isChartifyEmptyRenderOutputError reports whether err is chartify's assertion failure caused
+// by a chart rendering zero resources, as opposed to some other, unrelated chartify failure
+// that should still be surfaced to the user.
+func isChartifyEmptyRenderOutputError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), chartifyEmptyRenderOutputErrSubstring)
 }
 
 func (st *HelmState) appendSkipSchemaValidationFlagToChartifyTemplateArgs(templateArgs string, release *ReleaseSpec, skipSchemaValidation bool) string {
