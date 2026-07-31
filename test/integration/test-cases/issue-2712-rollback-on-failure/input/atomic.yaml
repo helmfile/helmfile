@@ -1,0 +1,14 @@
+releases:
+- name: issue-2712-atomic
+  chart: ../../../charts/raw
+  atomic: true
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: {{ .Release.Name }}-cm
+        namespace: {{ .Release.Namespace }}
+      data:
+        version: "1"

@@ -646,8 +646,10 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 		{
 			name: "atomic",
 			defaults: HelmSpec{
-				Atomic: false,
+				Atomic:          false,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -662,10 +664,32 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "atomic-helm4",
+			defaults: HelmSpec{
+				Atomic:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Atomic:    &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--rollback-on-failure",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "atomic-override-default",
 			defaults: HelmSpec{
-				Atomic: true,
+				Atomic:          true,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -681,8 +705,10 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 		{
 			name: "atomic-from-default",
 			defaults: HelmSpec{
-				Atomic: true,
+				Atomic:          true,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -694,6 +720,128 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--atomic",
 				"--namespace", "test-namespace",
 			},
+		},
+		{
+			name: "atomic-from-default-helm4",
+			defaults: HelmSpec{
+				Atomic:          true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--rollback-on-failure",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "rollback-on-failure",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:             "test/chart",
+				Version:           "0.1",
+				RollbackOnFailure: &enable,
+				Name:              "test-charts",
+				Namespace:         "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--rollback-on-failure",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "rollback-on-failure-from-default",
+			defaults: HelmSpec{
+				RollbackOnFailure: true,
+				CreateNamespace:   &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--rollback-on-failure",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "rollback-on-failure-override-default",
+			defaults: HelmSpec{
+				RollbackOnFailure: true,
+				CreateNamespace:   &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:             "test/chart",
+				Version:           "0.1",
+				RollbackOnFailure: &disable,
+				Name:              "test-charts",
+				Namespace:         "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "rollback-on-failure-helm3-error",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:             "test/chart",
+				Version:           "0.1",
+				RollbackOnFailure: &enable,
+				Name:              "test-charts",
+				Namespace:         "test-namespace",
+			},
+			wantErr: "rollbackOnFailure requires Helm 4 or greater (set via releases[].rollbackOnFailure or helmDefaults.rollbackOnFailure)",
+		},
+		{
+			name: "rollback-on-failure-from-default-helm3-error",
+			defaults: HelmSpec{
+				RollbackOnFailure: true,
+				CreateNamespace:   &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			wantErr: "rollbackOnFailure requires Helm 4 or greater (set via releases[].rollbackOnFailure or helmDefaults.rollbackOnFailure)",
+		},
+		{
+			name: "atomic-and-rollback-on-failure-mutually-exclusive-helm4",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:             "test/chart",
+				Version:           "0.1",
+				Atomic:            &enable,
+				RollbackOnFailure: &enable,
+				Name:              "test-charts",
+				Namespace:         "test-namespace",
+			},
+			wantErr: "atomic and rollbackOnFailure are mutually exclusive (check both releases[].atomic/rollbackOnFailure and helmDefaults.atomic/rollbackOnFailure)",
 		},
 		{
 			name: "cleanup-on-fail",
