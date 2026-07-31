@@ -151,6 +151,7 @@ ${kubectl} create namespace ${test_ns} || fail "Could not create namespace ${tes
 . ${dir}/test-cases/issue-1172-selector-required-env.sh
 . ${dir}/test-cases/kubedog-tracking.sh
 . ${dir}/test-cases/lookup.sh
+. ${dir}/test-cases/issue-2712-rollback-on-failure.sh
 
 # ALL DONE -----------------------------------------------------------------------------------------------------------
 
