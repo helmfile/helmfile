@@ -246,8 +246,12 @@ releases:
     # Defines the strategy to use when updating. Possible value is:
     # - "reinstallIfForbidden": Performs an uninstall before the update only if the update is forbidden (e.g., due to permission issues or conflicts).
     updateStrategy: ""
-    # restores previous state in case of failed release (default false)
+    # restores previous state in case of failed release (default false).
+    # On Helm 4+ this emits --rollback-on-failure (the successor to the deprecated --atomic).
     atomic: true
+    # restores previous state on a failed release via the Helm 4 --rollback-on-failure flag
+    # (default false). Requires Helm 4 or greater. Mutually exclusive with atomic.
+    rollbackOnFailure: false
     # when true, cleans up any new resources created during a failed release (default false)
     cleanupOnFail: false
     # --kube-context to be passed to helm commands
@@ -437,6 +441,8 @@ The following `helmDefaults` fields are also available but not shown in the exam
 | `enableDNS` | bool | false | Enable DNS lookups when rendering templates |
 | `skipCRDs` | bool | false | Skip CRDs during installation |
 | `skipRefresh` | bool | false | Skip running `helm dependency up` |
+| `atomic` | bool | false | Restore previous state on a failed install/upgrade. On Helm 4+ emits `--rollback-on-failure` (the successor to the deprecated `--atomic`); on older Helm emits `--atomic` |
+| `rollbackOnFailure` | bool | false | Restore previous state on a failed install/upgrade via the Helm 4 `--rollback-on-failure` flag. Requires Helm 4 or greater. Mutually exclusive with `atomic` |
 | `forceConflicts` | bool | false | Force server-side apply changes against conflicts (Helm 4 only) |
 | `takeOwnership` | bool | false | Take ownership of existing resources |
 | `serverSide` | string | | Controls the helm 4 `--server-side` flag. Must be `"true"`, `"false"`, or `"auto"` (Helm 4 only) |

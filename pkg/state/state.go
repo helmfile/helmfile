@@ -239,6 +239,9 @@ type HelmSpec struct {
 	Force bool `yaml:"force"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic bool `yaml:"atomic"`
+	// RollbackOnFailure, when set to true, restores previous state on a failed install/upgrade via the
+	// Helm 4 --rollback-on-failure flag (the successor to the deprecated --atomic flag). Requires Helm 4 or greater.
+	RollbackOnFailure bool `yaml:"rollbackOnFailure"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
 	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
 	// ForceConflicts, when set to true, force server-side apply changes against conflicts (Helm 4 only)
@@ -363,6 +366,9 @@ type ReleaseSpec struct {
 	UpdateStrategy string `yaml:"updateStrategy,omitempty"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic *bool `yaml:"atomic,omitempty"`
+	// RollbackOnFailure, when set to true, restores previous state on a failed install/upgrade via the
+	// Helm 4 --rollback-on-failure flag (the successor to the deprecated --atomic flag). Requires Helm 4 or greater.
+	RollbackOnFailure *bool `yaml:"rollbackOnFailure,omitempty"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
 	CleanupOnFail *bool `yaml:"cleanupOnFail,omitempty"`
 	// ForceConflicts, when set to true, force server-side apply changes against conflicts (Helm 4 only)
@@ -4002,8 +4008,26 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--recreate-pods")
 	}
 
-	if release.Atomic != nil && *release.Atomic || release.Atomic == nil && st.HelmDefaults.Atomic {
+	atomicEnabled := (release.Atomic != nil && *release.Atomic) || (release.Atomic == nil && st.HelmDefaults.Atomic)
+	rollbackOnFailureEnabled := (release.RollbackOnFailure != nil && *release.RollbackOnFailure) || (release.RollbackOnFailure == nil && st.HelmDefaults.RollbackOnFailure)
+
+	if atomicEnabled && rollbackOnFailureEnabled {
+		return nil, nil, fmt.Errorf("atomic and rollbackOnFailure are mutually exclusive (check both releases[].atomic/rollbackOnFailure and helmDefaults.atomic/rollbackOnFailure)")
+	}
+
+	// rollbackOnFailure maps to the Helm 4 --rollback-on-failure flag and is unsupported on older Helm.
+	if rollbackOnFailureEnabled && !helm.IsHelm4() {
+		return nil, nil, fmt.Errorf("rollbackOnFailure requires Helm 4 or greater (set via releases[].rollbackOnFailure or helmDefaults.rollbackOnFailure)")
+	}
+
+	// Helm 4 renamed --atomic to --rollback-on-failure; the former is deprecated (prints a warning)
+	// and slated for removal in Helm 5. Emit the new flag on Helm 4+ for both `atomic: true` and
+	// `rollbackOnFailure: true` so users migrate off it automatically; on older Helm, `atomic: true`
+	// still emits --atomic. See issue #2712.
+	if atomicEnabled && !helm.IsHelm4() {
 		flags = append(flags, "--atomic")
+	} else if atomicEnabled || rollbackOnFailureEnabled {
+		flags = append(flags, "--rollback-on-failure")
 	}
 
 	if release.CleanupOnFail != nil && *release.CleanupOnFail || release.CleanupOnFail == nil && st.HelmDefaults.CleanupOnFail {
