@@ -1979,14 +1979,21 @@ func (st *HelmState) processChartification(chartification *Chartify, release *Re
 // renders zero resources for a chart: it expects exactly one directory entry under its
 // `--output-dir`, and an empty render leaves that directory empty, so the "must be the abs
 // path to the output directory" assertion fails on the resulting empty string. Chartify does
-// not expose a typed/sentinel error for this case, so we match on the error text; if this
-// substring ever stops matching a real chartify error, chartify's wording has changed and
-// this check needs to be revisited.
+// not expose a typed/sentinel error for this case, so we match on the error text.
+//
+// The matched string includes the `unexpected dir entry ""` prefix (not just the trailing
+// "...it must be the abs path to the output directory" phrase) so this can only match when
+// chartify's chartOutputDir was genuinely empty - i.e. the exact empty-render case - and not
+// some other, hypothetical failure of the same assertion against a non-empty (but still
+// relative) path, which would be a different bug that should still be surfaced as an error.
+//
+// If this substring ever stops matching a real chartify error, chartify's wording has
+// changed and this check needs to be revisited.
 //
 // Tracked upstream at https://github.com/helmfile/chartify/issues/206 - once chartify
 // exposes a sentinel error (or treats an empty render as a no-op itself) and this repo
 // bumps to that version, this text match can be retired.
-const chartifyEmptyRenderOutputErrSubstring = "it must be the abs path to the output directory"
+const chartifyEmptyRenderOutputErrSubstring = `unexpected dir entry "" it must be the abs path to the output directory`
 
 // isChartifyEmptyRenderOutputError reports whether err is chartify's assertion failure caused
 // by a chart rendering zero resources, as opposed to some other, unrelated chartify failure

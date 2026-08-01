@@ -42,6 +42,20 @@ func TestIsChartifyEmptyRenderOutputError(t *testing.T) {
 			expected: true,
 		},
 		{
+			// Same assertion, but chartOutputDir is a non-empty (merely
+			// relative) path rather than "" - a different, hypothetical
+			// chartify bug that happens to trip the same final assertion.
+			// This must NOT be treated as the empty-render no-op case:
+			// per review feedback (https://github.com/helmfile/helmfile/pull/2724),
+			// matching only on the trailing "...it must be the abs path to
+			// the output directory" phrase (without requiring the `""`
+			// empty-string dir entry) would have incorrectly matched this
+			// too, silently masking a genuinely different failure.
+			name:     "same assertion with a non-empty dir entry is not the empty-render case",
+			err:      errors.New(`assertion failed: unexpected dir entry "relative/path" it must be the abs path to the output directory`),
+			expected: false,
+		},
+		{
 			name:     "unrelated chartify error",
 			err:      errors.New("exec: \"kustomize\": executable file not found in %PATH%"),
 			expected: false,
