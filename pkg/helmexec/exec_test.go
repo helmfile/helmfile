@@ -20,6 +20,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// pluginCmd is the "plugin" helm subcommand used repeatedly across these tests.
+// Extracted as a constant so the repeated string literal does not trip goconst
+// (min-occurrences: 8) once additional plugin tests are added.
+const pluginCmd = "plugin"
+
 // Mocking the command-line runner
 
 type mockRunner struct {
@@ -1917,7 +1922,7 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	// Verify that "plugin update" was NOT called (the Helm 4 secrets path should skip it).
 	for _, args := range calledArgs {
 		for i, a := range args {
-			if a == "plugin" && i+1 < len(args) && args[i+1] == "update" {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == "update" {
 				t.Errorf("expected 'plugin update' to not be called for Helm 4 secrets, but it was: %v", args)
 			}
 		}
@@ -1927,7 +1932,7 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	checkUninstall := func(name string) {
 		for _, args := range calledArgs {
 			for i, a := range args {
-				if a == "plugin" && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == name {
+				if a == pluginCmd && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == name {
 					return
 				}
 			}
@@ -1942,7 +1947,7 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	checkInstall := func(urlSubstring string) {
 		for _, args := range calledArgs {
 			for i, a := range args {
-				if a == "plugin" && i+2 < len(args) && args[i+1] == "install" && strings.Contains(args[i+2], urlSubstring) {
+				if a == pluginCmd && i+2 < len(args) && args[i+1] == "install" && strings.Contains(args[i+2], urlSubstring) {
 					return
 				}
 			}
@@ -1985,7 +1990,7 @@ func Test_UpdatePlugin_GeneralPathUsesUninstallReinstall(t *testing.T) {
 	// leaves the old version installed.
 	for _, args := range calledArgs {
 		for i, a := range args {
-			if a == "plugin" && i+1 < len(args) && args[i+1] == "update" {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == "update" {
 				t.Errorf("expected 'plugin update' to not be called, but it was: %v", args)
 			}
 		}
@@ -1995,7 +2000,7 @@ func Test_UpdatePlugin_GeneralPathUsesUninstallReinstall(t *testing.T) {
 	uninstalled := false
 	for _, args := range calledArgs {
 		for i, a := range args {
-			if a == "plugin" && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == "diff" {
+			if a == pluginCmd && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == "diff" {
 				uninstalled = true
 			}
 		}
@@ -2007,7 +2012,7 @@ func Test_UpdatePlugin_GeneralPathUsesUninstallReinstall(t *testing.T) {
 	installed := false
 	for _, args := range calledArgs {
 		for i, a := range args {
-			if a == "plugin" && i+1 < len(args) && args[i+1] == "install" {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == "install" {
 				hasRepo := false
 				hasVersion := false
 				for _, arg := range args[i+2:] {
@@ -2035,7 +2040,7 @@ func Test_UpdatePlugin_NotFoundUninstallProceedsToInstall(t *testing.T) {
 	runner := &funcRunner{
 		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 			calledArgs = append(calledArgs, append([]string(nil), args...))
-			if len(args) >= 2 && args[0] == "plugin" && args[1] == "uninstall" {
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == "uninstall" {
 				return nil, ExitError{Message: "plugin: diff not found", Code: 1}
 			}
 			return []byte{}, nil
@@ -2058,7 +2063,7 @@ func Test_UpdatePlugin_NotFoundUninstallProceedsToInstall(t *testing.T) {
 	installed := false
 	for _, args := range calledArgs {
 		for i, a := range args {
-			if a == "plugin" && i+1 < len(args) && args[i+1] == "install" {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == "install" {
 				for _, arg := range args[i+2:] {
 					if arg == "v3.15.10" {
 						installed = true
@@ -2078,10 +2083,10 @@ func Test_UpdatePlugin_RealUninstallFailureReturnsError(t *testing.T) {
 	installCalled := false
 	runner := &funcRunner{
 		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-			if len(args) >= 2 && args[0] == "plugin" && args[1] == "uninstall" {
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == "uninstall" {
 				return nil, ExitError{Message: "permission denied", Code: 1}
 			}
-			if len(args) >= 2 && args[0] == "plugin" && args[1] == "install" {
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == "install" {
 				installCalled = true
 			}
 			return []byte{}, nil
