@@ -1954,6 +1954,79 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	checkInstall("secrets-post-renderer-4.7.0.tgz")
 }
 
+// Test_UpdatePlugin_GeneralPathUsesUninstallReinstall verifies that for a regular
+// plugin, UpdatePlugin does NOT rely on the unreliable `helm plugin update`
+// command. Instead it must uninstall the existing plugin and reinstall the exact
+// pinned version. See issues #2726 and #2548: `helm plugin update` reports
+// success but leaves `helm plugin list` showing the old version because it
+// re-installs from the cached source without the --version flag.
+func Test_UpdatePlugin_GeneralPathUsesUninstallReinstall(t *testing.T) {
+	var calledArgs [][]string
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			calledArgs = append(calledArgs, append([]string(nil), args...))
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("3.16.4"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.NoError(t, err)
+
+	// `plugin update` must never be used: it does not honor --version and silently
+	// leaves the old version installed.
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == "plugin" && i+1 < len(args) && args[i+1] == "update" {
+				t.Errorf("expected 'plugin update' to not be called, but it was: %v", args)
+			}
+		}
+	}
+
+	// `plugin uninstall diff` must be called to clear the stale version.
+	uninstalled := false
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == "plugin" && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == "diff" {
+				uninstalled = true
+			}
+		}
+	}
+	require.True(t, uninstalled, "expected 'plugin uninstall diff' to be called")
+
+	// `plugin install <repo> --version <pinned>` must be called with the exact
+	// requested version so the installed plugin is updated to it.
+	installed := false
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == "plugin" && i+1 < len(args) && args[i+1] == "install" {
+				hasRepo := false
+				hasVersion := false
+				for _, arg := range args[i+2:] {
+					if arg == "https://github.com/databus23/helm-diff" {
+						hasRepo = true
+					}
+					if arg == "v3.15.10" {
+						hasVersion = true
+					}
+				}
+				if hasRepo && hasVersion {
+					installed = true
+				}
+			}
+		}
+	}
+	require.True(t, installed, "expected 'plugin install' with the pinned version to be called")
+}
+
 func Test_dedupeWroteLines(t *testing.T) {
 	cases := []struct {
 		name string
