@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1134,6 +1135,18 @@ func (helm *execer) installHelmSecretsV4(version string) error {
 // split plugin architecture (secrets, secrets-getter, secrets-post-renderer) with Helm 4.
 var helmSecretsV4SplitMinVersion = semver.MustParse("4.7.0")
 
+// pluginMissingRe matches helm's "plugin absent" error emitted by `helm plugin
+// uninstall` when the plugin is not installed:
+//
+//	Helm 4: "plugin: <name> not found"
+//	Helm 3: "Plugin: <name> not found"
+//
+// It is intentionally specific so that unrelated failures that happen to contain
+// "not found" (e.g. a missing helm binary -> "executable file not found", or an
+// uninstall hook failing with "sh: ...: not found") are NOT mistaken for an
+// absent plugin. It is case-insensitive and scoped to a single line.
+var pluginMissingRe = regexp.MustCompile(`(?i)plugin: .* not found`)
+
 // helmSecretsRequiresSplitInstall returns true when the given helm-secrets version
 // requires the split plugin architecture introduced in v4.7.0 for Helm 4.
 func helmSecretsRequiresSplitInstall(version string) bool {
@@ -1175,13 +1188,15 @@ func (helm *execer) UpdatePlugin(name, repo, version string) error {
 	// https://github.com/helmfile/helmfile/issues/2548.
 	//
 	// The reliable way to update to a pinned version is to uninstall the existing
-	// plugin and reinstall it at the requested version. A "not found" uninstall
-	// error means the plugin was already absent (e.g. removed concurrently) and is
-	// expected, so we proceed to install. Any other uninstall failure (permissions,
-	// broken Helm, ...) is returned, since proceeding would typically surface a less
-	// informative "plugin already exists" error from the subsequent install.
+	// plugin and reinstall it at the requested version. Only the expected
+	// "plugin already absent" case is tolerated: helm reports it as
+	// "plugin: <name> not found" (Helm 4) / "Plugin: <name> not found" (Helm 3).
+	// We match that specific message rather than a bare "not found", so that other
+	// failures (permissions, a missing helm binary whose error contains
+	// "executable file not found", a plugin uninstall hook failing with
+	// "sh: ...: not found", ...) are surfaced instead of being silently ignored.
 	if err := helm.uninstallPlugin(name); err != nil {
-		if !strings.Contains(err.Error(), "not found") {
+		if !pluginMissingRe.MatchString(err.Error()) {
 			return fmt.Errorf("failed to uninstall helm plugin %q for reinstall: %w", name, err)
 		}
 		helm.logger.Debugf("helm plugin %v not present during update, proceeding to install: %v", name, err)

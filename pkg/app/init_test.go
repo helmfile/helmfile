@@ -235,6 +235,14 @@ func TestCheckHelmPlugins_UpdateUsesUninstallReinstall(t *testing.T) {
 			}
 			if len(args) >= 2 && args[0] == "plugin" {
 				switch args[1] {
+				case "update":
+					// UpdatePlugin must never invoke `helm plugin update` (it does not honor
+					// --version and silently leaves the old version installed; see #2726).
+					// Record the call so the NotContains assertion below can catch a regression.
+					if len(args) >= 3 {
+						calledOps = append(calledOps, "update:"+args[2])
+					}
+					return nil, helmexec.ExitError{Message: "plugin update must not be used", Code: 1}
 				case "uninstall":
 					if len(args) >= 3 {
 						calledOps = append(calledOps, "uninstall:"+args[2])
