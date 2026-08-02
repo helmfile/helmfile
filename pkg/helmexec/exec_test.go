@@ -2027,6 +2027,82 @@ func Test_UpdatePlugin_GeneralPathUsesUninstallReinstall(t *testing.T) {
 	require.True(t, installed, "expected 'plugin install' with the pinned version to be called")
 }
 
+// Test_UpdatePlugin_NotFoundUninstallProceedsToInstall ensures that when the
+// plugin is already absent (helm reports "... not found"), UpdatePlugin still
+// proceeds to install the pinned version rather than treating it as an error.
+func Test_UpdatePlugin_NotFoundUninstallProceedsToInstall(t *testing.T) {
+	var calledArgs [][]string
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			calledArgs = append(calledArgs, append([]string(nil), args...))
+			if len(args) >= 2 && args[0] == "plugin" && args[1] == "uninstall" {
+				return nil, ExitError{Message: "plugin: diff not found", Code: 1}
+			}
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("4.2.3"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.NoError(t, err, "a 'not found' uninstall error should be ignored and install should proceed")
+
+	// install with the pinned version must still be attempted
+	installed := false
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == "plugin" && i+1 < len(args) && args[i+1] == "install" {
+				for _, arg := range args[i+2:] {
+					if arg == "v3.15.10" {
+						installed = true
+					}
+				}
+			}
+		}
+	}
+	require.True(t, installed, "expected install to proceed after a 'not found' uninstall")
+}
+
+// Test_UpdatePlugin_RealUninstallFailureReturnsError ensures that a genuine
+// uninstall failure (permissions, broken Helm, etc.) is surfaced instead of
+// being ignored, which would otherwise mask the root cause behind a confusing
+// "plugin already exists" error from the subsequent install.
+func Test_UpdatePlugin_RealUninstallFailureReturnsError(t *testing.T) {
+	installCalled := false
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			if len(args) >= 2 && args[0] == "plugin" && args[1] == "uninstall" {
+				return nil, ExitError{Message: "permission denied", Code: 1}
+			}
+			if len(args) >= 2 && args[0] == "plugin" && args[1] == "install" {
+				installCalled = true
+			}
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("3.16.4"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.Error(t, err, "a real uninstall failure should be returned")
+	assert.Contains(t, err.Error(), "uninstall")
+	assert.False(t, installCalled, "install must not be attempted after a real uninstall failure")
+}
+
 func Test_dedupeWroteLines(t *testing.T) {
 	cases := []struct {
 		name string

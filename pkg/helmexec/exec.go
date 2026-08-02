@@ -1175,10 +1175,16 @@ func (helm *execer) UpdatePlugin(name, repo, version string) error {
 	// https://github.com/helmfile/helmfile/issues/2548.
 	//
 	// The reliable way to update to a pinned version is to uninstall the existing
-	// plugin and reinstall it at the requested version. Ignore uninstall errors since
-	// the plugin may have already been removed.
+	// plugin and reinstall it at the requested version. A "not found" uninstall
+	// error means the plugin was already absent (e.g. removed concurrently) and is
+	// expected, so we proceed to install. Any other uninstall failure (permissions,
+	// broken Helm, ...) is returned, since proceeding would typically surface a less
+	// informative "plugin already exists" error from the subsequent install.
 	if err := helm.uninstallPlugin(name); err != nil {
-		helm.logger.Debugf("Failed to uninstall helm plugin %v (may not exist): %v", name, err)
+		if !strings.Contains(err.Error(), "not found") {
+			return fmt.Errorf("failed to uninstall helm plugin %q for reinstall: %w", name, err)
+		}
+		helm.logger.Debugf("helm plugin %v not present during update, proceeding to install: %v", name, err)
 	}
 	return helm.AddPlugin(name, repo, version)
 }
