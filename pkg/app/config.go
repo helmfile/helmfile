@@ -86,6 +86,7 @@ type ApplyConfigProvider interface {
 	Validate() bool
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
+	SkipDiffValidationOnInstall() bool
 
 	DiffArgs() string
 	SyncArgs() string
@@ -182,6 +183,7 @@ type DiffConfigProvider interface {
 	NoHooks() bool
 	SuppressDiff() bool
 	SkipDiffOnInstall() bool
+	SkipDiffValidationOnInstall() bool
 	DiffArgs() string
 	TemplateArgs() string
 

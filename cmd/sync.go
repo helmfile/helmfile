@@ -74,6 +74,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&syncOptions.NoHooks, "no-hooks", false, "do not diff changes made by hooks (interactive preview only)")
 	f.BoolVar(&syncOptions.SuppressDiff, "suppress-diff", false, "suppress diff in the output (interactive preview only). Usable in new installs")
 	f.BoolVar(&syncOptions.SkipDiffOnInstall, "skip-diff-on-install", false, "Skips running helm-diff on releases being newly installed on this sync (interactive preview only). Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all")
+	f.BoolVar(&syncOptions.SkipDiffValidationOnInstall, "skip-diff-validation-on-install", false, "Disables K8s API validation (--disable-validation) when running helm-diff on releases being newly installed (interactive preview only). Useful when charts include CRDs and CRs in the same release")
 	f.BoolVar(&syncOptions.IncludeTests, "include-tests", false, "enable the diffing of the helm test hooks (interactive preview only)")
 	f.BoolVar(&syncOptions.DetailedExitcode, "detailed-exitcode", false, "return a non-zero exit code 2 instead of 0 when releases are synced (use --interactive to also see a diff preview)")
 	f.BoolVar(&syncOptions.StripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input (interactive preview only)")

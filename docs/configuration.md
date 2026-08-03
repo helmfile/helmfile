@@ -265,6 +265,7 @@ releases:
     # passes --disable-validation to helm diff plugin, this requires diff plugin >= 3.1.2
     # It is useful when any release contains custom resources for CRDs that is not yet installed onto the cluster.
     # https://github.com/roboll/helmfile/pull/1618
+    # To apply this to all releases without editing each one, use the --skip-diff-validation-on-install CLI flag.
     disableValidationOnInstall: false
     # passes --disable-openapi-validation to helm diff plugin, this requires diff plugin >= 3.1.2
     # It may be helpful to deploy charts with helm api v1 CRDS

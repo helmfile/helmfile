@@ -4268,6 +4268,87 @@ func TestDiffpareSyncReleases(t *testing.T) {
 	}
 }
 
+func TestPrepareDiffReleases_SkipDiffValidationOnInstall(t *testing.T) {
+	installedListOutput := "NAME\tNAMESPACE\tREVISION\tSTATUS\nfoo\tdefault\t1\tdeployed"
+	listFlags := "--uninstalling --deployed --failed --pending"
+
+	tests := []struct {
+		name                        string
+		skipDiffValidationOnInstall bool
+		perReleaseDisableValidation bool
+		installed                   bool
+		wantDisableValidation       bool
+	}{
+		{
+			name:                        "flag-set-not-installed",
+			skipDiffValidationOnInstall: true,
+			installed:                   false,
+			wantDisableValidation:       true,
+		},
+		{
+			name:                        "flag-set-already-installed",
+			skipDiffValidationOnInstall: true,
+			installed:                   true,
+			wantDisableValidation:       false,
+		},
+		{
+			name:                        "flag-not-set-not-installed",
+			skipDiffValidationOnInstall: false,
+			installed:                   false,
+			wantDisableValidation:       false,
+		},
+		{
+			name:                        "per-release-flag-not-installed",
+			perReleaseDisableValidation: true,
+			installed:                   false,
+			wantDisableValidation:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			release := ReleaseSpec{
+				Name:  "foo",
+				Chart: "stable/foo",
+			}
+			if tt.perReleaseDisableValidation {
+				release.DisableValidationOnInstall = boolValue(true)
+			}
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases:     []ReleaseSpec{release},
+					HelmDefaults: HelmSpec{},
+				},
+				logger:      logger,
+				valsRuntime: valsRuntime,
+			}
+			lists := map[exectest.ListKey]string{}
+			if tt.installed {
+				lists[exectest.ListKey{Filter: "^foo$", Flags: listFlags}] = installedListOutput
+			}
+			helm := &exectest.Helm{Lists: lists}
+
+			results, errs := st.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, &DiffOpts{
+				SkipDiffValidationOnInstall: tt.skipDiffValidationOnInstall,
+			})
+
+			require.Len(t, errs, 0)
+			require.Len(t, results, 1)
+
+			flags := results[0].flags
+			hasDisableValidation := false
+			for _, f := range flags {
+				if f == "--disable-validation" {
+					hasDisableValidation = true
+					break
+				}
+			}
+			require.Equal(t, tt.wantDisableValidation, hasDisableValidation,
+				"--disable-validation presence mismatch for case %q; flags: %v", tt.name, flags)
+		})
+	}
+}
+
 func TestPrepareSyncReleases(t *testing.T) {
 	tests := []struct {
 		name         string

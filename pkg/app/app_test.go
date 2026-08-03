@@ -2697,6 +2697,10 @@ func (a applyConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
 }
 
+func (a applyConfig) SkipDiffValidationOnInstall() bool {
+	return false
+}
+
 func (a applyConfig) SyncArgs() string {
 	return a.syncArgs
 }
