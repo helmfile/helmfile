@@ -20,6 +20,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// pluginCmd is the "plugin" helm subcommand used repeatedly across these tests.
+// Extracted as constants so the repeated string literals do not trip goconst
+// (min-occurrences: 8) once additional plugin tests are added.
+const (
+	pluginCmd  = "plugin"
+	installCmd = "install"
+)
+
 // Mocking the command-line runner
 
 type mockRunner struct {
@@ -1917,7 +1925,7 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	// Verify that "plugin update" was NOT called (the Helm 4 secrets path should skip it).
 	for _, args := range calledArgs {
 		for i, a := range args {
-			if a == "plugin" && i+1 < len(args) && args[i+1] == "update" {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == "update" {
 				t.Errorf("expected 'plugin update' to not be called for Helm 4 secrets, but it was: %v", args)
 			}
 		}
@@ -1927,7 +1935,7 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	checkUninstall := func(name string) {
 		for _, args := range calledArgs {
 			for i, a := range args {
-				if a == "plugin" && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == name {
+				if a == pluginCmd && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == name {
 					return
 				}
 			}
@@ -1942,7 +1950,7 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	checkInstall := func(urlSubstring string) {
 		for _, args := range calledArgs {
 			for i, a := range args {
-				if a == "plugin" && i+2 < len(args) && args[i+1] == "install" && strings.Contains(args[i+2], urlSubstring) {
+				if a == pluginCmd && i+2 < len(args) && args[i+1] == installCmd && strings.Contains(args[i+2], urlSubstring) {
 					return
 				}
 			}
@@ -1952,6 +1960,204 @@ func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
 	checkInstall("secrets-4.7.0.tgz")
 	checkInstall("secrets-getter-4.7.0.tgz")
 	checkInstall("secrets-post-renderer-4.7.0.tgz")
+}
+
+// Test_UpdatePlugin_GeneralPathUsesUninstallReinstall verifies that for a regular
+// plugin, UpdatePlugin does NOT rely on the unreliable `helm plugin update`
+// command. Instead it must uninstall the existing plugin and reinstall the exact
+// pinned version. See issues #2726 and #2548: `helm plugin update` reports
+// success but leaves `helm plugin list` showing the old version because it
+// re-installs from the cached source without the --version flag.
+func Test_UpdatePlugin_GeneralPathUsesUninstallReinstall(t *testing.T) {
+	var calledArgs [][]string
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			calledArgs = append(calledArgs, append([]string(nil), args...))
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("3.16.4"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.NoError(t, err)
+
+	// `plugin update` must never be used: it does not honor --version and silently
+	// leaves the old version installed.
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == "update" {
+				t.Errorf("expected 'plugin update' to not be called, but it was: %v", args)
+			}
+		}
+	}
+
+	// `plugin uninstall diff` must be called to clear the stale version.
+	uninstalled := false
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == pluginCmd && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == "diff" {
+				uninstalled = true
+			}
+		}
+	}
+	require.True(t, uninstalled, "expected 'plugin uninstall diff' to be called")
+
+	// `plugin install <repo> --version <pinned>` must be called with the exact
+	// requested version so the installed plugin is updated to it.
+	installed := false
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == installCmd {
+				hasRepo := false
+				hasVersion := false
+				for _, arg := range args[i+2:] {
+					if arg == "https://github.com/databus23/helm-diff" {
+						hasRepo = true
+					}
+					if arg == "v3.15.10" {
+						hasVersion = true
+					}
+				}
+				if hasRepo && hasVersion {
+					installed = true
+				}
+			}
+		}
+	}
+	require.True(t, installed, "expected 'plugin install' with the pinned version to be called")
+}
+
+// Test_UpdatePlugin_NotFoundUninstallProceedsToInstall ensures that when the
+// plugin is already absent (helm reports its "plugin not found" message),
+// UpdatePlugin still proceeds to install the pinned version rather than treating
+// it as an error. Both helm major formats are covered.
+func Test_UpdatePlugin_NotFoundUninstallProceedsToInstall(t *testing.T) {
+	// Helm 4 reports "plugin: <name> not found"; Helm 3 reports "Plugin: <name> not found".
+	for _, tc := range []struct {
+		name    string
+		version string
+		msg     string
+	}{
+		{name: "helm4", version: "4.2.3", msg: "plugin: diff not found"},
+		{name: "helm3", version: "3.16.4", msg: "Plugin: diff not found"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calledArgs [][]string
+			runner := &funcRunner{
+				execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+					calledArgs = append(calledArgs, append([]string(nil), args...))
+					if len(args) >= 2 && args[0] == pluginCmd && args[1] == "uninstall" {
+						return nil, ExitError{Message: tc.msg, Code: 1}
+					}
+					return []byte{}, nil
+				},
+			}
+
+			var buffer bytes.Buffer
+			logger := NewLogger(&buffer, "debug")
+			helm := &execer{
+				helmBinary: "helm",
+				version:    semver.MustParse(tc.version),
+				logger:     logger,
+				runner:     runner,
+			}
+
+			err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+			require.NoError(t, err, "a plugin-absent uninstall error should be ignored and install should proceed")
+
+			// install with the pinned version must still be attempted
+			installed := false
+			for _, args := range calledArgs {
+				for i, a := range args {
+					if a == pluginCmd && i+1 < len(args) && args[i+1] == installCmd {
+						for _, arg := range args[i+2:] {
+							if arg == "v3.15.10" {
+								installed = true
+							}
+						}
+					}
+				}
+			}
+			require.True(t, installed, "expected install to proceed after a plugin-absent uninstall")
+		})
+	}
+}
+
+// Test_UpdatePlugin_RealUninstallFailureReturnsError ensures that a genuine
+// uninstall failure (permissions, broken Helm, etc.) is surfaced instead of
+// being ignored, which would otherwise mask the root cause behind a confusing
+// "plugin already exists" error from the subsequent install.
+func Test_UpdatePlugin_RealUninstallFailureReturnsError(t *testing.T) {
+	installCalled := false
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == "uninstall" {
+				return nil, ExitError{Message: "permission denied", Code: 1}
+			}
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == installCmd {
+				installCalled = true
+			}
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("3.16.4"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.Error(t, err, "a real uninstall failure should be returned")
+	assert.Contains(t, err.Error(), "uninstall")
+	assert.False(t, installCalled, "install must not be attempted after a real uninstall failure")
+}
+
+// Test_UpdatePlugin_ExecutableNotFoundUninstallErrorIsNotSwallowed guards against
+// an overly broad "not found" check: when helm itself is missing the runner
+// surfaces an error containing "executable file not found", which must NOT be
+// mistaken for an absent plugin (otherwise UpdatePlugin would silently log and
+// proceed to install, masking the real problem). Only the helm-specific
+// "plugin: <name> not found" message is tolerated.
+func Test_UpdatePlugin_ExecutableNotFoundUninstallErrorIsNotSwallowed(t *testing.T) {
+	installCalled := false
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == "uninstall" {
+				// Mimics helmfile's ShellRunner when the helm binary is absent.
+				return nil, fmt.Errorf("unexpected error: exec: %q: executable file not found in $PATH", cmd)
+			}
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == installCmd {
+				installCalled = true
+			}
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("3.16.4"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.Error(t, err, "a missing-binary uninstall error must be returned, not swallowed")
+	assert.Contains(t, err.Error(), "executable file not found")
+	assert.False(t, installCalled, "install must not be attempted when the helm binary is missing")
 }
 
 func Test_dedupeWroteLines(t *testing.T) {

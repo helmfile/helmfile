@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1134,6 +1135,18 @@ func (helm *execer) installHelmSecretsV4(version string) error {
 // split plugin architecture (secrets, secrets-getter, secrets-post-renderer) with Helm 4.
 var helmSecretsV4SplitMinVersion = semver.MustParse("4.7.0")
 
+// pluginMissingRe matches helm's "plugin absent" error emitted by `helm plugin
+// uninstall` when the plugin is not installed:
+//
+//	Helm 4: "plugin: <name> not found"
+//	Helm 3: "Plugin: <name> not found"
+//
+// It is intentionally specific so that unrelated failures that happen to contain
+// "not found" (e.g. a missing helm binary -> "executable file not found", or an
+// uninstall hook failing with "sh: ...: not found") are NOT mistaken for an
+// absent plugin. It is case-insensitive and scoped to a single line.
+var pluginMissingRe = regexp.MustCompile(`(?i)plugin: .* not found`)
+
 // helmSecretsRequiresSplitInstall returns true when the given helm-secrets version
 // requires the split plugin architecture introduced in v4.7.0 for Helm 4.
 func helmSecretsRequiresSplitInstall(version string) bool {
@@ -1167,22 +1180,28 @@ func (helm *execer) UpdatePlugin(name, repo, version string) error {
 		return helm.installHelmSecretsV4(version)
 	}
 
-	// Try standard helm plugin update
-	out, err := helm.exec([]string{"plugin", "update", name}, map[string]string{}, nil)
-	helm.info(out)
-	if err != nil {
-		// If standard update failed, fall back to uninstall + reinstall with specific version
-		updateErr := err
-		helm.logger.Infof("helm plugin update %v failed (%v), falling back to reinstall with version %v", name, updateErr, version)
-		if uninstallErr := helm.uninstallPlugin(name); uninstallErr != nil {
-			return fmt.Errorf("helm plugin update failed (%w) and uninstall for reinstall also failed: %w", updateErr, uninstallErr)
+	// `helm plugin update` re-installs the plugin from its cached source WITHOUT the
+	// `--version` flag, so it does not reliably install the specific version we need.
+	// On many setups it reports success (exit code 0) while `helm plugin list` still
+	// shows the old version, because the cached source is re-downloaded unchanged.
+	// See https://github.com/helmfile/helmfile/issues/2726 and
+	// https://github.com/helmfile/helmfile/issues/2548.
+	//
+	// The reliable way to update to a pinned version is to uninstall the existing
+	// plugin and reinstall it at the requested version. Only the expected
+	// "plugin already absent" case is tolerated: helm reports it as
+	// "plugin: <name> not found" (Helm 4) / "Plugin: <name> not found" (Helm 3).
+	// We match that specific message rather than a bare "not found", so that other
+	// failures (permissions, a missing helm binary whose error contains
+	// "executable file not found", a plugin uninstall hook failing with
+	// "sh: ...: not found", ...) are surfaced instead of being silently ignored.
+	if err := helm.uninstallPlugin(name); err != nil {
+		if !pluginMissingRe.MatchString(err.Error()) {
+			return fmt.Errorf("failed to uninstall helm plugin %q for reinstall: %w", name, err)
 		}
-		if reinstallErr := helm.AddPlugin(name, repo, version); reinstallErr != nil {
-			return fmt.Errorf("helm plugin update failed (%w) and reinstall also failed: %w", updateErr, reinstallErr)
-		}
-		return nil
+		helm.logger.Debugf("helm plugin %v not present during update, proceeding to install: %v", name, err)
 	}
-	return nil
+	return helm.AddPlugin(name, repo, version)
 }
 
 func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
