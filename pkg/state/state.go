@@ -2990,7 +2990,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				}
 
 				var disableValidation bool
-				if release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall {
+				if (release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall) || opt.SkipDiffValidationOnInstall {
 					installed, err := isInstalled(release)
 					if err != nil {
 						errs = append(errs, err)
@@ -3090,11 +3090,12 @@ type DiffOpts struct {
 	Color bool
 	// NoColor forces disabling the color output on helm-diff.
 	// If this is true, Color has no effect.
-	NoColor           bool
-	Set               []string
-	SkipCleanup       bool
-	SkipDiffOnInstall bool
-	DiffArgs          string
+	NoColor                     bool
+	Set                         []string
+	SkipCleanup                 bool
+	SkipDiffOnInstall           bool
+	SkipDiffValidationOnInstall bool
+	DiffArgs                    string
 	// TemplateArgs are extra args appended to the helm template/diff rendering
 	// (e.g. "--dry-run=server" to enable the helm lookup function during `helmfile
 	// apply`/`diff`, which render via helm-diff). See issue #1833.

@@ -161,6 +161,11 @@ To supply the diff functionality Helmfile needs the [helm-diff](https://github.c
 you should be able to simply execute `helm plugin install https://github.com/databus23/helm-diff`. For more details
 please look at their [documentation](https://github.com/databus23/helm-diff#helm-diff-plugin).
 
+#### Notable diff flags
+
+* `--skip-diff-on-install` — skip running `helm diff` entirely for releases that are not yet installed. The release is treated as changed and will be synced on `apply` without showing a diff.
+* `--skip-diff-validation-on-install` — for releases that are not yet installed, pass `--disable-validation` to `helm diff` so the diff is shown without K8s API server validation. Useful when a chart bundles CRDs and CRs together: the CRs would fail API validation before the CRDs are installed. This is the CLI-flag equivalent of the per-release `disableValidationOnInstall` field.
+
 ### doctor
 
 `helmfile doctor` runs `helmfile diff` and asks an OpenAI-compatible LLM to summarize the changes and flag risks

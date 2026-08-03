@@ -159,6 +159,10 @@ func (a diffConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
 }
 
+func (a diffConfig) SkipDiffValidationOnInstall() bool {
+	return false
+}
+
 func (a diffConfig) Logger() *zap.SugaredLogger {
 	return a.logger
 }
