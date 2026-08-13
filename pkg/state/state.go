@@ -1526,11 +1526,15 @@ func filterReleasesForBuild(releases []ReleaseSpec) []ReleaseSpec {
 
 type ChartPrepareOptions struct {
 	ForceDownload bool
-	SkipRepos     bool
-	SkipDeps      bool
-	SkipRefresh   bool
-	SkipResolve   bool
-	SkipCleanup   bool
+	// PrefetchSharedRemoteCharts forces a single materialized download for any remote chart
+	// (chart+version) used by more than one selected release, so those releases stop being
+	// serialized by withChartOperationLock during sync/diff. See issue #2741.
+	PrefetchSharedRemoteCharts bool
+	SkipRepos                  bool
+	SkipDeps                   bool
+	SkipRefresh                bool
+	SkipResolve                bool
+	SkipCleanup                bool
 	// SkipSchemaValidation configures chartify to pass --skip-schema-validation to helm-template run by it.
 	SkipSchemaValidation bool
 	// Validate configures chartify to pass --validate to helm-template run by it.
@@ -2043,6 +2047,25 @@ func (st *HelmState) processLocalChart(normalizedChart, dir string, release *Rel
 	return chartPath, nil
 }
 
+// chartFetchFlags builds the `helm fetch` flags for a remote chart download, mirroring
+// the flags flagsForUpgrade applies for chart acquisition (version, verify, keyring,
+// TLS/plain-http) so a prefetched chart behaves identically to one helm would have
+// downloaded itself during `helm upgrade`. See issue #2741.
+func (st *HelmState) chartFetchFlags(release *ReleaseSpec) []string {
+	var flags []string
+	flags = st.appendChartVersionFlags(flags, release)
+
+	// non-OCI chart should be verified here, matching flagsForUpgrade.
+	if !st.IsOCIChart(release.Chart) {
+		flags = st.appendVerifyFlags(flags, release)
+		flags = st.appendKeyringFlags(flags, release)
+	}
+
+	flags = st.appendChartDownloadFlags(flags, release)
+
+	return flags
+}
+
 // forcedDownloadChart handles forced chart downloads.
 // Locks are acquired during download and released immediately after.
 // A per-chart+version mutex serializes downloads within the process so that
@@ -2100,8 +2123,7 @@ func (st *HelmState) forcedDownloadChart(chartName, dir string, release *Release
 	}
 
 	// Download the chart
-	var fetchFlags []string
-	fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
+	fetchFlags := st.chartFetchFlags(release)
 	fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 	if err := helm.Fetch(chartName, fetchFlags...); err != nil {
 		lockResult.Release(st.logger)
@@ -2262,6 +2284,50 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	// so that all workers share a single tracker instance. See issue #1799.
 	st.chartifyTempDirs = &chartifyTempDirTracker{}
 
+	// Issue #2741: releases sharing a remote chart+version are otherwise serialized by
+	// withChartOperationLock for the whole sync/diff, not just the download. Force a
+	// single materialized download per shared chart key here so release.ChartPath gets
+	// populated and withChartOperationLock's ChartPath != "" guard skips the lock for them.
+	// Charts unique to one release are left alone to preserve current behavior.
+	sharedChartKeys := map[ChartCacheKey]bool{}
+	if opts.PrefetchSharedRemoteCharts {
+		type prefetchStats struct {
+			count    int
+			flagSigs map[string]bool
+		}
+		stats := map[ChartCacheKey]*prefetchStats{}
+		for i := range releases {
+			release := &releases[i]
+			key := st.getChartCacheKey(release)
+			s, ok := stats[key]
+			if !ok {
+				s = &prefetchStats{flagSigs: map[string]bool{}}
+				stats[key] = s
+			}
+			s.count++
+			s.flagSigs[strings.Join(st.chartFetchFlags(release), " ")] = true
+		}
+		for key, s := range stats {
+			// The download cache (checkChartCache/addToChartCache) is keyed by
+			// chart+version alone, not by acquisition flags. If releases sharing a
+			// chart+version disagree on --verify/--keyring/--plain-http/
+			// --insecure-skip-tls-verify/--devel, whichever release's worker wins the
+			// download race would silently decide those settings for the others. Only
+			// prefetch when every release sharing this key resolves to identical flags;
+			// otherwise fall back to today's per-release fetch (still correct, just not
+			// deduplicated).
+			//
+			// Only chart strings that resolve to a configured repository (or an OCI
+			// reference) are unambiguously remote. A bare "dir/chart"-shaped string with
+			// no matching `repositories:` entry is conventionally a local chart path
+			// (e.g. "charts/frontend") and must be left to the existing local-directory
+			// resolution, not force-fetched as if it were a registry chart.
+			if s.count > 1 && len(s.flagSigs) == 1 && st.isPrefetchEligibleChart(key.Chart) {
+				sharedChartKeys[key] = true
+			}
+		}
+	}
+
 	var prepareChartInfoMutex sync.Mutex
 
 	prepareChartInfo := make(map[PrepareChartKey]string, len(releases))
@@ -2284,7 +2350,11 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		},
 		func(workerIndex int) {
 			for release := range jobQueue {
-				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, opts, workerIndex)
+				releaseOpts := opts
+				if sharedChartKeys[st.getChartCacheKey(release)] {
+					releaseOpts.ForceDownload = true
+				}
+				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, releaseOpts, workerIndex)
 				results <- result
 			}
 		},
@@ -6094,6 +6164,20 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 		return false
 	}
 	return repo.OCI
+}
+
+// isPrefetchEligibleChart returns true if chart unambiguously refers to a
+// remote source: an OCI reference, or a "repo/chart" string whose repo prefix
+// matches a configured `repositories:` entry. Used by PrepareCharts to decide
+// which shared chart keys are safe to force-download (see issue #2741) -
+// local chart paths conventionally shaped like "dir/chart" (e.g.
+// "charts/frontend") must not be mistaken for registry references.
+func (st *HelmState) isPrefetchEligibleChart(chart string) bool {
+	if strings.HasPrefix(chart, "oci://") {
+		return true
+	}
+	repo, _ := st.GetRepositoryAndNameFromChartName(chart)
+	return repo != nil
 }
 
 // NeedsRepoUpdate returns true if there are any repositories that require `helm repo update`.
