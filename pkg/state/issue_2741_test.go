@@ -53,6 +53,22 @@ releases:
     verify: false
 `
 
+const uniformVerifyFlagsHelmfile = `
+repositories:
+  - name: myrepo
+    url: https://example.com/charts
+
+releases:
+  - name: release-a
+    chart: myrepo/mychart
+    version: 1.0.0
+    verify: true
+  - name: release-b
+    chart: myrepo/mychart
+    version: 1.0.0
+    verify: true
+`
+
 const localStyleChartNoRepoHelmfile = `
 releases:
   - name: frontend-v2
@@ -194,6 +210,63 @@ func TestPrepareChartsSkipsPrefetchWhenFetchFlagsDiffer(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, "myrepo/mychart", path, "chart should be handed to helm unmodified when flags differ across releases")
 	}
+}
+
+// TestPrepareChartsSkipsPrefetchWhenVerifyEnabled verifies that releases
+// sharing a chart+version are NOT prefetched when verify is enabled, even
+// when every release agrees on identical flags. forcedDownloadChart untars
+// the chart into a local directory, but flagsForUpgrade unconditionally
+// re-adds --verify for the later `helm upgrade` regardless of ChartPath —
+// and Helm's VerifyChart only accepts a packaged .tgz/provenance pair, not
+// an unpacked directory, so upgrading a prefetched+verified chart would fail
+// with a real helm binary. Confirms both that prefetch is skipped and that
+// the resulting flagsForUpgrade output for the affected release still
+// carries --verify unchanged, i.e. behaves exactly as it did before this
+// feature existed.
+func TestPrepareChartsSkipsPrefetchWhenVerifyEnabled(t *testing.T) {
+	resetChartCacheForTest()
+
+	logger := zap.NewExample().Sugar()
+	st, err := createFromYaml([]byte(uniformVerifyFlagsHelmfile), "example/path/to/helmfile.yaml", DefaultEnv, logger)
+	require.NoError(t, err)
+
+	tempDir := t.TempDir()
+
+	mockHelm := &mockFetchHelm{Helm: &exectest.Helm{Helm3: true, ChartsMutex: &sync.Mutex{}}}
+
+	opts := ChartPrepareOptions{
+		SkipResolve:                true,
+		PrefetchSharedRemoteCharts: true,
+		Concurrency:                2,
+		OutputDirTemplate:          "{{ .OutputDir }}/{{ .Release.Name }}",
+	}
+
+	releaseToChart, errs := st.PrepareCharts(mockHelm, tempDir, 2, "sync", opts)
+	require.Empty(t, errs)
+
+	assert.Equal(t, int32(0), mockHelm.fetchCount.Load(),
+		"verify-enabled releases must not be prefetched, even with identical flags across the group")
+
+	var release *ReleaseSpec
+	for i := range st.Releases {
+		if st.Releases[i].Name == "release-a" {
+			release = &st.Releases[i]
+		}
+	}
+	require.NotNil(t, release)
+
+	path, ok := releaseToChart[PrepareChartKey{Name: "release-a"}]
+	require.True(t, ok)
+	assert.Equal(t, "myrepo/mychart", path, "chart should be handed to helm unmodified, not materialized locally")
+	assert.Empty(t, release.ChartPath, "ChartPath must stay unset so withChartOperationLock keeps serializing this chart")
+
+	// flagsForUpgrade's own --verify emission is unconditional and untouched by
+	// this feature (see state.go:4052-4055) — it's driven purely by
+	// release.Verify/repo.Verify/HelmDefaults.Verify, not by ChartPath. Because
+	// prefetch was skipped above, that pre-existing logic is exactly what runs
+	// for this release, exactly as it did before this feature existed.
+	flags := st.appendVerifyFlags(nil, release)
+	assert.Contains(t, flags, "--verify", "verify must still reach the upgrade command exactly as before this feature existed")
 }
 
 // TestPrepareChartsSkipsPrefetchForUnknownRepoChart verifies that a

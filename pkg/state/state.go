@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -2292,8 +2293,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 	sharedChartKeys := map[ChartCacheKey]bool{}
 	if opts.PrefetchSharedRemoteCharts {
 		type prefetchStats struct {
-			count    int
-			flagSigs map[string]bool
+			count       int
+			flagSigs    map[string]bool
+			sampleFlags []string
 		}
 		stats := map[ChartCacheKey]*prefetchStats{}
 		for i := range releases {
@@ -2305,7 +2307,13 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				stats[key] = s
 			}
 			s.count++
-			s.flagSigs[strings.Join(st.chartFetchFlags(release), " ")] = true
+			flags := st.chartFetchFlags(release)
+			// NUL can't appear in an OS argument, so this join is injective —
+			// unlike a space-joined signature, it can't collide two different
+			// flag slices (e.g. a keyring path containing a space and a
+			// flag-like token) into the same string.
+			s.flagSigs[strings.Join(flags, "\x00")] = true
+			s.sampleFlags = flags
 		}
 		for key, s := range stats {
 			// The download cache (checkChartCache/addToChartCache) is keyed by
@@ -2322,7 +2330,14 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 			// no matching `repositories:` entry is conventionally a local chart path
 			// (e.g. "charts/frontend") and must be left to the existing local-directory
 			// resolution, not force-fetched as if it were a registry chart.
-			if s.count > 1 && len(s.flagSigs) == 1 && st.isPrefetchEligibleChart(key.Chart) {
+			//
+			// --verify is also disqualifying: forcedDownloadChart untars the chart, and
+			// flagsForUpgrade later re-adds --verify for the upgrade itself (it can't
+			// tell the chart was already verified at fetch time). Helm's VerifyChart only
+			// accepts a packaged .tgz/provenance pair, not an unpacked directory, so
+			// upgrading a prefetched chart with verify enabled would fail. Leave verified
+			// charts on the existing serialized remote-chart path instead.
+			if s.count > 1 && len(s.flagSigs) == 1 && !slices.Contains(s.sampleFlags, "--verify") && st.isPrefetchEligibleChart(key.Chart) {
 				sharedChartKeys[key] = true
 			}
 		}
