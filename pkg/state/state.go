@@ -2281,6 +2281,16 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		releases = filterReleasesForBuild(releases)
 	}
 
+	// Apply -chart override here, before the shared-chart grouping below reads
+	// release.Chart. It was previously applied later inside prepareChartForRelease,
+	// which meant grouping ran on each release's original chart and never noticed
+	// that all of them resolve to the same overridden chart.
+	if st.OverrideChart != "" {
+		for i := range releases {
+			releases[i].Chart = st.OverrideChart
+		}
+	}
+
 	// Initialize the chartify temp dir tracker before concurrent workers start,
 	// so that all workers share a single tracker instance. See issue #1799.
 	st.chartifyTempDirs = &chartifyTempDirTracker{}
