@@ -171,14 +171,15 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.WithPreparedCharts("diff", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh:            c.SkipRefresh(),
-			SkipDeps:               c.SkipDeps(),
-			SkipSchemaValidation:   c.SkipSchemaValidation(),
-			IncludeCRDs:            &includeCRDs,
-			Validate:               c.Validate(),
-			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			SkipRepos:                  c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:                c.SkipRefresh(),
+			SkipDeps:                   c.SkipDeps(),
+			SkipSchemaValidation:       c.SkipSchemaValidation(),
+			IncludeCRDs:                &includeCRDs,
+			Validate:                   c.Validate(),
+			Concurrency:                c.Concurrency(),
+			IncludeTransitiveNeeds:     c.IncludeNeeds(),
+			PrefetchSharedRemoteCharts: true,
 		}, func() []error {
 			msg, matched, affected, errs = a.diff(run, c)
 			return errs
@@ -501,18 +502,19 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.WithPreparedCharts("sync", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh:            c.SkipRefresh(),
-			SkipDeps:               c.SkipDeps(),
-			SkipSchemaValidation:   c.SkipSchemaValidation(),
-			Wait:                   c.Wait(),
-			WaitRetries:            c.WaitRetries(),
-			WaitForJobs:            c.WaitForJobs(),
-			IncludeCRDs:            &includeCRDs,
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
-			Validate:               c.Validate(),
-			Concurrency:            c.Concurrency(),
-			TemplateArgs:           c.TemplateArgs(),
+			SkipRepos:                  c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:                c.SkipRefresh(),
+			SkipDeps:                   c.SkipDeps(),
+			SkipSchemaValidation:       c.SkipSchemaValidation(),
+			Wait:                       c.Wait(),
+			WaitRetries:                c.WaitRetries(),
+			WaitForJobs:                c.WaitForJobs(),
+			IncludeCRDs:                &includeCRDs,
+			IncludeTransitiveNeeds:     c.IncludeNeeds(),
+			Validate:                   c.Validate(),
+			Concurrency:                c.Concurrency(),
+			TemplateArgs:               c.TemplateArgs(),
+			PrefetchSharedRemoteCharts: true,
 		}, func() []error {
 			matched, updated, es := a.SyncState(run, c)
 
@@ -558,19 +560,20 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.WithPreparedCharts("apply", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh:            c.SkipRefresh(),
-			SkipDeps:               c.SkipDeps(),
-			SkipSchemaValidation:   c.SkipSchemaValidation(),
-			Wait:                   c.Wait(),
-			WaitRetries:            c.WaitRetries(),
-			WaitForJobs:            c.WaitForJobs(),
-			IncludeCRDs:            &includeCRDs,
-			SkipCleanup:            c.SkipCleanup(),
-			Validate:               c.Validate(),
-			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
-			TemplateArgs:           c.TemplateArgs(),
+			SkipRepos:                  c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:                c.SkipRefresh(),
+			SkipDeps:                   c.SkipDeps(),
+			SkipSchemaValidation:       c.SkipSchemaValidation(),
+			Wait:                       c.Wait(),
+			WaitRetries:                c.WaitRetries(),
+			WaitForJobs:                c.WaitForJobs(),
+			IncludeCRDs:                &includeCRDs,
+			SkipCleanup:                c.SkipCleanup(),
+			Validate:                   c.Validate(),
+			Concurrency:                c.Concurrency(),
+			IncludeTransitiveNeeds:     c.IncludeNeeds(),
+			TemplateArgs:               c.TemplateArgs(),
+			PrefetchSharedRemoteCharts: true,
 		}, func() []error {
 			matched, updated, es := a.apply(run, c)
 

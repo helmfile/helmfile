@@ -6279,6 +6279,89 @@ func TestAppendVerifyFlags(t *testing.T) {
 	}
 }
 
+// TestChartFetchFlags verifies that chartFetchFlags (used to prefetch shared
+// remote charts, see issue #2741) matches the chart-acquisition flags
+// flagsForUpgrade applies for a normal (non-prefetched) remote chart: version,
+// verify, keyring, and TLS/plain-http flags.
+func TestChartFetchFlags(t *testing.T) {
+	tests := []struct {
+		name         string
+		repo         []RepositorySpec
+		helmDefaults HelmSpec
+		release      *ReleaseSpec
+		expected     []string
+	}{
+		{
+			name:     "exact version",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Version: "1.2.3"},
+			expected: []string{"--version", "1.2.3"},
+		},
+		{
+			name:     "version range",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Version: ">=1.0.0 <2.0.0"},
+			expected: []string{"--version", ">=1.0.0 <2.0.0"},
+		},
+		{
+			name:     "no version means latest",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart"},
+			expected: nil,
+		},
+		{
+			name:     "devel release",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Devel: boolValue(true)},
+			expected: []string{"--devel"},
+		},
+		{
+			name:     "release-level verify and keyring",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Verify: boolValue(true), Keyring: "/keys/release.gpg"},
+			expected: []string{"--verify", "--keyring", "/keys/release.gpg"},
+		},
+		{
+			name: "repo-level verify and keyring",
+			repo: []RepositorySpec{{Name: "myrepo", Verify: true, Keyring: "/keys/repo.gpg"}},
+			release: &ReleaseSpec{
+				Chart: "myrepo/mychart",
+			},
+			expected: []string{"--verify", "--keyring", "/keys/repo.gpg"},
+		},
+		{
+			name:         "helmDefaults-level verify and keyring",
+			helmDefaults: HelmSpec{Verify: true, Keyring: "/keys/default.gpg"},
+			release:      &ReleaseSpec{Chart: "myrepo/mychart"},
+			expected:     []string{"--verify", "--keyring", "/keys/default.gpg"},
+		},
+		{
+			name:     "release-level plain http",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", PlainHttp: true},
+			expected: []string{"--plain-http"},
+		},
+		{
+			name:     "release-level insecure skip tls verify",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", InsecureSkipTLSVerify: true},
+			expected: []string{"--insecure-skip-tls-verify"},
+		},
+		{
+			name: "OCI chart skips verify and keyring but keeps download flags",
+			repo: []RepositorySpec{{Name: "myrepo", OCI: true, Verify: true, Keyring: "/keys/repo.gpg"}},
+			release: &ReleaseSpec{
+				Chart:     "myrepo/mychart",
+				PlainHttp: true,
+			},
+			expected: []string{"--plain-http"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.ReleaseSetSpec.Repositories = tt.repo
+			st.ReleaseSetSpec.HelmDefaults = tt.helmDefaults
+			flags := st.chartFetchFlags(tt.release)
+			assert.Equal(t, tt.expected, flags)
+		})
+	}
+}
+
 // TestHelmState_setStringFlags tests the setStringFlags method
 func TestHelmState_setStringFlags(t *testing.T) {
 	tests := []struct {
