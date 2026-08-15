@@ -2046,7 +2046,7 @@ func Test_UpdatePlugin_NotFoundUninstallProceedsToInstall(t *testing.T) {
 		version string
 		msg     string
 	}{
-		{name: "helm4", version: "4.2.3", msg: "plugin: diff not found"},
+		{name: "helm4", version: "4.2.4", msg: "plugin: diff not found"},
 		{name: "helm3", version: "3.16.4", msg: "Plugin: diff not found"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
