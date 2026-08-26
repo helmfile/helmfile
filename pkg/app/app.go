@@ -62,8 +62,8 @@ type App struct {
 	helms      map[helmKey]helmexec.Interface
 	helmsMutex sync.Mutex
 
-	rootHelmfileDir         string
-	rootHelmfileDirResolved bool
+	rootHelmfileDir     string
+	rootHelmfileDirOnce sync.Once
 
 	ctx goContext.Context
 }
@@ -1150,13 +1150,9 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 			effectiveSelectors = m.Selectors
 		}
 
-		if rootDir != "" && !remote.IsRemote(m.Path) {
-			if dirTargets := extractDirSelectorTargets(effectiveSelectors); len(dirTargets) > 0 {
-				if !shouldDescendForDirFilter(rootDir, stateDir, m.Path, dirTargets) {
-					a.Logger.Debugf("skipping subhelmfile %q: outside dir= selector scope", m.Path)
-					continue
-				}
-			}
+		if skipForDirFilter(rootDir, stateDir, m.Path, effectiveSelectors) {
+			a.Logger.Debugf("skipping subhelmfile %q: outside dir= selector scope", m.Path)
+			continue
 		}
 
 		optsForNestedState := LoadOpts{

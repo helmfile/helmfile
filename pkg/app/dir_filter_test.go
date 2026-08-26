@@ -310,3 +310,29 @@ releases:
 		})
 	}
 }
+
+func TestSkipForDirFilter(t *testing.T) {
+	const rootDir = "/workspace"
+	const stateDir = "/workspace/opendesk"
+	selectors := []string{"dir=opendesk/apps/openproject"}
+
+	tests := []struct {
+		name      string
+		entryPath string
+		selectors []string
+		rootDir   string
+		skip      bool
+	}{
+		{name: "matching entry descends", entryPath: "apps/openproject/helmfile.yaml", selectors: selectors, rootDir: rootDir, skip: false},
+		{name: "sibling entry is skipped", entryPath: "apps/xwiki/helmfile.yaml", selectors: selectors, rootDir: rootDir, skip: true},
+		{name: "remote entry is never short-circuited", entryPath: "git::https://github.com/example/xwiki.git@helmfile.yaml?ref=main", selectors: selectors, rootDir: rootDir, skip: false},
+		{name: "no dir selector descends", entryPath: "apps/xwiki/helmfile.yaml", selectors: []string{"tier=frontend"}, rootDir: rootDir, skip: false},
+		{name: "negative dir selector does not prune", entryPath: "apps/xwiki/helmfile.yaml", selectors: []string{"dir!=opendesk/apps/xwiki"}, rootDir: rootDir, skip: false},
+		{name: "unresolvable root descends", entryPath: "apps/xwiki/helmfile.yaml", selectors: selectors, rootDir: "", skip: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.skip, skipForDirFilter(tc.rootDir, stateDir, tc.entryPath, tc.selectors))
+		})
+	}
+}

@@ -24,11 +24,9 @@ func (a *App) RootHelmfileDir() string {
 // called from the top-level entry of each command, before within() or any
 // goroutine spawn.
 func (a *App) resolveRootHelmfileDir() {
-	if a.rootHelmfileDirResolved {
-		return
-	}
-	a.rootHelmfileDirResolved = true
-	a.rootHelmfileDir = a.computeRootHelmfileDir()
+	a.rootHelmfileDirOnce.Do(func() {
+		a.rootHelmfileDir = a.computeRootHelmfileDir()
+	})
 }
 
 func (a *App) computeRootHelmfileDir() string {
@@ -87,6 +85,19 @@ func extractDirSelectorTargets(selectors []string) []dirSelectorGroup {
 		return nil
 	}
 	return groups
+}
+
+// skipForDirFilter reports whether a `helmfiles:` entry can be skipped for
+// the given selectors. Remote entries and unresolvable roots always descend.
+func skipForDirFilter(rootDir, stateDir, entryPath string, selectors []string) bool {
+	if rootDir == "" || remote.IsRemote(entryPath) {
+		return false
+	}
+	dirTargets := extractDirSelectorTargets(selectors)
+	if len(dirTargets) == 0 {
+		return false
+	}
+	return !shouldDescendForDirFilter(rootDir, stateDir, entryPath, dirTargets)
 }
 
 // shouldDescendForDirFilter returns true when the sub-helmfile at entryPath
