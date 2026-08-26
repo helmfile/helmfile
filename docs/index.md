@@ -219,7 +219,7 @@ The `dir=` selector key matches releases by the directory of their defining helm
 
 The `dir` selector has a second, more important effect: **it short-circuits sub-helmfile traversal**. When `dir=` is set, helmfile inspects each `helmfiles:` entry's path *before* loading or templating it, and skips any branch that cannot possibly contain a matching release. For projects that aggregate many services via nested helmfiles (e.g. opendesk's `helmfile_generic.yaml.gotmpl` lists ~13 services), running `helmfile -l dir=apps/<single-service> sync` becomes roughly as fast as targeting that single service directly, without the cost of parsing and templating the other branches.
 
-The label key `dir` is reserved: helmfile will refuse to load any state whose `commonLabels` or per-release `labels` declares a key named `dir`, since the auto-populated value would silently shadow it.
+The label key `dir` is reserved. If `commonLabels` or a release's `labels` declares a key named `dir`, helmfile logs a warning and the user-defined value is ignored for selector matching (the auto-populated value shadows it). **Deprecation:** this will become a hard error in a future release, so rename such labels now.
 
 #### Interactions worth knowing
 

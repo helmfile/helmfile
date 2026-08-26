@@ -3449,19 +3449,19 @@ func (st *HelmState) GetReleasesWithLabels() []ReleaseSpec {
 	return rs
 }
 
-// validateReservedLabels rejects user-defined labels that collide with keys
-// the selector machinery auto-populates. Without this check, a user-defined
-// "dir" label would be silently shadowed at match time.
-func (st *HelmState) validateReservedLabels() error {
+// reservedLabelWarnings reports user-defined "dir" labels, which are shadowed
+// by the auto-populated value at match time. Scheduled to become an error.
+func (st *HelmState) reservedLabelWarnings() []string {
+	var warnings []string
 	if _, ok := st.CommonLabels[DirLabel]; ok {
-		return fmt.Errorf("commonLabels uses reserved key %q (auto-populated for dir-based filtering); rename it", DirLabel)
+		warnings = append(warnings, fmt.Sprintf("commonLabels uses reserved key %q (auto-populated for dir-based filtering); it is ignored for selectors and will be rejected in a future release, rename it", DirLabel))
 	}
 	for _, r := range st.Releases {
 		if _, ok := r.Labels[DirLabel]; ok {
-			return fmt.Errorf("release %q uses reserved label key %q (auto-populated for dir-based filtering); rename it", r.Name, DirLabel)
+			warnings = append(warnings, fmt.Sprintf("release %q uses reserved label key %q (auto-populated for dir-based filtering); it is ignored for selectors and will be rejected in a future release, rename it", r.Name, DirLabel))
 		}
 	}
-	return nil
+	return warnings
 }
 
 // dirLabel returns the auto-populated "dir" label value: basePath relative

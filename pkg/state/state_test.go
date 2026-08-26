@@ -6867,11 +6867,11 @@ func TestHelmState_dirLabel(t *testing.T) {
 	}
 }
 
-func TestHelmState_validateReservedLabels(t *testing.T) {
+func TestHelmState_reservedLabelWarnings(t *testing.T) {
 	tests := []struct {
-		name    string
-		state   *HelmState
-		wantErr bool
+		name         string
+		state        *HelmState
+		wantWarnings int
 	}{
 		{
 			name:  "no labels",
@@ -6884,7 +6884,7 @@ func TestHelmState_validateReservedLabels(t *testing.T) {
 					CommonLabels: map[string]string{DirLabel: "backend"},
 				},
 			},
-			wantErr: true,
+			wantWarnings: 1,
 		},
 		{
 			name: "release labels use dir",
@@ -6892,10 +6892,11 @@ func TestHelmState_validateReservedLabels(t *testing.T) {
 				ReleaseSetSpec: ReleaseSetSpec{
 					Releases: []ReleaseSpec{
 						{Name: "foo", Labels: map[string]string{DirLabel: "backend"}},
+						{Name: "bar", Labels: map[string]string{DirLabel: "frontend"}},
 					},
 				},
 			},
-			wantErr: true,
+			wantWarnings: 2,
 		},
 		{
 			name: "unrelated labels are fine",
@@ -6911,11 +6912,10 @@ func TestHelmState_validateReservedLabels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.state.validateReservedLabels()
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+			warnings := tt.state.reservedLabelWarnings()
+			assert.Len(t, warnings, tt.wantWarnings)
+			for _, w := range warnings {
+				assert.Contains(t, w, "will be rejected in a future release")
 			}
 		})
 	}
