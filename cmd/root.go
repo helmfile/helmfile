@@ -217,7 +217,7 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
 "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
 The name of a release can be used as a label: "--selector name=myrelease".
-The "dir" selector key is special: it matches by directory prefix against the location of the defining helmfile, relative to the root helmfile. Used as "--selector dir=apps/opencloud", it ALSO short-circuits sub-helmfile traversal so non-matching branches are not parsed or templated. The negative form "dir!=apps/opencloud" filters releases post-load but does not skip traversal.`)
+The "dir" key matches by directory prefix of the defining helmfile and skips non-matching sub-helmfiles; see https://helmfile.readthedocs.io/en/latest/#the-dir-selector`)
 	fs.BoolVar(&globalOptions.AllowNoMatchingRelease, "allow-no-matching-release", false, `Do not exit with an error code if the provided selector has no matching releases.`)
 	fs.BoolVar(&globalOptions.EnableLiveOutput, "enable-live-output", globalOptions.EnableLiveOutput, `Show live output from the Helm binary Stdout/Stderr into Helmfile own Stdout/Stderr.
 It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still displayed only when it's execution finishes.`)
