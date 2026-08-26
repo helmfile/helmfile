@@ -224,8 +224,9 @@ The label key `dir` is reserved: helmfile will refuse to load any state whose `c
 #### Interactions worth knowing
 
 * Releases loaded from remote (`git::…`) helmfiles do not receive a `dir` label and the optimization does not engage for them; they are always descended into.
-* A nested `helmfiles:` entry that declares its own `selectors:` block replaces the CLI selectors for its sub-tree per the existing inheritance model, so a CLI `-l dir=…` does not apply to that branch.
+* **A nested `helmfiles:` entry that declares its own `selectors:` block replaces the CLI selectors for its sub-tree** per the existing inheritance model, so a CLI `-l dir=…` neither filters releases in that branch nor skips traversal below it.
 * Releases declared in a file loaded via `bases:` are merged into the *including* helmfile, so their `dir` value reflects the including helmfile's location rather than the base file's.
+  For example, with `apps/web/helmfile.yaml` containing `bases: [../../common/releases.yaml]`, every release declared in `common/releases.yaml` gets `dir=apps/web`, not `dir=common`; `-l dir=common` matches nothing.
 * Globs in `helmfiles:` (e.g. `apps/**/helmfile.yaml`) are expanded before the dir-skip check, so a missing-file error in an entry that the dir filter would have skipped still fails the parent load. Use `missingFileHandler: Warn` if this is a problem.
 * Cross-branch transitive `needs:` are not auto-resurrected across pruned branches. If a release in `apps/x` depends on one in `apps/y`, run with a `dir=` covering both subtrees.
 
