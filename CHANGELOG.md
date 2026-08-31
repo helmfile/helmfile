@@ -3,6 +3,11 @@
 ### Added
 
 - Add support for `conditionTemplate` and allow `condition` to be set directly to `true` or `false`.
+- Add the `dir=` selector for path-based release filtering and sub-helmfile traversal skip (#2609)
+
+### Deprecated
+
+- The label key `dir` is now reserved for the `dir=` selector. User-defined `dir` labels in `commonLabels` or release `labels` log a warning and are ignored for selector matching; they will be rejected with an error in a future release (#2609)
 
 ## [1.4.1] - 2026-03-03
 

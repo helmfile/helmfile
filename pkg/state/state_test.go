@@ -6843,3 +6843,80 @@ func TestResolveOCIAdhocDepChart(t *testing.T) {
 		})
 	}
 }
+
+func TestHelmState_dirLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		rootDir  string
+		basePath string
+		want     string
+	}{
+		{name: "both empty", rootDir: "", basePath: "", want: ""},
+		{name: "rootDir empty", rootDir: "", basePath: "/abs/apps/x", want: ""},
+		{name: "basePath empty", rootDir: "/abs", basePath: "", want: ""},
+		{name: "equal yields .", rootDir: "/abs/root", basePath: "/abs/root", want: "."},
+		{name: "nested under root", rootDir: "/abs/root", basePath: "/abs/root/apps/x", want: "apps/x"},
+		{name: "deeply nested", rootDir: "/abs/root", basePath: "/abs/root/apps/x/sub", want: "apps/x/sub"},
+		{name: "escapes root via ..", rootDir: "/abs/root", basePath: "/abs/other", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{rootDir: tt.rootDir, basePath: tt.basePath}
+			assert.Equal(t, tt.want, st.dirLabel())
+		})
+	}
+}
+
+func TestHelmState_reservedLabelWarnings(t *testing.T) {
+	tests := []struct {
+		name         string
+		state        *HelmState
+		wantWarnings int
+	}{
+		{
+			name:  "no labels",
+			state: &HelmState{},
+		},
+		{
+			name: "commonLabels uses dir",
+			state: &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					CommonLabels: map[string]string{DirLabel: "backend"},
+				},
+			},
+			wantWarnings: 1,
+		},
+		{
+			name: "release labels use dir",
+			state: &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases: []ReleaseSpec{
+						{Name: "foo", Labels: map[string]string{DirLabel: "backend"}},
+						{Name: "bar", Labels: map[string]string{DirLabel: "frontend"}},
+					},
+				},
+			},
+			wantWarnings: 2,
+		},
+		{
+			name: "unrelated labels are fine",
+			state: &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					CommonLabels: map[string]string{"tier": "backend"},
+					Releases: []ReleaseSpec{
+						{Name: "foo", Labels: map[string]string{"team": "data"}},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warnings := tt.state.reservedLabelWarnings()
+			assert.Len(t, warnings, tt.wantWarnings)
+			for _, w := range warnings {
+				assert.Contains(t, w, "will be rejected in a future release")
+			}
+		})
+	}
+}
