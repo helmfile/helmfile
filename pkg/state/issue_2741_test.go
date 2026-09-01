@@ -116,7 +116,7 @@ func TestPrepareChartsPrefetchesSharedRemoteChart(t *testing.T) {
 		OutputDirTemplate:          "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(mockHelm, tempDir, 5, "sync", opts)
+	releaseToChart, _, errs := st.PrepareCharts(mockHelm, tempDir, 5, "sync", opts)
 	require.Empty(t, errs, "PrepareCharts should not return errors")
 
 	assert.Equal(t, int32(1), mockHelm.fetchCount.Load(),
@@ -158,7 +158,7 @@ func TestPrepareChartsSkipsPrefetchForUniqueCharts(t *testing.T) {
 		OutputDirTemplate:          "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(mockHelm, tempDir, 3, "sync", opts)
+	releaseToChart, _, errs := st.PrepareCharts(mockHelm, tempDir, 3, "sync", opts)
 	require.Empty(t, errs, "PrepareCharts should not return errors")
 
 	assert.Equal(t, int32(0), mockHelm.fetchCount.Load(),
@@ -199,7 +199,7 @@ func TestPrepareChartsSkipsPrefetchWhenFetchFlagsDiffer(t *testing.T) {
 		OutputDirTemplate:          "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(mockHelm, tempDir, 2, "sync", opts)
+	releaseToChart, _, errs := st.PrepareCharts(mockHelm, tempDir, 2, "sync", opts)
 	require.Empty(t, errs)
 
 	assert.Equal(t, int32(0), mockHelm.fetchCount.Load(),
@@ -241,7 +241,7 @@ func TestPrepareChartsSkipsPrefetchWhenVerifyEnabled(t *testing.T) {
 		OutputDirTemplate:          "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(mockHelm, tempDir, 2, "sync", opts)
+	releaseToChart, _, errs := st.PrepareCharts(mockHelm, tempDir, 2, "sync", opts)
 	require.Empty(t, errs)
 
 	assert.Equal(t, int32(0), mockHelm.fetchCount.Load(),
@@ -294,7 +294,7 @@ func TestPrepareChartsSkipsPrefetchForUnknownRepoChart(t *testing.T) {
 		OutputDirTemplate:          "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(mockHelm, tempDir, 2, "diff", opts)
+	releaseToChart, _, errs := st.PrepareCharts(mockHelm, tempDir, 2, "diff", opts)
 	require.Empty(t, errs)
 
 	assert.Equal(t, int32(0), mockHelm.fetchCount.Load(),
@@ -367,7 +367,7 @@ func TestPrefetchedSharedChartAllowsConcurrentSyncRelease(t *testing.T) {
 		OutputDirTemplate:          "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(fetchHelm, tempDir, 5, "sync", opts)
+	releaseToChart, _, errs := st.PrepareCharts(fetchHelm, tempDir, 5, "sync", opts)
 	require.Empty(t, errs)
 	require.Equal(t, int32(1), fetchHelm.fetchCount.Load())
 
@@ -422,7 +422,7 @@ func TestPrefetchedSharedChartAllowsConcurrentDiffRelease(t *testing.T) {
 		OutputDirTemplate:          "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(fetchHelm, tempDir, 5, "diff", opts)
+	releaseToChart, _, errs := st.PrepareCharts(fetchHelm, tempDir, 5, "diff", opts)
 	require.Empty(t, errs)
 	require.Equal(t, int32(1), fetchHelm.fetchCount.Load())
 

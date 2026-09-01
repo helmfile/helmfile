@@ -3,6 +3,7 @@
 ### Added
 
 - Add support for `conditionTemplate` and allow `condition` to be set directly to `true` or `false`.
+- Add `--allow-failed-releases` global flag to continue preparing charts for the remaining releases when chart preparation fails for a release; failed releases are skipped and all failures are reported at the end (#2616)
 
 ## [1.4.1] - 2026-03-03
 
