@@ -276,12 +276,13 @@ func (a *App) Template(c TemplateConfigProvider) error {
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.WithPreparedCharts("write-values", state.ChartPrepareOptions{
-			SkipRepos:           c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh:         c.SkipRefresh(),
-			AllowFailedReleases: c.AllowFailedReleases(),
-			SkipDeps:            c.SkipDeps(),
-			SkipCleanup:         c.SkipCleanup(),
-			Concurrency:         c.Concurrency(),
+			// Note: "write-values" never prepares charts (see commandsSkipChartPrep
+			// in run.go), so AllowFailedReleases does not apply here.
+			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh: c.SkipRefresh(),
+			SkipDeps:    c.SkipDeps(),
+			SkipCleanup: c.SkipCleanup(),
+			Concurrency: c.Concurrency(),
 		}, func() []error {
 			ok, errs = a.writeValues(run, c)
 			return errs
@@ -375,6 +376,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
@@ -615,9 +617,10 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.WithPreparedCharts("status", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: c.Concurrency(),
+			SkipRepos:           true,
+			AllowFailedReleases: c.AllowFailedReleases(),
+			SkipDeps:            true,
+			Concurrency:         c.Concurrency(),
 		}, func() []error {
 			ok, errs = a.status(run, c)
 			return errs
@@ -687,10 +690,9 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 	var err error
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err = run.WithPreparedCharts("show-dag", state.ChartPrepareOptions{
-			SkipRepos:           true,
-			AllowFailedReleases: false,
-			SkipDeps:            true,
-			Concurrency:         2,
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: 2,
 		}, func() []error {
 			err = a.dag(run)
 			if err != nil {
@@ -705,10 +707,9 @@ func (a *App) PrintDAGState(c DAGConfigProvider) error {
 func (a *App) PrintState(c StateConfigProvider) error {
 	return a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		err := run.WithPreparedCharts("build", state.ChartPrepareOptions{
-			SkipRepos:           true,
-			AllowFailedReleases: false,
-			SkipDeps:            true,
-			Concurrency:         2,
+			SkipRepos:   true,
+			SkipDeps:    true,
+			Concurrency: 2,
 		}, func() []error {
 			if c.EmbedValues() {
 				for i := range run.state.Releases {
@@ -779,10 +780,11 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 
 		if !c.SkipCharts() {
 			prepErr := run.WithPreparedCharts("list", state.ChartPrepareOptions{
-				SkipRepos:           true,
-				AllowFailedReleases: true,
-				SkipDeps:            true,
-				Concurrency:         2,
+				// Note: "list" never prepares charts (see commandsSkipChartPrep in
+				// run.go), so AllowFailedReleases does not apply here.
+				SkipRepos:   true,
+				SkipDeps:    true,
+				Concurrency: 2,
 			}, func() []error {
 				rel, err := a.list(run)
 				if err != nil {

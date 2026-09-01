@@ -550,6 +550,7 @@ The following global flags are also available but not shown in the main help out
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--kubeconfig` | `""` | Use a particular kubeconfig file |
+| `--allow-failed-releases` | false | Continue preparing charts for other releases when chart preparation fails for a release; failed releases are skipped and all failures are reported at the end |
 | `--skip-refresh` | false | Skip running `helm repo update` (lighter than `--skip-deps` which also skips dependency build) |
 | `--enforce-plugin-verification` | false | Fail plugin installation if verification is not supported |
 | `--oci-plain-http` | false | Use plain HTTP for OCI registries (required for local/insecure registries in Helm 4) |

@@ -343,7 +343,6 @@ type WriteValuesConfigProvider interface {
 	OutputFileTemplate() string
 	SkipDeps() bool
 	SkipRefresh() bool
-	AllowFailedReleases() bool
 	SkipCleanup() bool
 	IncludeTransitiveNeeds() bool
 
@@ -352,6 +351,7 @@ type WriteValuesConfigProvider interface {
 
 type StatusesConfigProvider interface {
 	Args() string
+	AllowFailedReleases() bool
 
 	concurrencyConfig
 }

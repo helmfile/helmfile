@@ -86,7 +86,7 @@ releases:
 		OutputDirTemplate:      "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(helm, tempDir, 1, "apply", opts)
+	releaseToChart, _, errs := st.PrepareCharts(helm, tempDir, 1, "apply", opts)
 	require.Empty(t, errs, "PrepareCharts should not return errors")
 
 	// Verify both releases have prepared charts
@@ -152,7 +152,7 @@ releases:
 		OutputDirTemplate:      "{{ .OutputDir }}/{{ .Release.Name }}",
 	}
 
-	releaseToChart, errs := st.PrepareCharts(helm, tempDir, 1, "apply", opts)
+	releaseToChart, _, errs := st.PrepareCharts(helm, tempDir, 1, "apply", opts)
 	require.Empty(t, errs)
 
 	// argocd-secrets should NOT have a prepared chart
