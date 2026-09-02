@@ -1534,6 +1534,7 @@ type ChartPrepareOptions struct {
 	SkipRepos                  bool
 	SkipDeps                   bool
 	SkipRefresh                bool
+	AllowFailedReleases        bool
 	SkipResolve                bool
 	SkipCleanup                bool
 	// SkipSchemaValidation configures chartify to pass --skip-schema-validation to helm-template run by it.
@@ -2207,22 +2208,24 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 }
 
 // PrepareCharts downloads and prepares all charts for the selected releases.
-// Returns the chart paths and any errors encountered.
+// It returns the chart paths for the successfully prepared releases, the set of
+// releases that failed to prepare (keyed by release, with their errors), and any
+// errors encountered.
 //
 // Note: OCI chart locks are acquired and released during chart download within this function.
 // The tempDir cleanup is deferred until after helm operations complete in the caller,
 // so charts remain available during helm commands even though locks are released.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, map[PrepareChartKey]error, []error) {
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
 		if err != nil {
-			return nil, []error{err}
+			return nil, nil, []error{err}
 		}
 		*st = *updated
 	}
 	selected, err := st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
 	if err != nil {
-		return nil, []error{err}
+		return nil, nil, []error{err}
 	}
 
 	releases := releasesNeedCharts(selected)
@@ -2309,6 +2312,12 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	prepareChartInfo := make(map[PrepareChartKey]string, len(releases))
 
+	// Releases that failed to prepare. When opts.AllowFailedReleases is set,
+	// these releases are excluded from the returned chart paths so that callers
+	// can skip them instead of executing them against their un-prepared chart
+	// references.
+	failedReleases := make(map[PrepareChartKey]error)
+
 	errs := []error{}
 
 	jobQueue := make(chan *ReleaseSpec, len(releases))
@@ -2332,6 +2341,14 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					releaseOpts.ForceDownload = true
 				}
 				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, releaseOpts, workerIndex)
+				if result.err != nil {
+					// Error results returned by prepareChartForRelease may lack the
+					// release identity. Complete it here, so that the failure can be
+					// attributed to the correct release in failedReleases below.
+					result.releaseName = release.Name
+					result.releaseNamespace = release.Namespace
+					result.releaseContext = release.KubeContext
+				}
 				results <- result
 			}
 		},
@@ -2341,7 +2358,15 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				if downloadRes.err != nil {
 					errs = append(errs, downloadRes.err)
-					return
+
+					if !opts.AllowFailedReleases {
+						return
+					}
+
+					// Continue processing the other releases and record which one
+					// failed, so that the caller can skip it during execution.
+					failedReleases[chartPrepareResultKey(downloadRes)] = downloadRes.err
+					continue
 				}
 				func() {
 					prepareChartInfoMutex.Lock()
@@ -2361,21 +2386,40 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		},
 	)
 
-	if len(errs) > 0 {
-		return nil, errs
+	if len(errs) > 0 && !opts.AllowFailedReleases {
+		return nil, nil, errs
 	}
 
 	if len(builds) > 0 {
-		if err := st.runHelmDepBuilds(helm, concurrency, builds, opts); err != nil {
-			return nil, []error{err}
+		if err := st.runHelmDepBuilds(helm, concurrency, builds, opts, failedReleases); err != nil {
+			if !opts.AllowFailedReleases {
+				return nil, nil, []error{err}
+			}
+			errs = append(errs, err)
 		}
 	}
 
-	return prepareChartInfo, nil
+	// Drop the chart paths of releases whose `helm dep build` failed (only
+	// possible with opts.AllowFailedReleases), so that callers skip them too.
+	for key := range failedReleases {
+		delete(prepareChartInfo, key)
+	}
+
+	return prepareChartInfo, failedReleases, errs
+}
+
+// chartPrepareResultKey returns the map key identifying the release a chart
+// preparation result belongs to.
+func chartPrepareResultKey(r *chartPrepareResult) PrepareChartKey {
+	return PrepareChartKey{
+		Name:        r.releaseName,
+		Namespace:   r.releaseNamespace,
+		KubeContext: r.releaseContext,
+	}
 }
 
 // nolint: unparam
-func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult, opts ChartPrepareOptions) error {
+func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult, opts ChartPrepareOptions, failedReleases map[PrepareChartKey]error) error {
 	// NOTES:
 	// 1. `helm dep build` fails when it was run concurrency on the same chart.
 	//    To avoid that, we run `helm dep build` only once per each local chart.
@@ -2399,7 +2443,15 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 
 	if anySkipRefresh && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && st.NeedsRepoUpdate() {
 		if err := helm.UpdateRepo(); err != nil {
-			return fmt.Errorf("updating repo: %w", err)
+			err = fmt.Errorf("updating repo: %w", err)
+			if opts.AllowFailedReleases {
+				// None of the dep builds below can be trusted to produce usable
+				// charts: mark all of them as failed and let the caller skip them.
+				for _, r := range builds {
+					failedReleases[chartPrepareResultKey(r)] = err
+				}
+			}
+			return err
 		}
 	}
 
@@ -2428,7 +2480,14 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 				continue
 			}
 
-			return fmt.Errorf("building dependencies of local chart: %w", err)
+			err = fmt.Errorf("building dependencies of local chart %q for release %q: %w", r.chartName, r.releaseName, err)
+			if opts.AllowFailedReleases {
+				// Record the failed release and keep building the remaining charts.
+				failedReleases[chartPrepareResultKey(r)] = err
+				continue
+			}
+
+			return err
 		}
 	}
 
