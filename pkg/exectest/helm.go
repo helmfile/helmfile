@@ -50,6 +50,10 @@ type Helm struct {
 
 	UpdateDepsCallbacks map[string]func(string) error
 
+	// ShowChartWithFlagsFunc lets tests stub `helm show chart <ref> --version <constraint>`,
+	// which state.HelmState uses to resolve OCI constraint versions before caching.
+	ShowChartWithFlagsFunc func(chartPath string, flags ...string) (chart.Metadata, error)
+
 	DiffMutex     *sync.Mutex
 	ChartsMutex   *sync.Mutex
 	ReleasesMutex *sync.Mutex
@@ -330,6 +334,18 @@ func (helm *Helm) ShowChart(chartPath string) (chart.Metadata, error) {
 	default:
 		return chart.Metadata{}, errors.New("fake test error")
 	}
+}
+
+// ShowChartWithFlags mimics `helm show chart <ref> --version <constraint>`
+// resolution used by state.HelmState to convert a version constraint to a
+// concrete semver before caching. Test cases can inject a fake resolver via
+// helm.ShowChartWithFlagsFunc; the default falls back to ShowChart to keep
+// unrelated tests working.
+func (helm *Helm) ShowChartWithFlags(chartPath string, flags ...string) (chart.Metadata, error) {
+	if helm.ShowChartWithFlagsFunc != nil {
+		return helm.ShowChartWithFlagsFunc(chartPath, flags...)
+	}
+	return helm.ShowChart(chartPath)
 }
 
 // IsHelm4Enabled detects the installed Helm version by executing the helm binary.
