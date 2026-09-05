@@ -256,7 +256,7 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 }
 
 // parsePart wraps rawLoad for one document part in a helmfile.parse span.
-func (ld *desiredStateLoader) parsePart(rawContent []byte, baseDir, filename, id string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
+func (ld *desiredStateLoader) parsePart(rawContent []byte, baseDir, filename string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
 	_, span := telemetry.Tracer(telemetry.ScopeHelmfile).Start(ld.spanCtx(), "helmfile.parse",
 		trace.WithAttributes(attribute.String("helmfile.state_file", filename)),
 	)
@@ -307,7 +307,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			rawContent = part
 		}
 
-		currentState, err := ld.parsePart(rawContent, baseDir, filename, id, evaluateBases, env, overrodeEnv)
+		currentState, err := ld.parsePart(rawContent, baseDir, filename, evaluateBases, env, overrodeEnv)
 		if err != nil {
 			return nil, err
 		}
