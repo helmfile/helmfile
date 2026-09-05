@@ -6193,16 +6193,22 @@ type noOpChartInspector struct {
 // return the raw constraint unchanged with no error, keeping backward
 // compatibility for third-party helmexec.Interface implementations.
 func TestResolveOCIConstraintVersion_ChartInspectorFallback(t *testing.T) {
+	const (
+		repoName  = "myrepo"
+		repoURL   = "registry.example.com/charts"
+		chartRef  = "myrepo/fallbackchart"
+		qualified = "registry.example.com/charts/fallbackchart"
+	)
 	st := &HelmState{
 		ReleaseSetSpec: ReleaseSetSpec{
 			Repositories: []RepositorySpec{
-				{Name: "myrepo", URL: "registry.example.com/charts", OCI: true},
+				{Name: repoName, URL: repoURL, OCI: true},
 			},
 		},
 		logger:      logger,
 		valsRuntime: valsRuntime,
 	}
-	release := &ReleaseSpec{Name: "app", Chart: "myrepo/app", Version: "~1"}
+	release := &ReleaseSpec{Name: "fallback", Chart: chartRef, Version: "~1"}
 	helm := &noOpChartInspector{}
 
 	// Sanity: noOpChartInspector satisfies Interface but not ChartInspector.
@@ -6210,7 +6216,7 @@ func TestResolveOCIConstraintVersion_ChartInspectorFallback(t *testing.T) {
 	_, isInspector := any(helm).(helmexec.ChartInspector)
 	require.False(t, isInspector, "test setup: noOpChartInspector must NOT implement ChartInspector")
 
-	resolved, changed, err := st.resolveOCIConstraintVersion(release, helm, "registry.example.com/charts/app", "~1")
+	resolved, changed, err := st.resolveOCIConstraintVersion(release, helm, qualified, "~1")
 	require.NoError(t, err)
 	require.False(t, changed, "no ChartInspector capability => must not change version")
 	require.Equal(t, "~1", resolved, "no ChartInspector capability => must return raw constraint")

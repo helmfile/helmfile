@@ -6121,7 +6121,22 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		releaseCopy := *release
 		releaseCopy.Version = resolved
 		release = &releaseCopy
-		chartVersion = resolved
+		// Recompute the qualified chart ref so its embedded `:<version>` tag
+		// (added by getOCIQualifiedChartName when version came from the
+		// `version:` field) also carries the resolved value; otherwise
+		// `helm chart pull` would receive `<repo>/<chart>:<constraint>` alongside
+		// a `--version <resolved>` flag, which is at best redundant and at
+		// worst rejected by future Helm versions.
+		requalified, _, requalifiedVersion, requalifyErr := st.getOCIQualifiedChartName(release)
+		if requalifyErr != nil {
+			// Should not happen: the release already parsed once above with
+			// the raw constraint. Log and keep the old qualifiedChartName so
+			// we degrade to the previous (buggy) behavior rather than fail.
+			st.logger.Warnf("re-qualifying OCI chart name for release %q after version resolution failed: %v; using pre-resolution ref (%s)", release.Name, requalifyErr, qualifiedChartName)
+		} else {
+			qualifiedChartName = requalified
+			chartVersion = requalifiedVersion
+		}
 	}
 
 	cacheKey := st.getChartCacheKey(release)
