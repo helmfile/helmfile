@@ -2,7 +2,7 @@
 
 Helmfile can export [OpenTelemetry](https://opentelemetry.io/) traces of a run, which is especially useful in CI/CD: see where time is spent, which helm invocations dominate, how label selectors fan out, and what to target for improvement.
 
-Tracing is **experimental** and **off by default**. This page documents the first increment (the command-level root span); finer-grained spans are being added incrementally.
+Tracing is **experimental** and **off by default**. It currently emits the command-level root span plus one span per external process (helm invocations, hooks, plugin execs); per-release spans are being added incrementally.
 
 ## Enabling
 
@@ -59,9 +59,11 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
 
 The root span is named after the command (`helmfile apply`, `helmfile sync`, ...) and carries `helmfile.command`, `helmfile.file`, `helmfile.environment`, and `helmfile.selectors` attributes, plus `helmfile.exit_code` and the error (if any) at the end.
 
-Finer-grained instrumentation — per-release spans and one `helm.exec` span per helm invocation — is on the roadmap; see [the design proposal](proposals/otel-tracing.md) for the planned span taxonomy.
+Every external process helmfile starts — each helm invocation, hook command, and plugin exec — gets its own span nested under the command span: `helm.exec` (with `helm.subcommand`) for helm binaries, `os.exec` otherwise, both carrying `exec.command`, redacted `exec.args`, and `exec.exit_code` on failure.
 
-Secret-bearing command arguments (`--set`, `--set-file`, `--username`, `--password`, ...) are never recorded in span attributes.
+Per-release spans are on the roadmap; see [the design proposal](proposals/otel-tracing.md) for the planned span taxonomy.
+
+Secret-bearing command arguments (`--set`, `--set-file`, `--username`, `--password`, ...) are never recorded in span attributes — they are masked before export.
 
 ## CI trace correlation
 

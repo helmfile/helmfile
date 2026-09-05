@@ -1,6 +1,7 @@
 package event
 
 import (
+	goContext "context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 type runner struct {
@@ -342,4 +344,29 @@ func TestTriggerCleanupEventWithNilError(t *testing.T) {
 	if call.args[0] != expectedArg {
 		t.Errorf("expected arg %q, got %q", expectedArg, call.args[0])
 	}
+}
+
+func TestBusDefaultRunnerUsesCtxWhenSet(t *testing.T) {
+	ctx, cancel := goContext.WithCancel(goContext.Background())
+	defer cancel()
+
+	bus := &Bus{Ctx: ctx, Logger: zap.NewNop().Sugar()}
+
+	_, err := bus.Trigger("presync", nil, nil)
+	require.NoError(t, err)
+
+	runner, ok := bus.Runner.(helmexec.ShellRunner)
+	require.True(t, ok, "default runner should be a ShellRunner")
+	require.Equal(t, ctx, runner.Ctx, "default runner must use Bus.Ctx when set")
+}
+
+func TestBusDefaultRunnerFallsBackToTODO(t *testing.T) {
+	bus := &Bus{Logger: zap.NewNop().Sugar()}
+
+	_, err := bus.Trigger("presync", nil, nil)
+	require.NoError(t, err)
+
+	runner, ok := bus.Runner.(helmexec.ShellRunner)
+	require.True(t, ok)
+	require.Equal(t, goContext.TODO(), runner.Ctx, "nil Bus.Ctx must preserve the historical TODO context")
 }

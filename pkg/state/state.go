@@ -44,6 +44,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/kubedog"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
@@ -1208,6 +1209,22 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 	return nil
 }
 
+// kubedogTraceContext returns a context that carries the current command's
+// trace context but, exactly like the context.Background() it replaced, never
+// propagates cancellation: SIGINT/timeout behavior of the tracking paths is
+// unchanged, only trace context is added (see docs/proposals/otel-tracing.md
+// §4.4). When tracing is disabled this is indistinguishable from Background.
+func kubedogTraceContext() gocontext.Context {
+	return gocontext.WithoutCancel(telemetry.CommandContext())
+}
+
+// hookTraceContext is the event.Bus counterpart of kubedogTraceContext: hook
+// subprocesses join the current trace while their (historically detached)
+// cancellation behavior is preserved.
+func hookTraceContext() gocontext.Context {
+	return gocontext.WithoutCancel(telemetry.CommandContext())
+}
+
 // SyncReleases wrapper for executing helm upgrade on the releases
 func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, additionalValues []string, workerLimit int, opt ...SyncOpt) []error {
 	opts := &SyncOpts{}
@@ -1288,10 +1305,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
 					if relErr == nil {
-						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+						relErr = st.trackReleaseIfEnabled(kubedogTraceContext(), release, helm, opts)
 					}
 				} else {
-					trackHandle, trackStarted := st.startBackgroundKubedogTracking(gocontext.Background(), release, helm, opts)
+					trackHandle, trackStarted := st.startBackgroundKubedogTracking(kubedogTraceContext(), release, helm, opts)
 					// trackHandle.Helm is a logger-scoped helm clone that
 					// captures output to an in-memory buffer while tracking is
 					// active. When tracking isn't running it's the original
@@ -3672,6 +3689,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		Env:           st.Env,
 		Logger:        st.logger,
 		Fs:            st.fs,
+		Ctx:           hookTraceContext(),
 	}
 	data := map[string]any{
 		"HelmfileCommand": helmfileCmd,
@@ -3709,6 +3727,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Env:           st.Env,
 		Logger:        st.logger,
 		Fs:            st.fs,
+		Ctx:           hookTraceContext(),
 	}
 	vals := st.Values()
 	data := map[string]any{

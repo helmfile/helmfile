@@ -34,6 +34,12 @@ type Bus struct {
 	Runner helmexec.Runner
 	Hooks  []Hook
 
+	// Ctx, when set, is used by the lazily-constructed default Runner so that
+	// hook subprocesses join the current trace. It should carry trace context
+	// without cancellation (see the WithoutCancel bridge in pkg/state); nil
+	// falls back to context.TODO(), the historical behavior.
+	Ctx goContext.Context
+
 	BasePath      string
 	StateFilePath string
 	Namespace     string
@@ -59,12 +65,16 @@ func (bus *Bus) Trigger(evt string, evtErr error, context map[string]any) (bool,
 	}
 
 	if bus.Runner == nil {
+		ctx := bus.Ctx
+		if ctx == nil {
+			// It would be better to pass app.Ctx here, but it requires a lot of work.
+			// It seems that this code only for running hooks, which took not to long time as helm.
+			ctx = goContext.TODO()
+		}
 		bus.Runner = helmexec.ShellRunner{
 			Dir:    bus.BasePath,
 			Logger: bus.Logger,
-			// It would be better to pass app.Ctx here, but it requires a lot of work.
-			// It seems that this code only for running hooks, which took not to long time as helm.
-			Ctx: goContext.TODO(),
+			Ctx:    ctx,
 		}
 	}
 

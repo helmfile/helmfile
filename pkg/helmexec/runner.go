@@ -34,28 +34,49 @@ type ShellRunner struct {
 	Ctx    context.Context
 }
 
-// Execute a shell command
+// Execute a shell command. The whole execution is wrapped in one span
+// (helm.exec/os.exec, see span.go); span overhead is nil when telemetry is
+// disabled.
 func (shell ShellRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	ctx, span := startExecSpan(shell.Ctx, cmd, args)
+	defer span.End()
+
+	out, err := shell.run(ctx, cmd, args, env, enableLiveOutput)
+	finishExecSpan(span, err)
+	return out, err
+}
+
+func (shell ShellRunner) run(ctx context.Context, cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 
 	if !enableLiveOutput {
-		return Output(shell.Ctx, preparedCmd, shell.StripArgsValuesOnExitError, &logWriterGenerator{
+		return Output(ctx, preparedCmd, shell.StripArgsValuesOnExitError, &logWriterGenerator{
 			log: shell.Logger,
 		})
 	} else {
-		return LiveOutput(shell.Ctx, preparedCmd, shell.StripArgsValuesOnExitError, os.Stdout)
+		return LiveOutput(ctx, preparedCmd, shell.StripArgsValuesOnExitError, os.Stdout)
 	}
 }
 
-// Execute a shell command
+// Execute a shell command with the given stdin; wrapped in an exec span like
+// Execute.
 func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	ctx, span := startExecSpan(shell.Ctx, cmd, args)
+	defer span.End()
+
+	out, err := shell.runStdIn(ctx, cmd, args, env, stdin)
+	finishExecSpan(span, err)
+	return out, err
+}
+
+func (shell ShellRunner) runStdIn(ctx context.Context, cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
 	preparedCmd := exec.Command(cmd, args...)
 	preparedCmd.Dir = shell.Dir
 	preparedCmd.Env = mergeEnv(os.Environ(), env)
 	preparedCmd.Stdin = stdin
-	return Output(shell.Ctx, preparedCmd, shell.StripArgsValuesOnExitError, &logWriterGenerator{
+	return Output(ctx, preparedCmd, shell.StripArgsValuesOnExitError, &logWriterGenerator{
 		log: shell.Logger,
 	})
 }

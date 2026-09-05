@@ -31,7 +31,7 @@ HCL language is supported for environment values files (`.hcl` suffix). This was
 
 ## otel-tracing
 
-OpenTelemetry tracing support: export a trace of a helmfile run to any OTLP-compatible backend. The current increment emits the command-level root span; finer-grained spans (state-file loading, per-release operations, hooks, helm invocations) are being added incrementally — see [the design proposal](https://github.com/helmfile/helmfile/blob/main/docs/proposals/otel-tracing.md).
+OpenTelemetry tracing support: export a trace of a helmfile run to any OTLP-compatible backend. The current increments emit the command-level root span and one span per external process (helm invocations, hooks, plugin execs); per-release spans are being added incrementally — see [the design proposal](https://github.com/helmfile/helmfile/blob/main/docs/proposals/otel-tracing.md).
 
 Unlike the features above, `otel-tracing` is **not** gated by `HELMFILE_EXPERIMENTAL`. It is off by default and enabled explicitly per run:
 
