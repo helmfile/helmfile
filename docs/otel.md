@@ -2,7 +2,7 @@
 
 Helmfile can export [OpenTelemetry](https://opentelemetry.io/) traces of a run, which is especially useful in CI/CD: see where time is spent, which helm invocations dominate, how label selectors fan out, and what to target for improvement.
 
-Tracing is **experimental** and **off by default**. It currently emits the command-level root span, state-loading spans (discover/load/render/parse), one span per external process (helm invocations, hooks, plugin execs), and per-hook spans; per-release spans are being added incrementally.
+Tracing is **experimental** and **off by default**. It currently emits the command-level root span, state-loading spans (discover/load/render/parse), one span per external process (helm invocations, hooks, plugin execs), per-hook spans, and per-release spans for the sync/diff/delete/status/test/prepare paths.
 
 ## Enabling
 
@@ -63,7 +63,7 @@ Every external process helmfile starts — each helm invocation, hook command, a
 
 State loading is traced too: `helmfile.discover_states`, one `helmfile.load` per state file (including nested helmfiles), with `helmfile.render` and `helmfile.parse` children — rendering is frequently the hidden time sink. Each hook execution produces a `helmfile.hook` span (with `hook.event` and `hook.name`) that its subprocess span nests under.
 
-Per-release spans are on the roadmap; see [the design proposal](proposals/otel-tracing.md) for the planned span taxonomy.
+Per-release spans (`helmfile.release.sync` / `.diff` / `.delete` / `.status` / `.test` / `.prepare`) carry the release name, namespace, chart, and labels, and nest under the state-file load span — with the release's helm subprocesses (upgrade, diff, delete, status, test) nested under the release span. The remaining loops (flag preparation, template/lint/unittest) are being added incrementally; see [the design proposal](proposals/otel-tracing.md) for the full taxonomy.
 
 Secret-bearing command arguments (`--set`, `--set-file`, `--username`, `--password`, ...) are never recorded in span attributes — they are masked before export.
 

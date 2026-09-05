@@ -127,3 +127,64 @@ releases:
 	})
 	require.NoError(t, tmplErr)
 }
+
+// TestReleaseSpanHierarchy runs a sync with the exectest fake helm and
+// asserts per-release spans: present, parented under the load span, and
+// carrying the release identity attributes.
+func TestReleaseSpanHierarchy(t *testing.T) {
+	rec := otlptest.NewRecorder(t)
+	otlptest.SetupTelemetry(t, rec, "helmfile sync")
+
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: demo
+  chart: incubator/raw
+  namespace: apps
+`,
+	}
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
+
+	helm := &exectest.Helm{}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              &ffs.FileSystem{Glob: filepath.Glob},
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          helmexec.NewLogger(os.Stderr, "warn"),
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", "default"): helm,
+		},
+		valsRuntime: valsRuntime,
+		ctx:         telemetry.CommandContext(),
+	}, files)
+
+	syncErr := app.Sync(applyConfig{
+		concurrency: 1,
+		logger:      app.Logger,
+	})
+	require.NoError(t, syncErr)
+
+	otlptest.ShutdownTelemetry(t)
+
+	spans := rec.Spans(t)
+	release := otlptest.FindSpanWhere(t, spans, func(s *v1.Span) bool { return s.Name == "helmfile.release.sync" }, "release sync span")
+	load := otlptest.FindSpanWhere(t, spans, func(s *v1.Span) bool { return s.Name == "helmfile.load" }, "load span")
+
+	assert.Equal(t, load.TraceId, release.TraceId, "release span must join the load span's trace")
+	assert.Equal(t, load.SpanId, release.ParentSpanId, "release span must nest under the load span")
+
+	name, ok := otlptest.AttrString(release, "helmfile.release")
+	require.True(t, ok)
+	assert.Equal(t, "demo", name)
+	ns, ok := otlptest.AttrString(release, "helmfile.namespace")
+	require.True(t, ok)
+	assert.Equal(t, "apps", ns)
+	chart, ok := otlptest.AttrString(release, "helmfile.chart")
+	require.True(t, ok)
+	assert.Equal(t, "incubator/raw", chart)
+}

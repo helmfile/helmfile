@@ -41,13 +41,13 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 	waitGroup.Wait()
 }
 
-func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int,
+func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int, verb string,
 	do func(ReleaseSpec, int) error) []error {
-	return st.iterateOnReleases(helm, concurrency, st.Releases, do)
+	return st.iterateOnReleases(helm, concurrency, verb, st.Releases, do)
 }
 
 // nolint: unparam
-func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, inputs []ReleaseSpec,
+func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, verb string, inputs []ReleaseSpec,
 	do func(ReleaseSpec, int) error) []error {
 	var errs []error
 
@@ -67,7 +67,7 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 		},
 		func(id int) {
 			for release := range releases {
-				err := do(release, id)
+				err := st.doWithReleaseSpan(verb, release, id, do)
 				st.logger.Debugf("release %q processed", release.Name)
 				results <- result{release: release, err: err}
 			}

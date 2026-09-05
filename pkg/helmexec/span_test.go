@@ -1,6 +1,7 @@
 package helmexec
 
 import (
+	"context"
 	"io"
 	"runtime"
 	"testing"
@@ -97,3 +98,27 @@ func spanAttrStrings(t *testing.T, span *v1.Span, key string) []string {
 	}
 	return out
 }
+
+// TestRunnerWithCtx pins the per-call context swap that lets helm subprocess
+// spans nest under per-release spans: the shared runner is never mutated, a
+// clone carries the ctx, and non-ShellRunner runners pass through unchanged.
+func TestRunnerWithCtx(t *testing.T) {
+	baseCtx := context.Background()
+	releaseCtx := context.WithValue(baseCtx, ctxKey{}, "release")
+
+	shell := &ShellRunner{Ctx: baseCtx}
+	helm := &execer{runner: shell}
+
+	clone := helm.runnerWithCtx(releaseCtx)
+	got, ok := clone.(*ShellRunner)
+	require.True(t, ok)
+	assert.Equal(t, releaseCtx, got.Ctx, "clone must carry the per-call ctx")
+	assert.Equal(t, context.Background(), shell.Ctx, "shared runner must not be mutated")
+
+	// A typed nil context (distinct from a nil literal, per staticcheck) must
+	// still return the original runner.
+	var nilCtx context.Context
+	assert.Same(t, shell, helm.runnerWithCtx(nilCtx), "nil ctx must return the original runner")
+}
+
+type ctxKey struct{}

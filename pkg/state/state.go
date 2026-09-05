@@ -146,6 +146,9 @@ type HelmState struct {
 	basePath string
 	FilePath string
 
+	// traceCtx parents per-release spans; set via SetTraceContext (see span.go).
+	traceCtx gocontext.Context
+
 	ReleaseSetSpec `yaml:",inline"`
 
 	logger  *zap.SugaredLogger
@@ -1145,7 +1148,9 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		func(workerIndex int) {
 			for release := range jobQueue {
 				var relErr *ReleaseError
+				relCtx, relSpan := st.startReleaseSpan("delete", release)
 				context := st.createHelmContext(release, workerIndex)
+				context.Ctx = relCtx
 
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
 					relErr = newReleaseFailedError(release, err)
@@ -1183,6 +1188,8 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
+
+				endReleaseSpan(relSpan, releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -1275,7 +1282,9 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					chart = normalizeChart(st.basePath, chart)
 				}
 				var relErr *ReleaseError
+				relCtx, relSpan := st.startReleaseSpan("sync", release)
 				context := st.createHelmContext(release, workerIndex)
+				context.Ctx = relCtx
 
 				start := time.Now()
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
@@ -1361,7 +1370,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						if trackStarted {
 							trackErr = trackHandle.Wait()
 						} else {
-							trackErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+							trackErr = st.trackReleaseIfEnabled(kubedogTraceContext(), release, helm, opts)
 						}
 						if trackErr != nil {
 							m.Lock()
@@ -1388,6 +1397,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 				release.duration = time.Since(start)
+
+				endReleaseSpan(relSpan, releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -2357,7 +2368,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				if sharedChartKeys[st.getChartCacheKey(release)] {
 					releaseOpts.ForceDownload = true
 				}
+				_, relSpan := st.startReleaseSpan("prepare", release)
 				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, releaseOpts, workerIndex)
+				endReleaseSpan(relSpan, result.err)
 				if result.err != nil {
 					// Error results returned by prepareChartForRelease may lack the
 					// release identity. Complete it here, so that the failure can be
@@ -3295,6 +3308,8 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				release := prep.release
 				buf := &bytes.Buffer{}
 
+				relCtx, relSpan := st.startReleaseSpan("diff", release)
+
 				releaseSuppressDiff := suppressDiff
 				if prep.suppressDiff {
 					releaseSuppressDiff = true
@@ -3310,7 +3325,9 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				if prep.upgradeDueToSkippedDiff {
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
 				} else if err := st.withChartOperationLock(release, chartPath, func() error {
-					return helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
+					diffContext := st.createHelmContextWithWriter(release, buf)
+					diffContext.Ctx = relCtx
+					return helm.DiffRelease(diffContext, release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
 				}); err != nil {
 					switch e := err.(type) {
 					case helmexec.ExitError:
@@ -3329,6 +3346,8 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
+
+				relSpan.End()
 			}
 		},
 		func() {
@@ -3359,7 +3378,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 }
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
-	return st.scatterGatherReleases(helm, workerLimit, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, workerLimit, "status", func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3378,7 +3397,7 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error {
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "delete", func(release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
 		flags := make([]string, 0)
@@ -3439,7 +3458,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		o(&opts)
 	}
 
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "test", func(release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}

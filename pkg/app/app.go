@@ -972,6 +972,9 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 		return nil, err
 	}
 
+	// Per-release spans (pkg/state) parent under the load span.
+	st.SetTraceContext(loadCtx)
+
 	st.SetKubeconfig(a.Kubeconfig)
 
 	return st, nil

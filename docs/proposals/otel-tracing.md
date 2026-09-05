@@ -508,6 +508,11 @@ docs/otel.md                     // user guide (config, backends, CI recipes, sa
   chartify makes) are invisible to `ShellRunner` instrumentation; options are a wrapper
   span around each chartify call in `pkg/state`, or upstream OTel support in chartify.
 - Log-to-trace correlation (zap OTel appender).
+- Remaining per-release instrumentation: the flag-preparation loops
+  (`prepareSyncReleases`/`prepareDiffReleases`) and the exec nesting for
+  `helmexec.Interface` methods that take no `HelmContext`
+  (TemplateRelease/Lint/Unittest/Fetch) — their exec spans currently sit flat
+  under the load span while the release span covers the surrounding work.
 - Fixing the kubedog/hook cancellation gaps (§4.3) — separate issues filed from this design.
 
 ## 13. Alternatives considered
