@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 var (
@@ -80,17 +82,28 @@ func safeVersionPath(version string) string {
 	return string(sp)
 }
 
-// versionConstraintChars are the characters that make a `version:` value a
-// semver constraint rather than an exact pinned version. Kept in sync with
-// safeVersionPath's substitution set so that any string touched by
-// safeVersionPath is by definition a constraint. Whitespace is included
-// because e.g. ">=1.0 <2.0" is a valid Masterminds/semver constraint.
-const versionConstraintChars = "=><!|~^ ,*"
-
-// isVersionConstraint reports whether v looks like a semver constraint (e.g.
-// "~1", "^2.0", ">=1.0.0 <2.0.0", "*") rather than an exact pinned version
-// (e.g. "1.0.1"). The check is a fast character scan; the caller can pair it
-// with semver.NewConstraint if it needs to validate the constraint's syntax.
+// isVersionConstraint reports whether v is a Masterminds/semver constraint
+// (e.g. "~1", "^2.0", ">=1.0.0 <2.0.0", "*", "1.x", "1.X.x") rather than an
+// exact pinned version (e.g. "1.0.1", "v1.0.0-rc.1", "1.0.0+build.1"). Uses
+// the semver parser instead of a character scan so that wildcard-segment
+// constraints ("1.x", "1.X", "1.x.x") — which contain no operator characters
+// — are correctly classified as constraints and reach the OCI resolver.
+// Values that are neither a valid semver nor a valid constraint (empty
+// string, "latest", junk) return false: helm handles those separately (empty
+// means "let helm pick latest"; "latest" is rejected earlier by
+// getOCIQualifiedChartName).
 func isVersionConstraint(v string) bool {
-	return strings.ContainsAny(v, versionConstraintChars)
+	if v == "" {
+		return false
+	}
+	// Exact semver — with or without a "v" prefix, with prerelease and build
+	// metadata (which may legitimately contain "x") — is not a constraint.
+	if _, err := semver.NewVersion(v); err == nil {
+		return false
+	}
+	// Everything Masterminds accepts as a constraint but not a version is a
+	// constraint. This covers operator forms (~, ^, >=, ...) AND wildcard
+	// segment forms (1.x, 1.X, 1.x.x) which have no operator characters.
+	_, err := semver.NewConstraint(v)
+	return err == nil
 }

@@ -5952,21 +5952,31 @@ func TestGetOCIChartPath(t *testing.T) {
 	}
 }
 
-// TestIsVersionConstraint checks the fast-path constraint detector. Anything
-// containing a character used by safeVersionPath's substitution set is a
-// constraint; exact semvers (with or without a "v" prefix) are not.
+// TestIsVersionConstraint checks the semver-parser-based constraint detector.
+// Exact semvers (including with a "v" prefix, prerelease metadata that may
+// contain "x", or build metadata that may contain "x") are not constraints.
+// Anything the Masterminds/semver parser accepts as a constraint — operator
+// forms AND wildcard segment forms (1.x, 1.X) — is a constraint. Values that
+// are neither (empty, "latest", junk) return false: helm handles those
+// separately elsewhere.
 func TestIsVersionConstraint(t *testing.T) {
 	tests := []struct {
 		version string
 		want    bool
 	}{
-		{"", false},
+		// exact versions — never constraints
 		{"1", false},
 		{"1.0", false},
 		{"1.0.1", false},
 		{"v1.0.1", false},
 		{"1.0.0-rc.1", false},
 		{"1.0.0+build.1", false},
+		// exact versions where "x" appears in prerelease or build metadata:
+		// must NOT be misclassified as wildcard constraints
+		{"1.0.0-alpha.x", false},
+		{"1.0.0+x", false},
+		{"1.0.0+build.x.1", false},
+		// operator constraints
 		{"~1", true},
 		{"~1.0", true},
 		{"^1", true},
@@ -5979,6 +5989,19 @@ func TestIsVersionConstraint(t *testing.T) {
 		{"!=1.0.0", true},
 		{"1.0.0 || 2.0.0", true},
 		{"1.0.0,2.0.0", true},
+		// wildcard-segment constraints — the case that a character scan missed
+		{"1.x", true},
+		{"1.X", true},
+		{"1.x.x", true},
+		{"1.X.X", true},
+		{"1.2.x", true},
+		{"1.2.X", true},
+		{"v1.x", true},
+		// neither a valid version nor a valid constraint — handled elsewhere,
+		// resolver skips them so the raw string keeps flowing to helm.
+		{"", false},
+		{"latest", false},
+		{"not-a-version", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.version, func(t *testing.T) {
@@ -5994,9 +6017,10 @@ func TestIsVersionConstraint(t *testing.T) {
 // cache-key derivation uses the concrete tag rather than the raw constraint.
 func TestResolveOCIConstraintVersion(t *testing.T) {
 	const (
-		releaseName = "app"
-		chartRef    = "myrepo/app"
-		qualified   = "registry.example.com/charts/app"
+		releaseName     = "app"
+		chartRef        = "myrepo/app"
+		qualified       = "registry.example.com/charts/app"
+		resolvedVersion = "1.0.1"
 	)
 	baseRepositories := []RepositorySpec{
 		{Name: "myrepo", URL: "registry.example.com/charts", OCI: true},
@@ -6034,18 +6058,31 @@ func TestResolveOCIConstraintVersion(t *testing.T) {
 			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
 			qualifiedRef:     qualified,
 			version:          "~1",
-			stubbedResolved:  "1.0.1",
+			stubbedResolved:  resolvedVersion,
 			expectHelmCalled: true,
-			expectVersion:    "1.0.1",
+			expectVersion:    resolvedVersion,
+			expectChanged:    true,
+		},
+		{
+			// Wildcard-segment constraint has no operator character but must
+			// still be detected as a constraint and resolved (regression
+			// coverage for the semver-parser-based isVersionConstraint fix).
+			name:             "wildcard segment constraint resolves to concrete version",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "1.x"},
+			qualifiedRef:     qualified,
+			version:          "1.x",
+			stubbedResolved:  resolvedVersion,
+			expectHelmCalled: true,
+			expectVersion:    resolvedVersion,
 			expectChanged:    true,
 		},
 		{
 			name:             "exact version bypasses resolver",
-			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "1.0.1"},
-			qualifiedRef:     qualified + ":1.0.1",
-			version:          "1.0.1",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: resolvedVersion},
+			qualifiedRef:     qualified + ":" + resolvedVersion,
+			version:          resolvedVersion,
 			expectHelmCalled: false,
-			expectVersion:    "1.0.1",
+			expectVersion:    resolvedVersion,
 			expectChanged:    false,
 		},
 		{
