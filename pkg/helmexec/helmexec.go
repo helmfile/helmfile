@@ -39,15 +39,25 @@ type Interface interface {
 	GetVersion() Version
 	IsVersionAtLeast(versionStr string) bool
 	ShowChart(chart string) (chart.Metadata, error)
-	// ShowChartWithFlags runs `helm show chart` with the given flags and returns the
-	// parsed Chart.yaml metadata. Unlike ShowChart, callers pass flags such as
-	// --version, --plain-http, or --registry-config so that constraint versions (e.g.
-	// "~1", "^2.0.0") can be resolved against an OCI registry to a concrete semver.
-	ShowChartWithFlags(chart string, flags ...string) (chart.Metadata, error)
 }
 
 type DependencyUpdater interface {
 	UpdateDeps(chart string) error
 	IsHelm3() bool
 	IsHelm4() bool
+}
+
+// ChartInspector is a capability interface exposing `helm show chart` with
+// arbitrary flags. It is implemented by helmexec's concrete execer and by
+// stubs in tests. Callers should type-assert Interface to ChartInspector and
+// fall back gracefully when the implementation does not satisfy it, so that
+// third-party implementations of helmexec.Interface keep compiling. See
+// state.HelmState.resolveOCIConstraintVersion for the usage pattern.
+type ChartInspector interface {
+	// ShowChartWithFlags runs `helm show chart <chart> [flags...]` and returns
+	// the parsed Chart.yaml metadata. Unlike ShowChart, callers pass flags
+	// such as --version, --plain-http, or --registry-config so that
+	// constraint versions (e.g. "~1", "^2.0.0") can be resolved against an
+	// OCI registry to a concrete semver.
+	ShowChartWithFlags(chart string, flags ...string) (chart.Metadata, error)
 }

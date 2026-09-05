@@ -6142,6 +6142,43 @@ func TestResolveOCIConstraintVersion(t *testing.T) {
 	}
 }
 
+// noOpChartInspector is a helmexec.Interface implementation that intentionally
+// does NOT satisfy helmexec.ChartInspector. It exists to prove that
+// resolveOCIConstraintVersion degrades gracefully when a third-party helm
+// implementation predates the ShowChartWithFlags capability, instead of
+// requiring every downstream mock to grow the new method.
+type noOpChartInspector struct {
+	helmexec.Interface
+}
+
+// TestResolveOCIConstraintVersion_ChartInspectorFallback confirms that a helm
+// implementation lacking the ChartInspector capability causes the resolver to
+// return the raw constraint unchanged with no error, keeping backward
+// compatibility for third-party helmexec.Interface implementations.
+func TestResolveOCIConstraintVersion_ChartInspectorFallback(t *testing.T) {
+	st := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{
+				{Name: "myrepo", URL: "registry.example.com/charts", OCI: true},
+			},
+		},
+		logger:      logger,
+		valsRuntime: valsRuntime,
+	}
+	release := &ReleaseSpec{Name: "app", Chart: "myrepo/app", Version: "~1"}
+	helm := &noOpChartInspector{}
+
+	// Sanity: noOpChartInspector satisfies Interface but not ChartInspector.
+	var _ helmexec.Interface = helm
+	_, isInspector := any(helm).(helmexec.ChartInspector)
+	require.False(t, isInspector, "test setup: noOpChartInspector must NOT implement ChartInspector")
+
+	resolved, changed, err := st.resolveOCIConstraintVersion(release, helm, "registry.example.com/charts/app", "~1")
+	require.NoError(t, err)
+	require.False(t, changed, "no ChartInspector capability => must not change version")
+	require.Equal(t, "~1", resolved, "no ChartInspector capability => must return raw constraint")
+}
+
 func TestHelmState_chartOCIFlags(t *testing.T) {
 	tests := []struct {
 		name     string

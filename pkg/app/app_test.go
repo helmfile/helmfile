@@ -2971,10 +2971,6 @@ func (helm *mockHelmExec) ShowChart(chartPath string) (chart.Metadata, error) {
 	return chart.Metadata{}, errors.New("tests logs rely on this error")
 }
 
-func (helm *mockHelmExec) ShowChartWithFlags(chartPath string, flags ...string) (chart.Metadata, error) {
-	return chart.Metadata{}, errors.New("tests logs rely on this error")
-}
-
 func TestTemplate_SingleStateFile(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.yaml": `

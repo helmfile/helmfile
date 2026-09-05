@@ -6424,7 +6424,8 @@ func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chart
 // which returns the resolved chart's Chart.yaml; the returned Version is the
 // concrete tag helm picked. The returned bool indicates whether the effective
 // version actually changed (false when the input was already a pinned semver,
-// resolution is opted out, or the release is not OCI-backed).
+// resolution is opted out, the release is not OCI-backed, or the helm
+// implementation does not expose the ShowChartWithFlags capability).
 //
 // This is a helper for getOCIChart. Callers should tolerate errors: a failed
 // resolution shouldn't break rendering; it just falls back to the pre-fix
@@ -6447,6 +6448,13 @@ func (st *HelmState) resolveOCIConstraintVersion(release *ReleaseSpec, helm helm
 	// Digest-pinned references bypass version resolution: the digest is the
 	// authoritative content identifier and helm ignores --version in that case.
 	if strings.Contains(qualifiedChartName, "@") {
+		return chartVersion, false, nil
+	}
+	// Type-assert to the optional ChartInspector capability so third-party
+	// implementations of helmexec.Interface that predate this feature keep
+	// compiling and simply fall back to the pre-fix caching behavior.
+	inspector, ok := helm.(helmexec.ChartInspector)
+	if !ok {
 		return chartVersion, false, nil
 	}
 
@@ -6472,7 +6480,7 @@ func (st *HelmState) resolveOCIConstraintVersion(release *ReleaseSpec, helm helm
 		flags = append(flags, "--devel")
 	}
 
-	metadata, err := helm.ShowChartWithFlags(ref, flags...)
+	metadata, err := inspector.ShowChartWithFlags(ref, flags...)
 	if err != nil {
 		return chartVersion, false, err
 	}
