@@ -1,6 +1,7 @@
 package state
 
 import (
+	gocontext "context"
 	"errors"
 	"fmt"
 	"sort"
@@ -42,13 +43,13 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 }
 
 func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int, verb string,
-	do func(ReleaseSpec, int) error) []error {
+	do func(gocontext.Context, ReleaseSpec, int) error) []error {
 	return st.iterateOnReleases(helm, concurrency, verb, st.Releases, do)
 }
 
 // nolint: unparam
 func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, verb string, inputs []ReleaseSpec,
-	do func(ReleaseSpec, int) error) []error {
+	do func(gocontext.Context, ReleaseSpec, int) error) []error {
 	var errs []error
 
 	inputsSize := len(inputs)

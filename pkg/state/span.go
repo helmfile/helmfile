@@ -86,11 +86,12 @@ func releaseErrAsError(relErr *ReleaseError) error {
 }
 
 // doWithReleaseSpan runs do for one release under a helmfile.release.<verb>
-// span, recording the returned error on the span. It is the convenience form
-// used by the iterateOnReleases-based loops.
-func (st *HelmState) doWithReleaseSpan(verb string, release ReleaseSpec, workerIndex int, do func(ReleaseSpec, int) error) error {
-	_, span := st.startReleaseSpan(verb, &release)
-	err := do(release, workerIndex)
+// span, recording the returned error on the span, and hands do the span
+// context so the release's helm subprocesses nest under the span. It is the
+// convenience form used by the iterateOnReleases-based loops.
+func (st *HelmState) doWithReleaseSpan(verb string, release ReleaseSpec, workerIndex int, do func(gocontext.Context, ReleaseSpec, int) error) error {
+	ctx, span := st.startReleaseSpan(verb, &release)
+	err := do(ctx, release, workerIndex)
 	endReleaseSpan(span, err)
 	return err
 }

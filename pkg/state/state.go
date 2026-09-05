@@ -3378,7 +3378,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 }
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
-	return st.scatterGatherReleases(helm, workerLimit, "status", func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, workerLimit, "status", func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3391,13 +3391,15 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		}
 		flags = st.appendConnectionFlags(flags, &release)
 
-		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
+		statusContext := st.createHelmContext(&release, workerIndex)
+		statusContext.Ctx = ctx
+		return helm.ReleaseStatus(statusContext, release.Name, flags...)
 	})
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error {
-	return st.scatterGatherReleases(helm, concurrency, "delete", func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "delete", func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
 		flags := make([]string, 0)
@@ -3408,6 +3410,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			flags = append(flags, "--namespace", release.Namespace)
 		}
 		context := st.createHelmContext(&release, workerIndex)
+		context.Ctx = ctx
 
 		start := time.Now()
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
@@ -3458,7 +3461,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		o(&opts)
 	}
 
-	return st.scatterGatherReleases(helm, concurrency, "test", func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "test", func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3482,7 +3485,9 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		flags = st.appendConnectionFlags(flags, &release)
 		flags = st.appendChartDownloadFlags(flags, &release)
 
-		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
+		testContext := st.createHelmContext(&release, workerIndex)
+		testContext.Ctx = ctx
+		return helm.TestRelease(testContext, release.Name, flags...)
 	})
 }
 
