@@ -79,3 +79,18 @@ func safeVersionPath(version string) string {
 	sp := c.ReplaceAll([]byte(version), []byte("_"))
 	return string(sp)
 }
+
+// versionConstraintChars are the characters that make a `version:` value a
+// semver constraint rather than an exact pinned version. Kept in sync with
+// safeVersionPath's substitution set so that any string touched by
+// safeVersionPath is by definition a constraint. Whitespace is included
+// because e.g. ">=1.0 <2.0" is a valid Masterminds/semver constraint.
+const versionConstraintChars = "=><!|~^ ,*"
+
+// isVersionConstraint reports whether v looks like a semver constraint (e.g.
+// "~1", "^2.0", ">=1.0.0 <2.0.0", "*") rather than an exact pinned version
+// (e.g. "1.0.1"). The check is a fast character scan; the caller can pair it
+// with semver.NewConstraint if it needs to validate the constraint's syntax.
+func isVersionConstraint(v string) bool {
+	return strings.ContainsAny(v, versionConstraintChars)
+}

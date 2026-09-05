@@ -39,6 +39,11 @@ type Interface interface {
 	GetVersion() Version
 	IsVersionAtLeast(versionStr string) bool
 	ShowChart(chart string) (chart.Metadata, error)
+	// ShowChartWithFlags runs `helm show chart` with the given flags and returns the
+	// parsed Chart.yaml metadata. Unlike ShowChart, callers pass flags such as
+	// --version, --plain-http, or --registry-config so that constraint versions (e.g.
+	// "~1", "^2.0.0") can be resolved against an OCI registry to a concrete semver.
+	ShowChartWithFlags(chart string, flags ...string) (chart.Metadata, error)
 }
 
 type DependencyUpdater interface {

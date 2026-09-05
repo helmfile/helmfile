@@ -170,3 +170,8 @@ func (helm *noCallHelmExec) ShowChart(chartPath string) (chart.Metadata, error) 
 	helm.doPanic()
 	return chart.Metadata{}, nil
 }
+
+func (helm *noCallHelmExec) ShowChartWithFlags(chartPath string, flags ...string) (chart.Metadata, error) {
+	helm.doPanic()
+	return chart.Metadata{}, nil
+}

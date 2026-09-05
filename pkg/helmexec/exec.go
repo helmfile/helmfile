@@ -1348,15 +1348,24 @@ func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
 }
 
 func (helm *execer) ShowChart(chartPath string) (chart.Metadata, error) {
-	var helmArgs = []string{"show", "chart", chartPath}
-	out, error := helm.exec(helmArgs, map[string]string{}, nil)
-	if error != nil {
-		return chart.Metadata{}, error
+	return helm.ShowChartWithFlags(chartPath)
+}
+
+// ShowChartWithFlags runs `helm show chart` and unmarshals the resulting
+// Chart.yaml. Callers may pass additional helm flags (for example --version,
+// --plain-http, --registry-config, --ca-file, --insecure-skip-tls-verify).
+// When --version references a semver constraint, helm resolves it against the
+// registry and returns the concrete matching Chart.yaml, so callers can read
+// metadata.Version to obtain the resolved version.
+func (helm *execer) ShowChartWithFlags(chartPath string, flags ...string) (chart.Metadata, error) {
+	helmArgs := append([]string{"show", "chart", chartPath}, flags...)
+	out, err := helm.exec(helmArgs, map[string]string{}, nil)
+	if err != nil {
+		return chart.Metadata{}, err
 	}
 	var metadata chart.Metadata
-	error = yaml.Unmarshal(out, &metadata)
-	if error != nil {
-		return chart.Metadata{}, error
+	if err := yaml.Unmarshal(out, &metadata); err != nil {
+		return chart.Metadata{}, err
 	}
 	return metadata, nil
 }

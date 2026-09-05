@@ -12,6 +12,7 @@ import (
 	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/exectest"
@@ -5946,6 +5947,196 @@ func TestGetOCIChartPath(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedPath, path)
+			}
+		})
+	}
+}
+
+// TestIsVersionConstraint checks the fast-path constraint detector. Anything
+// containing a character used by safeVersionPath's substitution set is a
+// constraint; exact semvers (with or without a "v" prefix) are not.
+func TestIsVersionConstraint(t *testing.T) {
+	tests := []struct {
+		version string
+		want    bool
+	}{
+		{"", false},
+		{"1", false},
+		{"1.0", false},
+		{"1.0.1", false},
+		{"v1.0.1", false},
+		{"1.0.0-rc.1", false},
+		{"1.0.0+build.1", false},
+		{"~1", true},
+		{"~1.0", true},
+		{"^1", true},
+		{"^2.0.0", true},
+		{"*", true},
+		{">=1.0.0", true},
+		{">=1.0.0 <2.0.0", true}, // whitespace-separated range
+		{">1.0", true},
+		{"<2.0", true},
+		{"!=1.0.0", true},
+		{"1.0.0 || 2.0.0", true},
+		{"1.0.0,2.0.0", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			require.Equal(t, tt.want, isVersionConstraint(tt.version))
+		})
+	}
+}
+
+// TestResolveOCIConstraintVersion exercises the pre-cache constraint resolver.
+// The stubbed helm implementation stands in for `helm show chart ... --version
+// <constraint>` and returns whatever Chart.yaml version the test wants; the
+// resolver must forward the returned version back to the caller so downstream
+// cache-key derivation uses the concrete tag rather than the raw constraint.
+func TestResolveOCIConstraintVersion(t *testing.T) {
+	const (
+		releaseName = "app"
+		chartRef    = "myrepo/app"
+		qualified   = "registry.example.com/charts/app"
+	)
+	baseRepositories := []RepositorySpec{
+		{Name: "myrepo", URL: "registry.example.com/charts", OCI: true},
+	}
+
+	newState := func(defaults HelmSpec) *HelmState {
+		return &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				HelmDefaults: defaults,
+				Repositories: baseRepositories,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+	}
+
+	trueVal := true
+	falseVal := false
+
+	tests := []struct {
+		name             string
+		defaults         HelmSpec
+		release          ReleaseSpec
+		qualifiedRef     string
+		version          string
+		stubbedResolved  string
+		stubbedErr       error
+		expectHelmCalled bool
+		expectVersion    string
+		expectChanged    bool
+		expectErr        bool
+	}{
+		{
+			name:             "constraint resolves to concrete version",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			stubbedResolved:  "1.0.1",
+			expectHelmCalled: true,
+			expectVersion:    "1.0.1",
+			expectChanged:    true,
+		},
+		{
+			name:             "exact version bypasses resolver",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "1.0.1"},
+			qualifiedRef:     qualified + ":1.0.1",
+			version:          "1.0.1",
+			expectHelmCalled: false,
+			expectVersion:    "1.0.1",
+			expectChanged:    false,
+		},
+		{
+			name:             "empty version bypasses resolver",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef},
+			qualifiedRef:     qualified,
+			version:          "",
+			expectHelmCalled: false,
+			expectChanged:    false,
+		},
+		{
+			name:             "digest-pinned ref bypasses resolver even with constraint version",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified + "@sha256:deadbeef",
+			version:          "~1",
+			expectHelmCalled: false,
+			expectVersion:    "~1",
+			expectChanged:    false,
+		},
+		{
+			name:             "opt-out via HelmDefaults keeps raw constraint",
+			defaults:         HelmSpec{ResolveOCIVersions: &falseVal},
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			expectHelmCalled: false,
+			expectVersion:    "~1",
+			expectChanged:    false,
+		},
+		{
+			name:             "opt-out at release level wins over helmDefaults",
+			defaults:         HelmSpec{ResolveOCIVersions: &trueVal},
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1", ResolveOCIVersions: &falseVal},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			expectHelmCalled: false,
+			expectChanged:    false,
+		},
+		{
+			name:             "resolver returns empty version is an error",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			stubbedResolved:  "",
+			expectHelmCalled: true,
+			expectErr:        true,
+		},
+		{
+			name:             "resolver returns same version as constraint reports no change",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			stubbedResolved:  "~1",
+			expectHelmCalled: true,
+			expectVersion:    "~1",
+			expectChanged:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := false
+			var gotFlags []string
+			helm := &exectest.Helm{
+				ShowChartWithFlagsFunc: func(chartPath string, flags ...string) (chart.Metadata, error) {
+					called = true
+					gotFlags = flags
+					if tt.stubbedErr != nil {
+						return chart.Metadata{}, tt.stubbedErr
+					}
+					return chart.Metadata{Version: tt.stubbedResolved}, nil
+				},
+			}
+			st := newState(tt.defaults)
+			resolved, changed, err := st.resolveOCIConstraintVersion(&tt.release, helm, tt.qualifiedRef, tt.version)
+
+			require.Equalf(t, tt.expectHelmCalled, called, "helm.ShowChartWithFlags call expectation mismatch")
+			if tt.expectHelmCalled {
+				// The resolver must pass --version <constraint> so helm can
+				// resolve against the registry rather than a cached index.
+				require.Contains(t, gotFlags, "--version")
+				require.Contains(t, gotFlags, tt.version)
+			}
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.expectChanged, changed)
+			if tt.expectVersion != "" {
+				require.Equal(t, tt.expectVersion, resolved)
 			}
 		})
 	}
