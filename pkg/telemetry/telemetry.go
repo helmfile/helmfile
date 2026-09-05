@@ -16,6 +16,7 @@ package telemetry
 
 import (
 	gocontext "context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -62,6 +64,7 @@ type Options struct {
 type tracingState struct {
 	enabled  bool
 	provider *sdktrace.TracerProvider
+	meters   *sdkmetric.MeterProvider
 	// noop is the tracer provider returned while disabled, kept here so Tracer
 	// does not allocate on every call.
 	noop    trace.TracerProvider
@@ -114,18 +117,32 @@ func Setup(ctx gocontext.Context, opts Options) {
 		return
 	}
 
-	provider, err := newTracerProvider(ctx, opts)
+	res, err := buildResource(opts.Version)
+	if err != nil {
+		warnf(opts.Logger, "OpenTelemetry tracing unavailable: %v", err)
+		return
+	}
+
+	provider, err := newTracerProvider(ctx, opts, res)
+	if err != nil {
+		warnf(opts.Logger, "OpenTelemetry tracing unavailable: %v", err)
+		return
+	}
+
+	meters, err := newMeterProvider(ctx, res)
 	if err != nil {
 		warnf(opts.Logger, "OpenTelemetry tracing unavailable: %v", err)
 		return
 	}
 
 	otel.SetTracerProvider(provider)
+	otel.SetMeterProvider(meters)
 	otel.SetTextMapPropagator(propagatorsFromEnv(opts.Logger))
 
 	current.Store(&tracingState{
 		enabled:  true,
 		provider: provider,
+		meters:   meters,
 		noop:     noop.NewTracerProvider(),
 		cmdCtx:   gocontext.Background(),
 	})
@@ -151,6 +168,7 @@ func StartCommandSpan(command string, attrs ...attribute.KeyValue) {
 	current.Store(&tracingState{
 		enabled:  true,
 		provider: s.provider,
+		meters:   s.meters,
 		noop:     s.noop,
 		cmdSpan:  span,
 		cmdCtx:   ctx,
@@ -207,7 +225,10 @@ func Shutdown(ctx gocontext.Context, runErr error, exitCode int) error {
 		}
 		s.cmdSpan.End()
 	}
-	return s.provider.Shutdown(ctx)
+	return errors.Join(
+		s.provider.Shutdown(ctx),
+		s.meters.Shutdown(ctx),
+	)
 }
 
 // reset restores the pristine disabled state; used by tests (exported as Reset

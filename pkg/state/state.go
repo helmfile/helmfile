@@ -1189,7 +1189,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
-				endReleaseSpan(relSpan, releaseErrAsError(relErr))
+				endReleaseSpan(relSpan, "delete", releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -1398,7 +1398,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				}
 				release.duration = time.Since(start)
 
-				endReleaseSpan(relSpan, releaseErrAsError(relErr))
+				endReleaseSpan(relSpan, "sync", releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -2370,7 +2370,7 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				}
 				_, relSpan := st.startReleaseSpan("prepare", release)
 				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, releaseOpts, workerIndex)
-				endReleaseSpan(relSpan, result.err)
+				endReleaseSpan(relSpan, "prepare", result.err)
 				if result.err != nil {
 					// Error results returned by prepareChartForRelease may lack the
 					// release identity. Complete it here, so that the failure can be
@@ -3347,7 +3347,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					}
 				}
 
-				relSpan.End()
+				endReleaseSpan(relSpan, "diff", nil)
 			}
 		},
 		func() {

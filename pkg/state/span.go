@@ -50,12 +50,14 @@ func (st *HelmState) startReleaseSpan(verb string, release *ReleaseSpec) (gocont
 }
 
 // endReleaseSpan ends a release span, recording err (when non-nil) as the
-// span's error status. Ending an already-ended span is a no-op, so it is safe
-// to call from every exit path of a worker-loop item.
-func endReleaseSpan(span trace.Span, err error) {
+// span's error status, and counts the outcome on the helmfile.release.count
+// metric. Ending an already-ended span is a no-op, so it is safe to call from
+// every exit path of a worker-loop item.
+func endReleaseSpan(span trace.Span, verb string, err error) {
 	if span == nil {
 		return
 	}
+	telemetry.RecordReleaseResult(verb, err)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 	}
@@ -92,6 +94,6 @@ func releaseErrAsError(relErr *ReleaseError) error {
 func (st *HelmState) doWithReleaseSpan(verb string, release ReleaseSpec, workerIndex int, do func(gocontext.Context, ReleaseSpec, int) error) error {
 	ctx, span := st.startReleaseSpan(verb, &release)
 	err := do(ctx, release, workerIndex)
-	endReleaseSpan(span, err)
+	endReleaseSpan(span, verb, err)
 	return err
 }

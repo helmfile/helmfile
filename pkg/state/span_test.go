@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metricsv1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/zap"
 
@@ -76,6 +77,60 @@ func TestReleaseSpanExecNesting(t *testing.T) {
 	}, "release status subprocess span")
 	assert.Equal(t, release.TraceId, exec.TraceId, "subprocess must join the release span's trace")
 	assert.Equal(t, release.SpanId, exec.ParentSpanId, "subprocess must nest under the release span")
+
+	assertMetrics(t, rec)
+}
+
+// assertMetrics pins the two helmfile metrics recorded on this path: one
+// helm.exec duration datapoint for the status subcommand, and one successful
+// release.count increment for verb=status.
+func assertMetrics(t *testing.T, rec *otlptest.Recorder) {
+	t.Helper()
+
+	metrics := rec.Metrics(t)
+
+	duration := otlptest.FindMetric(t, metrics, "helmfile.helm.exec.duration")
+	dp := findHistogramPoint(t, duration, "subcommand", "status")
+	require.NotNil(t, dp, "duration histogram must have a subcommand=status datapoint")
+	assert.Positive(t, dp.GetCount(), "histogram must record at least one observation")
+
+	count := otlptest.FindMetric(t, metrics, "helmfile.release.count")
+	sum := sumCounter(t, count, map[string]string{"verb": "status", "result": "success"})
+	assert.EqualValues(t, 1, sum, "release.count must count one successful status")
+}
+
+func findHistogramPoint(t *testing.T, m *metricsv1.Metric, key, value string) *metricsv1.HistogramDataPoint {
+	t.Helper()
+	for _, dp := range m.GetHistogram().GetDataPoints() {
+		for _, attr := range dp.GetAttributes() {
+			if attr.GetKey() == key && attr.GetValue().GetStringValue() == value {
+				return dp
+			}
+		}
+	}
+	return nil
+}
+
+func sumCounter(t *testing.T, m *metricsv1.Metric, want map[string]string) int64 {
+	t.Helper()
+	for _, dp := range m.GetSum().GetDataPoints() {
+		matched := true
+		seen := map[string]string{}
+		for _, attr := range dp.GetAttributes() {
+			seen[attr.GetKey()] = attr.GetValue().GetStringValue()
+		}
+		for k, v := range want {
+			if seen[k] != v {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return dp.GetAsInt()
+		}
+	}
+	t.Fatalf("no %s datapoint with attributes %v", m.GetName(), want)
+	return 0
 }
 
 // TestSetTraceContext pins the parent wiring: per-release spans root at the

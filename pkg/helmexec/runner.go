@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -41,8 +42,9 @@ func (shell ShellRunner) Execute(cmd string, args []string, env map[string]strin
 	ctx, span := startExecSpan(shell.Ctx, cmd, args)
 	defer span.End()
 
+	start := time.Now()
 	out, err := shell.run(ctx, cmd, args, env, enableLiveOutput)
-	finishExecSpan(span, err)
+	finishExecSpan(span, cmd, args, start, err)
 	return out, err
 }
 
@@ -66,8 +68,9 @@ func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]
 	ctx, span := startExecSpan(shell.Ctx, cmd, args)
 	defer span.End()
 
+	start := time.Now()
 	out, err := shell.runStdIn(ctx, cmd, args, env, stdin)
-	finishExecSpan(span, err)
+	finishExecSpan(span, cmd, args, start, err)
 	return out, err
 }
 

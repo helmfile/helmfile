@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -79,8 +80,12 @@ func helmSubcommand(args []string) string {
 	return ""
 }
 
-// finishExecSpan records a finished process's exit status on its span.
-func finishExecSpan(span trace.Span, err error) {
+// finishExecSpan records a finished process's outcome on its span and, for
+// helm binaries, the helmfile.helm.exec.duration metric.
+func finishExecSpan(span trace.Span, cmd string, args []string, start time.Time, err error) {
+	if isHelmBinary(filepath.Base(cmd)) {
+		telemetry.RecordHelmExecDuration(time.Since(start).Seconds(), helmSubcommand(args), err == nil)
+	}
 	if err == nil {
 		return
 	}

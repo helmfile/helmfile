@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	gocontext "context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 // them makes each test independent of the developer's shell.
 var hermeticEnvVars = []string{
 	"OTEL_TRACES_EXPORTER",
+	"OTEL_METRICS_EXPORTER",
 	"OTEL_TRACES_SAMPLER",
 	"OTEL_TRACES_SAMPLER_ARG",
 	"OTEL_PROPAGATORS",
@@ -34,6 +36,7 @@ func setupForTest(t *testing.T) {
 		t.Setenv(key, "")
 	}
 	t.Setenv("OTEL_TRACES_EXPORTER", "none")
+	t.Setenv("OTEL_METRICS_EXPORTER", "none")
 	Reset()
 	Setup(gocontext.Background(), Options{Enabled: true, Version: "test-version"})
 	require.True(t, current.Load().enabled, "telemetry should be enabled after Setup")
@@ -170,4 +173,40 @@ func TestShutdownWithNilContext(t *testing.T) {
 func TestScopeConstants(t *testing.T) {
 	assert.Equal(t, "helmfile", ScopeHelmfile)
 	assert.Equal(t, "helm", ScopeHelm)
+}
+
+func TestMetricsRecordIsNoOpWhenDisabled(t *testing.T) {
+	Reset()
+
+	// Must not panic with telemetry never set up (noop instruments).
+	RecordHelmExecDuration(0.1, "template", true)
+	RecordReleaseResult("sync", nil)
+	RecordReleaseResult("sync", errors.New("boom"))
+
+	assert.Equal(t, gocontext.Background(), CommandContext())
+}
+
+func TestSetupEnablesMetricsProvider(t *testing.T) {
+	setupForTest(t) // traces+metrics exporters = none
+
+	// Recording through the global meter must reach the real provider without
+	// panicking; with the "none" exporter nothing is shipped.
+	RecordHelmExecDuration(0.25, "template", true)
+	RecordReleaseResult("status", nil)
+
+	assert.True(t, current.Load().enabled)
+	assert.NoError(t, Shutdown(gocontext.Background(), nil, 0))
+}
+
+func TestSetupDegradesOnBadMetricExporter(t *testing.T) {
+	for _, key := range hermeticEnvVars {
+		t.Setenv(key, "")
+	}
+	t.Setenv("OTEL_TRACES_EXPORTER", "none")
+	t.Setenv("OTEL_METRICS_EXPORTER", "not-a-real-exporter")
+	Reset()
+
+	// An invalid metrics exporter must disable telemetry, not fail the run.
+	Setup(gocontext.Background(), Options{Enabled: true, Version: "test-version"})
+	assert.False(t, current.Load().enabled)
 }

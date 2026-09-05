@@ -29,6 +29,7 @@ Everything beyond the on/off switch uses the standard [OpenTelemetry environment
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | or `grpc` |
 | `OTEL_EXPORTER_OTLP_HEADERS` | — | e.g. `authorization=Bearer <token>` |
 | `OTEL_TRACES_EXPORTER` | `otlp` | `otlp` \| `console` \| `none` |
+| `OTEL_METRICS_EXPORTER` | `otlp` | `otlp` \| `console` \| `prometheus` \| `none` — see [Metrics](#metrics) |
 | `OTEL_TRACES_SAMPLER` (+ `OTEL_TRACES_SAMPLER_ARG`) | `parentbased_always_on` | |
 | `OTEL_SERVICE_NAME` | `helmfile` | |
 | `OTEL_RESOURCE_ATTRIBUTES` | — | e.g. `cicd.pipeline=deploy,cicd.run_id=4821` |
@@ -66,6 +67,24 @@ State loading is traced too: `helmfile.discover_states`, one `helmfile.load` per
 Per-release spans (`helmfile.release.sync` / `.diff` / `.delete` / `.status` / `.test` / `.prepare`) carry the release name, namespace, chart, and labels, and nest under the state-file load span — with the release's helm subprocesses (upgrade, diff, delete, status, test) nested under the release span. The remaining loops (flag preparation, template/lint/unittest) are being added incrementally; see [the design proposal](proposals/otel-tracing.md) for the full taxonomy.
 
 Secret-bearing command arguments (`--set`, `--set-file`, `--username`, `--password`, ...) are never recorded in span attributes — they are masked before export.
+
+## Metrics
+
+Tracing and metrics share the same switch and resource; metrics are exported through the standard metrics environment variables:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `OTEL_METRICS_EXPORTER` | `otlp` | `otlp` \| `console` \| `prometheus` \| `none` |
+| `OTEL_METRIC_EXPORT_INTERVAL` | `60000` (ms) | periodic export interval; the final flush happens at exit |
+
+Two instruments are emitted:
+
+| Metric | Type | Attributes |
+|---|---|---|
+| `helmfile.helm.exec.duration` | histogram (seconds) | `subcommand`, `success` |
+| `helmfile.release.count` | counter | `verb` (sync/diff/delete/status/test/prepare), `result` (success/error) |
+
+Inspect them without a collector with `OTEL_METRICS_EXPORTER=console`.
 
 ## CI trace correlation
 

@@ -11,7 +11,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	metricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	metricsv1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 
@@ -19,12 +21,18 @@ import (
 )
 
 // Recorder is a minimal OTLP/HTTP+protobuf receiver capturing raw export
-// requests.
+// requests. Traces and metrics arrive on different paths (/v1/traces,
+// /v1/metrics) and are decoded separately.
 type Recorder struct {
 	Server *httptest.Server
 
 	mu       sync.Mutex
-	requests [][]byte
+	requests []capturedRequest
+}
+
+type capturedRequest struct {
+	path string
+	body []byte
 }
 
 // NewRecorder starts a receiver bound to the test's lifetime.
@@ -38,7 +46,7 @@ func NewRecorder(t *testing.T) *Recorder {
 			return
 		}
 		rec.mu.Lock()
-		rec.requests = append(rec.requests, body)
+		rec.requests = append(rec.requests, capturedRequest{path: r.URL.Path, body: body})
 		rec.mu.Unlock()
 		// An empty 200 body unmarshals to a valid (empty) protobuf response.
 		w.WriteHeader(http.StatusOK)
@@ -47,22 +55,46 @@ func NewRecorder(t *testing.T) *Recorder {
 	return rec
 }
 
-// Spans decodes every captured request into a flat span list.
+// Spans decodes every captured /v1/traces request into a flat span list.
 func (r *Recorder) Spans(t *testing.T) []*v1.Span {
 	t.Helper()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var spans []*v1.Span
-	for _, body := range r.requests {
-		var req tracepb.ExportTraceServiceRequest
-		require.NoError(t, proto.Unmarshal(body, &req))
-		for _, rs := range req.ResourceSpans {
+	for _, req := range r.requests {
+		if req.path != "/v1/traces" {
+			continue
+		}
+		var msg tracepb.ExportTraceServiceRequest
+		require.NoError(t, proto.Unmarshal(req.body, &msg))
+		for _, rs := range msg.ResourceSpans {
 			for _, ss := range rs.ScopeSpans {
 				spans = append(spans, ss.Spans...)
 			}
 		}
 	}
 	return spans
+}
+
+// Metrics decodes every captured /v1/metrics request into a flat metric list.
+func (r *Recorder) Metrics(t *testing.T) []*metricsv1.Metric {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var metrics []*metricsv1.Metric
+	for _, req := range r.requests {
+		if req.path != "/v1/metrics" {
+			continue
+		}
+		var msg metricspb.ExportMetricsServiceRequest
+		require.NoError(t, proto.Unmarshal(req.body, &msg))
+		for _, rm := range msg.ResourceMetrics {
+			for _, sm := range rm.ScopeMetrics {
+				metrics = append(metrics, sm.Metrics...)
+			}
+		}
+	}
+	return metrics
 }
 
 // SetupTelemetry enables telemetry against the recorder, mirroring the
@@ -125,6 +157,19 @@ func AttrString(span *v1.Span, key string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// FindMetric returns the metric with the given name, failing the test
+// otherwise.
+func FindMetric(t *testing.T, metrics []*metricsv1.Metric, name string) *metricsv1.Metric {
+	t.Helper()
+	for _, m := range metrics {
+		if m.GetName() == name {
+			return m
+		}
+	}
+	t.Fatalf("metric %q not found", name)
+	return nil
 }
 
 // HasAttr reports whether the span carries the attribute at all.
