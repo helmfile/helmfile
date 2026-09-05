@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	goContext "context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,8 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/helmfile/vals"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -19,6 +22,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/policy"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
 const (
@@ -31,6 +35,11 @@ type desiredStateLoader struct {
 	overrideHelmBinary      string
 	overrideKustomizeBinary string
 	enableLiveOutput        bool
+
+	// traceCtx carries the helmfile.load span context; render/parse spans
+	// attach to it. nil falls back to context.Background, which with tracing
+	// disabled makes span starts no-ops.
+	traceCtx goContext.Context
 
 	env       string
 	namespace string
@@ -45,6 +54,14 @@ type desiredStateLoader struct {
 	valsRuntime vals.Evaluator
 
 	lockFilePath string
+}
+
+// spanCtx returns the loader's span parent context.
+func (ld *desiredStateLoader) spanCtx() goContext.Context {
+	if ld.traceCtx != nil {
+		return ld.traceCtx
+	}
+	return goContext.Background()
 }
 
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
@@ -238,6 +255,16 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 	return st, nil
 }
 
+// parsePart wraps rawLoad for one document part in a helmfile.parse span.
+func (ld *desiredStateLoader) parsePart(rawContent []byte, baseDir, filename, id string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
+	_, span := telemetry.Tracer(telemetry.ScopeHelmfile).Start(ld.spanCtx(), "helmfile.parse",
+		trace.WithAttributes(attribute.String("helmfile.state_file", filename)),
+	)
+	defer span.End()
+
+	return ld.rawLoad(rawContent, baseDir, filename, evaluateBases, env, overrodeEnv)
+}
+
 func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
 	// Allows part-splitting to work with CLRF-ed content
 	normalizedContent := bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
@@ -280,14 +307,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			rawContent = part
 		}
 
-		currentState, err := ld.rawLoad(
-			rawContent,
-			baseDir,
-			filename,
-			evaluateBases,
-			env,
-			overrodeEnv,
-		)
+		currentState, err := ld.parsePart(rawContent, baseDir, filename, id, evaluateBases, env, overrodeEnv)
 		if err != nil {
 			return nil, err
 		}

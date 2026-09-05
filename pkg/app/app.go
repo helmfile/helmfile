@@ -12,6 +12,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/helmfile/vals"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/argparser"
@@ -940,6 +942,13 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 		op = opts[0]
 	}
 
+	// The load span covers remote fetching, rendering, and parsing of one
+	// state file; render/parse spans attach through the loader's traceCtx.
+	loadCtx, loadSpan := telemetry.Tracer(telemetry.ScopeHelmfile).Start(a.spanParentCtx(), "helmfile.load",
+		trace.WithAttributes(attribute.String("helmfile.state_file", file)),
+	)
+	defer loadSpan.End()
+
 	ld := &desiredStateLoader{
 		fs:        a.fs,
 		env:       a.Env,
@@ -948,6 +957,7 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 		logger:    a.Logger,
 		remote:    a.remote,
 		baseDir:   baseDir,
+		traceCtx:  loadCtx,
 
 		overrideKubeContext:     a.OverrideKubeContext,
 		overrideHelmBinary:      a.OverrideHelmBinary,
@@ -1644,7 +1654,22 @@ func (a *App) WrapWithoutSelector(converge func(*state.HelmState, helmexec.Inter
 	}
 }
 
+// spanParentCtx returns the context app-layer spans attach to. Tests
+// construct App literals without a context, so nil falls back to Background
+// (with tracing disabled, span starts are no-ops anyway).
+func (a *App) spanParentCtx() goContext.Context {
+	if a.ctx != nil {
+		return a.ctx
+	}
+	return goContext.Background()
+}
+
 func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]string, error) {
+	_, span := telemetry.Tracer(telemetry.ScopeHelmfile).Start(a.spanParentCtx(), "helmfile.discover_states",
+		trace.WithAttributes(attribute.String("helmfile.path", specifiedPath)),
+	)
+	defer span.End()
+
 	path, err := a.remote.Locate(specifiedPath, "states")
 	if err != nil {
 		return nil, fmt.Errorf("locate: %v", err)
