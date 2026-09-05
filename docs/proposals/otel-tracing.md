@@ -104,6 +104,8 @@ than hand-rolled, so helmfile maintains no exporter-construction code of its own
 | `OTEL_SERVICE_NAME` | `helmfile` | SDK resource | service identity (`resource` `WithFromEnv`; verified in sdk v1.44.0 `resource/env.go`) |
 | `OTEL_RESOURCE_ATTRIBUTES` | — | SDK resource | e.g. `deployment.environment=ci,cicd.pipeline=release` (same verified reader) |
 | `OTEL_PROPAGATORS` | `tracecontext,baggage` | our wrapper | extract parent from CI-injected `TRACEPARENT` (SDK core does not parse this env either) |
+| `OTEL_METRICS_EXPORTER` | `otlp` | autoexport (metrics) | `otlp` \| `console` \| `prometheus` \| `none` — delivered in PR 4 |
+| `OTEL_METRIC_EXPORT_INTERVAL` | `60000` (ms) | SDK metric reader | periodic export interval; final flush happens at exit |
 | `OTEL_SDK_DISABLED` | `false` | our wrapper | standard kill switch (the Go SDK does not read this one itself) |
 
 `console` (JSON spans on **stdout**, via `stdouttrace`) exists for local debugging without a
@@ -389,7 +391,11 @@ Traces leave the machine they run on. Ground rules, checked against what exists 
   today. No flag checks appear in hot loops.
 
 **When enabled:**
-- Standard SDK BatchSpanProcessor (5s interval / 512-span batches). A
+- Standard SDK BatchSpanProcessor (5s interval / 512-span batches); metrics
+  use a periodic reader (default 60s, `OTEL_METRIC_EXPORT_INTERVAL`) with a
+  final flush at exit. Two instruments exist — `helmfile.helm.exec.duration`
+  and `helmfile.release.count` — so metric cardinality stays tiny (bounded by
+  subcommands and verbs, never by release names). A
   `sync --concurrency=16` run produces at most one span per helm invocation plus one per
   release — hundreds, not tens of thousands. Export happens off the critical path; the
   only synchronous cost is the ≤5s shutdown flush, paid only when tracing is on.
