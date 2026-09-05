@@ -22,6 +22,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/plugins"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
 var CleanWaitGroup sync.WaitGroup
@@ -76,7 +77,11 @@ type HelmRelease struct {
 }
 
 func New(conf ConfigProvider) *App {
-	ctx := goContext.Background()
+	// telemetry.CommandContext returns context.Background when tracing is
+	// disabled, so this is behavior-identical to the previous explicit
+	// Background() while rooting the app context under the command span when
+	// tracing is on.
+	ctx := telemetry.CommandContext()
 	ctx, Cancel = goContext.WithCancel(ctx)
 
 	return Init(&App{

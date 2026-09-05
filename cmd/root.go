@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"go.opentelemetry.io/otel/attribute"
 	"go.szostok.io/version/extension"
 	"go.uber.org/zap"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/runtime"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
 var logger *zap.SugaredLogger
@@ -75,6 +77,19 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 			}
 			logger = helmexec.NewLogger(logOut, logLevel)
 			globalConfig.SetLogger(logger)
+
+			// OpenTelemetry tracing (experimental). Setup and StartCommandSpan
+			// are no-ops when tracing is disabled, so the default path is
+			// unchanged. Configuration beyond the on/off switch comes from the
+			// standard OTEL_* environment variables.
+			cmdName := "helmfile " + c.Name()
+			telemetry.Setup(c.Context(), telemetry.Options{
+				Enabled: globalImpl.OtelTracing(),
+				Version: version.Version(),
+				Logger:  logger,
+			})
+			telemetry.StartCommandSpan(cmdName, commandSpanAttributes(cmdName, globalImpl)...)
+
 			return nil
 		},
 	}
@@ -121,6 +136,19 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	return cmd, nil
 }
 
+// commandSpanAttributes builds the root-span attributes from the resolved
+// global options. Values that can be overridden per release appear again on
+// child spans; the service identity (service.name/service.version) lives on
+// the OTel resource, not on spans.
+func commandSpanAttributes(cmdName string, g *config.GlobalImpl) []attribute.KeyValue {
+	return []attribute.KeyValue{
+		attribute.String("helmfile.command", cmdName),
+		attribute.String("helmfile.file", g.FileOrDir()),
+		attribute.String("helmfile.environment", g.Env()),
+		attribute.StringSlice("helmfile.selectors", g.Selectors()),
+	}
+}
+
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
 	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", "", fmt.Sprintf(`Path to the helm binary. Overrides "HELMFILE_HELM_BINARY" OS environment variable when specified (default %q)`, app.DefaultHelmBinary))
 	fs.StringVarP(&globalOptions.KustomizeBinary, "kustomize-binary", "k", "", fmt.Sprintf(`Path to the kustomize binary. Overrides "HELMFILE_KUSTOMIZE_BINARY" OS environment variable when specified (default %q)`, app.DefaultKustomizeBinary))
@@ -164,6 +192,9 @@ It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still dis
 Useful when file order matters for dependencies (e.g., databases before applications).
 When processing multiple files, paths are resolved without changing the process working directory,
 so relative environment variables like KUBECONFIG work correctly.`)
+	fs.BoolVar(&globalOptions.OtelTracing, "otel-tracing", globalOptions.OtelTracing, `Enable OpenTelemetry tracing (experimental).
+Configure the exporter with standard OTEL_* environment variables (e.g. OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_TRACES_EXPORTER).
+Overrides "HELMFILE_OTEL_TRACING" OS environment variable when specified. See docs/otel.md`)
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")
 }
