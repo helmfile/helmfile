@@ -219,7 +219,7 @@ func TestClassifyExec(t *testing.T) {
 			if tt.ctxMarked {
 				ctx = context.WithValue(ctx, helmExecMarker{}, true)
 			}
-			name, attrs, _ := classifyExec(ctx, tt.cmd, tt.args)
+			name, attrs := classifyExec(ctx, tt.cmd, tt.args)
 
 			assert.Equal(t, tt.wantName, name)
 			got := map[string][]string{}

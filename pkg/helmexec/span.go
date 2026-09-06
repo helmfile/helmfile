@@ -29,15 +29,20 @@ func startExecSpan(ctx context.Context, cmd string, args []string) (context.Cont
 		ctx = context.Background()
 	}
 
-	name, attrs, isHelm := classifyExec(ctx, cmd, args)
+	name, attrs := classifyExec(ctx, cmd, args)
 	ctx, span := telemetry.Tracer(telemetry.ScopeHelm).Start(ctx, name, trace.WithAttributes(attrs...))
-	return ctx, span, isHelm
+	return ctx, span, name == helmExecSpanName
 }
 
 // classifyExec builds the span name and attributes for one subprocess.
 // Secret-bearing arguments are always redacted with the strict profile: span
 // visibility must be at least as redacted as error messages (see redact.go).
-func classifyExec(ctx context.Context, cmd string, args []string) (string, []attribute.KeyValue, bool) {
+// helmExecSpanName is the single source of truth for what counts as a helm
+// invocation: the span name drives both classification and the helm duration
+// metric gate.
+const helmExecSpanName = "helm.exec"
+
+func classifyExec(ctx context.Context, cmd string, args []string) (string, []attribute.KeyValue) {
 	base := filepath.Base(cmd)
 	isHelm := isHelmBinary(base)
 	if marked, ok := ctx.Value(helmExecMarker{}).(bool); ok {
@@ -62,9 +67,9 @@ func classifyExec(ctx context.Context, cmd string, args []string) (string, []att
 		if sub := helmSubcommand(args); sub != "" {
 			attrs = append(attrs, attribute.String("helm.subcommand", sub))
 		}
-		return "helm.exec", attrs, true
+		return helmExecSpanName, attrs
 	}
-	return "os.exec", attrs, false
+	return "os.exec", attrs
 }
 
 // isHelmBinary reports whether a base name refers to a helm binary ("helm",

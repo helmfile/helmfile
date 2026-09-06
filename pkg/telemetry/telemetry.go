@@ -171,14 +171,12 @@ func StartCommandSpan(command string, attrs ...attribute.KeyValue) {
 
 	parent := otel.GetTextMapPropagator().Extract(gocontext.Background(), envCarrier())
 	ctx, span := s.provider.Tracer(ScopeHelmfile).Start(parent, command, trace.WithAttributes(attrs...))
-	current.Store(&tracingState{
-		enabled:  true,
-		provider: s.provider,
-		meters:   s.meters,
-		noop:     s.noop,
-		cmdSpan:  span,
-		cmdCtx:   ctx,
-	})
+	// Copy the whole state and override only the command fields: enumerating
+	// fields by hand has dropped one before (the meter provider).
+	next := *s
+	next.cmdSpan = span
+	next.cmdCtx = ctx
+	current.Store(&next)
 }
 
 // CommandContext returns the context of the current command's root span, or

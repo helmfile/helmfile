@@ -1225,16 +1225,9 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 func (helm *execer) execWithContext(ctx context.Context, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
 	runner := helm.runner
 	if ctx != nil {
-		switch shell := runner.(type) {
-		case *ShellRunner:
-			clone := *shell
-			clone.Ctx = spanAttachedContext(shell.Ctx, ctx)
-			runner = &clone
-		case ShellRunner:
-			clone := shell
-			clone.Ctx = spanAttachedContext(shell.Ctx, ctx)
-			runner = clone
-		}
+		runner = withRunnerCtx(runner, func(runnerCtx context.Context) context.Context {
+			return spanAttachedContext(runnerCtx, ctx)
+		})
 	}
 	return helm.execWithRunner(runner, args, env, overrideEnableLiveOutput)
 }
@@ -1248,22 +1241,29 @@ func markHelmExec(ctx context.Context) context.Context {
 	return context.WithValue(ctx, helmExecMarker{}, true)
 }
 
-// markHelmRunner returns a runner (value or pointer ShellRunner form) whose
-// context carries the helm-invocation marker, so span classification and the
-// helm duration metric do not rely on the executable basename.
-func markHelmRunner(runner Runner) Runner {
+// withRunnerCtx returns a runner (value or pointer ShellRunner form) whose
+// context is transformed by f; non-ShellRunner runners pass through
+// unchanged. ShellRunner has value receivers, so both forms satisfy Runner.
+func withRunnerCtx(runner Runner, f func(context.Context) context.Context) Runner {
 	switch shell := runner.(type) {
 	case *ShellRunner:
 		clone := *shell
-		clone.Ctx = markHelmExec(clone.Ctx)
+		clone.Ctx = f(clone.Ctx)
 		return &clone
 	case ShellRunner:
 		clone := shell
-		clone.Ctx = markHelmExec(clone.Ctx)
+		clone.Ctx = f(clone.Ctx)
 		return clone
 	default:
 		return runner
 	}
+}
+
+// markHelmRunner returns a runner whose context carries the helm-invocation
+// marker, so span classification and the helm duration metric do not rely on
+// the executable basename.
+func markHelmRunner(runner Runner) Runner {
+	return withRunnerCtx(runner, markHelmExec)
 }
 
 // spanAttachedContext returns a context that keeps runnerCtx's cancellation
