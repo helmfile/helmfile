@@ -118,6 +118,8 @@ func TestSpanAttachedContext(t *testing.T) {
 	// ...and carries the caller's span for nesting.
 	assert.Equal(t, span, trace.SpanFromContext(merged), "the caller's span must be attached")
 
-	// Nil runner context falls back to the span context.
-	assert.Equal(t, spanCtx, spanAttachedContext(nil, spanCtx))
+	// A typed nil runner context (distinct from the nil literal, per
+	// staticcheck) falls back to the span context.
+	var nilRunnerCtx context.Context
+	assert.Equal(t, spanCtx, spanAttachedContext(nilRunnerCtx, spanCtx))
 }

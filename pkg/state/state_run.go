@@ -47,14 +47,14 @@ func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency 
 	return st.iterateOnReleases(helm, concurrency, verb, skip, st.Releases, do)
 }
 
-// nolint: unparam
-// skipDesired reports whether a release is disabled (not desired); callers
+// skipUndesired reports whether a release is disabled (not desired); callers
 // whose callbacks short-circuit on !release.Desired() pass it so no span or
 // metric is emitted for releases that run no operation.
 func skipUndesired(release *ReleaseSpec) bool {
 	return !release.Desired()
 }
 
+// nolint: unparam
 func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, verb string, skip func(*ReleaseSpec) bool, inputs []ReleaseSpec,
 	do func(gocontext.Context, ReleaseSpec, int) error) []error {
 	var errs []error
