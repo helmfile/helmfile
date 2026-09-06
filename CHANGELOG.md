@@ -2,6 +2,7 @@
 
 ### Added
 
+- Add opt-in OpenTelemetry tracing and metrics (`--otel-tracing` / `HELMFILE_OTEL_TRACING`, experimental): command/state-load/release/hook spans with one span per helm subprocess, plus `helmfile.helm.exec.duration` and `helmfile.release.count` metrics, exported via standard `OTEL_*` environment variables. See [docs/otel.md](docs/otel.md) and the [design proposal](docs/proposals/otel-tracing.md) (#2767)
 - Add support for `conditionTemplate` and allow `condition` to be set directly to `true` or `false`.
 - Add `--allow-failed-releases` global flag to continue preparing charts for the remaining releases when chart preparation fails for a release; failed releases are skipped and all failures are reported at the end (#2616)
 

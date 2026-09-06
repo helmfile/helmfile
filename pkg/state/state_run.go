@@ -1,6 +1,7 @@
 package state
 
 import (
+	gocontext "context"
 	"errors"
 	"fmt"
 	"sort"
@@ -41,14 +42,21 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 	waitGroup.Wait()
 }
 
-func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int,
-	do func(ReleaseSpec, int) error) []error {
-	return st.iterateOnReleases(helm, concurrency, st.Releases, do)
+func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int, verb string,
+	skip func(*ReleaseSpec) bool, do func(gocontext.Context, ReleaseSpec, int) error) []error {
+	return st.iterateOnReleases(helm, concurrency, verb, skip, st.Releases, do)
+}
+
+// skipUndesired reports whether a release is disabled (not desired); callers
+// whose callbacks short-circuit on !release.Desired() pass it so no span or
+// metric is emitted for releases that run no operation.
+func skipUndesired(release *ReleaseSpec) bool {
+	return !release.Desired()
 }
 
 // nolint: unparam
-func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, inputs []ReleaseSpec,
-	do func(ReleaseSpec, int) error) []error {
+func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, verb string, skip func(*ReleaseSpec) bool, inputs []ReleaseSpec,
+	do func(gocontext.Context, ReleaseSpec, int) error) []error {
 	var errs []error
 
 	inputsSize := len(inputs)
@@ -67,7 +75,7 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 		},
 		func(id int) {
 			for release := range releases {
-				err := do(release, id)
+				err := st.doWithReleaseSpan(verb, release, id, skip, do)
 				st.logger.Debugf("release %q processed", release.Name)
 				results <- result{release: release, err: err}
 			}

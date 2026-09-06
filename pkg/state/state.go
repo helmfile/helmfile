@@ -44,6 +44,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/kubedog"
 	"github.com/helmfile/helmfile/pkg/maputil"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
@@ -144,6 +145,9 @@ func (hs *HelmState) UnmarshalYAML(unmarshal func(any) error) error {
 type HelmState struct {
 	basePath string
 	FilePath string
+
+	// traceCtx parents per-release spans; set via SetTraceContext (see span.go).
+	traceCtx gocontext.Context
 
 	ReleaseSetSpec `yaml:",inline"`
 
@@ -1144,7 +1148,9 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		func(workerIndex int) {
 			for release := range jobQueue {
 				var relErr *ReleaseError
+				relCtx, relSpan := st.startReleaseSpan("delete", release)
 				context := st.createHelmContext(release, workerIndex)
+				context.Ctx = relCtx
 
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
 					relErr = newReleaseFailedError(release, err)
@@ -1183,6 +1189,8 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
+				endReleaseSpan(relSpan, "delete", releaseErrAsError(relErr))
+
 				if relErr == nil {
 					results <- syncResult{}
 				} else {
@@ -1206,6 +1214,22 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		return errs
 	}
 	return nil
+}
+
+// kubedogTraceContext returns a context that carries the current command's
+// trace context but, exactly like the context.Background() it replaced, never
+// propagates cancellation: SIGINT/timeout behavior of the tracking paths is
+// unchanged, only trace context is added (see docs/proposals/otel-tracing.md
+// §4.4). When tracing is disabled this is indistinguishable from Background.
+func kubedogTraceContext() gocontext.Context {
+	return gocontext.WithoutCancel(telemetry.CommandContext())
+}
+
+// hookTraceContext is the event.Bus counterpart of kubedogTraceContext: hook
+// subprocesses join the current trace while their (historically detached)
+// cancellation behavior is preserved.
+func hookTraceContext() gocontext.Context {
+	return gocontext.WithoutCancel(telemetry.CommandContext())
 }
 
 // SyncReleases wrapper for executing helm upgrade on the releases
@@ -1258,7 +1282,9 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					chart = normalizeChart(st.basePath, chart)
 				}
 				var relErr *ReleaseError
+				relCtx, relSpan := st.startReleaseSpan("sync", release)
 				context := st.createHelmContext(release, workerIndex)
+				context.Ctx = relCtx
 
 				start := time.Now()
 				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
@@ -1288,10 +1314,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
 					if relErr == nil {
-						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+						relErr = st.trackReleaseIfEnabled(kubedogTraceContext(), release, helm, opts)
 					}
 				} else {
-					trackHandle, trackStarted := st.startBackgroundKubedogTracking(gocontext.Background(), release, helm, opts)
+					trackHandle, trackStarted := st.startBackgroundKubedogTracking(kubedogTraceContext(), release, helm, opts)
 					// trackHandle.Helm is a logger-scoped helm clone that
 					// captures output to an in-memory buffer while tracking is
 					// active. When tracking isn't running it's the original
@@ -1344,7 +1370,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						if trackStarted {
 							trackErr = trackHandle.Wait()
 						} else {
-							trackErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+							trackErr = st.trackReleaseIfEnabled(kubedogTraceContext(), release, helm, opts)
 						}
 						if trackErr != nil {
 							m.Lock()
@@ -1371,6 +1397,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 				release.duration = time.Since(start)
+
+				endReleaseSpan(relSpan, "sync", releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -2340,7 +2368,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				if sharedChartKeys[st.getChartCacheKey(release)] {
 					releaseOpts.ForceDownload = true
 				}
+				_, relSpan := st.startReleaseSpan("prepare", release)
 				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, releaseOpts, workerIndex)
+				endReleaseSpan(relSpan, "prepare", result.err)
 				if result.err != nil {
 					// Error results returned by prepareChartForRelease may lack the
 					// release identity. Complete it here, so that the failure can be
@@ -3278,6 +3308,8 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				release := prep.release
 				buf := &bytes.Buffer{}
 
+				relCtx, relSpan := st.startReleaseSpan("diff", release)
+
 				releaseSuppressDiff := suppressDiff
 				if prep.suppressDiff {
 					releaseSuppressDiff = true
@@ -3290,17 +3322,27 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					chartPath = normalizeChart(st.basePath, chartPath)
 				}
 
+				var diffSpanErr error
 				if prep.upgradeDueToSkippedDiff {
+					// Code 2 (changes detected) is an expected outcome, not a
+					// span/metric error.
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
 				} else if err := st.withChartOperationLock(release, chartPath, func() error {
-					return helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
+					diffContext := st.createHelmContextWithWriter(release, buf)
+					diffContext.Ctx = relCtx
+					return helm.DiffRelease(diffContext, release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
 				}); err != nil {
+					var relErr *ReleaseError
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						results <- diffResult{release, &ReleaseError{release, err, e.ExitStatus()}, buf}
+						relErr = &ReleaseError{release, err, e.ExitStatus()}
 					default:
-						results <- diffResult{release, &ReleaseError{release, err, 0}, buf}
+						relErr = &ReleaseError{release, err, 0}
+					}
+					results <- diffResult{release, relErr, buf}
+					if relErr.Code != HelmDiffExitCodeChanged {
+						diffSpanErr = relErr
 					}
 				} else {
 					// diff succeeded, found no changes
@@ -3312,6 +3354,8 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
+
+				endReleaseSpan(relSpan, "diff", diffSpanErr)
 			}
 		},
 		func() {
@@ -3342,7 +3386,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 }
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
-	return st.scatterGatherReleases(helm, workerLimit, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, workerLimit, "status", skipUndesired, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3355,13 +3399,15 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		}
 		flags = st.appendConnectionFlags(flags, &release)
 
-		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
+		statusContext := st.createHelmContext(&release, workerIndex)
+		statusContext.Ctx = ctx
+		return helm.ReleaseStatus(statusContext, release.Name, flags...)
 	})
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error {
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "delete", nil, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
 		flags := make([]string, 0)
@@ -3372,6 +3418,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			flags = append(flags, "--namespace", release.Namespace)
 		}
 		context := st.createHelmContext(&release, workerIndex)
+		context.Ctx = ctx
 
 		start := time.Now()
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
@@ -3422,7 +3469,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		o(&opts)
 	}
 
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "test", skipUndesired, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3446,7 +3493,9 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		flags = st.appendConnectionFlags(flags, &release)
 		flags = st.appendChartDownloadFlags(flags, &release)
 
-		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
+		testContext := st.createHelmContext(&release, workerIndex)
+		testContext.Ctx = ctx
+		return helm.TestRelease(testContext, release.Name, flags...)
 	})
 }
 
@@ -3672,6 +3721,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		Env:           st.Env,
 		Logger:        st.logger,
 		Fs:            st.fs,
+		Ctx:           hookTraceContext(),
 	}
 	data := map[string]any{
 		"HelmfileCommand": helmfileCmd,
@@ -3709,6 +3759,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Env:           st.Env,
 		Logger:        st.logger,
 		Fs:            st.fs,
+		Ctx:           hookTraceContext(),
 	}
 	vals := st.Values()
 	data := map[string]any{

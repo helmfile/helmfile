@@ -26,6 +26,7 @@ const (
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
 	RepoRetry             = "HELMFILE_REPO_RETRIES"
+	OtelTracing           = "HELMFILE_OTEL_TRACING"
 	RenderYaml            = "HELMFILE_RENDER_YAML" // force helmfile.yaml to be rendered as template regardless of extension, expecting "true" lower case
 
 	// AWSSDKLogLevel controls AWS SDK logging level
