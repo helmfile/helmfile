@@ -1248,6 +1248,24 @@ func markHelmExec(ctx context.Context) context.Context {
 	return context.WithValue(ctx, helmExecMarker{}, true)
 }
 
+// markHelmRunner returns a runner (value or pointer ShellRunner form) whose
+// context carries the helm-invocation marker, so span classification and the
+// helm duration metric do not rely on the executable basename.
+func markHelmRunner(runner Runner) Runner {
+	switch shell := runner.(type) {
+	case *ShellRunner:
+		clone := *shell
+		clone.Ctx = markHelmExec(clone.Ctx)
+		return &clone
+	case ShellRunner:
+		clone := shell
+		clone.Ctx = markHelmExec(clone.Ctx)
+		return clone
+	default:
+		return runner
+	}
+}
+
 // spanAttachedContext returns a context that keeps runnerCtx's cancellation
 // chain but carries the span from spanCtx, so the subprocess span nests under
 // the caller's span while the subprocess itself stays governed by the
@@ -1261,21 +1279,7 @@ func spanAttachedContext(runnerCtx, spanCtx context.Context) context.Context {
 }
 
 func (helm *execer) execWithRunner(runner Runner, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
-	// Everything reaching this funnel is a helm invocation, even when the
-	// binary is a wrapper with a non-"helm" name (--helm-binary override);
-	// stamp the context so span classification does not rely on the
-	// executable basename. ShellRunner has value receivers, so a value
-	// satisfies Runner too — handle both forms.
-	switch shell := runner.(type) {
-	case *ShellRunner:
-		clone := *shell
-		clone.Ctx = markHelmExec(clone.Ctx)
-		runner = &clone
-	case ShellRunner:
-		clone := shell
-		clone.Ctx = markHelmExec(clone.Ctx)
-		runner = clone
-	}
+	runner = markHelmRunner(runner)
 
 	cmdargs := args
 	if len(helm.extra) > 0 {
@@ -1310,7 +1314,7 @@ func (helm *execer) execStdIn(args []string, env map[string]string, stdin io.Rea
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	outBytes, err := helm.runner.ExecuteStdIn(helm.helmBinary, cmdargs, env, stdin)
+	outBytes, err := markHelmRunner(helm.runner).ExecuteStdIn(helm.helmBinary, cmdargs, env, stdin)
 	return outBytes, err
 }
 
