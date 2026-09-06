@@ -193,8 +193,8 @@ It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still dis
 Useful when file order matters for dependencies (e.g., databases before applications).
 When processing multiple files, paths are resolved without changing the process working directory,
 so relative environment variables like KUBECONFIG work correctly.`)
-	fs.BoolVar(&globalOptions.OtelTracing, "otel-tracing", globalOptions.OtelTracing, `Enable OpenTelemetry tracing (experimental).
-Configure the exporter with standard OTEL_* environment variables (e.g. OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_TRACES_EXPORTER).
+	fs.BoolVar(&globalOptions.OtelTracing, "otel-tracing", globalOptions.OtelTracing, `Enable OpenTelemetry tracing and metrics (experimental).
+Configure exporters with standard OTEL_* environment variables (e.g. OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_TRACES_EXPORTER, OTEL_METRICS_EXPORTER).
 Overrides "HELMFILE_OTEL_TRACING" OS environment variable when specified. See docs/otel.md`)
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")

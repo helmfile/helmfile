@@ -1,9 +1,9 @@
-// Package telemetry sets up OpenTelemetry tracing for helmfile.
+// Package telemetry sets up OpenTelemetry tracing and metrics for helmfile.
 //
-// Tracing is strictly opt-in: when not enabled (the default), every function in
-// this package is a no-op, Tracer returns the OTel no-op tracer, and
-// CommandContext returns context.Background — callers never need
-// "is tracing enabled?" branches.
+// Both signals are strictly opt-in: when not enabled (the default), every
+// function in this package is a no-op, Tracer returns the OTel no-op tracer,
+// metric instruments are no-ops, and CommandContext returns
+// context.Background — callers never need "is telemetry enabled?" branches.
 //
 // All exporter, sampler, and propagator configuration comes from the standard
 // OTEL_* environment variables; helmfile defines no telemetry-specific
@@ -65,11 +65,8 @@ type tracingState struct {
 	enabled  bool
 	provider *sdktrace.TracerProvider
 	meters   *sdkmetric.MeterProvider
-	// noop is the tracer provider returned while disabled, kept here so Tracer
-	// does not allocate on every call.
-	noop    trace.TracerProvider
-	cmdSpan trace.Span
-	cmdCtx  gocontext.Context
+	cmdSpan  trace.Span
+	cmdCtx   gocontext.Context
 }
 
 var (
@@ -84,10 +81,13 @@ func init() {
 	current.Store(disabledState())
 }
 
+// noopTracerProvider backs Tracer while telemetry is disabled: a single
+// shared instance, since the noop tracer provider is stateless.
+var noopTracerProvider = noop.NewTracerProvider()
+
 func disabledState() *tracingState {
 	return &tracingState{
 		enabled: false,
-		noop:    noop.NewTracerProvider(),
 		cmdCtx:  gocontext.Background(),
 	}
 }
@@ -149,7 +149,6 @@ func Setup(ctx gocontext.Context, opts Options) {
 		enabled:  true,
 		provider: provider,
 		meters:   meters,
-		noop:     noop.NewTracerProvider(),
 		cmdCtx:   gocontext.Background(),
 	})
 	infof(opts.Logger, "OpenTelemetry tracing enabled")
@@ -193,14 +192,10 @@ func CommandContext() gocontext.Context {
 // returns nil: the OTel no-op tracer provider is used while telemetry is
 // disabled, so callers need no enabled-checks.
 func Tracer(name string) trace.Tracer {
-	s := current.Load()
-	if s == nil {
-		return noop.NewTracerProvider().Tracer(name)
+	if s := current.Load(); s != nil && s.enabled && s.provider != nil {
+		return s.provider.Tracer(name)
 	}
-	if !s.enabled || s.provider == nil {
-		return s.noop.Tracer(name)
-	}
-	return s.provider.Tracer(name)
+	return noopTracerProvider.Tracer(name)
 }
 
 // Shutdown ends the command span — recording runErr and exitCode on it when

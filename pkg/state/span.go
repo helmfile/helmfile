@@ -106,6 +106,13 @@ func releaseErrAsError(relErr *ReleaseError) error {
 	return relErr
 }
 
+// skipUndesired reports whether a release is disabled (not desired); callers
+// whose callbacks short-circuit on !release.Desired() pass it so no span or
+// metric is emitted for releases that run no operation.
+func skipUndesired(release *ReleaseSpec) bool {
+	return !release.Desired()
+}
+
 // doWithReleaseSpan runs do for one release under a helmfile.release.<verb>
 // span, recording the returned error on the span, and hands do the span
 // context so the release's helm subprocesses nest under the span. It is the
