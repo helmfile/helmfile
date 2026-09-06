@@ -3,6 +3,7 @@ package state
 import (
 	gocontext "context"
 	"sort"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -51,14 +52,15 @@ func (st *HelmState) startReleaseSpan(verb string, release *ReleaseSpec) (gocont
 }
 
 // endReleaseSpan ends a release span, recording err (when non-nil) as the
-// span's error status, and counts the outcome on the helmfile.release.count
-// metric. Ending an already-ended span is a no-op, so it is safe to call from
-// every exit path of a worker-loop item.
-func endReleaseSpan(span trace.Span, verb string, err error) {
+// span's error status, and records the outcome on the helmfile.release.count
+// and helmfile.release.duration metrics. Ending an already-ended span is a
+// no-op, so it is safe to call from every exit path of a worker-loop item.
+func endReleaseSpan(span trace.Span, verb string, release *ReleaseSpec, start time.Time, err error) {
 	if span == nil {
 		return
 	}
 	telemetry.RecordReleaseResult(verb, err)
+	telemetry.RecordReleaseDuration(time.Since(start).Seconds(), verb, err, release.Name, release.Namespace)
 	if err != nil {
 		// The raw error may embed helm command arguments and output; keep
 		// the span description generic.
@@ -101,7 +103,8 @@ func (st *HelmState) doWithReleaseSpan(verb string, release ReleaseSpec, workerI
 		return do(gocontext.Background(), release, workerIndex)
 	}
 	ctx, span := st.startReleaseSpan(verb, &release)
+	start := time.Now()
 	err := do(ctx, release, workerIndex)
-	endReleaseSpan(span, verb, err)
+	endReleaseSpan(span, verb, &release, start, err)
 	return err
 }

@@ -21,6 +21,7 @@ var hermeticEnvVars = []string{
 	"OTEL_TRACES_SAMPLER_ARG",
 	"OTEL_PROPAGATORS",
 	"OTEL_SDK_DISABLED",
+	"HELMFILE_OTEL_METRICS_PER_RELEASE",
 	"OTEL_SERVICE_NAME",
 	"OTEL_RESOURCE_ATTRIBUTES",
 	"TRACEPARENT",
@@ -209,4 +210,15 @@ func TestSetupDegradesOnBadMetricExporter(t *testing.T) {
 	// An invalid metrics exporter must disable telemetry, not fail the run.
 	Setup(gocontext.Background(), Options{Enabled: true, Version: "test-version"})
 	assert.False(t, current.Load().enabled)
+}
+
+func TestPerReleaseMetricsFlag(t *testing.T) {
+	t.Setenv("HELMFILE_OTEL_METRICS_PER_RELEASE", "")
+	assert.False(t, perReleaseMetrics())
+
+	t.Setenv("HELMFILE_OTEL_METRICS_PER_RELEASE", "true")
+	assert.True(t, perReleaseMetrics())
+
+	t.Setenv("HELMFILE_OTEL_METRICS_PER_RELEASE", "1")
+	assert.False(t, perReleaseMetrics(), "only the exact string true enables it")
 }

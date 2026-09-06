@@ -507,7 +507,7 @@ docs/otel.md                     // user guide (config, backends, CI recipes, sa
 
 ## 12. Future work (explicitly out of scope for v1)
 
-- ~~Metrics pipeline on the same provider (`otel/sdk/metric` with the same env-var config)~~ — delivered: `helmfile.helm.exec.duration` and `helmfile.release.count` via `autoexport.NewMetricReader` (`OTEL_METRICS_EXPORTER`).
+- ~~Metrics pipeline on the same provider (`otel/sdk/metric` with the same env-var config)~~ — delivered: `helmfile.helm.exec.duration`, `helmfile.release.count`, and `helmfile.release.duration` via `autoexport.NewMetricReader` (`OTEL_METRICS_EXPORTER`); per-release name/namespace attributes on the duration histogram are opt-in via `HELMFILE_OTEL_METRICS_PER_RELEASE` (bounded dimensions by default).
 - `TRACEPARENT` injection into helm subprocess env so chart-test hooks / plugins can extend
   the helmfile trace.
 - Subprocesses started inside `github.com/helmfile/chartify` (kustomize, and any helm calls

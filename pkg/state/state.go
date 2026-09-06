@@ -1148,6 +1148,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		func(workerIndex int) {
 			for release := range jobQueue {
 				var relErr *ReleaseError
+				itemStart := time.Now()
 				relCtx, relSpan := st.startReleaseSpan("delete", release)
 				context := st.createHelmContext(release, workerIndex)
 				context.Ctx = relCtx
@@ -1189,7 +1190,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
-				endReleaseSpan(relSpan, "delete", releaseErrAsError(relErr))
+				endReleaseSpan(relSpan, "delete", release, itemStart, releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -1404,7 +1405,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				}
 				release.duration = time.Since(start)
 
-				endReleaseSpan(relSpan, "sync", releaseErrAsError(relErr))
+				endReleaseSpan(relSpan, "sync", release, start, releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -2375,8 +2376,9 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 					releaseOpts.ForceDownload = true
 				}
 				_, relSpan := st.startReleaseSpan("prepare", release)
+				prepareStart := time.Now()
 				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, releaseOpts, workerIndex)
-				endReleaseSpan(relSpan, "prepare", result.err)
+				endReleaseSpan(relSpan, "prepare", release, prepareStart, result.err)
 				if result.err != nil {
 					// Error results returned by prepareChartForRelease may lack the
 					// release identity. Complete it here, so that the failure can be
@@ -3315,6 +3317,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				buf := &bytes.Buffer{}
 
 				relCtx, relSpan := st.startReleaseSpan("diff", release)
+				diffStart := time.Now()
 
 				releaseSuppressDiff := suppressDiff
 				if prep.suppressDiff {
@@ -3361,7 +3364,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					}
 				}
 
-				endReleaseSpan(relSpan, "diff", diffSpanErr)
+				endReleaseSpan(relSpan, "diff", release, diffStart, diffSpanErr)
 			}
 		},
 		func() {

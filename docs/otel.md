@@ -82,7 +82,18 @@ Two instruments are emitted:
 | Metric | Type | Attributes |
 |---|---|---|
 | `helmfile.helm.exec.duration` | histogram (seconds, buckets tuned for 5ms–600s helm invocations) | `subcommand`, `success` |
+| `helmfile.release.duration` | histogram (seconds, same buckets) | `verb`, `result` — plus `helmfile.release` and `helmfile.namespace` when per-release metrics are enabled (below) |
 | `helmfile.release.count` | counter (unit `{release}`) | `verb` (sync/diff/delete/status/test/prepare), `result` (success/error) |
+
+### Per-release metrics (opt-in, high cardinality)
+
+By default metric dimensions are bounded enumerations — release names never appear, so time-series count stays constant regardless of fleet size. If you need per-release durations on dashboards, opt in:
+
+```bash
+HELMFILE_OTEL_METRICS_PER_RELEASE=true helmfile --otel-tracing sync
+```
+
+This adds `helmfile.release` and `helmfile.namespace` to `helmfile.release.duration`. Time-series count then scales with your release fleet: well-suited to bounded CI runs, but long-lived centralized collection needs a backend capacity/TTL story. (Per-release timing is always available in traces, without this flag.)
 
 Both dimensions are bounded enumerations — never release names — so metric cardinality stays constant regardless of fleet size. The instrumentation scope (`helmfile`) carries the helmfile version.
 

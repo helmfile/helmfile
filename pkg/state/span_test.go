@@ -33,32 +33,8 @@ func TestReleaseSpanExecNesting(t *testing.T) {
 
 	rec := otlptest.NewRecorder(t)
 	otlptest.SetupTelemetry(t, rec, "helmfile test")
-
-	// The shim satisfies helmexec.New's `helm version` probe and makes every
-	// other invocation succeed without side effects.
-	shim := filepath.Join(t.TempDir(), "helm-shim")
-	require.NoError(t, os.WriteFile(shim, []byte("#!/bin/sh\ncase \"$1\" in version) echo 'v3.14.0' ;; esac\nexit 0\n"), 0o755))
-
-	shell := &helmexec.ShellRunner{
-		Logger: zap.NewNop().Sugar(),
-		Ctx:    telemetry.CommandContext(),
-	}
-	helm, err := helmexec.New(shim, helmexec.HelmExecOptions{}, zap.NewNop().Sugar(), "", "", shell)
-	require.NoError(t, err)
-
-	st := &HelmState{
-		logger: zap.NewNop().Sugar(),
-		fs:     filesystem.DefaultFileSystem(),
-		ReleaseSetSpec: ReleaseSetSpec{
-			Releases: []ReleaseSpec{
-				{Name: "demo", Namespace: "apps", Chart: "./charts/demo"},
-			},
-		},
-	}
-
-	errs := st.ReleaseStatuses(helm, 1)
-	// `true` ignores all arguments and exits 0, so no errors are expected.
-	require.Empty(t, errs)
+	st, helm := newShimState(t)
+	require.Empty(t, st.ReleaseStatuses(helm, 1))
 
 	otlptest.ShutdownTelemetry(t)
 
@@ -83,6 +59,89 @@ func TestReleaseSpanExecNesting(t *testing.T) {
 	assertMetrics(t, rec)
 }
 
+// newShimState builds a one-release HelmState driven through the real
+// execer with a shim binary that answers the version probe and otherwise
+// exits 0 without side effects. Telemetry must already be set up.
+func newShimState(t *testing.T) (*HelmState, helmexec.Interface) {
+	t.Helper()
+	shim := filepath.Join(t.TempDir(), "helm-shim")
+	require.NoError(t, os.WriteFile(shim, []byte("#!/bin/sh\ncase \"$1\" in version) echo 'v3.14.0' ;; esac\nexit 0\n"), 0o755))
+
+	shell := &helmexec.ShellRunner{
+		Logger: zap.NewNop().Sugar(),
+		Ctx:    telemetry.CommandContext(),
+	}
+	helm, err := helmexec.New(shim, helmexec.HelmExecOptions{}, zap.NewNop().Sugar(), "", "", shell)
+	require.NoError(t, err)
+
+	return &HelmState{
+		logger: zap.NewNop().Sugar(),
+		fs:     filesystem.DefaultFileSystem(),
+		ReleaseSetSpec: ReleaseSetSpec{
+			Releases: []ReleaseSpec{
+				{Name: "demo", Namespace: "apps", Chart: "./charts/demo"},
+			},
+		},
+	}, helm
+}
+
+// TestReleaseDurationMetricDefaultDims pins that helmfile.release.duration is
+// exported with only the bounded verb/result dimensions unless
+// HELMFILE_OTEL_METRICS_PER_RELEASE is enabled.
+func TestReleaseDurationMetricDefaultDims(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a unix shell shim")
+	}
+	rec := otlptest.NewRecorder(t)
+	otlptest.SetupTelemetry(t, rec, "helmfile test")
+	st, helm := newShimState(t)
+	require.Empty(t, st.ReleaseStatuses(helm, 1))
+	otlptest.ShutdownTelemetry(t)
+
+	metrics := rec.Metrics(t)
+	duration := otlptest.FindMetric(t, metrics, "helmfile.release.duration")
+	dp := findHistogramPoint(t, duration, "verb", "status")
+	require.NotNil(t, dp)
+	assert.Positive(t, dp.GetCount())
+
+	seen := map[string]string{}
+	for _, attr := range dp.GetAttributes() {
+		seen[attr.GetKey()] = attr.GetValue().GetStringValue()
+	}
+	assert.Equal(t, map[string]string{"verb": "status", "result": "success"}, seen,
+		"release identity must NOT be attached by default (bounded cardinality)")
+}
+
+// TestReleaseDurationMetricPerRelease pins the opt-in high-cardinality mode:
+// HELMFILE_OTEL_METRICS_PER_RELEASE adds the release name and namespace.
+func TestReleaseDurationMetricPerRelease(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a unix shell shim")
+	}
+	rec := otlptest.NewRecorder(t)
+	otlptest.SetupTelemetry(t, rec, "helmfile test")
+	// Set AFTER SetupTelemetry, whose hermetic env reset clears it first.
+	t.Setenv("HELMFILE_OTEL_METRICS_PER_RELEASE", "true")
+	st, helm := newShimState(t)
+	require.Empty(t, st.ReleaseStatuses(helm, 1))
+	otlptest.ShutdownTelemetry(t)
+
+	duration := otlptest.FindMetric(t, rec.Metrics(t), "helmfile.release.duration")
+	dp := findHistogramPoint(t, duration, "helmfile.release", "demo")
+	require.NotNil(t, dp, "per-release datapoint must exist when enabled")
+
+	seen := map[string]string{}
+	for _, attr := range dp.GetAttributes() {
+		seen[attr.GetKey()] = attr.GetValue().GetStringValue()
+	}
+	assert.Equal(t, map[string]string{
+		"verb":               "status",
+		"result":             "success",
+		"helmfile.release":   "demo",
+		"helmfile.namespace": "apps",
+	}, seen)
+}
+
 // assertMetrics pins the two helmfile metrics recorded on this path: one
 // helm.exec duration datapoint for the status subcommand, and one successful
 // release.count increment for verb=status.
@@ -104,6 +163,11 @@ func assertMetrics(t *testing.T, rec *otlptest.Recorder) {
 	assert.Contains(t, bounds, 1.0)
 	assert.Contains(t, bounds, 5.0)
 	assert.Greater(t, bounds[len(bounds)-1], 300.0, "top bucket must cover multi-minute waits")
+
+	releaseDuration := otlptest.FindMetric(t, metrics, "helmfile.release.duration")
+	rdp := findHistogramPoint(t, releaseDuration, "verb", "status")
+	require.NotNil(t, rdp, "release duration must have a verb=status datapoint")
+	assert.Equal(t, "s", releaseDuration.GetUnit())
 
 	count := otlptest.FindMetric(t, metrics, "helmfile.release.count")
 	assert.Equal(t, "{release}", count.GetUnit(), "counters use curly-annotation units")

@@ -2,10 +2,13 @@ package telemetry
 
 import (
 	gocontext "context"
+	"os"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 // The instruments are created from the otel global meter: before Setup they
@@ -16,8 +19,9 @@ import (
 // package init).
 
 var (
-	execDurationHistogram metric.Float64Histogram
-	releaseResultCounter  metric.Int64Counter
+	execDurationHistogram    metric.Float64Histogram
+	releaseResultCounter     metric.Int64Counter
+	releaseDurationHistogram metric.Float64Histogram
 )
 
 // execDurationBuckets are tuned for seconds-scale helm subprocesses (roughly
@@ -31,6 +35,7 @@ var execDurationBuckets = []float64{
 func init() {
 	execDurationHistogram = newExecDurationHistogram(otel.Meter(ScopeHelmfile))
 	releaseResultCounter = newReleaseResultCounter(otel.Meter(ScopeHelmfile))
+	releaseDurationHistogram = newReleaseDurationHistogram(otel.Meter(ScopeHelmfile))
 }
 
 func newExecDurationHistogram(m metric.Meter) metric.Float64Histogram {
@@ -55,6 +60,16 @@ func newReleaseResultCounter(m metric.Meter) metric.Int64Counter {
 	return c
 }
 
+func newReleaseDurationHistogram(m metric.Meter) metric.Float64Histogram {
+	h, _ := m.Float64Histogram(
+		"helmfile.release.duration",
+		metric.WithUnit("s"),
+		metric.WithDescription("Wall-clock duration of release operations (prepare..tracking), by verb and result; per-release name and namespace when HELMFILE_OTEL_METRICS_PER_RELEASE=true."),
+		metric.WithExplicitBucketBoundaries(execDurationBuckets...),
+	)
+	return h
+}
+
 // reinitMetrics re-creates the instruments under the installed provider with
 // the instrumentation scope version stamped (Setup happens before any
 // recording, so the swap is race-free in production use).
@@ -62,6 +77,7 @@ func reinitMetrics(version string) {
 	m := otel.Meter(ScopeHelmfile, metric.WithInstrumentationVersion(version))
 	execDurationHistogram = newExecDurationHistogram(m)
 	releaseResultCounter = newReleaseResultCounter(m)
+	releaseDurationHistogram = newReleaseDurationHistogram(m)
 }
 
 // RecordHelmExecDuration records the duration of one helm subprocess
@@ -73,6 +89,36 @@ func RecordHelmExecDuration(seconds float64, subcommand string, success bool) {
 			attribute.Bool("success", success),
 		),
 	)
+}
+
+// perReleaseMetrics reports whether metric attributes carrying the release
+// identity are enabled (HELMFILE_OTEL_METRICS_PER_RELEASE=true). Read per
+// call: release operations are low-frequency and tests toggle the variable.
+func perReleaseMetrics() bool {
+	return os.Getenv(envvar.OtelMetricsPerRelease) == "true"
+}
+
+// RecordReleaseDuration records the wall-clock duration of one release
+// operation. Release name and namespace are attached only when
+// HELMFILE_OTEL_METRICS_PER_RELEASE is set: they make time-series count
+// proportional to the release fleet, which is fine for bounded CI runs but
+// needs a capacity/TTL story for long-lived centralized collection.
+func RecordReleaseDuration(seconds float64, verb string, err error, releaseName, namespace string) {
+	result := "success"
+	if err != nil {
+		result = "error"
+	}
+	attrs := []attribute.KeyValue{
+		attribute.String("verb", verb),
+		attribute.String("result", result),
+	}
+	if perReleaseMetrics() {
+		attrs = append(attrs,
+			attribute.String("helmfile.release", releaseName),
+			attribute.String("helmfile.namespace", namespace),
+		)
+	}
+	releaseDurationHistogram.Record(gocontext.Background(), seconds, metric.WithAttributes(attrs...))
 }
 
 // RecordReleaseResult counts one completed release operation. No-op when
