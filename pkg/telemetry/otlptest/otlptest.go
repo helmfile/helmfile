@@ -159,6 +159,26 @@ func AttrString(span *v1.Span, key string) (string, bool) {
 	return "", false
 }
 
+// ScopeMetrics decodes every captured /v1/metrics request into the
+// scope-metrics groups, exposing instrumentation scope names and versions.
+func (r *Recorder) ScopeMetrics(t *testing.T) []*metricsv1.ScopeMetrics {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []*metricsv1.ScopeMetrics
+	for _, req := range r.requests {
+		if req.path != "/v1/metrics" {
+			continue
+		}
+		var msg metricspb.ExportMetricsServiceRequest
+		require.NoError(t, proto.Unmarshal(req.body, &msg))
+		for _, rm := range msg.ResourceMetrics {
+			out = append(out, rm.ScopeMetrics...)
+		}
+	}
+	return out
+}
+
 // FindMetric returns the metric with the given name, failing the test
 // otherwise.
 func FindMetric(t *testing.T, metrics []*metricsv1.Metric, name string) *metricsv1.Metric {

@@ -143,6 +143,7 @@ func Setup(ctx gocontext.Context, opts Options) {
 	otel.SetTracerProvider(provider)
 	otel.SetMeterProvider(meters)
 	otel.SetTextMapPropagator(propagatorsFromEnv(opts.Logger))
+	reinitMetrics(opts.Version)
 
 	current.Store(&tracingState{
 		enabled:  true,

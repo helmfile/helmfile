@@ -81,8 +81,10 @@ Two instruments are emitted:
 
 | Metric | Type | Attributes |
 |---|---|---|
-| `helmfile.helm.exec.duration` | histogram (seconds) | `subcommand`, `success` |
-| `helmfile.release.count` | counter | `verb` (sync/diff/delete/status/test/prepare), `result` (success/error) |
+| `helmfile.helm.exec.duration` | histogram (seconds, buckets tuned for 5ms–600s helm invocations) | `subcommand`, `success` |
+| `helmfile.release.count` | counter (unit `{release}`) | `verb` (sync/diff/delete/status/test/prepare), `result` (success/error) |
+
+Both dimensions are bounded enumerations — never release names — so metric cardinality stays constant regardless of fleet size. The instrumentation scope (`helmfile`) carries the helmfile version.
 
 Inspect them without a collector with `OTEL_METRICS_EXPORTER=console`.
 

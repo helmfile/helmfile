@@ -92,13 +92,30 @@ func assertMetrics(t *testing.T, rec *otlptest.Recorder) {
 	metrics := rec.Metrics(t)
 
 	duration := otlptest.FindMetric(t, metrics, "helmfile.helm.exec.duration")
+	assert.Equal(t, "s", duration.GetUnit())
 	dp := findHistogramPoint(t, duration, "subcommand", "status")
 	require.NotNil(t, dp, "duration histogram must have a subcommand=status datapoint")
 	assert.Positive(t, dp.GetCount(), "histogram must record at least one observation")
+	// Buckets must be the seconds-tuned set, not the SDK's millisecond-
+	// oriented defaults.
+	bounds := dp.GetExplicitBounds()
+	require.NotEmpty(t, bounds)
+	assert.Less(t, bounds[0], 0.01, "first bucket must resolve sub-second invocations")
+	assert.Contains(t, bounds, 1.0)
+	assert.Contains(t, bounds, 5.0)
+	assert.Greater(t, bounds[len(bounds)-1], 300.0, "top bucket must cover multi-minute waits")
 
 	count := otlptest.FindMetric(t, metrics, "helmfile.release.count")
+	assert.Equal(t, "{release}", count.GetUnit(), "counters use curly-annotation units")
 	sum := sumCounter(t, count, map[string]string{"verb": "status", "result": "success"})
 	assert.EqualValues(t, 1, sum, "release.count must count one successful status")
+
+	// The instrumentation scope carries the helmfile version.
+	for _, sm := range rec.ScopeMetrics(t) {
+		if sm.Scope.GetName() == "helmfile" {
+			assert.Equal(t, "test", sm.Scope.GetVersion(), "scope version must be stamped")
+		}
+	}
 }
 
 func findHistogramPoint(t *testing.T, m *metricsv1.Metric, key, value string) *metricsv1.HistogramDataPoint {
