@@ -292,15 +292,17 @@ They should be reported as separate issues.
   `HelmContext` (`pkg/helmexec/context.go`), stamped **inside** `createHelmContext`
   (`pkg/state/state.go:3168`) so all eight call sites (state.go:1007, 1026, 1147, 1261,
   3034, 3184, 3358, 3374) inherit it without per-call-site edits.
-- Funnel it inside `helmexec`: the `execer` methods that take a `HelmContext` pass it to a
-  new internal helper `execCtx(ctx, args, env, live)` beside the existing
-  `exec`/`execStdIn` funnels (`pkg/helmexec/exec.go:1207`), falling back to the runner's
-  context when `HelmContext.Ctx` is nil. Cancellation stays exactly as today:
-   `HelmContext.Ctx` derives from `st.traceCtx` ← `a.ctx`, and non-kubedog releases
-   already run under `a.ctx` (§4.3), so propagation is unchanged; the kubedog path stays
-   cancel-detached via the §4.4 step-3 `WithoutCancel` bridge. The `exectest.Helm` fake is unaffected: app tests
-  pre-seed `App.helms` with it (`pkg/app/app_template_test.go:115–116`), so it replaces
-  the whole `helmexec.Interface` and bypasses `execer` internals entirely.
+- Funnel it inside `helmexec`: the `execer` methods that take a `HelmContext` pass its
+  `Ctx` to `execWithContext`, which **injects the release span into the runner's own
+  context** (`trace.ContextWithSpan`) rather than replacing it — cancellation authority
+  stays with the runner (including the kubedog safety valve installed via
+  `WithContext`), which a naive context replacement would have overridden. A nil `Ctx`
+  behaves exactly like the plain funnel. Helm-vs-other classification comes from an
+  explicit marker stamped in the execer funnels (`withRunnerCtx`/`markHelmRunner`,
+  value and pointer runner forms), not from the executable basename — so wrapper
+  `--helm-binary` names classify correctly. The `exectest.Helm` fake is unaffected: app
+  tests pre-seed `App.helms` with it (`pkg/app/app_template_test.go:115–116`), so it
+  replaces the whole `helmexec.Interface` and bypasses `execer` internals entirely.
   *Why per-call threading rather than the existing `WithContext` clone: `WithContext`
   (`pkg/helmexec/exec.go:251`) is suited to whole-execution substitution (kubedog path),
   but release workers share one cached execer across concurrent workers (§4.3), so a
@@ -338,10 +340,7 @@ They should be reported as separate issues.
 | `helmfile.release.prepare` | `helmfile.release`, `helmfile.namespace`, `helmfile.chart`, `helmfile.chart_version` | chart pull/build/registry login |
 | `helmfile.release.sync` / `.diff` / `.template` / `.delete` / `.test` / `.lint` / `.unittest` | same as above + `helmfile.labels` | one per selected release (phase 2) |
 | `helmfile.hook` | `hook.event` (presync/…), `hook.name` | |
-| `helm.exec` | `helm.subcommand`, `exec.exit_code`, `exec.redacted` | runner level; **release identity is not derivable here** — it comes from the parent release span (phase 2). Until then these spans sit directly under root/load |
-| `os.exec` | `exec.command`, `exec.exit_code` | hooks, helmfile plugin execs. **Kustomize is not visible here**: it executes inside `github.com/helmfile/chartify`, outside `ShellRunner`'s reach (§12) |
-| `helmfile.wait` | `helmfile.release` | kubedog tracking (phase 2) |
-
+| `helm.exec` / `os.exec` | `exec.command`, `exec.args` (strict-redacted, plus URL userinfo/query masking via `RedactedRef`), `exec.redacted`, `exec.exit_code` (on failure), `helm.subcommand` (helm only) | one per external process; helm classification is marker-based (wrapper binaries included); release identity comes from the parent release span. Hooks, kustomize (invisible, §12), plugin execs land here too |
 Attribute values are strings/ints only; no structured payloads, no output capture in spans
 (output already flows through logs).
 
@@ -365,7 +364,12 @@ Traces leave the machine they run on. Ground rules, checked against what exists 
      shape) keep passing unchanged. The exit-error path switches to this profile, so
      error messages are unchanged.
    - `strict`: the superset required for spans — all `--set*` forms including
-     `--set=k=v`, plus `--username`, `--password`, `--key-file`, `--set-file`, ...
+     `--set=k=v`, plus `--username`, `--password`, `--key-file`,
+     `--kube-token`, ...; positional arguments are additionally passed through
+     `helmexec.RedactedRef`, which masks go-getter forced forms (`git::`,
+     `s3::`), whole URL userinfo, and credential-bearing query parameters,
+     failing closed for malformed references. The previous token is always
+     read from the original input so adjacent secret flags cannot leak.
    Both profiles are the same code path, so the span view is guaranteed at least as
    redacted as the error view. *Unifying* the two profiles (i.e. tightening exit-error
    messages too) would change observable output and is deliberately deferred to a

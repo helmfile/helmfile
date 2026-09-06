@@ -102,11 +102,7 @@ func (r *Recorder) Metrics(t *testing.T) []*metricsv1.Metric {
 // shuts telemetry down on cleanup.
 func SetupTelemetry(t *testing.T, rec *Recorder, command string) {
 	t.Helper()
-	for _, key := range []string{
-		"OTEL_TRACES_SAMPLER", "OTEL_TRACES_SAMPLER_ARG", "OTEL_PROPAGATORS",
-		"OTEL_SDK_DISABLED", "HELMFILE_OTEL_METRICS_PER_RELEASE", "TRACEPARENT", "TRACESTATE", "BAGGAGE",
-		"OTEL_SERVICE_NAME", "OTEL_RESOURCE_ATTRIBUTES",
-	} {
+	for _, key := range telemetry.HermeticEnvVars {
 		t.Setenv(key, "")
 	}
 	t.Setenv("OTEL_TRACES_EXPORTER", "otlp")

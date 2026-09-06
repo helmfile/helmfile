@@ -13,6 +13,20 @@ import (
 	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
+// traceOnlyContext returns a context carrying trace context — the command
+// span, or the given parent (typically a per-release span) — while never
+// propagating cancellation. The historically detached paths (kubedog
+// tracking, hook execution) must keep their cancellation semantics, so only
+// trace context is bridged (see docs/proposals/otel-tracing.md §4.4). With
+// tracing disabled it is indistinguishable from Background.
+func traceOnlyContext(parent ...gocontext.Context) gocontext.Context {
+	ctx := telemetry.CommandContext()
+	if len(parent) > 0 && parent[0] != nil {
+		ctx = parent[0]
+	}
+	return gocontext.WithoutCancel(ctx)
+}
+
 // SetTraceContext sets the context used as the parent of per-release spans
 // (pkg/app sets it to the helmfile.load span context right after loading a
 // state file). A nil context keeps spans parented at Background — with

@@ -134,19 +134,8 @@ func (bus *Bus) runHook(hook Hook, evt string, evtErr error, context map[string]
 	}()
 
 	if hook.Kubectl != nil {
-		if hook.Command != "" {
-			bus.Logger.Warnf("warn: ignoring command '%s' given within a kubectlApply hook", hook.Command)
-		}
-		hook.Command = "kubectl"
-		if val, found := hook.Kubectl["filename"]; found {
-			if _, found := hook.Kubectl["kustomize"]; found {
-				return false, fmt.Errorf("hook[%s]: kustomize & filename cannot be used together", name)
-			}
-			hook.Args = append([]string{"apply", "-f"}, val)
-		} else if val, found := hook.Kubectl["kustomize"]; found {
-			hook.Args = append([]string{"apply", "-k"}, val)
-		} else {
-			return false, fmt.Errorf("hook[%s]: either kustomize or filename must be given", name)
+		if err := bus.prepareKubectlHook(&hook, name); err != nil {
+			return false, err
 		}
 	}
 
@@ -192,6 +181,28 @@ func (bus *Bus) runHook(hook Hook, evt string, evtErr error, context map[string]
 	}
 
 	return true, nil
+}
+
+// prepareKubectlHook rewrites a kubectlApply hook into the equivalent
+// explicit kubectl command, rejecting invalid configurations.
+func (bus *Bus) prepareKubectlHook(hook *Hook, name string) error {
+	if hook.Command != "" {
+		bus.Logger.Warnf("warn: ignoring command '%s' given within a kubectlApply hook", hook.Command)
+	}
+	hook.Command = "kubectl"
+
+	if val, found := hook.Kubectl["filename"]; found {
+		if _, found := hook.Kubectl["kustomize"]; found {
+			return fmt.Errorf("hook[%s]: kustomize & filename cannot be used together", name)
+		}
+		hook.Args = append([]string{"apply", "-f"}, val)
+		return nil
+	}
+	if val, found := hook.Kubectl["kustomize"]; found {
+		hook.Args = append([]string{"apply", "-k"}, val)
+		return nil
+	}
+	return fmt.Errorf("hook[%s]: either kustomize or filename must be given", name)
 }
 
 // spanParent returns the context hook spans attach to.

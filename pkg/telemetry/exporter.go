@@ -20,6 +20,24 @@ import (
 // unless a remote parent (e.g. an unsampled CI trace) says otherwise.
 const defaultSamplerName = "parentbased_always_on"
 
+// HermeticEnvVars lists every environment variable this package reads. It is
+// the single source of truth for tests (which clear them all) — add new
+// variables here, not in test files.
+var HermeticEnvVars = []string{
+	"OTEL_TRACES_EXPORTER",
+	"OTEL_METRICS_EXPORTER",
+	"OTEL_TRACES_SAMPLER",
+	"OTEL_TRACES_SAMPLER_ARG",
+	"OTEL_PROPAGATORS",
+	"OTEL_SDK_DISABLED",
+	"OTEL_SERVICE_NAME",
+	"OTEL_RESOURCE_ATTRIBUTES",
+	"HELMFILE_OTEL_METRICS_PER_RELEASE",
+	"TRACEPARENT",
+	"TRACESTATE",
+	"BAGGAGE",
+}
+
 // newTracerProvider builds the SDK provider. Exporter selection is delegated
 // to autoexport (OTEL_TRACES_EXPORTER: otlp | console | none; protocol and
 // endpoint via OTEL_EXPORTER_OTLP_*), so helmfile maintains no

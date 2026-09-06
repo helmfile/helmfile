@@ -12,28 +12,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// hermeticEnvVars are the environment variables read by this package; clearing
-// them makes each test independent of the developer's shell.
-var hermeticEnvVars = []string{
-	"OTEL_TRACES_EXPORTER",
-	"OTEL_METRICS_EXPORTER",
-	"OTEL_TRACES_SAMPLER",
-	"OTEL_TRACES_SAMPLER_ARG",
-	"OTEL_PROPAGATORS",
-	"OTEL_SDK_DISABLED",
-	"HELMFILE_OTEL_METRICS_PER_RELEASE",
-	"OTEL_SERVICE_NAME",
-	"OTEL_RESOURCE_ATTRIBUTES",
-	"TRACEPARENT",
-	"TRACESTATE",
-	"BAGGAGE",
-}
-
 // setupForTest enables telemetry with the "none" exporter, so tests touch
 // neither the network nor stdout while spans are still recorded locally.
 func setupForTest(t *testing.T) {
 	t.Helper()
-	for _, key := range hermeticEnvVars {
+	for _, key := range HermeticEnvVars {
 		t.Setenv(key, "")
 	}
 	t.Setenv("OTEL_TRACES_EXPORTER", "none")
@@ -129,7 +112,7 @@ func TestSetupIdempotentAndReinitializable(t *testing.T) {
 }
 
 func TestSetupDegradesOnBadExporter(t *testing.T) {
-	for _, key := range hermeticEnvVars {
+	for _, key := range HermeticEnvVars {
 		t.Setenv(key, "")
 	}
 	t.Setenv("OTEL_TRACES_EXPORTER", "not-a-real-exporter")
@@ -143,7 +126,7 @@ func TestSetupDegradesOnBadExporter(t *testing.T) {
 }
 
 func TestSetupHonorsSDKDisabled(t *testing.T) {
-	for _, key := range hermeticEnvVars {
+	for _, key := range HermeticEnvVars {
 		t.Setenv(key, "")
 	}
 	t.Setenv("OTEL_TRACES_EXPORTER", "none")
@@ -200,7 +183,7 @@ func TestSetupEnablesMetricsProvider(t *testing.T) {
 }
 
 func TestSetupDegradesOnBadMetricExporter(t *testing.T) {
-	for _, key := range hermeticEnvVars {
+	for _, key := range HermeticEnvVars {
 		t.Setenv(key, "")
 	}
 	t.Setenv("OTEL_TRACES_EXPORTER", "none")

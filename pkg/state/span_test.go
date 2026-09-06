@@ -239,18 +239,18 @@ func TestSkipUndesired(t *testing.T) {
 	assert.False(t, skipUndesired(&ReleaseSpec{Installed: &installed}), "installed=true must run")
 }
 
-// TestHookTraceContextParentsToRelease pins the hook-span attribution: with a
+// TestTraceOnlyContextParentsToRelease pins the trace-only bridge: with a
 // parent (the release span context) hooks attach to it, stay non-cancellable,
 // and fall back to the command context without one.
-func TestHookTraceContextParentsToRelease(t *testing.T) {
+func TestTraceOnlyContextParentsToRelease(t *testing.T) {
 	noopTracer := noop.NewTracerProvider().Tracer("test")
 	parentCtx, parentSpan := noopTracer.Start(gocontext.Background(), "helmfile.release.sync")
 
-	hookCtx := hookTraceContext(parentCtx)
+	hookCtx := traceOnlyContext(parentCtx)
 
-	assert.Equal(t, parentSpan, trace.SpanFromContext(hookCtx), "hook context must carry the release span")
-	assert.Nil(t, hookCtx.Done(), "hook context must remain non-cancellable (historical behavior)")
+	assert.Equal(t, parentSpan, trace.SpanFromContext(hookCtx), "bridged context must carry the release span")
+	assert.Nil(t, hookCtx.Done(), "bridged context must remain non-cancellable (historical behavior)")
 
-	fallback := hookTraceContext()
+	fallback := traceOnlyContext()
 	assert.Equal(t, trace.SpanFromContext(telemetry.CommandContext()), trace.SpanFromContext(fallback), "no parent falls back to the command span")
 }
