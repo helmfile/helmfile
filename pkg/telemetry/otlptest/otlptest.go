@@ -132,11 +132,11 @@ func FindSpanWhere(t *testing.T, spans []*v1.Span, pred func(*v1.Span) bool, des
 			return s
 		}
 	}
-	t.Fatalf("no span matching %q (spans: %v)", desc, SpanNames(spans))
+	t.Fatalf("no span matching %q (spans: %v)", desc, spanNames(spans))
 	return nil
 }
 
-func SpanNames(spans []*v1.Span) []string {
+func spanNames(spans []*v1.Span) []string {
 	names := make([]string, 0, len(spans))
 	for _, s := range spans {
 		names = append(names, s.Name)

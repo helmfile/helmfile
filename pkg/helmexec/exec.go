@@ -19,7 +19,6 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/helmfile/chartify"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	actionv3 "helm.sh/helm/v3/pkg/action"
@@ -1230,52 +1229,6 @@ func (helm *execer) execWithContext(ctx context.Context, args []string, env map[
 		})
 	}
 	return helm.execWithRunner(runner, args, env, overrideEnableLiveOutput)
-}
-
-// markHelmExec returns ctx (or Background when nil) stamped with the
-// helm-invocation marker used for span classification.
-func markHelmExec(ctx context.Context) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return context.WithValue(ctx, helmExecMarker{}, true)
-}
-
-// withRunnerCtx returns a runner (value or pointer ShellRunner form) whose
-// context is transformed by f; non-ShellRunner runners pass through
-// unchanged. ShellRunner has value receivers, so both forms satisfy Runner.
-func withRunnerCtx(runner Runner, f func(context.Context) context.Context) Runner {
-	switch shell := runner.(type) {
-	case *ShellRunner:
-		clone := *shell
-		clone.Ctx = f(clone.Ctx)
-		return &clone
-	case ShellRunner:
-		clone := shell
-		clone.Ctx = f(clone.Ctx)
-		return clone
-	default:
-		return runner
-	}
-}
-
-// markHelmRunner returns a runner whose context carries the helm-invocation
-// marker, so span classification and the helm duration metric do not rely on
-// the executable basename.
-func markHelmRunner(runner Runner) Runner {
-	return withRunnerCtx(runner, markHelmExec)
-}
-
-// spanAttachedContext returns a context that keeps runnerCtx's cancellation
-// chain but carries the span from spanCtx, so the subprocess span nests under
-// the caller's span while the subprocess itself stays governed by the
-// runner's own context (e.g. the kubedog safety valve). A nil runnerCtx falls
-// back to spanCtx.
-func spanAttachedContext(runnerCtx, spanCtx context.Context) context.Context {
-	if runnerCtx == nil {
-		return spanCtx
-	}
-	return trace.ContextWithSpan(runnerCtx, trace.SpanFromContext(spanCtx))
 }
 
 func (helm *execer) execWithRunner(runner Runner, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {

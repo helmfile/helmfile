@@ -19,6 +19,52 @@ import (
 // telemetry is disabled: telemetry.Tracer then returns the OTel no-op tracer.
 // The returned context derives from ctx (or Background when nil) and may be
 // used for the subprocess itself without changing cancellation semantics.
+// markHelmExec returns ctx (or Background when nil) stamped with the
+// helm-invocation marker used for span classification.
+func markHelmExec(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, helmExecMarker{}, true)
+}
+
+// withRunnerCtx returns a runner (value or pointer ShellRunner form) whose
+// context is transformed by f; non-ShellRunner runners pass through
+// unchanged. ShellRunner has value receivers, so both forms satisfy Runner.
+func withRunnerCtx(runner Runner, f func(context.Context) context.Context) Runner {
+	switch shell := runner.(type) {
+	case *ShellRunner:
+		clone := *shell
+		clone.Ctx = f(clone.Ctx)
+		return &clone
+	case ShellRunner:
+		clone := shell
+		clone.Ctx = f(clone.Ctx)
+		return clone
+	default:
+		return runner
+	}
+}
+
+// markHelmRunner returns a runner whose context carries the helm-invocation
+// marker, so span classification and the helm duration metric do not rely on
+// the executable basename.
+func markHelmRunner(runner Runner) Runner {
+	return withRunnerCtx(runner, markHelmExec)
+}
+
+// spanAttachedContext returns a context that keeps runnerCtx's cancellation
+// chain but carries the span from spanCtx, so the subprocess span nests under
+// the caller's span while the subprocess itself stays governed by the
+// runner's own context (e.g. the kubedog safety valve). A nil runnerCtx falls
+// back to spanCtx.
+func spanAttachedContext(runnerCtx, spanCtx context.Context) context.Context {
+	if runnerCtx == nil {
+		return spanCtx
+	}
+	return trace.ContextWithSpan(runnerCtx, trace.SpanFromContext(spanCtx))
+}
+
 // helmExecMarker marks contexts of invocations made through the execer
 // funnel, so span classification is authoritative even for wrapper binaries
 // whose name does not start with "helm".
@@ -72,9 +118,11 @@ func classifyExec(ctx context.Context, cmd string, args []string) (string, []att
 	return "os.exec", attrs
 }
 
-// isHelmBinary reports whether a base name refers to a helm binary ("helm",
-// "helm3", custom builds like "helm-dev"). Non-matching binaries simply get
-// os.exec spans, which is only a cosmetic distinction.
+// isHelmBinary is the FALLBACK classifier: a base name starting with "helm"
+// ("helm", "helm3", "helm-dev") for processes started outside the execer
+// funnels (e.g. the version probe in helmexec.New). Invocations through the
+// funnels are classified authoritatively by the helmExecMarker, so wrapper
+// --helm-binary names classify correctly too.
 func isHelmBinary(base string) bool {
 	return strings.HasPrefix(base, "helm")
 }

@@ -62,7 +62,7 @@ The root span is named after the command (`helmfile apply`, `helmfile sync`, ...
 
 Every external process helmfile starts — each helm invocation, hook command, and plugin exec — gets its own span nested under the command span: `helm.exec` (with `helm.subcommand`) for helm binaries, `os.exec` otherwise, both carrying `exec.command`, redacted `exec.args`, and `exec.exit_code` on failure.
 
-State loading is traced too: `helmfile.discover_states`, one `helmfile.load` per state file (including nested helmfiles), with `helmfile.render` and `helmfile.parse` children — rendering is frequently the hidden time sink. Each hook execution produces a `helmfile.hook` span (with `hook.event` and `hook.name`) that its subprocess span nests under.
+State loading is traced too: `helmfile.discover_states`, one `helmfile.load` per state file (including nested helmfiles), with `helmfile.render` and `helmfile.parse` children — rendering is frequently the hidden time sink. Each hook execution produces a `helmfile.hook` span (with `hook.event` and `hook.name`) that its subprocess span nests under — and release-scoped hooks (presync/postsync & co. within sync/diff/delete) nest under their release's span, keeping full release attribution.
 
 Per-release spans (`helmfile.release.sync` / `.diff` / `.delete` / `.status` / `.test` / `.prepare`) carry the release name, namespace, chart, and labels, and nest under the state-file load span — with the release's helm subprocesses (upgrade, diff, delete, status, test) nested under the release span. The remaining loops (flag preparation, template/lint/unittest) are being added incrementally; see [the design proposal](proposals/otel-tracing.md) for the full taxonomy.
 
