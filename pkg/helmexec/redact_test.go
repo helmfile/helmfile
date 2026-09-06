@@ -42,6 +42,16 @@ func TestRedactArgsLegacy(t *testing.T) {
 			want: []string{"--set"},
 		},
 		{
+			name: "adjacent secret flags do not leak (previous token read from original)",
+			args: []string{"--set", "--set-string", "secret"},
+			want: []string{"--set", redactedArg, redactedArg},
+		},
+		{
+			name: "strict: adjacent secret flags do not leak",
+			args: []string{"--set", "--set", "a=b"},
+			want: []string{"--set", redactedArg, redactedArg},
+		},
+		{
 			name: "empty args",
 			args: []string{},
 			want: []string{},

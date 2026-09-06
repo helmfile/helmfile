@@ -1225,13 +1225,27 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 func (helm *execer) execWithContext(ctx context.Context, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
 	runner := helm.runner
 	if ctx != nil {
-		if shell, ok := runner.(*ShellRunner); ok {
+		switch shell := runner.(type) {
+		case *ShellRunner:
 			clone := *shell
 			clone.Ctx = spanAttachedContext(shell.Ctx, ctx)
 			runner = &clone
+		case ShellRunner:
+			clone := shell
+			clone.Ctx = spanAttachedContext(shell.Ctx, ctx)
+			runner = clone
 		}
 	}
 	return helm.execWithRunner(runner, args, env, overrideEnableLiveOutput)
+}
+
+// markHelmExec returns ctx (or Background when nil) stamped with the
+// helm-invocation marker used for span classification.
+func markHelmExec(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, helmExecMarker{}, true)
 }
 
 // spanAttachedContext returns a context that keeps runnerCtx's cancellation
@@ -1250,15 +1264,17 @@ func (helm *execer) execWithRunner(runner Runner, args []string, env map[string]
 	// Everything reaching this funnel is a helm invocation, even when the
 	// binary is a wrapper with a non-"helm" name (--helm-binary override);
 	// stamp the context so span classification does not rely on the
-	// executable basename.
-	if shell, ok := runner.(*ShellRunner); ok {
-		ctx := shell.Ctx
-		if ctx == nil {
-			ctx = context.Background()
-		}
+	// executable basename. ShellRunner has value receivers, so a value
+	// satisfies Runner too — handle both forms.
+	switch shell := runner.(type) {
+	case *ShellRunner:
 		clone := *shell
-		clone.Ctx = context.WithValue(ctx, helmExecMarker{}, true)
+		clone.Ctx = markHelmExec(clone.Ctx)
 		runner = &clone
+	case ShellRunner:
+		clone := shell
+		clone.Ctx = markHelmExec(clone.Ctx)
+		runner = clone
 	}
 
 	cmdargs := args

@@ -48,9 +48,12 @@ func RedactArgs(args []string, profile RedactionProfile) []string {
 	copy(out, args)
 
 	for i := range out {
+		// The previous token must be read from the ORIGINAL slice: reading
+		// the progressively redacted output would let a masked value hide a
+		// following secret (e.g. {"--set", "--set-string", "secret"}).
 		var prev string
 		if i > 0 {
-			prev = out[i-1]
+			prev = args[i-1]
 		}
 
 		switch profile {

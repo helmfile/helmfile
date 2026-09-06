@@ -36,7 +36,16 @@ func RedactedRef(ref string) string {
 	}
 
 	u, err := url.Parse(rest)
-	if err != nil || u.Scheme == "" || u.Host == "" {
+	if err != nil {
+		if strings.Contains(rest, "://") {
+			// URL-like but malformed (e.g. a bad percent escape): fail
+			// closed — export a fully redacted value rather than risk
+			// leaking userinfo or query credentials.
+			return force + redactedRefValue
+		}
+		return ref
+	}
+	if u.Scheme == "" || u.Host == "" {
 		// Not a URL (e.g. "./charts/demo"); leave it alone.
 		return ref
 	}
@@ -49,7 +58,10 @@ func RedactedRef(ref string) string {
 
 	if u.RawQuery != "" {
 		q, err := url.ParseQuery(u.RawQuery)
-		if err == nil {
+		if err != nil {
+			// Malformed query: fail closed by dropping it entirely.
+			u.RawQuery = ""
+		} else {
 			for key, values := range q {
 				if sensitiveQueryKey(key) {
 					for i := range values {

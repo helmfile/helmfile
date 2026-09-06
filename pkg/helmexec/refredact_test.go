@@ -47,6 +47,16 @@ func TestRedactedRef(t *testing.T) {
 			ref:  "git@github.com:org/repo.git",
 			want: "git@github.com:org/repo.git",
 		},
+		{
+			name: "malformed URL-like ref fails fully redacted",
+			ref:  "https://user:token@host/%zz",
+			want: redactedRefValue,
+		},
+		{
+			name: "malformed query is dropped entirely",
+			ref:  "https://host/file?token=secret%zz&ok=1",
+			want: "https://host/file",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

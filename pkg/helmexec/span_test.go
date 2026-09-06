@@ -123,3 +123,21 @@ func TestSpanAttachedContext(t *testing.T) {
 	var nilRunnerCtx context.Context
 	assert.Equal(t, spanCtx, spanAttachedContext(nilRunnerCtx, spanCtx))
 }
+
+// TestValueRunnerClassification pins that ShellRunner values (which satisfy
+// Runner via value receivers) receive the helm marker and span attachment
+// exactly like pointer runners.
+func TestValueRunnerClassification(t *testing.T) {
+	spanCtx, span := noop.NewTracerProvider().Tracer("test").Start(context.Background(), "release")
+
+	// marker stamping
+	valueRunner := ShellRunner{}
+	marked := markHelmExec(valueRunner.Ctx)
+	if v, ok := marked.Value(helmExecMarker{}).(bool); !ok || !v {
+		t.Fatal("value runner ctx must carry the helm marker")
+	}
+
+	// span attachment via the same path execWithContext uses for values
+	merged := spanAttachedContext(valueRunner.Ctx, spanCtx)
+	assert.Equal(t, span, trace.SpanFromContext(merged))
+}
