@@ -117,26 +117,9 @@ func Setup(ctx gocontext.Context, opts Options) {
 		return
 	}
 
-	res, err := buildResource(opts.Version)
+	provider, meters, err := newProviders(ctx, opts)
 	if err != nil {
 		warnf(opts.Logger, "OpenTelemetry tracing unavailable: %v", err)
-		return
-	}
-
-	provider, err := newTracerProvider(ctx, opts, res)
-	if err != nil {
-		warnf(opts.Logger, "OpenTelemetry tracing unavailable: %v", err)
-		return
-	}
-
-	meters, err := newMeterProvider(ctx, res)
-	if err != nil {
-		warnf(opts.Logger, "OpenTelemetry tracing unavailable: %v", err)
-		// Do not abandon the already-constructed tracer provider (its batch
-		// processor goroutine would live on): shut it down, bounded.
-		shutdownCtx, cancel := gocontext.WithTimeout(gocontext.Background(), ShutdownTimeout)
-		defer cancel()
-		_ = provider.Shutdown(shutdownCtx)
 		return
 	}
 

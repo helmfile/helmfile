@@ -77,7 +77,7 @@ Tracing and metrics share the same switch and resource; metrics are exported thr
 | `OTEL_METRICS_EXPORTER` | `otlp` | `otlp` \| `console` \| `prometheus` \| `none` |
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` (ms) | periodic export interval; the final flush happens at exit |
 
-Two instruments are emitted:
+Three instruments are emitted:
 
 | Metric | Type | Attributes |
 |---|---|---|

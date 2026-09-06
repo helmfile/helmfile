@@ -143,18 +143,8 @@ func TestMarkHelmRunnerCoversBothFunnels(t *testing.T) {
 		t.Error("value runner must carry the helm marker")
 	}
 
-	fake := &fakeRunner{}
+	fake := &mockRunner{}
 	assert.Same(t, fake, markHelmRunner(fake), "non-ShellRunner runners pass through unchanged")
-}
-
-type fakeRunner struct{}
-
-func (f *fakeRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	return nil, nil
-}
-
-func (f *fakeRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
-	return nil, nil
 }
 
 // TestValueRunnerClassification pins that ShellRunner values (which satisfy

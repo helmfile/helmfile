@@ -25,12 +25,17 @@ func sensitiveQueryKey(key string) bool {
 // credential-bearing query parameters have their values replaced. Non-URL
 // strings are returned unchanged. It is deliberately at least as strict as
 // the log-time RedactedURL.
+// maxForcedFormPrefix bounds the length of a recognized go-getter forced-form
+// prefix ("git::", "s3::", "hg::" …); longer "::"-containing prefixes are
+// treated as part of an opaque reference instead.
+const maxForcedFormPrefix = 16
+
 func RedactedRef(ref string) string {
 	force := ""
 	rest := ref
 	// A go-getter forced form looks like "git::https://…": a short
 	// alphanumeric prefix followed by "::" at the start of the reference.
-	if i := strings.Index(rest, "::"); i > 0 && i <= 16 && isAlphanumericPrefix(rest[:i]) {
+	if i := strings.Index(rest, "::"); i > 0 && i <= maxForcedFormPrefix && isAlphanumericPrefix(rest[:i]) {
 		force = rest[:i+len("::")]
 		rest = rest[i+len("::"):]
 	}

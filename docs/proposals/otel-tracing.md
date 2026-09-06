@@ -397,9 +397,11 @@ Traces leave the machine they run on. Ground rules, checked against what exists 
 **When enabled:**
 - Standard SDK BatchSpanProcessor (5s interval / 512-span batches); metrics
   use a periodic reader (default 60s, `OTEL_METRIC_EXPORT_INTERVAL`) with a
-  final flush at exit. Two instruments exist — `helmfile.helm.exec.duration`
-  and `helmfile.release.count` — so metric cardinality stays tiny (bounded by
-  subcommands and verbs, never by release names). A
+  final flush at exit. Three instruments exist — `helmfile.helm.exec.duration`,
+  `helmfile.release.duration`, and `helmfile.release.count` — so metric
+  cardinality stays tiny by default (bounded by subcommands and verbs, never
+  by release names); `HELMFILE_OTEL_METRICS_PER_RELEASE` opts into
+  name/namespace dimensions for bounded CI runs. A
   `sync --concurrency=16` run produces at most one span per helm invocation plus one per
   release — hundreds, not tens of thousands. Export happens off the critical path; the
   only synchronous cost is the ≤5s shutdown flush, paid only when tracing is on.

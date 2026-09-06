@@ -55,6 +55,32 @@ func newTracerProvider(ctx gocontext.Context, opts Options, res *resource.Resour
 	), nil
 }
 
+// newProviders builds the tracer and meter providers over one shared
+// resource. If the metric provider fails after the tracer provider was
+// constructed, the tracer provider is shut down (bounded) so its batch
+// goroutine does not outlive the failed setup.
+func newProviders(ctx gocontext.Context, opts Options) (*sdktrace.TracerProvider, *sdkmetric.MeterProvider, error) {
+	res, err := buildResource(opts.Version)
+	if err != nil {
+		return nil, nil, fmt.Errorf("building OTel resource: %w", err)
+	}
+
+	provider, err := newTracerProvider(ctx, opts, res)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	meters, err := newMeterProvider(ctx, res)
+	if err != nil {
+		shutdownCtx, cancel := gocontext.WithTimeout(gocontext.Background(), ShutdownTimeout)
+		defer cancel()
+		_ = provider.Shutdown(shutdownCtx)
+		return nil, nil, err
+	}
+
+	return provider, meters, nil
+}
+
 // newMeterProvider builds the metrics provider. Reader selection is delegated
 // to autoexport (OTEL_METRICS_EXPORTER: otlp | console | prometheus | none);
 // the OTLP reader is a periodic reader whose interval honors
