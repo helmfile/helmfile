@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	metricsv1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/zap"
@@ -154,4 +156,20 @@ func TestSkipUndesired(t *testing.T) {
 
 	installed = true
 	assert.False(t, skipUndesired(&ReleaseSpec{Installed: &installed}), "installed=true must run")
+}
+
+// TestHookTraceContextParentsToRelease pins the hook-span attribution: with a
+// parent (the release span context) hooks attach to it, stay non-cancellable,
+// and fall back to the command context without one.
+func TestHookTraceContextParentsToRelease(t *testing.T) {
+	noopTracer := noop.NewTracerProvider().Tracer("test")
+	parentCtx, parentSpan := noopTracer.Start(gocontext.Background(), "helmfile.release.sync")
+
+	hookCtx := hookTraceContext(parentCtx)
+
+	assert.Equal(t, parentSpan, trace.SpanFromContext(hookCtx), "hook context must carry the release span")
+	assert.Nil(t, hookCtx.Done(), "hook context must remain non-cancellable (historical behavior)")
+
+	fallback := hookTraceContext()
+	assert.Equal(t, trace.SpanFromContext(telemetry.CommandContext()), trace.SpanFromContext(fallback), "no parent falls back to the command span")
 }

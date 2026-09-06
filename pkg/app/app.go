@@ -1669,7 +1669,9 @@ func (a *App) spanParentCtx() goContext.Context {
 
 func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]string, error) {
 	_, span := telemetry.Tracer(telemetry.ScopeHelmfile).Start(a.spanParentCtx(), "helmfile.discover_states",
-		trace.WithAttributes(attribute.String("helmfile.path", specifiedPath)),
+		// specifiedPath is captured before Remote.Locate resolves it; it may
+		// be a remote reference carrying credentials in userinfo or query.
+		trace.WithAttributes(attribute.String("helmfile.path", helmexec.RedactedRef(specifiedPath))),
 	)
 	defer span.End()
 

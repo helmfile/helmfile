@@ -35,7 +35,7 @@ func (st *HelmState) startReleaseSpan(verb string, release *ReleaseSpec) (gocont
 	attrs := []attribute.KeyValue{
 		attribute.String("helmfile.release", release.Name),
 		attribute.String("helmfile.namespace", release.Namespace),
-		attribute.String("helmfile.chart", helmexec.RedactedURL(release.Chart)),
+		attribute.String("helmfile.chart", helmexec.RedactedRef(release.Chart)),
 	}
 	if release.Version != "" {
 		attrs = append(attrs, attribute.String("helmfile.chart_version", release.Version))

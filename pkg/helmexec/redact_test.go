@@ -1,6 +1,7 @@
 package helmexec
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -114,13 +115,14 @@ func TestRedactArgsDoesNotMutateInput(t *testing.T) {
 	assert.Equal(t, before, reflect.ValueOf(orig).Pointer(), "input backing array must be reused by the caller, not modified")
 }
 
-func TestExecSpanAttributes(t *testing.T) {
+func TestClassifyExec(t *testing.T) {
 	tests := []struct {
 		name         string
 		cmd          string
 		args         []string
 		wantName     string
 		wantAttrVals map[string][]string
+		ctxMarked    bool
 	}{
 		{
 			name:     "helm invocation",
@@ -151,6 +153,17 @@ func TestExecSpanAttributes(t *testing.T) {
 			},
 		},
 		{
+			name:     "wrapper helm binary classified via marker, not name",
+			cmd:      "/opt/bin/custom-wrapper",
+			args:     []string{"upgrade", "demo", "./chart"},
+			wantName: "helm.exec",
+			wantAttrVals: map[string][]string{
+				"exec.command":    {"custom-wrapper"},
+				"helm.subcommand": {"upgrade"},
+			},
+			ctxMarked: true,
+		},
+		{
 			name:     "secret args are redacted and flagged",
 			cmd:      "helm",
 			args:     []string{"upgrade", "--set", "pw=1", "--set=pw2=2"},
@@ -166,7 +179,7 @@ func TestExecSpanAttributes(t *testing.T) {
 			args:     []string{"repo", "add", "name", "https://user:token@charts.example.com/repo"},
 			wantName: "helm.exec",
 			wantAttrVals: map[string][]string{
-				"exec.args":     {"repo", "add", "name", "https://user:xxxxx@charts.example.com/repo"},
+				"exec.args":     {"repo", "add", "name", "https://xxxxx@charts.example.com/repo"},
 				"exec.redacted": {"true"},
 			},
 		},
@@ -182,7 +195,11 @@ func TestExecSpanAttributes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			name, attrs := execSpanAttributes(tt.cmd, tt.args)
+			ctx := context.Background()
+			if tt.ctxMarked {
+				ctx = context.WithValue(ctx, helmExecMarker{}, true)
+			}
+			name, attrs, _ := classifyExec(ctx, tt.cmd, tt.args)
 
 			assert.Equal(t, tt.wantName, name)
 			got := map[string][]string{}

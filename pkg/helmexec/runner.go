@@ -39,12 +39,12 @@ type ShellRunner struct {
 // (helm.exec/os.exec, see span.go); span overhead is nil when telemetry is
 // disabled.
 func (shell ShellRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	ctx, span := startExecSpan(shell.Ctx, cmd, args)
+	ctx, span, isHelm := startExecSpan(shell.Ctx, cmd, args)
 	defer span.End()
 
 	start := time.Now()
 	out, err := shell.run(ctx, cmd, args, env, enableLiveOutput)
-	finishExecSpan(span, cmd, args, start, err)
+	finishExecSpan(span, isHelm, args, start, err)
 	return out, err
 }
 
@@ -65,12 +65,12 @@ func (shell ShellRunner) run(ctx context.Context, cmd string, args []string, env
 // Execute a shell command with the given stdin; wrapped in an exec span like
 // Execute.
 func (shell ShellRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
-	ctx, span := startExecSpan(shell.Ctx, cmd, args)
+	ctx, span, isHelm := startExecSpan(shell.Ctx, cmd, args)
 	defer span.End()
 
 	start := time.Now()
 	out, err := shell.runStdIn(ctx, cmd, args, env, stdin)
-	finishExecSpan(span, cmd, args, start, err)
+	finishExecSpan(span, isHelm, args, start, err)
 	return out, err
 }
 

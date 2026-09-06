@@ -19,20 +19,30 @@ import (
 // telemetry is disabled: telemetry.Tracer then returns the OTel no-op tracer.
 // The returned context derives from ctx (or Background when nil) and may be
 // used for the subprocess itself without changing cancellation semantics.
-func startExecSpan(ctx context.Context, cmd string, args []string) (context.Context, trace.Span) {
+// helmExecMarker marks contexts of invocations made through the execer
+// funnel, so span classification is authoritative even for wrapper binaries
+// whose name does not start with "helm".
+type helmExecMarker struct{}
+
+func startExecSpan(ctx context.Context, cmd string, args []string) (context.Context, trace.Span, bool) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	name, attrs := execSpanAttributes(cmd, args)
-	return telemetry.Tracer(telemetry.ScopeHelm).Start(ctx, name, trace.WithAttributes(attrs...))
+	name, attrs, isHelm := classifyExec(ctx, cmd, args)
+	ctx, span := telemetry.Tracer(telemetry.ScopeHelm).Start(ctx, name, trace.WithAttributes(attrs...))
+	return ctx, span, isHelm
 }
 
-// execSpanAttributes builds the span name and attributes for one subprocess.
+// classifyExec builds the span name and attributes for one subprocess.
 // Secret-bearing arguments are always redacted with the strict profile: span
 // visibility must be at least as redacted as error messages (see redact.go).
-func execSpanAttributes(cmd string, args []string) (string, []attribute.KeyValue) {
+func classifyExec(ctx context.Context, cmd string, args []string) (string, []attribute.KeyValue, bool) {
 	base := filepath.Base(cmd)
+	isHelm := isHelmBinary(base)
+	if marked, ok := ctx.Value(helmExecMarker{}).(bool); ok {
+		isHelm = marked
+	}
 	attrs := []attribute.KeyValue{
 		attribute.String("exec.command", base),
 	}
@@ -40,22 +50,21 @@ func execSpanAttributes(cmd string, args []string) (string, []attribute.KeyValue
 	redacted := RedactArgs(args, RedactionStrict)
 	for i, a := range redacted {
 		// Positional arguments can be chart/repository URLs with embedded
-		// credentials (AddRepo, RegistryLogin); sanitize userinfo like the
-		// log output does.
-		redacted[i] = RedactedURL(a)
+		// credentials (AddRepo, RegistryLogin, OCI and go-getter refs).
+		redacted[i] = RedactedRef(a)
 	}
 	attrs = append(attrs, attribute.StringSlice("exec.args", redacted))
 	if !equalArgs(args, redacted) {
 		attrs = append(attrs, attribute.Bool("exec.redacted", true))
 	}
 
-	if isHelmBinary(base) {
+	if isHelm {
 		if sub := helmSubcommand(args); sub != "" {
 			attrs = append(attrs, attribute.String("helm.subcommand", sub))
 		}
-		return "helm.exec", attrs
+		return "helm.exec", attrs, true
 	}
-	return "os.exec", attrs
+	return "os.exec", attrs, false
 }
 
 // isHelmBinary reports whether a base name refers to a helm binary ("helm",
@@ -87,9 +96,10 @@ func helmSubcommand(args []string) string {
 }
 
 // finishExecSpan records a finished process's outcome on its span and, for
-// helm binaries, the helmfile.helm.exec.duration metric.
-func finishExecSpan(span trace.Span, cmd string, args []string, start time.Time, err error) {
-	if isHelmBinary(filepath.Base(cmd)) {
+// helm invocations (as classified by startExecSpan, wrapper binaries
+// included), the helmfile.helm.exec.duration metric.
+func finishExecSpan(span trace.Span, isHelm bool, args []string, start time.Time, err error) {
+	if isHelm {
 		telemetry.RecordHelmExecDuration(time.Since(start).Seconds(), helmSubcommand(args), err == nil)
 	}
 	if err == nil {

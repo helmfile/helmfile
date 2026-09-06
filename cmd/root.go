@@ -143,7 +143,8 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 func commandSpanAttributes(cmdName string, g *config.GlobalImpl) []attribute.KeyValue {
 	return []attribute.KeyValue{
 		attribute.String("helmfile.command", cmdName),
-		attribute.String("helmfile.file", g.FileOrDir()),
+		// FileOrDir may be a remote go-getter reference with credentials.
+		attribute.String("helmfile.file", helmexec.RedactedRef(g.FileOrDir())),
 		attribute.String("helmfile.environment", g.Env()),
 		attribute.StringSlice("helmfile.selectors", g.Selectors()),
 	}

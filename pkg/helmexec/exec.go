@@ -1247,6 +1247,20 @@ func spanAttachedContext(runnerCtx, spanCtx context.Context) context.Context {
 }
 
 func (helm *execer) execWithRunner(runner Runner, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
+	// Everything reaching this funnel is a helm invocation, even when the
+	// binary is a wrapper with a non-"helm" name (--helm-binary override);
+	// stamp the context so span classification does not rely on the
+	// executable basename.
+	if shell, ok := runner.(*ShellRunner); ok {
+		ctx := shell.Ctx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		clone := *shell
+		clone.Ctx = context.WithValue(ctx, helmExecMarker{}, true)
+		runner = &clone
+	}
+
 	cmdargs := args
 	if len(helm.extra) > 0 {
 		cmdargs = append(cmdargs, helm.extra...)

@@ -224,7 +224,7 @@ func Shutdown(ctx gocontext.Context, runErr error, exitCode int) error {
 
 	if s.cmdSpan != nil {
 		s.cmdSpan.SetAttributes(attribute.Int("helmfile.exit_code", exitCode))
-		if runErr != nil {
+		if runErr != nil || exitCode != 0 {
 			// The raw error may embed command arguments and subprocess
 			// output; keep the span description generic (the exit code is an
 			// attribute).
