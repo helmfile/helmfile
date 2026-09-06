@@ -35,6 +35,7 @@ var strictNextArgFlags = []string{
 	"--username",
 	"--password",
 	"--key-file",
+	"--kube-token",
 }
 
 // RedactArgs returns a copy of args with secret-bearing values masked

@@ -97,6 +97,16 @@ func TestRedactArgsStrict(t *testing.T) {
 			want: []string{"--password-stdin"},
 		},
 		{
+			name: "kube-token is masked (two-argument form)",
+			args: []string{"--kube-context", "ctx", "upgrade", "--kube-token", "eyJhbGciOi..."},
+			want: []string{"--kube-context", "ctx", "upgrade", "--kube-token", redactedArg},
+		},
+		{
+			name: "kube-token is masked (inline form)",
+			args: []string{"upgrade", "--kube-token=eyJhbGciOi..."},
+			want: []string{"upgrade", "--kube-token=" + redactedArg},
+		},
+		{
 			name: "benign flags untouched",
 			args: []string{"upgrade", "--install", "envoy", "./chart", "--namespace", "ingress", "--reset-values"},
 			want: []string{"upgrade", "--install", "envoy", "./chart", "--namespace", "ingress", "--reset-values"},
