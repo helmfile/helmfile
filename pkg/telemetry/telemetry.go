@@ -132,6 +132,11 @@ func Setup(ctx gocontext.Context, opts Options) {
 	meters, err := newMeterProvider(ctx, res)
 	if err != nil {
 		warnf(opts.Logger, "OpenTelemetry tracing unavailable: %v", err)
+		// Do not abandon the already-constructed tracer provider (its batch
+		// processor goroutine would live on): shut it down, bounded.
+		shutdownCtx, cancel := gocontext.WithTimeout(gocontext.Background(), ShutdownTimeout)
+		defer cancel()
+		_ = provider.Shutdown(shutdownCtx)
 		return
 	}
 
@@ -220,8 +225,10 @@ func Shutdown(ctx gocontext.Context, runErr error, exitCode int) error {
 	if s.cmdSpan != nil {
 		s.cmdSpan.SetAttributes(attribute.Int("helmfile.exit_code", exitCode))
 		if runErr != nil {
-			s.cmdSpan.RecordError(runErr)
-			s.cmdSpan.SetStatus(codes.Error, runErr.Error())
+			// The raw error may embed command arguments and subprocess
+			// output; keep the span description generic (the exit code is an
+			// attribute).
+			s.cmdSpan.SetStatus(codes.Error, "helmfile command failed")
 		}
 		s.cmdSpan.End()
 	}

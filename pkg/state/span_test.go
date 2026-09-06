@@ -145,3 +145,13 @@ func TestSetTraceContext(t *testing.T) {
 	st.SetTraceContext(ctx)
 	assert.Equal(t, ctx, st.releaseSpanParent())
 }
+
+func TestSkipUndesired(t *testing.T) {
+	assert.False(t, skipUndesired(&ReleaseSpec{}), "installed unset means desired")
+
+	installed := false
+	assert.True(t, skipUndesired(&ReleaseSpec{Installed: &installed}), "installed=false must be skipped")
+
+	installed = true
+	assert.False(t, skipUndesired(&ReleaseSpec{Installed: &installed}), "installed=true must run")
+}

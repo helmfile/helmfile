@@ -43,12 +43,19 @@ func (st *HelmState) scatterGather(concurrency int, items int, produceInputs fun
 }
 
 func (st *HelmState) scatterGatherReleases(helm helmexec.Interface, concurrency int, verb string,
-	do func(gocontext.Context, ReleaseSpec, int) error) []error {
-	return st.iterateOnReleases(helm, concurrency, verb, st.Releases, do)
+	skip func(*ReleaseSpec) bool, do func(gocontext.Context, ReleaseSpec, int) error) []error {
+	return st.iterateOnReleases(helm, concurrency, verb, skip, st.Releases, do)
 }
 
 // nolint: unparam
-func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, verb string, inputs []ReleaseSpec,
+// skipDesired reports whether a release is disabled (not desired); callers
+// whose callbacks short-circuit on !release.Desired() pass it so no span or
+// metric is emitted for releases that run no operation.
+func skipUndesired(release *ReleaseSpec) bool {
+	return !release.Desired()
+}
+
+func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int, verb string, skip func(*ReleaseSpec) bool, inputs []ReleaseSpec,
 	do func(gocontext.Context, ReleaseSpec, int) error) []error {
 	var errs []error
 
@@ -68,7 +75,7 @@ func (st *HelmState) iterateOnReleases(helm helmexec.Interface, concurrency int,
 		},
 		func(id int) {
 			for release := range releases {
-				err := st.doWithReleaseSpan(verb, release, id, do)
+				err := st.doWithReleaseSpan(verb, release, id, skip, do)
 				st.logger.Debugf("release %q processed", release.Name)
 				results <- result{release: release, err: err}
 			}

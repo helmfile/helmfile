@@ -74,3 +74,40 @@ func TestHookSpanExported(t *testing.T) {
 	assert.Equal(t, hook.TraceId, exec.TraceId)
 	assert.Equal(t, hook.SpanId, exec.ParentSpanId, "os.exec span must nest under the helmfile.hook span")
 }
+
+// TestHookSpanFailureMessageIsGeneric runs a failing hook and asserts the
+// span's error status does not embed the rendered command or runner details.
+func TestHookSpanFailureMessageIsGeneric(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses the unix false binary")
+	}
+
+	rec := otlptest.NewRecorder(t)
+	otlptest.SetupTelemetry(t, rec, "helmfile test")
+
+	bus := &Bus{
+		Hooks: []Hook{
+			{
+				Name:    "fail",
+				Events:  []string{"presync"},
+				Command: "false",
+				Args:    []string{"--secret", "hunter2"},
+			},
+		},
+		Logger: zap.NewNop().Sugar(),
+		Fs:     filesystem.DefaultFileSystem(),
+		Ctx:    goContext.WithoutCancel(telemetry.CommandContext()),
+	}
+
+	_, err := bus.Trigger("presync", nil, nil)
+	require.Error(t, err)
+
+	otlptest.ShutdownTelemetry(t)
+
+	hook := otlptest.FindSpanWhere(t, rec.Spans(t), func(s *v1.Span) bool { return s.Name == "helmfile.hook" }, "hook span")
+	require.NotNil(t, hook.Status)
+	assert.Equal(t, v1.Status_STATUS_CODE_ERROR, hook.Status.Code)
+	assert.Equal(t, "hook failed", hook.Status.Message)
+	assert.NotContains(t, hook.Status.Message, "false")
+	assert.NotContains(t, hook.Status.Message, "hunter2")
+}

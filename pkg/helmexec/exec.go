@@ -19,6 +19,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/helmfile/chartify"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	actionv3 "helm.sh/helm/v3/pkg/action"
@@ -181,12 +182,20 @@ func GetPluginVersion(name, pluginsDir string) (*semver.Version, error) {
 	return nil, fmt.Errorf("plugin %s not installed", name)
 }
 
-func redactedURL(chart string) string {
-	chartURL, err := url.ParseRequestURI(chart)
+// RedactedURL returns ref with any password in the URL userinfo replaced,
+// matching helmfile's log redaction (url.URL.Redacted). Non-URL strings are
+// returned unchanged. Telemetry reuses it so span attributes are sanitized at
+// least as strictly as log output.
+func RedactedURL(ref string) string {
+	refURL, err := url.ParseRequestURI(ref)
 	if err != nil {
-		return chart
+		return ref
 	}
-	return chartURL.Redacted()
+	return refURL.Redacted()
+}
+
+func redactedURL(chart string) string {
+	return RedactedURL(chart)
 }
 
 // New for running helm commands
@@ -1208,33 +1217,33 @@ func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
 	return helm.execWithRunner(helm.runner, args, env, nil)
 }
 
-// execWithContext behaves like exec but runs the subprocess on the given
-// context (from HelmContext.Ctx) so its span nests under the per-release
-// span. A nil ctx is exactly exec.
+// execWithContext behaves like exec but attaches the span carried by ctx
+// (from HelmContext.Ctx) so the subprocess span nests under the per-release
+// span. Crucially, the subprocess keeps the runner's own context: replacing
+// it would override specialized cancellation contexts such as the kubedog
+// safety valve installed via execer.WithContext. A nil ctx is exactly exec.
 func (helm *execer) execWithContext(ctx context.Context, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
-	return helm.execWithRunner(helm.runnerWithCtx(ctx), args, env, overrideEnableLiveOutput)
+	runner := helm.runner
+	if ctx != nil {
+		if shell, ok := runner.(*ShellRunner); ok {
+			clone := *shell
+			clone.Ctx = spanAttachedContext(shell.Ctx, ctx)
+			runner = &clone
+		}
+	}
+	return helm.execWithRunner(runner, args, env, overrideEnableLiveOutput)
 }
 
-// runnerWithCtx returns a per-call runner clone carrying ctx. The execer
-// (and its runner) is shared across concurrent release workers, so per-release
-// contexts must travel per call, never by mutation. Non-ShellRunner runners
-// (test fakes) are returned unchanged.
-func (helm *execer) runnerWithCtx(ctx context.Context) Runner {
-	if ctx == nil {
-		return helm.runner
+// spanAttachedContext returns a context that keeps runnerCtx's cancellation
+// chain but carries the span from spanCtx, so the subprocess span nests under
+// the caller's span while the subprocess itself stays governed by the
+// runner's own context (e.g. the kubedog safety valve). A nil runnerCtx falls
+// back to spanCtx.
+func spanAttachedContext(runnerCtx, spanCtx context.Context) context.Context {
+	if runnerCtx == nil {
+		return spanCtx
 	}
-	switch r := helm.runner.(type) {
-	case *ShellRunner:
-		clone := *r
-		clone.Ctx = ctx
-		return &clone
-	case ShellRunner:
-		clone := r
-		clone.Ctx = ctx
-		return clone
-	default:
-		return helm.runner
-	}
+	return trace.ContextWithSpan(runnerCtx, trace.SpanFromContext(spanCtx))
 }
 
 func (helm *execer) execWithRunner(runner Runner, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {

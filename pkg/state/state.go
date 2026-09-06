@@ -3322,19 +3322,27 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					chartPath = normalizeChart(st.basePath, chartPath)
 				}
 
+				var diffSpanErr error
 				if prep.upgradeDueToSkippedDiff {
+					// Code 2 (changes detected) is an expected outcome, not a
+					// span/metric error.
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
 				} else if err := st.withChartOperationLock(release, chartPath, func() error {
 					diffContext := st.createHelmContextWithWriter(release, buf)
 					diffContext.Ctx = relCtx
 					return helm.DiffRelease(diffContext, release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
 				}); err != nil {
+					var relErr *ReleaseError
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						results <- diffResult{release, &ReleaseError{release, err, e.ExitStatus()}, buf}
+						relErr = &ReleaseError{release, err, e.ExitStatus()}
 					default:
-						results <- diffResult{release, &ReleaseError{release, err, 0}, buf}
+						relErr = &ReleaseError{release, err, 0}
+					}
+					results <- diffResult{release, relErr, buf}
+					if relErr.Code != HelmDiffExitCodeChanged {
+						diffSpanErr = relErr
 					}
 				} else {
 					// diff succeeded, found no changes
@@ -3347,7 +3355,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					}
 				}
 
-				endReleaseSpan(relSpan, "diff", nil)
+				endReleaseSpan(relSpan, "diff", diffSpanErr)
 			}
 		},
 		func() {
@@ -3378,7 +3386,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 }
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
-	return st.scatterGatherReleases(helm, workerLimit, "status", func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, workerLimit, "status", skipUndesired, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3399,7 +3407,7 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error {
-	return st.scatterGatherReleases(helm, concurrency, "delete", func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "delete", nil, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
 		flags := make([]string, 0)
@@ -3461,7 +3469,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		o(&opts)
 	}
 
-	return st.scatterGatherReleases(helm, concurrency, "test", func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "test", skipUndesired, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}

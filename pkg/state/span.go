@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
@@ -34,7 +35,7 @@ func (st *HelmState) startReleaseSpan(verb string, release *ReleaseSpec) (gocont
 	attrs := []attribute.KeyValue{
 		attribute.String("helmfile.release", release.Name),
 		attribute.String("helmfile.namespace", release.Namespace),
-		attribute.String("helmfile.chart", release.Chart),
+		attribute.String("helmfile.chart", helmexec.RedactedURL(release.Chart)),
 	}
 	if release.Version != "" {
 		attrs = append(attrs, attribute.String("helmfile.chart_version", release.Version))
@@ -59,7 +60,9 @@ func endReleaseSpan(span trace.Span, verb string, err error) {
 	}
 	telemetry.RecordReleaseResult(verb, err)
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		// The raw error may embed helm command arguments and output; keep
+		// the span description generic.
+		span.SetStatus(codes.Error, "release operation failed")
 	}
 	span.End()
 }
@@ -91,7 +94,12 @@ func releaseErrAsError(relErr *ReleaseError) error {
 // span, recording the returned error on the span, and hands do the span
 // context so the release's helm subprocesses nest under the span. It is the
 // convenience form used by the iterateOnReleases-based loops.
-func (st *HelmState) doWithReleaseSpan(verb string, release ReleaseSpec, workerIndex int, do func(gocontext.Context, ReleaseSpec, int) error) error {
+func (st *HelmState) doWithReleaseSpan(verb string, release ReleaseSpec, workerIndex int, skip func(*ReleaseSpec) bool, do func(gocontext.Context, ReleaseSpec, int) error) error {
+	if skip != nil && skip(&release) {
+		// Skipped releases run no operation: no span, no metric. The callback
+		// still runs so its short-circuit behavior is unchanged.
+		return do(gocontext.Background(), release, workerIndex)
+	}
 	ctx, span := st.startReleaseSpan(verb, &release)
 	err := do(ctx, release, workerIndex)
 	endReleaseSpan(span, verb, err)

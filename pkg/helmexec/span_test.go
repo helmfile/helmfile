@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 
@@ -99,26 +101,23 @@ func spanAttrStrings(t *testing.T, span *v1.Span, key string) []string {
 	return out
 }
 
-// TestRunnerWithCtx pins the per-call context swap that lets helm subprocess
-// spans nest under per-release spans: the shared runner is never mutated, a
-// clone carries the ctx, and non-ShellRunner runners pass through unchanged.
-func TestRunnerWithCtx(t *testing.T) {
-	baseCtx := context.Background()
-	releaseCtx := context.WithValue(baseCtx, ctxKey{}, "release")
+// TestSpanAttachedContext pins the per-call context merge that lets helm
+// subprocess spans nest under per-release spans WITHOUT overriding the
+// runner's own cancellation context (the kubedog safety valve).
+func TestSpanAttachedContext(t *testing.T) {
+	runnerCtx, valveCancel := context.WithCancel(context.Background())
+	defer valveCancel()
 
-	shell := &ShellRunner{Ctx: baseCtx}
-	helm := &execer{runner: shell}
+	spanCtx, span := noop.NewTracerProvider().Tracer("test").Start(context.Background(), "release")
 
-	clone := helm.runnerWithCtx(releaseCtx)
-	got, ok := clone.(*ShellRunner)
-	require.True(t, ok)
-	assert.Equal(t, releaseCtx, got.Ctx, "clone must carry the per-call ctx")
-	assert.Equal(t, context.Background(), shell.Ctx, "shared runner must not be mutated")
+	merged := spanAttachedContext(runnerCtx, spanCtx)
 
-	// A typed nil context (distinct from a nil literal, per staticcheck) must
-	// still return the original runner.
-	var nilCtx context.Context
-	assert.Same(t, shell, helm.runnerWithCtx(nilCtx), "nil ctx must return the original runner")
+	// The merged context still cancels with the runner's context.
+	assert.Equal(t, runnerCtx.Done(), merged.Done(), "cancellation authority must stay with the runner context")
+
+	// ...and carries the caller's span for nesting.
+	assert.Equal(t, span, trace.SpanFromContext(merged), "the caller's span must be attached")
+
+	// Nil runner context falls back to the span context.
+	assert.Equal(t, spanCtx, spanAttachedContext(nil, spanCtx))
 }
-
-type ctxKey struct{}

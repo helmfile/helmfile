@@ -38,6 +38,12 @@ func execSpanAttributes(cmd string, args []string) (string, []attribute.KeyValue
 	}
 
 	redacted := RedactArgs(args, RedactionStrict)
+	for i, a := range redacted {
+		// Positional arguments can be chart/repository URLs with embedded
+		// credentials (AddRepo, RegistryLogin); sanitize userinfo like the
+		// log output does.
+		redacted[i] = RedactedURL(a)
+	}
 	attrs = append(attrs, attribute.StringSlice("exec.args", redacted))
 	if !equalArgs(args, redacted) {
 		attrs = append(attrs, attribute.Bool("exec.redacted", true))
@@ -93,5 +99,7 @@ func finishExecSpan(span trace.Span, cmd string, args []string, start time.Time,
 	if errors.As(err, &exitErr) {
 		span.SetAttributes(attribute.Int("exec.exit_code", exitErr.ExitStatus()))
 	}
-	span.SetStatus(codes.Error, err.Error())
+	// The raw error may embed command arguments and subprocess output; keep
+	// the span description generic (the exit code is an attribute).
+	span.SetStatus(codes.Error, "command failed")
 }

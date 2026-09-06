@@ -125,7 +125,10 @@ func (bus *Bus) runHook(hook Hook, evt string, evtErr error, context map[string]
 	)
 	defer func() {
 		if err != nil {
-			span.SetStatus(codes.Error, err.Error())
+			// The raw error embeds the rendered command (which may contain
+			// templated credentials) and the runner's detailed exit error;
+			// keep the span description generic.
+			span.SetStatus(codes.Error, "hook failed")
 		}
 		span.End()
 	}()

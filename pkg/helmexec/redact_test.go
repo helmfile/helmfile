@@ -160,6 +160,25 @@ func TestExecSpanAttributes(t *testing.T) {
 				"exec.redacted": {"true"},
 			},
 		},
+		{
+			name:     "credentials embedded in positional URLs are masked",
+			cmd:      "helm",
+			args:     []string{"repo", "add", "name", "https://user:token@charts.example.com/repo"},
+			wantName: "helm.exec",
+			wantAttrVals: map[string][]string{
+				"exec.args":     {"repo", "add", "name", "https://user:xxxxx@charts.example.com/repo"},
+				"exec.redacted": {"true"},
+			},
+		},
+		{
+			name:     "plain URLs are untouched",
+			cmd:      "helm",
+			args:     []string{"upgrade", "demo", "https://charts.example.com/repo/chart"},
+			wantName: "helm.exec",
+			wantAttrVals: map[string][]string{
+				"exec.args": {"upgrade", "demo", "https://charts.example.com/repo/chart"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
