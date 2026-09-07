@@ -145,6 +145,9 @@ type HelmState struct {
 	basePath string
 	FilePath string
 
+	// traceCtx parents per-release spans; set via SetTraceContext (see span.go).
+	traceCtx gocontext.Context
+
 	ReleaseSetSpec `yaml:",inline"`
 
 	logger  *zap.SugaredLogger
@@ -1158,9 +1161,12 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		func(workerIndex int) {
 			for release := range jobQueue {
 				var relErr *ReleaseError
+				itemStart := time.Now()
+				relCtx, relSpan := st.startReleaseSpan("delete", release)
 				context := st.createHelmContext(release, workerIndex)
+				context.Ctx = relCtx
 
-				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+				if _, err := st.triggerPresyncEvent(release, "sync", relCtx); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
@@ -1173,13 +1179,13 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 
 					m.Lock()
 					start := time.Now()
-					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
 						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
-					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
 						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -1189,13 +1195,15 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					m.Unlock()
 				}
 
-				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, relErr, "sync", relCtx); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
-				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, "sync", relCtx); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
+
+				endReleaseSpan(relSpan, "delete", release, itemStart, releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -1272,10 +1280,12 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					chart = normalizeChart(st.basePath, chart)
 				}
 				var relErr *ReleaseError
+				relCtx, relSpan := st.startReleaseSpan("sync", release)
 				context := st.createHelmContext(release, workerIndex)
+				context.Ctx = relCtx
 
 				start := time.Now()
-				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+				if _, err := st.triggerPresyncEvent(release, "sync", relCtx); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else if !release.Desired() {
 					installed, err := st.isReleaseInstalled(context, helm, *release)
@@ -1285,13 +1295,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						var args []string
 						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
-						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
-						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else {
@@ -1302,10 +1312,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
 					if relErr == nil {
-						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+						relErr = st.trackReleaseIfEnabled(traceOnlyContext(), release, helm, opts)
 					}
 				} else {
-					trackHandle, trackStarted := st.startBackgroundKubedogTracking(gocontext.Background(), release, helm, opts)
+					trackHandle, trackStarted := st.startBackgroundKubedogTracking(traceOnlyContext(), release, helm, opts)
 					// trackHandle.Helm is a logger-scoped helm clone that
 					// captures output to an in-memory buffer while tracking is
 					// active. When tracking isn't running it's the original
@@ -1358,7 +1368,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						if trackStarted {
 							trackErr = trackHandle.Wait()
 						} else {
-							trackErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+							trackErr = st.trackReleaseIfEnabled(traceOnlyContext(), release, helm, opts)
 						}
 						if trackErr != nil {
 							m.Lock()
@@ -1369,7 +1379,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 
-				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, relErr, "sync", relCtx); err != nil {
 					if relErr == nil {
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -1377,7 +1387,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 
-				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, "sync", relCtx); err != nil {
 					if relErr == nil {
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -1385,6 +1395,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 				release.duration = time.Since(start)
+
+				endReleaseSpan(relSpan, "sync", release, start, releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -1453,13 +1465,13 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 		args = st.appendDeleteWaitFlags(args, release)
 		deletionFlags := st.appendConnectionFlags(args, release)
 		m.Lock()
-		if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, release)
 			return newReleaseFailedError(release, err)
 		} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, release)
 			return newReleaseFailedError(release, err)
-		} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+		} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, release)
 			return newReleaseFailedError(release, err)
 		}
@@ -2354,7 +2366,10 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 				if sharedChartKeys[st.getChartCacheKey(release)] {
 					releaseOpts.ForceDownload = true
 				}
+				_, relSpan := st.startReleaseSpan("prepare", release)
+				prepareStart := time.Now()
 				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, releaseOpts, workerIndex)
+				endReleaseSpan(relSpan, "prepare", release, prepareStart, result.err)
 				if result.err != nil {
 					// Error results returned by prepareChartForRelease may lack the
 					// release identity. Complete it here, so that the failure can be
@@ -3292,6 +3307,9 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				release := prep.release
 				buf := &bytes.Buffer{}
 
+				relCtx, relSpan := st.startReleaseSpan("diff", release)
+				diffStart := time.Now()
+
 				releaseSuppressDiff := suppressDiff
 				if prep.suppressDiff {
 					releaseSuppressDiff = true
@@ -3304,17 +3322,27 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					chartPath = normalizeChart(st.basePath, chartPath)
 				}
 
+				var diffSpanErr error
 				if prep.upgradeDueToSkippedDiff {
+					// Code 2 (changes detected) is an expected outcome, not a
+					// span/metric error.
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
 				} else if err := st.withChartOperationLock(release, chartPath, func() error {
-					return helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
+					diffContext := st.createHelmContextWithWriter(release, buf)
+					diffContext.Ctx = relCtx
+					return helm.DiffRelease(diffContext, release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
 				}); err != nil {
+					var relErr *ReleaseError
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						results <- diffResult{release, &ReleaseError{release, err, e.ExitStatus()}, buf}
+						relErr = &ReleaseError{release, err, e.ExitStatus()}
 					default:
-						results <- diffResult{release, &ReleaseError{release, err, 0}, buf}
+						relErr = &ReleaseError{release, err, 0}
+					}
+					results <- diffResult{release, relErr, buf}
+					if relErr.Code != HelmDiffExitCodeChanged {
+						diffSpanErr = relErr
 					}
 				} else {
 					// diff succeeded, found no changes
@@ -3322,10 +3350,12 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				}
 
 				if triggerCleanupEvents {
-					if _, err := st.TriggerCleanupEvent(prep.release, "diff"); err != nil {
+					if _, err := st.TriggerCleanupEvent(prep.release, "diff", relCtx); err != nil {
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
+
+				endReleaseSpan(relSpan, "diff", release, diffStart, diffSpanErr)
 			}
 		},
 		func() {
@@ -3356,7 +3386,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 }
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
-	return st.scatterGatherReleases(helm, workerLimit, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, workerLimit, "status", skipUndesired, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3369,13 +3399,15 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		}
 		flags = st.appendConnectionFlags(flags, &release)
 
-		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
+		statusContext := st.createHelmContext(&release, workerIndex)
+		statusContext.Ctx = ctx
+		return helm.ReleaseStatus(statusContext, release.Name, flags...)
 	})
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error {
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "delete", nil, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
 		flags := make([]string, 0)
@@ -3386,9 +3418,10 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			flags = append(flags, "--namespace", release.Namespace)
 		}
 		context := st.createHelmContext(&release, workerIndex)
+		context.Ctx = ctx
 
 		start := time.Now()
-		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete", ctx); err != nil {
 			release.duration = time.Since(start)
 
 			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
@@ -3403,7 +3436,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			return err
 		}
 
-		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete"); err != nil {
+		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete", ctx); err != nil {
 			release.duration = time.Since(start)
 
 			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
@@ -3436,7 +3469,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		o(&opts)
 	}
 
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "test", skipUndesired, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3460,7 +3493,9 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		flags = st.appendConnectionFlags(flags, &release)
 		flags = st.appendChartDownloadFlags(flags, &release)
 
-		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
+		testContext := st.createHelmContext(&release, workerIndex)
+		testContext.Ctx = ctx
+		return helm.TestRelease(testContext, release.Name, flags...)
 	})
 }
 
@@ -3676,7 +3711,7 @@ func (st *HelmState) TriggerGlobalCleanupEvent(helmfileCommand string, evtErr er
 	return st.triggerGlobalReleaseEvent("cleanup", evtErr, helmfileCommand)
 }
 
-func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfileCmd string) (bool, error) {
+func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfileCmd string, parent ...gocontext.Context) (bool, error) {
 	bus := &event.Bus{
 		Hooks:         st.Hooks,
 		StateFilePath: st.FilePath,
@@ -3686,6 +3721,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		Env:           st.Env,
 		Logger:        st.logger,
 		Fs:            st.fs,
+		Ctx:           traceOnlyContext(parent...),
 	}
 	data := map[string]any{
 		"HelmfileCommand": helmfileCmd,
@@ -3697,23 +3733,23 @@ func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string)
 	return st.triggerReleaseEvent("prepare", nil, r, helmfileCommand)
 }
 
-func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("cleanup", nil, r, helmfileCommand)
+func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, helmfileCommand string, parent ...gocontext.Context) (bool, error) {
+	return st.triggerReleaseEvent("cleanup", nil, r, helmfileCommand, parent...)
 }
 
-func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("presync", nil, r, helmfileCommand)
+func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string, parent ...gocontext.Context) (bool, error) {
+	return st.triggerReleaseEvent("presync", nil, r, helmfileCommand, parent...)
 }
 
-func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("postsync", evtErr, r, helmfileCommand)
+func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfileCommand string, parent ...gocontext.Context) (bool, error) {
+	return st.triggerReleaseEvent("postsync", evtErr, r, helmfileCommand, parent...)
 }
 
 func (st *HelmState) TriggerPreapplyEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
 	return st.triggerReleaseEvent("preapply", nil, r, helmfileCommand)
 }
 
-func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string) (bool, error) {
+func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string, parent ...gocontext.Context) (bool, error) {
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
@@ -3723,6 +3759,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Env:           st.Env,
 		Logger:        st.logger,
 		Fs:            st.fs,
+		Ctx:           traceOnlyContext(parent...),
 	}
 	vals := st.Values()
 	data := map[string]any{

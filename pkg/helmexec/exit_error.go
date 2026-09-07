@@ -11,10 +11,13 @@ func newExitError(path string, args []string, exitStatus int, err error, stderr,
 	out += fmt.Sprintf("PATH:\n%s", Indent(path, "  "))
 
 	out += "\n\nARGS:"
-	for i, a := range args {
-		if i > 0 && strings.HasPrefix(args[i-1], "--set") && stripArgsValuesOnExitError {
-			a = "*** STRIP ***"
-		}
+	// The legacy profile is byte-identical to the historical inline logic;
+	// the goldens in exit_error_test.go pin its exact output.
+	redacted := RedactArgs(args, RedactionLegacy)
+	if !stripArgsValuesOnExitError {
+		redacted = args
+	}
+	for i, a := range redacted {
 		out += fmt.Sprintf("\n%s", Indent(fmt.Sprintf("%d: %s (%d bytes)", i, a, len(a)), "  "))
 	}
 

@@ -1182,7 +1182,7 @@ func Test_exec(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	env := map[string]string{}
-	_, err = helm.exec([]string{"version"}, env, nil)
+	_, err = helm.exec([]string{"version"}, env)
 	expected := `exec: helm version
 `
 	if err != nil {
@@ -1196,7 +1196,7 @@ func Test_exec(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	ret, _ := helm.exec([]string{"diff"}, env, nil)
+	ret, _ := helm.exec([]string{"diff"}, env)
 	if len(ret) != 0 {
 		t.Error("helmexec.exec() - expected empty return value")
 	}
@@ -1206,7 +1206,7 @@ func Test_exec(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	_, err = helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs"}, env, nil)
+	_, err = helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs"}, env)
 	expected = `exec: helm --kubeconfig config --kube-context dev diff release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
@@ -1217,7 +1217,7 @@ func Test_exec(t *testing.T) {
 	}
 
 	buffer.Reset()
-	_, err = helm.exec([]string{"version"}, env, nil)
+	_, err = helm.exec([]string{"version"}, env)
 	expected = `exec: helm --kubeconfig config --kube-context dev version
 `
 	if err != nil {
@@ -1229,7 +1229,7 @@ func Test_exec(t *testing.T) {
 
 	buffer.Reset()
 	helm.SetExtraArgs("foo")
-	_, err = helm.exec([]string{"version"}, env, nil)
+	_, err = helm.exec([]string{"version"}, env)
 	expected = `exec: helm --kubeconfig config --kube-context dev version foo
 `
 	if err != nil {
@@ -1245,7 +1245,7 @@ func Test_exec(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	helm.SetHelmBinary("overwritten")
-	_, err = helm.exec([]string{"version"}, env, nil)
+	_, err = helm.exec([]string{"version"}, env)
 	expected = `exec: overwritten version
 `
 	if err != nil {

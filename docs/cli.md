@@ -54,6 +54,9 @@ Flags:
       --log-level string                      Set log level. Overrides "HELMFILE_LOG_LEVEL" OS environment variable when specified (default "info")
   -n, --namespace string                      Set namespace. Overrides "HELMFILE_NAMESPACE" OS environment variable when specified. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
       --no-color                              Output without color. Overrides "HELMFILE_NO_COLOR" and "NO_COLOR" OS environment variables when specified
+      --otel-tracing                          Enable OpenTelemetry tracing (experimental).
+                                              Configure the exporter with standard OTEL_* environment variables (e.g. OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_TRACES_EXPORTER).
+                                              Overrides "HELMFILE_OTEL_TRACING" OS environment variable when specified. See docs/otel.md
   -q, --quiet                                 Silence output. Equivalent to log-level warn. Overrides "HELMFILE_QUIET" OS environment variable when specified
       --repo-retries int                      Number of times to retry "helm repo add/update" and "helm registry login" on failure, with exponential backoff (1s, 2s, 4s, ..., capped at 30s). Set to 0 to disable retries. Overrides "HELMFILE_REPO_RETRIES" OS environment variable when specified
   -l, --selector stringArray                  Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.

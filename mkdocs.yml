@@ -32,6 +32,7 @@ nav:
     - Advanced Features: advanced-features.md
     - Hooks: hooks.md
     - Secrets: remote-secrets.md
+    - OpenTelemetry Tracing: otel.md
     - Shared Configuration: shared-configuration-across-teams.md
     - Integrations: integrations.md
   - Experimental Features: experimental-features.md

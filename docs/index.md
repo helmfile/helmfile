@@ -51,6 +51,8 @@ To avoid upgrades for each iteration of `helm`, the `helmfile` executable delega
 
 **Patch**: JSON/Strategic-Merge Patch Kubernetes resources before `helm-install`ing, without forking upstream charts (See [#673](https://github.com/roboll/helmfile/pull/673))
 
+**Observability**: Opt-in [OpenTelemetry traces and metrics](otel.md) for CI/CD runs — see where time goes, per release and per helm invocation (experimental)
+
 ## Installation
 
 * download one of [releases](https://github.com/helmfile/helmfile/releases)

@@ -84,6 +84,8 @@ type GlobalOptions struct {
 	LogOutput io.Writer
 	// SequentialHelmfiles is true if helmfile.d files should be processed sequentially instead of in parallel.
 	SequentialHelmfiles bool
+	// OtelTracing is true if OpenTelemetry tracing should be enabled for this run.
+	OtelTracing bool
 }
 
 // Logger returns the logger to use.
@@ -381,6 +383,15 @@ func (g *GlobalImpl) Interactive() bool {
 		return true
 	}
 	return os.Getenv(envvar.Interactive) == "true"
+}
+
+// OtelTracing returns true if OpenTelemetry tracing is enabled via the
+// --otel-tracing flag or the HELMFILE_OTEL_TRACING environment variable.
+func (g *GlobalImpl) OtelTracing() bool {
+	if g.GlobalOptions.OtelTracing {
+		return true
+	}
+	return os.Getenv(envvar.OtelTracing) == "true"
 }
 
 // Args returns the args to use for helm
