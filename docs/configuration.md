@@ -139,8 +139,11 @@ helmDefaults:
   # Set to `false` to preserve the pre-fix behavior of caching under the raw
   # constraint string. Resolution is also skipped when skipRefresh is enabled
   # (CLI `--skip-refresh`, per-release, or here): helmfile then reuses whatever
-  # a previous run resolved. Exact `X.Y.Z` versions (e.g. `1.0.1`) and non-OCI
-  # releases are unaffected. See issue #2766.
+  # a previous run resolved. Releases with no `version:` at all are also
+  # unaffected: helm picks the latest tag at pull time and helmfile caches it
+  # under a version-less path (same as before this setting existed). Exact
+  # `X.Y.Z` versions (e.g. `1.0.1`) and non-OCI releases are unaffected. See
+  # issue #2766.
   resolveOCIVersions: true
   # If set to true, reuses the last release's values and merges them with ones provided in helmfile.
   # This attribute, can be overriden in CLI with --reset/reuse-values flag of apply/sync/diff subcommands
