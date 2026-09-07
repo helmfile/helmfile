@@ -346,3 +346,60 @@ func TestGetOCIChart_SharedConstraintResolvedOncePerProcess(t *testing.T) {
 	require.Contains(t, path, string(filepath.Separator)+resolved,
 		"the single download must land under the resolved-version cache path")
 }
+
+// TestGetOCIChart_URLEmbeddedConstraintResolves covers the `chart:
+// oci://<registry>/<chart>:<constraint>` spelling, where the constraint lives
+// in the chart URL instead of the version field. getOCIQualifiedChartName
+// deliberately does NOT embed that URL version into the qualified ref (it
+// flows through --version only), so after resolution the ref must stay
+// tag-less while --version and the cache path carry the resolved version —
+// the third branch of the re-qualification in applyOCIConstraintResolution.
+func TestGetOCIChart_URLEmbeddedConstraintResolves(t *testing.T) {
+	resetChartCacheForTest()
+	resetResolvedOCIConstraintsForTest()
+	t.Setenv(envvar.CacheHome, t.TempDir())
+
+	logger := zap.NewExample().Sugar()
+	st := &HelmState{
+		logger:      logger,
+		valsRuntime: valsRuntime,
+		fs:          filesystem.DefaultFileSystem(),
+	}
+
+	const (
+		base     = "registry.example.com/charts/mychart"
+		chartURL = "oci://" + base + ":~1"
+		resolved = "1.0.1"
+	)
+	release := &ReleaseSpec{Name: issue2766Release, Chart: chartURL}
+
+	helm := &mockOCIPullHelm{
+		Helm: &exectest.Helm{Helm3: true},
+		ResolveFn: func(constraint string) (chart.Metadata, error) {
+			require.Equal(t, "~1", constraint, "resolver must receive the URL-embedded constraint")
+			return chart.Metadata{Version: resolved}, nil
+		},
+	}
+
+	_, err := st.getOCIChart(release, "", helm, ChartPrepareOptions{SkipDeps: true})
+	require.NoError(t, err)
+
+	require.Equal(t, int32(1), helm.inspectorCalled.Load())
+	require.Equal(t, int32(1), helm.pullCount.Load())
+	require.Equal(t, resolved, helm.pulledVersion.Load(),
+		"helm chart pull --version must receive the resolved version")
+
+	// The URL-embedded constraint must NOT reappear as a ref tag; the
+	// resolved version flows through --version alone.
+	pulledChart, _ := helm.pulledChart.Load().(string)
+	require.Equal(t, base, pulledChart,
+		"the qualified ref stays tag-less when the constraint came from the chart URL")
+	require.NotContains(t, pulledChart, ":~1")
+	require.NotContains(t, pulledChart, ":"+resolved)
+
+	path, _ := helm.pulledPath.Load().(string)
+	require.Contains(t, path, string(filepath.Separator)+resolved,
+		"cache destination path must contain the resolved version segment")
+	require.NotContains(t, path, string(filepath.Separator)+"_1",
+		"cache destination path must NOT contain the raw-constraint segment")
+}

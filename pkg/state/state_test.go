@@ -5967,7 +5967,6 @@ func TestIsVersionConstraint(t *testing.T) {
 		// exact versions — never constraints
 		{"1.0.1", false},
 		{"v1.0.1", false},
-		{"1.2.3", false},
 		{"1.0.0-rc.1", false},
 		{"1.0.0+build.1", false},
 		// exact versions where "x" appears in prerelease or build metadata:
@@ -6209,11 +6208,11 @@ func TestResolveOCIConstraintVersion(t *testing.T) {
 func TestSkipOCIConstraintResolution(t *testing.T) {
 	falseVal, trueVal := false, true
 	tests := []struct {
-		name    string
-		opts    ChartPrepareOptions
-		release ReleaseSpec
+		name     string
+		opts     ChartPrepareOptions
+		release  ReleaseSpec
 		defaults HelmSpec
-		want    bool
+		want     bool
 	}{
 		{
 			name: "CLI flag forces skip",
@@ -6221,13 +6220,13 @@ func TestSkipOCIConstraintResolution(t *testing.T) {
 			want: true,
 		},
 		{
-			name:    "no flags set resolves",
-			want:    false,
+			name: "no flags set resolves",
+			want: false,
 		},
 		{
-			name:     "release-level skipRefresh skips",
-			release:  ReleaseSpec{SkipRefresh: &trueVal},
-			want:     true,
+			name:    "release-level skipRefresh skips",
+			release: ReleaseSpec{SkipRefresh: &trueVal},
+			want:    true,
 		},
 		{
 			name:     "release-level skipRefresh=false beats helmDefaults=true",
