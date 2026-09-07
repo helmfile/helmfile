@@ -260,6 +260,16 @@ type HelmSpec struct {
 	SkipDeps bool `yaml:"skipDeps"`
 	// SkipRefresh disables running `helm dependency up`
 	SkipRefresh bool `yaml:"skipRefresh"`
+	// ResolveOCIVersions, when set (default true), resolves an OCI chart's semver
+	// constraint version (e.g. "~1", "^2.0.0", "*") to a concrete registry tag
+	// before helmfile derives the on-disk cache path. This makes the shared chart
+	// cache under $XDG_CACHE_HOME/helmfile content-addressable by resolved version
+	// so that a newer tag matching the same constraint is picked up on the next
+	// invocation instead of returning a stale, previously-resolved version. Set
+	// to false to preserve the pre-fix behavior of caching under the raw
+	// constraint string. Exact-version releases (no constraint characters in
+	// `version:`) are unaffected. Ignored for non-OCI releases.
+	ResolveOCIVersions *bool `yaml:"resolveOCIVersions,omitempty"`
 	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues bool `yaml:"reuseValues"`
 	// Propagate '--post-renderer' to helmv3 template and helm install
@@ -494,6 +504,10 @@ type ReleaseSpec struct {
 
 	// SkipRefresh disables running `helm dependency up`
 	SkipRefresh *bool `yaml:"skipRefresh,omitempty"`
+
+	// ResolveOCIVersions overrides helmDefaults.resolveOCIVersions for this release.
+	// See HelmSpec.ResolveOCIVersions for details.
+	ResolveOCIVersions *bool `yaml:"resolveOCIVersions,omitempty"`
 
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
@@ -5822,6 +5836,31 @@ func resetChartCacheForTest() {
 	downloadedCharts = make(map[ChartCacheKey]string)
 }
 
+// ociConstraintKey identifies one OCI constraint-resolution lookup: the
+// registry-qualified chart reference (without oci:// prefix, version tag, or
+// digest) plus the constraint string.
+type ociConstraintKey struct {
+	chartRef   string
+	constraint string
+}
+
+// resolvedOCIConstraints memoizes constraint -> concrete-version resolutions
+// for the lifetime of the process so that releases sharing the same OCI
+// chart+constraint trigger at most one `helm show chart` registry round-trip
+// per run, and consistently use one resolved version per chart+constraint
+// even if the registry would answer two concurrent workers differently. Only
+// successful resolutions are memoized — failures may be transient. Mirrors the
+// downloadedCharts pattern above.
+var resolvedOCIConstraints = make(map[ociConstraintKey]string)
+var resolvedOCIConstraintsMutex sync.RWMutex
+
+// resetResolvedOCIConstraintsForTest clears the resolution memo. For testing only.
+func resetResolvedOCIConstraintsForTest() {
+	resolvedOCIConstraintsMutex.Lock()
+	defer resolvedOCIConstraintsMutex.Unlock()
+	resolvedOCIConstraints = make(map[ociConstraintKey]string)
+}
+
 // isSharedCachePath returns true if the chartPath is within the shared cache directory.
 // Charts in the shared cache should not be deleted during refresh to prevent race conditions
 // when multiple processes are using the same cached chart.
@@ -6092,6 +6131,13 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	if qualifiedChartName == "" {
 		return nil, nil
 	}
+
+	// Resolve a semver constraint (e.g. "~1", "^2.0.0") to a concrete registry
+	// tag BEFORE deriving the on-disk cache key. Without this step the cache
+	// path is a function of the raw constraint string (safeVersionPath("~1")
+	// => "_1"), so a stale first-resolution is served indefinitely even after
+	// the registry publishes a newer matching tag. See issue #2766.
+	release, qualifiedChartName, chartVersion = st.applyOCIConstraintResolution(release, qualifiedChartName, chartVersion, helm, opts)
 
 	cacheKey := st.getChartCacheKey(release)
 
@@ -6385,4 +6431,175 @@ func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chart
 	pathElems = append(pathElems, qName...)
 	pathElems = append(pathElems, safeVersionPath(chartVersion))
 	return filepath.Join(pathElems...), nil
+}
+
+// applyOCIConstraintResolution resolves a semver constraint version (e.g.
+// "~1", "^2.0.0") for an OCI release to a concrete registry tag and returns
+// the (possibly updated) release, qualified chart name, and chart version for
+// the downstream cache-key, cache-path, and `--version` derivation in
+// getOCIChart.
+//
+// It is a no-op — returning its inputs unchanged — when resolution is skipped
+// (see skipOCIConstraintResolution), opted out, when the version is not a
+// constraint, or when resolution fails. Every failure mode therefore degrades
+// to the pre-fix constraint-keyed caching behavior instead of failing the
+// render. See issue #2766.
+func (st *HelmState) applyOCIConstraintResolution(release *ReleaseSpec, qualifiedChartName, chartVersion string, helm helmexec.Interface, opts ChartPrepareOptions) (*ReleaseSpec, string, string) {
+	if st.skipOCIConstraintResolution(release, opts) {
+		return release, qualifiedChartName, chartVersion
+	}
+	resolved, changed, err := st.resolveOCIConstraintVersion(release, helm, qualifiedChartName, chartVersion)
+	if err != nil {
+		st.logger.Warnf("resolving OCI version constraint %q for release %q failed: %v; falling back to unresolved constraint for cache key (a stale cache may be served)", chartVersion, release.Name, err)
+		return release, qualifiedChartName, chartVersion
+	}
+	if !changed {
+		return release, qualifiedChartName, chartVersion
+	}
+	st.logger.Debugf("resolved OCI version constraint %q for release %q to %q", chartVersion, release.Name, resolved)
+
+	// Rewrite the release copy so the downstream cache key, path template,
+	// and --version flag all agree on the resolved value.
+	releaseCopy := *release
+	releaseCopy.Version = resolved
+	resolvedRelease := &releaseCopy
+
+	// Recompute the qualified chart ref so its embedded `:<version>` tag
+	// (added by getOCIQualifiedChartName when version came from the
+	// `version:` field) also carries the resolved value; otherwise
+	// `helm chart pull` would receive `<repo>/<chart>:<constraint>` alongside
+	// a `--version <resolved>` flag, which is at best redundant and at worst
+	// rejected by future Helm versions.
+	requalified, _, requalifiedVersion, requalifyErr := st.getOCIQualifiedChartName(resolvedRelease)
+	if requalifyErr != nil {
+		// Should not happen: the release already parsed once above with the
+		// raw constraint. Fall back to the pre-fix behavior entirely (raw
+		// constraint in the cache key, ref, and --version flag) rather than
+		// a half-resolved mix of the two.
+		st.logger.Warnf("re-qualifying OCI chart name for release %q after version resolution failed: %v; using pre-resolution values", release.Name, requalifyErr)
+		return release, qualifiedChartName, chartVersion
+	}
+	return resolvedRelease, requalified, requalifiedVersion
+}
+
+// resolveOCIConstraintVersion resolves a semver constraint version (e.g. "~1",
+// "^2.0", "*") for an OCI release to the concrete registry tag that helm would
+// download. It runs `helm show chart <ref> --version <constraint> [flags]`
+// which returns the resolved chart's Chart.yaml; the returned Version is the
+// concrete tag helm picked. The returned bool indicates whether the effective
+// version actually changed (false when the input was already a pinned semver,
+// resolution is opted out, the release is not OCI-backed, or the helm
+// implementation does not expose the ShowChartWithFlags capability).
+// Successful resolutions are memoized per chart+constraint for the lifetime
+// of the process, so repeated lookups cost no additional registry round-trips.
+//
+// This is a helper for getOCIChart. Callers should tolerate errors: a failed
+// resolution shouldn't break rendering; it just falls back to the pre-fix
+// caching behavior (cache path derived from the raw constraint).
+func (st *HelmState) resolveOCIConstraintVersion(release *ReleaseSpec, helm helmexec.Interface, qualifiedChartName, chartVersion string) (string, bool, error) {
+	if !st.resolveOCIVersionsEnabled(release) {
+		return chartVersion, false, nil
+	}
+	// Nothing to resolve for empty version (helm treats it as "latest") or
+	// pinned semver — safeVersionPath is a no-op on those and the cache key is
+	// already unambiguous.
+	if chartVersion == "" || !isVersionConstraint(chartVersion) {
+		return chartVersion, false, nil
+	}
+	// Only OCI releases hit this code path via getOCIChart, but double-check
+	// so this helper is safe to call from other contexts too.
+	if !st.IsOCIChart(release.Chart) {
+		return chartVersion, false, nil
+	}
+	// Digest-pinned references bypass version resolution: the digest is the
+	// authoritative content identifier and helm ignores --version in that case.
+	if strings.Contains(qualifiedChartName, "@") {
+		return chartVersion, false, nil
+	}
+	// Type-assert to the optional ChartInspector capability so third-party
+	// implementations of helmexec.Interface that predate this feature keep
+	// compiling and simply fall back to the pre-fix caching behavior.
+	inspector, ok := helm.(helmexec.ChartInspector)
+	if !ok {
+		return chartVersion, false, nil
+	}
+
+	// Strip any :<version> tag that getOCIQualifiedChartName may have embedded
+	// in the ref, so `helm show chart` uses --version alone to resolve the
+	// constraint. `helm show chart oci://...:X --version Y` resolves Y against
+	// the registry regardless of X, but the ref without a tag matches the shape
+	// of a normal `helm pull` invocation and is what helm's own docs recommend
+	// for constraint resolution. parseOCIChartRef splits off any digest first,
+	// then the last tag colon after the last slash, preserving registry ports.
+	base, _, _ := parseOCIChartRef(qualifiedChartName)
+	ref := "oci://" + base
+
+	// One registry round-trip per chart+constraint per process. The flags
+	// above do not influence WHICH tag a constraint matches (they only govern
+	// TLS/verification/registry credentials), so the memo key can ignore them.
+	// Concurrent misses may still race and both hit the registry; last write
+	// wins, which is harmless.
+	memoKey := ociConstraintKey{chartRef: base, constraint: chartVersion}
+	resolvedOCIConstraintsMutex.RLock()
+	memoized, hit := resolvedOCIConstraints[memoKey]
+	resolvedOCIConstraintsMutex.RUnlock()
+	if hit {
+		return memoized, memoized != chartVersion, nil
+	}
+
+	flags := st.chartOCIFlags(release)
+	flags = st.appendVerifyFlags(flags, release)
+	flags = st.appendKeyringFlags(flags, release)
+	flags = st.appendChartDownloadFlags(flags, release)
+	// --devel is deliberately omitted: helm ignores it whenever --version is
+	// set, and --version is always passed here.
+	flags = append(flags, "--version", chartVersion)
+
+	metadata, err := inspector.ShowChartWithFlags(ref, flags...)
+	if err != nil {
+		return chartVersion, false, err
+	}
+	if metadata.Version == "" {
+		return chartVersion, false, fmt.Errorf("helm show chart %s --version %s returned an empty Chart.yaml version", ref, chartVersion)
+	}
+	resolvedOCIConstraintsMutex.Lock()
+	resolvedOCIConstraints[memoKey] = metadata.Version
+	resolvedOCIConstraintsMutex.Unlock()
+	if metadata.Version == chartVersion {
+		return chartVersion, false, nil
+	}
+	return metadata.Version, true, nil
+}
+
+// skipOCIConstraintResolution reports whether OCI constraint resolution
+// should be skipped for this release, falling back to the constraint-keyed
+// cache path (the pre-fix behavior, which reuses whatever the previous
+// resolution cached). Resolution costs one `helm show chart` registry
+// round-trip per constraint-versioned OCI release; honoring --skip-refresh
+// (CLI flag, per-release skipRefresh, or helmDefaults.skipRefresh) keeps
+// offline and cache-only workflows free of network attempts. Precedence
+// mirrors the other skipRefresh consumers in prepareChartForRelease: the CLI
+// flag forces skipping, then an explicit per-release value, then
+// helmDefaults.
+func (st *HelmState) skipOCIConstraintResolution(release *ReleaseSpec, opts ChartPrepareOptions) bool {
+	if opts.SkipRefresh {
+		return true
+	}
+	if release.SkipRefresh != nil {
+		return *release.SkipRefresh
+	}
+	return st.HelmDefaults.SkipRefresh
+}
+
+// resolveOCIVersionsEnabled reports whether OCI constraint resolution is
+// enabled for this release. Per-release setting wins over helmDefaults; both
+// default to true (the fix is on unless explicitly opted out).
+func (st *HelmState) resolveOCIVersionsEnabled(release *ReleaseSpec) bool {
+	if release.ResolveOCIVersions != nil {
+		return *release.ResolveOCIVersions
+	}
+	if st.HelmDefaults.ResolveOCIVersions != nil {
+		return *st.HelmDefaults.ResolveOCIVersions
+	}
+	return true
 }
