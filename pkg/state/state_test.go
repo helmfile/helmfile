@@ -6200,6 +6200,52 @@ func TestResolveOCIConstraintVersion(t *testing.T) {
 	}
 }
 
+// TestSkipOCIConstraintResolution checks the tri-state skip logic: the CLI
+// --skip-refresh flag forces skipping; otherwise an explicit per-release
+// skipRefresh wins; otherwise helmDefaults.skipRefresh decides.
+func TestSkipOCIConstraintResolution(t *testing.T) {
+	falseVal, trueVal := false, true
+	tests := []struct {
+		name    string
+		opts    ChartPrepareOptions
+		release ReleaseSpec
+		defaults HelmSpec
+		want    bool
+	}{
+		{
+			name: "CLI flag forces skip",
+			opts: ChartPrepareOptions{SkipRefresh: true},
+			want: true,
+		},
+		{
+			name:    "no flags set resolves",
+			want:    false,
+		},
+		{
+			name:     "release-level skipRefresh skips",
+			release:  ReleaseSpec{SkipRefresh: &trueVal},
+			want:     true,
+		},
+		{
+			name:     "release-level skipRefresh=false beats helmDefaults=true",
+			release:  ReleaseSpec{SkipRefresh: &falseVal},
+			defaults: HelmSpec{SkipRefresh: true},
+			want:     false,
+		},
+		{
+			name:     "helmDefaults.skipRefresh applies when release is unset",
+			defaults: HelmSpec{SkipRefresh: true},
+			want:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{ReleaseSetSpec: ReleaseSetSpec{HelmDefaults: tt.defaults}}
+			require.Equal(t, tt.want, st.skipOCIConstraintResolution(&tt.release, tt.opts))
+		})
+	}
+}
+
 // noOpChartInspector is a helmexec.Interface implementation that intentionally
 // does NOT satisfy helmexec.ChartInspector. It exists to prove that
 // resolveOCIConstraintVersion degrades gracefully when a third-party helm

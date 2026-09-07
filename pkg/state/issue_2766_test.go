@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -129,8 +130,7 @@ func TestGetOCIChart_ResolvesConstraintIntoCachePathAndPullFlag(t *testing.T) {
 	}
 
 	_, err := st.getOCIChart(release, "", helm, ChartPrepareOptions{
-		SkipRefresh: true,
-		SkipDeps:    true,
+		SkipDeps: true,
 	})
 	require.NoError(t, err)
 
@@ -206,7 +206,7 @@ func TestGetOCIChart_ResolvesToDifferentVersionsPicksSeparateCachePaths(t *testi
 			return chart.Metadata{Version: "1.0.1"}, nil
 		},
 	}
-	_, err := st.getOCIChart(release, "", first, ChartPrepareOptions{SkipRefresh: true, SkipDeps: true})
+	_, err := st.getOCIChart(release, "", first, ChartPrepareOptions{SkipDeps: true})
 	require.NoError(t, err)
 	firstPath, _ := first.pulledPath.Load().(string)
 	require.Contains(t, firstPath, string(filepath.Separator)+"1.0.1")
@@ -223,7 +223,7 @@ func TestGetOCIChart_ResolvesToDifferentVersionsPicksSeparateCachePaths(t *testi
 			return chart.Metadata{Version: "1.0.2"}, nil
 		},
 	}
-	_, err = st.getOCIChart(release, "", second, ChartPrepareOptions{SkipRefresh: true, SkipDeps: true})
+	_, err = st.getOCIChart(release, "", second, ChartPrepareOptions{SkipDeps: true})
 	require.NoError(t, err)
 	secondPath, _ := second.pulledPath.Load().(string)
 	require.Contains(t, secondPath, string(filepath.Separator)+"1.0.2",
@@ -233,4 +233,63 @@ func TestGetOCIChart_ResolvesToDifferentVersionsPicksSeparateCachePaths(t *testi
 	// Neither run should have polluted the other with a raw-constraint segment.
 	require.False(t, strings.Contains(firstPath, "_1") || strings.Contains(secondPath, "_1"),
 		"no cache path should carry the raw `_1` constraint segment after resolution")
+}
+
+// TestGetOCIChart_SkipRefreshSkipsConstraintResolution verifies that
+// --skip-refresh (or its per-release / helmDefaults equivalents) suppresses
+// the `helm show chart` resolution round-trip: no network attempt is made, and
+// the chart is cached under the raw constraint path (pre-fix behavior), which
+// reuses whatever a previous, non-skipped run resolved.
+func TestGetOCIChart_SkipRefreshSkipsConstraintResolution(t *testing.T) {
+	resetChartCacheForTest()
+
+	logger := zap.NewExample().Sugar()
+	st := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{
+				{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
+			},
+		},
+		logger:      logger,
+		valsRuntime: valsRuntime,
+		fs:          filesystem.DefaultFileSystem(),
+	}
+
+	// release-level skipRefresh unset / false / true — the CLI flag forces
+	// skipping in all three cases.
+	falseVal, trueVal := false, true
+	releases := []*ReleaseSpec{
+		{Name: issue2766Release, Chart: issue2766Chart, Version: "~1"},
+		{Name: issue2766Release, Chart: issue2766Chart, Version: "~1", SkipRefresh: &falseVal},
+		{Name: issue2766Release, Chart: issue2766Chart, Version: "~1", SkipRefresh: &trueVal},
+	}
+	for i, release := range releases {
+		t.Run(fmt.Sprintf("release %d", i), func(t *testing.T) {
+			resetChartCacheForTest()
+			// Fresh cache dir per subtest: a leftover `_1` directory from a
+			// previous subtest would satisfy the shared-cache path and skip the
+			// pull entirely.
+			t.Setenv(envvar.CacheHome, t.TempDir())
+			helm := &mockOCIPullHelm{
+				Helm: &exectest.Helm{Helm3: true},
+				ResolveFn: func(constraint string) (chart.Metadata, error) {
+					t.Error("resolver must not be called under skipRefresh")
+					return chart.Metadata{}, nil
+				},
+			}
+			_, err := st.getOCIChart(release, "", helm, ChartPrepareOptions{
+				SkipRefresh: true, // CLI --skip-refresh
+				SkipDeps:    true,
+			})
+			require.NoError(t, err)
+			require.Equal(t, int32(0), helm.inspectorCalled.Load(),
+				"no `helm show chart` call may happen under skipRefresh")
+			require.Equal(t, int32(1), helm.pullCount.Load())
+			require.Equal(t, "~1", helm.pulledVersion.Load(),
+				"helm chart pull must receive the raw constraint when resolution is skipped")
+			path, _ := helm.pulledPath.Load().(string)
+			require.Contains(t, path, string(filepath.Separator)+"_1",
+				"cache path falls back to the raw-constraint segment under skipRefresh")
+		})
+	}
 }

@@ -6414,11 +6414,15 @@ func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chart
 // the downstream cache-key, cache-path, and `--version` derivation in
 // getOCIChart.
 //
-// It is a no-op — returning its inputs unchanged — when resolution is opted
-// out, when the version is not a constraint, or when resolution fails. Every
-// failure mode therefore degrades to the pre-fix constraint-keyed caching
-// behavior instead of failing the render. See issue #2766.
+// It is a no-op — returning its inputs unchanged — when resolution is skipped
+// (see skipOCIConstraintResolution), opted out, when the version is not a
+// constraint, or when resolution fails. Every failure mode therefore degrades
+// to the pre-fix constraint-keyed caching behavior instead of failing the
+// render. See issue #2766.
 func (st *HelmState) applyOCIConstraintResolution(release *ReleaseSpec, qualifiedChartName, chartVersion string, helm helmexec.Interface, opts ChartPrepareOptions) (*ReleaseSpec, string, string) {
+	if st.skipOCIConstraintResolution(release, opts) {
+		return release, qualifiedChartName, chartVersion
+	}
 	resolved, changed, err := st.resolveOCIConstraintVersion(release, helm, qualifiedChartName, chartVersion)
 	if err != nil {
 		st.logger.Warnf("resolving OCI version constraint %q for release %q failed: %v; falling back to unresolved constraint for cache key (a stale cache may be served)", chartVersion, release.Name, err)
@@ -6522,6 +6526,26 @@ func (st *HelmState) resolveOCIConstraintVersion(release *ReleaseSpec, helm helm
 		return chartVersion, false, nil
 	}
 	return metadata.Version, true, nil
+}
+
+// skipOCIConstraintResolution reports whether OCI constraint resolution
+// should be skipped for this release, falling back to the constraint-keyed
+// cache path (the pre-fix behavior, which reuses whatever the previous
+// resolution cached). Resolution costs one `helm show chart` registry
+// round-trip per constraint-versioned OCI release; honoring --skip-refresh
+// (CLI flag, per-release skipRefresh, or helmDefaults.skipRefresh) keeps
+// offline and cache-only workflows free of network attempts. Precedence
+// mirrors the other skipRefresh consumers in prepareChartForRelease: the CLI
+// flag forces skipping, then an explicit per-release value, then
+// helmDefaults.
+func (st *HelmState) skipOCIConstraintResolution(release *ReleaseSpec, opts ChartPrepareOptions) bool {
+	if opts.SkipRefresh {
+		return true
+	}
+	if release.SkipRefresh != nil {
+		return *release.SkipRefresh
+	}
+	return st.HelmDefaults.SkipRefresh
 }
 
 // resolveOCIVersionsEnabled reports whether OCI constraint resolution is
