@@ -6112,32 +6112,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	// path is a function of the raw constraint string (safeVersionPath("~1")
 	// => "_1"), so a stale first-resolution is served indefinitely even after
 	// the registry publishes a newer matching tag. See issue #2766.
-	if resolved, changed, resolveErr := st.resolveOCIConstraintVersion(release, helm, qualifiedChartName, chartVersion); resolveErr != nil {
-		st.logger.Warnf("resolving OCI version constraint %q for release %q failed: %v; falling back to unresolved constraint for cache key (a stale cache may be served)", chartVersion, release.Name, resolveErr)
-	} else if changed {
-		st.logger.Debugf("resolved OCI version constraint %q for release %q to %q", chartVersion, release.Name, resolved)
-		// Rewrite the release copy so the downstream cache key, path template,
-		// and --version flag all agree on the resolved value.
-		releaseCopy := *release
-		releaseCopy.Version = resolved
-		release = &releaseCopy
-		// Recompute the qualified chart ref so its embedded `:<version>` tag
-		// (added by getOCIQualifiedChartName when version came from the
-		// `version:` field) also carries the resolved value; otherwise
-		// `helm chart pull` would receive `<repo>/<chart>:<constraint>` alongside
-		// a `--version <resolved>` flag, which is at best redundant and at
-		// worst rejected by future Helm versions.
-		requalified, _, requalifiedVersion, requalifyErr := st.getOCIQualifiedChartName(release)
-		if requalifyErr != nil {
-			// Should not happen: the release already parsed once above with
-			// the raw constraint. Log and keep the old qualifiedChartName so
-			// we degrade to the previous (buggy) behavior rather than fail.
-			st.logger.Warnf("re-qualifying OCI chart name for release %q after version resolution failed: %v; using pre-resolution ref (%s)", release.Name, requalifyErr, qualifiedChartName)
-		} else {
-			qualifiedChartName = requalified
-			chartVersion = requalifiedVersion
-		}
-	}
+	release, qualifiedChartName, chartVersion = st.applyOCIConstraintResolution(release, qualifiedChartName, chartVersion, helm, opts)
 
 	cacheKey := st.getChartCacheKey(release)
 
@@ -6433,6 +6408,51 @@ func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chart
 	return filepath.Join(pathElems...), nil
 }
 
+// applyOCIConstraintResolution resolves a semver constraint version (e.g.
+// "~1", "^2.0.0") for an OCI release to a concrete registry tag and returns
+// the (possibly updated) release, qualified chart name, and chart version for
+// the downstream cache-key, cache-path, and `--version` derivation in
+// getOCIChart.
+//
+// It is a no-op — returning its inputs unchanged — when resolution is opted
+// out, when the version is not a constraint, or when resolution fails. Every
+// failure mode therefore degrades to the pre-fix constraint-keyed caching
+// behavior instead of failing the render. See issue #2766.
+func (st *HelmState) applyOCIConstraintResolution(release *ReleaseSpec, qualifiedChartName, chartVersion string, helm helmexec.Interface, opts ChartPrepareOptions) (*ReleaseSpec, string, string) {
+	resolved, changed, err := st.resolveOCIConstraintVersion(release, helm, qualifiedChartName, chartVersion)
+	if err != nil {
+		st.logger.Warnf("resolving OCI version constraint %q for release %q failed: %v; falling back to unresolved constraint for cache key (a stale cache may be served)", chartVersion, release.Name, err)
+		return release, qualifiedChartName, chartVersion
+	}
+	if !changed {
+		return release, qualifiedChartName, chartVersion
+	}
+	st.logger.Debugf("resolved OCI version constraint %q for release %q to %q", chartVersion, release.Name, resolved)
+
+	// Rewrite the release copy so the downstream cache key, path template,
+	// and --version flag all agree on the resolved value.
+	releaseCopy := *release
+	releaseCopy.Version = resolved
+	resolvedRelease := &releaseCopy
+
+	// Recompute the qualified chart ref so its embedded `:<version>` tag
+	// (added by getOCIQualifiedChartName when version came from the
+	// `version:` field) also carries the resolved value; otherwise
+	// `helm chart pull` would receive `<repo>/<chart>:<constraint>` alongside
+	// a `--version <resolved>` flag, which is at best redundant and at worst
+	// rejected by future Helm versions.
+	requalified, _, requalifiedVersion, requalifyErr := st.getOCIQualifiedChartName(resolvedRelease)
+	if requalifyErr != nil {
+		// Should not happen: the release already parsed once above with the
+		// raw constraint. Fall back to the pre-fix behavior entirely (raw
+		// constraint in the cache key, ref, and --version flag) rather than
+		// a half-resolved mix of the two.
+		st.logger.Warnf("re-qualifying OCI chart name for release %q after version resolution failed: %v; using pre-resolution values", release.Name, requalifyErr)
+		return release, qualifiedChartName, chartVersion
+	}
+	return resolvedRelease, requalified, requalifiedVersion
+}
+
 // resolveOCIConstraintVersion resolves a semver constraint version (e.g. "~1",
 // "^2.0", "*") for an OCI release to the concrete registry tag that helm would
 // download. It runs `helm show chart <ref> --version <constraint> [flags]`
@@ -6473,27 +6493,23 @@ func (st *HelmState) resolveOCIConstraintVersion(release *ReleaseSpec, helm helm
 		return chartVersion, false, nil
 	}
 
-	// Strip any :<version> suffix that getOCIQualifiedChartName may have
-	// embedded in the ref, so `helm show chart` uses --version alone to
-	// resolve the constraint. `helm show chart oci://...:X --version Y`
-	// resolves Y against the registry regardless of X, but the ref without a
-	// tag matches the shape of a normal `helm pull` invocation and is what
-	// helm's own docs recommend for constraint resolution.
-	ref := "oci://" + qualifiedChartName
-	if lastSlash := strings.LastIndex(qualifiedChartName, "/"); lastSlash >= 0 {
-		if colon := strings.LastIndex(qualifiedChartName[lastSlash:], ":"); colon >= 0 {
-			ref = "oci://" + qualifiedChartName[:lastSlash+colon]
-		}
-	}
+	// Strip any :<version> tag that getOCIQualifiedChartName may have embedded
+	// in the ref, so `helm show chart` uses --version alone to resolve the
+	// constraint. `helm show chart oci://...:X --version Y` resolves Y against
+	// the registry regardless of X, but the ref without a tag matches the shape
+	// of a normal `helm pull` invocation and is what helm's own docs recommend
+	// for constraint resolution. parseOCIChartRef splits off any digest first,
+	// then the last tag colon after the last slash, preserving registry ports.
+	base, _, _ := parseOCIChartRef(qualifiedChartName)
+	ref := "oci://" + base
 
 	flags := st.chartOCIFlags(release)
 	flags = st.appendVerifyFlags(flags, release)
 	flags = st.appendKeyringFlags(flags, release)
 	flags = st.appendChartDownloadFlags(flags, release)
+	// --devel is deliberately omitted: helm ignores it whenever --version is
+	// set, and --version is always passed here.
 	flags = append(flags, "--version", chartVersion)
-	if st.isDevelopment(release) {
-		flags = append(flags, "--devel")
-	}
 
 	metadata, err := inspector.ShowChartWithFlags(ref, flags...)
 	if err != nil {
