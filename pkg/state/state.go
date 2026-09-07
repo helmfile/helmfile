@@ -5836,6 +5836,31 @@ func resetChartCacheForTest() {
 	downloadedCharts = make(map[ChartCacheKey]string)
 }
 
+// ociConstraintKey identifies one OCI constraint-resolution lookup: the
+// registry-qualified chart reference (without oci:// prefix, version tag, or
+// digest) plus the constraint string.
+type ociConstraintKey struct {
+	chartRef   string
+	constraint string
+}
+
+// resolvedOCIConstraints memoizes constraint -> concrete-version resolutions
+// for the lifetime of the process so that releases sharing the same OCI
+// chart+constraint trigger at most one `helm show chart` registry round-trip
+// per run, and consistently use one resolved version per chart+constraint
+// even if the registry would answer two concurrent workers differently. Only
+// successful resolutions are memoized — failures may be transient. Mirrors the
+// downloadedCharts pattern above.
+var resolvedOCIConstraints = make(map[ociConstraintKey]string)
+var resolvedOCIConstraintsMutex sync.RWMutex
+
+// resetResolvedOCIConstraintsForTest clears the resolution memo. For testing only.
+func resetResolvedOCIConstraintsForTest() {
+	resolvedOCIConstraintsMutex.Lock()
+	defer resolvedOCIConstraintsMutex.Unlock()
+	resolvedOCIConstraints = make(map[ociConstraintKey]string)
+}
+
 // isSharedCachePath returns true if the chartPath is within the shared cache directory.
 // Charts in the shared cache should not be deleted during refresh to prevent race conditions
 // when multiple processes are using the same cached chart.
@@ -6465,6 +6490,8 @@ func (st *HelmState) applyOCIConstraintResolution(release *ReleaseSpec, qualifie
 // version actually changed (false when the input was already a pinned semver,
 // resolution is opted out, the release is not OCI-backed, or the helm
 // implementation does not expose the ShowChartWithFlags capability).
+// Successful resolutions are memoized per chart+constraint for the lifetime
+// of the process, so repeated lookups cost no additional registry round-trips.
 //
 // This is a helper for getOCIChart. Callers should tolerate errors: a failed
 // resolution shouldn't break rendering; it just falls back to the pre-fix
@@ -6507,6 +6534,19 @@ func (st *HelmState) resolveOCIConstraintVersion(release *ReleaseSpec, helm helm
 	base, _, _ := parseOCIChartRef(qualifiedChartName)
 	ref := "oci://" + base
 
+	// One registry round-trip per chart+constraint per process. The flags
+	// above do not influence WHICH tag a constraint matches (they only govern
+	// TLS/verification/registry credentials), so the memo key can ignore them.
+	// Concurrent misses may still race and both hit the registry; last write
+	// wins, which is harmless.
+	memoKey := ociConstraintKey{chartRef: base, constraint: chartVersion}
+	resolvedOCIConstraintsMutex.RLock()
+	memoized, hit := resolvedOCIConstraints[memoKey]
+	resolvedOCIConstraintsMutex.RUnlock()
+	if hit {
+		return memoized, memoized != chartVersion, nil
+	}
+
 	flags := st.chartOCIFlags(release)
 	flags = st.appendVerifyFlags(flags, release)
 	flags = st.appendKeyringFlags(flags, release)
@@ -6522,6 +6562,9 @@ func (st *HelmState) resolveOCIConstraintVersion(release *ReleaseSpec, helm helm
 	if metadata.Version == "" {
 		return chartVersion, false, fmt.Errorf("helm show chart %s --version %s returned an empty Chart.yaml version", ref, chartVersion)
 	}
+	resolvedOCIConstraintsMutex.Lock()
+	resolvedOCIConstraints[memoKey] = metadata.Version
+	resolvedOCIConstraintsMutex.Unlock()
 	if metadata.Version == chartVersion {
 		return chartVersion, false, nil
 	}

@@ -96,6 +96,7 @@ func (m *mockOCIPullHelm) ChartPull(chartRef string, path string, flags ...strin
 // its output into every downstream consumer.
 func TestGetOCIChart_ResolvesConstraintIntoCachePathAndPullFlag(t *testing.T) {
 	resetChartCacheForTest()
+	resetResolvedOCIConstraintsForTest()
 
 	// Sandbox the shared helmfile cache dir so this test can safely exercise
 	// the `opts.OutputDirTemplate == ""` branch that writes into remote.CacheDir()
@@ -184,6 +185,7 @@ func TestGetOCIChart_ResolvesConstraintIntoCachePathAndPullFlag(t *testing.T) {
 // stale content when the registry gets a new matching tag.
 func TestGetOCIChart_ResolvesToDifferentVersionsPicksSeparateCachePaths(t *testing.T) {
 	resetChartCacheForTest()
+	resetResolvedOCIConstraintsForTest()
 	t.Setenv(envvar.CacheHome, t.TempDir())
 
 	logger := zap.NewExample().Sugar()
@@ -212,10 +214,12 @@ func TestGetOCIChart_ResolvesToDifferentVersionsPicksSeparateCachePaths(t *testi
 	require.Contains(t, firstPath, string(filepath.Separator)+"1.0.1")
 
 	// Simulate the registry publishing 1.0.2 and start over with a fresh
-	// process-local cache (resetChartCacheForTest). The constraint is
-	// unchanged; only what it resolves to has moved. Second resolution:
-	// `~1` -> 1.0.2 must land in a distinct cache dir, not reuse `1.0.1`.
+	// process-local cache (resetChartCacheForTest + the resolution memo). The
+	// constraint is unchanged; only what it resolves to has moved. Second
+	// resolution: `~1` -> 1.0.2 must land in a distinct cache dir, not reuse
+	// `1.0.1`.
 	resetChartCacheForTest()
+	resetResolvedOCIConstraintsForTest()
 	release = &ReleaseSpec{Name: issue2766Release, Chart: issue2766Chart, Version: "~1"}
 	second := &mockOCIPullHelm{
 		Helm: &exectest.Helm{Helm3: true},
@@ -242,6 +246,7 @@ func TestGetOCIChart_ResolvesToDifferentVersionsPicksSeparateCachePaths(t *testi
 // reuses whatever a previous, non-skipped run resolved.
 func TestGetOCIChart_SkipRefreshSkipsConstraintResolution(t *testing.T) {
 	resetChartCacheForTest()
+	resetResolvedOCIConstraintsForTest()
 
 	logger := zap.NewExample().Sugar()
 	st := &HelmState{
@@ -292,4 +297,52 @@ func TestGetOCIChart_SkipRefreshSkipsConstraintResolution(t *testing.T) {
 				"cache path falls back to the raw-constraint segment under skipRefresh")
 		})
 	}
+}
+
+// TestGetOCIChart_SharedConstraintResolvedOncePerProcess verifies that two
+// releases sharing the same OCI chart+constraint trigger exactly one
+// `helm show chart` resolution and one `helm chart pull` per process, and both
+// see the same resolved chart — even if the registry would answer the two
+// lookups differently (a tag published between them). Without the memo, each
+// release resolved independently and paid its own registry round-trip.
+func TestGetOCIChart_SharedConstraintResolvedOncePerProcess(t *testing.T) {
+	resetChartCacheForTest()
+	resetResolvedOCIConstraintsForTest()
+	t.Setenv(envvar.CacheHome, t.TempDir())
+
+	logger := zap.NewExample().Sugar()
+	st := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{
+				{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
+			},
+		},
+		logger:      logger,
+		valsRuntime: valsRuntime,
+		fs:          filesystem.DefaultFileSystem(),
+	}
+
+	const resolved = "1.0.1"
+	helm := &mockOCIPullHelm{
+		Helm: &exectest.Helm{Helm3: true},
+		ResolveFn: func(_ string) (chart.Metadata, error) {
+			return chart.Metadata{Version: resolved}, nil
+		},
+	}
+
+	path1, err := st.getOCIChart(&ReleaseSpec{Name: "app-a", Chart: issue2766Chart, Version: "~1"}, "", helm, ChartPrepareOptions{SkipDeps: true})
+	require.NoError(t, err)
+	path2, err := st.getOCIChart(&ReleaseSpec{Name: "app-b", Chart: issue2766Chart, Version: "~1"}, "", helm, ChartPrepareOptions{SkipDeps: true})
+	require.NoError(t, err)
+
+	require.Equal(t, int32(1), helm.inspectorCalled.Load(),
+		"one `helm show chart` per chart+constraint per process")
+	require.Equal(t, int32(1), helm.pullCount.Load(),
+		"the second release must reuse the first release's downloaded chart")
+	require.NotNil(t, path1)
+	require.NotNil(t, path2)
+	require.Equal(t, *path1, *path2, "both releases must see the same resolved chart")
+	path, _ := helm.pulledPath.Load().(string)
+	require.Contains(t, path, string(filepath.Separator)+resolved,
+		"the single download must land under the resolved-version cache path")
 }

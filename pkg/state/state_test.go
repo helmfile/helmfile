@@ -6165,6 +6165,9 @@ func TestResolveOCIConstraintVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Several subtests share the same chart+constraint; keep the
+			// in-process resolution memo out of the picture.
+			resetResolvedOCIConstraintsForTest()
 			called := false
 			var gotFlags []string
 			helm := &exectest.Helm{
@@ -6246,6 +6249,52 @@ func TestSkipOCIConstraintResolution(t *testing.T) {
 	}
 }
 
+// TestResolveOCIConstraintVersion_Memoized verifies the in-process resolution
+// memo: the second lookup of the same chart+constraint must not hit the
+// registry again, while a different constraint on the same chart is a distinct
+// key and does.
+func TestResolveOCIConstraintVersion_Memoized(t *testing.T) {
+	resetResolvedOCIConstraintsForTest()
+
+	const (
+		repoURL   = "registry.example.com/charts"
+		chartRef  = "myrepo/memo"
+		qualified = repoURL + "/memo"
+	)
+	calls := 0
+	helm := &exectest.Helm{
+		ShowChartWithFlagsFunc: func(_ string, flags ...string) (chart.Metadata, error) {
+			calls++
+			return chart.Metadata{Version: "1.0.1"}, nil
+		},
+	}
+	st := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{{Name: "myrepo", URL: repoURL, OCI: true}},
+		},
+		logger:      logger,
+		valsRuntime: valsRuntime,
+	}
+
+	first, changed, err := st.resolveOCIConstraintVersion(&ReleaseSpec{Name: "app", Chart: chartRef, Version: "~1"}, helm, qualified, "~1")
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "1.0.1", first)
+	require.Equal(t, 1, calls)
+
+	// Same chart+constraint: served from the memo, no second registry call.
+	second, changed, err := st.resolveOCIConstraintVersion(&ReleaseSpec{Name: "app2", Chart: chartRef, Version: "~1"}, helm, qualified, "~1")
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "1.0.1", second)
+	require.Equal(t, 1, calls, "the second lookup must be served from the in-process memo")
+
+	// A different constraint on the same chart is a different memo key.
+	_, _, err = st.resolveOCIConstraintVersion(&ReleaseSpec{Name: "app3", Chart: chartRef, Version: "^1"}, helm, qualified, "^1")
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+}
+
 // noOpChartInspector is a helmexec.Interface implementation that intentionally
 // does NOT satisfy helmexec.ChartInspector. It exists to prove that
 // resolveOCIConstraintVersion degrades gracefully when a third-party helm
@@ -6260,6 +6309,7 @@ type noOpChartInspector struct {
 // return the raw constraint unchanged with no error, keeping backward
 // compatibility for third-party helmexec.Interface implementations.
 func TestResolveOCIConstraintVersion_ChartInspectorFallback(t *testing.T) {
+	resetResolvedOCIConstraintsForTest()
 	const (
 		repoName  = "myrepo"
 		repoURL   = "registry.example.com/charts"
