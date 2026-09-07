@@ -130,13 +130,15 @@ helmDefaults:
   # Useful when the chart is broken, like seen in https://github.com/roboll/helmfile/issues/1547
   skipDeps: false
   # When set to `true` (default), resolves an OCI chart's semver constraint
-  # (e.g. `~1`, `^2.0.0`, `*`) to a concrete registry tag before deriving the
-  # on-disk cache path under `$XDG_CACHE_HOME/helmfile`. This keeps the cache
-  # content-addressable so a newer matching tag is picked up on the next run
-  # instead of the previously-resolved (now stale) version. Set to `false` to
-  # preserve the pre-fix behavior of caching under the raw constraint string.
-  # Exact-version releases (no constraint characters in `version:`) and
-  # non-OCI releases are unaffected. See issue #2766.
+  # (e.g. `~1`, `^2.0.0`, `*`, `1.x`, or any version that is not a
+  # fully-qualified `X.Y.Z` semver — including partial versions like `1` or
+  # `1.2`, which helm resolves as floating ranges) to a concrete registry tag
+  # before deriving the on-disk cache path under `$XDG_CACHE_HOME/helmfile`.
+  # This keeps the cache content-addressable so a newer matching tag is picked
+  # up on the next run instead of the previously-resolved (now stale) version.
+  # Set to `false` to preserve the pre-fix behavior of caching under the raw
+  # constraint string. Exact `X.Y.Z` versions (e.g. `1.0.1`) and non-OCI
+  # releases are unaffected. See issue #2766.
   resolveOCIVersions: true
   # If set to true, reuses the last release's values and merges them with ones provided in helmfile.
   # This attribute, can be overriden in CLI with --reset/reuse-values flag of apply/sync/diff subcommands
@@ -451,7 +453,7 @@ The following `helmDefaults` fields are also available but not shown in the exam
 | `enableDNS` | bool | false | Enable DNS lookups when rendering templates |
 | `skipCRDs` | bool | false | Skip CRDs during installation |
 | `skipRefresh` | bool | false | Skip running `helm dependency up` |
-| `resolveOCIVersions` | bool | true | Resolve OCI semver constraints (e.g. `~1`, `^2.0.0`) to concrete registry tags before deriving the shared cache path. Prevents stale cache hits after new matching tags are published. Set to `false` to keep the pre-fix behavior. Only affects OCI releases with a constraint version. See issue #2766 |
+| `resolveOCIVersions` | bool | true | Resolve OCI semver constraints (e.g. `~1`, `^2.0.0`, `*`, `1.x`, and partial versions like `1.2` that helm treats as floating ranges) to concrete registry tags before deriving the shared cache path. Prevents stale cache hits after new matching tags are published. Set to `false` to keep the pre-fix behavior. Only affects OCI releases with a non-exact version. See issue #2766 |
 | `atomic` | bool | false | Restore previous state on a failed install/upgrade. On Helm 4+ emits `--rollback-on-failure` (the successor to the deprecated `--atomic`); on older Helm emits `--atomic` |
 | `rollbackOnFailure` | bool | false | Restore previous state on a failed install/upgrade via the Helm 4 `--rollback-on-failure` flag. Requires Helm 4 or greater. Mutually exclusive with `atomic` |
 | `forceConflicts` | bool | false | Force server-side apply changes against conflicts (Helm 4 only) |

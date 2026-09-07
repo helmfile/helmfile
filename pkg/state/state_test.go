@@ -5965,10 +5965,9 @@ func TestIsVersionConstraint(t *testing.T) {
 		want    bool
 	}{
 		// exact versions — never constraints
-		{"1", false},
-		{"1.0", false},
 		{"1.0.1", false},
 		{"v1.0.1", false},
+		{"1.2.3", false},
 		{"1.0.0-rc.1", false},
 		{"1.0.0+build.1", false},
 		// exact versions where "x" appears in prerelease or build metadata:
@@ -5997,6 +5996,16 @@ func TestIsVersionConstraint(t *testing.T) {
 		{"1.2.x", true},
 		{"1.2.X", true},
 		{"v1.x", true},
+		// partial semvers — Masterminds' parser accepts them as versions, but
+		// helm's OCI resolution (registry.GetTagMatchingVersionOrConstraint)
+		// only treats a version string as an exact pin when a registry tag
+		// literally equals it; otherwise "1"/"1.2" float as ranges. They must
+		// therefore be classified as constraints and resolved before caching.
+		{"1", true},
+		{"1.2", true},
+		{"v1.2", true},
+		{"0", true},
+		{"v1", true},
 		// neither a valid version nor a valid constraint — handled elsewhere,
 		// resolver skips them so the raw string keeps flowing to helm.
 		{"", false},
@@ -6071,6 +6080,18 @@ func TestResolveOCIConstraintVersion(t *testing.T) {
 			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "1.x"},
 			qualifiedRef:     qualified,
 			version:          "1.x",
+			stubbedResolved:  resolvedVersion,
+			expectHelmCalled: true,
+			expectVersion:    resolvedVersion,
+			expectChanged:    true,
+		},
+		{
+			// Partial semver ("1.2") parses as a version but floats as a range
+			// in helm's OCI tag matching, so it must also be resolved.
+			name:             "partial version resolves to concrete version",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "1.2"},
+			qualifiedRef:     qualified + ":1.2",
+			version:          "1.2",
 			stubbedResolved:  resolvedVersion,
 			expectHelmCalled: true,
 			expectVersion:    resolvedVersion,
