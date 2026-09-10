@@ -779,7 +779,14 @@ func (a *App) dag(r *Run) error {
 }
 
 func (a *App) ListReleases(c ListConfigProvider) error {
-	releasesChan := make(chan []*HelmRelease, 100)
+	// Collect the per-state results under a mutex. ForEachState may visit
+	// states concurrently, and a bounded channel that is drained only after the
+	// visit finishes blocks forever once more states carry releases than the
+	// buffer can hold (the previous 100-slot channel deadlocked at 101 states).
+	var (
+		releasesMu sync.Mutex
+		releases   []*HelmRelease
+	)
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		var stateReleases []*HelmRelease
@@ -812,19 +819,13 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		}
 
 		if len(stateReleases) > 0 {
-			releasesChan <- stateReleases
+			releasesMu.Lock()
+			releases = append(releases, stateReleases...)
+			releasesMu.Unlock()
 		}
 
 		return
 	}, false, SetFilter(true))
-
-	close(releasesChan)
-
-	// Collect all releases from channel
-	var releases []*HelmRelease
-	for rels := range releasesChan {
-		releases = append(releases, rels...)
-	}
 
 	if err != nil {
 		return err
