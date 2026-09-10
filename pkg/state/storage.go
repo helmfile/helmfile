@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -59,18 +60,63 @@ func (st *Storage) resolveFile(missingFileHandler *string, tpe, path string, opt
 	if remote.IsRemote(path) {
 		r := remote.NewRemote(st.logger, "", st.fs)
 
-		fetchedFilePath, err := r.Fetch(path, "values")
-		if err != nil {
+		// Named fetchErr, not err: err is declared in the outer scope above and
+		// checked again after this if-block. Reusing that name here would shadow
+		// it with a new, block-local variable (fetchedFilePath is new, so ":="
+		// can't reuse the outer err), silently discarding any fetch error that
+		// isn't returned or explicitly ignored below.
+		fetchedFilePath, fetchErr := r.Fetch(path, "values")
+		if fetchErr != nil {
 			// https://github.com/helmfile/helmfile/issues/392
-			if conf.IgnoreMissingGitBranch && strings.Contains(err.Error(), "' did not match any file(s) known to git") {
-				st.logger.Debugf("Ignored missing git branch error: %v", err)
+			if conf.IgnoreMissingGitBranch && strings.Contains(fetchErr.Error(), "' did not match any file(s) known to git") {
+				st.logger.Debugf("Ignored missing git branch error: %v", fetchErr)
 			} else {
-				return nil, false, err
+				return nil, false, fetchErr
 			}
 		}
 
-		if st.fs.FileExistsAt(fetchedFilePath) {
+		switch {
+		case fetchedFilePath == "":
+			// Fetch failed and the failure was ignored above (ignoreMissingGitBranch).
+			// Leave files empty and let the missing file handler below decide.
+		case st.fs.FileExistsAt(fetchedFilePath):
+			// A literal, existing file. Checked before glob-expanding so that a
+			// file name which happens to contain "[" or "?" (valid in
+			// filepath.Match patterns but also valid in plain file names) still
+			// resolves to itself when it exists.
 			files = []string{fetchedFilePath}
+		case remote.HasGlobPattern(path):
+			// Fetch joins the "@<file>" selector onto the local cache directory
+			// verbatim (see Remote.Fetch), so a wildcard selector is expanded
+			// here, against the fetched directory, using the same glob syntax as
+			// local values files (st.ExpandPaths / filepath.Match).
+			//
+			// st.ExpandPaths itself is not reused: its normalizePath would
+			// incorrectly prefix the helmfile's basePath onto this
+			// already-absolute cache path whenever remote.CacheDir() falls back
+			// to the relative ".helmfile" directory.
+			matches, globErr := st.fs.Glob(fetchedFilePath)
+			if globErr != nil {
+				// filepath.Glob's only documented error is ErrBadPattern (e.g. an
+				// unclosed "["). Before wildcard support, a selector containing "["
+				// was checked with FileExistsAt and simply treated as missing if it
+				// didn't exist, so a malformed pattern should fall back to the same
+				// missingFileHandler-driven "no matches" handling below rather than
+				// becoming an unconditional hard error, which would be a regression
+				// for existing Info/Warn/Debug users referencing such a file.
+				if !errors.Is(globErr, filepath.ErrBadPattern) {
+					return nil, false, fmt.Errorf("failed processing %s: %v", path, globErr)
+				}
+				st.logger.Debugf("Treating invalid glob pattern as no match for %s: %v", path, globErr)
+			}
+			sort.Strings(matches)
+			for _, m := range matches {
+				// Keep the same "regular files only" contract as the non-glob
+				// case above: a glob can also match directories.
+				if st.fs.FileExistsAt(m) {
+					files = append(files, m)
+				}
+			}
 		}
 	} else {
 		files, err = st.ExpandPaths(path)

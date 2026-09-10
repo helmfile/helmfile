@@ -760,16 +760,65 @@ func TestIsRemote(t *testing.T) {
 	}
 }
 
+func TestHasGlobPattern(t *testing.T) {
+	testcases := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "wildcard file selector",
+			input:    "git::https://github.com/org/repo.git@path/to/dir/*.yaml?ref=main",
+			expected: true,
+		},
+		{
+			name:     "literal file selector with ref query param",
+			input:    "git::https://github.com/org/repo.git@path/to/values.yaml?ref=main",
+			expected: false,
+		},
+		{
+			name:     "placeholder bracket in dir, not file",
+			input:    `git::https://github.com/[$GITHUB_ORG]/repository-name.git@/values.dev.yaml?ref=main`,
+			expected: false,
+		},
+		{
+			name:     "ipv6 host, not file",
+			input:    "git::https://[::1]/org/repo.git@values.yaml?ref=main",
+			expected: false,
+		},
+		{
+			name:     "character class in file selector",
+			input:    "git::https://github.com/org/repo.git@dir/values-[abc].yaml?ref=main",
+			expected: true,
+		},
+		{
+			name:     "relative local path",
+			input:    "relative/path/*.yaml",
+			expected: false,
+		},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			result := HasGlobPattern(tt.input)
+			if result != tt.expected {
+				t.Errorf("HasGlobPattern(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestParse(t *testing.T) {
 	testcases := []struct {
-		name   string
-		input  string
-		getter string
-		scheme string
-		dir    string
-		file   string
-		query  string
-		err    string
+		name        string
+		input       string
+		getter      string
+		scheme      string
+		dir         string
+		file        string
+		query       string
+		hasSelector bool
+		err         string
 	}{
 		{
 			name:  "miss scheme",
@@ -782,13 +831,24 @@ func TestParse(t *testing.T) {
 			err:   "parse url: local absolute path is not a remote URL: /absolute/path/to/file.yaml",
 		},
 		{
-			name:   "git scheme",
-			input:  "git::https://github.com/stakater/Forecastle.git@deployments/kubernetes/chart/forecastle?ref=v1.0.54",
-			getter: "git",
-			scheme: "https",
-			dir:    "/stakater/Forecastle.git",
-			file:   "deployments/kubernetes/chart/forecastle",
-			query:  "ref=v1.0.54",
+			name:        "git scheme",
+			input:       "git::https://github.com/stakater/Forecastle.git@deployments/kubernetes/chart/forecastle?ref=v1.0.54",
+			getter:      "git",
+			scheme:      "https",
+			dir:         "/stakater/Forecastle.git",
+			file:        "deployments/kubernetes/chart/forecastle",
+			query:       "ref=v1.0.54",
+			hasSelector: true,
+		},
+		{
+			name:        "git scheme with wildcard file selector",
+			input:       "git::https://github.com/org/repo.git@path/to/dir/*.yaml?ref=main",
+			getter:      "git",
+			scheme:      "https",
+			dir:         "/org/repo.git",
+			file:        "path/to/dir/*.yaml",
+			query:       "ref=main",
+			hasSelector: true,
 		},
 		{
 			name:   "s3 scheme",
@@ -878,12 +938,14 @@ func TestParse(t *testing.T) {
 			}
 
 			var getter, scheme, dir, file, query string
+			var hasSelector bool
 			if src != nil {
 				getter = src.Getter
 				scheme = src.Scheme
 				dir = src.Dir
 				file = src.File
 				query = src.RawQuery
+				hasSelector = src.HasSelector
 			}
 
 			if diff := cmp.Diff(tt.getter, getter); diff != "" {
@@ -904,6 +966,10 @@ func TestParse(t *testing.T) {
 
 			if diff := cmp.Diff(tt.query, query); diff != "" {
 				t.Fatalf("Unexpected query:\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tt.hasSelector, hasSelector); diff != "" {
+				t.Fatalf("Unexpected hasSelector:\n%s", diff)
 			}
 		})
 	}
@@ -984,6 +1050,172 @@ func TestRemote_Fetch(t *testing.T) {
 				t.Errorf("unexpected result: unexpected cache hit")
 			}
 		})
+	}
+}
+
+func TestRemote_Fetch_Wildcard(t *testing.T) {
+	cleanfs := map[string]string{
+		CacheDir(): "",
+	}
+	cachefs := map[string]string{
+		filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.151.0/examples/values/a.yaml"): "foo: bar",
+	}
+
+	testcases := []struct {
+		name           string
+		files          map[string]string
+		expectCacheHit bool
+	}{
+		{name: "not expectCacheHit", files: cleanfs, expectCacheHit: false},
+		{name: "expectCacheHit", files: cachefs, expectCacheHit: true},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			testfs := testhelper.NewTestFs(tt.files)
+
+			hit := true
+
+			get := func(wd, src, dst string) error {
+				if wd != CacheDir() {
+					return fmt.Errorf("unexpected wd: %s", wd)
+				}
+				// The wildcard selector is stripped from the getter source: the
+				// whole directory is downloaded and the pattern is applied
+				// against it afterwards.
+				if src != "git::https://github.com/helmfile/helmfile.git?ref=v0.151.0" {
+					return fmt.Errorf("unexpected src: %s", src)
+				}
+
+				hit = false
+
+				return nil
+			}
+
+			getter := &testGetter{
+				get: get,
+			}
+			remote := &Remote{
+				Logger: helmexec.NewLogger(io.Discard, "debug"),
+				Home:   CacheDir(),
+				Getter: getter,
+				fs:     testfs.ToFileSystem(),
+			}
+
+			url := "git::https://github.com/helmfile/helmfile.git@examples/values/*.yaml?ref=v0.151.0"
+			file, err := remote.Fetch(url)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// The wildcard selector is joined onto the cache dir untouched: it is
+			// the caller's (Storage.resolveFile's) job to glob it.
+			expectedFile := filepath.Join(CacheDir(), "https_github_com_helmfile_helmfile_git.ref=v0.151.0/examples/values/*.yaml")
+			if file != expectedFile {
+				t.Errorf("unexpected file located: %s vs expected: %s", file, expectedFile)
+			}
+
+			// A wildcard selector must share the cache entry with a literal
+			// reference to the same repo/ref: the cache key never depends on File.
+			if tt.expectCacheHit && !hit {
+				t.Errorf("unexpected result: unexpected cache miss")
+			}
+			if !tt.expectCacheHit && hit {
+				t.Errorf("unexpected result: unexpected cache hit")
+			}
+		})
+	}
+}
+
+func TestRemote_Fetch_WildcardUnsupported(t *testing.T) {
+	testcases := []struct {
+		name        string
+		url         string
+		errContains string
+	}{
+		{
+			name:        "plain https single file",
+			url:         "https://example.com/dir/*.yaml",
+			errContains: "wildcards are not supported for https:// sources",
+		},
+		{
+			name:        "plain s3 single file",
+			url:         "s3://bucket/dir/*.yaml",
+			errContains: "wildcards are not supported for s3:// sources",
+		},
+		{
+			name:        "forced s3 getter, non-archive object",
+			url:         "s3::https://bucket.s3.us-east-2.amazonaws.com/dir/*.yaml",
+			errContains: "wildcards are not supported for s3:: sources",
+		},
+		{
+			name:        "no explicit selector",
+			url:         "git::https://git.company.org/helmfiles/global/*.yaml?ref=master",
+			errContains: `wildcards require an explicit "@" selector`,
+		},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			called := false
+			get := func(wd, src, dst string) error {
+				called = true
+				return nil
+			}
+			getter := &testGetter{get: get}
+
+			testfs := testhelper.NewTestFs(map[string]string{CacheDir(): ""})
+			remote := &Remote{
+				Logger:     helmexec.NewLogger(io.Discard, "debug"),
+				Home:       CacheDir(),
+				Getter:     getter,
+				S3Getter:   getter,
+				HttpGetter: getter,
+				fs:         testfs.ToFileSystem(),
+			}
+
+			_, err := remote.Fetch(tt.url)
+			if err == nil {
+				t.Fatalf("expected an error, got none")
+			}
+			if !strings.Contains(err.Error(), tt.errContains) {
+				t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
+			}
+			if called {
+				t.Errorf("getter should not have been invoked")
+			}
+		})
+	}
+}
+
+// TestRemote_Fetch_WildcardAllowedS3Archive locks in the one s3:: shape a
+// wildcard selector IS allowed for: a forced s3:: getter pointing at an
+// archive. S3Getter decompresses archives into the cache dir (see
+// decompressorForFile), so a selector can still match files inside it, unlike
+// a single non-archive s3:: object (covered by TestRemote_Fetch_WildcardUnsupported).
+func TestRemote_Fetch_WildcardAllowedS3Archive(t *testing.T) {
+	testfs := testhelper.NewTestFs(map[string]string{CacheDir(): ""})
+
+	called := false
+	get := func(wd, src, dst string) error {
+		called = true
+		return nil
+	}
+	getter := &testGetter{get: get}
+
+	remote := &Remote{
+		Logger:   helmexec.NewLogger(io.Discard, "debug"),
+		Home:     CacheDir(),
+		S3Getter: getter,
+		fs:       testfs.ToFileSystem(),
+	}
+
+	url := "s3::https://bucket.s3.us-east-2.amazonaws.com/dir/app.tar.gz@*.yaml"
+	if _, err := remote.Fetch(url); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Errorf("expected S3Getter to be invoked for an archive wildcard selector")
 	}
 }
 
