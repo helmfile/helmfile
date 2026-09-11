@@ -146,8 +146,6 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: built-binaries-${{ github.run_id }}
-      - name: install semver
-        run: go install github.com/ffurrer2/semver/v2/cmd/semver@v2.12.0
       - name: Extract tar to get built binaries
         run: tar -xvf built-binaries.tar
       - name: Display built binaries
