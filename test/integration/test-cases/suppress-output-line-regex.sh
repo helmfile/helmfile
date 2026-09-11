@@ -10,14 +10,6 @@ if [[ $EXTRA_HELMFILE_FLAGS == *--enable-live-output* ]]; then
     diff_out_file=${suppress_output_line_regex_output_dir}/diff-live
 fi
 
-if version_ge $HELM_DIFF_VERSION "3.15.13"; then
-    # helm-diff >= 3.15.13 omits null/empty labels and annotations keys from diffs
-    # See https://github.com/databus23/helm-diff/pull/1068
-    diff_out_file=${diff_out_file}-after-helm-diff-3.15.13
-elif [[ $(semver compare $HELM_DIFF_VERSION "3.11.0") == "1" ]]; then
-    diff_out_file=${diff_out_file}-after-helm-diff-3.11.0
-fi
-
 # Helm 4 has different repo add behavior than Helm 3
 if [ "${HELMFILE_HELM4}" = "1" ]; then
     diff_out_file=${diff_out_file}-helm4
