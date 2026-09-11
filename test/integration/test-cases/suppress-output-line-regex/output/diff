@@ -1,5 +1,5 @@
 Comparing release=ingress-nginx, chart=ingress-nginx/ingress-nginx, namespace=helmfile-tests
-helmfile-tests, ingress-nginx, ClusterRole (rbac.authorization.k8s.io) has changed:
+helmfile-tests, ingress-nginx, ClusterRole (rbac.authorization.k8s.io) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx, ClusterRoleBinding (rbac.authorization.k8s.io) has changed:
   # Source: ingress-nginx/templates/clusterrolebinding.yaml
   apiVersion: rbac.authorization.k8s.io/v1
@@ -134,8 +134,8 @@ helmfile-tests, ingress-nginx, RoleBinding (rbac.authorization.k8s.io) has chang
       name: ingress-nginx
 -     namespace: "helmfile-tests"
 +     namespace: helmfile-tests
-helmfile-tests, ingress-nginx, ServiceAccount (v1) has changed:
-helmfile-tests, ingress-nginx-admission, ClusterRole (rbac.authorization.k8s.io) has changed:
+helmfile-tests, ingress-nginx, ServiceAccount (v1) has changed, but diff is empty after suppression.
+helmfile-tests, ingress-nginx-admission, ClusterRole (rbac.authorization.k8s.io) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx-admission, ClusterRoleBinding (rbac.authorization.k8s.io) has changed:
   # Source: ingress-nginx/templates/admission-webhooks/job-patch/clusterrolebinding.yaml
   apiVersion: rbac.authorization.k8s.io/v1
@@ -210,7 +210,7 @@ helmfile-tests, ingress-nginx-admission, RoleBinding (rbac.authorization.k8s.io)
       name: ingress-nginx-admission
 -     namespace: "helmfile-tests"
 +     namespace: helmfile-tests
-helmfile-tests, ingress-nginx-admission, ServiceAccount (v1) has changed:
+helmfile-tests, ingress-nginx-admission, ServiceAccount (v1) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx-admission, ValidatingWebhookConfiguration (admissionregistration.k8s.io) has changed:
   # Source: ingress-nginx/templates/admission-webhooks/validating-webhook.yaml
   # before changing this value, check the required kubernetes version
@@ -218,7 +218,6 @@ helmfile-tests, ingress-nginx-admission, ValidatingWebhookConfiguration (admissi
   apiVersion: admissionregistration.k8s.io/v1
   kind: ValidatingWebhookConfiguration
   metadata:
-    annotations:
     labels:
       app.kubernetes.io/name: ingress-nginx
       app.kubernetes.io/instance: ingress-nginx
@@ -371,7 +370,7 @@ helmfile-tests, ingress-nginx-admission-patch, Job (batch) has changed:
 -         fsGroup: 2000
 -         runAsNonRoot: true
 -         runAsUser: 2000
-helmfile-tests, ingress-nginx-controller, ConfigMap (v1) has changed:
+helmfile-tests, ingress-nginx-controller, ConfigMap (v1) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx-controller, Deployment (apps) has changed:
   # Source: ingress-nginx/templates/controller-deployment.yaml
   apiVersion: apps/v1
@@ -496,9 +495,9 @@ helmfile-tests, ingress-nginx-controller, Deployment (apps) has changed:
           - name: webhook-cert
             secret:
               secretName: ingress-nginx-admission
-helmfile-tests, ingress-nginx-controller, Service (v1) has changed:
-helmfile-tests, ingress-nginx-controller-admission, Service (v1) has changed:
-helmfile-tests, nginx, IngressClass (networking.k8s.io) has changed:
+helmfile-tests, ingress-nginx-controller, Service (v1) has changed, but diff is empty after suppression.
+helmfile-tests, ingress-nginx-controller-admission, Service (v1) has changed, but diff is empty after suppression.
+helmfile-tests, nginx, IngressClass (networking.k8s.io) has changed, but diff is empty after suppression.
 helmfile-tests, ingress-nginx-admission, NetworkPolicy (networking.k8s.io) has been removed:
 - # Source: ingress-nginx/templates/admission-webhooks/job-patch/networkpolicy.yaml
 - apiVersion: networking.k8s.io/v1
