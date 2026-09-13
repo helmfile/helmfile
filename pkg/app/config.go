@@ -1,6 +1,10 @@
 package app
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/zap"
+
+	"github.com/helmfile/helmfile/pkg/agent/llm"
+)
 
 type ConfigProvider interface {
 	Args() string
@@ -11,8 +15,10 @@ type ConfigProvider interface {
 	DisableForceUpdate() bool
 	EnforcePluginVerification() bool
 	HelmOCIPlainHTTP() bool
+	RepoRetry() int
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SequentialHelmfiles() bool
 
 	FileOrDir() string
@@ -49,6 +55,7 @@ type ApplyConfigProvider interface {
 	Cascade() string
 	HideNotes() bool
 	TakeOwnership() bool
+	ServerSide() string
 	SuppressOutputLineRegex() []string
 
 	Values() []string
@@ -56,9 +63,11 @@ type ApplyConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
+	Timeout() int
 
 	IncludeTests() bool
 
@@ -79,9 +88,11 @@ type ApplyConfigProvider interface {
 	Validate() bool
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
+	SkipDiffValidationOnInstall() bool
 
 	DiffArgs() string
 	SyncArgs() string
+	TemplateArgs() string
 
 	SyncReleaseLabels() bool
 
@@ -90,6 +101,11 @@ type ApplyConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackFailedLogs() bool
+	HelmStuckGrace() int
+	TrackFailOnError() bool
+
+	Description() string
 
 	concurrencyConfig
 	interactive
@@ -104,6 +120,7 @@ type SyncConfigProvider interface {
 	PostRendererArgs() []string
 	HideNotes() bool
 	TakeOwnership() bool
+	ServerSide() string
 	Cascade() string
 
 	Values() []string
@@ -111,9 +128,11 @@ type SyncConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
+	Timeout() int
 	SyncArgs() string
 
 	Validate() bool
@@ -126,6 +145,16 @@ type SyncConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackFailedLogs() bool
+	HelmStuckGrace() int
+	TrackFailOnError() bool
+
+	Color() bool
+	NoColor() bool
+
+	Description() string
+
+	TemplateArgs() string
 
 	DAGConfig
 
@@ -148,6 +177,7 @@ type DiffConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 
 	IncludeTests() bool
 
@@ -157,7 +187,9 @@ type DiffConfigProvider interface {
 	NoHooks() bool
 	SuppressDiff() bool
 	SkipDiffOnInstall() bool
+	SkipDiffValidationOnInstall() bool
 	DiffArgs() string
+	TemplateArgs() string
 
 	DAGConfig
 
@@ -168,9 +200,33 @@ type DiffConfigProvider interface {
 	Context() int
 	DiffOutput() string
 	TakeOwnership() bool
+	ServerSide() string
 
 	concurrencyConfig
 	valuesControlMode
+}
+
+// DoctorConfigProvider is the configuration surface required by App.Doctor.
+// It embeds DiffConfigProvider because doctor is a strict superset of diff:
+// the same helm-diff flags plus a handful of AI-specific knobs.
+//
+// The LLM-related accessors return the flag-sourced config only; env and
+// helmfile.yaml sources are resolved by the doctor package itself
+// (see pkg/agent/doctor/config.go).
+type DoctorConfigProvider interface {
+	DiffConfigProvider
+
+	// FlagLLMConfig returns the LLM configuration sourced from --llm-* flags.
+	// Empty fields mean "flag not set" and do not override env/yaml.
+	FlagLLMConfig() llm.Config
+
+	// Force skips the high-risk exit-code-2 gate.
+	Force() bool
+
+	// DoctorOutput returns the report format ("text" or "json"). Named
+	// DoctorOutput to avoid colliding with DiffConfigProvider.DiffOutput
+	// which is the helm-diff plugin output format.
+	DoctorOutput() string
 }
 
 type DestroyConfigProvider interface {
@@ -179,9 +235,11 @@ type DestroyConfigProvider interface {
 
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCharts() bool
 	DeleteWait() bool
 	DeleteTimeout() int
+	NoColor() bool
 
 	interactive
 	loggingConfig
@@ -193,6 +251,7 @@ type TestConfigProvider interface {
 
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Timeout() int
 	Cleanup() bool
 	Logs() bool
@@ -207,6 +266,7 @@ type LintConfigProvider interface {
 	Set() []string
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 
 	DAGConfig
@@ -224,6 +284,7 @@ type UnittestConfigProvider interface {
 	DebugPlugin() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 
 	DAGConfig
@@ -234,8 +295,10 @@ type UnittestConfigProvider interface {
 type FetchConfigProvider interface {
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	OutputDir() string
 	OutputDirTemplate() string
+	WriteOutput() bool
 
 	concurrencyConfig
 }
@@ -252,6 +315,7 @@ type TemplateConfigProvider interface {
 	Validate() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 	SkipTests() bool
 	OutputDir() string
@@ -259,6 +323,7 @@ type TemplateConfigProvider interface {
 	NoHooks() bool
 	KubeVersion() string
 	ShowOnly() []string
+	TemplateArgs() string
 
 	DAGConfig
 
@@ -286,6 +351,7 @@ type WriteValuesConfigProvider interface {
 
 type StatusesConfigProvider interface {
 	Args() string
+	AllowFailedReleases() bool
 
 	concurrencyConfig
 }
@@ -317,6 +383,14 @@ type CacheConfigProvider any
 
 type InitConfigProvider interface {
 	Force() bool
+}
+
+type CreateConfigProvider interface {
+	Name() string
+	OutputDir() string
+	Force() bool
+
+	loggingConfig
 }
 
 type PrintEnvConfigProvider interface {

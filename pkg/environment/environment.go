@@ -2,7 +2,6 @@ package environment
 
 import (
 	"github.com/helmfile/helmfile/pkg/maputil"
-	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 type Environment struct {
@@ -32,52 +31,18 @@ func New(name string) *Environment {
 	}
 }
 
+// DeepCopy returns a deep copy of the environment.
+// It uses maputil.DeepCopyMap rather than a YAML marshal/unmarshal round-trip
+// so that secret values containing special characters (colons, quotes, braces,
+// etc.) are never mangled or lost. This fixes issue #973 where large SOPS-encrypted
+// secret files caused environment values like "myValue" to silently disappear.
 func (e Environment) DeepCopy() Environment {
-	valuesBytes, err := yaml.Marshal(e.Values)
-	if err != nil {
-		panic(err)
-	}
-	var values map[string]any
-	if err := yaml.Unmarshal(valuesBytes, &values); err != nil {
-		panic(err)
-	}
-	values, err = maputil.CastKeysToStrings(values)
-	if err != nil {
-		panic(err)
-	}
-
-	defaultsBytes, err := yaml.Marshal(e.Defaults)
-	if err != nil {
-		panic(err)
-	}
-	var defaults map[string]any
-	if err := yaml.Unmarshal(defaultsBytes, &defaults); err != nil {
-		panic(err)
-	}
-	defaults, err = maputil.CastKeysToStrings(defaults)
-	if err != nil {
-		panic(err)
-	}
-
-	cliOverridesBytes, err := yaml.Marshal(e.CLIOverrides)
-	if err != nil {
-		panic(err)
-	}
-	var cliOverrides map[string]any
-	if err := yaml.Unmarshal(cliOverridesBytes, &cliOverrides); err != nil {
-		panic(err)
-	}
-	cliOverrides, err = maputil.CastKeysToStrings(cliOverrides)
-	if err != nil {
-		panic(err)
-	}
-
 	return Environment{
 		Name:         e.Name,
 		KubeContext:  e.KubeContext,
-		Values:       values,
-		Defaults:     defaults,
-		CLIOverrides: cliOverrides,
+		Values:       maputil.DeepCopyMap(e.Values),
+		Defaults:     maputil.DeepCopyMap(e.Defaults),
+		CLIOverrides: maputil.DeepCopyMap(e.CLIOverrides),
 	}
 }
 

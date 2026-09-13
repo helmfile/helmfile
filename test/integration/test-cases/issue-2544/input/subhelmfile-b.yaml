@@ -1,0 +1,15 @@
+releases:
+- name: release-b
+  chart: ../../../charts/raw
+  labels:
+    app: b
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: release-b
+        namespace: {{ .Release.Namespace }}
+      data:
+        group: b

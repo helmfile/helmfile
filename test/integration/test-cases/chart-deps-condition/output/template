@@ -1,0 +1,86 @@
+---
+# Source: testchartsdeps/charts/subchart1/templates/cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: testsub1
+data:
+  sub: 1
+---
+# Source: testchartsdeps/charts/subchart2/templates/cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: testsub2
+data:
+  sub: 2
+
+---
+# Source: testchartsdeps/charts/subchart2/templates/cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: testsub2
+data:
+  sub: 2
+
+---
+# Source: testchartsdeps/charts/subchart1/templates/cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: testsub1
+data:
+  sub: 1
+---
+# Source: testchartsdeps/charts/subchart2/templates/cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: testsub2
+data:
+  sub: 2
+
+---
+# Source: testchartsdeps/templates/patched_resources.yaml
+apiVersion: v1
+data:
+  sub: 1
+kind: ConfigMap
+metadata:
+  name: testsub1
+---
+# Source: testchartsdeps/templates/patched_resources.yaml
+apiVersion: v1
+data:
+  sub: 42
+kind: ConfigMap
+metadata:
+  name: testsub2
+
+---
+# Source: testchartsdeps/templates/patched_resources.yaml
+apiVersion: v1
+data:
+  sub: 42
+kind: ConfigMap
+metadata:
+  name: testsub2
+
+---
+# Source: testchartsdeps/templates/patched_resources.yaml
+apiVersion: v1
+data:
+  sub: 1
+kind: ConfigMap
+metadata:
+  name: testsub1
+---
+# Source: testchartsdeps/templates/patched_resources.yaml
+apiVersion: v1
+data:
+  sub: 42
+kind: ConfigMap
+metadata:
+  name: testsub2
+

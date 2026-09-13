@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	goContext "context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,8 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/helmfile/vals"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -19,6 +22,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/policy"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
 const (
@@ -31,6 +35,11 @@ type desiredStateLoader struct {
 	overrideHelmBinary      string
 	overrideKustomizeBinary string
 	enableLiveOutput        bool
+
+	// traceCtx carries the helmfile.load span context; render/parse spans
+	// attach to it. nil falls back to context.Background, which with tracing
+	// disabled makes span starts no-ops.
+	traceCtx goContext.Context
 
 	env       string
 	namespace string
@@ -47,26 +56,50 @@ type desiredStateLoader struct {
 	lockFilePath string
 }
 
+// spanCtx returns the loader's span parent context.
+func (ld *desiredStateLoader) spanCtx() goContext.Context {
+	if ld.traceCtx != nil {
+		return ld.traceCtx
+	}
+	return goContext.Background()
+}
+
 func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, error) {
 	var overrodeEnv *environment.Environment
 
-	args := opts.Environment.OverrideValues
+	fileArgs := opts.Environment.OverrideValues
+	setArgs := opts.Environment.OverrideCLISetValues
 
-	if len(args) > 0 {
+	if len(fileArgs) > 0 || len(setArgs) > 0 {
 		if opts.CalleePath == "" {
-			return nil, fmt.Errorf("bug: opts.CalleePath was nil: f=%s, opts=%v", f, opts)
+			return nil, fmt.Errorf("bug: opts.CalleePath was empty: f=%s, opts=%v", f, opts)
 		}
 		storage := state.NewStorage(opts.CalleePath, ld.logger, ld.fs)
 		envld := state.NewEnvironmentValuesLoader(storage, ld.fs, ld.logger, ld.remote)
 		handler := state.MissingFileHandlerError
-		vals, err := envld.LoadEnvironmentValues(&handler, args, environment.New(ld.env), ld.env)
-		if err != nil {
-			return nil, err
-		}
 
 		overrodeEnv = &environment.Environment{
 			Name:         ld.env,
-			CLIOverrides: vals,
+			Values:       map[string]any{},
+			CLIOverrides: map[string]any{},
+		}
+
+		// --state-values-file: loaded into Values so arrays replace (not merge)
+		if len(fileArgs) > 0 {
+			fileVals, err := envld.LoadEnvironmentValues(&handler, fileArgs, environment.New(ld.env), ld.env, "")
+			if err != nil {
+				return nil, err
+			}
+			overrodeEnv.Values = fileVals
+		}
+
+		// --state-values-set: loaded into CLIOverrides so arrays merge element-by-element
+		if len(setArgs) > 0 {
+			setVals, err := envld.LoadEnvironmentValues(&handler, setArgs, environment.New(ld.env), ld.env, "")
+			if err != nil {
+				return nil, err
+			}
+			overrodeEnv.CLIOverrides = setVals
 		}
 	}
 
@@ -85,10 +118,33 @@ func (ld *desiredStateLoader) Load(f string, opts LoadOpts) (*state.HelmState, e
 		file = filepath.Base(f)
 	}
 
-	st, err := ld.loadFileWithOverrides(nil, overrodeEnv, dir, file, true)
+	// environments inheritance must be injected pre-load: environment values are
+	// baked into RenderedValues during ParseAndLoad (see create.go), so merging
+	// them post-load would leave stale values. Passing the parent's resolved
+	// env as ctxEnv makes the parent's values the base, which the child's own
+	// environments: block then overrides per key (create.go loadEnvValues).
+	var inheritedEnv *environment.Environment
+	if opts.Inherited != nil {
+		inheritedEnv = opts.Inherited.Env
+	}
+
+	st, err := ld.loadFileWithOverrides(inheritedEnv, overrodeEnv, dir, file, true)
 	if err != nil {
 		return nil, err
 	}
+
+	// Apply inherited parent config for the 6 pure fields (environments was
+	// handled above via inheritedEnv). Child wins; parent fills gaps.
+	if opts.Inherited != nil {
+		if err := st.MergeInherited(opts.Inherited); err != nil {
+			return nil, err
+		}
+	}
+
+	// Footgun guard for issue #1495: a release references a repository the
+	// parent declares but the child lacks (and did not inherit). Suggests
+	// `inherits: [repositories]`. No-op when ParentRepoNames is empty.
+	st.WarnUninheritedRepos(opts.ParentRepoNames, ld.logger)
 
 	if opts.Reverse {
 		st.Reverse()
@@ -199,6 +255,16 @@ func (a *desiredStateLoader) rawLoad(yaml []byte, baseDir, file string, evaluate
 	return st, nil
 }
 
+// parsePart wraps rawLoad for one document part in a helmfile.parse span.
+func (ld *desiredStateLoader) parsePart(rawContent []byte, baseDir, filename string, evaluateBases bool, env, overrodeEnv *environment.Environment) (*state.HelmState, error) {
+	_, span := telemetry.Tracer(telemetry.ScopeHelmfile).Start(ld.spanCtx(), "helmfile.parse",
+		trace.WithAttributes(attribute.String("helmfile.state_file", filename)),
+	)
+	defer span.End()
+
+	return ld.rawLoad(rawContent, baseDir, filename, evaluateBases, env, overrodeEnv)
+}
+
 func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, baseDir, filename string, content []byte, evaluateBases bool) (*state.HelmState, error) {
 	// Allows part-splitting to work with CLRF-ed content
 	normalizedContent := bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
@@ -241,14 +307,7 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			rawContent = part
 		}
 
-		currentState, err := ld.rawLoad(
-			rawContent,
-			baseDir,
-			filename,
-			evaluateBases,
-			env,
-			overrodeEnv,
-		)
+		currentState, err := ld.parsePart(rawContent, baseDir, filename, evaluateBases, env, overrodeEnv)
 		if err != nil {
 			return nil, err
 		}
@@ -263,14 +322,6 @@ func (ld *desiredStateLoader) load(env, overrodeEnv *environment.Environment, ba
 			finalState.RenderedValues = currentState.RenderedValues
 		}
 
-		if len(finalState.HelmDefaults.PostRendererArgs) > 0 {
-			for i := range finalState.Releases {
-				if len(finalState.Releases[i].PostRendererArgs) == 0 {
-					finalState.Releases[i].PostRendererArgs = finalState.HelmDefaults.PostRendererArgs
-				}
-			}
-			finalState.HelmDefaults.PostRendererArgs = nil
-		}
 		env = &finalState.Env
 
 		ld.logger.Debugf("merged environment: %v", env)

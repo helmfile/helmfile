@@ -17,11 +17,11 @@ func NewContext() Context {
 	}
 }
 
-func (ctx *Context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater) error {
+func (ctx *Context) SyncReposOnce(st *state.HelmState, helm state.RepoUpdater, opts ...state.SyncOption) error {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 
-	updated, err := st.SyncRepos(helm, ctx.updatedRepos)
+	updated, err := st.SyncRepos(helm, ctx.updatedRepos, opts...)
 
 	for _, r := range updated {
 		ctx.updatedRepos[r] = true

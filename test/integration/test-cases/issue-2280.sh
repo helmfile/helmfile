@@ -19,8 +19,8 @@ test_start "issue-2280: --color flag with Helm 4"
 
 # Test 1: Install the chart first
 info "Installing chart for issue #2280 test"
-${helmfile} -f helmfile.yaml apply --suppress-diff > "${issue_2280_tmp_dir}/install.txt" 2>&1
-code=$?
+code=0
+${helmfile} -f helmfile.yaml apply --suppress-diff > "${issue_2280_tmp_dir}/install.txt" 2>&1 || code=$?
 
 if [ $code -ne 0 ]; then
   cat "${issue_2280_tmp_dir}/install.txt"
@@ -37,8 +37,8 @@ info "Chart installed successfully"
 # After the fix, --color is removed and HELM_DIFF_COLOR env var is set instead
 info "Running diff with --color and --context flags"
 
-${helmfile} -f helmfile.yaml diff --color --context 3 > "${issue_2280_tmp_dir}/diff-color.txt" 2>&1
-code=$?
+code=0
+${helmfile} -f helmfile.yaml diff --color --context 3 > "${issue_2280_tmp_dir}/diff-color.txt" 2>&1 || code=$?
 
 # Check for the error from issue #2280
 if grep -q "invalid color mode" "${issue_2280_tmp_dir}/diff-color.txt"; then
@@ -62,8 +62,8 @@ info "SUCCESS: --color flag did not interfere with --context flag"
 # Test 3: Also test with --no-color
 info "Running diff with --no-color and --context flags"
 
-${helmfile} -f helmfile.yaml diff --no-color --context 3 > "${issue_2280_tmp_dir}/diff-no-color.txt" 2>&1
-code=$?
+code=0
+${helmfile} -f helmfile.yaml diff --no-color --context 3 > "${issue_2280_tmp_dir}/diff-no-color.txt" 2>&1 || code=$?
 
 if grep -q "invalid color mode" "${issue_2280_tmp_dir}/diff-no-color.txt"; then
   cat "${issue_2280_tmp_dir}/diff-no-color.txt"

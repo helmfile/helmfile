@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -42,24 +43,34 @@ func (r *Run) askForConfirmation(msg string) bool {
 	return AskForConfirmation(msg)
 }
 
-func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, error) {
-	// Skip chart preparation for certain commands
-	skipCommands := []string{"write-values", "list"}
-	if slices.Contains(skipCommands, strings.ToLower(helmfileCommand)) {
-		return nil, nil
+// commandsSkipChartPrep lists commands that don't prepare or pull charts.
+// These commands skip chart preparation, and when skipRepos is true they also
+// skip the OCI-only registry login (since no chart pulls need authentication).
+// When skipRepos is false, SyncReposOnce still runs normally for all repos.
+var commandsSkipChartPrep = []string{"write-values", "list"}
+
+func (r *Run) prepareChartsIfNeeded(helmfileCommand string, dir string, concurrency int, opts state.ChartPrepareOptions) (map[state.PrepareChartKey]string, map[state.PrepareChartKey]error, error) {
+	// Skip chart preparation for commands that don't need chart pulls
+	if slices.Contains(commandsSkipChartPrep, strings.ToLower(helmfileCommand)) {
+		return nil, nil, nil
 	}
 
-	releaseToChart, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
+	releaseToChart, failedReleases, errs := r.state.PrepareCharts(r.helm, dir, concurrency, helmfileCommand, opts)
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("%v", errs)
+		if !opts.AllowFailedReleases {
+			// abort on first error
+			return nil, nil, fmt.Errorf("%v", errs)
+		}
+		// return partial results, along with the per-release errors for the failed ones
+		return releaseToChart, failedReleases, &MultiError{Errors: errs}
 	}
 
-	return releaseToChart, nil
+	return releaseToChart, failedReleases, nil
 }
 
-func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func()) error {
+func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepareOptions, f func() []error) error {
 	if r.ReleaseToChart != nil {
-		panic("Run.PrepareCharts can be called only once")
+		return fmt.Errorf("Run.WithPreparedCharts can be called only once")
 	}
 
 	// Check both CLI options and helmDefaults for skipping repos (issue #2296)
@@ -67,10 +78,17 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	// - skipRefresh explicitly means "don't update repos"
 	// - skipDeps implies "I have all dependencies locally" which means repo data isn't needed
 	// This matches the CLI behavior where --skip-deps and --skip-refresh both skip repo operations.
+	// However, OCI registries need `helm registry login` before chart pulls when
+	// credentials are configured (issue #1847), so when skipRepos is true we still
+	// perform OCI-only login — but only for commands that actually pull charts.
+	needsChartPrep := !slices.Contains(commandsSkipChartPrep, strings.ToLower(helmfileCommand))
 	skipRepos := opts.SkipRepos || r.state.HelmDefaults.SkipDeps || r.state.HelmDefaults.SkipRefresh
 	if !skipRepos {
-		ctx := r.ctx
-		if err := ctx.SyncReposOnce(r.state, r.helm); err != nil {
+		if err := r.ctx.SyncReposOnce(r.state, r.helm); err != nil {
+			return err
+		}
+	} else if needsChartPrep {
+		if err := r.ctx.SyncReposOnce(r.state, r.helm, state.WithOCIOnly()); err != nil {
 			return err
 		}
 	}
@@ -88,18 +106,38 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 		dir = tempDir
 	} else {
 		dir = opts.OutputDir
-		fmt.Printf("Charts will be downloaded to: %s\n", dir)
+		fmt.Fprintf(os.Stderr, "Charts will be downloaded to: %s\n", dir)
 	}
 
 	if _, err := r.state.TriggerGlobalPrepareEvent(helmfileCommand); err != nil {
 		return err
 	}
 
-	releaseToChart, err := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
-	if err != nil {
-		return err
+	// Ensure chartify temp directories are always cleaned up, even when chart
+	// preparation or helm operations fail. The deferred call runs at function
+	// exit — after f() and TriggerGlobalCleanupEvent — so chartified charts
+	// remain available for the entire operation lifecycle. See issue #1799.
+	defer r.state.CleanupChartifyTempDirs()
+
+	releaseToChart, failedReleases, prepareErr := r.prepareChartsIfNeeded(helmfileCommand, dir, opts.Concurrency, opts)
+	// A prepare error with no per-release attribution (state parsing, dependency
+	// resolution, ...) is a general failure: always abort, even with
+	// opts.AllowFailedReleases, since there are no processable partial results.
+	// Otherwise, abort only when partial results are not allowed; the failed
+	// releases are skipped below and their errors are reported at the end.
+	if prepareErr != nil && (len(failedReleases) == 0 || !opts.AllowFailedReleases) {
+		return prepareErr
 	}
 
+	// Releases whose chart preparation failed are removed from the state, so that
+	// the operation below never executes them against their original, un-prepared
+	// chart reference. That would either fail again with a duplicate error or,
+	// worse, bypass chartify modifications (patches, dependencies) and produce an
+	// unintended result. Their preparation errors are reported via prepareErr.
+	releases := r.state.Releases
+	if len(failedReleases) > 0 {
+		releases = make([]state.ReleaseSpec, 0, len(r.state.Releases))
+	}
 	for i := range r.state.Releases {
 		rel := &r.state.Releases[i]
 		key := state.PrepareChartKey{
@@ -107,7 +145,10 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 			Namespace:   rel.Namespace,
 			KubeContext: rel.KubeContext,
 		}
-		if chart := releaseToChart[key]; chart != rel.Chart {
+		if _, failed := failedReleases[key]; failed {
+			continue
+		}
+		if chart, ok := releaseToChart[key]; ok && chart != rel.Chart {
 			// The chart has been downloaded and modified by Helmfile (and chartify under the hood).
 			// We let the later step use the modified version of the chart, located under the `chart` variable,
 			// instead of the original chart path.
@@ -115,24 +156,59 @@ func (r *Run) withPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 			// if it has been modified or not.
 			rel.ChartPath = chart
 		}
+		if len(failedReleases) > 0 {
+			releases = append(releases, *rel)
+		}
 	}
+	r.state.Releases = releases
 
 	r.ReleaseToChart = releaseToChart
 
-	f()
+	errs := f()
+	var firstErr error
+	for _, e := range errs {
+		if e != nil {
+			firstErr = e
+			break
+		}
+	}
 
-	_, err = r.state.TriggerGlobalCleanupEvent(helmfileCommand)
-	return err
+	_, cleanupErr := r.state.TriggerGlobalCleanupEvent(helmfileCommand, firstErr)
+	if !opts.AllowFailedReleases {
+		return cleanupErr
+	}
+
+	// merge the preparation and cleanup errors into a single error output
+	var merged []error
+	if prepareErr != nil {
+		var me *MultiError
+		if errors.As(prepareErr, &me) {
+			merged = append(merged, me.Errors...)
+		} else {
+			merged = append(merged, prepareErr)
+		}
+	}
+	if cleanupErr != nil {
+		merged = append(merged, fmt.Errorf("error during global cleanup event: %w", cleanupErr))
+	}
+	if len(merged) > 0 {
+		return &MultiError{Errors: merged}
+	}
+	return nil
 }
 
 func (r *Run) Deps(c DepsConfigProvider) []error {
 	// Check both CLI options and helmDefaults for skipping repos (issue #2296)
-	// Both skipDeps and skipRefresh cause repo sync to be skipped (see withPreparedCharts for rationale)
+	// Both skipDeps and skipRefresh cause repo sync to be skipped (see WithPreparedCharts for rationale).
+	// OCI registries need login before chart pulls when credentials are
+	// configured (issue #1847), so skipRepos=true still performs OCI-only login.
 	skipRepos := c.SkipRepos() || r.state.HelmDefaults.SkipDeps || r.state.HelmDefaults.SkipRefresh
-	if !skipRepos {
-		if err := r.ctx.SyncReposOnce(r.state, r.helm); err != nil {
-			return []error{err}
-		}
+	var repoOpts []state.SyncOption
+	if skipRepos {
+		repoOpts = append(repoOpts, state.WithOCIOnly())
+	}
+	if err := r.ctx.SyncReposOnce(r.state, r.helm, repoOpts...); err != nil {
+		return []error{err}
 	}
 
 	r.helm.SetExtraArgs(GetArgs(c.Args(), r.state)...)
@@ -230,4 +306,12 @@ func (r *Run) diff(triggerCleanupEvent bool, detailedExitCode bool, c DiffConfig
 `, strings.Join(names, "\n"))
 
 	return &infoMsg, releasesToBeUpdated, releasesToBeDeleted, nil
+}
+
+func (r *Run) State() *state.HelmState {
+	return r.state
+}
+
+func (r *Run) Helm() helmexec.Interface {
+	return r.helm
 }

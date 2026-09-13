@@ -1,0 +1,5 @@
+cluster:
+  domain: cluster.local
+  region: us-east-1
+service:
+  port: 8080

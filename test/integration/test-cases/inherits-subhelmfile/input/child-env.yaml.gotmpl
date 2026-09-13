@@ -1,0 +1,18 @@
+# Sub-helmfile (templated) that consumes the parent's resolved environment
+# value via .Values. This only resolves because the parent declared
+# `inherits: [environments]`, which passes the parent's resolved env as the
+# rendering context (see twoPassRenderTemplateToYaml). Uses the local raw chart
+# so no repository or network is required.
+releases:
+- name: env-inherit-test
+  chart: ../../../charts/raw
+  values:
+  - templates:
+    - |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: env-inherit-cm
+        namespace: default
+      data:
+        inherited: {{ .Values.inheritedvalue }}

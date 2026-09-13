@@ -1,0 +1,5 @@
+helmfiles:
+  - path: child.yaml.gotmpl
+    values:
+      - list:
+          - name: override1

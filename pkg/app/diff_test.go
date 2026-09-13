@@ -25,6 +25,7 @@ type diffConfig struct {
 	skipCRDs                 bool
 	skipDeps                 bool
 	skipRefresh              bool
+	allowFailedReleases      bool
 	includeTests             bool
 	skipNeeds                bool
 	includeNeeds             bool
@@ -47,6 +48,7 @@ type diffConfig struct {
 	reuseValues              bool
 	logger                   *zap.SugaredLogger
 	takeOwnership            bool
+	serverSide               string
 	enforceNeedsAreInstalled bool
 }
 
@@ -56,6 +58,10 @@ func (a diffConfig) Args() string {
 
 func (a diffConfig) DiffArgs() string {
 	return a.diffArgs
+}
+
+func (a diffConfig) TemplateArgs() string {
+	return ""
 }
 
 func (a diffConfig) Values() []string {
@@ -80,6 +86,10 @@ func (a diffConfig) SkipDeps() bool {
 
 func (a diffConfig) SkipRefresh() bool {
 	return a.skipRefresh
+}
+
+func (a diffConfig) AllowFailedReleases() bool {
+	return a.allowFailedReleases
 }
 
 func (a diffConfig) IncludeTests() bool {
@@ -154,6 +164,10 @@ func (a diffConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
 }
 
+func (a diffConfig) SkipDiffValidationOnInstall() bool {
+	return false
+}
+
 func (a diffConfig) Logger() *zap.SugaredLogger {
 	return a.logger
 }
@@ -187,6 +201,9 @@ func (a diffConfig) SuppressOutputLineRegex() []string {
 }
 func (a diffConfig) TakeOwnership() bool {
 	return a.takeOwnership
+}
+func (a diffConfig) ServerSide() string {
+	return a.serverSide
 }
 
 func (a diffConfig) EnforceNeedsAreInstalled() bool {

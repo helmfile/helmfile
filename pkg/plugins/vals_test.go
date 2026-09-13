@@ -3,24 +3,47 @@ package plugins
 import (
 	"io"
 	"os"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/helmfile/vals"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/envvar"
 )
 
 // resetInstance resets the singleton for testing
 func resetInstance() {
+	mu.Lock()
+	defer mu.Unlock()
 	instance = nil
-	once = sync.Once{}
+}
+
+// setenvForTest sets the environment variable to value, or unsets it when value is empty,
+// restoring the original value when the test finishes.
+func setenvForTest(t *testing.T, key, value string) {
+	t.Helper()
+	if value == "" {
+		orig, had := os.LookupEnv(key)
+		os.Unsetenv(key)
+		t.Cleanup(func() {
+			if had {
+				os.Setenv(key, orig)
+			} else {
+				os.Unsetenv(key)
+			}
+		})
+		return
+	}
+	t.Setenv(key, value)
 }
 
 func TestValsInstance(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
+
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "")
 
 	i, err := ValsInstance()
 	if err != nil {
@@ -37,8 +60,8 @@ func TestDisableVals(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
-	os.Setenv(envvar.DisableVals, "true")
-	defer os.Unsetenv(envvar.DisableVals)
+	setenvForTest(t, envvar.DisableVals, "true")
+	setenvForTest(t, envvar.DisableValsStrict, "")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
@@ -61,8 +84,8 @@ func TestDisableValsStrict(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
-	os.Setenv(envvar.DisableValsStrict, "true")
-	defer os.Unsetenv(envvar.DisableValsStrict)
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "true")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
@@ -80,20 +103,45 @@ func TestDisableValsStrict(t *testing.T) {
 	}
 }
 
-func TestDisableValsStrictAllowsNonRef(t *testing.T) {
+func TestDisableValsStrictTakesPrecedence(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
-	os.Setenv(envvar.DisableValsStrict, "true")
-	defer os.Unsetenv(envvar.DisableValsStrict)
+	setenvForTest(t, envvar.DisableVals, "true")
+	setenvForTest(t, envvar.DisableValsStrict, "true")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should pass through non-ref+ values
-	input := map[string]any{"key": "normal-value"}
+	// Strict mode should win over pass-through mode
+	input := map[string]any{"key": "ref+echo://secret"}
+	_, err = evaluator.Eval(input)
+	if err != ErrValsDisabled {
+		t.Errorf("expected ErrValsDisabled when both env vars are set, got %v", err)
+	}
+}
+
+func TestDisableValsStrictAllowsNonRef(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "true")
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should pass through non-ref+ values, including strings that merely
+	// contain "ref+" without a provider scheme (not a vals reference)
+	input := map[string]any{
+		"key":        "normal-value",
+		"literal":    "some ref+ text without scheme",
+		"secretRef2": "ref+2",
+	}
 	output, err := evaluator.Eval(input)
 	if err != nil {
 		t.Fatalf("strict mode should allow non-ref+ values: %v", err)
@@ -103,12 +151,31 @@ func TestDisableValsStrictAllowsNonRef(t *testing.T) {
 	}
 }
 
+func TestDisableValsStrictDetectsSecretRef(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "true")
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// secretref+ is also a vals reference and must be rejected
+	input := map[string]any{"key": "secretref+vault://secret/data/x#y"}
+	if _, err := evaluator.Eval(input); err != ErrValsDisabled {
+		t.Errorf("expected ErrValsDisabled for secretref+ expression, got %v", err)
+	}
+}
+
 func TestDisableValsStrictNestedRef(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
-	os.Setenv(envvar.DisableValsStrict, "true")
-	defer os.Unsetenv(envvar.DisableValsStrict)
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "true")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
@@ -131,8 +198,8 @@ func TestDisableValsStrictMapAnyAny(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
-	os.Setenv(envvar.DisableValsStrict, "true")
-	defer os.Unsetenv(envvar.DisableValsStrict)
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "true")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
@@ -155,8 +222,8 @@ func TestDisableValsStrictArrayRef(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
-	os.Setenv(envvar.DisableValsStrict, "true")
-	defer os.Unsetenv(envvar.DisableValsStrict)
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "true")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
@@ -177,8 +244,8 @@ func TestDisableValsStrictStringSlice(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
-	os.Setenv(envvar.DisableValsStrict, "true")
-	defer os.Unsetenv(envvar.DisableValsStrict)
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "true")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
@@ -199,9 +266,8 @@ func TestDisableValsPassThroughStringSlice(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
-	os.Setenv(envvar.DisableVals, "true")
-	defer os.Unsetenv(envvar.DisableVals)
-	os.Unsetenv(envvar.DisableValsStrict)
+	setenvForTest(t, envvar.DisableVals, "true")
+	setenvForTest(t, envvar.DisableValsStrict, "")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
@@ -225,13 +291,50 @@ func TestDisableValsPassThroughStringSlice(t *testing.T) {
 	}
 }
 
+func TestDisableValsPassThroughNestedTypes(t *testing.T) {
+	resetInstance()
+	defer resetInstance()
+
+	setenvForTest(t, envvar.DisableVals, "true")
+	setenvForTest(t, envvar.DisableValsStrict, "")
+
+	evaluator, err := ValsInstance()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Nested map[any]any and []string should be normalized to map[string]any
+	// and []any respectively, matching vals.Eval behavior
+	input := map[string]any{
+		"outer": map[any]any{
+			"list": []string{"normal", "ref+echo://secret"},
+		},
+	}
+	out, err := evaluator.Eval(input)
+	if err != nil {
+		t.Fatalf("pass-through should not error: %v", err)
+	}
+
+	outer, ok := out["outer"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected out[\"outer\"] to be map[string]any, got %T", out["outer"])
+	}
+	list, ok := outer["list"].([]any)
+	if !ok {
+		t.Fatalf("expected outer[\"list\"] to be []any, got %T", outer["list"])
+	}
+	if list[0] != "normal" || list[1] != "ref+echo://secret" {
+		t.Errorf("unexpected values: %v", list)
+	}
+}
+
 func TestNormalValsProcessing(t *testing.T) {
 	resetInstance()
 	defer resetInstance()
 
 	// Ensure both are unset
-	os.Unsetenv(envvar.DisableVals)
-	os.Unsetenv(envvar.DisableValsStrict)
+	setenvForTest(t, envvar.DisableVals, "")
+	setenvForTest(t, envvar.DisableValsStrict, "")
 
 	evaluator, err := ValsInstance()
 	if err != nil {
@@ -250,19 +353,158 @@ func TestNormalValsProcessing(t *testing.T) {
 	}
 }
 
+func TestBuildValsOptions(t *testing.T) {
+	tests := []struct {
+		name                       string
+		awsLogLevel                string
+		failOnMissingKey           string
+		expectedLogLevel           string
+		expectedFailOnMissingKey   bool
+		expectedLogOutputDiscarded bool
+		expectError                bool
+	}{
+		{
+			name:                       "defaults",
+			awsLogLevel:                "",
+			failOnMissingKey:           "",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "explicit failOnMissingKey true",
+			awsLogLevel:                "",
+			failOnMissingKey:           "true",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   true,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "failOnMissingKey false",
+			awsLogLevel:                "",
+			failOnMissingKey:           "false",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "failOnMissingKey with whitespace",
+			awsLogLevel:                "",
+			failOnMissingKey:           "  true  ",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   true,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "failOnMissingKey uppercase TRUE",
+			awsLogLevel:                "",
+			failOnMissingKey:           "TRUE",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   true,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "failOnMissingKey numeric 1",
+			awsLogLevel:                "",
+			failOnMissingKey:           "1",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   true,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "failOnMissingKey numeric 0",
+			awsLogLevel:                "",
+			failOnMissingKey:           "0",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:             "failOnMissingKey invalid value",
+			awsLogLevel:      "",
+			failOnMissingKey: "invalid",
+			expectError:      true,
+		},
+		{
+			name:                       "aws log level verbose",
+			awsLogLevel:                "verbose",
+			failOnMissingKey:           "",
+			expectedLogLevel:           "verbose",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: false,
+		},
+		{
+			name:                       "aws log level with whitespace",
+			awsLogLevel:                "  minimal  ",
+			failOnMissingKey:           "",
+			expectedLogLevel:           "minimal",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: false,
+		},
+		{
+			name:                       "aws log level OFF uppercase",
+			awsLogLevel:                "OFF",
+			failOnMissingKey:           "",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "aws log level Off mixed case",
+			awsLogLevel:                "Off",
+			failOnMissingKey:           "",
+			expectedLogLevel:           "off",
+			expectedFailOnMissingKey:   false,
+			expectedLogOutputDiscarded: true,
+		},
+		{
+			name:                       "both options set",
+			awsLogLevel:                "standard",
+			failOnMissingKey:           "true",
+			expectedLogLevel:           "standard",
+			expectedFailOnMissingKey:   true,
+			expectedLogOutputDiscarded: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(envvar.AWSSDKLogLevel, tt.awsLogLevel)
+			t.Setenv(envvar.ValsFailOnMissingKeyInMap, tt.failOnMissingKey)
+
+			opts, err := buildValsOptions()
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), envvar.ValsFailOnMissingKeyInMap)
+				return
+			}
+
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedLogLevel, opts.AWSLogLevel)
+			assert.Equal(t, tt.expectedFailOnMissingKey, opts.FailOnMissingKeyInMap)
+			assert.Equal(t, valsCacheSize, opts.CacheSize)
+
+			isDiscarded := opts.LogOutput == io.Discard
+			assert.Equal(t, tt.expectedLogOutputDiscarded, isDiscarded)
+		})
+	}
+}
+
 // TestAWSSDKLogLevelConfiguration tests the AWS SDK log level configuration logic
 func TestAWSSDKLogLevelConfiguration(t *testing.T) {
 	tests := []struct {
 		name              string
 		envValue          string
 		expectedLogLevel  string
-		expectedLogOutput bool // true if LogOutput should be io.Discard
+		expectedLogOutput bool
 	}{
 		{
 			name:              "no env var defaults to off",
 			envValue:          "",
 			expectedLogLevel:  "off",
-			expectedLogOutput: true, // LogOutput should be io.Discard
+			expectedLogOutput: true,
 		},
 		{
 			name:              "explicit off",
@@ -271,10 +513,16 @@ func TestAWSSDKLogLevelConfiguration(t *testing.T) {
 			expectedLogOutput: true,
 		},
 		{
+			name:              "OFF uppercase",
+			envValue:          "OFF",
+			expectedLogLevel:  "off",
+			expectedLogOutput: true,
+		},
+		{
 			name:              "minimal logging",
 			envValue:          "minimal",
 			expectedLogLevel:  "minimal",
-			expectedLogOutput: false, // LogOutput should NOT be io.Discard
+			expectedLogOutput: false,
 		},
 		{
 			name:              "standard logging",
@@ -298,94 +546,34 @@ func TestAWSSDKLogLevelConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Note: This test verifies the configuration logic, not the actual vals.New() call
-			// since ValsInstance() uses sync.Once and can only be initialized once per test run.
+			t.Setenv(envvar.AWSSDKLogLevel, tt.envValue)
 
-			// Simulate the logic from ValsInstance()
-			var logLevel string
-			if tt.envValue != "" {
-				logLevel = strings.TrimSpace(tt.envValue)
-			}
+			opts, err := buildValsOptions()
+			require.NoError(t, err)
 
-			// Default to "off" for security if not specified
-			if logLevel == "" {
-				logLevel = "off"
-			}
+			assert.Equal(t, tt.expectedLogLevel, opts.AWSLogLevel)
 
-			// Verify expected log level
-			if logLevel != tt.expectedLogLevel {
-				t.Errorf("Expected log level %q, got %q", tt.expectedLogLevel, logLevel)
-			}
-
-			// Verify LogOutput configuration logic
-			opts := vals.Options{
-				CacheSize: valsCacheSize,
-			}
-			opts.AWSLogLevel = logLevel
-
-			// Verify LogOutput is set to io.Discard only when level is "off"
-			if tt.expectedLogOutput {
-				opts.LogOutput = io.Discard
-				if opts.LogOutput != io.Discard {
-					t.Error("Expected LogOutput to be io.Discard for 'off' level")
-				}
-			}
+			isDiscarded := opts.LogOutput == io.Discard
+			assert.Equal(t, tt.expectedLogOutput, isDiscarded)
 		})
 	}
 }
 
-// TestEnvironmentVariableReading verifies that the HELMFILE_AWS_SDK_LOG_LEVEL env var is read correctly
-func TestEnvironmentVariableReading(t *testing.T) {
-	tests := []struct {
-		name          string
-		envValue      string
-		expectedValue string
-	}{
-		{
-			name:          "empty defaults to off",
-			envValue:      "",
-			expectedValue: "off",
-		},
-		{
-			name:          "whitespace trimmed",
-			envValue:      "  minimal  ",
-			expectedValue: "minimal",
-		},
-		{
-			name:          "standard value preserved",
-			envValue:      "standard",
-			expectedValue: "standard",
-		},
-	}
+func TestBuildValsOptionsIntegration(t *testing.T) {
+	t.Run("valid configuration produces working vals options", func(t *testing.T) {
+		t.Setenv(envvar.AWSSDKLogLevel, "off")
+		t.Setenv(envvar.ValsFailOnMissingKeyInMap, "true")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Save and restore env var
-			original := os.Getenv(envvar.AWSSDKLogLevel)
-			defer func() {
-				if original == "" {
-					os.Unsetenv(envvar.AWSSDKLogLevel)
-				} else {
-					os.Setenv(envvar.AWSSDKLogLevel, original)
-				}
-			}()
+		opts, err := buildValsOptions()
+		require.NoError(t, err)
 
-			// Set test env var
-			if tt.envValue == "" {
-				os.Unsetenv(envvar.AWSSDKLogLevel)
-			} else {
-				os.Setenv(envvar.AWSSDKLogLevel, tt.envValue)
-			}
+		assert.Equal(t, valsCacheSize, opts.CacheSize)
+		assert.Equal(t, "off", opts.AWSLogLevel)
+		assert.True(t, opts.FailOnMissingKeyInMap)
+		assert.Equal(t, io.Discard, opts.LogOutput)
 
-			// Read and process like ValsInstance() does
-			logLevel := strings.TrimSpace(os.Getenv(envvar.AWSSDKLogLevel))
-			if logLevel == "" {
-				logLevel = "off"
-			}
-
-			if logLevel != tt.expectedValue {
-				t.Errorf("Expected %q, got %q", tt.expectedValue, logLevel)
-			}
-		})
-	}
+		rt, err := vals.New(opts)
+		require.NoError(t, err)
+		assert.NotNil(t, rt)
+	})
 }

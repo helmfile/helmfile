@@ -893,3 +893,114 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 		}
 	})
 }
+
+// TestDeepCopyMap_Issue973 verifies that DeepCopyMap preserves all values
+// exactly, including strings with special characters that would break a
+// YAML marshal/unmarshal round-trip.
+// Regression test for https://github.com/helmfile/helmfile/issues/973.
+func TestDeepCopyMap_Issue973(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+	}{
+		{
+			name: "special_chars_from_sops_secret",
+			input: map[string]any{
+				"masked85": map[string]any{
+					"masked88": map[string]any{
+						"masked89": "~masked:ab#7i7!;{'\".",
+					},
+				},
+				"myValue": "valueOfMyValue",
+			},
+		},
+		{
+			name: "yaml_ambiguous_strings_stay_strings",
+			input: map[string]any{
+				"yes_val":   "yes",
+				"null_val":  "null",
+				"num_str":   "007",
+				"colon_val": "key: value",
+				"brace_val": "{flow}",
+				"pipe_val":  "|block",
+			},
+		},
+		{
+			name: "deeply_nested_structures",
+			input: map[string]any{
+				"l1": map[string]any{
+					"l2": map[string]any{
+						"l3": map[string]any{
+							"l4": map[string]any{
+								"l5": "deep_value",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "arrays_with_maps",
+			input: map[string]any{
+				"items": []any{
+					map[string]any{"name": "a", "value": "1"},
+					map[string]any{"name": "b", "value": "2"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			copied := DeepCopyMap(tt.input)
+			if !reflect.DeepEqual(tt.input, copied) {
+				t.Errorf("DeepCopyMap changed data.\nExpected: %v\nGot: %v", tt.input, copied)
+			}
+		})
+	}
+}
+
+// TestDeepCopyMap_Independence verifies that mutating the copy does not affect
+// the original (i.e. it is a true deep copy, not a shallow one).
+func TestDeepCopyMap_Independence(t *testing.T) {
+	original := map[string]any{
+		"nested": map[string]any{"key": "value"},
+		"array":  []any{map[string]any{"k": "v"}},
+	}
+
+	copied := DeepCopyMap(original)
+
+	// Mutate nested map
+	copied["nested"].(map[string]any)["key"] = "changed"
+	if original["nested"].(map[string]any)["key"] != "value" {
+		t.Error("DeepCopyMap: mutating nested map in copy affected original")
+	}
+
+	// Mutate array element map
+	copied["array"].([]any)[0].(map[string]any)["k"] = "changed2"
+	if original["array"].([]any)[0].(map[string]any)["k"] != "v" {
+		t.Error("DeepCopyMap: mutating array element in copy affected original")
+	}
+}
+
+// TestDeepCopyMap_AnyKeysNormalises verifies that map[any]any keys are
+// normalised to strings during the deep copy.
+func TestDeepCopyMap_AnyKeysNormalises(t *testing.T) {
+	// Simulate what yaml v2 produces: map[any]any with int keys.
+	input := map[string]any{
+		"mixed": map[any]any{
+			1:     "int_key",
+			"str": "str_key",
+		},
+	}
+
+	copied := DeepCopyMap(input)
+	mixed := copied["mixed"].(map[string]any)
+
+	if _, ok := mixed["1"]; !ok {
+		t.Errorf("int key 1 should have been normalised to string key \"1\"; got: %v", mixed)
+	}
+	if mixed["str"] != "str_key" {
+		t.Errorf("string key should be preserved; got: %v", mixed)
+	}
+}

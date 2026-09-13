@@ -10,6 +10,7 @@ data:
   name: cm2
 metadata:
   name: cm2
+
 ---
 # Source: raw/templates/resources.yaml
 apiVersion: v1
@@ -29,6 +30,7 @@ data:
   name: cm1
 metadata:
   name: cm1
+
 ---
 # Source: raw/templates/resources.yaml
 apiVersion: v1

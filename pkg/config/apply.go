@@ -37,6 +37,8 @@ type ApplyOptions struct {
 	EnforceNeedsAreInstalled bool
 	// SkipDiffOnInstall is true if the diff should be skipped on install
 	SkipDiffOnInstall bool
+	// SkipDiffValidationOnInstall disables K8s API validation when running helm-diff on a release being newly installed
+	SkipDiffValidationOnInstall bool
 	// DiffArgs is the list of arguments to pass to the helm-diff.
 	DiffArgs string
 	// IncludeTests is true if the tests should be included
@@ -57,6 +59,8 @@ type ApplyOptions struct {
 	WaitRetries int
 	// WaitForJobs is true if the helm command should wait for the jobs to be completed
 	WaitForJobs bool
+	// Timeout is the timeout for helm operations in seconds
+	Timeout int
 	// Propagate '--skip-schema-validation' to helmv3 template and helm install
 	SkipSchemaValidation bool
 	// ReuseValues is true if the helm command should reuse the values
@@ -79,6 +83,9 @@ type ApplyOptions struct {
 	// TakeOwnership is true if the ownership should be taken
 	TakeOwnership bool
 
+	// ServerSide controls the helm 4 --server-side flag. Must be "true", "false", or "auto".
+	ServerSide string
+
 	SyncReleaseLabels bool
 	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
 	TrackMode string
@@ -86,6 +93,18 @@ type ApplyOptions struct {
 	TrackTimeout int
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs bool
+	// TrackFailedLogs streams logs only for pods that enter a failed state.
+	TrackFailedLogs bool
+	// HelmStuckGrace, when > 0, enables the helm-killer safety valve. See
+	// ReleaseSpec.HelmStuckGrace for details. Value is in seconds.
+	HelmStuckGrace int
+	// TrackFailOnError controls whether kubedog tracking failures cause a non-zero exit code
+	TrackFailOnError bool
+	// Description is the description that will be passed to helm upgrade --description
+	Description string
+	// TemplateArgs are extra args appended to the helm template run by chartify
+	// during chart preparation (e.g. "--dry-run=server" for lookup() support).
+	TemplateArgs string
 }
 
 // NewApply creates a new Apply
@@ -182,6 +201,11 @@ func (a *ApplyImpl) SkipDiffOnInstall() bool {
 	return a.ApplyOptions.SkipDiffOnInstall
 }
 
+// SkipDiffValidationOnInstall returns the skip diff validation on install.
+func (a *ApplyImpl) SkipDiffValidationOnInstall() bool {
+	return a.ApplyOptions.SkipDiffValidationOnInstall
+}
+
 // DiffArgs is the list of arguments to pass to helm-diff.
 func (a *ApplyImpl) DiffArgs() string {
 	return a.ApplyOptions.DiffArgs
@@ -233,6 +257,11 @@ func (a *ApplyImpl) WaitRetries() int {
 // WaitForJobs returns the wait for jobs.
 func (a *ApplyImpl) WaitForJobs() bool {
 	return a.ApplyOptions.WaitForJobs
+}
+
+// Timeout returns the timeout.
+func (a *ApplyImpl) Timeout() int {
+	return a.ApplyOptions.Timeout
 }
 
 // ReuseValues returns the ReuseValues.
@@ -287,6 +316,11 @@ func (a *ApplyImpl) TakeOwnership() bool {
 	return a.ApplyOptions.TakeOwnership
 }
 
+// ServerSide returns the ServerSide.
+func (a *ApplyImpl) ServerSide() string {
+	return a.ApplyOptions.ServerSide
+}
+
 // SyncReleaseLabels returns the SyncReleaseLabels.
 func (a *ApplyImpl) SyncReleaseLabels() bool {
 	return a.ApplyOptions.SyncReleaseLabels
@@ -305,6 +339,31 @@ func (a *ApplyImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (a *ApplyImpl) TrackLogs() bool {
 	return a.ApplyOptions.TrackLogs
+}
+
+// TrackFailedLogs returns the track-failed-logs flag.
+func (a *ApplyImpl) TrackFailedLogs() bool {
+	return a.ApplyOptions.TrackFailedLogs
+}
+
+// HelmStuckGrace returns the helm-stuck-grace value (seconds, 0 = disabled).
+func (a *ApplyImpl) HelmStuckGrace() int {
+	return a.ApplyOptions.HelmStuckGrace
+}
+
+// TrackFailOnError returns whether kubedog tracking failures should cause a non-zero exit code.
+func (a *ApplyImpl) TrackFailOnError() bool {
+	return a.ApplyOptions.TrackFailOnError
+}
+
+// Description returns the description.
+func (a *ApplyImpl) Description() string {
+	return a.ApplyOptions.Description
+}
+
+// TemplateArgs returns extra args to pass to chartify's helm template.
+func (a *ApplyImpl) TemplateArgs() string {
+	return a.ApplyOptions.TemplateArgs
 }
 
 func (a *ApplyImpl) ValidateConfig() error {

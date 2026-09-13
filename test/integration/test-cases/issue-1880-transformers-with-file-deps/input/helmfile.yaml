@@ -1,0 +1,23 @@
+# Issue #1880: Kustomize transformers preventing dependency update
+# https://github.com/helmfile/helmfile/issues/1880
+#
+# When a local chart has a relative file:// dependency (e.g. file://../library)
+# and the release uses transformers, chartify copies the chart to a temp directory.
+# This breaks the relative file:// path, causing:
+#   Error: directory /tmp/chartify.../monitoring/library not found
+#
+# The fix rewrites relative file:// paths to absolute before chartify processes them.
+releases:
+  - name: sentry
+    namespace: monitoring
+    chart: ./charts/service
+    transformers:
+      - apiVersion: builtin
+        kind: LabelTransformer
+        metadata:
+          name: label-enforcer
+        labels:
+          component: abc
+        fieldSpecs:
+          - path: metadata/labels
+            create: true

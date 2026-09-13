@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"go.opentelemetry.io/otel/attribute"
 	"go.szostok.io/version/extension"
 	"go.uber.org/zap"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/runtime"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
 var logger *zap.SugaredLogger
@@ -48,6 +50,8 @@ func toCLIError(g *config.GlobalImpl, err error) error {
 
 // NewRootCmd creates the root command for the CLI.
 func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
+	globalImpl := config.NewGlobalImpl(globalConfig)
+
 	cmd := &cobra.Command{
 		Use:           "helmfile",
 		Short:         globalUsage,
@@ -58,11 +62,11 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// Valid levels:
 			// https://github.com/uber-go/zap/blob/7e7e266a8dbce911a49554b945538c5b950196b8/zapcore/level.go#L126
-			logLevel := globalConfig.LogLevel
+			logLevel := globalImpl.LogLevel()
 			switch {
-			case globalConfig.Debug:
+			case globalImpl.Debug():
 				logLevel = "debug"
-			case globalConfig.Quiet:
+			case globalImpl.Quiet():
 				logLevel = "warn"
 			}
 
@@ -73,6 +77,19 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 			}
 			logger = helmexec.NewLogger(logOut, logLevel)
 			globalConfig.SetLogger(logger)
+
+			// OpenTelemetry tracing (experimental). Setup and StartCommandSpan
+			// are no-ops when tracing is disabled, so the default path is
+			// unchanged. Configuration beyond the on/off switch comes from the
+			// standard OTEL_* environment variables.
+			cmdName := "helmfile " + c.Name()
+			telemetry.Setup(c.Context(), telemetry.Options{
+				Enabled: globalImpl.OtelTracing(),
+				Version: version.Version(),
+				Logger:  logger,
+			})
+			telemetry.StartCommandSpan(cmdName, commandSpanAttributes(cmdName, globalImpl)...)
+
 			return nil
 		},
 	}
@@ -83,8 +100,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 
 	flags.ParseErrorsAllowlist.UnknownFlags = true
 
-	globalImpl := config.NewGlobalImpl(globalConfig)
-
 	// when set environment HELMFILE_UPGRADE_NOTICE_DISABLED any value, skip upgrade notice.
 	var versionOpts []extension.CobraOption
 	if os.Getenv(envvar.UpgradeNoticeDisabled) == "" {
@@ -92,12 +107,15 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	}
 
 	cmd.AddCommand(
+		NewCreateCmd(globalImpl),
 		NewInitCmd(globalImpl),
 		NewApplyCmd(globalImpl),
 		NewBuildCmd(globalImpl),
 		NewCacheCmd(globalImpl),
 		NewDepsCmd(globalImpl),
 		NewDestroyCmd(globalImpl),
+		NewDiffCmd(globalImpl),
+		NewDoctorCmd(globalImpl),
 		NewFetchCmd(globalImpl),
 		NewListCmd(globalImpl),
 		NewReposCmd(globalImpl),
@@ -107,7 +125,6 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 		NewUnittestCmd(globalImpl),
 		NewTemplateCmd(globalImpl),
 		NewSyncCmd(globalImpl),
-		NewDiffCmd(globalImpl),
 		NewStatusCmd(globalImpl),
 		NewShowDAGCmd(globalImpl),
 		NewPrintEnvCmd(globalImpl),
@@ -119,9 +136,23 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	return cmd, nil
 }
 
+// commandSpanAttributes builds the root-span attributes from the resolved
+// global options. Values that can be overridden per release appear again on
+// child spans; the service identity (service.name/service.version) lives on
+// the OTel resource, not on spans.
+func commandSpanAttributes(cmdName string, g *config.GlobalImpl) []attribute.KeyValue {
+	return []attribute.KeyValue{
+		attribute.String("helmfile.command", cmdName),
+		// FileOrDir may be a remote go-getter reference with credentials.
+		attribute.String("helmfile.file", helmexec.RedactedRef(g.FileOrDir())),
+		attribute.String("helmfile.environment", g.Env()),
+		attribute.StringSlice("helmfile.selectors", g.Selectors()),
+	}
+}
+
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {
-	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", app.DefaultHelmBinary, "Path to the helm binary")
-	fs.StringVarP(&globalOptions.KustomizeBinary, "kustomize-binary", "k", app.DefaultKustomizeBinary, "Path to the kustomize binary")
+	fs.StringVarP(&globalOptions.HelmBinary, "helm-binary", "b", "", fmt.Sprintf(`Path to the helm binary. Overrides "HELMFILE_HELM_BINARY" OS environment variable when specified (default %q)`, app.DefaultHelmBinary))
+	fs.StringVarP(&globalOptions.KustomizeBinary, "kustomize-binary", "k", "", fmt.Sprintf(`Path to the kustomize binary. Overrides "HELMFILE_KUSTOMIZE_BINARY" OS environment variable when specified (default %q)`, app.DefaultKustomizeBinary))
 	fs.StringVarP(&globalOptions.File, "file", "f", "", "load config from file or directory. defaults to \"`helmfile.yaml`\" or \"helmfile.yaml.gotmpl\" or \"helmfile.d\" (means \"helmfile.d/*.yaml\" or \"helmfile.d/*.yaml.gotmpl\") in this preference. Specify - to load the config from the standard input.")
 	fs.StringVarP(&globalOptions.Environment, "environment", "e", "", `specify the environment name. Overrides "HELMFILE_ENVIRONMENT" OS environment variable when specified. defaults to "default"`)
 	fs.StringArrayVar(&globalOptions.StateValuesSet, "state-values-set", nil, "set state values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2). Used to override .Values within the helmfile template (not values template).")
@@ -129,18 +160,26 @@ func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalO
 	fs.StringArrayVar(&globalOptions.StateValuesFile, "state-values-file", nil, "specify state values in a YAML file. Used to override .Values within the helmfile template (not values template).")
 	fs.BoolVar(&globalOptions.SkipDeps, "skip-deps", false, `skip running "helm repo update" and "helm dependency build"`)
 	fs.BoolVar(&globalOptions.SkipRefresh, "skip-refresh", false, `skip running "helm repo update"`)
+	fs.BoolVar(&globalOptions.AllowFailedReleases, "allow-failed-releases", false, `continue preparing charts for other releases when chart preparation fails for a release; failed releases are skipped and all failures are reported at the end`)
 	fs.BoolVar(&globalOptions.StripArgsValuesOnExitError, "strip-args-values-on-exit-error", true, `Strip the potential secret values of the helm command args contained in a helmfile error message`)
 	fs.BoolVar(&globalOptions.DisableForceUpdate, "disable-force-update", false, `do not force helm repos to update when executing "helm repo add" (Helm 3 only)`)
 	fs.BoolVar(&globalOptions.EnforcePluginVerification, "enforce-plugin-verification", false, `fail plugin installation if verification is not supported (for security purposes)`)
 	fs.BoolVar(&globalOptions.HelmOCIPlainHTTP, "oci-plain-http", false, `use plain HTTP for OCI registries (required for local/insecure registries in Helm 4)`)
-	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, "Silence output. Equivalent to log-level warn")
+	fs.IntVar(&globalOptions.RepoRetry, "repo-retries", -1, `Number of times to retry "helm repo add/update" and "helm registry login" on failure, with exponential backoff (1s, 2s, 4s, ..., capped at 30s). Set to 0 to disable retries. Overrides "HELMFILE_REPO_RETRIES" OS environment variable when specified`)
+	// The actual default is -1 (a sentinel meaning "flag not set, fall back to
+	// the env var"); display "0" in --help to match the documented default and
+	// avoid confusing users with a negative value.
+	if f := fs.Lookup("repo-retries"); f != nil {
+		f.DefValue = "0"
+	}
+	fs.BoolVarP(&globalOptions.Quiet, "quiet", "q", false, `Silence output. Equivalent to log-level warn. Overrides "HELMFILE_QUIET" OS environment variable when specified`)
 	fs.StringVar(&globalOptions.Kubeconfig, "kubeconfig", "", "Use a particular kubeconfig file")
-	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", "Set kubectl context. Uses current context by default")
-	fs.BoolVar(&globalOptions.Debug, "debug", false, "Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect")
+	fs.StringVar(&globalOptions.KubeContext, "kube-context", "", `Set kubectl context. Overrides "HELMFILE_KUBE_CONTEXT" OS environment variable when specified. Uses current kubectl context by default`)
+	fs.BoolVar(&globalOptions.Debug, "debug", false, `Enable verbose output for Helm and set log-level to debug, this disables --quiet/-q effect. Overrides "HELMFILE_DEBUG" OS environment variable when specified`)
 	fs.BoolVar(&globalOptions.Color, "color", false, "Output with color")
-	fs.BoolVar(&globalOptions.NoColor, "no-color", false, "Output without color")
-	fs.StringVar(&globalOptions.LogLevel, "log-level", "info", "Set log level, default info")
-	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", "Set namespace. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}")
+	fs.BoolVar(&globalOptions.NoColor, "no-color", false, `Output without color. Overrides "HELMFILE_NO_COLOR" and "NO_COLOR" OS environment variables when specified`)
+	fs.StringVar(&globalOptions.LogLevel, "log-level", "", `Set log level. Overrides "HELMFILE_LOG_LEVEL" OS environment variable when specified (default "info")`)
+	fs.StringVarP(&globalOptions.Namespace, "namespace", "n", "", `Set namespace. Overrides "HELMFILE_NAMESPACE" OS environment variable when specified. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}`)
 	fs.StringVarP(&globalOptions.Chart, "chart", "c", "", "Set chart. Uses the chart set in release by default, and is available in template as {{ .Chart }}")
 	fs.StringArrayVarP(&globalOptions.Selector, "selector", "l", nil, `Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
 A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
@@ -154,6 +193,9 @@ It only applies for the Helm CLI commands, Stdout/Stderr for Hooks are still dis
 Useful when file order matters for dependencies (e.g., databases before applications).
 When processing multiple files, paths are resolved without changing the process working directory,
 so relative environment variables like KUBECONFIG work correctly.`)
+	fs.BoolVar(&globalOptions.OtelTracing, "otel-tracing", globalOptions.OtelTracing, `Enable OpenTelemetry tracing and metrics (experimental).
+Configure exporters with standard OTEL_* environment variables (e.g. OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_TRACES_EXPORTER, OTEL_METRICS_EXPORTER).
+Overrides "HELMFILE_OTEL_TRACING" OS environment variable when specified. See docs/otel.md`)
 	// avoid 'pflag: help requested' error (#251)
 	fs.BoolP("help", "h", false, "help for helmfile")
 }

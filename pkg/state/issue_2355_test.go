@@ -3,6 +3,8 @@ package state
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestValidateAndDryRunMutualExclusion verifies that when --validate is set,
@@ -15,6 +17,9 @@ import (
 // if --validate is already set, we should NOT add --dry-run=server because:
 // 1. They are mutually exclusive in Helm 4
 // 2. --validate already provides server-side validation
+//
+// These tests exercise the real HelmState.buildChartifyTemplateArgs method (the pure
+// helper that processChartification delegates to), not a duplicated copy of the logic.
 func TestValidateAndDryRunMutualExclusion(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -52,26 +57,26 @@ func TestValidateAndDryRunMutualExclusion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Simulate the logic from processChartification
-			templateArgs := shouldAddDryRunServer(tt.helmfileCommand, tt.validate, "")
+			st := &HelmState{}
+			got := st.buildChartifyTemplateArgs(tt.helmfileCommand, "", tt.validate, "", "")
 
-			hasDryRun := strings.Contains(templateArgs, "--dry-run=server")
-
-			if hasDryRun != tt.expectedDryRun {
-				t.Errorf("shouldAddDryRunServer(%q, validate=%v) = %q, hasDryRun=%v; want hasDryRun=%v",
-					tt.helmfileCommand, tt.validate, templateArgs, hasDryRun, tt.expectedDryRun)
-			}
+			hasDryRun := strings.Contains(got, "--dry-run=server")
+			assert.Equalf(t, tt.expectedDryRun, hasDryRun,
+				"buildChartifyTemplateArgs(%q, validate=%v) = %q, hasDryRun=%v; want hasDryRun=%v",
+				tt.helmfileCommand, tt.validate, got, hasDryRun, tt.expectedDryRun)
 		})
 	}
 }
 
 // TestDryRunServerWithExistingTemplateArgs verifies that --dry-run=server is
-// appended correctly when there are existing template args.
+// appended correctly when there are existing template args, and is not duplicated
+// when a --dry-run variant is already present.
 func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 	tests := []struct {
 		name             string
 		helmfileCommand  string
 		validate         bool
+		userArgs         string
 		existingArgs     string
 		expectedContains string
 		shouldHaveDryRun bool
@@ -81,7 +86,7 @@ func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 			helmfileCommand:  "diff",
 			validate:         false,
 			existingArgs:     "--some-flag",
-			expectedContains: "--dry-run=server",
+			expectedContains: "--some-flag",
 			shouldHaveDryRun: true,
 		},
 		{
@@ -93,84 +98,40 @@ func TestDryRunServerWithExistingTemplateArgs(t *testing.T) {
 			shouldHaveDryRun: false,
 		},
 		{
-			name:             "do not duplicate if dry-run already exists",
+			name:             "do not duplicate if dry-run already exists in existing args",
 			helmfileCommand:  "diff",
 			validate:         false,
 			existingArgs:     "--dry-run=client",
 			expectedContains: "--dry-run=client",
 			shouldHaveDryRun: false, // Already has --dry-run, should not add server
 		},
+		{
+			name:             "do not duplicate if dry-run provided via user template args",
+			helmfileCommand:  "diff",
+			validate:         false,
+			userArgs:         "--dry-run=server",
+			expectedContains: "--dry-run=server",
+			shouldHaveDryRun: true, // present once, not duplicated
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			templateArgs := shouldAddDryRunServer(tt.helmfileCommand, tt.validate, tt.existingArgs)
+			st := &HelmState{}
+			got := st.buildChartifyTemplateArgs(tt.helmfileCommand, "", tt.validate, tt.userArgs, tt.existingArgs)
 
-			if !strings.Contains(templateArgs, tt.expectedContains) {
-				t.Errorf("shouldAddDryRunServer() = %q; want to contain %q",
-					templateArgs, tt.expectedContains)
+			if tt.expectedContains != "" {
+				assert.Containsf(t, got, tt.expectedContains,
+					"buildChartifyTemplateArgs() = %q; want to contain %q", got, tt.expectedContains)
 			}
 
-			hasDryRunServer := strings.Contains(templateArgs, "--dry-run=server")
-			if hasDryRunServer != tt.shouldHaveDryRun {
-				t.Errorf("shouldAddDryRunServer() = %q; hasDryRunServer=%v, want %v",
-					templateArgs, hasDryRunServer, tt.shouldHaveDryRun)
-			}
+			hasDryRunServer := strings.Contains(got, "--dry-run=server")
+			assert.Equalf(t, tt.shouldHaveDryRun, hasDryRunServer,
+				"buildChartifyTemplateArgs() = %q; hasDryRunServer=%v, want %v", got, hasDryRunServer, tt.shouldHaveDryRun)
+
+			// --dry-run=server should never appear more than once.
+			assert.LessOrEqualf(t, strings.Count(got, "--dry-run=server"), 1,
+				"buildChartifyTemplateArgs() = %q; --dry-run=server duplicated", got)
 		})
 	}
-}
-
-// shouldAddDryRunServer determines whether to add --dry-run=server to template args.
-// This helper function encapsulates the logic from processChartification for testing.
-//
-// NOTE ON DUPLICATION: This function intentionally duplicates the command classification
-// logic from processChartification() in state.go (lines 1497-1524). While extracting this
-// into a shared function would reduce duplication, it would require:
-//  1. Exposing internal implementation details in the public API
-//  2. Complex refactoring of processChartification which has many dependencies (chartify
-//     library, filesystem, HelmState)
-//
-// For this focused bug fix, the duplication is acceptable because:
-//   - The integration test (test/integration/test-cases/issue-2355.sh) exercises the actual
-//     processChartification code path end-to-end
-//   - This unit test documents the expected behavior and catches regressions quickly
-//   - The logic being tested is simple and unlikely to change frequently
-//
-// SYNC WARNING: If the command classification in processChartification() changes
-// (state.go lines 1497-1507), this function must be updated to match.
-//
-// Parameters:
-// - helmfileCommand: the helmfile command being run (diff, apply, template, etc.)
-// - validate: whether the --validate flag was passed
-// - existingTemplateArgs: any existing template arguments
-//
-// Returns the updated template args string.
-func shouldAddDryRunServer(helmfileCommand string, validate bool, existingTemplateArgs string) string {
-	// Determine if the command requires cluster access
-	// SYNC: Keep in sync with processChartification() in state.go lines 1497-1507
-	var requiresCluster bool
-	switch helmfileCommand {
-	case "diff", "apply", "sync", "destroy", "delete", "test", "status":
-		requiresCluster = true
-	case "template", "lint", "build", "pull", "fetch", "write-values", "list", "show-dag", "deps", "repos", "cache", "init", "completion", "help", "version":
-		requiresCluster = false
-	default:
-		requiresCluster = true
-	}
-
-	templateArgs := existingTemplateArgs
-
-	// Issue #2355: In Helm 4, --validate and --dry-run are mutually exclusive.
-	// Only add --dry-run=server if:
-	// 1. The command requires cluster access
-	// 2. --validate is NOT set (to avoid mutual exclusion error)
-	if requiresCluster && !validate {
-		if templateArgs == "" {
-			templateArgs = "--dry-run=server"
-		} else if !strings.Contains(templateArgs, "--dry-run") {
-			templateArgs += " --dry-run=server"
-		}
-	}
-
-	return templateArgs
 }

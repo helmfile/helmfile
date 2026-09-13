@@ -22,7 +22,7 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: check disk usage
@@ -36,7 +36,7 @@ jobs:
             sudo rm -fr /opt/hostedtoolcache/CodeQL
             sudo docker image prune --all --force
             sudo docker builder prune -a -f
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: check disk usage

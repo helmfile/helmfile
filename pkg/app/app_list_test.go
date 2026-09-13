@@ -2,8 +2,11 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/helmfile/vals"
@@ -300,4 +303,235 @@ func TestListWithJSONOutput(t *testing.T) {
 	t.Run("with skipCharts=true", func(t *testing.T) {
 		testListWithJSONOutput(t, configImpl{skipCharts: true})
 	})
+}
+
+// TestListWithManyStates guards against a deadlock in ListReleases: per-state
+// results used to be collected through a channel with a fixed buffer of 100
+// that was drained only after every state had been visited, so the 101st state
+// carrying releases blocked forever and `helmfile list` hung without output.
+func TestListWithManyStates(t *testing.T) {
+	const stateCount = 101
+
+	files := map[string]string{}
+	for i := 1; i <= stateCount; i++ {
+		files[fmt.Sprintf("/path/to/helmfile.d/helmfile_%03d.yaml", i)] = fmt.Sprintf(`
+releases:
+- name: release-%03d
+  namespace: default
+  chart: incubator/raw
+`, i)
+	}
+
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		valsRuntime:                     valsRuntime,
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	// A regression shows up as a hang, not as an error, so run the listing in
+	// a goroutine and fail fast instead of waiting for the go test timeout.
+	type result struct {
+		out string
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		var listErr error
+		out, err := testutil.CaptureStdout(func() {
+			listErr = app.ListReleases(configImpl{skipCharts: true, output: "json"})
+		})
+		if err == nil {
+			err = listErr
+		}
+		done <- result{out: out, err: err}
+	}()
+
+	var res result
+	select {
+	case res = <-done:
+	case <-time.After(60 * time.Second):
+		t.Fatalf("ListReleases did not return within 60s for %d states: deadlock while collecting releases", stateCount)
+	}
+	assert.NoError(t, res.err)
+
+	var releases []HelmRelease
+	if err := json.Unmarshal([]byte(res.out), &releases); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	assert.Len(t, releases, stateCount, "expected one release per state")
+}
+
+func TestListWithLockFileVersion(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+repositories:
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami
+
+releases:
+- name: redis
+  namespace: default
+  chart: bitnami/redis
+  version: ">=1.0.0"
+`,
+		"/path/to/helmfile.lock": `version: v0.0.0
+digest: sha256:abc123
+generated: "2024-01-01T00:00:00Z"
+dependencies:
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 17.0.7
+`,
+	}
+
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		valsRuntime:                     valsRuntime,
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	out, err := testutil.CaptureStdout(func() {
+		err := app.ListReleases(configImpl{skipCharts: true, output: "json"})
+		assert.Nil(t, err)
+	})
+	assert.NoError(t, err)
+
+	var releases []HelmRelease
+	if err := json.Unmarshal([]byte(out), &releases); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+
+	assert.Len(t, releases, 1, "expected 1 release")
+	assert.Equal(t, "redis", releases[0].Name)
+	assert.Equal(t, "bitnami/redis", releases[0].Chart)
+	assert.Equal(t, "17.0.7", releases[0].Version, "expected version from helmfile.lock")
+}
+
+func TestListWithLockFileVersion_MultiFile(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.d/first.yaml": `
+repositories:
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami
+
+releases:
+- name: redis
+  namespace: default
+  chart: bitnami/redis
+  version: ">=1.0.0"
+`,
+		"/path/to/helmfile.d/first.lock": `version: v0.0.0
+digest: sha256:abc123
+generated: "2024-01-01T00:00:00Z"
+dependencies:
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 17.0.7
+`,
+		"/path/to/helmfile.d/second.yaml": `
+repositories:
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami
+
+releases:
+- name: nginx
+  namespace: default
+  chart: bitnami/nginx
+  version: ">=1.0.0"
+`,
+		"/path/to/helmfile.d/second.lock": `version: v0.0.0
+digest: sha256:def456
+generated: "2024-01-01T00:00:00Z"
+dependencies:
+- name: nginx
+  repository: https://charts.bitnami.com/bitnami
+  version: 15.0.0
+`,
+	}
+
+	stdout := os.Stdout
+	defer func() { os.Stdout = stdout }()
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	if err != nil {
+		t.Fatalf("unexpected error creating vals runtime: %v", err)
+	}
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		valsRuntime:                     valsRuntime,
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	out, err := testutil.CaptureStdout(func() {
+		err := app.ListReleases(configImpl{skipCharts: true, output: "json"})
+		assert.Nil(t, err)
+	})
+	assert.NoError(t, err)
+
+	var releases []HelmRelease
+	if err := json.Unmarshal([]byte(out), &releases); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+
+	assert.Len(t, releases, 2, "expected 2 releases")
+
+	releaseMap := make(map[string]HelmRelease)
+	for _, r := range releases {
+		releaseMap[r.Name] = r
+	}
+
+	redis := releaseMap["redis"]
+	assert.Equal(t, "bitnami/redis", redis.Chart)
+	assert.Equal(t, "17.0.7", redis.Version, "expected redis version from first.lock")
+
+	nginx := releaseMap["nginx"]
+	assert.Equal(t, "bitnami/nginx", nginx.Chart)
+	assert.Equal(t, "15.0.0", nginx.Version, "expected nginx version from second.lock")
 }

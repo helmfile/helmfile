@@ -39,6 +39,44 @@ func CastKeysToStrings(s any) (map[string]any, error) {
 	return new, nil
 }
 
+// DeepCopyMap creates a deep copy of a map[string]any, recursively copying all
+// nested maps and slices. Unlike YAML marshal/unmarshal round-trips, it preserves
+// the original Go types of all values (e.g. the string "true" stays a string,
+// not a bool) and never loses data due to special characters in values.
+// It also normalises map[any]any keys to strings, matching CastKeysToStrings.
+func DeepCopyMap(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	result := make(map[string]any, len(m))
+	for k, v := range m {
+		result[k] = deepCopyValue(v)
+	}
+	return result
+}
+
+func deepCopyValue(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		return DeepCopyMap(val)
+	case map[any]any:
+		copied := make(map[string]any, len(val))
+		for k, item := range val {
+			copied[fmt.Sprintf("%v", k)] = deepCopyValue(item)
+		}
+		return copied
+	case []any:
+		copied := make([]any, len(val))
+		for i, item := range val {
+			copied[i] = deepCopyValue(item)
+		}
+		return copied
+	default:
+		// Primitives (string, int, bool, nil, float, etc.) are copied by value.
+		return val
+	}
+}
+
 func RecursivelyStringifyMapKey(v any) (any, error) {
 	var castedV any
 	switch typedV := v.(type) {

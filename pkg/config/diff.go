@@ -22,6 +22,8 @@ type DiffOptions struct {
 	EnforceNeedsAreInstalled bool
 	// SkipDiffOnInstall is the skip diff on install flag
 	SkipDiffOnInstall bool
+	// SkipDiffValidationOnInstall disables K8s API validation when running helm-diff on a release being newly installed
+	SkipDiffValidationOnInstall bool
 	// ShowSecrets is the show secrets flag
 	ShowSecrets bool
 	// NoHooks skips hooks during diff
@@ -48,11 +50,16 @@ type DiffOptions struct {
 	PostRendererArgs []string
 	// DiffArgs is the list of arguments to pass to helm-diff.
 	DiffArgs string
+	// TemplateArgs are extra args appended to the helm template/diff rendering
+	// (e.g. "--dry-run=server" to enable the helm lookup function).
+	TemplateArgs string
 	// SuppressOutputLineRegex is a list of regexes to suppress output lines
 	SuppressOutputLineRegex []string
 	SkipSchemaValidation    bool
 	// TakeOwnership is true if the ownership should be taken
 	TakeOwnership bool
+	// ServerSide controls the helm 4 --server-side flag. Must be "true", "false", or "auto".
+	ServerSide string
 }
 
 // NewDiffOptions creates a new Apply
@@ -163,9 +170,19 @@ func (t *DiffImpl) SkipDiffOnInstall() bool {
 	return t.DiffOptions.SkipDiffOnInstall
 }
 
+// SkipDiffValidationOnInstall returns the skip diff validation on install
+func (t *DiffImpl) SkipDiffValidationOnInstall() bool {
+	return t.DiffOptions.SkipDiffValidationOnInstall
+}
+
 // DiffArgs returns the list of arguments to pass to helm-diff.
 func (t *DiffImpl) DiffArgs() string {
 	return t.DiffOptions.DiffArgs
+}
+
+// TemplateArgs returns extra args to pass to the helm template/diff rendering.
+func (t *DiffImpl) TemplateArgs() string {
+	return t.DiffOptions.TemplateArgs
 }
 
 // Suppress returns the suppress
@@ -218,4 +235,9 @@ func (t *DiffImpl) SkipSchemaValidation() bool {
 // TakeOwnership returns the TakeOwnership.
 func (t *DiffImpl) TakeOwnership() bool {
 	return t.DiffOptions.TakeOwnership
+}
+
+// ServerSide returns the ServerSide.
+func (t *DiffImpl) ServerSide() string {
+	return t.DiffOptions.ServerSide
 }

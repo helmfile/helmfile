@@ -1,9 +1,13 @@
 package envvar
 
 const (
-	DisableInsecureFeatures = "HELMFILE_DISABLE_INSECURE_FEATURES"
-	DisableVals             = "HELMFILE_DISABLE_VALS"        // pass-through ref+ for external vals
-	DisableValsStrict       = "HELMFILE_DISABLE_VALS_STRICT" // error on ref+
+	DisableInsecureFeatures          = "HELMFILE_DISABLE_INSECURE_FEATURES"
+	DisableInsecureTemplateFunctions = "HELMFILE_DISABLE_INSECURE_TEMPLATE_FUNCTIONS"
+	DisableHooks                     = "HELMFILE_DISABLE_HOOKS"
+	// DisableVals passes `ref+` values through unchanged for external vals processing
+	DisableVals = "HELMFILE_DISABLE_VALS"
+	// DisableValsStrict errors when any `ref+` value is detected
+	DisableValsStrict = "HELMFILE_DISABLE_VALS_STRICT"
 
 	// use helm status to check if a release exists before installing it
 	UseHelmStatusToCheckReleaseExistence = "HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE"
@@ -11,12 +15,23 @@ const (
 	DisableRunnerUniqueID = "HELMFILE_DISABLE_RUNNER_UNIQUE_ID"
 	Experimental          = "HELMFILE_EXPERIMENTAL" // environment variable for experimental features, expecting "true" lower case
 	Environment           = "HELMFILE_ENVIRONMENT"
+	KubeContext           = "HELMFILE_KUBE_CONTEXT"
+	Namespace             = "HELMFILE_NAMESPACE"
+	HelmBinary            = "HELMFILE_HELM_BINARY"
+	KustomizeBinary       = "HELMFILE_KUSTOMIZE_BINARY"
+	LogLevel              = "HELMFILE_LOG_LEVEL"
+	Debug                 = "HELMFILE_DEBUG"
+	Quiet                 = "HELMFILE_QUIET"
+	NoColor               = "HELMFILE_NO_COLOR"
 	FilePath              = "HELMFILE_FILE_PATH"
 	TempDir               = "HELMFILE_TEMPDIR"
 	UpgradeNoticeDisabled = "HELMFILE_UPGRADE_NOTICE_DISABLED"
 	GoYamlV3              = "HELMFILE_GO_YAML_V3"
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
+	RepoRetry             = "HELMFILE_REPO_RETRIES"
+	OtelTracing           = "HELMFILE_OTEL_TRACING"
+	OtelMetricsPerRelease = "HELMFILE_OTEL_METRICS_PER_RELEASE"
 	RenderYaml            = "HELMFILE_RENDER_YAML" // force helmfile.yaml to be rendered as template regardless of extension, expecting "true" lower case
 
 	// AWSSDKLogLevel controls AWS SDK logging level
@@ -30,4 +45,10 @@ const (
 	// Can be overridden by AWS_SDK_GO_LOG_LEVEL environment variable
 	// See issue #2270 and vals PR #893
 	AWSSDKLogLevel = "HELMFILE_AWS_SDK_LOG_LEVEL"
+
+	// ValsFailOnMissingKeyInMap controls whether vals should fail when a key is missing in a map.
+	// When set to "true", vals returns an error if a referenced key does not exist in the secret map.
+	// Default is false for backward compatibility (returns empty string for missing keys).
+	// See issue #1563
+	ValsFailOnMissingKeyInMap = "HELMFILE_VALS_FAIL_ON_MISSING_KEY_IN_MAP"
 )

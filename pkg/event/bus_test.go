@@ -1,18 +1,28 @@
 package event
 
 import (
+	goContext "context"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
+	"github.com/helmfile/helmfile/pkg/helmexec"
 )
 
 type runner struct {
+	executeCalls []struct {
+		cmd  string
+		args []string
+		env  map[string]string
+	}
 }
 
 func (r *runner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
@@ -20,6 +30,11 @@ func (r *runner) ExecuteStdIn(cmd string, args []string, env map[string]string, 
 }
 
 func (r *runner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	r.executeCalls = append(r.executeCalls, struct {
+		cmd  string
+		args []string
+		env  map[string]string
+	}{cmd: cmd, args: args, env: env})
 	if cmd == "ng" {
 		return nil, fmt.Errorf("cmd failed due to invalid cmd: %s", cmd)
 	}
@@ -29,6 +44,32 @@ func (r *runner) Execute(cmd string, args []string, env map[string]string, enabl
 		}
 	}
 	return []byte(""), nil
+}
+
+func TestTrigger_DisabledHooks(t *testing.T) {
+	currentVal := disableHooks
+
+	{
+		disableHooks = true
+		bus := &Bus{Hooks: []Hook{{}}}
+		_, err := bus.Trigger("foo", nil, nil)
+		require.EqualError(t, err, "HELMFILE_DISABLE_HOOKS is active, hooks are disabled")
+	}
+
+	disableHooks = currentVal
+}
+
+func TestTrigger_DisabledHooksWithEmptyHooks(t *testing.T) {
+	currentVal := disableHooks
+
+	{
+		disableHooks = true
+		bus := &Bus{}
+		_, err := bus.Trigger("foo", nil, nil)
+		require.NoError(t, err)
+	}
+
+	disableHooks = currentVal
 }
 
 func TestTrigger(t *testing.T) {
@@ -187,4 +228,145 @@ func TestTrigger(t *testing.T) {
 			t.Errorf("unexpected error for case \"%s\": Logs should not be created : %v", c.name, observedLogs.All())
 		}
 	}
+}
+
+func TestTriggerCleanupEventWithError(t *testing.T) {
+	runner := &runner{}
+
+	core, _ := observer.New(zap.InfoLevel)
+	logger := zap.New(core).Sugar()
+
+	testError := errors.New("sync failed: release error")
+
+	hooks := []Hook{
+		{
+			Name:     "cleanup-with-error",
+			Events:   []string{"cleanup"},
+			Command:  "echo",
+			Args:     []string{"error is '{{ .Event.Error }}'"},
+			ShowLogs: true,
+		},
+	}
+
+	bus := &Bus{
+		Hooks:         hooks,
+		StateFilePath: "/path/to/helmfile.yaml",
+		BasePath:      ".",
+		Namespace:     "default",
+		Env:           environment.Environment{Name: "default"},
+		Logger:        logger,
+		Fs:            ffs.DefaultFileSystem(),
+		Runner:        runner,
+	}
+
+	data := map[string]any{
+		"HelmfileCommand": "sync",
+	}
+
+	executed, err := bus.Trigger("cleanup", testError, data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !executed {
+		t.Fatal("expected cleanup hook to be executed")
+	}
+
+	if len(runner.executeCalls) != 1 {
+		t.Fatalf("expected 1 execute call, got %d", len(runner.executeCalls))
+	}
+
+	call := runner.executeCalls[0]
+	if call.cmd != "echo" {
+		t.Errorf("expected command 'echo', got %q", call.cmd)
+	}
+
+	if len(call.args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(call.args))
+	}
+
+	expectedArg := "error is 'sync failed: release error'"
+	if !strings.Contains(call.args[0], "error is") {
+		t.Errorf("expected arg to contain 'error is', got %q", call.args[0])
+	}
+
+	if call.args[0] != expectedArg {
+		t.Errorf("expected arg %q, got %q", expectedArg, call.args[0])
+	}
+}
+
+func TestTriggerCleanupEventWithNilError(t *testing.T) {
+	runner := &runner{}
+
+	core, _ := observer.New(zap.InfoLevel)
+	logger := zap.New(core).Sugar()
+
+	hooks := []Hook{
+		{
+			Name:     "cleanup-nil-error",
+			Events:   []string{"cleanup"},
+			Command:  "echo",
+			Args:     []string{"error is '{{ .Event.Error }}'"},
+			ShowLogs: true,
+		},
+	}
+
+	bus := &Bus{
+		Hooks:         hooks,
+		StateFilePath: "/path/to/helmfile.yaml",
+		BasePath:      ".",
+		Namespace:     "default",
+		Env:           environment.Environment{Name: "default"},
+		Logger:        logger,
+		Fs:            ffs.DefaultFileSystem(),
+		Runner:        runner,
+	}
+
+	data := map[string]any{
+		"HelmfileCommand": "sync",
+	}
+
+	executed, err := bus.Trigger("cleanup", nil, data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !executed {
+		t.Fatal("expected cleanup hook to be executed")
+	}
+
+	if len(runner.executeCalls) != 1 {
+		t.Fatalf("expected 1 execute call, got %d", len(runner.executeCalls))
+	}
+
+	call := runner.executeCalls[0]
+	expectedArg := "error is '<nil>'"
+	if call.args[0] != expectedArg {
+		t.Errorf("expected arg %q, got %q", expectedArg, call.args[0])
+	}
+}
+
+func TestBusDefaultRunnerUsesCtxWhenSet(t *testing.T) {
+	ctx, cancel := goContext.WithCancel(goContext.Background())
+	defer cancel()
+
+	bus := &Bus{Ctx: ctx, Logger: zap.NewNop().Sugar()}
+
+	_, err := bus.Trigger("presync", nil, nil)
+	require.NoError(t, err)
+
+	runner, ok := bus.Runner.(helmexec.ShellRunner)
+	require.True(t, ok, "default runner should be a ShellRunner")
+	require.Equal(t, ctx, runner.Ctx, "default runner must use Bus.Ctx when set")
+}
+
+func TestBusDefaultRunnerFallsBackToTODO(t *testing.T) {
+	bus := &Bus{Logger: zap.NewNop().Sugar()}
+
+	_, err := bus.Trigger("presync", nil, nil)
+	require.NoError(t, err)
+
+	runner, ok := bus.Runner.(helmexec.ShellRunner)
+	require.True(t, ok)
+	require.Equal(t, goContext.TODO(), runner.Ctx, "nil Bus.Ctx must preserve the historical TODO context")
 }

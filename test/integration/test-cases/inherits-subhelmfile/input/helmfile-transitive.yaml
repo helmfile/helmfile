@@ -1,0 +1,10 @@
+environments:
+  default:
+    values:
+    - env-values.yaml
+
+# Parent passes its resolved environment values to the middle sub-helmfile.
+helmfiles:
+- path: child-transitive.yaml
+  inherits:
+  - environments

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: library
+version: 0.1.0
+description: A library chart dependency for issue #1880
+type: library

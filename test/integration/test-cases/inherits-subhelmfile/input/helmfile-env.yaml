@@ -1,0 +1,12 @@
+environments:
+  default:
+    values:
+    - env-values.yaml
+
+# The sub-helmfile inherits the parent's resolved environment values. It uses a
+# LOCAL chart (no repository needed) so this scenario isolates the environments
+# inheritance from the repositories scenario.
+helmfiles:
+- path: child-env.yaml.gotmpl
+  inherits:
+  - environments

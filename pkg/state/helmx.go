@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -8,15 +9,20 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/helmfile/chartify"
+	"go.uber.org/zap"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/kubedog"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/resource"
+	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
 type Dependency struct {
@@ -115,7 +121,7 @@ func (st *HelmState) appendPostRenderFlags(flags []string, release *ReleaseSpec,
 }
 
 // append post-renderer-args flags to helm flags
-func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseSpec, postRendererArgs []string) []string {
+func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseSpec, postRendererArgs []string) ([]string, error) {
 	postRendererArgsFlags := []string{}
 	switch {
 	case len(release.PostRendererArgs) != 0:
@@ -123,30 +129,68 @@ func (st *HelmState) appendPostRenderArgsFlags(flags []string, release *ReleaseS
 	case len(postRendererArgs) != 0:
 		postRendererArgsFlags = postRendererArgs
 	case len(st.HelmDefaults.PostRendererArgs) != 0:
-		postRendererArgsFlags = st.HelmDefaults.PostRendererArgs
+		rendered, err := st.renderPostRendererArgs(release, st.HelmDefaults.PostRendererArgs)
+		if err != nil {
+			return nil, err
+		}
+		postRendererArgsFlags = rendered
 	}
 	for _, arg := range postRendererArgsFlags {
 		if arg != "" {
-			flags = append(flags, "--post-renderer-args", arg)
+			flags = append(flags, "--post-renderer-args="+arg)
 		}
 	}
-	return flags
+	return flags, nil
+}
+
+func (st *HelmState) renderPostRendererArgs(release *ReleaseSpec, args []string) ([]string, error) {
+	vals := st.RenderedValues
+	if vals == nil {
+		vals = make(map[string]any)
+	}
+
+	fs := st.fs
+	if fs == nil {
+		fs = filesystem.DefaultFileSystem()
+	}
+
+	tmplData := st.createReleaseTemplateData(release, vals)
+	renderer := tmpl.NewFileRenderer(fs, st.basePath, tmplData)
+
+	result := make([]string, 0, len(args))
+	for _, arg := range args {
+		rendered, err := renderer.RenderTemplateContentToString([]byte(arg))
+		if err != nil {
+			return nil, fmt.Errorf("failed rendering postRendererArg %q for release %q: %w", arg, release.Name, err)
+		}
+		result = append(result, rendered)
+	}
+
+	return result, nil
 }
 
 // append skip-schema-validation flags to helm flags
 func (st *HelmState) appendSkipSchemaValidationFlags(flags []string, release *ReleaseSpec, skipSchemaValidation bool) []string {
-	switch {
-	// Check if SkipSchemaValidation is true in the release spec.
-	case release.SkipSchemaValidation != nil && *release.SkipSchemaValidation:
-		flags = append(flags, "--skip-schema-validation")
-	// Check if skipSchemaValidation argument is true.
-	case skipSchemaValidation:
-		flags = append(flags, "--skip-schema-validation")
-	// Check if SkipSchemaValidation is true in HelmDefaults.
-	case st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation:
+	if st.shouldSkipSchemaValidation(release, skipSchemaValidation) {
 		flags = append(flags, "--skip-schema-validation")
 	}
 	return flags
+}
+
+func (st *HelmState) shouldSkipSchemaValidation(release *ReleaseSpec, skipSchemaValidation bool) bool {
+	switch {
+	// Check if SkipSchemaValidation is true in the release spec.
+	case release.SkipSchemaValidation != nil && *release.SkipSchemaValidation:
+		return true
+	// Check if skipSchemaValidation argument is true.
+	case skipSchemaValidation:
+		return true
+	// Check if SkipSchemaValidation is true in HelmDefaults.
+	case st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation:
+		return true
+	default:
+		return false
+	}
 }
 
 // append suppress-output-line-regex flags to helm diff flags
@@ -189,6 +233,508 @@ func (st *HelmState) shouldUseKubedog(release *ReleaseSpec, ops *SyncOpts) bool 
 	return st.getTrackMode(release, ops) == string(kubedog.TrackModeKubedog)
 }
 
+func (st *HelmState) shouldFailOnTrackError(release *ReleaseSpec, ops *SyncOpts) bool {
+	if release.TrackFailOnError != nil {
+		return *release.TrackFailOnError
+	}
+	if ops != nil {
+		return ops.TrackFailOnError
+	}
+	return false
+}
+
+// trackReleaseIfEnabled performs kubedog tracking for a release if trackMode is "kubedog".
+// It returns a ReleaseError if tracking fails and shouldFailOnTrackError is true.
+// The caller is responsible for mutating affectedReleases when needed.
+func (st *HelmState) trackReleaseIfEnabled(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface, opts *SyncOpts) *ReleaseError {
+	if !st.shouldUseKubedog(release, opts) {
+		return nil
+	}
+	if trackErr := st.trackWithKubedog(ctx, release, helm, opts); trackErr != nil {
+		st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
+		if st.shouldFailOnTrackError(release, opts) {
+			return newReleaseFailedError(release, trackErr)
+		}
+	}
+	return nil
+}
+
+// kubedogTrackingHandle bundles the closures the caller needs to coordinate
+// parallel kubedog tracking with helm execution. See
+// startBackgroundKubedogTracking for the lifecycle.
+type kubedogTrackingHandle struct {
+	// Helm is the helm.Interface the caller MUST use for SyncRelease and any
+	// follow-up commands (e.g. listReleases) while tracking is running. It's
+	// a logger-scoped clone of the original helm that captures all its output
+	// into the per-release buffer so it doesn't interleave with kubedog
+	// progress on stdout.
+	Helm helmexec.Interface
+	// Wait blocks until the tracker exits and returns the resulting error
+	// (already shaped by trackFailOnError policy).
+	Wait func() *ReleaseError
+	// Cancel cancels the tracker; call when helm itself fails.
+	Cancel func()
+	// NotifyHelmDone signals to in-flight freshness gates that helm finished
+	// so unchanged resources can stop waiting for a generation bump.
+	NotifyHelmDone func()
+	// FlushBufferedHelmOutput emits the captured helm output (upgrades, list,
+	// etc.) through the real logger in a single block. Safe to call multiple
+	// times — second call is a no-op.
+	FlushBufferedHelmOutput func()
+	// WasHelmKilled reports whether the safety-valve helm-killer fired during
+	// tracking. When true, the caller MUST treat any error returned by helm
+	// SyncRelease as success — helm was deliberately interrupted because the
+	// cluster confirmed convergence and helm wedged on its hook waiter.
+	WasHelmKilled func() bool
+}
+
+// startBackgroundKubedogTracking templates the release upfront and starts a
+// kubedog tracker in a goroutine so it runs in parallel with helm. It returns
+// a handle whose Helm field MUST be used for the helm calls during the
+// tracking window — that helm clone buffers output for clean ordering.
+//
+// When started is false the caller must fall back to the sequential
+// trackReleaseIfEnabled path (e.g. templating failed before helm ran, so we
+// retry after helm finishes to preserve the previous behavior).
+// buildReleaseTracker resolves the per-release tracking options (timeout,
+// log capture, filter config, color) and constructs the kubedog tracker.
+// Extracted from startBackgroundKubedogTracking to keep that function within
+// the statement-count limit.
+func (st *HelmState) buildReleaseTracker(release *ReleaseSpec, opts *SyncOpts, useColor bool) (*kubedog.Tracker, *kubedog.TrackOptions, error) {
+	timeout := 5 * time.Minute
+	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
+		timeout = time.Duration(*release.TrackTimeout) * time.Second
+	} else if opts != nil && opts.TrackTimeout > 0 {
+		timeout = time.Duration(opts.TrackTimeout) * time.Second
+	}
+
+	trackLogs := release.TrackLogs != nil && *release.TrackLogs
+	if release.TrackLogs == nil && opts != nil {
+		trackLogs = opts.TrackLogs
+	}
+
+	trackFailedLogs := release.TrackFailedLogs != nil && *release.TrackFailedLogs
+	if release.TrackFailedLogs == nil && opts != nil {
+		trackFailedLogs = opts.TrackFailedLogs
+	}
+
+	filterConfig := &resource.FilterConfig{
+		TrackKinds:     release.TrackKinds,
+		SkipKinds:      release.SkipKinds,
+		TrackResources: convertTrackResources(release.TrackResources),
+	}
+
+	trackOpts := kubedog.NewTrackOptions().
+		WithTimeout(timeout).
+		WithLogs(trackLogs).
+		WithFailedLogsOnly(trackFailedLogs).
+		WithFilterConfig(filterConfig).
+		WithColor(useColor)
+
+	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
+		Logger:       st.logger,
+		Namespace:    release.Namespace,
+		KubeContext:  st.getKubeContext(release),
+		Kubeconfig:   st.kubeconfig,
+		ReleaseName:  release.Name,
+		TrackOptions: trackOpts,
+		KubedogQPS:   release.KubedogQPS,
+		KubedogBurst: release.KubedogBurst,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return tracker, trackOpts, nil
+}
+
+// bufferHelmOutput swaps the helm logger for one writing into an in-memory
+// buffer (so helm output can be replayed as a single block after tracking),
+// and derives a release-scoped context whose cancellation drives the existing
+// ShellRunner SIGINT path. The release-scoped context is what lets the
+// helm-stuck safety valve interrupt a wedged helm subprocess.
+func (st *HelmState) bufferHelmOutput(helm helmexec.Interface, ctx context.Context, releaseName string) (bufHelm helmexec.Interface, buf *bytes.Buffer, releaseCancel context.CancelFunc) {
+	buf = &bytes.Buffer{}
+	bufHelm = helm
+	if swapper, ok := helm.(helmexec.LoggerSwapper); ok {
+		bufHelm = swapper.WithLogger(helmexec.NewLogger(buf, "info"))
+	} else {
+		st.logger.Debugf("kubedog: helm implementation does not support logger swap; output will interleave for release %s", releaseName)
+	}
+	releaseCtx, releaseCancel := context.WithCancel(ctx)
+	if swapper, ok := bufHelm.(helmexec.ContextSwapper); ok {
+		bufHelm = swapper.WithContext(releaseCtx)
+	}
+	return
+}
+
+func (st *HelmState) startBackgroundKubedogTracking(
+	ctx context.Context, release *ReleaseSpec, helm helmexec.Interface, opts *SyncOpts,
+) (h *kubedogTrackingHandle, started bool) {
+	noop := &kubedogTrackingHandle{
+		Helm:                    helm,
+		Wait:                    func() *ReleaseError { return nil },
+		Cancel:                  func() {},
+		NotifyHelmDone:          func() {},
+		FlushBufferedHelmOutput: func() {},
+		WasHelmKilled:           func() bool { return false },
+	}
+
+	if !st.shouldUseKubedog(release, opts) {
+		return noop, false
+	}
+
+	useColor := false
+	if opts != nil {
+		useColor = opts.Color && !opts.NoColor
+	}
+
+	// Capture the per-release preamble (header + helm template "Templating
+	// release=" / "wrote ..." lines + "Found N resources" line) into one
+	// buffer and emit it via st.logger as a single atomic entry. Without
+	// this, parallel releases interleave their template output and it
+	// becomes very hard to follow which `wrote ...` line belongs to which
+	// chart. Helm output during install/upgrade is buffered separately
+	// (helmOutputBuf below) and flushed after tracking finishes.
+	preambleBuf := &bytes.Buffer{}
+	preambleLogger := helmexec.NewLogger(preambleBuf, "info")
+	preambleLogger.Infof("\n%s", kubedog.HeaderDividerStyled(fmt.Sprintf("Release '%s'", release.Name), useColor))
+
+	tmplHelm := helm
+	if swapper, ok := helm.(helmexec.LoggerSwapper); ok {
+		tmplHelm = swapper.WithLogger(preambleLogger)
+	}
+
+	flushPreamble := func() {
+		if preambleBuf.Len() == 0 {
+			return
+		}
+		st.logger.Infof("%s", strings.TrimRight(preambleBuf.String(), "\n"))
+		preambleBuf.Reset()
+	}
+
+	resources, err := st.getReleaseResources(ctx, release, tmplHelm, preambleLogger)
+	if err != nil {
+		flushPreamble()
+		st.logger.Warnf("kubedog: failed to template release %s for parallel tracking, falling back to post-helm tracking: %v", release.Name, err)
+		return noop, false
+	}
+	if len(resources) == 0 {
+		flushPreamble()
+		st.logger.Infof("kubedog: no trackable resources templated for release %s", release.Name)
+		// Emit the same "Helm output for release 'X'" divider tracked
+		// releases get at flush time, so a hook-only release (which has
+		// nothing for kubedog to track) still gets the visual delimiter.
+		// Helm output flows live after this line — there's no buffering
+		// because we have nothing to interleave with.
+		st.logger.Infof("\n%s", kubedog.HeaderDividerStyled(fmt.Sprintf("Helm output for release '%s'", release.Name), useColor))
+		return noop, true
+	}
+
+	tracker, trackOpts, err := st.buildReleaseTracker(release, opts, useColor)
+	if err != nil {
+		st.logger.Warnf("kubedog: failed to initialize tracker for release %s, falling back to post-helm tracking: %v", release.Name, err)
+		return noop, false
+	}
+
+	// Compute the kubedog filter + breakdown summary BEFORE launching the
+	// tracker goroutine so we can fold the "Tracking N..." and "Tracking
+	// breakdown: ..." lines into the same atomic preamble flush as the
+	// header and template output. Doing it any later means those two lines
+	// race with other releases' progress ticks. PreviewBreakdown is pure —
+	// no logging, no API calls.
+	_, breakdown := tracker.PreviewBreakdown(resources)
+	preambleLogger.Infof("Tracking %d resources from release %s with kubedog (in parallel with helm)", len(resources), release.Name)
+	if breakdown != "" {
+		preambleLogger.Infof("Tracking breakdown: %s", breakdown)
+	}
+	flushPreamble()
+
+	// Snapshot UID + generation BEFORE handing off to helm so each tracker
+	// goroutine can wait until the resource actually changes. Without this,
+	// kubedog observes the pre-upgrade "ready" state and exits immediately.
+	trackOpts.WithBaselines(tracker.CaptureBaselines(ctx, resources))
+
+	// Buffer helm output so it doesn't interleave with kubedog progress on
+	// stdout. We swap the helm logger out for one that writes into the buffer;
+	// after tracking finishes we replay the buffer through the real logger as
+	// a single block. bufferHelmOutput also derives a release-scoped context
+	// so the helm-stuck safety valve can SIGINT helm directly.
+	bufHelm, helmOutputBuf, releaseCancel := st.bufferHelmOutput(helm, ctx, release.Name)
+
+	trackCtx, trackCancel := context.WithCancel(ctx)
+	resultCh := make(chan error, 1)
+
+	go func() {
+		resultCh <- tracker.TrackResources(trackCtx, resources)
+	}()
+
+	// Two related safety valves run alongside the tracker. Both verify cluster
+	// state via the live API rather than trusting kubedog's resource graph.
+	//
+	// 1. Tracker-race safety valve (always runs): once helm signals success,
+	//    wait a grace period and then poll. If the cluster confirms every
+	//    tracked resource converged but the dyntracker is still wedged
+	//    (kubedog race where a fast Job completion never flips ResourceStatus
+	//    to Ready), cancel the tracker so wait() can return success instead
+	//    of blocking until --track-timeout.
+	//
+	// 2. Helm-stuck killer (opt-in via helmStuckGrace): poll alongside helm.
+	//    If the cluster stays converged for helmStuckGrace while helm is
+	//    still running, send SIGINT to helm — that's the helm v4 hook waiter
+	//    wedge (statuswait.go:195 or legacy wait.go:263), recoverable only by
+	//    interrupting the helm subprocess.
+	helmDoneCh := make(chan struct{})
+	var helmDoneOnce sync.Once
+	var safetyValveTriggered atomic.Bool
+	var helmKilledByUs atomic.Bool
+	const (
+		safetyValveGrace         = 60 * time.Second
+		safetyValveCheck         = 10 * time.Second
+		safetyValveTrackerWindup = 30 * time.Second
+	)
+	// safetyFiredCh is closed by either safety valve when it triggers, so
+	// wait() can break out of its resultCh receive without depending on
+	// dyntracker actually unwinding. Background: in production we hit an
+	// upstream-kubedog bug where one of N parallel tracker goroutines did
+	// not respect ctx.Done(), so TrackResources blocked on trackerWg.Wait()
+	// forever and never sent on resultCh. With only `trackErr := <-resultCh`
+	// in wait(), helmfile hung indefinitely even though the safety valve
+	// had already confirmed cluster convergence.
+	safetyFiredCh := make(chan struct{})
+	var safetyFiredOnce sync.Once
+	signalSafetyFired := func() {
+		safetyFiredOnce.Do(func() { close(safetyFiredCh) })
+	}
+	// scheduleResultChBackstop runs after a safety valve fires to guarantee
+	// resultCh is unblocked even if the dyntracker goroutines are wedged.
+	// resultCh has capacity 1: if the tracker has already (or later) sent
+	// its real result, our non-blocking send drops harmlessly. If the
+	// tracker is hung, our nil unblocks wait().
+	scheduleResultChBackstop := func() {
+		go func() {
+			time.Sleep(safetyValveTrackerWindup)
+			select {
+			case resultCh <- nil:
+				st.logger.Warnf("kubedog: tracker for release %s did not return %s after safety valve fired; pushing nil to unblock wait() (dyntracker likely wedged)", release.Name, safetyValveTrackerWindup)
+			default:
+			}
+		}()
+	}
+	helmStuckGrace := st.getHelmStuckGrace(release, opts)
+
+	go func() {
+		select {
+		case <-helmDoneCh:
+		case <-trackCtx.Done():
+			return
+		}
+		select {
+		case <-time.After(safetyValveGrace):
+		case <-trackCtx.Done():
+			return
+		}
+		ticker := time.NewTicker(safetyValveCheck)
+		defer ticker.Stop()
+		for {
+			if tracker.VerifyAllConverged(trackCtx, resources) {
+				st.logger.Infof("kubedog: cluster confirms all tracked resources converged for release %s; canceling tracker (worked around dyntracker race)", release.Name)
+				safetyValveTriggered.Store(true)
+				trackCancel()
+				signalSafetyFired()
+				scheduleResultChBackstop()
+				return
+			}
+			select {
+			case <-trackCtx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+
+	if helmStuckGrace > 0 {
+		go func() {
+			ticker := time.NewTicker(safetyValveCheck)
+			defer ticker.Stop()
+			var firstConvergedAt time.Time
+			for {
+				select {
+				case <-trackCtx.Done():
+					return
+				case <-helmDoneCh:
+					return // helm finished on its own; killer not needed
+				case <-ticker.C:
+				}
+				if !tracker.VerifyAllConverged(trackCtx, resources) {
+					firstConvergedAt = time.Time{}
+					continue
+				}
+				if firstConvergedAt.IsZero() {
+					firstConvergedAt = time.Now()
+					continue
+				}
+				if time.Since(firstConvergedAt) < helmStuckGrace {
+					continue
+				}
+				// Cluster has been converged for >= helmStuckGrace while helm
+				// is still running. Treat as the helm v4 hook waiter wedge
+				// and send SIGINT via the release-scoped context. Style the
+				// whole block in bold+yellow so it stands out from the regular
+				// info chatter in CI logs.
+				block := fmt.Sprintf("%s\nCluster has confirmed convergence for %s but helm subprocess is still running.\nSending SIGINT to recover from helm v4 hook waiter wedge.\nRelease secret may need manual cleanup: kubectl -n %s delete secret sh.helm.release.v1.%s.<rev>",
+					kubedog.HeaderDivider(fmt.Sprintf("WARNING: Release '%s' — helm-killer fired", release.Name)),
+					time.Since(firstConvergedAt).Round(time.Second), release.Namespace, release.Name)
+				st.logger.Warnf("\n%s", kubedog.StyleWarning(block, useColor))
+				helmKilledByUs.Store(true)
+				releaseCancel()
+				signalSafetyFired()
+				scheduleResultChBackstop()
+				return
+			}
+		}()
+	}
+
+	var flushOnce sync.Once
+	flush := func() {
+		flushOnce.Do(func() {
+			payload := strings.TrimSpace(helmOutputBuf.String())
+			if payload == "" {
+				return
+			}
+			header := kubedog.HeaderDividerStyled(fmt.Sprintf("Helm output for release '%s'", release.Name), useColor)
+			st.logger.Infof("\n%s\n%s", header, payload)
+		})
+	}
+
+	canceled := false
+	wait := func() *ReleaseError {
+		// Race resultCh against three other paths so a wedged dyntracker
+		// goroutine that won't return on ctx.Done() cannot pin helmfile
+		// forever. In production we hit exactly this: one of N parallel
+		// tracker goroutines ignored cancellation, trackerWg.Wait() never
+		// completed, resultCh never received, and helmfile hung for 15
+		// hours despite the safety valve having confirmed cluster
+		// convergence minutes earlier.
+		var trackErr error
+		hardTimeout := st.getReleaseHardTimeout(release, opts)
+		hardTimer := time.NewTimer(hardTimeout)
+		defer hardTimer.Stop()
+
+		select {
+		case trackErr = <-resultCh:
+			// Normal path — tracker returned (success, error, or nil
+			// pushed by a safety-valve backstop).
+		case <-safetyFiredCh:
+			// A safety valve fired and already confirmed cluster
+			// convergence via the live API. Give dyntracker a brief
+			// grace to wind down on its own; otherwise proceed without
+			// waiting (cluster is healthy regardless).
+			select {
+			case trackErr = <-resultCh:
+			case <-time.After(safetyValveTrackerWindup):
+				st.logger.Warnf("kubedog: tracker for release %s did not return %s after safety valve fired; proceeding (cluster confirmed converged)", release.Name, safetyValveTrackerWindup)
+			}
+		case <-hardTimer.C:
+			// Absolute ceiling: neither dyntracker nor any safety valve
+			// returned within the release timeout. We have no
+			// confirmation of cluster state, so treat as failure rather
+			// than silent success. This is the seatbelt for "everything
+			// else failed" — the user's mental model is that a release
+			// should not exceed its own timeout.
+			st.logger.Warnf("kubedog: tracker for release %s did not return within release timeout %s; treating as failure", release.Name, hardTimeout)
+			trackCancel()
+			releaseCancel()
+			flush()
+			return newReleaseFailedError(release, fmt.Errorf("kubedog tracker did not return within release timeout %s", hardTimeout))
+		}
+
+		trackCancel()
+		releaseCancel()
+		flush()
+		if canceled {
+			// Helm failed and we canceled the tracker; treat as no-op.
+			return nil
+		}
+		if safetyValveTriggered.Load() || helmKilledByUs.Load() {
+			// We deliberately canceled the tracker after verifying via the
+			// live API that everything was healthy. The resulting trackErr
+			// (typically context.Canceled) is not a real failure.
+			return nil
+		}
+		if trackErr != nil {
+			st.logger.Warnf("kubedog tracking failed for release %s: %v", release.Name, trackErr)
+			if st.shouldFailOnTrackError(release, opts) {
+				return newReleaseFailedError(release, trackErr)
+			}
+		}
+		return nil
+	}
+	cancel := func() {
+		canceled = true
+		trackCancel()
+		releaseCancel()
+	}
+	notifyHelmDone := func() {
+		tracker.MarkUpstreamCompleted()
+		helmDoneOnce.Do(func() { close(helmDoneCh) })
+	}
+	wasHelmKilled := func() bool {
+		return helmKilledByUs.Load()
+	}
+
+	return &kubedogTrackingHandle{
+		Helm:                    bufHelm,
+		Wait:                    wait,
+		Cancel:                  cancel,
+		NotifyHelmDone:          notifyHelmDone,
+		FlushBufferedHelmOutput: flush,
+		WasHelmKilled:           wasHelmKilled,
+	}, true
+}
+
+// getReleaseHardTimeout returns the absolute ceiling on how long wait()
+// should block. Matches the user's mental model of "a release should not
+// exceed its own timeout" — the same timeout we pass to helm via --timeout.
+// Priority mirrors timeoutFlags(): ops.Timeout > release.Timeout >
+// HelmDefaults.Timeout. Falls back to track-timeout when no helm timeout
+// is configured, and finally to 10 minutes as a safe hard default.
+func (st *HelmState) getReleaseHardTimeout(release *ReleaseSpec, ops *SyncOpts) time.Duration {
+	if ops != nil && ops.Timeout > 0 {
+		return time.Duration(ops.Timeout) * time.Second
+	}
+	if release.Timeout != nil && *release.Timeout > 0 {
+		return time.Duration(*release.Timeout) * time.Second
+	}
+	if st.HelmDefaults.Timeout > 0 {
+		return time.Duration(st.HelmDefaults.Timeout) * time.Second
+	}
+	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
+		return time.Duration(*release.TrackTimeout) * time.Second
+	}
+	if ops != nil && ops.TrackTimeout > 0 {
+		return time.Duration(ops.TrackTimeout) * time.Second
+	}
+	return 10 * time.Minute
+}
+
+// getHelmStuckGrace returns the configured helm-stuck grace period — how long
+// the cluster must be confirmed converged via the live API while helm is
+// still running before we send SIGINT to helm. Zero disables the killer.
+// Lookup order: per-release HelmStuckGrace, SyncOpts.HelmStuckGrace,
+// HelmDefaults.HelmStuckGrace.
+func (st *HelmState) getHelmStuckGrace(release *ReleaseSpec, ops *SyncOpts) time.Duration {
+	if release.HelmStuckGrace != nil && *release.HelmStuckGrace > 0 {
+		return time.Duration(*release.HelmStuckGrace) * time.Second
+	}
+	if ops != nil && ops.HelmStuckGrace > 0 {
+		return time.Duration(ops.HelmStuckGrace) * time.Second
+	}
+	if st.HelmDefaults.HelmStuckGrace > 0 {
+		return time.Duration(st.HelmDefaults.HelmStuckGrace) * time.Second
+	}
+	return 0
+}
+
 func (st *HelmState) getTrackMode(release *ReleaseSpec, ops *SyncOpts) string {
 	trackMode := release.TrackMode
 	if trackMode == "" && ops != nil && ops.TrackMode != "" {
@@ -204,10 +750,6 @@ func (st *HelmState) getTrackMode(release *ReleaseSpec, ops *SyncOpts) string {
 }
 
 func (st *HelmState) appendWaitFlags(flags []string, helm helmexec.Interface, release *ReleaseSpec, ops *SyncOpts) []string {
-	if st.shouldUseKubedog(release, ops) {
-		return flags
-	}
-
 	shouldWait := false
 	switch {
 	case release.Wait != nil && *release.Wait:
@@ -257,6 +799,9 @@ func (st *HelmState) appendCascadeFlags(flags []string, helm helmexec.Interface,
 
 // append hide-notes flags to helm flags
 func (st *HelmState) appendHideNotesFlags(flags []string, helm helmexec.Interface, ops *SyncOpts) []string {
+	if ops == nil {
+		return flags
+	}
 	// see https://github.com/helm/helm/releases/tag/v3.16.0
 	if !helm.IsVersionAtLeast("3.16.0") {
 		return flags
@@ -285,6 +830,52 @@ func (st *HelmState) appendTakeOwnershipFlagsForUpgrade(flags []string, helm hel
 	return flags
 }
 
+// validServerSideValues are the allowed values for the helm 4 --server-side flag.
+var validServerSideValues = map[string]struct{}{"true": {}, "false": {}, "auto": {}}
+
+// resolveServerSideValue resolves the server-side value following precedence:
+// release-level > CLI flag > helmDefaults. Returns empty string if no value is configured.
+func (st *HelmState) resolveServerSideValue(release *ReleaseSpec, serverSide string) string {
+	switch {
+	case release.ServerSide != nil && *release.ServerSide != "":
+		return *release.ServerSide
+	case serverSide != "":
+		return serverSide
+	case st.HelmDefaults.ServerSide != nil && *st.HelmDefaults.ServerSide != "":
+		return *st.HelmDefaults.ServerSide
+	default:
+		return ""
+	}
+}
+
+// appendServerSideFlagsForUpgrade appends the helm 4 --server-side flag when appropriate.
+// Precedence: release-level > CLI flag > helmDefaults.
+func (st *HelmState) appendServerSideFlagsForUpgrade(flags []string, helm helmexec.Interface, release *ReleaseSpec, serverSide string) ([]string, error) {
+	if !helm.IsHelm4() {
+		// --server-side with a string value is helm 4 only. Guard against misconfiguration
+		// when the user is running helm 3.
+		if release.ServerSide != nil && *release.ServerSide != "" {
+			return nil, fmt.Errorf("serverSide requires Helm 4 or greater (set via releases[].serverSide)")
+		}
+		if st.HelmDefaults.ServerSide != nil && *st.HelmDefaults.ServerSide != "" {
+			return nil, fmt.Errorf("serverSide requires Helm 4 or greater (set via helmDefaults.serverSide)")
+		}
+		return flags, nil
+	}
+
+	value := st.resolveServerSideValue(release, serverSide)
+	if value == "" {
+		return flags, nil
+	}
+
+	if _, ok := validServerSideValues[value]; !ok {
+		return nil, fmt.Errorf("invalid serverSide value %q: must be \"true\", \"false\", or \"auto\"", value)
+	}
+
+	flags = append(flags, "--server-side", value)
+	return flags, nil
+}
+
 // append show-only flags to helm flags
 func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []string {
 	showOnlyFlags := []string{}
@@ -300,8 +891,9 @@ func (st *HelmState) appendShowOnlyFlags(flags []string, showOnly []string) []st
 }
 
 type Chartify struct {
-	Opts  *chartify.ChartifyOpts
-	Clean func()
+	Opts                     *chartify.ChartifyOpts
+	Clean                    func()
+	NeedsChartifyForLocalDir bool
 }
 
 func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
@@ -320,6 +912,34 @@ func (st *HelmState) downloadChartWithGoGetter(r *ReleaseSpec) (string, error) {
 	cacheDir := filepath.Join(pathElems...)
 
 	return st.goGetterChart(r.Chart, r.Directory, cacheDir, r.ForceGoGetter)
+}
+
+// downloadAdhocDepChartWithGoGetter fetches a go-getter URL referenced by an
+// ad-hoc release dependency (release.dependencies[].chart) to a local cache
+// directory and returns the local path.
+//
+// Ad-hoc dependencies were previously passed to chartify as-is. chartify then
+// tried to resolve non-local, non-OCI values via `helm repo list`, which fails
+// for go-getter URLs like "git::https://host/repo.git@path?ref=tag" with
+// "no helm list entry found for repository". This mirrors the primary-chart
+// fetch path (downloadChartWithGoGetter) so go-getter URLs work uniformly.
+// See issue #821.
+func (st *HelmState) downloadAdhocDepChartWithGoGetter(release *ReleaseSpec, chart string) (string, error) {
+	var pathElems []string
+
+	if release.Namespace != "" {
+		pathElems = append(pathElems, release.Namespace)
+	}
+
+	if release.KubeContext != "" {
+		pathElems = append(pathElems, release.KubeContext)
+	}
+
+	pathElems = append(pathElems, release.Name, "deps")
+
+	cacheDir := filepath.Join(pathElems...)
+
+	return st.goGetterChart(chart, "", cacheDir, release.ForceGoGetter)
 }
 
 func (st *HelmState) goGetterChart(chart, dir, cacheDir string, force bool) (string, error) {
@@ -372,12 +992,14 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 	if stat, _ := os.Stat(dir); stat != nil && stat.IsDir() {
 		if exists, err := st.fs.FileExists(filepath.Join(dir, "Chart.yaml")); err == nil && !exists {
 			shouldRun = true
+			c.NeedsChartifyForLocalDir = true
 		}
 	}
 
 	for _, d := range release.Dependencies {
 		chart := d.Chart
-		if st.fs.DirectoryExistsAt(chart) {
+		normalizedChart := normalizeChart(st.basePath, chart)
+		if st.fs.DirectoryExistsAt(normalizedChart) {
 			var err error
 
 			// Otherwise helm-dependency-up on the temporary chart generated by chartify ends up errors like:
@@ -388,6 +1010,23 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 			if err != nil {
 				return nil, clean, err
 			}
+		} else if rewritten, ok := st.resolveOCIAdhocDepChart(d.Chart); ok {
+			st.logger.Debugf("ad-hoc dependency %q rewritten to %q (matched OCI repo entry)", d.Chart, rewritten)
+			chart = rewritten
+		} else if remote.IsRemote(chart) {
+			// Ad-hoc dependency uses a go-getter URL (e.g.
+			// "git::https://host/repo.git@path?ref=tag"). Fetch it to a local
+			// cache directory so chartify treats it as a local chart instead of
+			// trying to resolve it via `helm repo list`, which fails with
+			// "no helm list entry found for repository" for go-getter URLs.
+			// The primary chart already does this via downloadChartWithGoGetter;
+			// this mirrors that path for ad-hoc deps. See issue #821.
+			fetched, err := st.downloadAdhocDepChartWithGoGetter(release, chart)
+			if err != nil {
+				return nil, clean, fmt.Errorf("ad-hoc dependency %q: %w", d.Chart, err)
+			}
+			st.logger.Debugf("ad-hoc dependency %q fetched to %q via go-getter", d.Chart, fetched)
+			chart = fetched
 		}
 
 		c.Opts.AdhocChartDependencies = append(c.Opts.AdhocChartDependencies, chartify.ChartDependency{
@@ -399,9 +1038,28 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		shouldRun = true
 	}
 
+	// patchTemplateData is computed lazily on first use: only when an actual string patch/transformer
+	// file path is rendered. Inline-map entries don't require template data at all, so we avoid
+	// unnecessary I/O for releases whose patches are all inline maps or that have no string entries.
+	var (
+		cachedPatchTemplateData    releaseTemplateData
+		cachedPatchTemplateDataErr error
+		cachedPatchTemplateDataSet bool
+	)
+	getPatchTemplateData := func() (releaseTemplateData, error) {
+		if !cachedPatchTemplateDataSet {
+			cachedPatchTemplateDataSet = true
+			cachedPatchTemplateData, cachedPatchTemplateDataErr = st.mergedReleaseTemplateData(release)
+			if cachedPatchTemplateDataErr != nil {
+				cachedPatchTemplateDataErr = fmt.Errorf("failed to compute merged release values for patch rendering: %w", cachedPatchTemplateDataErr)
+			}
+		}
+		return cachedPatchTemplateData, cachedPatchTemplateDataErr
+	}
+
 	jsonPatches := release.JSONPatches
 	if len(jsonPatches) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, jsonPatches)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, jsonPatches, getPatchTemplateData)
 		if err != nil {
 			return nil, clean, err
 		}
@@ -415,7 +1073,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	strategicMergePatches := release.StrategicMergePatches
 	if len(strategicMergePatches) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, strategicMergePatches)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, strategicMergePatches, getPatchTemplateData)
 		if err != nil {
 			return nil, clean, err
 		}
@@ -429,7 +1087,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	transformers := release.Transformers
 	if len(transformers) > 0 {
-		generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, transformers)
+		generatedFiles, err := st.generateTemporaryReleaseValuesFilesWithData(release, transformers, getPatchTemplateData)
 		if err != nil {
 			return nil, clean, err
 		}
@@ -472,45 +1130,12 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 }
 
 func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec, helm helmexec.Interface, ops *SyncOpts) error {
-	timeout := 5 * time.Minute
-	if release.TrackTimeout != nil && *release.TrackTimeout > 0 {
-		timeout = time.Duration(*release.TrackTimeout) * time.Second
-	} else if ops != nil && ops.TrackTimeout > 0 {
-		timeout = time.Duration(ops.TrackTimeout) * time.Second
-	}
-
-	trackLogs := release.TrackLogs != nil && *release.TrackLogs
-	if release.TrackLogs == nil && ops != nil {
-		trackLogs = ops.TrackLogs
-	}
-
-	filterConfig := &resource.FilterConfig{
-		TrackKinds:     release.TrackKinds,
-		SkipKinds:      release.SkipKinds,
-		TrackResources: convertTrackResources(release.TrackResources),
-	}
-
-	kubeContext := st.getKubeContext(release)
-
-	trackOpts := kubedog.NewTrackOptions().
-		WithTimeout(timeout).
-		WithLogs(trackLogs).
-		WithFilterConfig(filterConfig)
-
-	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
-		Logger:       st.logger,
-		Namespace:    release.Namespace,
-		KubeContext:  kubeContext,
-		Kubeconfig:   st.kubeconfig,
-		TrackOptions: trackOpts,
-		KubedogQPS:   release.KubedogQPS,
-		KubedogBurst: release.KubedogBurst,
-	})
+	tracker, _, err := st.buildReleaseTracker(release, ops, false)
 	if err != nil {
 		return fmt.Errorf("failed to create kubedog tracker: %w", err)
 	}
 
-	resources, err := st.getReleaseResources(ctx, release, helm)
+	resources, err := st.getReleaseResources(ctx, release, helm, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get release resources: %w", err)
 	}
@@ -521,6 +1146,9 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 	}
 
 	st.logger.Infof("Tracking %d resources from release %s with kubedog", len(resources), release.Name)
+	if _, breakdown := tracker.PreviewBreakdown(resources); breakdown != "" {
+		st.logger.Infof("Tracking breakdown: %s", breakdown)
+	}
 
 	if err := tracker.TrackResources(ctx, resources); err != nil {
 		return fmt.Errorf("kubedog tracking failed for release %s: %w", release.Name, err)
@@ -529,7 +1157,15 @@ func (st *HelmState) trackWithKubedog(ctx context.Context, release *ReleaseSpec,
 	return nil
 }
 
-func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec, helm helmexec.Interface) ([]*resource.Resource, error) {
+// getReleaseResources templates a release and returns its parsed resources.
+// outLogger is the logger to use for the user-visible "Found N resources"
+// (and No-manifest / No-resources) messages — pass a buffered logger when
+// the caller wants to flush all per-release preamble output as one atomic
+// block, otherwise pass nil to use st.logger directly.
+func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec, helm helmexec.Interface, outLogger *zap.SugaredLogger) ([]*resource.Resource, error) {
+	if outLogger == nil {
+		outLogger = st.logger
+	}
 	st.logger.Debugf("Getting resources for release %s", release.Name)
 
 	manifest, namespace, err := st.getReleaseManifest(release, helm)
@@ -538,7 +1174,7 @@ func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec
 	}
 
 	if len(manifest) == 0 {
-		st.logger.Infof("No manifest found for release %s", release.Name)
+		outLogger.Infof("No manifest found for release %s", release.Name)
 		return nil, nil
 	}
 
@@ -553,11 +1189,11 @@ func (st *HelmState) getReleaseResources(_ context.Context, release *ReleaseSpec
 	}
 
 	if len(resources) == 0 {
-		st.logger.Infof("No resources found in manifest for release %s", release.Name)
+		outLogger.Infof("No resources found in manifest for release %s", release.Name)
 		return nil, nil
 	}
 
-	st.logger.Infof("Found %d resources in manifest for release %s", len(resources), release.Name)
+	outLogger.Infof("Found %d resources in manifest for release %s", len(resources), release.Name)
 
 	result := make([]*resource.Resource, len(resources))
 	for i := range resources {

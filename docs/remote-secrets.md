@@ -80,6 +80,8 @@ HELMFILE_DISABLE_VALS_STRICT=true helmfile sync
 
 Note: If both are set, strict mode takes precedence.
 
+Strict mode detects any `ref+<provider>://` or `secretref+<provider>://` expression, including nested ones in maps and arrays. Plain strings that merely contain the text `ref+` (without a provider scheme) are not vals references and do not trigger the error.
+
 ### Validating ref+ expressions with conftest
 
 You can use `HELMFILE_DISABLE_VALS=true` with [conftest](https://www.conftest.dev/) to validate that all `ref+` expressions conform to your security policy before processing them.

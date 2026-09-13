@@ -1,0 +1,17 @@
+values:
+  - defaults.yaml
+
+---
+releases:
+  - name: test
+    chart: ../../../charts/raw
+    values:
+      - templates:
+          - |
+            {{- range $item := .Values.list }}
+            ---
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: {{ $item.name }}
+            {{- end }}

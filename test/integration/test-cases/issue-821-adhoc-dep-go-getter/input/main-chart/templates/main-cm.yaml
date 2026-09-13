@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: issue-821-main-cm
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  source: main-chart

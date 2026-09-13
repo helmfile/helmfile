@@ -35,42 +35,46 @@ func TestGenerateID(t *testing.T) {
 		})
 	}
 
+	// NOTE: These hashes are derived from the full ReleaseSpec struct via
+	// generateValuesID -> HashObject. Adding or renaming fields on ReleaseSpec
+	// (even nil-defaulted pointer fields like ResolveOCIVersions) shifts every
+	// expected hash below. Regenerate the values whenever the struct changes.
 	run(testcase{
 		subject: "baseline",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw"},
-		want:    "foo-values-6d799cf798",
+		want:    "foo-values-577699c466",
 	})
 
 	run(testcase{
 		subject: "different bytes content",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw"},
 		data:    []byte(`{"k":"v"}`),
-		want:    "foo-values-7f885447bf",
+		want:    "foo-values-c7dc8bf7",
 	})
 
 	run(testcase{
 		subject: "different map content",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw"},
 		data:    map[string]any{"k": "v"},
-		want:    "foo-values-86f5d8fb55",
+		want:    "foo-values-84744c8675",
 	})
 
 	run(testcase{
 		subject: "different chart",
 		release: ReleaseSpec{Name: "foo", Chart: "stable/envoy"},
-		want:    "foo-values-5cd5c65db5",
+		want:    "foo-values-76c9d7ccff",
 	})
 
 	run(testcase{
 		subject: "different name",
 		release: ReleaseSpec{Name: "bar", Chart: "incubator/raw"},
-		want:    "bar-values-c59b4f979",
+		want:    "bar-values-55d5975ccf",
 	})
 
 	run(testcase{
 		subject: "specific ns",
 		release: ReleaseSpec{Name: "foo", Chart: "incubator/raw", Namespace: "myns"},
-		want:    "myns-foo-values-56d6cd88cc",
+		want:    "myns-foo-values-7956fd86dc",
 	})
 
 	for id, n := range ids {

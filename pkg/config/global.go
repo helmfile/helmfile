@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"go.uber.org/zap"
 	"golang.org/x/term"
@@ -34,6 +35,8 @@ type GlobalOptions struct {
 	SkipDeps bool
 	// SkipRefresh is true if the running "helm repo update" should be skipped
 	SkipRefresh bool
+	// AllowFailedReleases is true if partial errors during release processing are allowed
+	AllowFailedReleases bool
 	// StripArgsValuesOnExitError is true if the ARGS output on exit error should be suppressed
 	StripArgsValuesOnExitError bool
 	// DisableForceUpdate is true if force updating repos is not desirable when executing "helm repo add" (Helm 3)
@@ -42,6 +45,11 @@ type GlobalOptions struct {
 	EnforcePluginVerification bool
 	// HelmOCIPlainHTTP is true if Helm should use plain HTTP for OCI registries
 	HelmOCIPlainHTTP bool
+	// RepoRetry is the number of times to retry "helm repo add/update" and
+	// "helm registry login" on failure with exponential backoff.
+	// A negative value (the CLI default sentinel) means "unset" and falls back
+	// to the HELMFILE_REPO_RETRIES env var; 0 explicitly disables retries.
+	RepoRetry int
 	// Quiet is true if the output should be quiet.
 	Quiet bool
 	// Kubeconfig is the path to the kubeconfig file to use.
@@ -76,6 +84,8 @@ type GlobalOptions struct {
 	LogOutput io.Writer
 	// SequentialHelmfiles is true if helmfile.d files should be processed sequentially instead of in parallel.
 	SequentialHelmfiles bool
+	// OtelTracing is true if OpenTelemetry tracing should be enabled for this run.
+	OtelTracing bool
 }
 
 // Logger returns the logger to use.
@@ -109,12 +119,63 @@ func (g *GlobalImpl) SetSet(set map[string]any) {
 
 // HelmBinary returns the path to the Helm binary.
 func (g *GlobalImpl) HelmBinary() string {
-	return g.GlobalOptions.HelmBinary
+	var helmBinary string
+
+	switch {
+	case g.GlobalOptions.HelmBinary != "":
+		helmBinary = g.GlobalOptions.HelmBinary
+	case os.Getenv("HELMFILE_HELM_BINARY") != "":
+		helmBinary = os.Getenv("HELMFILE_HELM_BINARY")
+	default:
+		helmBinary = state.DefaultHelmBinary
+	}
+	return helmBinary
 }
 
 // KustomizeBinary returns the path to the Kustomize binary.
 func (g *GlobalImpl) KustomizeBinary() string {
-	return g.GlobalOptions.KustomizeBinary
+	var kustomizeBinary string
+
+	switch {
+	case g.GlobalOptions.KustomizeBinary != "":
+		kustomizeBinary = g.GlobalOptions.KustomizeBinary
+	case os.Getenv("HELMFILE_KUSTOMIZE_BINARY") != "":
+		kustomizeBinary = os.Getenv("HELMFILE_KUSTOMIZE_BINARY")
+	default:
+		kustomizeBinary = state.DefaultKustomizeBinary
+	}
+	return kustomizeBinary
+}
+
+// LogLevel returns the log level to use.
+func (g *GlobalImpl) LogLevel() string {
+	var logLevel string
+
+	switch {
+	case g.GlobalOptions.LogLevel != "":
+		logLevel = g.GlobalOptions.LogLevel
+	case os.Getenv("HELMFILE_LOG_LEVEL") != "":
+		logLevel = os.Getenv("HELMFILE_LOG_LEVEL")
+	default:
+		logLevel = "info"
+	}
+	return logLevel
+}
+
+// Debug returns whether debug output is enabled.
+func (g *GlobalImpl) Debug() bool {
+	if g.GlobalOptions.Debug {
+		return true
+	}
+	return os.Getenv(envvar.Debug) == "true"
+}
+
+// Quiet returns whether quiet output is enabled.
+func (g *GlobalImpl) Quiet() bool {
+	if g.GlobalOptions.Quiet {
+		return true
+	}
+	return os.Getenv(envvar.Quiet) == "true"
 }
 
 // Kubeconfig returns the path to the kubeconfig file to use.
@@ -124,12 +185,32 @@ func (g *GlobalImpl) Kubeconfig() string {
 
 // KubeContext returns the name of the kubectl context to use.
 func (g *GlobalImpl) KubeContext() string {
-	return g.GlobalOptions.KubeContext
+	var kubeContext string
+
+	switch {
+	case g.GlobalOptions.KubeContext != "":
+		kubeContext = g.GlobalOptions.KubeContext
+	case os.Getenv("HELMFILE_KUBE_CONTEXT") != "":
+		kubeContext = os.Getenv("HELMFILE_KUBE_CONTEXT")
+	default:
+		kubeContext = ""
+	}
+	return kubeContext
 }
 
 // Namespace returns the namespace to use.
 func (g *GlobalImpl) Namespace() string {
-	return g.GlobalOptions.Namespace
+	var namespace string
+
+	switch {
+	case g.GlobalOptions.Namespace != "":
+		namespace = g.GlobalOptions.Namespace
+	case os.Getenv("HELMFILE_NAMESPACE") != "":
+		namespace = os.Getenv("HELMFILE_NAMESPACE")
+	default:
+		namespace = ""
+	}
+	return namespace
 }
 
 // Chart returns the chart to use.
@@ -187,6 +268,11 @@ func (g *GlobalImpl) SkipRefresh() bool {
 	return g.GlobalOptions.SkipRefresh
 }
 
+// AllowFailedReleases returns true if partial errors during release processing are allowed
+func (g *GlobalImpl) AllowFailedReleases() bool {
+	return g.GlobalOptions.AllowFailedReleases
+}
+
 // StripArgsValuesOnExitError return if the ARGS output on exit error should be suppressed
 func (g *GlobalImpl) StripArgsValuesOnExitError() bool {
 	return g.GlobalOptions.StripArgsValuesOnExitError
@@ -207,6 +293,21 @@ func (g *GlobalImpl) HelmOCIPlainHTTP() bool {
 	return g.GlobalOptions.HelmOCIPlainHTTP
 }
 
+// RepoRetry returns the number of times to retry helm repo and registry login
+// operations on failure, with exponential backoff. A negative value means the
+// flag was not specified, so the HELMFILE_REPO_RETRIES env var is consulted;
+// this lets --repo-retries=0 explicitly disable retries even when the env var
+// is set.
+func (g *GlobalImpl) RepoRetry() int {
+	if g.GlobalOptions.RepoRetry >= 0 {
+		return g.GlobalOptions.RepoRetry
+	}
+	if v, err := strconv.Atoi(os.Getenv(envvar.RepoRetry)); err == nil && v > 0 {
+		return v
+	}
+	return 0
+}
+
 // SequentialHelmfiles returns whether to process helmfile.d files sequentially
 func (g *GlobalImpl) SequentialHelmfiles() bool {
 	return g.GlobalOptions.SequentialHelmfiles
@@ -222,7 +323,7 @@ func (g *GlobalImpl) Color() bool {
 		return c
 	}
 
-	if g.GlobalOptions.NoColor {
+	if g.NoColor() {
 		return false
 	}
 
@@ -239,7 +340,18 @@ func (g *GlobalImpl) Color() bool {
 
 // NoColor returns the no color flag
 func (g *GlobalImpl) NoColor() bool {
-	return g.GlobalOptions.NoColor
+	if g.GlobalOptions.NoColor {
+		return true
+	}
+	// Explicit --color short-circuits env-derived no-color: a flag must win over an env var.
+	if g.GlobalOptions.Color {
+		return false
+	}
+	if os.Getenv(envvar.NoColor) == "true" {
+		return true
+	}
+	// Honor the de-facto https://no-color.org/ standard: any non-empty value disables color.
+	return os.Getenv("NO_COLOR") != ""
 }
 
 // Env returns the environment to use.
@@ -273,10 +385,19 @@ func (g *GlobalImpl) Interactive() bool {
 	return os.Getenv(envvar.Interactive) == "true"
 }
 
+// OtelTracing returns true if OpenTelemetry tracing is enabled via the
+// --otel-tracing flag or the HELMFILE_OTEL_TRACING environment variable.
+func (g *GlobalImpl) OtelTracing() bool {
+	if g.GlobalOptions.OtelTracing {
+		return true
+	}
+	return os.Getenv(envvar.OtelTracing) == "true"
+}
+
 // Args returns the args to use for helm
 func (g *GlobalImpl) Args() string {
 	args := g.GlobalOptions.Args
-	enableHelmDebug := g.Debug
+	enableHelmDebug := g.Debug()
 
 	if enableHelmDebug {
 		args = fmt.Sprintf("%s %s", args, "--debug")

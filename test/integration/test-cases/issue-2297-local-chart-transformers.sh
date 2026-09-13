@@ -31,8 +31,8 @@ cd "${issue_2297_input_dir}"
 
 # This should succeed - before the fix it would fail with:
 # "helm pull ../chart --untar" fails with "repo .. not found"
-${helmfile_real} template > "${issue_2297_tmp}/output.yaml" 2>&1
-result=$?
+result=0
+${helmfile_real} template > "${issue_2297_tmp}/output.yaml" 2>&1 || result=$?
 
 cd - > /dev/null
 

@@ -51,6 +51,8 @@ type SyncOptions struct {
 	HideNotes bool
 	// TakeOwnership is the take ownership flag
 	TakeOwnership bool
+	// ServerSide controls the helm 4 --server-side flag. Must be "true", "false", or "auto".
+	ServerSide string
 	// SyncReleaseLabels is the sync release labels flag
 	SyncReleaseLabels bool
 	// TrackMode specifies whether to use 'helm' or 'kubedog' for tracking resources
@@ -59,6 +61,34 @@ type SyncOptions struct {
 	TrackTimeout int
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs bool
+	// TrackFailedLogs streams logs only for pods that enter a failed state.
+	TrackFailedLogs bool
+	// HelmStuckGrace, when > 0, enables the helm-killer safety valve. See
+	// ReleaseSpec.HelmStuckGrace for details. Value is in seconds.
+	HelmStuckGrace int
+	// TrackFailOnError controls whether kubedog tracking failures cause a non-zero exit code
+	TrackFailOnError bool
+	// Description is the description that will be passed to helm upgrade --description
+	Description string
+	// TemplateArgs are extra args appended to the helm template run by chartify
+	// during chart preparation (e.g. "--dry-run=server" for lookup() support).
+	TemplateArgs string
+
+	// Diff-related options for --interactive mode
+	SuppressOutputLineRegex     []string
+	IncludeTests                bool
+	Suppress                    []string
+	SuppressSecrets             bool
+	ShowSecrets                 bool
+	NoHooks                     bool
+	SuppressDiff                bool
+	SkipDiffOnInstall           bool
+	SkipDiffValidationOnInstall bool
+	DiffArgs                    string
+	DetailedExitcode            bool
+	StripTrailingCR             bool
+	Context                     int
+	DiffOutput                  string
 }
 
 // NewSyncOptions creates a new Apply
@@ -195,6 +225,11 @@ func (t *SyncImpl) TakeOwnership() bool {
 	return t.SyncOptions.TakeOwnership
 }
 
+// ServerSide returns the server-side value.
+func (t *SyncImpl) ServerSide() string {
+	return t.SyncOptions.ServerSide
+}
+
 func (t *SyncImpl) SyncReleaseLabels() bool {
 	return t.SyncOptions.SyncReleaseLabels
 }
@@ -212,6 +247,101 @@ func (t *SyncImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (t *SyncImpl) TrackLogs() bool {
 	return t.SyncOptions.TrackLogs
+}
+
+// TrackFailedLogs returns the track-failed-logs flag.
+func (t *SyncImpl) TrackFailedLogs() bool {
+	return t.SyncOptions.TrackFailedLogs
+}
+
+// HelmStuckGrace returns the helm-stuck-grace value (seconds, 0 = disabled).
+func (t *SyncImpl) HelmStuckGrace() int {
+	return t.SyncOptions.HelmStuckGrace
+}
+
+// TrackFailOnError returns whether kubedog tracking failures should cause a non-zero exit code.
+func (t *SyncImpl) TrackFailOnError() bool {
+	return t.SyncOptions.TrackFailOnError
+}
+
+// Description returns the description.
+func (t *SyncImpl) Description() string {
+	return t.SyncOptions.Description
+}
+
+// SuppressOutputLineRegex returns the SuppressOutputLineRegex.
+func (t *SyncImpl) SuppressOutputLineRegex() []string {
+	return t.SyncOptions.SuppressOutputLineRegex
+}
+
+// IncludeTests returns the IncludeTests.
+func (t *SyncImpl) IncludeTests() bool {
+	return t.SyncOptions.IncludeTests
+}
+
+// Suppress returns the Suppress.
+func (t *SyncImpl) Suppress() []string {
+	return t.SyncOptions.Suppress
+}
+
+// SuppressSecrets returns the SuppressSecrets.
+func (t *SyncImpl) SuppressSecrets() bool {
+	return t.SyncOptions.SuppressSecrets
+}
+
+// ShowSecrets returns the ShowSecrets.
+func (t *SyncImpl) ShowSecrets() bool {
+	return t.SyncOptions.ShowSecrets
+}
+
+// NoHooks returns the NoHooks.
+func (t *SyncImpl) NoHooks() bool {
+	return t.SyncOptions.NoHooks
+}
+
+// SuppressDiff returns the SuppressDiff.
+func (t *SyncImpl) SuppressDiff() bool {
+	return t.SyncOptions.SuppressDiff
+}
+
+// SkipDiffOnInstall returns the SkipDiffOnInstall.
+func (t *SyncImpl) SkipDiffOnInstall() bool {
+	return t.SyncOptions.SkipDiffOnInstall
+}
+
+// SkipDiffValidationOnInstall returns the SkipDiffValidationOnInstall.
+func (t *SyncImpl) SkipDiffValidationOnInstall() bool {
+	return t.SyncOptions.SkipDiffValidationOnInstall
+}
+
+// DiffArgs returns the DiffArgs.
+func (t *SyncImpl) DiffArgs() string {
+	return t.SyncOptions.DiffArgs
+}
+
+// DetailedExitcode returns the DetailedExitcode.
+func (t *SyncImpl) DetailedExitcode() bool {
+	return t.SyncOptions.DetailedExitcode
+}
+
+// StripTrailingCR returns the StripTrailingCR.
+func (t *SyncImpl) StripTrailingCR() bool {
+	return t.SyncOptions.StripTrailingCR
+}
+
+// Context returns the Context.
+func (t *SyncImpl) Context() int {
+	return t.SyncOptions.Context
+}
+
+// DiffOutput returns the DiffOutput.
+func (t *SyncImpl) DiffOutput() string {
+	return t.SyncOptions.DiffOutput
+}
+
+// TemplateArgs returns extra args to pass to chartify's helm template.
+func (t *SyncImpl) TemplateArgs() string {
+	return t.SyncOptions.TemplateArgs
 }
 
 func (t *SyncImpl) ValidateConfig() error {

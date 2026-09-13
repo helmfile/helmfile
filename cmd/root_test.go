@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/config"
 	"github.com/helmfile/helmfile/pkg/errors"
@@ -69,4 +70,15 @@ func TestToCLIError(t *testing.T) {
 			assert.Contains(t, exitErr.Error(), tt.wantMsgContains)
 		})
 	}
+}
+
+func TestRootCmdRegistersOtelTracingFlag(t *testing.T) {
+	rootCmd, err := NewRootCmd(&config.GlobalOptions{})
+	require.NoError(t, err)
+
+	flag := rootCmd.PersistentFlags().Lookup("otel-tracing")
+	require.NotNil(t, flag, "--otel-tracing flag should be registered")
+	assert.Equal(t, "bool", flag.Value.Type())
+	assert.Equal(t, "false", flag.DefValue)
+	assert.Contains(t, flag.Usage, "HELMFILE_OTEL_TRACING")
 }

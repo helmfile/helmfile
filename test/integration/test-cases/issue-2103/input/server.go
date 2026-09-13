@@ -1,5 +1,10 @@
 // server.go is a small HTTP server used by the issue-2103 integration test.
 // It serves different YAML content based on the "ref" query parameter.
+// It is excluded from normal `go test ./...` runs; the integration test builds it
+// explicitly via its file path.
+
+//go:build ignore
+
 package main
 
 import (

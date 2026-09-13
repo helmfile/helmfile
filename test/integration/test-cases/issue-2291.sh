@@ -24,8 +24,8 @@ test_start "issue-2291: CRDs preserved with strategicMergePatches"
 
 # Test 1: Template the chart to verify CRDs are included
 info "Step 1: Templating chart to verify CRD structure"
-${helmfile} -f "${issue_2291_input_dir}/helmfile.yaml" template > "${issue_2291_tmp_dir}/templated.yaml" 2>&1
-code=$?
+code=0
+${helmfile} -f "${issue_2291_input_dir}/helmfile.yaml" template > "${issue_2291_tmp_dir}/templated.yaml" 2>&1 || code=$?
 
 if [ $code -ne 0 ]; then
   cat "${issue_2291_tmp_dir}/templated.yaml"
@@ -50,8 +50,8 @@ info "✓ CRD testresources.test.io found"
 
 # Test 2: Apply the chart with strategicMergePatches
 info "Step 2: Applying chart with strategicMergePatches"
-${helmfile} -f "${issue_2291_input_dir}/helmfile.yaml" apply --suppress-diff > "${issue_2291_tmp_dir}/apply.txt" 2>&1
-code=$?
+code=0
+${helmfile} -f "${issue_2291_input_dir}/helmfile.yaml" apply --suppress-diff > "${issue_2291_tmp_dir}/apply.txt" 2>&1 || code=$?
 
 if [ $code -ne 0 ]; then
   cat "${issue_2291_tmp_dir}/apply.txt"

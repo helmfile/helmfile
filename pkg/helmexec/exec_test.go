@@ -2,6 +2,7 @@ package helmexec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
@@ -18,20 +20,61 @@ import (
 	"go.uber.org/zap"
 )
 
+// pluginCmd is the "plugin" helm subcommand used repeatedly across these tests.
+// Extracted as constants so the repeated string literals do not trip goconst
+// (min-occurrences: 8) once additional plugin tests are added.
+const (
+	pluginCmd  = "plugin"
+	installCmd = "install"
+)
+
 // Mocking the command-line runner
 
 type mockRunner struct {
-	output []byte
-	err    error
+	output        []byte
+	versionOutput []byte // if set, returned for "helm version --short" probe; overrides default Helm 4 fallback
+	err           error
+	// failCount is the number of times Execute/ExecuteStdIn fail (with
+	// errTransientNet) before succeeding. Used to exercise retry logic.
+	failCount int
+	calls     int
+	// stdins records the stdin content passed to each ExecuteStdIn call,
+	// so tests can assert that retries still pass the full payload (e.g. the
+	// password is not consumed by a prior attempt).
+	stdins []string
+	// execArgs records the args passed to each Execute/ExecuteStdIn call, so
+	// tests can assert that retries don't accumulate duplicated flags.
+	execArgs [][]string
 }
 
+var errTransientNet = fmt.Errorf("transient network error")
+
 func (mock *mockRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	mock.calls++
+	mock.execArgs = append(mock.execArgs, append([]string{}, args...))
+	if stdin != nil {
+		b, _ := io.ReadAll(stdin)
+		mock.stdins = append(mock.stdins, string(b))
+	}
+	if mock.failCount > 0 && mock.calls <= mock.failCount {
+		return nil, errTransientNet
+	}
 	return mock.output, mock.err
 }
 
 func (mock *mockRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-	if len(mock.output) == 0 && strings.Join(args, " ") == "version --short" {
-		return []byte("v4.0.1+g12500dd"), nil
+	if strings.Join(args, " ") == "version --short" {
+		if mock.versionOutput != nil {
+			return mock.versionOutput, nil
+		}
+		if len(mock.output) == 0 {
+			return []byte("v4.0.1+g12500dd"), nil
+		}
+	}
+	mock.calls++
+	mock.execArgs = append(mock.execArgs, append([]string{}, args...))
+	if mock.failCount > 0 && mock.calls <= mock.failCount {
+		return nil, errTransientNet
 	}
 	return mock.output, mock.err
 }
@@ -254,8 +297,8 @@ exec: az acr helm repo add --name acrRepo:
 	err = helm.AddRepo("otherRepo", "", "", "", "", "", "", "unknown", false, false)
 	expected = `ERROR: unknown type 'unknown' for repository otherRepo
 `
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Errorf("expected error for unknown managed type, got nil")
 	}
 	if buffer.String() != expected {
 		t.Errorf("helmexec.AddRepo()\nactual = %v\nexpect = %v", buffer.String(), expected)
@@ -379,6 +422,201 @@ exec: helm --kubeconfig config --kube-context dev registry login repo.example.co
 	}
 	if buffer.String() != expected {
 		t.Errorf("helmexec.RegistryLogin()\nactual = %v\nexpect = %v", buffer.String(), expected)
+	}
+}
+
+// newRetryExecer builds an execer with the given RepoRetry option and a
+// mockRunner that fails failCount times before succeeding.
+func newRetryExecer(t *testing.T, repoRetry, failCount int) (*execer, *mockRunner) {
+	t.Helper()
+	logger := NewLogger(os.Stdout, "debug")
+	runner := &mockRunner{failCount: failCount}
+	helm, err := New("helm", HelmExecOptions{RepoRetry: repoRetry}, logger, "config", "dev", runner)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	return helm, runner
+}
+
+// withTestBackoff shrinks repoRetryBaseBackoff for the test's duration so retry
+// tests don't sleep for real. The restore is via t.Cleanup so it always runs.
+func withTestBackoff(t *testing.T) {
+	t.Helper()
+	original := repoRetryBaseBackoff
+	repoRetryBaseBackoff = time.Millisecond
+	t.Cleanup(func() { repoRetryBaseBackoff = original })
+}
+
+// retryTestCase is the shared shape for the AddRepo/UpdateRepo/RegistryLogin
+// retry table tests.
+type retryTestCase struct {
+	name      string
+	repoRetry int
+	failCount int
+	wantErr   bool
+	wantCalls int // expected number of exec (non-version) calls
+	managed   string
+}
+
+func runRetryCases(t *testing.T, run func(*testing.T, *execer, *mockRunner, retryTestCase), cases []retryTestCase) {
+	t.Helper()
+	withTestBackoff(t)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			helm, runner := newRetryExecer(t, tt.repoRetry, tt.failCount)
+			run(t, helm, runner, tt)
+			if runner.calls != tt.wantCalls {
+				t.Errorf("runner.calls = %d, want %d", runner.calls, tt.wantCalls)
+			}
+		})
+	}
+}
+
+func Test_AddRepo_Retry(t *testing.T) {
+	runRetryCases(t, func(t *testing.T, helm *execer, runner *mockRunner, tt retryTestCase) {
+		err := helm.AddRepo("myRepo", "https://repo.example.com/", "", "", "", "user", "pass", tt.managed, false, false)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("AddRepo() error = %v, wantErr %v", err, tt.wantErr)
+		}
+		// For the normal (non-acr) path, each attempt's args must contain
+		// --username exactly once: guards against the username/password flags
+		// accumulating across retries.
+		if tt.managed == "" {
+			for i, a := range runner.execArgs {
+				if c := strings.Count(strings.Join(a, " "), "--username"); c != 1 {
+					t.Errorf("AddRepo() attempt %d: --username count = %d, want 1 (args=%v)", i+1, c, a)
+				}
+			}
+		}
+	}, []retryTestCase{
+		{name: "succeeds after one retry", repoRetry: 2, failCount: 1, wantErr: false, wantCalls: 2},
+		{name: "retries exhausted", repoRetry: 1, failCount: 2, wantErr: true, wantCalls: 2},
+		{name: "retry disabled runs once", repoRetry: 0, failCount: 1, wantErr: true, wantCalls: 1},
+		{name: "acr managed retries", repoRetry: 3, failCount: 2, wantErr: false, wantCalls: 3, managed: "acr"},
+	})
+}
+
+func Test_UpdateRepo_Retry(t *testing.T) {
+	runRetryCases(t, func(t *testing.T, helm *execer, _ *mockRunner, tt retryTestCase) {
+		err := helm.UpdateRepo()
+		if (err != nil) != tt.wantErr {
+			t.Errorf("UpdateRepo() error = %v, wantErr %v", err, tt.wantErr)
+		}
+	}, []retryTestCase{
+		{name: "succeeds after one retry", repoRetry: 2, failCount: 1, wantErr: false, wantCalls: 2},
+		{name: "retries exhausted", repoRetry: 1, failCount: 2, wantErr: true, wantCalls: 2},
+		{name: "retry disabled runs once", repoRetry: 0, failCount: 1, wantErr: true, wantCalls: 1},
+	})
+}
+
+func Test_RegistryLogin_Retry(t *testing.T) {
+	runRetryCases(t, func(t *testing.T, helm *execer, runner *mockRunner, tt retryTestCase) {
+		err := helm.RegistryLogin("repo.example.com", "user", "pass", "", "", "", false)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("RegistryLogin() error = %v, wantErr %v", err, tt.wantErr)
+		}
+		// Every attempt must carry the full password (regression guard:
+		// the password buffer must not be consumed by a prior attempt).
+		for i, s := range runner.stdins {
+			if s != "pass\n" {
+				t.Errorf("RegistryLogin() attempt %d stdin = %q, want %q", i+1, s, "pass\n")
+			}
+		}
+	}, []retryTestCase{
+		{name: "succeeds after one retry", repoRetry: 2, failCount: 1, wantErr: false, wantCalls: 2},
+		{name: "retries exhausted", repoRetry: 1, failCount: 2, wantErr: true, wantCalls: 2},
+		{name: "retry disabled runs once", repoRetry: 0, failCount: 1, wantErr: true, wantCalls: 1},
+	})
+}
+
+// Test_Retry_LargeCount_NoOverflow verifies that a large --repo-retries value
+// doesn't overflow the backoff duration (the shift exponent must be capped).
+func Test_Retry_LargeCount_NoOverflow(t *testing.T) {
+	withTestBackoff(t)
+	// failCount > repoRetry so every attempt fails; attempt indices exceed the
+	// shift cap of 5, exercising the overflow guard without panicking.
+	const retries = 10
+	helm, runner := newRetryExecer(t, retries, retries+1)
+	err := helm.UpdateRepo()
+	if err == nil {
+		t.Fatal("UpdateRepo() expected error, got nil")
+	}
+	if runner.calls != retries+1 { // 1 initial + retries
+		t.Errorf("runner.calls = %d, want %d", runner.calls, retries+1)
+	}
+}
+
+// Test_SleepCtx_Canceled verifies sleepCtx returns promptly (and false) when
+// the runner's context is already canceled, rather than blocking for the full
+// duration.
+func Test_SleepCtx_Canceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+	helm := &execer{
+		runner: &ShellRunner{Ctx: ctx},
+		logger: NewLogger(io.Discard, "debug"),
+	}
+	start := time.Now()
+	completed := helm.sleepCtx(30 * time.Second)
+	elapsed := time.Since(start)
+	if completed {
+		t.Error("sleepCtx() = true with a canceled context; want false")
+	}
+	if elapsed > time.Second {
+		t.Errorf("sleepCtx blocked for %v with a canceled context; expected prompt return", elapsed)
+	}
+}
+
+// Test_SleepCtx_NoContext verifies sleepCtx falls back to time.Sleep (returning
+// true) when the runner has no context (e.g. mockRunner).
+func Test_SleepCtx_NoContext(t *testing.T) {
+	helm := &execer{
+		runner: &mockRunner{},
+		logger: NewLogger(io.Discard, "debug"),
+	}
+	start := time.Now()
+	completed := helm.sleepCtx(5 * time.Millisecond)
+	elapsed := time.Since(start)
+	if !completed {
+		t.Error("sleepCtx() = false without a context; want true")
+	}
+	if elapsed < 4*time.Millisecond {
+		t.Errorf("sleepCtx returned in %v without a context; expected to sleep ~5ms", elapsed)
+	}
+}
+
+// Test_Retry_AbortsOnCanceledContext verifies that retryRepoOp stops retrying
+// once the runner's context is canceled, rather than spinning into a tight
+// loop of rapid helm invocations.
+func Test_Retry_AbortsOnCanceledContext(t *testing.T) {
+	withTestBackoff(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runner := &mockRunner{failCount: 100} // always fails
+	helm := &execer{
+		options: HelmExecOptions{RepoRetry: 100},
+		version: semver.MustParse("v4.0.1"),
+		runner:  &ShellRunner{Ctx: ctx},
+		logger:  NewLogger(io.Discard, "debug"),
+	}
+	// Cancel deterministically inside the op after the first attempt runs, so
+	// the retry loop must bail out at sleepCtx — no timing-based flakiness.
+	calls := 0
+	_, err := helm.retryRepoOp("test", func() ([]byte, error) {
+		calls++
+		out, e := runner.Execute("helm", []string{"repo", "update"}, nil, false)
+		if calls == 1 {
+			cancel()
+		}
+		return out, e
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	// The context is canceled during the first attempt; sleepCtx must observe
+	// it and abort, so only the first attempt should run.
+	if calls > 2 {
+		t.Errorf("calls = %d after cancellation; expected <= 2 (no tight loop)", calls)
 	}
 }
 
@@ -944,7 +1182,7 @@ func Test_exec(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	env := map[string]string{}
-	_, err = helm.exec([]string{"version"}, env, nil)
+	_, err = helm.exec([]string{"version"}, env)
 	expected := `exec: helm version
 `
 	if err != nil {
@@ -958,7 +1196,7 @@ func Test_exec(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	ret, _ := helm.exec([]string{"diff"}, env, nil)
+	ret, _ := helm.exec([]string{"diff"}, env)
 	if len(ret) != 0 {
 		t.Error("helmexec.exec() - expected empty return value")
 	}
@@ -968,7 +1206,7 @@ func Test_exec(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	_, err = helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs"}, env, nil)
+	_, err = helm.exec([]string{"diff", "release", "chart", "--timeout 10", "--wait", "--wait-for-jobs"}, env)
 	expected = `exec: helm --kubeconfig config --kube-context dev diff release chart --timeout 10 --wait --wait-for-jobs
 `
 	if err != nil {
@@ -979,7 +1217,7 @@ func Test_exec(t *testing.T) {
 	}
 
 	buffer.Reset()
-	_, err = helm.exec([]string{"version"}, env, nil)
+	_, err = helm.exec([]string{"version"}, env)
 	expected = `exec: helm --kubeconfig config --kube-context dev version
 `
 	if err != nil {
@@ -991,7 +1229,7 @@ func Test_exec(t *testing.T) {
 
 	buffer.Reset()
 	helm.SetExtraArgs("foo")
-	_, err = helm.exec([]string{"version"}, env, nil)
+	_, err = helm.exec([]string{"version"}, env)
 	expected = `exec: helm --kubeconfig config --kube-context dev version foo
 `
 	if err != nil {
@@ -1007,7 +1245,7 @@ func Test_exec(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	helm.SetHelmBinary("overwritten")
-	_, err = helm.exec([]string{"version"}, env, nil)
+	_, err = helm.exec([]string{"version"}, env)
 	expected = `exec: overwritten version
 `
 	if err != nil {
@@ -1255,6 +1493,64 @@ exec: helm --kubeconfig config --kube-context dev template release https://examp
 	}
 }
 
+func Test_Template_PostRendererWithOutputDir(t *testing.T) {
+	tests := []struct {
+		name             string
+		postRendererFlag string
+	}{
+		{"separate flags", "--post-renderer"},
+		{"combined flag", "--post-renderer=/bin/echo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			var buffer bytes.Buffer
+			logger := NewLogger(&buffer, "debug")
+
+			// Use Helm 3 version for the version probe so the Helm 3 workaround is applied.
+			// The workaround is not needed for Helm 4, which natively applies --post-renderer to --output-dir output.
+			runner := &mockRunner{versionOutput: []byte("v3.20.0")}
+			helm, err := New("helm", HelmExecOptions{}, logger, "config", "dev", runner)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			runner.output = []byte("apiVersion: v1\nkind: Namespace\n")
+
+			var flags []string
+			if tt.postRendererFlag == "--post-renderer" {
+				flags = []string{"--post-renderer", "/bin/echo", "--output-dir", tmpDir, "--values", "file.yml"}
+			} else {
+				flags = []string{tt.postRendererFlag, "--output-dir", tmpDir, "--values", "file.yml"}
+			}
+
+			err = helm.TemplateRelease("myrelease", "path/to/chart", flags...)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			outputPath := filepath.Join(tmpDir, "templates", "myrelease.yaml")
+			data, err := os.ReadFile(outputPath)
+			if err != nil {
+				t.Fatalf("expected output file %s to exist: %v", outputPath, err)
+			}
+
+			expected := "apiVersion: v1\nkind: Namespace\n\n"
+			if string(data) != expected {
+				t.Errorf("output file content:\nactual=%q\nexpect=%q", string(data), expected)
+			}
+
+			outputLog := buffer.String()
+			if strings.Contains(outputLog, "--output-dir") {
+				t.Errorf("helm should NOT have been called with --output-dir, got: %s", outputLog)
+			}
+			if !strings.Contains(outputLog, "--post-renderer") {
+				t.Errorf("helm should have been called with --post-renderer, got: %s", outputLog)
+			}
+		})
+	}
+}
+
 func Test_IsHelm3(t *testing.T) {
 	helm3Runner := mockRunner{output: []byte("v3.0.0+ge29ce2a\n")}
 	helm, err := New("helm", HelmExecOptions{}, NewLogger(os.Stdout, "info"), "", "dev", &helm3Runner)
@@ -1336,6 +1632,27 @@ func Test_GetPluginVersion_XDGPaths(t *testing.T) {
 	_, err = GetPluginVersion("nonexistent-plugin", xdgPaths)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "plugin nonexistent-plugin not installed")
+}
+
+func Test_GetPluginVersion_Symlink(t *testing.T) {
+	// Simulate a nix/devbox environment where the plugin directory is a symlink
+	tmpDir := t.TempDir()
+
+	// Create a real plugin directory with plugin.yaml
+	realPluginDir := filepath.Join(tmpDir, "real", "helm-diff")
+	require.NoError(t, os.MkdirAll(realPluginDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(realPluginDir, "plugin.yaml"), []byte(`name: "diff"
+version: "3.12.0"
+`), 0o644))
+
+	// Create a plugins directory where helm-diff is a symlink (like nix/devbox)
+	symlinkPluginsDir := filepath.Join(tmpDir, "plugins")
+	require.NoError(t, os.MkdirAll(symlinkPluginsDir, 0o755))
+	require.NoError(t, os.Symlink(realPluginDir, filepath.Join(symlinkPluginsDir, "helm-diff")))
+
+	version, err := GetPluginVersion("diff", symlinkPluginsDir)
+	require.NoError(t, err)
+	assert.Equal(t, "3.12.0", version.String())
 }
 
 func Test_GetVersion(t *testing.T) {
@@ -1543,6 +1860,345 @@ func TestParseHelmVersion(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("parseHelmVersion() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_helmSecretsRequiresSplitInstall(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    bool
+	}{
+		{name: "below threshold", version: "v4.6.9", want: false},
+		{name: "exactly at threshold", version: "v4.7.0", want: true},
+		{name: "above threshold single digit minor", version: "v4.8.0", want: true},
+		{name: "above threshold double digit minor (v4.10.0+)", version: "v4.10.0", want: true},
+		{name: "pre-release below threshold", version: "v4.7.0-beta.1", want: false},
+		{name: "invalid version string", version: "not-a-version", want: false},
+		{name: "empty string", version: "", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := helmSecretsRequiresSplitInstall(tt.version)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+type funcRunner struct {
+	execute func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error)
+}
+
+func (r *funcRunner) ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error) {
+	return r.execute(cmd, args, env, false)
+}
+
+func (r *funcRunner) Execute(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+	return r.execute(cmd, args, env, enableLiveOutput)
+}
+
+func Test_UpdatePlugin_Helm4SecretsUsesUninstallReinstall(t *testing.T) {
+	var calledArgs [][]string
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			calledArgs = append(calledArgs, append([]string(nil), args...))
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary:  "helm",
+		version:     semver.MustParse("4.0.0"),
+		logger:      logger,
+		kubeconfig:  "config",
+		kubeContext: "dev",
+		runner:      runner,
+	}
+
+	err := helm.UpdatePlugin("secrets", "https://github.com/jkroepke/helm-secrets", "v4.7.0")
+	require.NoError(t, err)
+
+	// Verify that "plugin update" was NOT called (the Helm 4 secrets path should skip it).
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == "update" {
+				t.Errorf("expected 'plugin update' to not be called for Helm 4 secrets, but it was: %v", args)
+			}
+		}
+	}
+
+	// Verify that uninstall was called for all three split plugins.
+	checkUninstall := func(name string) {
+		for _, args := range calledArgs {
+			for i, a := range args {
+				if a == pluginCmd && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == name {
+					return
+				}
+			}
+		}
+		t.Errorf("expected 'plugin uninstall %s' to be called", name)
+	}
+	checkUninstall("secrets")
+	checkUninstall("secrets-getter")
+	checkUninstall("secrets-post-renderer")
+
+	// Verify that install was called for all three split plugin tarballs.
+	checkInstall := func(urlSubstring string) {
+		for _, args := range calledArgs {
+			for i, a := range args {
+				if a == pluginCmd && i+2 < len(args) && args[i+1] == installCmd && strings.Contains(args[i+2], urlSubstring) {
+					return
+				}
+			}
+		}
+		t.Errorf("expected 'plugin install' for %q to be called", urlSubstring)
+	}
+	checkInstall("secrets-4.7.0.tgz")
+	checkInstall("secrets-getter-4.7.0.tgz")
+	checkInstall("secrets-post-renderer-4.7.0.tgz")
+}
+
+// Test_UpdatePlugin_GeneralPathUsesUninstallReinstall verifies that for a regular
+// plugin, UpdatePlugin does NOT rely on the unreliable `helm plugin update`
+// command. Instead it must uninstall the existing plugin and reinstall the exact
+// pinned version. See issues #2726 and #2548: `helm plugin update` reports
+// success but leaves `helm plugin list` showing the old version because it
+// re-installs from the cached source without the --version flag.
+func Test_UpdatePlugin_GeneralPathUsesUninstallReinstall(t *testing.T) {
+	var calledArgs [][]string
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			calledArgs = append(calledArgs, append([]string(nil), args...))
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("3.16.4"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.NoError(t, err)
+
+	// `plugin update` must never be used: it does not honor --version and silently
+	// leaves the old version installed.
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == "update" {
+				t.Errorf("expected 'plugin update' to not be called, but it was: %v", args)
+			}
+		}
+	}
+
+	// `plugin uninstall diff` must be called to clear the stale version.
+	uninstalled := false
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == pluginCmd && i+2 < len(args) && args[i+1] == "uninstall" && args[i+2] == "diff" {
+				uninstalled = true
+			}
+		}
+	}
+	require.True(t, uninstalled, "expected 'plugin uninstall diff' to be called")
+
+	// `plugin install <repo> --version <pinned>` must be called with the exact
+	// requested version so the installed plugin is updated to it.
+	installed := false
+	for _, args := range calledArgs {
+		for i, a := range args {
+			if a == pluginCmd && i+1 < len(args) && args[i+1] == installCmd {
+				hasRepo := false
+				hasVersion := false
+				for _, arg := range args[i+2:] {
+					if arg == "https://github.com/databus23/helm-diff" {
+						hasRepo = true
+					}
+					if arg == "v3.15.10" {
+						hasVersion = true
+					}
+				}
+				if hasRepo && hasVersion {
+					installed = true
+				}
+			}
+		}
+	}
+	require.True(t, installed, "expected 'plugin install' with the pinned version to be called")
+}
+
+// Test_UpdatePlugin_NotFoundUninstallProceedsToInstall ensures that when the
+// plugin is already absent (helm reports its "plugin not found" message),
+// UpdatePlugin still proceeds to install the pinned version rather than treating
+// it as an error. Both helm major formats are covered.
+func Test_UpdatePlugin_NotFoundUninstallProceedsToInstall(t *testing.T) {
+	// Helm 4 reports "plugin: <name> not found"; Helm 3 reports "Plugin: <name> not found".
+	for _, tc := range []struct {
+		name    string
+		version string
+		msg     string
+	}{
+		{name: "helm4", version: "4.2.4", msg: "plugin: diff not found"},
+		{name: "helm3", version: "3.16.4", msg: "Plugin: diff not found"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calledArgs [][]string
+			runner := &funcRunner{
+				execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+					calledArgs = append(calledArgs, append([]string(nil), args...))
+					if len(args) >= 2 && args[0] == pluginCmd && args[1] == "uninstall" {
+						return nil, ExitError{Message: tc.msg, Code: 1}
+					}
+					return []byte{}, nil
+				},
+			}
+
+			var buffer bytes.Buffer
+			logger := NewLogger(&buffer, "debug")
+			helm := &execer{
+				helmBinary: "helm",
+				version:    semver.MustParse(tc.version),
+				logger:     logger,
+				runner:     runner,
+			}
+
+			err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+			require.NoError(t, err, "a plugin-absent uninstall error should be ignored and install should proceed")
+
+			// install with the pinned version must still be attempted
+			installed := false
+			for _, args := range calledArgs {
+				for i, a := range args {
+					if a == pluginCmd && i+1 < len(args) && args[i+1] == installCmd {
+						for _, arg := range args[i+2:] {
+							if arg == "v3.15.10" {
+								installed = true
+							}
+						}
+					}
+				}
+			}
+			require.True(t, installed, "expected install to proceed after a plugin-absent uninstall")
+		})
+	}
+}
+
+// Test_UpdatePlugin_RealUninstallFailureReturnsError ensures that a genuine
+// uninstall failure (permissions, broken Helm, etc.) is surfaced instead of
+// being ignored, which would otherwise mask the root cause behind a confusing
+// "plugin already exists" error from the subsequent install.
+func Test_UpdatePlugin_RealUninstallFailureReturnsError(t *testing.T) {
+	installCalled := false
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == "uninstall" {
+				return nil, ExitError{Message: "permission denied", Code: 1}
+			}
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == installCmd {
+				installCalled = true
+			}
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("3.16.4"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.Error(t, err, "a real uninstall failure should be returned")
+	assert.Contains(t, err.Error(), "uninstall")
+	assert.False(t, installCalled, "install must not be attempted after a real uninstall failure")
+}
+
+// Test_UpdatePlugin_ExecutableNotFoundUninstallErrorIsNotSwallowed guards against
+// an overly broad "not found" check: when helm itself is missing the runner
+// surfaces an error containing "executable file not found", which must NOT be
+// mistaken for an absent plugin (otherwise UpdatePlugin would silently log and
+// proceed to install, masking the real problem). Only the helm-specific
+// "plugin: <name> not found" message is tolerated.
+func Test_UpdatePlugin_ExecutableNotFoundUninstallErrorIsNotSwallowed(t *testing.T) {
+	installCalled := false
+	runner := &funcRunner{
+		execute: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == "uninstall" {
+				// Mimics helmfile's ShellRunner when the helm binary is absent.
+				return nil, fmt.Errorf("unexpected error: exec: %q: executable file not found in $PATH", cmd)
+			}
+			if len(args) >= 2 && args[0] == pluginCmd && args[1] == installCmd {
+				installCalled = true
+			}
+			return []byte{}, nil
+		},
+	}
+
+	var buffer bytes.Buffer
+	logger := NewLogger(&buffer, "debug")
+	helm := &execer{
+		helmBinary: "helm",
+		version:    semver.MustParse("3.16.4"),
+		logger:     logger,
+		runner:     runner,
+	}
+
+	err := helm.UpdatePlugin("diff", "https://github.com/databus23/helm-diff", "v3.15.10")
+	require.Error(t, err, "a missing-binary uninstall error must be returned, not swallowed")
+	assert.Contains(t, err.Error(), "executable file not found")
+	assert.False(t, installCalled, "install must not be attempted when the helm binary is missing")
+}
+
+func Test_dedupeWroteLines(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "empty",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "no wrote lines untouched",
+			in:   "Found 25 resources in manifest for release system\n",
+			want: "Found 25 resources in manifest for release system\n",
+		},
+		{
+			name: "collapses duplicate wrote lines preserving first-seen order",
+			in: "wrote /tmp/a/service_account.yaml\n" +
+				"wrote /tmp/a/service_account.yaml\n" +
+				"wrote /tmp/a/secrets.yaml\n" +
+				"wrote /tmp/a/service_account.yaml\n" +
+				"wrote /tmp/a/secrets.yaml\n" +
+				"Found 25 resources in manifest for release system",
+			want: "wrote /tmp/a/service_account.yaml\n" +
+				"wrote /tmp/a/secrets.yaml\n" +
+				"Found 25 resources in manifest for release system",
+		},
+		{
+			name: "non-wrote duplicates kept",
+			in:   "hello\nhello\n",
+			want: "hello\nhello\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := string(dedupeWroteLines([]byte(c.in)))
+			if got != c.want {
+				t.Errorf("dedupeWroteLines() = %q, want %q", got, c.want)
 			}
 		})
 	}

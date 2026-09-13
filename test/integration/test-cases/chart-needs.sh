@@ -59,27 +59,27 @@ for i in $(seq 10); do
 done
 
 info "Applying ${chart_need_case_input_dir}/${config_file}"
-${helmfile} -f ${chart_need_case_input_dir}/${config_file}  apply --include-needs
-code=$?
+code=0
+${helmfile} -f ${chart_need_case_input_dir}/${config_file}  apply --include-needs || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
 
 ${kubectl} get storageclass managed-csi -o yaml | grep -q "provisioner: disk.csi.azure.com" || fail "storageclass managed-csi should be created when applying helmfile.yaml"
 
 info "Destroying ${chart_need_case_input_dir}/${config_file}"
-${helmfile} -f ${chart_need_case_input_dir}/${config_file} destroy
-code=$?
+code=0
+${helmfile} -f ${chart_need_case_input_dir}/${config_file} destroy || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile destroy: want 0, got ${code}"
 
 info "Syncing ${chart_need_case_input_dir}/${config_file}"
-${helmfile} -f ${chart_need_case_input_dir}/${config_file}  sync --include-needs
-code=$?
+code=0
+${helmfile} -f ${chart_need_case_input_dir}/${config_file}  sync --include-needs || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile apply: want 0, got ${code}"
 
 ${kubectl} get storageclass managed-csi -o yaml | grep -q "provisioner: disk.csi.azure.com" || fail "storageclass managed-csi should be created when syncing helmfile.yaml"
 
 info "Destroying ${chart_need_case_input_dir}/${config_file}"
-${helmfile} -f ${chart_need_case_input_dir}/${config_file} destroy
-code=$?
+code=0
+${helmfile} -f ${chart_need_case_input_dir}/${config_file} destroy || code=$?
 [ ${code} -eq 0 ] || fail "unexpected exit code returned by helmfile destroy: want 0, got ${code}"
 
 # Clean up: remove azuredisk-csi-driver repo to avoid conflicts with subsequent tests

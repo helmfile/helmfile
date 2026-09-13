@@ -39,6 +39,7 @@ type destroyConfig struct {
 	interactive            bool
 	skipDeps               bool
 	skipRefresh            bool
+	allowFailedReleases    bool
 	logger                 *zap.SugaredLogger
 	includeTransitiveNeeds bool
 	skipCharts             bool
@@ -78,6 +79,10 @@ func (d destroyConfig) SkipRefresh() bool {
 	return d.skipRefresh
 }
 
+func (d destroyConfig) AllowFailedReleases() bool {
+	return d.allowFailedReleases
+}
+
 func (d destroyConfig) IncludeTransitiveNeeds() bool {
 	return d.includeTransitiveNeeds
 }
@@ -88,6 +93,10 @@ func (d destroyConfig) DeleteWait() bool {
 
 func (d destroyConfig) DeleteTimeout() int {
 	return d.deleteTimeout
+}
+
+func (d destroyConfig) NoColor() bool {
+	return true
 }
 
 func TestDestroy(t *testing.T) {

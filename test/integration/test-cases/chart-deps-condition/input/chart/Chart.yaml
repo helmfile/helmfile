@@ -1,0 +1,14 @@
+dependencies:
+  - name: subchart1
+    repository: file://charts/subchart1
+    condition: subchart1.install
+    version: 1.0.0
+  - name: subchart2
+    repository: file://charts/subchart2
+    version: 2.0.0
+apiVersion: v2
+appVersion: 3.0.0
+description: Test helm charts dependencies
+name: testchartsdeps
+type: application
+version: 3.0.0

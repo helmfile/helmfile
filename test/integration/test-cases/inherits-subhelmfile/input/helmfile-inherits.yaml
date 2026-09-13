@@ -1,0 +1,11 @@
+repositories:
+- name: incubator
+  url: https://charts.helm.sh/incubator
+
+# The sub-helmfile opts into inheriting the parent's repository, so the
+# release in child.yaml (chart: incubator/raw) can resolve "incubator" even
+# though child.yaml does not declare any repositories itself. See issue #1495.
+helmfiles:
+- path: child.yaml
+  inherits:
+  - repositories

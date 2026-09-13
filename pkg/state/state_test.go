@@ -12,12 +12,14 @@ import (
 	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
 
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testhelper"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 var logger = helmexec.NewLogger(io.Discard, "warn")
@@ -261,10 +263,12 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "force",
+			name: "force-helm3",
 			defaults: HelmSpec{
-				Force: false,
+				Force:           false,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -279,10 +283,32 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "force-from-default",
+			name: "force-helm4",
 			defaults: HelmSpec{
-				Force: true,
+				Force:           false,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Force:     &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force-replace",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-from-default-helm3",
+			defaults: HelmSpec{
+				Force:           true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -294,6 +320,148 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--version", "0.1",
 				"--namespace", "test-namespace",
 			},
+		},
+		{
+			name: "force-from-default-helm4",
+			defaults: HelmSpec{
+				Force:           true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Force:     &disable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-from-default-nil-force-helm3",
+			defaults: HelmSpec{
+				Force:           true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-from-default-nil-force-helm4",
+			defaults: HelmSpec{
+				Force:           true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force-replace",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-conflicts-helm4",
+			defaults: HelmSpec{
+				ForceConflicts:  false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:          "test/chart",
+				Version:        "0.1",
+				ForceConflicts: &enable,
+				Name:           "test-charts",
+				Namespace:      "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force-conflicts",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-conflicts-from-default-helm4",
+			defaults: HelmSpec{
+				ForceConflicts:  true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--force-conflicts",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "force-conflicts-helm3-error",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:          "test/chart",
+				Version:        "0.1",
+				ForceConflicts: &enable,
+				Name:           "test-charts",
+				Namespace:      "test-namespace",
+			},
+			wantErr: "forceConflicts requires Helm 4 or greater (set via releases[].forceConflicts or helmDefaults.forceConflicts)",
+		},
+		{
+			name: "force-conflicts-from-default-helm3-error",
+			defaults: HelmSpec{
+				ForceConflicts:  true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			wantErr: "forceConflicts requires Helm 4 or greater (set via releases[].forceConflicts or helmDefaults.forceConflicts)",
+		},
+		{
+			name: "force-and-force-conflicts-mutually-exclusive-helm4",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:          "test/chart",
+				Version:        "0.1",
+				Force:          &enable,
+				ForceConflicts: &enable,
+				Name:           "test-charts",
+				Namespace:      "test-namespace",
+			},
+			wantErr: "force and forceConflicts are mutually exclusive (check both releases[].force/forceConflicts and helmDefaults.force/forceConflicts)",
 		},
 		{
 			name: "recreate-pods",
@@ -479,8 +647,10 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 		{
 			name: "atomic",
 			defaults: HelmSpec{
-				Atomic: false,
+				Atomic:          false,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -495,10 +665,32 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
+			name: "atomic-helm4",
+			defaults: HelmSpec{
+				Atomic:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Atomic:    &enable,
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--rollback-on-failure",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
 			name: "atomic-override-default",
 			defaults: HelmSpec{
-				Atomic: true,
+				Atomic:          true,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -514,8 +706,10 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 		{
 			name: "atomic-from-default",
 			defaults: HelmSpec{
-				Atomic: true,
+				Atomic:          true,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:     "test/chart",
 				Version:   "0.1",
@@ -527,6 +721,128 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--atomic",
 				"--namespace", "test-namespace",
 			},
+		},
+		{
+			name: "atomic-from-default-helm4",
+			defaults: HelmSpec{
+				Atomic:          true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--rollback-on-failure",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "rollback-on-failure",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:             "test/chart",
+				Version:           "0.1",
+				RollbackOnFailure: &enable,
+				Name:              "test-charts",
+				Namespace:         "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--rollback-on-failure",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "rollback-on-failure-from-default",
+			defaults: HelmSpec{
+				RollbackOnFailure: true,
+				CreateNamespace:   &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--rollback-on-failure",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "rollback-on-failure-override-default",
+			defaults: HelmSpec{
+				RollbackOnFailure: true,
+				CreateNamespace:   &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:             "test/chart",
+				Version:           "0.1",
+				RollbackOnFailure: &disable,
+				Name:              "test-charts",
+				Namespace:         "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "rollback-on-failure-helm3-error",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:             "test/chart",
+				Version:           "0.1",
+				RollbackOnFailure: &enable,
+				Name:              "test-charts",
+				Namespace:         "test-namespace",
+			},
+			wantErr: "rollbackOnFailure requires Helm 4 or greater (set via releases[].rollbackOnFailure or helmDefaults.rollbackOnFailure)",
+		},
+		{
+			name: "rollback-on-failure-from-default-helm3-error",
+			defaults: HelmSpec{
+				RollbackOnFailure: true,
+				CreateNamespace:   &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			wantErr: "rollbackOnFailure requires Helm 4 or greater (set via releases[].rollbackOnFailure or helmDefaults.rollbackOnFailure)",
+		},
+		{
+			name: "atomic-and-rollback-on-failure-mutually-exclusive-helm4",
+			defaults: HelmSpec{
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:             "test/chart",
+				Version:           "0.1",
+				Atomic:            &enable,
+				RollbackOnFailure: &enable,
+				Name:              "test-charts",
+				Namespace:         "test-namespace",
+			},
+			wantErr: "atomic and rollbackOnFailure are mutually exclusive (check both releases[].atomic/rollbackOnFailure and helmDefaults.atomic/rollbackOnFailure)",
 		},
 		{
 			name: "cleanup-on-fail",
@@ -742,6 +1058,373 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				"--namespace", "test-namespace",
 			},
 		},
+		{
+			name: "post-renderer-args-flags-use-helmdefault",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"--arg1", "--arg2"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--arg1",
+				"--post-renderer-args=--arg2",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-flags-use-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"--release-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-flags-use-release-prior-helmdefault",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"--default-arg"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"--release-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-cli-overrides-helmdefault",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"--default-arg"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			syncOpts: &SyncOpts{
+				PostRendererArgs: []string{"--cli-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--cli-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-release-overrides-cli",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"--release-arg"},
+			},
+			syncOpts: &SyncOpts{
+				PostRendererArgs: []string{"--cli-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-short-flag-value",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"-v"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=-v",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-helmdefault-templated-with-release-name",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"{{ .Release.Name }}", "--chart={{ .Release.Chart }}"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "my-release",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=my-release",
+				"--post-renderer-args=--chart=test/chart",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-helmdefault-templated-with-namespace",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"{{ .Release.Namespace }}/{{ .Release.Name }}"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "my-release",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=test-namespace/my-release",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-from-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--description", "Release description from config",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-from-cli",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description from --description flag",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--description", "CLI description from --description flag",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-cli-overrides-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description overrides config",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--description", "CLI description overrides config",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-empty-string-not-passed",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "",
+			},
+			syncOpts: &SyncOpts{
+				Description: "",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "description-from-config-unsupported-version-3.1.0",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.1.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			wantErr:  "releases[].description requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-from-config-unsupported-version-3.2.4",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.2.4"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			wantErr:  "releases[].description requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-from-cli-unsupported-version",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.2.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			syncOpts: &SyncOpts{
+				Description: "CLI description from --description flag",
+			},
+			wantErr: "--description flag requires Helm 3.3.0 or greater",
+		},
+		{
+			name: "description-empty-on-old-version",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.1.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+				// No description set
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+				// No --description flag should appear
+			},
+		},
+		{
+			name: "description-from-config-supported-version-3.3.0",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("3.3.0"),
+			release: &ReleaseSpec{
+				Chart:       "test/chart",
+				Version:     "0.1",
+				Name:        "test-charts",
+				Namespace:   "test-namespace",
+				Description: "Release description from config",
+			},
+			syncOpts: &SyncOpts{},
+			want: []string{
+				"--version", "0.1",
+				"--description", "Release description from config",
+				"--namespace", "test-namespace",
+			},
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -853,6 +1536,146 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			want: []string{
 				"--version", "0.1",
 				"--post-renderer", postRendererRelease,
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-flags-use-helmdefault",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"--arg1", "--arg2"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--arg1",
+				"--post-renderer-args=--arg2",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-flags-use-release",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"--release-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-flags-use-release-prior-helmdefault",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"--default-arg"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"--release-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-cli-overrides-helmdefault",
+			defaults: HelmSpec{
+				Verify:           false,
+				CreateNamespace:  &enable,
+				PostRendererArgs: []string{"--default-arg"},
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:           "test/chart",
+				Version:         "0.1",
+				Verify:          &disable,
+				Name:            "test-charts",
+				Namespace:       "test-namespace",
+				CreateNamespace: &disable,
+			},
+			templateOpts: TemplateOpts{
+				PostRendererArgs: []string{"--cli-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--cli-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-release-overrides-cli",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"--release-arg"},
+			},
+			templateOpts: TemplateOpts{
+				PostRendererArgs: []string{"--cli-arg"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=--release-arg",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "post-renderer-args-short-flag-value",
+			defaults: HelmSpec{
+				Verify:          false,
+				CreateNamespace: &enable,
+			},
+			version: semver.MustParse("3.10.0"),
+			release: &ReleaseSpec{
+				Chart:            "test/chart",
+				Version:          "0.1",
+				Verify:           &disable,
+				Name:             "test-charts",
+				Namespace:        "test-namespace",
+				CreateNamespace:  &disable,
+				PostRendererArgs: []string{"-v"},
+			},
+			want: []string{
+				"--version", "0.1",
+				"--post-renderer-args=-v",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -991,6 +1814,87 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 			want: []string{
 				"--version", "0.1",
 				"--kube-context", "env-context",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name:    "template-args appended to helm template (issue #1833 lookup support)",
+			version: semver.MustParse("3.10.0"),
+			defaults: HelmSpec{
+				Verify: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			templateOpts: TemplateOpts{
+				TemplateArgs: "--dry-run=server --enable-dns",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--dry-run=server",
+				"--enable-dns",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name:    "empty template-args are not appended",
+			version: semver.MustParse("3.10.0"),
+			defaults: HelmSpec{
+				Verify: false,
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name:    "helmDefaults.templateArgs used when no CLI template-args",
+			version: semver.MustParse("3.10.0"),
+			defaults: HelmSpec{
+				Verify:       false,
+				TemplateArgs: []string{"--dry-run=server", "--enable-dns"},
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--dry-run=server",
+				"--enable-dns",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name:    "CLI template-args overrides helmDefaults.templateArgs",
+			version: semver.MustParse("3.10.0"),
+			defaults: HelmSpec{
+				Verify:       false,
+				TemplateArgs: []string{"--enable-dns"},
+			},
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
+			},
+			templateOpts: TemplateOpts{
+				TemplateArgs: "--dry-run=server",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--dry-run=server",
 				"--namespace", "test-namespace",
 			},
 		},
@@ -1423,7 +2327,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 					SetValues: []SetValue{
 						{
 							Name: "foo.bar[0]",
-							Values: []string{
+							Values: []any{
 								"A",
 								"B",
 							},
@@ -1433,6 +2337,26 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			},
 			helm:         &exectest.Helm{},
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "foo.bar[0]={A,B}", "--reset-values"}}},
+		},
+		{
+			name: "set array of map values",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name: "source.helm.parameters",
+							Values: []any{
+								map[string]any{"name": "demo"},
+								map[string]any{"version": "v2"},
+							},
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "source.helm.parameters={\\{\"name\":\"demo\"\\},\\{\"version\":\"v2\"\\}}", "--reset-values"}}},
 		},
 		{
 			name: "post renderer helm 3",
@@ -2036,7 +2960,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 					SetValues: []SetValue{
 						{
 							Name: "foo.bar[0]",
-							Values: []string{
+							Values: []any{
 								"A",
 								"B",
 							},
@@ -2382,10 +3306,10 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	logger := helmexec.NewLogger(io.Discard, "debug")
-	basePath := "/src"
+	basePath := filepath.ToSlash(t.TempDir())
 	state := &HelmState{
 		basePath: basePath,
-		FilePath: "/src/helmfile.yaml",
+		FilePath: filepath.Join(basePath, "helmfile.yaml"),
 		ReleaseSetSpec: ReleaseSetSpec{
 			Releases: []ReleaseSpec{
 				{
@@ -2418,8 +3342,8 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	}
 
 	fs := testhelper.NewTestFs(map[string]string{
-		"/example/Chart.yaml":     `foo: FOO`,
-		"/src/example/Chart.yaml": `foo: FOO`,
+		"/example/Chart.yaml":                         `foo: FOO`,
+		filepath.Join(basePath, "example/Chart.yaml"): `foo: FOO`,
 	})
 	fs.Cwd = basePath
 	state = injectFs(state, fs)
@@ -2444,6 +3368,133 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	if resolved.Releases[4].Version != "1.4.0" {
 		t.Errorf("HelmState.ResolveDeps() - unexpected version number: expected=1.4.0, got=%s", resolved.Releases[6].Version)
 	}
+}
+
+func TestHelmState_UpdateDeps_OCIUnderscores(t *testing.T) {
+	helm := &exectest.Helm{
+		UpdateDepsCallbacks: map[string]func(string) error{},
+	}
+
+	var generatedDir string
+	var generatedChartYaml string
+	tempDir := func(dir, prefix string) (string, error) {
+		var err error
+		generatedDir, err = os.MkdirTemp(dir, prefix)
+		if err != nil {
+			return "", err
+		}
+		helm.UpdateDepsCallbacks[generatedDir] = func(string) error {
+			// Read the Chart.yaml that helmfile generated to verify its content
+			chartYamlBytes, readErr := os.ReadFile(filepath.Join(generatedDir, "Chart.yaml"))
+			if readErr == nil {
+				generatedChartYaml = string(chartYamlBytes)
+			}
+			// Simulate helm writing Chart.lock with the basename as dependency name
+			content := []byte(`dependencies:
+- name: example
+  repository: oci://harbor.custom.com/path_with_underscores
+  version: 1.0.0
+digest: sha256:abc123def456
+generated: 2023-08-01T23:04:02Z
+`)
+			return os.WriteFile(filepath.Join(generatedDir, "Chart.lock"), content, 0644)
+		}
+		return generatedDir, nil
+	}
+
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	basePath := filepath.ToSlash(t.TempDir())
+	state := &HelmState{
+		basePath: basePath,
+		FilePath: filepath.Join(basePath, "helmfile.yaml"),
+		ReleaseSetSpec: ReleaseSetSpec{
+			Releases: []ReleaseSpec{
+				{
+					Name:      "example",
+					Chart:     "myrepo/path_with_underscores/example",
+					Version:   "1.0.0",
+					Namespace: "myns",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "myrepo",
+					URL:  "harbor.custom.com",
+					OCI:  true,
+				},
+			},
+		},
+		tempDir: tempDir,
+		logger:  logger,
+	}
+
+	fs := testhelper.NewTestFs(map[string]string{})
+	fs.Cwd = basePath
+	state = injectFs(state, fs)
+	errs := state.UpdateDeps(helm, false)
+	if len(errs) != 0 {
+		t.Fatalf("HelmState.UpdateDeps() - unexpected %d errors: %v", len(errs), errs)
+	}
+
+	// Verify the generated Chart.yaml has basename as name and path prefix in repository
+	assert.Contains(t, generatedChartYaml, "name: example")
+	assert.Contains(t, generatedChartYaml, "repository: oci://harbor.custom.com/path_with_underscores")
+	// It should NOT contain the full path as the name
+	assert.NotContains(t, generatedChartYaml, "name: path_with_underscores/example")
+
+	// Verify the lock file was written with the correct resolved version
+	resolved, err := state.ResolveDeps()
+	assert.NoError(t, err)
+	assert.Equal(t, "1.0.0", resolved.Releases[0].Version)
+}
+
+func TestHelmState_ResolveDeps_OCIUnderscores_BackwardCompat(t *testing.T) {
+	logger := helmexec.NewLogger(io.Discard, "debug")
+	basePath := filepath.ToSlash(t.TempDir())
+
+	// Old-format lock file using the full path as the dependency name
+	oldLockContent := `version: 0.155.0
+dependencies:
+- name: path_with_underscores/example
+  repository: oci://harbor.custom.com
+  version: 1.0.0
+digest: sha256:abc123
+generated: 2023-08-01T23:04:02Z
+`
+	lockPath := filepath.Join(basePath, "helmfile.lock")
+	err := os.WriteFile(lockPath, []byte(oldLockContent), 0644)
+	require.NoError(t, err)
+
+	state := &HelmState{
+		basePath: basePath,
+		FilePath: filepath.Join(basePath, "helmfile.yaml"),
+		ReleaseSetSpec: ReleaseSetSpec{
+			Releases: []ReleaseSpec{
+				{
+					Name:    "example",
+					Chart:   "myrepo/path_with_underscores/example",
+					Version: "1.0.0",
+				},
+			},
+			Repositories: []RepositorySpec{
+				{
+					Name: "myrepo",
+					URL:  "harbor.custom.com",
+					OCI:  true,
+				},
+			},
+		},
+		logger: logger,
+	}
+
+	fs := testhelper.NewTestFs(map[string]string{})
+	fs.Cwd = basePath
+	state = injectFs(state, fs)
+
+	resolved, err := state.ResolveDeps()
+	require.NoError(t, err)
+	assert.Equal(t, "1.0.0", resolved.Releases[0].Version,
+		"old lock file with full-path name should still resolve via backward-compat fallback")
 }
 
 func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
@@ -2482,7 +3533,7 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 		logger: logger,
 		fs: &filesystem.FileSystem{
 			ReadFile: func(f string) ([]byte, error) {
-				if f != "helmfile.lock" {
+				if f != filepath.Join("/src", "helmfile.lock") {
 					return nil, fmt.Errorf("stub: unexpected file: %s", f)
 				}
 				return nil, os.ErrNotExist
@@ -2829,6 +3880,28 @@ func TestConditionEnabled(t *testing.T) {
 			condition: "",
 			want:      true,
 		},
+		{
+			name:      "condition true literal enabled",
+			condition: "true",
+			values:    map[string]any{},
+			want:      true,
+		},
+		{
+			name:      "condition false literal disabled",
+			condition: "false",
+			values:    map[string]any{},
+			want:      false,
+		},
+		{
+			name:      "condition true literal takes precedence over values lookup",
+			condition: "true",
+			values: map[string]any{
+				"foo": map[string]any{
+					"enabled": false,
+				},
+			},
+			want: true,
+		},
 	}
 	for i := range tests {
 		tt := tests[i]
@@ -2848,6 +3921,16 @@ func TestConditionEnabled(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReleaseSpecConditionUnmarshalsBoolLiteral(t *testing.T) {
+	var got ReleaseSpec
+	require.NoError(t, yaml.Unmarshal([]byte("condition: true"), &got))
+	assert.Equal(t, "true", got.Condition)
+
+	enabled, err := ConditionEnabled(got, map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, enabled)
 }
 
 func TestHelmState_NoReleaseMatched(t *testing.T) {
@@ -3186,6 +4269,87 @@ func TestDiffpareSyncReleases(t *testing.T) {
 	}
 }
 
+func TestPrepareDiffReleases_SkipDiffValidationOnInstall(t *testing.T) {
+	installedListOutput := "NAME\tNAMESPACE\tREVISION\tSTATUS\nfoo\tdefault\t1\tdeployed"
+	listFlags := "--uninstalling --deployed --failed --pending"
+
+	tests := []struct {
+		name                        string
+		skipDiffValidationOnInstall bool
+		perReleaseDisableValidation bool
+		installed                   bool
+		wantDisableValidation       bool
+	}{
+		{
+			name:                        "flag-set-not-installed",
+			skipDiffValidationOnInstall: true,
+			installed:                   false,
+			wantDisableValidation:       true,
+		},
+		{
+			name:                        "flag-set-already-installed",
+			skipDiffValidationOnInstall: true,
+			installed:                   true,
+			wantDisableValidation:       false,
+		},
+		{
+			name:                        "flag-not-set-not-installed",
+			skipDiffValidationOnInstall: false,
+			installed:                   false,
+			wantDisableValidation:       false,
+		},
+		{
+			name:                        "per-release-flag-not-installed",
+			perReleaseDisableValidation: true,
+			installed:                   false,
+			wantDisableValidation:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			release := ReleaseSpec{
+				Name:  "foo",
+				Chart: "stable/foo",
+			}
+			if tt.perReleaseDisableValidation {
+				release.DisableValidationOnInstall = boolValue(true)
+			}
+			st := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Releases:     []ReleaseSpec{release},
+					HelmDefaults: HelmSpec{},
+				},
+				logger:      logger,
+				valsRuntime: valsRuntime,
+			}
+			lists := map[exectest.ListKey]string{}
+			if tt.installed {
+				lists[exectest.ListKey{Filter: "^foo$", Flags: listFlags}] = installedListOutput
+			}
+			helm := &exectest.Helm{Lists: lists}
+
+			results, errs := st.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, &DiffOpts{
+				SkipDiffValidationOnInstall: tt.skipDiffValidationOnInstall,
+			})
+
+			require.Len(t, errs, 0)
+			require.Len(t, results, 1)
+
+			flags := results[0].flags
+			hasDisableValidation := false
+			for _, f := range flags {
+				if f == "--disable-validation" {
+					hasDisableValidation = true
+					break
+				}
+			}
+			require.Equal(t, tt.wantDisableValidation, hasDisableValidation,
+				"--disable-validation presence mismatch for case %q; flags: %v", tt.name, flags)
+		})
+	}
+}
+
 func TestPrepareSyncReleases(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -3482,6 +4646,80 @@ func TestHelmState_SyncRepos_OCI(t *testing.T) {
 			}
 			if helm.RegistryLoginHost != tt.wantRegistryLoginHost {
 				t.Errorf("RegistryLogin was called with host = %q, want %q", helm.RegistryLoginHost, tt.wantRegistryLoginHost)
+			}
+		})
+	}
+}
+
+func TestHelmState_SyncRepos_OCIOnly(t *testing.T) {
+	tests := []struct {
+		name                  string
+		repos                 []RepositorySpec
+		opts                  []SyncOption
+		wantRegistryLoginHost string
+		wantRepoSet           bool
+	}{
+		{
+			name: "WithOCIOnly logs into OCI registry",
+			repos: []RepositorySpec{
+				{
+					Name:     "ociregistry",
+					URL:      "quay.io/myorg",
+					OCI:      true,
+					Username: "user",
+					Password: "pass",
+				},
+			},
+			opts:                  []SyncOption{WithOCIOnly()},
+			wantRegistryLoginHost: "quay.io",
+			wantRepoSet:           false,
+		},
+		{
+			name: "WithOCIOnly skips non-OCI repo",
+			repos: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://charts.helm.sh/stable",
+				},
+			},
+			opts:                  []SyncOption{WithOCIOnly()},
+			wantRegistryLoginHost: "",
+			wantRepoSet:           false,
+		},
+		{
+			name: "without options processes non-OCI repo via AddRepo",
+			repos: []RepositorySpec{
+				{
+					Name: "stable",
+					URL:  "https://charts.helm.sh/stable",
+				},
+			},
+			opts:                  nil,
+			wantRegistryLoginHost: "",
+			wantRepoSet:           true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			helm := &exectest.Helm{}
+			state := &HelmState{
+				ReleaseSetSpec: ReleaseSetSpec{
+					Repositories: tt.repos,
+				},
+			}
+			_, err := state.SyncRepos(helm, map[string]bool{}, tt.opts...)
+			if err != nil {
+				t.Errorf("SyncRepos() error = %v", err)
+				return
+			}
+			if tt.wantRegistryLoginHost != "" && helm.RegistryLoginHost != tt.wantRegistryLoginHost {
+				t.Errorf("RegistryLogin host = %q, want %q", helm.RegistryLoginHost, tt.wantRegistryLoginHost)
+			}
+			if tt.wantRegistryLoginHost == "" && helm.RegistryLoginHost != "" {
+				t.Errorf("RegistryLogin should not have been called, got host = %q", helm.RegistryLoginHost)
+			}
+			if len(helm.Repo) > 0 != tt.wantRepoSet {
+				t.Errorf("AddRepo called = %v, want %v", len(helm.Repo) > 0, tt.wantRepoSet)
 			}
 		})
 	}
@@ -4403,10 +5641,11 @@ func TestHideChartURL(t *testing.T) {
 
 func Test_appendExtraDiffFlags(t *testing.T) {
 	tests := []struct {
-		name          string
-		inputFlags    []string
-		inputOpts     *DiffOpts
-		inputDefaults []string
+		name                  string
+		inputFlags            []string
+		inputOpts             *DiffOpts
+		inputDefaults         []string
+		inputTemplateDefaults []string
 
 		expected []string
 	}{
@@ -4431,6 +5670,45 @@ func Test_appendExtraDiffFlags(t *testing.T) {
 			inputDefaults: []string{"-d=ddd", "non-flag", "--eeee"},
 			expected:      []string{"aaaaa", "-d=ddd", "--eeee"},
 		},
+		{
+			name:       "TemplateArgs are appended after DiffArgs (issue #1833 lookup support)",
+			inputFlags: []string{"aaaaa"},
+			inputOpts: &DiffOpts{
+				DiffArgs:     "-bbbb",
+				TemplateArgs: "--dry-run=server",
+			},
+			expected: []string{"aaaaa", "-bbbb", "--dry-run=server"},
+		},
+		{
+			name:       "TemplateArgs are appended even without DiffArgs",
+			inputFlags: []string{"aaaaa"},
+			inputOpts: &DiffOpts{
+				TemplateArgs: "--dry-run=server --enable-dns",
+			},
+			expected: []string{"aaaaa", "--dry-run=server", "--enable-dns"},
+		},
+		{
+			name:       "Empty TemplateArgs are not appended",
+			inputFlags: []string{"aaaaa"},
+			inputOpts: &DiffOpts{
+				DiffArgs:     "-bbbb",
+				TemplateArgs: "",
+			},
+			expected: []string{"aaaaa", "-bbbb"},
+		},
+		{
+			name:                  "helmDefaults.templateArgs used when no CLI TemplateArgs",
+			inputFlags:            []string{"aaaaa"},
+			inputTemplateDefaults: []string{"--dry-run=server", "--enable-dns"},
+			expected:              []string{"aaaaa", "--dry-run=server", "--enable-dns"},
+		},
+		{
+			name:                  "CLI TemplateArgs overrides helmDefaults.templateArgs",
+			inputFlags:            []string{"aaaaa"},
+			inputOpts:             &DiffOpts{TemplateArgs: "--dry-run=server"},
+			inputTemplateDefaults: []string{"--enable-dns"},
+			expected:              []string{"aaaaa", "--dry-run=server"},
+		},
 	}
 
 	for _, test := range tests {
@@ -4438,7 +5716,8 @@ func Test_appendExtraDiffFlags(t *testing.T) {
 			result := (&HelmState{
 				ReleaseSetSpec: ReleaseSetSpec{
 					HelmDefaults: HelmSpec{
-						DiffArgs: test.inputDefaults,
+						DiffArgs:     test.inputDefaults,
+						TemplateArgs: test.inputTemplateDefaults,
 					},
 				},
 			}).appendExtraDiffFlags(test.inputFlags, test.inputOpts)
@@ -4671,6 +5950,392 @@ func TestGetOCIChartPath(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestIsVersionConstraint checks the semver-parser-based constraint detector.
+// Exact semvers (including with a "v" prefix, prerelease metadata that may
+// contain "x", or build metadata that may contain "x") are not constraints.
+// Anything the Masterminds/semver parser accepts as a constraint — operator
+// forms AND wildcard segment forms (1.x, 1.X) — is a constraint. Values that
+// are neither (empty, "latest", junk) return false: helm handles those
+// separately elsewhere.
+func TestIsVersionConstraint(t *testing.T) {
+	tests := []struct {
+		version string
+		want    bool
+	}{
+		// exact versions — never constraints
+		{"1.0.1", false},
+		{"v1.0.1", false},
+		{"1.0.0-rc.1", false},
+		{"1.0.0+build.1", false},
+		// exact versions where "x" appears in prerelease or build metadata:
+		// must NOT be misclassified as wildcard constraints
+		{"1.0.0-alpha.x", false},
+		{"1.0.0+x", false},
+		{"1.0.0+build.x.1", false},
+		// operator constraints
+		{"~1", true},
+		{"~1.0", true},
+		{"^1", true},
+		{"^2.0.0", true},
+		{"*", true},
+		{">=1.0.0", true},
+		{">=1.0.0 <2.0.0", true}, // whitespace-separated range
+		{">1.0", true},
+		{"<2.0", true},
+		{"!=1.0.0", true},
+		{"1.0.0 || 2.0.0", true},
+		{"1.0.0,2.0.0", true},
+		// wildcard-segment constraints — the case that a character scan missed
+		{"1.x", true},
+		{"1.X", true},
+		{"1.x.x", true},
+		{"1.X.X", true},
+		{"1.2.x", true},
+		{"1.2.X", true},
+		{"v1.x", true},
+		// partial semvers — Masterminds' parser accepts them as versions, but
+		// helm's OCI resolution (registry.GetTagMatchingVersionOrConstraint)
+		// only treats a version string as an exact pin when a registry tag
+		// literally equals it; otherwise "1"/"1.2" float as ranges. They must
+		// therefore be classified as constraints and resolved before caching.
+		{"1", true},
+		{"1.2", true},
+		{"v1.2", true},
+		{"0", true},
+		{"v1", true},
+		// neither a valid version nor a valid constraint — handled elsewhere,
+		// resolver skips them so the raw string keeps flowing to helm.
+		{"", false},
+		{"latest", false},
+		{"not-a-version", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			require.Equal(t, tt.want, isVersionConstraint(tt.version))
+		})
+	}
+}
+
+// TestResolveOCIConstraintVersion exercises the pre-cache constraint resolver.
+// The stubbed helm implementation stands in for `helm show chart ... --version
+// <constraint>` and returns whatever Chart.yaml version the test wants; the
+// resolver must forward the returned version back to the caller so downstream
+// cache-key derivation uses the concrete tag rather than the raw constraint.
+func TestResolveOCIConstraintVersion(t *testing.T) {
+	const (
+		releaseName     = "app"
+		chartRef        = "myrepo/app"
+		qualified       = "registry.example.com/charts/app"
+		resolvedVersion = "1.0.1"
+	)
+	baseRepositories := []RepositorySpec{
+		{Name: "myrepo", URL: "registry.example.com/charts", OCI: true},
+	}
+
+	newState := func(defaults HelmSpec) *HelmState {
+		return &HelmState{
+			ReleaseSetSpec: ReleaseSetSpec{
+				HelmDefaults: defaults,
+				Repositories: baseRepositories,
+			},
+			logger:      logger,
+			valsRuntime: valsRuntime,
+		}
+	}
+
+	trueVal := true
+	falseVal := false
+
+	tests := []struct {
+		name             string
+		defaults         HelmSpec
+		release          ReleaseSpec
+		qualifiedRef     string
+		version          string
+		stubbedResolved  string
+		stubbedErr       error
+		expectHelmCalled bool
+		expectVersion    string
+		expectChanged    bool
+		expectErr        bool
+	}{
+		{
+			name:             "constraint resolves to concrete version",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			stubbedResolved:  resolvedVersion,
+			expectHelmCalled: true,
+			expectVersion:    resolvedVersion,
+			expectChanged:    true,
+		},
+		{
+			// Wildcard-segment constraint has no operator character but must
+			// still be detected as a constraint and resolved (regression
+			// coverage for the semver-parser-based isVersionConstraint fix).
+			name:             "wildcard segment constraint resolves to concrete version",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "1.x"},
+			qualifiedRef:     qualified,
+			version:          "1.x",
+			stubbedResolved:  resolvedVersion,
+			expectHelmCalled: true,
+			expectVersion:    resolvedVersion,
+			expectChanged:    true,
+		},
+		{
+			// Partial semver ("1.2") parses as a version but floats as a range
+			// in helm's OCI tag matching, so it must also be resolved.
+			name:             "partial version resolves to concrete version",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "1.2"},
+			qualifiedRef:     qualified + ":1.2",
+			version:          "1.2",
+			stubbedResolved:  resolvedVersion,
+			expectHelmCalled: true,
+			expectVersion:    resolvedVersion,
+			expectChanged:    true,
+		},
+		{
+			name:             "exact version bypasses resolver",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: resolvedVersion},
+			qualifiedRef:     qualified + ":" + resolvedVersion,
+			version:          resolvedVersion,
+			expectHelmCalled: false,
+			expectVersion:    resolvedVersion,
+			expectChanged:    false,
+		},
+		{
+			name:             "empty version bypasses resolver",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef},
+			qualifiedRef:     qualified,
+			version:          "",
+			expectHelmCalled: false,
+			expectChanged:    false,
+		},
+		{
+			name:             "digest-pinned ref bypasses resolver even with constraint version",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified + "@sha256:deadbeef",
+			version:          "~1",
+			expectHelmCalled: false,
+			expectVersion:    "~1",
+			expectChanged:    false,
+		},
+		{
+			name:             "opt-out via HelmDefaults keeps raw constraint",
+			defaults:         HelmSpec{ResolveOCIVersions: &falseVal},
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			expectHelmCalled: false,
+			expectVersion:    "~1",
+			expectChanged:    false,
+		},
+		{
+			name:             "opt-out at release level wins over helmDefaults",
+			defaults:         HelmSpec{ResolveOCIVersions: &trueVal},
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1", ResolveOCIVersions: &falseVal},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			expectHelmCalled: false,
+			expectChanged:    false,
+		},
+		{
+			name:             "resolver returns empty version is an error",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			stubbedResolved:  "",
+			expectHelmCalled: true,
+			expectErr:        true,
+		},
+		{
+			name:             "resolver returns same version as constraint reports no change",
+			release:          ReleaseSpec{Name: releaseName, Chart: chartRef, Version: "~1"},
+			qualifiedRef:     qualified,
+			version:          "~1",
+			stubbedResolved:  "~1",
+			expectHelmCalled: true,
+			expectVersion:    "~1",
+			expectChanged:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Several subtests share the same chart+constraint; keep the
+			// in-process resolution memo out of the picture.
+			resetResolvedOCIConstraintsForTest()
+			called := false
+			var gotFlags []string
+			helm := &exectest.Helm{
+				ShowChartWithFlagsFunc: func(chartPath string, flags ...string) (chart.Metadata, error) {
+					called = true
+					gotFlags = flags
+					if tt.stubbedErr != nil {
+						return chart.Metadata{}, tt.stubbedErr
+					}
+					return chart.Metadata{Version: tt.stubbedResolved}, nil
+				},
+			}
+			st := newState(tt.defaults)
+			resolved, changed, err := st.resolveOCIConstraintVersion(&tt.release, helm, tt.qualifiedRef, tt.version)
+
+			require.Equalf(t, tt.expectHelmCalled, called, "helm.ShowChartWithFlags call expectation mismatch")
+			if tt.expectHelmCalled {
+				// The resolver must pass --version <constraint> so helm can
+				// resolve against the registry rather than a cached index.
+				require.Contains(t, gotFlags, "--version")
+				require.Contains(t, gotFlags, tt.version)
+			}
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.expectChanged, changed)
+			if tt.expectVersion != "" {
+				require.Equal(t, tt.expectVersion, resolved)
+			}
+		})
+	}
+}
+
+// TestSkipOCIConstraintResolution checks the tri-state skip logic: the CLI
+// --skip-refresh flag forces skipping; otherwise an explicit per-release
+// skipRefresh wins; otherwise helmDefaults.skipRefresh decides.
+func TestSkipOCIConstraintResolution(t *testing.T) {
+	falseVal, trueVal := false, true
+	tests := []struct {
+		name     string
+		opts     ChartPrepareOptions
+		release  ReleaseSpec
+		defaults HelmSpec
+		want     bool
+	}{
+		{
+			name: "CLI flag forces skip",
+			opts: ChartPrepareOptions{SkipRefresh: true},
+			want: true,
+		},
+		{
+			name: "no flags set resolves",
+			want: false,
+		},
+		{
+			name:    "release-level skipRefresh skips",
+			release: ReleaseSpec{SkipRefresh: &trueVal},
+			want:    true,
+		},
+		{
+			name:     "release-level skipRefresh=false beats helmDefaults=true",
+			release:  ReleaseSpec{SkipRefresh: &falseVal},
+			defaults: HelmSpec{SkipRefresh: true},
+			want:     false,
+		},
+		{
+			name:     "helmDefaults.skipRefresh applies when release is unset",
+			defaults: HelmSpec{SkipRefresh: true},
+			want:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{ReleaseSetSpec: ReleaseSetSpec{HelmDefaults: tt.defaults}}
+			require.Equal(t, tt.want, st.skipOCIConstraintResolution(&tt.release, tt.opts))
+		})
+	}
+}
+
+// TestResolveOCIConstraintVersion_Memoized verifies the in-process resolution
+// memo: the second lookup of the same chart+constraint must not hit the
+// registry again, while a different constraint on the same chart is a distinct
+// key and does.
+func TestResolveOCIConstraintVersion_Memoized(t *testing.T) {
+	resetResolvedOCIConstraintsForTest()
+
+	const (
+		repoURL   = "registry.example.com/charts"
+		chartRef  = "myrepo/memo"
+		qualified = repoURL + "/memo"
+	)
+	calls := 0
+	helm := &exectest.Helm{
+		ShowChartWithFlagsFunc: func(_ string, flags ...string) (chart.Metadata, error) {
+			calls++
+			return chart.Metadata{Version: "1.0.1"}, nil
+		},
+	}
+	st := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{{Name: "myrepo", URL: repoURL, OCI: true}},
+		},
+		logger:      logger,
+		valsRuntime: valsRuntime,
+	}
+
+	first, changed, err := st.resolveOCIConstraintVersion(&ReleaseSpec{Name: "app", Chart: chartRef, Version: "~1"}, helm, qualified, "~1")
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "1.0.1", first)
+	require.Equal(t, 1, calls)
+
+	// Same chart+constraint: served from the memo, no second registry call.
+	second, changed, err := st.resolveOCIConstraintVersion(&ReleaseSpec{Name: "app2", Chart: chartRef, Version: "~1"}, helm, qualified, "~1")
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "1.0.1", second)
+	require.Equal(t, 1, calls, "the second lookup must be served from the in-process memo")
+
+	// A different constraint on the same chart is a different memo key.
+	_, _, err = st.resolveOCIConstraintVersion(&ReleaseSpec{Name: "app3", Chart: chartRef, Version: "^1"}, helm, qualified, "^1")
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+}
+
+// noOpChartInspector is a helmexec.Interface implementation that intentionally
+// does NOT satisfy helmexec.ChartInspector. It exists to prove that
+// resolveOCIConstraintVersion degrades gracefully when a third-party helm
+// implementation predates the ShowChartWithFlags capability, instead of
+// requiring every downstream mock to grow the new method.
+type noOpChartInspector struct {
+	helmexec.Interface
+}
+
+// TestResolveOCIConstraintVersion_ChartInspectorFallback confirms that a helm
+// implementation lacking the ChartInspector capability causes the resolver to
+// return the raw constraint unchanged with no error, keeping backward
+// compatibility for third-party helmexec.Interface implementations.
+func TestResolveOCIConstraintVersion_ChartInspectorFallback(t *testing.T) {
+	resetResolvedOCIConstraintsForTest()
+	const (
+		repoName  = "myrepo"
+		repoURL   = "registry.example.com/charts"
+		chartRef  = "myrepo/fallbackchart"
+		qualified = "registry.example.com/charts/fallbackchart"
+	)
+	st := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{
+				{Name: repoName, URL: repoURL, OCI: true},
+			},
+		},
+		logger:      logger,
+		valsRuntime: valsRuntime,
+	}
+	release := &ReleaseSpec{Name: "fallback", Chart: chartRef, Version: "~1"}
+	helm := &noOpChartInspector{}
+
+	// Sanity: noOpChartInspector satisfies Interface but not ChartInspector.
+	var _ helmexec.Interface = helm
+	_, isInspector := any(helm).(helmexec.ChartInspector)
+	require.False(t, isInspector, "test setup: noOpChartInspector must NOT implement ChartInspector")
+
+	resolved, changed, err := st.resolveOCIConstraintVersion(release, helm, qualified, "~1")
+	require.NoError(t, err)
+	require.False(t, changed, "no ChartInspector capability => must not change version")
+	require.Equal(t, "~1", resolved, "no ChartInspector capability => must return raw constraint")
 }
 
 func TestHelmState_chartOCIFlags(t *testing.T) {
@@ -5001,6 +6666,89 @@ func TestAppendVerifyFlags(t *testing.T) {
 	}
 }
 
+// TestChartFetchFlags verifies that chartFetchFlags (used to prefetch shared
+// remote charts, see issue #2741) matches the chart-acquisition flags
+// flagsForUpgrade applies for a normal (non-prefetched) remote chart: version,
+// verify, keyring, and TLS/plain-http flags.
+func TestChartFetchFlags(t *testing.T) {
+	tests := []struct {
+		name         string
+		repo         []RepositorySpec
+		helmDefaults HelmSpec
+		release      *ReleaseSpec
+		expected     []string
+	}{
+		{
+			name:     "exact version",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Version: "1.2.3"},
+			expected: []string{"--version", "1.2.3"},
+		},
+		{
+			name:     "version range",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Version: ">=1.0.0 <2.0.0"},
+			expected: []string{"--version", ">=1.0.0 <2.0.0"},
+		},
+		{
+			name:     "no version means latest",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart"},
+			expected: nil,
+		},
+		{
+			name:     "devel release",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Devel: boolValue(true)},
+			expected: []string{"--devel"},
+		},
+		{
+			name:     "release-level verify and keyring",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Verify: boolValue(true), Keyring: "/keys/release.gpg"},
+			expected: []string{"--verify", "--keyring", "/keys/release.gpg"},
+		},
+		{
+			name: "repo-level verify and keyring",
+			repo: []RepositorySpec{{Name: "myrepo", Verify: true, Keyring: "/keys/repo.gpg"}},
+			release: &ReleaseSpec{
+				Chart: "myrepo/mychart",
+			},
+			expected: []string{"--verify", "--keyring", "/keys/repo.gpg"},
+		},
+		{
+			name:         "helmDefaults-level verify and keyring",
+			helmDefaults: HelmSpec{Verify: true, Keyring: "/keys/default.gpg"},
+			release:      &ReleaseSpec{Chart: "myrepo/mychart"},
+			expected:     []string{"--verify", "--keyring", "/keys/default.gpg"},
+		},
+		{
+			name:     "release-level plain http",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", PlainHttp: true},
+			expected: []string{"--plain-http"},
+		},
+		{
+			name:     "release-level insecure skip tls verify",
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", InsecureSkipTLSVerify: true},
+			expected: []string{"--insecure-skip-tls-verify"},
+		},
+		{
+			name: "OCI chart skips verify and keyring but keeps download flags",
+			repo: []RepositorySpec{{Name: "myrepo", OCI: true, Verify: true, Keyring: "/keys/repo.gpg"}},
+			release: &ReleaseSpec{
+				Chart:     "myrepo/mychart",
+				PlainHttp: true,
+			},
+			expected: []string{"--plain-http"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{}
+			st.ReleaseSetSpec.Repositories = tt.repo
+			st.ReleaseSetSpec.HelmDefaults = tt.helmDefaults
+			flags := st.chartFetchFlags(tt.release)
+			assert.Equal(t, tt.expected, flags)
+		})
+	}
+}
+
 // TestHelmState_setStringFlags tests the setStringFlags method
 func TestHelmState_setStringFlags(t *testing.T) {
 	tests := []struct {
@@ -5025,7 +6773,7 @@ func TestHelmState_setStringFlags(t *testing.T) {
 			setStringValues: []SetValue{
 				{
 					Name:   "key",
-					Values: []string{"value1", "value2"},
+					Values: []any{"value1", "value2"},
 				},
 			},
 			want:    []string{"--set-string", "key={value1,value2}"},
@@ -5407,6 +7155,77 @@ func TestHelmState_getKubeContext(t *testing.T) {
 			got := state.getKubeContext(tt.release)
 			if got != tt.want {
 				t.Errorf("getKubeContext() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// resolveOCIAdhocDepChart should rewrite a release `dependencies[].chart` value
+// that uses the named-repo prefix form into a full oci:// URL whenever the
+// matching `repositories:` entry has `oci: true`. All other inputs must pass
+// through unchanged so we never disturb existing behavior.
+func TestResolveOCIAdhocDepChart(t *testing.T) {
+	state := &HelmState{
+		ReleaseSetSpec: ReleaseSetSpec{
+			Repositories: []RepositorySpec{
+				{Name: "ociregistry", URL: "registry.example.com:5000/charts", OCI: true},
+				{Name: "ociregistry-trailing", URL: "registry.example.com:5000/charts/", OCI: true},
+				{Name: "stable", URL: "https://charts.helm.sh/stable"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		chart     string
+		wantOK    bool
+		wantChart string
+	}{
+		{
+			name:      "named OCI repo prefix is rewritten to oci:// URL",
+			chart:     "ociregistry/redis",
+			wantOK:    true,
+			wantChart: "oci://registry.example.com:5000/charts/redis",
+		},
+		{
+			name:      "trailing slash on repo URL does not produce a double slash",
+			chart:     "ociregistry-trailing/redis",
+			wantOK:    true,
+			wantChart: "oci://registry.example.com:5000/charts/redis",
+		},
+		{
+			name:   "non-OCI repo prefix is left alone for chartify's helm-repo-list path",
+			chart:  "stable/nginx",
+			wantOK: false,
+		},
+		{
+			name:   "explicit oci:// URL is left alone (already in chartify's OCI branch)",
+			chart:  "oci://registry.example.com:5000/charts/redis",
+			wantOK: false,
+		},
+		{
+			name:   "unknown repo prefix is left alone",
+			chart:  "unknownrepo/something",
+			wantOK: false,
+		},
+		{
+			name:   "single-segment chart (no slash) is left alone",
+			chart:  "localchart",
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := state.resolveOCIAdhocDepChart(tt.chart)
+			if ok != tt.wantOK {
+				t.Errorf("ok: want %v, got %v", tt.wantOK, ok)
+			}
+			if tt.wantOK && got != tt.wantChart {
+				t.Errorf("rewritten chart: want %q, got %q", tt.wantChart, got)
+			}
+			if !tt.wantOK && got != "" {
+				t.Errorf("expected empty rewrite when ok=false, got %q", got)
 			}
 		})
 	}
