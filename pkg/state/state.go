@@ -148,6 +148,11 @@ type HelmState struct {
 	// traceCtx parents per-release spans; set via SetTraceContext (see span.go).
 	traceCtx gocontext.Context
 
+	// cancelCtx is canceled with the app on SIGINT/SIGTERM. Kubedog tracking
+	// and its buffered helm subprocesses derive from it so Ctrl+C reaches them
+	// (see issue #2770). Set via SetCancelContext; nil falls back to Background.
+	cancelCtx gocontext.Context
+
 	ReleaseSetSpec `yaml:",inline"`
 
 	logger  *zap.SugaredLogger
@@ -1312,10 +1317,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
 					if relErr == nil {
-						relErr = st.trackReleaseIfEnabled(traceOnlyContext(), release, helm, opts)
+						relErr = st.trackReleaseIfEnabled(st.releaseCancelContext(), release, helm, opts)
 					}
 				} else {
-					trackHandle, trackStarted := st.startBackgroundKubedogTracking(traceOnlyContext(), release, helm, opts)
+					trackHandle, trackStarted := st.startBackgroundKubedogTracking(st.releaseCancelContext(), release, helm, opts)
 					// trackHandle.Helm is a logger-scoped helm clone that
 					// captures output to an in-memory buffer while tracking is
 					// active. When tracking isn't running it's the original
@@ -1368,7 +1373,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						if trackStarted {
 							trackErr = trackHandle.Wait()
 						} else {
-							trackErr = st.trackReleaseIfEnabled(traceOnlyContext(), release, helm, opts)
+							trackErr = st.trackReleaseIfEnabled(st.releaseCancelContext(), release, helm, opts)
 						}
 						if trackErr != nil {
 							m.Lock()

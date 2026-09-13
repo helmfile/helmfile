@@ -975,6 +975,8 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 
 	// Per-release spans (pkg/state) parent under the load span.
 	st.SetTraceContext(loadCtx)
+	// Kubedog tracking / buffered helm subprocesses cancel with the app.
+	st.SetCancelContext(a.ctx)
 
 	st.SetKubeconfig(a.Kubeconfig)
 

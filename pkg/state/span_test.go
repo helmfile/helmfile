@@ -229,6 +229,27 @@ func TestSetTraceContext(t *testing.T) {
 	assert.Equal(t, ctx, st.releaseSpanParent())
 }
 
+// TestSetCancelContext pins #2770: kubedog tracking roots under the app
+// cancel context so SIGINT reaches buffered helm subprocesses. Unset keeps
+// the historical Background fallback (detached / non-app-cancelable).
+func TestSetCancelContext(t *testing.T) {
+	st := &HelmState{}
+	assert.Equal(t, gocontext.Background(), st.releaseCancelContext(), "unset cancel context must fall back to Background")
+
+	ctx, cancel := gocontext.WithCancel(gocontext.Background())
+	defer cancel()
+	st.SetCancelContext(ctx)
+	got := st.releaseCancelContext()
+	assert.Equal(t, ctx, got)
+
+	cancel()
+	select {
+	case <-got.Done():
+	default:
+		t.Fatal("releaseCancelContext must become Done when the app cancel context is canceled")
+	}
+}
+
 func TestSkipUndesired(t *testing.T) {
 	assert.False(t, skipUndesired(&ReleaseSpec{}), "installed unset means desired")
 

@@ -35,9 +35,27 @@ func (st *HelmState) SetTraceContext(ctx gocontext.Context) {
 	st.traceCtx = ctx
 }
 
+// SetCancelContext sets the context canceled with the app on SIGINT/SIGTERM.
+// Kubedog tracking (and the helm subprocesses it buffers) derive from this so
+// process-wide cancellation reaches them. A nil context keeps the historical
+// Background-rooted behavior.
+func (st *HelmState) SetCancelContext(ctx gocontext.Context) {
+	st.cancelCtx = ctx
+}
+
 func (st *HelmState) releaseSpanParent() gocontext.Context {
 	if st.traceCtx != nil {
 		return st.traceCtx
+	}
+	return gocontext.Background()
+}
+
+// releaseCancelContext returns the context kubedog tracking should root under.
+// When unset it falls back to Background, matching the pre-#2770 detached
+// semantics used by tests that construct HelmState literals without an App.
+func (st *HelmState) releaseCancelContext() gocontext.Context {
+	if st.cancelCtx != nil {
+		return st.cancelCtx
 	}
 	return gocontext.Background()
 }
