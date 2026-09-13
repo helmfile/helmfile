@@ -1,9 +1,11 @@
 package plugins
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,8 +20,104 @@ const (
 	valsCacheSize = 512
 )
 
-var instance *vals.Runtime
+var instance vals.Evaluator
 var mu sync.Mutex
+
+// ErrValsDisabled is returned by the evaluator when HELMFILE_DISABLE_VALS_STRICT is set
+// and a `ref+` expression is encountered.
+var ErrValsDisabled = errors.New("vals is disabled via HELMFILE_DISABLE_VALS_STRICT environment variable")
+
+// refPlusRegexp mirrors the reference syntax understood by the vals library
+// (`ref+<provider>://...` and `secretref+<provider>://...`), so that disabled-vals
+// modes only report values that vals itself would have tried to resolve.
+var refPlusRegexp = regexp.MustCompile(`(secret)?ref\+[^\s+:]*://`)
+
+// passthroughEvaluator passes values through unchanged (for external vals)
+type passthroughEvaluator struct{}
+
+func (p *passthroughEvaluator) Eval(m map[string]any) (map[string]any, error) {
+	return normalizeMap(m), nil
+}
+
+// strictEvaluator passes through values but errors if ref+ is detected
+type strictEvaluator struct{}
+
+func (s *strictEvaluator) Eval(m map[string]any) (map[string]any, error) {
+	if containsRefPlus(m) {
+		return nil, ErrValsDisabled
+	}
+	return normalizeMap(m), nil
+}
+
+// normalizeMap converts []string values to []any to match vals.Eval behavior.
+func normalizeMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = normalizeValue(v)
+	}
+	return out
+}
+
+// normalizeValue recursively converts []string to []any and map[any]any to
+// map[string]any, matching the type normalization performed by vals.Eval.
+func normalizeValue(v any) any {
+	switch typed := v.(type) {
+	case map[string]any:
+		return normalizeMap(typed)
+	case map[any]any:
+		strmap := make(map[string]any, len(typed))
+		for k, v := range typed {
+			strmap[fmt.Sprintf("%v", k)] = normalizeValue(v)
+		}
+		return strmap
+	case []any:
+		a := make([]any, len(typed))
+		for i, e := range typed {
+			a[i] = normalizeValue(e)
+		}
+		return a
+	case []string:
+		a := make([]any, len(typed))
+		for i, s := range typed {
+			a[i] = s
+		}
+		return a
+	default:
+		return v
+	}
+}
+
+func containsRefPlus(v any) bool {
+	switch val := v.(type) {
+	case string:
+		return refPlusRegexp.MatchString(val)
+	case map[string]any:
+		for _, v := range val {
+			if containsRefPlus(v) {
+				return true
+			}
+		}
+	case map[any]any:
+		for _, v := range val {
+			if containsRefPlus(v) {
+				return true
+			}
+		}
+	case []any:
+		for _, v := range val {
+			if containsRefPlus(v) {
+				return true
+			}
+		}
+	case []string:
+		for _, s := range val {
+			if refPlusRegexp.MatchString(s) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 func buildValsOptions() (vals.Options, error) {
 	// Configure AWS SDK logging via HELMFILE_AWS_SDK_LOG_LEVEL environment variable
@@ -78,11 +176,25 @@ func buildValsOptions() (vals.Options, error) {
 	return opts, nil
 }
 
-func ValsInstance() (*vals.Runtime, error) {
+func ValsInstance() (vals.Evaluator, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
 	if instance != nil {
+		return instance, nil
+	}
+
+	// HELMFILE_DISABLE_VALS_STRICT: error on ref+ usage
+	strict, _ := strconv.ParseBool(os.Getenv(envvar.DisableValsStrict))
+	if strict {
+		instance = &strictEvaluator{}
+		return instance, nil
+	}
+
+	// HELMFILE_DISABLE_VALS: pass-through for external vals
+	disabled, _ := strconv.ParseBool(os.Getenv(envvar.DisableVals))
+	if disabled {
+		instance = &passthroughEvaluator{}
 		return instance, nil
 	}
 

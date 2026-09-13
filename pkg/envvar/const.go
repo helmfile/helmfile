@@ -4,6 +4,10 @@ const (
 	DisableInsecureFeatures          = "HELMFILE_DISABLE_INSECURE_FEATURES"
 	DisableInsecureTemplateFunctions = "HELMFILE_DISABLE_INSECURE_TEMPLATE_FUNCTIONS"
 	DisableHooks                     = "HELMFILE_DISABLE_HOOKS"
+	// DisableVals passes `ref+` values through unchanged for external vals processing
+	DisableVals = "HELMFILE_DISABLE_VALS"
+	// DisableValsStrict errors when any `ref+` value is detected
+	DisableValsStrict = "HELMFILE_DISABLE_VALS_STRICT"
 
 	// use helm status to check if a release exists before installing it
 	UseHelmStatusToCheckReleaseExistence = "HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE"
