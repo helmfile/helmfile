@@ -250,6 +250,50 @@ func TestSetCancelContext(t *testing.T) {
 	}
 }
 
+// ctxRecordingHelm captures the context handed to it via ContextSwapper so
+// tests can assert which context roots the buffered helm subprocesses. The
+// embedded nil Interface panics on any other method call, which
+// bufferHelmOutput never makes.
+type ctxRecordingHelm struct {
+	helmexec.Interface
+	ctx gocontext.Context
+}
+
+func (h *ctxRecordingHelm) WithLogger(_ *zap.SugaredLogger) helmexec.Interface { return h }
+
+func (h *ctxRecordingHelm) WithContext(ctx gocontext.Context) helmexec.Interface {
+	h.ctx = ctx
+	return h
+}
+
+// TestBufferHelmOutputRootsAtCancelContext pins the actual #2770 wiring at
+// the unit level: the release-scoped context that bufferHelmOutput swaps in
+// via WithContext must derive from the app cancel context (so the runner's
+// ctx.Done() SIGINT path fires), and stay non-cancelable when no cancel
+// context is set.
+func TestBufferHelmOutputRootsAtCancelContext(t *testing.T) {
+	appCtx, cancel := gocontext.WithCancel(gocontext.Background())
+	defer cancel()
+
+	tracked := &HelmState{logger: zap.NewNop().Sugar()}
+	tracked.SetCancelContext(appCtx)
+	trackedHelm := &ctxRecordingHelm{}
+	tracked.bufferHelmOutput(trackedHelm, tracked.releaseCancelContext(), "demo")
+	require.NotNil(t, trackedHelm.ctx, "bufferHelmOutput must swap in a release-scoped context via WithContext")
+
+	cancel()
+	select {
+	case <-trackedHelm.ctx.Done():
+	default:
+		t.Fatal("the context handed to WithContext must become Done when the app cancel context is canceled")
+	}
+
+	detached := &HelmState{logger: zap.NewNop().Sugar()}
+	detachedHelm := &ctxRecordingHelm{}
+	detached.bufferHelmOutput(detachedHelm, detached.releaseCancelContext(), "demo")
+	assert.NoError(t, detachedHelm.ctx.Err(), "unset cancel context must keep the release context detached (Background-rooted)")
+}
+
 func TestSkipUndesired(t *testing.T) {
 	assert.False(t, skipUndesired(&ReleaseSpec{}), "installed unset means desired")
 

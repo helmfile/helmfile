@@ -15,10 +15,12 @@ import (
 
 // traceOnlyContext returns a context carrying trace context — the command
 // span, or the given parent (typically a per-release span) — while never
-// propagating cancellation. The historically detached paths (kubedog
-// tracking, hook execution) must keep their cancellation semantics, so only
-// trace context is bridged (see docs/proposals/otel-tracing.md §4.4). With
-// tracing disabled it is indistinguishable from Background.
+// propagating cancellation. Hook execution must keep its detached
+// cancellation semantics (#2771), so only trace context is bridged (see
+// docs/proposals/otel-tracing.md §4.4). Kubedog tracking formerly rooted
+// here too; it now derives from the app cancel context so SIGINT reaches
+// the buffered helm subprocesses (#2770, #2791). With tracing disabled it
+// is indistinguishable from Background.
 func traceOnlyContext(parent ...gocontext.Context) gocontext.Context {
 	ctx := telemetry.CommandContext()
 	if len(parent) > 0 && parent[0] != nil {
