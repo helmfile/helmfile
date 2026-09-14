@@ -1,6 +1,6 @@
 module github.com/helmfile/helmfile
 
-go 1.26.6
+go 1.26.8
 
 require (
 	dario.cat/mergo v1.0.2
@@ -16,7 +16,7 @@ require (
 	github.com/gookit/color v1.6.1
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-cty-funcs v0.1.0
-	github.com/hashicorp/go-getter/v2 v2.2.3
+	github.com/hashicorp/go-getter/v2 v2.2.4
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/helmfile/chartify v0.28.2
 	github.com/helmfile/vals v0.46.1
