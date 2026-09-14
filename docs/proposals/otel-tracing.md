@@ -233,7 +233,7 @@ All claims below were checked against the code; line numbers are anchors for rev
 |---|---|---|
 | cmd → app | `app.New` roots at `context.Background()`; `ctx, Cancel = WithCancel(ctx)` (`pkg/app/app.go`, `New`) | span must be injected here (§4.2) |
 | app → all helm execs | `getHelm()` constructs the `ShellRunner` with `Ctx: a.ctx` (`pkg/app/app.go:1008`); the resulting `execer` is **cached per (helm binary, kube-context)** in `a.helms` and shared by all releases and workers (`pkg/app/app.go:982–1021`) | once `App.ctx` is span-rooted, every non-kubedog helm call nests automatically, with **zero changes** to `getHelm`. The shared-instance cache is also why per-release contexts must ride per-call parameters, never mutation of the shared execer |
-| kubedog path (sync with tracking) | `startBackgroundKubedogTracking(gocontext.Background(), …)` (`pkg/state/state.go:1294`) → `bufferHelmOutput` derives `releaseCtx := context.WithCancel(ctx)` and swaps it in via `execer.WithContext(releaseCtx)` (`pkg/state/helmx.go:363–365`) | helm execs on this path run on a **Background-rooted** context; runner-level spans would become **orphan traces**. Bridged in §4.4 |
+| kubedog path (sync with tracking) | originally `startBackgroundKubedogTracking(gocontext.Background(), …)` (`pkg/state/state.go`), with `bufferHelmOutput` deriving `releaseCtx := context.WithCancel(ctx)` and swapping it in via `execer.WithContext(releaseCtx)` (`pkg/state/helmx.go`). **Since #2791** the three call sites pass `st.releaseCancelContext()` — the app cancel context injected via `HelmState.SetCancelContext` — so SIGINT/SIGTERM reaches these helm subprocesses too (#2770) | trace context on this path is the same command span as everywhere else: the §4.4 bridge kept spans attached while cancellation was detached, and #2791 subsequently re-attached cancellation |
 | hooks | both `event.Bus` constructions (`triggerGlobalReleaseEvent`, `triggerReleaseEvent`, `pkg/state/state.go:3666, 3703`) duplicate the same literal and pass **no** `Runner`, so the default kicks in: `ShellRunner{Dir: bus.BasePath, Logger: bus.Logger, Ctx: goContext.TODO()}` with an inline comment acknowledging it should be `app.Ctx` (`pkg/event/bus.go:61–71`) | hook execs are detached; spans would be orphans. Bridged in §4.4 |
 | non-kubedog release workers | release loops (`SyncReleases` etc., `pkg/state/state.go:1212 ff.`) call the shared `helmexec.Interface` with a `HelmContext` (`pkg/helmexec/context.go`) that carries **no go-context** | per-release spans need the §4.4 mechanism |
 | subprocess funnel | exactly three `ShellRunner` construction sites exist (verified exhaustive): `pkg/app/app.go:129` (`Init`, `Ctx: a.ctx`), `pkg/app/app.go:1006` (`getHelm`, `Ctx: a.ctx`), and the hooks default (`pkg/event/bus.go:62`, `Ctx: TODO` — §4.4 bridge). Every external process helmfile itself starts goes through `Execute`/`ExecuteStdIn` (`pkg/helmexec/runner.go`); helm commands additionally funnel through `execer.exec()` (`pkg/helmexec/exec.go:1207`). Exception: kustomize executes inside the chartify library, outside this funnel (§12) | one instrumentation point covers everything except chartify-internal execs; spans nest wherever the runner's `Ctx` carries a span |
@@ -241,7 +241,8 @@ All claims below were checked against the code; line numbers are anchors for rev
 Two pre-existing gaps surfaced by this analysis — kubedog tracking not being cancellable via
 `App.ctx`, and hooks likewise — are **out of scope** for this proposal beyond trace-context
 bridging (§4.4), because fixing their *cancellation* semantics would be a behavior change.
-They should be reported as separate issues.
+They should be reported as separate issues. (Update: the kubedog gap was fixed by
+#2791 via `HelmState.SetCancelContext`; the hooks gap remains open as #2771.)
 
 ### 4.4 Context plan
 
@@ -258,12 +259,15 @@ They should be reported as separate issues.
 2. Runner-level spans in `ShellRunner.Execute`/`ExecuteStdIn` nest for all non-kubedog,
    non-hook execs automatically.
 3. **Orphan-bridge for kubedog and hooks, with identical cancellation semantics:**
-   - `pkg/state/state.go:1294`: pass `context.WithoutCancel(telemetry.CommandContext())`
-     instead of `gocontext.Background()`. `WithoutCancel` preserves values (the span)
+   - kubedog: originally pass `context.WithoutCancel(telemetry.CommandContext())`
+     instead of `gocontext.Background()`. `WithoutCancel` preserved values (the span)
      while dropping cancellation — and `Background` never carried cancellation anyway, so
-     SIGINT/timeout behavior is **bit-for-bit unchanged**; only trace context is added.
-     (Phase 1 uses the root span from `telemetry.CommandContext()`, which requires no new
-     plumbing in `pkg/state`; phase 2 re-parents under the per-release `st.traceCtx`.)
+     SIGINT/timeout behavior stayed **bit-for-bit unchanged**; only trace context was
+     added. (Phase 1 used the root span from `telemetry.CommandContext()`, which required
+     no new plumbing in `pkg/state`; phase 2 re-parented under the per-release
+     `st.traceCtx`.) Superseded by #2791: the three kubedog call sites now pass
+     `st.releaseCancelContext()` — same command-span trace context, plus app
+     cancellation, fixing #2770.
    - `pkg/event/bus.go`: add an optional `Ctx context.Context` field to `Bus`; the default
      runner construction uses `bus.Ctx` when set, `TODO` when nil (so behavior is unchanged
      for any nil-Ctx caller). The two construction sites in `pkg/state/state.go:3666, 3703`
@@ -414,7 +418,8 @@ Traces leave the machine they run on. Ground rules, checked against what exists 
    churn; cancellation semantics identical.
 3. Kubedog and hook bridging uses `context.WithoutCancel`, which drops cancellation and
    keeps values — the swapped-out parents (`Background`/`TODO`) never propagated
-   cancellation either, so SIGINT/timeout behavior is unchanged.
+   cancellation either, so SIGINT/timeout behavior is unchanged. (Superseded for kubedog
+   by #2791, which re-roots tracking under the app cancel context; hooks stay bridged.)
 4. Telemetry setup or export failures never fail or slow the run (warning log only, export
    off the critical path).
 5. All pre-existing behavior, including the known cancellation gaps of §4.3 and the exact
@@ -455,7 +460,7 @@ pkg/helmexec/redact.go           // shared args redaction, legacy+strict profile
 pkg/helmexec/exit_error.go       // calls shared helper with legacy profile (output byte-identical)
 pkg/helmexec/context.go          // HelmContext.Ctx field (phase 2)
 pkg/helmexec/exec.go             // execCtx funnel beside exec/execStdIn (phase 2)
-pkg/state/state.go               // WithoutCancel bridges (kubedog call site + both event.Bus constructions); release spans (phase 2)
+pkg/state/state.go               // WithoutCancel bridges (both event.Bus constructions; the kubedog call sites moved to st.releaseCancelContext() in #2791); release spans (phase 2)
 pkg/state/helmx.go               // (no change — bridge happens at its caller)
 pkg/event/bus.go                 // optional Ctx field consumed by the default runner
 docs/experimental-features.md    // feature entry → promoted out when stable
