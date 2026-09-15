@@ -105,8 +105,7 @@ func spanAttrStrings(t *testing.T, span *v1.Span, key string) []string {
 // subprocess spans nest under per-release spans WITHOUT overriding the
 // runner's own cancellation context (the kubedog safety valve).
 func TestSpanAttachedContext(t *testing.T) {
-	runnerCtx, valveCancel := context.WithCancel(context.Background())
-	defer valveCancel()
+	runnerCtx := t.Context()
 
 	spanCtx, span := noop.NewTracerProvider().Tracer("test").Start(context.Background(), "release")
 

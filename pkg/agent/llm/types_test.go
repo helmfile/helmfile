@@ -141,7 +141,7 @@ func TestMockClient_Analyze_PropagatesErr(t *testing.T) {
 func TestMockClient_ConcurrentSafe(t *testing.T) {
 	c := NewMockClient(Analysis{Summary: "ok"})
 	var wg sync.WaitGroup
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()

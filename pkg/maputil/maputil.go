@@ -2,6 +2,7 @@ package maputil
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 )
@@ -263,16 +264,14 @@ func typedVal(val string, st bool) any {
 }
 
 // MergeMaps merges two maps with special handling for nested maps and arrays.
-func MergeMaps(a, b map[string]interface{}, opts ...MergeOptions) map[string]interface{} {
+func MergeMaps(a, b map[string]any, opts ...MergeOptions) map[string]any {
 	arrayStrategy := ArrayMergeStrategySparse
 	if len(opts) > 0 {
 		arrayStrategy = opts[0].ArrayStrategy
 	}
 
-	out := make(map[string]interface{}, len(a))
-	for k, v := range a {
-		out[k] = v
-	}
+	out := make(map[string]any, len(a))
+	maps.Copy(out, a)
 	for k, v := range b {
 		if v == nil {
 			// If key doesn't exist in base, add nil (issue #1154).
@@ -282,9 +281,9 @@ func MergeMaps(a, b map[string]interface{}, opts ...MergeOptions) map[string]int
 			}
 			continue
 		}
-		if v, ok := v.(map[string]interface{}); ok {
+		if v, ok := v.(map[string]any); ok {
 			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
+				if bv, ok := bv.(map[string]any); ok {
 					out[k] = MergeMaps(bv, v, opts...)
 					continue
 				}
@@ -365,15 +364,12 @@ func mergeSlices(base, override []any, strategy ArrayMergeStrategy) []any {
 	}
 
 	// Merge element-by-element (for ArrayMergeStrategyMerge or sparse arrays)
-	maxLen := len(base)
-	if len(override) > maxLen {
-		maxLen = len(override)
-	}
+	maxLen := max(len(override), len(base))
 
-	result := make([]interface{}, maxLen)
+	result := make([]any, maxLen)
 	copy(result, base)
 
-	for i := 0; i < len(override); i++ {
+	for i := range override {
 		overrideVal := override[i]
 		if overrideVal == nil {
 			continue

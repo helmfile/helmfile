@@ -549,7 +549,7 @@ dependencies:
 	errCh := make(chan error, numGoroutines)
 	ready := make(chan struct{})
 
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		wg.Add(1)
 		readyWg.Add(1)
 		go func() {

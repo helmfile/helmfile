@@ -3,6 +3,7 @@ package kubedog
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -60,7 +61,7 @@ func HeaderDividerStyled(title string, useColor bool) string {
 // trailing padding on left-aligned last columns.
 func TableVisualWidth(tableStr string) int {
 	max := 0
-	for _, line := range strings.Split(tableStr, "\n") {
+	for line := range strings.SplitSeq(tableStr, "\n") {
 		line = strings.TrimRight(line, " ")
 		w := runewidth.StringWidth(line)
 		if w > max {
@@ -136,9 +137,7 @@ func (g *gateStatuses) snapshot() map[string]string {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	out := make(map[string]string, len(g.m))
-	for k, v := range g.m {
-		out[k] = v
-	}
+	maps.Copy(out, g.m)
 	return out
 }
 
@@ -327,8 +326,8 @@ func (p *progressPrinter) statusColor(status, parentKind string) string {
 	}
 
 	head := status
-	if idx := strings.Index(status, " "); idx >= 0 {
-		head = status[:idx]
+	if before, _, ok := strings.Cut(status, " "); ok {
+		head = before
 	}
 	switch head {
 	case "ready":

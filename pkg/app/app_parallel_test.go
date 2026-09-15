@@ -38,7 +38,7 @@ releases:
 
 	// Run ListReleases multiple times to verify consistent ordering
 	var outputs []string
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		var buffer bytes.Buffer
 		syncWriter := testhelper.NewSyncWriter(&buffer)
 		logger := helmexec.NewLogger(syncWriter, "debug")

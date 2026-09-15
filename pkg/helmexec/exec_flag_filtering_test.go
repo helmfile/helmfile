@@ -56,8 +56,7 @@ func TestFilterDependencyFlags_AllGlobalFlags(t *testing.T) {
 	}
 
 	var expectedFlags []string
-	for i := 0; i < envType.NumField(); i++ {
-		field := envType.Field(i)
+	for field := range envType.Fields() {
 		if field.IsExported() {
 			flagName := "--" + toKebabCase(field.Name)
 			expectedFlags = append(expectedFlags, flagName)
@@ -106,8 +105,7 @@ func TestFilterDependencyFlags_AllDependencyFlags(t *testing.T) {
 	}
 
 	var expectedFlags []string
-	for i := 0; i < depType.NumField(); i++ {
-		field := depType.Field(i)
+	for field := range depType.Fields() {
 		if field.IsExported() {
 			flagName := "--" + toKebabCase(field.Name)
 			expectedFlags = append(expectedFlags, flagName)

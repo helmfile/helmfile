@@ -6,11 +6,11 @@ import (
 )
 
 func newExitError(path string, args []string, exitStatus int, err error, stderr, combined string, stripArgsValuesOnExitError bool) ExitError {
-	var out string
+	var out strings.Builder
 
-	out += fmt.Sprintf("PATH:\n%s", Indent(path, "  "))
+	fmt.Fprintf(&out, "PATH:\n%s", Indent(path, "  "))
 
-	out += "\n\nARGS:"
+	out.WriteString("\n\nARGS:")
 	// The legacy profile is byte-identical to the historical inline logic;
 	// the goldens in exit_error_test.go pin its exact output.
 	redacted := RedactArgs(args, RedactionLegacy)
@@ -18,23 +18,23 @@ func newExitError(path string, args []string, exitStatus int, err error, stderr,
 		redacted = args
 	}
 	for i, a := range redacted {
-		out += fmt.Sprintf("\n%s", Indent(fmt.Sprintf("%d: %s (%d bytes)", i, a, len(a)), "  "))
+		fmt.Fprintf(&out, "\n%s", Indent(fmt.Sprintf("%d: %s (%d bytes)", i, a, len(a)), "  "))
 	}
 
-	out += fmt.Sprintf("\n\nERROR:\n%s", Indent(err.Error(), "  "))
+	fmt.Fprintf(&out, "\n\nERROR:\n%s", Indent(err.Error(), "  "))
 
-	out += fmt.Sprintf("\n\nEXIT STATUS\n%s", Indent(fmt.Sprintf("%d", exitStatus), "  "))
+	fmt.Fprintf(&out, "\n\nEXIT STATUS\n%s", Indent(fmt.Sprintf("%d", exitStatus), "  "))
 
 	if len(stderr) > 0 {
-		out += fmt.Sprintf("\n\nSTDERR:\n%s", Indent(stderr, "  "))
+		fmt.Fprintf(&out, "\n\nSTDERR:\n%s", Indent(stderr, "  "))
 	}
 
 	if len(combined) > 0 {
-		out += fmt.Sprintf("\n\nCOMBINED OUTPUT:\n%s", Indent(combined, "  "))
+		fmt.Fprintf(&out, "\n\nCOMBINED OUTPUT:\n%s", Indent(combined, "  "))
 	}
 
 	return ExitError{
-		Message: fmt.Sprintf("command %q exited with non-zero status:\n\n%s", path, out),
+		Message: fmt.Sprintf("command %q exited with non-zero status:\n\n%s", path, out.String()),
 		Code:    exitStatus,
 	}
 }

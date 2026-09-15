@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -211,9 +212,7 @@ func LiveOutput(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError boo
 
 func mergeEnv(orig []string, new map[string]string) []string {
 	wanted := env2map(orig)
-	for k, v := range new {
-		wanted[k] = v
-	}
+	maps.Copy(wanted, new)
 	return map2env(wanted)
 }
 

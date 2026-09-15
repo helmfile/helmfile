@@ -3,6 +3,7 @@ package kubedog
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/werf/kubedog/pkg/trackers/dyntracker/statestore"
@@ -167,10 +168,8 @@ func (t *Tracker) scanForMissedFailures(ctx context.Context, taskStore *kdutil.C
 // "RS UIDs owned by this Deployment" so we only LIST RSes when we actually
 // need to disambiguate.
 func podOwnedBy(pod *unstructured.Unstructured, workloadUID types.UID, workloadKind string, deploymentRSUIDs func() map[string]struct{}) bool {
-	for _, uid := range podOwnerUIDs(pod) {
-		if uid == workloadUID {
-			return true
-		}
+	if slices.Contains(podOwnerUIDs(pod), workloadUID) {
+		return true
 	}
 	if workloadKind != "deploy" {
 		return false
@@ -206,11 +205,8 @@ func (t *Tracker) rsUIDsOwnedBy(ctx context.Context, namespace string, workloadU
 	out := map[string]struct{}{}
 	for i := range rsList.Items {
 		rs := &rsList.Items[i]
-		for _, uid := range podOwnerUIDs(rs) {
-			if uid == workloadUID {
-				out[string(rs.GetUID())] = struct{}{}
-				break
-			}
+		if slices.Contains(podOwnerUIDs(rs), workloadUID) {
+			out[string(rs.GetUID())] = struct{}{}
 		}
 	}
 	return out

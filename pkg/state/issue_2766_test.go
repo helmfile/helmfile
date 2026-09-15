@@ -105,10 +105,8 @@ func TestGetOCIChart_ResolvesConstraintIntoCachePathAndPullFlag(t *testing.T) {
 
 	logger := zap.NewExample().Sugar()
 	st := &HelmState{
-		ReleaseSetSpec: ReleaseSetSpec{
-			Repositories: []RepositorySpec{
-				{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
-			},
+		Repositories: []RepositorySpec{
+			{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
 		},
 		logger:      logger,
 		valsRuntime: valsRuntime,
@@ -190,10 +188,8 @@ func TestGetOCIChart_ResolvesToDifferentVersionsPicksSeparateCachePaths(t *testi
 
 	logger := zap.NewExample().Sugar()
 	st := &HelmState{
-		ReleaseSetSpec: ReleaseSetSpec{
-			Repositories: []RepositorySpec{
-				{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
-			},
+		Repositories: []RepositorySpec{
+			{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
 		},
 		logger:      logger,
 		valsRuntime: valsRuntime,
@@ -250,10 +246,8 @@ func TestGetOCIChart_SkipRefreshSkipsConstraintResolution(t *testing.T) {
 
 	logger := zap.NewExample().Sugar()
 	st := &HelmState{
-		ReleaseSetSpec: ReleaseSetSpec{
-			Repositories: []RepositorySpec{
-				{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
-			},
+		Repositories: []RepositorySpec{
+			{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
 		},
 		logger:      logger,
 		valsRuntime: valsRuntime,
@@ -312,10 +306,8 @@ func TestGetOCIChart_SharedConstraintResolvedOncePerProcess(t *testing.T) {
 
 	logger := zap.NewExample().Sugar()
 	st := &HelmState{
-		ReleaseSetSpec: ReleaseSetSpec{
-			Repositories: []RepositorySpec{
-				{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
-			},
+		Repositories: []RepositorySpec{
+			{Name: issue2766RepoName, URL: issue2766RepoURL, OCI: true},
 		},
 		logger:      logger,
 		valsRuntime: valsRuntime,

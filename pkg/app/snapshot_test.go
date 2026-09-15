@@ -26,15 +26,13 @@ func runWithLogCapture(t *testing.T, logLevel string, f func(*testing.T, *zap.Su
 
 	logFlushed := &sync.WaitGroup{}
 	// Ensure all the log is consumed into `bs` by calling `logWriter.Close()` followed by `logFlushed.Wait()`
-	logFlushed.Add(1)
-	go func() {
+	logFlushed.Go(func() {
 		scanner := bufio.NewScanner(logReader)
 		for scanner.Scan() {
 			bs.Write(scanner.Bytes())
 			bs.WriteString("\n")
 		}
-		logFlushed.Done()
-	}()
+	})
 
 	defer func() {
 		// This is here to avoid data-trace on bytes buffer `bs` to capture logs
@@ -76,7 +74,7 @@ func assertEqualsToSnapshot(t *testing.T, name string, data string) {
 			"Snapshot file %q does not exist. Rerun this test with `HELMFILE_UPDATE_SNAPSHOT=1 go test -v -run %s %s` to create the snapshot",
 			snapshotFileName,
 			t.Name(),
-			reflect.TypeOf(thisPkgLocator{}).PkgPath(),
+			reflect.TypeFor[thisPkgLocator]().PkgPath(),
 		)
 	}
 
@@ -87,7 +85,7 @@ func assertEqualsToSnapshot(t *testing.T, name string, data string) {
 		t.Errorf(
 			"If you think this is due to the snapshot file being outdated, rerun this test with `HELMFILE_UPDATE_SNAPSHOT=1 go test -v -run %s %s` to update the snapshot",
 			t.Name(),
-			reflect.TypeOf(thisPkgLocator{}).PkgPath(),
+			reflect.TypeFor[thisPkgLocator]().PkgPath(),
 		)
 	}
 }

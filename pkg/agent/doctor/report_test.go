@@ -224,7 +224,7 @@ func TestReportJSON_FieldOrderIsHumanReadable(t *testing.T) {
 	// Cheap way: scan line-by-line, the first 7 non-space chars of each line
 	// are `"key":`.
 	keys := []string{}
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, `"`) {
 			continue

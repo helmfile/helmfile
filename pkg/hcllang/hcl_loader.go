@@ -3,6 +3,7 @@ package hcllang
 import (
 	nativejson "encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -49,9 +50,7 @@ func ctyMergeValues(a, b cty.Value) cty.Value {
 		(a.Type().IsMapType() && b.Type().IsMapType()) {
 		mergedAttrs := make(map[string]cty.Value)
 		// Start with all attrs from a.
-		for name, av := range a.AsValueMap() {
-			mergedAttrs[name] = av
-		}
+		maps.Copy(mergedAttrs, a.AsValueMap())
 		// Overlay attrs from b.
 		for name, bv := range b.AsValueMap() {
 			if av, ok := mergedAttrs[name]; ok {

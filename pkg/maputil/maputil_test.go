@@ -195,27 +195,27 @@ func typedValueTest(t *testing.T, input string, expectedWhenNoStr any) {
 }
 
 func TestMapUtil_MergeMaps(t *testing.T) {
-	map1 := map[string]interface{}{
+	map1 := map[string]any{
 		"debug": true,
 	}
-	map2 := map[string]interface{}{
+	map2 := map[string]any{
 		"logLevel":     "info",
 		"replicaCount": 3,
 	}
-	map3 := map[string]interface{}{
+	map3 := map[string]any{
 		"logLevel": "info",
 		"replicaCount": map[string]any{
 			"app1":    3,
 			"awesome": 4,
 		},
 	}
-	map4 := map[string]interface{}{
+	map4 := map[string]any{
 		"logLevel": "info",
 		"replicaCount": map[string]any{
 			"app1": 3,
 		},
 	}
-	map5 := map[string]interface{}{
+	map5 := map[string]any{
 		"logLevel":     "error",
 		"replicaCount": nil,
 	}
@@ -239,7 +239,7 @@ func TestMapUtil_MergeMaps(t *testing.T) {
 	}
 
 	testMap = MergeMaps(map1, map3)
-	expectedMap := map[string]interface{}{
+	expectedMap := map[string]any{
 		"debug":    true,
 		"logLevel": "info",
 		"replicaCount": map[string]any{
@@ -253,7 +253,7 @@ func TestMapUtil_MergeMaps(t *testing.T) {
 	}
 
 	testMap = MergeMaps(map3, map5)
-	expectedMap = map[string]interface{}{
+	expectedMap = map[string]any{
 		"logLevel": "error",
 		"replicaCount": map[string]any{
 			"app1":    3,
@@ -478,7 +478,7 @@ func TestMapUtil_Issue2281_EmptyMapScenario(t *testing.T) {
 func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 	t.Run("merging sparse arrays should preserve elements from base that aren't in override", func(t *testing.T) {
 		// Base values from helmfile
-		base := map[string]interface{}{
+		base := map[string]any{
 			"top": map[string]any{
 				"array": []any{"thing1", "thing2"},
 			},
@@ -486,7 +486,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 
 		// Override values from --state-values-set top.array[1]=cmdlinething1
 		// This creates a sparse array with nil at index 0
-		override := map[string]interface{}{
+		override := map[string]any{
 			"top": map[string]any{
 				"array": []any{nil, "cmdlinething1"},
 			},
@@ -506,7 +506,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 
 	t.Run("complete arrays without nils should replace entirely (layer behavior)", func(t *testing.T) {
 		// Base values from helmfile
-		base := map[string]interface{}{
+		base := map[string]any{
 			"top": map[string]any{
 				"array": []any{"thing1", "thing2", "thing3"},
 			},
@@ -514,7 +514,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 
 		// Override values from environment YAML (complete array, no nils)
 		// This should REPLACE the base array entirely
-		override := map[string]interface{}{
+		override := map[string]any{
 			"top": map[string]any{
 				"array": []any{"override1"},
 			},
@@ -533,7 +533,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 
 	t.Run("merging complex arrays should preserve non-overridden elements and fields", func(t *testing.T) {
 		// Base values from helmfile
-		base := map[string]interface{}{
+		base := map[string]any{
 			"top": map[string]any{
 				"complexArray": []any{
 					map[string]any{
@@ -549,7 +549,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 		}
 
 		// Override values from --state-values-set top.complexArray[1].anotherThing=cmdline
-		override := map[string]interface{}{
+		override := map[string]any{
 			"top": map[string]any{
 				"complexArray": []any{
 					nil,
@@ -588,7 +588,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 
 	t.Run("complete issue #2281 scenario with MergeMaps - sparse arrays", func(t *testing.T) {
 		// Base values from helmfile
-		base := map[string]interface{}{
+		base := map[string]any{
 			"top": map[string]any{
 				"array": []any{"thing1", "thing2"},
 				"complexArray": []any{
@@ -607,7 +607,7 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 		// Override values from:
 		// --state-values-set top.array[1]=cmdlinething1 (creates sparse array with nil at 0)
 		// --state-values-set top.complexArray[1].anotherThing=cmdline
-		override := map[string]interface{}{
+		override := map[string]any{
 			"top": map[string]any{
 				"array": []any{nil, "cmdlinething1"}, // Sparse array - nil at index 0
 				"complexArray": []any{
@@ -651,10 +651,10 @@ func TestMapUtil_Issue2281_MergeArrays(t *testing.T) {
 func TestMergeMaps_ArrayStrategies(t *testing.T) {
 	t.Run("ArrayMergeStrategyReplace should replace arrays entirely - fixes #2353", func(t *testing.T) {
 		// This simulates layer value overriding where outer layer array should replace inner
-		base := map[string]interface{}{
+		base := map[string]any{
 			"array": []any{"inner1", "inner2", "inner3"},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"array": []any{"outer1", "outer2"},
 		}
 
@@ -671,10 +671,10 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 
 	t.Run("ArrayMergeStrategySparse (default) should merge element-by-element - preserves #2281 fix", func(t *testing.T) {
 		// This simulates --state-values-set which creates sparse arrays
-		base := map[string]interface{}{
+		base := map[string]any{
 			"array": []any{"base1", "base2", "base3"},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"array": []any{nil, "override2"}, // Has nil = sparse array from CLI
 		}
 
@@ -691,10 +691,10 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 
 	t.Run("Auto-detect: complete array (no nils) replaces base entirely", func(t *testing.T) {
 		// Array without nils is detected as "complete" (layer value) and replaces entirely
-		base := map[string]interface{}{
+		base := map[string]any{
 			"array": []any{"base1", "base2", "base3"},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"array": []any{"override1"}, // Single element, no nils
 		}
 
@@ -711,10 +711,10 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 
 	t.Run("Auto-detect: sparse array (with nils) preserves base at nil indices", func(t *testing.T) {
 		// Array with nils is detected as "sparse" (CLI value) and merges element-by-element
-		base := map[string]interface{}{
+		base := map[string]any{
 			"array": []any{"base1", "base2", "base3"},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"array": []any{nil, nil, "override3"}, // Has nils at indices 0, 1
 		}
 
@@ -730,13 +730,13 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 	})
 
 	t.Run("nested maps in sparse arrays should merge recursively", func(t *testing.T) {
-		base := map[string]interface{}{
+		base := map[string]any{
 			"complexArray": []any{
 				map[string]any{"field1": "a", "field2": "b"},
 				map[string]any{"field1": "c", "field2": "d"},
 			},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"complexArray": []any{
 				nil,                                  // Skip index 0
 				map[string]any{"field2": "override"}, // Only override field2 at index 1
@@ -761,14 +761,14 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 
 	t.Run("Replace strategy: array of maps replaced entirely - layer scenario #2353", func(t *testing.T) {
 		// This is the key scenario from #2353: outer layer defining complete array of objects
-		base := map[string]interface{}{
+		base := map[string]any{
 			"releases": []any{
 				map[string]any{"name": "inner-release-1", "chart": "inner-chart-1"},
 				map[string]any{"name": "inner-release-2", "chart": "inner-chart-2"},
 				map[string]any{"name": "inner-release-3", "chart": "inner-chart-3"},
 			},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"releases": []any{
 				map[string]any{"name": "outer-release-1", "chart": "outer-chart-1"},
 				map[string]any{"name": "outer-release-2", "chart": "outer-chart-2"},
@@ -796,10 +796,10 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 	})
 
 	t.Run("Replace strategy: empty override array replaces base", func(t *testing.T) {
-		base := map[string]interface{}{
+		base := map[string]any{
 			"array": []any{"a", "b", "c"},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"array": []any{}, // Empty array
 		}
 
@@ -814,10 +814,10 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 	})
 
 	t.Run("Auto-detect: empty override replaces base (no nils means complete)", func(t *testing.T) {
-		base := map[string]interface{}{
+		base := map[string]any{
 			"array": []any{"a", "b", "c"},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"array": []any{}, // Empty array - has no nils, detected as complete
 		}
 
@@ -833,14 +833,14 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 	})
 
 	t.Run("strategies propagate to nested maps", func(t *testing.T) {
-		base := map[string]interface{}{
+		base := map[string]any{
 			"outer": map[string]any{
 				"inner": []any{"a", "b", "c"},
 			},
 		}
 
 		// With Replace strategy - explicit replacement
-		overrideComplete := map[string]interface{}{
+		overrideComplete := map[string]any{
 			"outer": map[string]any{
 				"inner": []any{"x", "y"}, // Complete array (no nils)
 			},
@@ -856,7 +856,7 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 		}
 
 		// With auto-detection and sparse array (has nils)
-		overrideSparse := map[string]interface{}{
+		overrideSparse := map[string]any{
 			"outer": map[string]any{
 				"inner": []any{"x", "y", nil}, // Sparse array - has nil at index 2
 			},
@@ -875,10 +875,10 @@ func TestMergeMaps_ArrayStrategies(t *testing.T) {
 	t.Run("ArrayMergeStrategyMerge always merges element-by-element (CLI index 0 case)", func(t *testing.T) {
 		// This tests the CLI scenario: --state-values-set array[0]=value
 		// Creates array ["value"] with NO nils, but should still merge
-		base := map[string]interface{}{
+		base := map[string]any{
 			"array": []any{"base0", "base1", "base2"},
 		}
-		override := map[string]interface{}{
+		override := map[string]any{
 			"array": []any{"override0"}, // Single element, no nils - from CLI index 0
 		}
 

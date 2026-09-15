@@ -260,8 +260,8 @@ func chartDependenciesAlias(namespace, releaseName string) string {
 // the chart path when helm processes OCI references during dependency update.
 // See issue #954.
 func ociDependencyChartName(chart string) string {
-	if idx := strings.LastIndex(chart, "/"); idx >= 0 {
-		return chart[idx+1:]
+	if _, name, found := strings.CutLast(chart, "/"); found {
+		return name
 	}
 	return chart
 }
@@ -273,10 +273,11 @@ func ociDependencyChartName(chart string) string {
 //	chart="path_with_underscores/example", baseURL="oci://registry.example.com"
 //	→ "oci://registry.example.com/path_with_underscores"
 func ociDependencyRepoURL(chart, ociBaseURL string) string {
-	if idx := strings.LastIndex(chart, "/"); idx >= 0 {
-		return strings.TrimSuffix(ociBaseURL, "/") + "/" + chart[:idx]
+	pathPrefix, _, found := strings.CutLast(chart, "/")
+	if !found {
+		return ociBaseURL
 	}
-	return ociBaseURL
+	return strings.TrimSuffix(ociBaseURL, "/") + "/" + pathPrefix
 }
 
 func getUnresolvedDependenciess(st *HelmState) (string, *UnresolvedDependencies) {
