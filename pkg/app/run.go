@@ -125,7 +125,11 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 			Namespace:   rel.Namespace,
 			KubeContext: rel.KubeContext,
 		}
-		if chart := releaseToChart[key]; chart != rel.Chart {
+		// Only update ChartPath for releases that were actually prepared.
+		// Checking map presence (rather than comparing the zero value "" against
+		// rel.Chart) preserves any pre-existing ChartPath on releases that chart
+		// preparation skipped (e.g. filtered by commandsSkippingChartifyTriggers).
+		if chart, ok := releaseToChart[key]; ok && chart != rel.Chart {
 			// The chart has been downloaded and modified by Helmfile (and chartify under the hood).
 			// We let the later step use the modified version of the chart, located under the `chart` variable,
 			// instead of the original chart path.

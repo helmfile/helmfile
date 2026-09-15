@@ -4659,6 +4659,123 @@ releases:
 	assert.Contains(t, out, "plain")
 	assert.Contains(t, out, "dependencies")
 	assert.Contains(t, out, "forceNamespace")
+	// Chartify-triggering releases are filtered out of chart preparation, so no
+	// chartify temp paths (e.g. /tmp/chartify.../...) may leak into the output.
+	assert.NotContains(t, out, "chartPath")
+	assert.NotContains(t, out, "chartify")
+}
+
+// TestPrintDAG_WithChartifyTriggers verifies that `helmfile show-dag` no longer
+// fails on releases that trigger chartify (dependencies, forceNamespace,
+// patches, transformers). show-dag runs with SkipRepos and only inspects the
+// release DAG, so it must not chartify — and must make zero helm calls at all.
+// Regression test for issue #1859 (same root cause as build).
+func TestPrintDAG_WithChartifyTriggers(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: with-deps
+  chart: examples/hello-world
+  version: 0.1.0
+  dependencies:
+  - chart: examples/hello-world
+    version: 0.1.0
+- name: plain
+  chart: examples/hello-world
+  version: 0.1.0
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
+	}, files)
+
+	expectNoCallsToHelm(app)
+
+	out, err := testutil.CaptureStdout(func() {
+		err := app.PrintDAGState(configImpl{})
+		require.NoError(t, err)
+	})
+
+	require.NoError(t, err)
+	assert.Contains(t, out, "with-deps")
+	assert.Contains(t, out, "plain")
+}
+
+// statusHelmExec allows only the helm calls that `helmfile status`
+// legitimately makes (ReleaseStatus per release plus harmless setters); any
+// chart-related call (fetch/pull/template/dep build) panics via the embedded
+// noCallHelmExec.
+type statusHelmExec struct {
+	*testutil.HelmExec
+	mu       sync.Mutex
+	statused []string
+}
+
+func (h *statusHelmExec) ReleaseStatus(context helmexec.HelmContext, release string, flags ...string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.statused = append(h.statused, release)
+	return nil
+}
+
+func (h *statusHelmExec) SetExtraArgs(args ...string) {}
+
+// TestStatus_WithChartifyTriggers verifies that `helmfile status` no longer
+// fails on releases that trigger chartify. status runs with SkipRepos, so
+// chartify-triggering releases must be excluded from chart preparation, while
+// `helm status` is still invoked for every release. Regression test for issue
+// #1859 (same root cause as build).
+func TestStatus_WithChartifyTriggers(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+releases:
+- name: with-deps
+  chart: examples/hello-world
+  version: 0.1.0
+  dependencies:
+  - chart: examples/hello-world
+    version: 0.1.0
+- name: plain
+  chart: examples/hello-world
+  version: 0.1.0
+`,
+	}
+
+	var buffer bytes.Buffer
+	syncWriter := testhelper.NewSyncWriter(&buffer)
+	logger := helmexec.NewLogger(syncWriter, "debug")
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              ffs.DefaultFileSystem(),
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          logger,
+		Namespace:                       "testNamespace",
+	}, files)
+
+	helm := &statusHelmExec{HelmExec: testutil.NewHelmExec(exectest.IsHelm4Enabled())}
+	app.helms = map[helmKey]helmexec.Interface{
+		createHelmKey(app.OverrideHelmBinary, app.OverrideKubeContext): helm,
+	}
+
+	require.NoError(t, app.Status(configImpl{}))
+
+	helm.mu.Lock()
+	defer helm.mu.Unlock()
+	assert.ElementsMatch(t, []string{"with-deps", "plain"}, helm.statused)
 }
 
 func TestPrint_MultiStateFile(t *testing.T) {

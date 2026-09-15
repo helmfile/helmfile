@@ -1,23 +1,24 @@
 package state
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-// TestFilterReleasesForBuild is a regression test for issue #1859.
+// TestFilterReleasesSkippingChartify is a regression test for issue #1859.
 //
-// Background: `helmfile build` is a read-only inspection command that outputs
-// the helmfile state. It runs with SkipRepos: true and SkipDeps: true, meaning
-// repositories are NOT synced before chart preparation. However, releases with
+// Background: read-only commands (build, status, show-dag) run chart
+// preparation with SkipRepos: true and SkipDeps: true, meaning repositories
+// are NOT synced before chart preparation. However, releases with
 // dependencies, jsonPatches, strategicMergePatches, transformers, or
 // forceNamespace trigger chartify, which runs `helm fetch`/`helm template` and
 // requires repos to be synced — causing "repo <repo> not found" errors.
 //
-// filterReleasesForBuild excludes such releases from chart preparation during
-// build so that the command succeeds without network access.
-func TestFilterReleasesForBuild(t *testing.T) {
+// filterReleasesSkippingChartify excludes such releases from chart
+// preparation for these commands so that they succeed without network access.
+func TestFilterReleasesSkippingChartify(t *testing.T) {
 	tests := []struct {
 		name     string
 		releases []ReleaseSpec
@@ -83,12 +84,26 @@ func TestFilterReleasesForBuild(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := filterReleasesForBuild(tt.releases)
+			got := filterReleasesSkippingChartify(tt.releases)
 			names := make([]string, 0, len(got))
 			for _, r := range got {
 				names = append(names, r.Name)
 			}
 			assert.Equal(t, tt.want, names)
 		})
+	}
+}
+
+// TestCommandsSkippingChartifyTriggers pins down which commands exclude
+// chartify-triggering releases from chart preparation. All of them run with
+// SkipRepos and fail on such releases otherwise (issue #1859). Deployment
+// commands (template, sync, apply, ...) must NOT be added here: they sync
+// repositories and rely on chartify to render the final charts.
+func TestCommandsSkippingChartifyTriggers(t *testing.T) {
+	assert.Equal(t, []string{"build", "status", "show-dag"}, commandsSkippingChartifyTriggers)
+
+	for _, cmd := range []string{"template", "sync", "apply", "diff", "lint", "destroy", "test", "pull", "fetch", "write-values", "list", "deps", "repos"} {
+		assert.False(t, slices.Contains(commandsSkippingChartifyTriggers, cmd),
+			"command %q must not skip chartify triggers", cmd)
 	}
 }

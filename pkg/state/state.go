@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1508,20 +1509,28 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 	return result
 }
 
+// commandsSkippingChartifyTriggers lists read-only commands that run chart
+// preparation with SkipRepos (no `helm repo update`): build, status, and
+// show-dag. For these commands, releases that trigger chartify's
+// helm-execution path fail with "repo <repo> not found". (list also runs with
+// SkipRepos but skips chart preparation entirely — see commandsSkipChartPrep
+// in pkg/app/run.go.)
+var commandsSkippingChartifyTriggers = []string{"build", "status", "show-dag"}
+
 // triggersChartifyHelmRun reports whether release r triggers chartify's
-// helm-execution path. The build command runs with SkipRepos (no
-// `helm repo update`), so any release that makes chartify invoke helm — to
-// download or template the chart — fails with "repo not found". This predicate
-// mirrors the PrepareChartify (helmx.go) conditions that set shouldRun=true and
-// route through helm: dependencies, jsonPatches, strategicMergePatches,
-// transformers, and forceNamespace.
+// helm-execution path. Commands listed in commandsSkippingChartifyTriggers run
+// with SkipRepos (no `helm repo update`), so any release that makes chartify
+// invoke helm — to download or template the chart — fails with "repo not
+// found". This predicate mirrors the PrepareChartify (helmx.go) conditions
+// that set shouldRun=true and route through helm: dependencies, jsonPatches,
+// strategicMergePatches, transformers, and forceNamespace.
 //
 // The local-directory chartify case (NeedsChartifyForLocalDir) is intentionally
 // excluded: it also runs chartify, but on a chart already on disk, so it never
 // triggers repo resolution. Note that these fields do not strictly imply a
 // remote chart (e.g. patches/forceNamespace can apply to local charts too);
-// they are grouped here because they share the build-time failure mode of
-// forcing helm execution under SkipRepos. See issue #1859.
+// they are grouped here because they share the SkipRepos failure mode of
+// forcing helm execution without synced repositories. See issue #1859.
 func triggersChartifyHelmRun(r ReleaseSpec) bool {
 	return len(r.Dependencies) > 0 ||
 		len(r.JSONPatches) > 0 ||
@@ -1530,7 +1539,12 @@ func triggersChartifyHelmRun(r ReleaseSpec) bool {
 		r.ForceNamespace != ""
 }
 
-func filterReleasesForBuild(releases []ReleaseSpec) []ReleaseSpec {
+// filterReleasesSkippingChartify returns the releases that do NOT trigger
+// chartify's helm-execution path. Commands listed in
+// commandsSkippingChartifyTriggers use it to exclude chartify-triggering
+// releases from chart preparation, so that they succeed without synced
+// repositories. Excluded releases are still reported in the command output.
+func filterReleasesSkippingChartify(releases []ReleaseSpec) []ReleaseSpec {
 	var filteredReleases []ReleaseSpec
 	for _, r := range releases {
 		if !triggersChartifyHelmRun(r) {
@@ -2220,10 +2234,12 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 	releases := releasesNeedCharts(selected)
 
-	// For build command, skip releases that require chartify (jsonPatches, etc.)
-	// as we only need to output state, not actually template the charts
-	if helmfileCommand == "build" {
-		releases = filterReleasesForBuild(releases)
+	// For read-only commands that run without synced repositories (see
+	// commandsSkippingChartifyTriggers), skip releases that would trigger
+	// chartify's helm-execution path (see triggersChartifyHelmRun), as these
+	// commands only inspect state and never render charts. See issue #1859.
+	if slices.Contains(commandsSkippingChartifyTriggers, helmfileCommand) {
+		releases = filterReleasesSkippingChartify(releases)
 	}
 
 	// Initialize the chartify temp dir tracker before concurrent workers start,
