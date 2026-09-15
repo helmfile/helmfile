@@ -145,6 +145,11 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 			Namespace:   rel.Namespace,
 			KubeContext: rel.KubeContext,
 		}
+		// Only update ChartPath for releases that were actually prepared.
+		// Checking map presence (rather than comparing the zero value "" against
+		// rel.Chart) preserves any pre-existing ChartPath on releases that chart
+		// preparation skipped (e.g. filtered by commandsSkippingChartifyTriggers
+		// or failed with AllowFailedReleases).
 		if _, failed := failedReleases[key]; failed {
 			continue
 		}
