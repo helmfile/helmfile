@@ -257,8 +257,7 @@ func isDetectedChanges(err error) bool {
 	if err == nil {
 		return false
 	}
-	var appErr *Error
-	if errors.As(err, &appErr) {
+	if appErr, ok := errors.AsType[*Error](err); ok {
 		if appErr.code != nil && *appErr.code == 2 {
 			return true
 		}

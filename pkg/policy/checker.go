@@ -32,7 +32,7 @@ func forbidEnvironmentsWithReleases(filePath string, content []byte) (bool, erro
 		return true, fmt.Errorf("no top-level config keys are found in %s", filePath)
 	}
 	result := []string{}
-	resultKeys := map[string]interface{}{}
+	resultKeys := map[string]any{}
 	for _, k := range topKeys {
 		if slices.Contains([]string{"environments", "releases", "---"}, k) {
 			if _, ok := resultKeys[k]; !ok {
@@ -79,9 +79,9 @@ func isTopOrderKey(key string) bool {
 // TopKeys returns the top-level config keys.
 func TopKeys(helmfileContent []byte, hasSeparator bool) []string {
 	var topKeys []string
-	clines := bytes.Split(helmfileContent, []byte("\n"))
+	clines := bytes.SplitSeq(helmfileContent, []byte("\n"))
 
-	for _, line := range clines {
+	for line := range clines {
 		lineStr := strings.TrimRightFunc(string(line), unicode.IsSpace)
 		if lineStr == "" {
 			continue // Skip empty lines
@@ -91,7 +91,7 @@ func TopKeys(helmfileContent []byte, hasSeparator bool) []string {
 		}
 
 		if topConfigKeysRegex.MatchString(lineStr) {
-			topKey := strings.SplitN(lineStr, ":", 2)[0]
+			topKey, _, _ := strings.Cut(lineStr, ":")
 			topKeys = append(topKeys, topKey)
 		}
 	}

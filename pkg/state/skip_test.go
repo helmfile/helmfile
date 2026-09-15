@@ -62,7 +62,7 @@ func TestSkipDepsAndSkipRefresh(t *testing.T) {
 			helmDefaultsSkipDeps:    false,
 			helmDefaultsSkipRefresh: false,
 			releaseSkipDeps:         nil,
-			releaseSkipRefresh:      boolPtr(true),
+			releaseSkipRefresh:      new(true),
 			optsSkipDeps:            false,
 			optsSkipRefresh:         false,
 			isLocal:                 true,
@@ -114,8 +114,4 @@ func TestSkipDepsAndSkipRefresh(t *testing.T) {
 			assert.Equal(t, tt.expectedSkipRefresh, skipRefresh, "skipRefresh mismatch")
 		})
 	}
-}
-
-func boolPtr(b bool) *bool {
-	return &b
 }

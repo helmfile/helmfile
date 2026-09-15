@@ -1,6 +1,9 @@
 package helmexec
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // RedactionProfile selects how aggressively RedactArgs masks secret-bearing
 // command-line arguments.
@@ -74,12 +77,7 @@ func RedactArgs(args []string, profile RedactionProfile) []string {
 }
 
 func isStrictNextArgFlag(arg string) bool {
-	for _, flag := range strictNextArgFlags {
-		if arg == flag {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(strictNextArgFlags, arg)
 }
 
 // strictInlineFlag returns the flag name when arg is a single-argument secret

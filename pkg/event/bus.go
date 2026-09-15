@@ -3,6 +3,7 @@ package event
 import (
 	goContext "context"
 	"fmt"
+	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -149,9 +150,7 @@ func (bus *Bus) runHook(hook Hook, evt string, evtErr error, context map[string]
 			Error: evtErr,
 		},
 	}
-	for k, v := range context {
-		data[k] = v
-	}
+	maps.Copy(data, context)
 	render := tmpl.NewTextRenderer(bus.Fs, bus.BasePath, data)
 
 	bus.Logger.Debugf("hook[%s]: triggered by event \"%s\"\n", name, evt)

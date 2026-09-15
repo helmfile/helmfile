@@ -4,7 +4,7 @@
 
 ### Essential Setup
 ```bash
-# Check Go version (requires 1.26.2+)
+# Check Go version (requires 1.27.1+)
 go version
 
 # Check Helm dependency (required at runtime)
@@ -39,6 +39,10 @@ make fmt
 
 # Run golangci-lint
 golangci-lint run
+
+# Detect outdated Go patterns (fails if `go fix` would rewrite anything;
+# enforced in CI)
+make check-modernize
 ```
 
 ### Testing Commands

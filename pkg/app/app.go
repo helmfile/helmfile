@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1744,9 +1745,7 @@ func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]stri
 			return files[j] < files[i]
 		})
 	} else {
-		sort.Slice(files, func(i, j int) bool {
-			return files[i] < files[j]
-		})
+		slices.Sort(files)
 	}
 
 	a.Logger.Debugf("found %d helmfile state files in %s: %s", len(ymlFiles)+len(gotmplFiles), helmfileDir, strings.Join(files, ", "))

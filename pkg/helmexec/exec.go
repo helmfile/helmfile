@@ -306,14 +306,8 @@ func (helm *execer) retryRepoOp(name string, op func() ([]byte, error)) ([]byte,
 		}
 		// Cap the shift exponent at 5 (2^5 = 32x already exceeds the 30x cap)
 		// so very large --repo-retries values can't overflow time.Duration.
-		shift := attempt
-		if shift > 5 {
-			shift = 5
-		}
-		backoff := repoRetryBaseBackoff * time.Duration(1<<shift)
-		if backoff > 30*repoRetryBaseBackoff {
-			backoff = 30 * repoRetryBaseBackoff
-		}
+		shift := min(attempt, 5)
+		backoff := min(repoRetryBaseBackoff*time.Duration(1<<shift), 30*repoRetryBaseBackoff)
 		helm.logger.Warnf("repo operation %q failed (%s); retry %d/%d in %v",
 			name, conciseError(err), attempt+1, maxRetries, backoff)
 		// sleepCtx returns false if interrupted by context cancellation; in that
@@ -329,8 +323,7 @@ func (helm *execer) retryRepoOp(name string, op func() ([]byte, error)) ([]byte,
 // reports just the exit status, avoiding the very verbose PATH/ARGS/OUTPUT
 // dump that Error() produces.
 func conciseError(err error) string {
-	var ee ExitError
-	if errors.As(err, &ee) {
+	if ee, ok := errors.AsType[ExitError](err); ok {
 		return fmt.Sprintf("exit status %d", ee.ExitStatus())
 	}
 	return err.Error()
@@ -515,8 +508,7 @@ func getSupportedDependencyFlags() map[string]bool {
 		// Get global flags from Helm 3 cli.EnvSettings
 		envSettings := cliv3.New()
 		envType := reflect.TypeOf(*envSettings)
-		for i := 0; i < envType.NumField(); i++ {
-			field := envType.Field(i)
+		for field := range envType.Fields() {
 			if field.IsExported() {
 				flagName := "--" + toKebabCase(field.Name)
 				supported[flagName] = true
@@ -529,8 +521,7 @@ func getSupportedDependencyFlags() map[string]bool {
 		// Get dependency-specific flags from Helm 3 action.Dependency
 		dep := actionv3.NewDependency()
 		depType := reflect.TypeOf(*dep)
-		for i := 0; i < depType.NumField(); i++ {
-			field := depType.Field(i)
+		for field := range depType.Fields() {
 			if field.IsExported() {
 				flagName := "--" + toKebabCase(field.Name)
 				supported[flagName] = true
@@ -540,8 +531,7 @@ func getSupportedDependencyFlags() map[string]bool {
 		// Get global flags from Helm 4 cli.EnvSettings
 		envSettings := cliv4.New()
 		envType := reflect.TypeOf(*envSettings)
-		for i := 0; i < envType.NumField(); i++ {
-			field := envType.Field(i)
+		for field := range envType.Fields() {
 			if field.IsExported() {
 				flagName := "--" + toKebabCase(field.Name)
 				supported[flagName] = true
@@ -554,8 +544,7 @@ func getSupportedDependencyFlags() map[string]bool {
 		// Get dependency-specific flags from Helm 4 action.Dependency
 		dep := actionv4.NewDependency()
 		depType := reflect.TypeOf(*dep)
-		for i := 0; i < depType.NumField(); i++ {
-			field := depType.Field(i)
+		for field := range depType.Fields() {
 			if field.IsExported() {
 				flagName := "--" + toKebabCase(field.Name)
 				supported[flagName] = true
@@ -589,8 +578,8 @@ func filterDependencyUnsupportedFlags(flags []string) []string {
 	for _, flag := range flags {
 		// Extract flag name without value (e.g., "--dry-run=server" -> "--dry-run")
 		flagName := flag
-		if idx := strings.Index(flag, "="); idx != -1 {
-			flagName = flag[:idx]
+		if before, _, ok := strings.Cut(flag, "="); ok {
+			flagName = before
 		}
 
 		// Check if this flag or any prefix of it is supported
@@ -841,8 +830,8 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 				i++
 				continue
 			}
-			if strings.HasPrefix(flags[i], "--output-dir=") {
-				outputDir = strings.TrimPrefix(flags[i], "--output-dir=")
+			if after, ok := strings.CutPrefix(flags[i], "--output-dir="); ok {
+				outputDir = after
 				continue
 			}
 			filteredFlags = append(filteredFlags, flags[i])

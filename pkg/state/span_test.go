@@ -77,10 +77,8 @@ func newShimState(t *testing.T) (*HelmState, helmexec.Interface) {
 	return &HelmState{
 		logger: zap.NewNop().Sugar(),
 		fs:     filesystem.DefaultFileSystem(),
-		ReleaseSetSpec: ReleaseSetSpec{
-			Releases: []ReleaseSpec{
-				{Name: "demo", Namespace: "apps", Chart: "./charts/demo"},
-			},
+		Releases: []ReleaseSpec{
+			{Name: "demo", Namespace: "apps", Chart: "./charts/demo"},
 		},
 	}, helm
 }

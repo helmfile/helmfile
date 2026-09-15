@@ -111,12 +111,10 @@ fieldSpecs:
 `), 0644))
 
 	st := &HelmState{
-		logger: zap.NewNop().Sugar(),
-		fs:     filesystem.DefaultFileSystem(),
-		ReleaseSetSpec: ReleaseSetSpec{
-			DefaultHelmBinary:      helmBin,
-			DefaultKustomizeBinary: "kustomize",
-		},
+		logger:                 zap.NewNop().Sugar(),
+		fs:                     filesystem.DefaultFileSystem(),
+		DefaultHelmBinary:      helmBin,
+		DefaultKustomizeBinary: "kustomize",
 	}
 
 	chartification := &Chartify{

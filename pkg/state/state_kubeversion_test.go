@@ -39,9 +39,7 @@ func TestAppendApiVersionsFlags_KubeVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					KubeVersion: tt.stateKubeVersion,
-				},
+				KubeVersion: tt.stateKubeVersion,
 			}
 
 			release := &ReleaseSpec{
@@ -65,7 +63,7 @@ func TestAppendApiVersionsFlags_KubeVersion(t *testing.T) {
 				require.True(t, foundKubeVersion, "Should have --kube-version flag in result")
 			} else {
 				// Should NOT have --kube-version flag
-				for i := 0; i < len(result); i++ {
+				for i := range result {
 					require.NotEqual(t, "--kube-version", result[i],
 						"Should not have --kube-version flag when nothing is set")
 				}

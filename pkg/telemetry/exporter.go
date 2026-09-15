@@ -165,7 +165,7 @@ func propagatorsFromEnv(logger *zap.SugaredLogger) propagation.TextMapPropagator
 	}
 
 	var propagators []propagation.TextMapPropagator
-	for _, name := range strings.Split(raw, ",") {
+	for name := range strings.SplitSeq(raw, ",") {
 		switch strings.TrimSpace(name) {
 		case "tracecontext":
 			propagators = append(propagators, propagation.TraceContext{})

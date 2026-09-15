@@ -404,7 +404,7 @@ func TestContext_RenderTemplateToBuffer(t *testing.T) {
 		},
 	}
 	s := "Hello, {{ include \"name\" . }}!"
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Name": "Alice",
 	}
 	expected := "Hello, Alice!"

@@ -37,7 +37,7 @@ func TestOCIChartFileLock(t *testing.T) {
 		// Number of concurrent goroutines trying to acquire the lock
 		numGoroutines := 5
 
-		for i := 0; i < numGoroutines; i++ {
+		for i := range numGoroutines {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
@@ -78,11 +78,8 @@ func TestOCIChartFileLock(t *testing.T) {
 
 		// Multiple goroutines try to write to the same file
 		numGoroutines := 10
-		for i := 0; i < numGoroutines; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
+		for range numGoroutines {
+			wg.Go(func() {
 				fileLock := flock.New(lockFilePath)
 				err := fileLock.Lock()
 				require.NoError(t, err)
@@ -95,7 +92,7 @@ func TestOCIChartFileLock(t *testing.T) {
 					require.NoError(t, err)
 					writeCount.Add(1)
 				}
-			}()
+			})
 		}
 
 		wg.Wait()
@@ -195,11 +192,8 @@ func TestOCIChartSharedExclusiveLocks(t *testing.T) {
 		var activeReaders atomic.Int32
 		var maxConcurrentReaders atomic.Int32
 
-		for i := 0; i < numReaders; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
+		for range numReaders {
+			wg.Go(func() {
 				fileLock := flock.New(lockFilePath)
 				// Acquire shared (read) lock
 				err := fileLock.RLock()
@@ -225,7 +219,7 @@ func TestOCIChartSharedExclusiveLocks(t *testing.T) {
 				activeReaders.Add(-1)
 				err = fileLock.Unlock()
 				require.NoError(t, err)
-			}()
+			})
 		}
 
 		wg.Wait()
@@ -455,11 +449,8 @@ func TestOCIChartDoubleCheckLocking(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Simulate two processes trying to download the same chart
-		for i := 0; i < 2; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
+		for range 2 {
+			wg.Go(func() {
 				fileLock := flock.New(lockFilePath)
 				err := fileLock.Lock()
 				require.NoError(t, err)
@@ -476,7 +467,7 @@ func TestOCIChartDoubleCheckLocking(t *testing.T) {
 					pullCount.Add(1)
 				}
 				// If directory exists, skip pull (use cached)
-			}()
+			})
 		}
 
 		wg.Wait()

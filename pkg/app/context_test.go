@@ -19,11 +19,11 @@ func TestContextConcurrentAccess(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	// Launch multiple goroutines that concurrently update the repos map
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		go func(goroutineID int) {
 			defer wg.Done()
 
-			for j := 0; j < numReposPerGoroutine; j++ {
+			for j := range numReposPerGoroutine {
 				repoKey := "repo-" + string(rune('0'+goroutineID)) + "-" + string(rune('0'+j))
 
 				ctx.mu.Lock()
@@ -129,10 +129,10 @@ func TestContextConcurrentReadWrite(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Launch multiple goroutines for each repo
-	for i := 0; i < numRepos; i++ {
+	for i := range numRepos {
 		repoKey := "repo-" + string(rune('0'+i)) + "=https://example.com"
 
-		for j := 0; j < numGoroutinesPerRepo; j++ {
+		for range numGoroutinesPerRepo {
 			wg.Add(1)
 			go func(key string) {
 				defer wg.Done()

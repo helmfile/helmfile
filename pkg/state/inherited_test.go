@@ -13,15 +13,14 @@ import (
 )
 
 func TestBuildInheritedConfig_OnlyRequestedFields(t *testing.T) {
-	st := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
+	st := &HelmState{
 		Repositories: []RepositorySpec{{Name: "a"}, {Name: "b"}},
 		HelmDefaults: HelmSpec{Timeout: 300, Atomic: true},
 		CommonLabels: map[string]string{"team": "platform"},
 		ApiVersions:  []string{"v1"},
 		KubeVersion:  "1.30.0",
 		Templates:    map[string]TemplateSpec{"t": {}},
-		Env:          environment.Environment{Name: "prod", Values: map[string]any{"k": "v"}},
-	}}
+		Env:          environment.Environment{Name: "prod", Values: map[string]any{"k": "v"}}}
 
 	t.Run("repositories only", func(t *testing.T) {
 		in, err := st.BuildInheritedConfig([]string{"repositories"})
@@ -65,13 +64,12 @@ func TestBuildInheritedConfig_OnlyRequestedFields(t *testing.T) {
 // does not alias the parent's slices/maps — mutating the copy must not affect
 // the parent state. This guards against the cross-state coupling noted in review.
 func TestBuildInheritedConfig_PureFieldsAreDeepCopied(t *testing.T) {
-	st := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
+	st := &HelmState{
 		Repositories: []RepositorySpec{{Name: "a"}, {Name: "b"}},
 		HelmDefaults: HelmSpec{Timeout: 300, Args: []string{"--parent-arg"}},
 		CommonLabels: map[string]string{"team": "platform"},
 		ApiVersions:  []string{"v1"},
-		Templates:    map[string]TemplateSpec{"base": {ReleaseSpec: ReleaseSpec{Namespace: "parent-ns"}}},
-	}}
+		Templates:    map[string]TemplateSpec{"base": {ReleaseSpec: ReleaseSpec{Namespace: "parent-ns"}}}}
 	in, err := st.BuildInheritedConfig([]string{
 		"repositories", "helmDefaults", "commonLabels", "apiVersions", "templates",
 	})
@@ -96,21 +94,19 @@ func TestBuildInheritedConfig_PureFieldsAreDeepCopied(t *testing.T) {
 }
 
 func TestMergeInherited_NilIsNoop(t *testing.T) {
-	st := &HelmState{ReleaseSetSpec: ReleaseSetSpec{Repositories: []RepositorySpec{{Name: "a"}}}}
+	st := &HelmState{Repositories: []RepositorySpec{{Name: "a"}}}
 	require.NoError(t, st.MergeInherited(nil))
 	assert.Equal(t, []RepositorySpec{{Name: "a"}}, st.Repositories)
 }
 
 func TestMergeInherited_RepositoriesAppendsAndDedupsChildWins(t *testing.T) {
-	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		Repositories: []RepositorySpec{{Name: "shared", URL: "parent-url"}, {Name: "only-parent"}},
-	}}
+	parent := &HelmState{
+		Repositories: []RepositorySpec{{Name: "shared", URL: "parent-url"}, {Name: "only-parent"}}}
 	in, err := parent.BuildInheritedConfig([]string{"repositories"})
 	require.NoError(t, err)
 
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		Repositories: []RepositorySpec{{Name: "shared", URL: "child-url"}, {Name: "only-child"}},
-	}}
+	child := &HelmState{
+		Repositories: []RepositorySpec{{Name: "shared", URL: "child-url"}, {Name: "only-child"}}}
 	require.NoError(t, child.MergeInherited(in))
 
 	names := repoNames(child.Repositories)
@@ -124,9 +120,8 @@ func TestMergeInherited_RepositoriesAppendsAndDedupsChildWins(t *testing.T) {
 }
 
 func TestMergeInherited_HelmDefaultsParentFillsChildGaps(t *testing.T) {
-	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		HelmDefaults: HelmSpec{Timeout: 300, Atomic: true},
-	}}
+	parent := &HelmState{
+		HelmDefaults: HelmSpec{Timeout: 300, Atomic: true}}
 	in, err := parent.BuildInheritedConfig([]string{"helmDefaults"})
 	require.NoError(t, err)
 
@@ -138,7 +133,7 @@ func TestMergeInherited_HelmDefaultsParentFillsChildGaps(t *testing.T) {
 	})
 
 	t.Run("child sets a non-zero field, parent fills the rest", func(t *testing.T) {
-		child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{HelmDefaults: HelmSpec{Wait: true}}}
+		child := &HelmState{HelmDefaults: HelmSpec{Wait: true}}
 		require.NoError(t, child.MergeInherited(in))
 		assert.Equal(t, 300, child.HelmDefaults.Timeout, "parent fills child gap")
 		assert.True(t, child.HelmDefaults.Atomic, "parent fills child gap")
@@ -147,15 +142,13 @@ func TestMergeInherited_HelmDefaultsParentFillsChildGaps(t *testing.T) {
 }
 
 func TestMergeInherited_CommonLabelsUnionChildWins(t *testing.T) {
-	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		CommonLabels: map[string]string{"team": "platform", "shared": "parent"},
-	}}
+	parent := &HelmState{
+		CommonLabels: map[string]string{"team": "platform", "shared": "parent"}}
 	in, err := parent.BuildInheritedConfig([]string{"commonLabels"})
 	require.NoError(t, err)
 
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		CommonLabels: map[string]string{"shared": "child", "local": "c"},
-	}}
+	child := &HelmState{
+		CommonLabels: map[string]string{"shared": "child", "local": "c"}}
 	require.NoError(t, child.MergeInherited(in))
 
 	assert.Equal(t, "platform", child.CommonLabels["team"], "parent-only key added")
@@ -164,15 +157,13 @@ func TestMergeInherited_CommonLabelsUnionChildWins(t *testing.T) {
 }
 
 func TestMergeInherited_TemplatesUnionChildWins(t *testing.T) {
-	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		Templates: map[string]TemplateSpec{"base": {ReleaseSpec: ReleaseSpec{Namespace: "a"}}, "shared": {ReleaseSpec: ReleaseSpec{Namespace: "p"}}},
-	}}
+	parent := &HelmState{
+		Templates: map[string]TemplateSpec{"base": {ReleaseSpec: ReleaseSpec{Namespace: "a"}}, "shared": {ReleaseSpec: ReleaseSpec{Namespace: "p"}}}}
 	in, err := parent.BuildInheritedConfig([]string{"templates"})
 	require.NoError(t, err)
 
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		Templates: map[string]TemplateSpec{"shared": {ReleaseSpec: ReleaseSpec{Namespace: "c"}}, "local": {ReleaseSpec: ReleaseSpec{Namespace: "x"}}},
-	}}
+	child := &HelmState{
+		Templates: map[string]TemplateSpec{"shared": {ReleaseSpec: ReleaseSpec{Namespace: "c"}}, "local": {ReleaseSpec: ReleaseSpec{Namespace: "x"}}}}
 	require.NoError(t, child.MergeInherited(in))
 
 	assert.Contains(t, child.Templates, "base", "parent-only template added")
@@ -181,11 +172,11 @@ func TestMergeInherited_TemplatesUnionChildWins(t *testing.T) {
 }
 
 func TestMergeInherited_ApiVersionsAppendsAndDedups(t *testing.T) {
-	parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{ApiVersions: []string{"v1", "v2"}}}
+	parent := &HelmState{ApiVersions: []string{"v1", "v2"}}
 	in, err := parent.BuildInheritedConfig([]string{"apiVersions"})
 	require.NoError(t, err)
 
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{ApiVersions: []string{"v2", "v3"}}}
+	child := &HelmState{ApiVersions: []string{"v2", "v3"}}
 	require.NoError(t, child.MergeInherited(in))
 
 	assert.Equal(t, []string{"v1", "v2", "v3"}, child.ApiVersions)
@@ -193,7 +184,7 @@ func TestMergeInherited_ApiVersionsAppendsAndDedups(t *testing.T) {
 
 func TestMergeInherited_KubeVersionChildWinsParentFillsGap(t *testing.T) {
 	t.Run("child empty inherits parent", func(t *testing.T) {
-		parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{KubeVersion: "1.30.0"}}
+		parent := &HelmState{KubeVersion: "1.30.0"}
 		in, err := parent.BuildInheritedConfig([]string{"kubeVersion"})
 		require.NoError(t, err)
 		child := &HelmState{}
@@ -201,10 +192,10 @@ func TestMergeInherited_KubeVersionChildWinsParentFillsGap(t *testing.T) {
 		assert.Equal(t, "1.30.0", child.KubeVersion)
 	})
 	t.Run("child set keeps its own", func(t *testing.T) {
-		parent := &HelmState{ReleaseSetSpec: ReleaseSetSpec{KubeVersion: "1.30.0"}}
+		parent := &HelmState{KubeVersion: "1.30.0"}
 		in, err := parent.BuildInheritedConfig([]string{"kubeVersion"})
 		require.NoError(t, err)
-		child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{KubeVersion: "1.29.0"}}
+		child := &HelmState{KubeVersion: "1.29.0"}
 		require.NoError(t, child.MergeInherited(in))
 		assert.Equal(t, "1.29.0", child.KubeVersion)
 	})
@@ -216,9 +207,8 @@ func newObservedLogger() (*zap.SugaredLogger, *observer.ObservedLogs) {
 }
 
 func TestWarnUninheritedRepos_WarnsWhenParentHasRepoChildLacks(t *testing.T) {
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		Releases: []ReleaseSpec{{Name: "myapp", Chart: "release-charts/myapp"}},
-	}}
+	child := &HelmState{
+		Releases: []ReleaseSpec{{Name: "myapp", Chart: "release-charts/myapp"}}}
 	logger, recorded := newObservedLogger()
 
 	child.WarnUninheritedRepos([]string{"release-charts"}, logger)
@@ -230,10 +220,9 @@ func TestWarnUninheritedRepos_WarnsWhenParentHasRepoChildLacks(t *testing.T) {
 
 func TestWarnUninheritedRepos_NoWarnWhenRepoInherited(t *testing.T) {
 	// child has the repo (e.g. because it was inherited and merged) -> no warn
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
+	child := &HelmState{
 		Repositories: []RepositorySpec{{Name: "release-charts"}},
-		Releases:     []ReleaseSpec{{Name: "myapp", Chart: "release-charts/myapp"}},
-	}}
+		Releases:     []ReleaseSpec{{Name: "myapp", Chart: "release-charts/myapp"}}}
 	logger, recorded := newObservedLogger()
 
 	child.WarnUninheritedRepos([]string{"release-charts"}, logger)
@@ -243,9 +232,8 @@ func TestWarnUninheritedRepos_NoWarnWhenRepoInherited(t *testing.T) {
 
 func TestWarnUninheritedRepos_NoWarnForRepoNotInParent(t *testing.T) {
 	// repo absent from both -> helm will error separately, no inherit hint
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		Releases: []ReleaseSpec{{Name: "myapp", Chart: "other/myapp"}},
-	}}
+	child := &HelmState{
+		Releases: []ReleaseSpec{{Name: "myapp", Chart: "other/myapp"}}}
 	logger, recorded := newObservedLogger()
 
 	child.WarnUninheritedRepos([]string{"release-charts"}, logger)
@@ -254,15 +242,14 @@ func TestWarnUninheritedRepos_NoWarnForRepoNotInParent(t *testing.T) {
 }
 
 func TestWarnUninheritedRepos_IgnoresLocalAndBareCharts(t *testing.T) {
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
+	child := &HelmState{
 		Releases: []ReleaseSpec{
 			{Name: "a", Chart: "./local/chart"},
 			{Name: "b", Chart: "mychart"},
 			{Name: "c", Chart: "oci://registry/chart"},
 			{Name: "d", Chart: "https://host/charts/x"},
 			{Name: "e", Chart: "../sibling/y"},
-		},
-	}}
+		}}
 	logger, recorded := newObservedLogger()
 
 	child.WarnUninheritedRepos([]string{"release-charts"}, logger)
@@ -271,12 +258,11 @@ func TestWarnUninheritedRepos_IgnoresLocalAndBareCharts(t *testing.T) {
 }
 
 func TestWarnUninheritedRepos_WarnsOncePerRepo(t *testing.T) {
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
+	child := &HelmState{
 		Releases: []ReleaseSpec{
 			{Name: "a", Chart: "shared/x"},
 			{Name: "b", Chart: "shared/y"},
-		},
-	}}
+		}}
 	logger, recorded := newObservedLogger()
 
 	child.WarnUninheritedRepos([]string{"shared"}, logger)
@@ -285,9 +271,8 @@ func TestWarnUninheritedRepos_WarnsOncePerRepo(t *testing.T) {
 }
 
 func TestWarnUninheritedRepos_NilLoggerAndEmptyInputsAreSafe(t *testing.T) {
-	child := &HelmState{ReleaseSetSpec: ReleaseSetSpec{
-		Releases: []ReleaseSpec{{Name: "a", Chart: "x/y"}},
-	}}
+	child := &HelmState{
+		Releases: []ReleaseSpec{{Name: "a", Chart: "x/y"}}}
 	assert.NotPanics(t, func() { child.WarnUninheritedRepos(nil, nil) })
 	assert.NotPanics(t, func() { child.WarnUninheritedRepos(nil, zap.NewNop().Sugar()) })
 	assert.NotPanics(t, func() { child.WarnUninheritedRepos([]string{"x"}, zap.NewNop().Sugar()) })

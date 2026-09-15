@@ -181,8 +181,7 @@ func (r *Run) WithPreparedCharts(helmfileCommand string, opts state.ChartPrepare
 	// merge the preparation and cleanup errors into a single error output
 	var merged []error
 	if prepareErr != nil {
-		var me *MultiError
-		if errors.As(prepareErr, &me) {
+		if me, ok := errors.AsType[*MultiError](prepareErr); ok {
 			merged = append(merged, me.Errors...)
 		} else {
 			merged = append(merged, prepareErr)

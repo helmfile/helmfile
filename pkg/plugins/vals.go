@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -104,16 +105,12 @@ func containsRefPlus(v any) bool {
 			}
 		}
 	case []any:
-		for _, v := range val {
-			if containsRefPlus(v) {
-				return true
-			}
+		if slices.ContainsFunc(val, containsRefPlus) {
+			return true
 		}
 	case []string:
-		for _, s := range val {
-			if refPlusRegexp.MatchString(s) {
-				return true
-			}
+		if slices.ContainsFunc(val, refPlusRegexp.MatchString) {
+			return true
 		}
 	}
 	return false

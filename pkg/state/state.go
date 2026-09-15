@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -917,7 +918,7 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 		concurrency,
 		numReleases,
 		func() {
-			for i := 0; i < numReleases; i++ {
+			for i := range numReleases {
 				jobs <- releases[i]
 			}
 			close(jobs)
@@ -1158,7 +1159,7 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		workerLimit,
 		len(releases),
 		func() {
-			for i := 0; i < len(releases); i++ {
+			for i := range releases {
 				jobQueue <- &releases[i]
 			}
 			close(jobQueue)
@@ -1269,7 +1270,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 		workerLimit,
 		len(preps),
 		func() {
-			for i := 0; i < len(preps); i++ {
+			for i := range preps {
 				jobQueue <- &preps[i]
 			}
 			close(jobQueue)
@@ -1711,13 +1712,13 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 	}
 
 	type ChartDependency struct {
-		Name       string                 `yaml:"name"`
-		Repository string                 `yaml:"repository"`
-		Data       map[string]interface{} `yaml:",inline"`
+		Name       string         `yaml:"name"`
+		Repository string         `yaml:"repository"`
+		Data       map[string]any `yaml:",inline"`
 	}
 	type ChartMeta struct {
-		Dependencies []ChartDependency      `yaml:"dependencies,omitempty"`
-		Data         map[string]interface{} `yaml:",inline"`
+		Dependencies []ChartDependency `yaml:"dependencies,omitempty"`
+		Data         map[string]any    `yaml:",inline"`
 	}
 
 	var chartMeta ChartMeta
@@ -1728,8 +1729,8 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 	modified := false
 	for i := range chartMeta.Dependencies {
 		dep := &chartMeta.Dependencies[i]
-		if strings.HasPrefix(dep.Repository, "file://") {
-			relPath := strings.TrimPrefix(dep.Repository, "file://")
+		if after, ok := strings.CutPrefix(dep.Repository, "file://"); ok {
+			relPath := after
 
 			if !filepath.IsAbs(relPath) {
 				absPath := filepath.Join(chartPath, relPath)
@@ -1820,7 +1821,7 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 				if v, ok := d.Data["enabled"].(bool); ok {
 					dep.Enabled = v
 				}
-				if v, ok := d.Data["tags"].([]interface{}); ok {
+				if v, ok := d.Data["tags"].([]any); ok {
 					tags := make([]string, 0, len(v))
 					for _, t := range v {
 						if s, ok := t.(string); ok {
@@ -1829,12 +1830,12 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 					}
 					dep.Tags = tags
 				}
-				if v, ok := d.Data["import-values"].([]interface{}); ok {
+				if v, ok := d.Data["import-values"].([]any); ok {
 					normalized, err := maputil.RecursivelyStringifyMapKey(v)
 					if err != nil {
 						st.logger.Warnf("Failed to normalize import-values for dependency %s: %v", d.Name, err)
 					} else {
-						dep.ImportValues = normalized.([]interface{})
+						dep.ImportValues = normalized.([]any)
 					}
 				}
 				req = append(req, dep)
@@ -1866,7 +1867,7 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 					if err != nil {
 						st.logger.Warnf("Failed to normalize import-values in Chart.lock for dependency %s: %v", ld.Name, err)
 					} else {
-						ld.ImportValues = normalized.([]interface{})
+						ld.ImportValues = normalized.([]any)
 					}
 				}
 			}
@@ -2000,7 +2001,7 @@ func (st *HelmState) appendSkipSchemaValidationFlagToChartifyTemplateArgs(templa
 }
 
 func hasTemplateArg(templateArgs, arg string) bool {
-	for _, token := range strings.Fields(templateArgs) {
+	for token := range strings.FieldsSeq(templateArgs) {
 		if token == arg || strings.HasPrefix(token, arg+"=") {
 			return true
 		}
@@ -2037,8 +2038,7 @@ func (st *HelmState) processLocalChart(normalizedChart, dir string, release *Rel
 // TLS/plain-http) so a prefetched chart behaves identically to one helm would have
 // downloaded itself during `helm upgrade`. See issue #2741.
 func (st *HelmState) chartFetchFlags(release *ReleaseSpec) []string {
-	var flags []string
-	flags = st.appendChartVersionFlags(flags, release)
+	flags := st.chartVersionFlags(release)
 
 	// non-OCI chart should be verified here, matching flagsForUpgrade.
 	if !st.IsOCIChart(release.Chart) {
@@ -3103,7 +3103,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 		concurrency,
 		numReleases,
 		func() {
-			for i := 0; i < numReleases; i++ {
+			for i := range numReleases {
 				jobs <- releases[i]
 			}
 			close(jobs)
@@ -3177,7 +3177,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 			}
 		},
 		func() {
-			for i := 0; i < numReleases; i++ {
+			for range numReleases {
 				res := <-results
 				if len(res.errors) > 0 {
 					for _, e := range res.errors {
@@ -3301,7 +3301,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 		workerLimit,
 		len(preps),
 		func() {
-			for i := 0; i < len(preps); i++ {
+			for i := range preps {
 				jobQueue <- &preps[i]
 			}
 			close(jobQueue)
@@ -3364,7 +3364,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 			}
 		},
 		func() {
-			for i := 0; i < len(preps); i++ {
+			for range preps {
 				res := <-results
 				if res.err != nil {
 					errs = append(errs, res.err)
@@ -3525,12 +3525,8 @@ func (st *HelmState) GetReleasesWithLabels() []ReleaseSpec {
 		spec := r
 		labels := map[string]string{}
 		// apply common labels
-		for k, v := range st.CommonLabels {
-			labels[k] = v
-		}
-		for k, v := range spec.Labels {
-			labels[k] = v
-		}
+		maps.Copy(labels, st.CommonLabels)
+		maps.Copy(labels, spec.Labels)
 		// Let the release name, namespace, and chart be used as a tag
 		labels["name"] = r.Name
 		labels["namespace"] = r.Namespace
@@ -3624,7 +3620,7 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 			return false, fmt.Errorf("environment values field '%s' not found", currentKey)
 		}
 
-		iValues, ok = value.(map[string]interface{})
+		iValues, ok = value.(map[string]any)
 		if !ok {
 			return false, fmt.Errorf("environment values field '%s' is not a map", currentKey)
 		}
@@ -4177,8 +4173,7 @@ func (st *HelmState) timeoutFlags(release *ReleaseSpec, ops *SyncOpts) []string 
 }
 
 func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *SyncOpts) ([]string, []string, error) {
-	var flags []string
-	flags = st.appendChartVersionFlags(flags, release)
+	flags := st.chartVersionFlags(release)
 	flags = st.appendEnableDNSFlags(flags, release)
 
 	flags = st.appendWaitFlags(flags, helm, release, opt)
@@ -4324,8 +4319,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 }
 
 func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, opt *TemplateOpts) ([]string, []string, error) {
-	var flags []string
-	flags = st.appendChartVersionFlags(flags, release)
+	flags := st.chartVersionFlags(release)
 	flags = st.appendHelmXFlags(flags, release)
 	flags = st.appendEnableDNSFlags(flags, release)
 
@@ -4375,8 +4369,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 	} else {
 		pluginsDir = cliv4.New().PluginsDirectory
 	}
-	var flags []string
-	flags = st.appendChartVersionFlags(flags, release)
+	flags := st.chartVersionFlags(release)
 	flags = st.appendEnableDNSFlags(flags, release)
 
 	disableOpenAPIValidation := false
@@ -4577,7 +4570,8 @@ func (st *HelmState) appendServerSideFlagsForDiff(flags []string, helm helmexec.
 	return st.appendServerSideFlagsForUpgrade(flags, helm, release, serverSide)
 }
 
-func (st *HelmState) appendChartVersionFlags(flags []string, release *ReleaseSpec) []string {
+func (st *HelmState) chartVersionFlags(release *ReleaseSpec) []string {
+	var flags []string
 	version := release.Version
 	// Strip OCI digest from version (digest is handled in chart URL, not --version flag)
 	if idx := strings.Index(version, "@"); idx >= 0 {
@@ -5369,7 +5363,7 @@ func renderValsSecrets(e vals.Evaluator, input ...string) ([]string, error) {
 			return nil, fmt.Errorf("type %T isn't supported", mapRendered["values"])
 		}
 
-		for i := 0; i < len(rendered); i++ {
+		for i := range rendered {
 			output[i] = fmt.Sprintf("%v", rendered[i])
 		}
 	}
@@ -6238,7 +6232,7 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 	flags = st.appendKeyringFlags(flags, release)
 	flags = st.appendChartDownloadFlags(flags, release)
 	// Use the clean chartVersion (without digest) from getOCIQualifiedChartName
-	// rather than appendChartVersionFlags which uses release.Version verbatim.
+	// rather than chartVersionFlags which uses release.Version verbatim.
 	// The digest is already embedded in qualifiedChartName.
 	// When a digest is present, omit --version: the digest is the authoritative
 	// content identifier, and passing both causes errors in some Helm versions.
@@ -6351,8 +6345,8 @@ func parseOCIChartRef(chartURL string) (baseURL, version, digest string) {
 //	"@sha256:abc"        → ("", "sha256:abc")
 //	""                   → ("", "")
 func parseVersionDigest(version string) (ver, digest string) {
-	if atIdx := strings.Index(version, "@"); atIdx >= 0 {
-		return version[:atIdx], version[atIdx+1:]
+	if before, after, ok := strings.Cut(version, "@"); ok {
+		return before, after
 	}
 	return version, ""
 }

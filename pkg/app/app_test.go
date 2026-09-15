@@ -5069,9 +5069,7 @@ func TestGetArgs(t *testing.T) {
 	for _, test := range tests {
 		Helmdefaults := state.HelmSpec{KubeContext: "test", Args: test.defaultArgs}
 		testState := &state.HelmState{
-			ReleaseSetSpec: state.ReleaseSetSpec{
-				HelmDefaults: Helmdefaults,
-			},
+			HelmDefaults: Helmdefaults,
 		}
 		receivedArgs := GetArgs(test.args, testState)
 
