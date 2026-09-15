@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/helmfile/helmfile/pkg/environment"
 	"github.com/helmfile/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 	"github.com/helmfile/helmfile/pkg/tmpl"
 )
 
@@ -33,6 +37,11 @@ func (r *desiredStateLoader) renderTemplatesToYamlWithEnv(baseDir, filename stri
 }
 
 func (r *desiredStateLoader) twoPassRenderTemplateToYaml(inherited, overrode *environment.Environment, baseDir, filename string, content []byte) (*bytes.Buffer, error) {
+	_, span := telemetry.Tracer(telemetry.ScopeHelmfile).Start(r.spanCtx(), "helmfile.render",
+		trace.WithAttributes(attribute.String("helmfile.state_file", filename)),
+	)
+	defer span.End()
+
 	var phase string
 	r.logger.Debugf("%srendering starting for \"%s\": inherited=%v, overrode=%v", phase, filename, inherited, overrode)
 

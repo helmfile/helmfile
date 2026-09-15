@@ -12,6 +12,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/helmfile/vals"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/argparser"
@@ -22,6 +24,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/plugins"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
+	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
 var CleanWaitGroup sync.WaitGroup
@@ -37,6 +40,7 @@ type App struct {
 	DisableForceUpdate              bool
 	EnforcePluginVerification       bool
 	HelmOCIPlainHTTP                bool
+	RepoRetry                       int
 	DisableKubeVersionAutoDetection bool
 	SequentialHelmfiles             bool
 
@@ -75,7 +79,11 @@ type HelmRelease struct {
 }
 
 func New(conf ConfigProvider) *App {
-	ctx := goContext.Background()
+	// telemetry.CommandContext returns context.Background when tracing is
+	// disabled, so this is behavior-identical to the previous explicit
+	// Background() while rooting the app context under the command span when
+	// tracing is on.
+	ctx := telemetry.CommandContext()
 	ctx, Cancel = goContext.WithCancel(ctx)
 
 	return Init(&App{
@@ -87,6 +95,7 @@ func New(conf ConfigProvider) *App {
 		DisableForceUpdate:         conf.DisableForceUpdate(),
 		EnforcePluginVerification:  conf.EnforcePluginVerification(),
 		HelmOCIPlainHTTP:           conf.HelmOCIPlainHTTP(),
+		RepoRetry:                  conf.RepoRetry(),
 		SequentialHelmfiles:        conf.SequentialHelmfiles(),
 		Logger:                     conf.Logger(),
 		Kubeconfig:                 conf.Kubeconfig(),
@@ -169,14 +178,16 @@ func (a *App) Diff(c DiffConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.WithPreparedCharts("diff", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh:            c.SkipRefresh(),
-			SkipDeps:               c.SkipDeps(),
-			SkipSchemaValidation:   c.SkipSchemaValidation(),
-			IncludeCRDs:            &includeCRDs,
-			Validate:               c.Validate(),
-			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			SkipRepos:                  c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:                c.SkipRefresh(),
+			AllowFailedReleases:        c.AllowFailedReleases(),
+			SkipDeps:                   c.SkipDeps(),
+			SkipSchemaValidation:       c.SkipSchemaValidation(),
+			IncludeCRDs:                &includeCRDs,
+			Validate:                   c.Validate(),
+			Concurrency:                c.Concurrency(),
+			IncludeTransitiveNeeds:     c.IncludeNeeds(),
+			PrefetchSharedRemoteCharts: true,
 		}, func() []error {
 			msg, matched, affected, errs = a.diff(run, c)
 			return errs
@@ -243,6 +254,7 @@ func (a *App) Template(c TemplateConfigProvider) error {
 		prepErr := run.WithPreparedCharts("template", state.ChartPrepareOptions{
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipSchemaValidation:   c.SkipSchemaValidation(),
 			IncludeCRDs:            &includeCRDs,
@@ -271,6 +283,8 @@ func (a *App) Template(c TemplateConfigProvider) error {
 func (a *App) WriteValues(c WriteValuesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		prepErr := run.WithPreparedCharts("write-values", state.ChartPrepareOptions{
+			// Note: "write-values" never prepares charts (see commandsSkipChartPrep
+			// in run.go), so AllowFailedReleases does not apply here.
 			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh: c.SkipRefresh(),
 			SkipDeps:    c.SkipDeps(),
@@ -326,6 +340,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
@@ -368,6 +383,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 			ForceDownload:          true,
 			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
 			SkipRefresh:            c.SkipRefresh(),
+			AllowFailedReleases:    c.AllowFailedReleases(),
 			SkipDeps:               c.SkipDeps(),
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
@@ -444,13 +460,14 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 		}
 
 		prepErr := run.WithPreparedCharts("pull", state.ChartPrepareOptions{
-			ForceDownload:     true,
-			SkipRefresh:       c.SkipRefresh(),
-			SkipRepos:         c.SkipRefresh() || c.SkipDeps(),
-			SkipDeps:          c.SkipDeps(),
-			OutputDir:         c.OutputDir(),
-			OutputDirTemplate: c.OutputDirTemplate(),
-			Concurrency:       c.Concurrency(),
+			ForceDownload:       true,
+			SkipRefresh:         c.SkipRefresh(),
+			AllowFailedReleases: c.AllowFailedReleases(),
+			SkipRepos:           c.SkipRefresh() || c.SkipDeps(),
+			SkipDeps:            c.SkipDeps(),
+			OutputDir:           c.OutputDir(),
+			OutputDirTemplate:   c.OutputDirTemplate(),
+			Concurrency:         c.Concurrency(),
 		}, func() []error {
 			if c.WriteOutput() {
 				for i := range run.state.Releases {
@@ -499,18 +516,20 @@ func (a *App) Sync(c SyncConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.WithPreparedCharts("sync", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh:            c.SkipRefresh(),
-			SkipDeps:               c.SkipDeps(),
-			SkipSchemaValidation:   c.SkipSchemaValidation(),
-			Wait:                   c.Wait(),
-			WaitRetries:            c.WaitRetries(),
-			WaitForJobs:            c.WaitForJobs(),
-			IncludeCRDs:            &includeCRDs,
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
-			Validate:               c.Validate(),
-			Concurrency:            c.Concurrency(),
-			TemplateArgs:           c.TemplateArgs(),
+			SkipRepos:                  c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:                c.SkipRefresh(),
+			AllowFailedReleases:        c.AllowFailedReleases(),
+			SkipDeps:                   c.SkipDeps(),
+			SkipSchemaValidation:       c.SkipSchemaValidation(),
+			Wait:                       c.Wait(),
+			WaitRetries:                c.WaitRetries(),
+			WaitForJobs:                c.WaitForJobs(),
+			IncludeCRDs:                &includeCRDs,
+			IncludeTransitiveNeeds:     c.IncludeNeeds(),
+			Validate:                   c.Validate(),
+			Concurrency:                c.Concurrency(),
+			TemplateArgs:               c.TemplateArgs(),
+			PrefetchSharedRemoteCharts: true,
 		}, func() []error {
 			matched, updated, es := a.SyncState(run, c)
 
@@ -556,19 +575,21 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 		includeCRDs := !c.SkipCRDs()
 
 		prepErr := run.WithPreparedCharts("apply", state.ChartPrepareOptions{
-			SkipRepos:              c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh:            c.SkipRefresh(),
-			SkipDeps:               c.SkipDeps(),
-			SkipSchemaValidation:   c.SkipSchemaValidation(),
-			Wait:                   c.Wait(),
-			WaitRetries:            c.WaitRetries(),
-			WaitForJobs:            c.WaitForJobs(),
-			IncludeCRDs:            &includeCRDs,
-			SkipCleanup:            c.SkipCleanup(),
-			Validate:               c.Validate(),
-			Concurrency:            c.Concurrency(),
-			IncludeTransitiveNeeds: c.IncludeNeeds(),
-			TemplateArgs:           c.TemplateArgs(),
+			SkipRepos:                  c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:                c.SkipRefresh(),
+			AllowFailedReleases:        c.AllowFailedReleases(),
+			SkipDeps:                   c.SkipDeps(),
+			SkipSchemaValidation:       c.SkipSchemaValidation(),
+			Wait:                       c.Wait(),
+			WaitRetries:                c.WaitRetries(),
+			WaitForJobs:                c.WaitForJobs(),
+			IncludeCRDs:                &includeCRDs,
+			SkipCleanup:                c.SkipCleanup(),
+			Validate:                   c.Validate(),
+			Concurrency:                c.Concurrency(),
+			IncludeTransitiveNeeds:     c.IncludeNeeds(),
+			TemplateArgs:               c.TemplateArgs(),
+			PrefetchSharedRemoteCharts: true,
 		}, func() []error {
 			matched, updated, es := a.apply(run, c)
 
@@ -603,9 +624,10 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 func (a *App) Status(c StatusesConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		err := run.WithPreparedCharts("status", state.ChartPrepareOptions{
-			SkipRepos:   true,
-			SkipDeps:    true,
-			Concurrency: c.Concurrency(),
+			SkipRepos:           true,
+			AllowFailedReleases: c.AllowFailedReleases(),
+			SkipDeps:            true,
+			Concurrency:         c.Concurrency(),
 		}, func() []error {
 			ok, errs = a.status(run, c)
 			return errs
@@ -623,12 +645,13 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 	return a.ForEachState(func(run *Run) (ok bool, errs []error) {
 		if !c.SkipCharts() {
 			err := run.WithPreparedCharts("destroy", state.ChartPrepareOptions{
-				SkipRepos:     c.SkipRefresh() || c.SkipDeps(),
-				SkipRefresh:   c.SkipRefresh(),
-				SkipDeps:      c.SkipDeps(),
-				Concurrency:   c.Concurrency(),
-				DeleteWait:    c.DeleteWait(),
-				DeleteTimeout: c.DeleteTimeout(),
+				SkipRepos:           c.SkipRefresh() || c.SkipDeps(),
+				SkipRefresh:         c.SkipRefresh(),
+				AllowFailedReleases: c.AllowFailedReleases(),
+				SkipDeps:            c.SkipDeps(),
+				Concurrency:         c.Concurrency(),
+				DeleteWait:          c.DeleteWait(),
+				DeleteTimeout:       c.DeleteTimeout(),
 			}, func() []error {
 				ok, errs = a.delete(run, true, c)
 				return errs
@@ -652,10 +675,11 @@ func (a *App) Test(c TestConfigProvider) error {
 		}
 
 		err := run.WithPreparedCharts("test", state.ChartPrepareOptions{
-			SkipRepos:   c.SkipRefresh() || c.SkipDeps(),
-			SkipRefresh: c.SkipRefresh(),
-			SkipDeps:    c.SkipDeps(),
-			Concurrency: c.Concurrency(),
+			SkipRepos:           c.SkipRefresh() || c.SkipDeps(),
+			SkipRefresh:         c.SkipRefresh(),
+			AllowFailedReleases: c.AllowFailedReleases(),
+			SkipDeps:            c.SkipDeps(),
+			Concurrency:         c.Concurrency(),
 		}, func() []error {
 			errs = a.test(run, c)
 			return errs
@@ -755,7 +779,14 @@ func (a *App) dag(r *Run) error {
 }
 
 func (a *App) ListReleases(c ListConfigProvider) error {
-	releasesChan := make(chan []*HelmRelease, 100)
+	// Collect the per-state results under a mutex. ForEachState may visit
+	// states concurrently, and a bounded channel that is drained only after the
+	// visit finishes blocks forever once more states carry releases than the
+	// buffer can hold (the previous 100-slot channel deadlocked at 101 states).
+	var (
+		releasesMu sync.Mutex
+		releases   []*HelmRelease
+	)
 
 	err := a.ForEachState(func(run *Run) (_ bool, errs []error) {
 		var stateReleases []*HelmRelease
@@ -763,6 +794,8 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 
 		if !c.SkipCharts() {
 			prepErr := run.WithPreparedCharts("list", state.ChartPrepareOptions{
+				// Note: "list" never prepares charts (see commandsSkipChartPrep in
+				// run.go), so AllowFailedReleases does not apply here.
 				SkipRepos:   true,
 				SkipDeps:    true,
 				Concurrency: 2,
@@ -786,19 +819,13 @@ func (a *App) ListReleases(c ListConfigProvider) error {
 		}
 
 		if len(stateReleases) > 0 {
-			releasesChan <- stateReleases
+			releasesMu.Lock()
+			releases = append(releases, stateReleases...)
+			releasesMu.Unlock()
 		}
 
 		return
 	}, false, SetFilter(true))
-
-	close(releasesChan)
-
-	// Collect all releases from channel
-	var releases []*HelmRelease
-	for rels := range releasesChan {
-		releases = append(releases, rels...)
-	}
 
 	if err != nil {
 		return err
@@ -916,6 +943,13 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 		op = opts[0]
 	}
 
+	// The load span covers remote fetching, rendering, and parsing of one
+	// state file; render/parse spans attach through the loader's traceCtx.
+	loadCtx, loadSpan := telemetry.Tracer(telemetry.ScopeHelmfile).Start(a.spanParentCtx(), "helmfile.load",
+		trace.WithAttributes(attribute.String("helmfile.state_file", file)),
+	)
+	defer loadSpan.End()
+
 	ld := &desiredStateLoader{
 		fs:        a.fs,
 		env:       a.Env,
@@ -924,6 +958,7 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 		logger:    a.Logger,
 		remote:    a.remote,
 		baseDir:   baseDir,
+		traceCtx:  loadCtx,
 
 		overrideKubeContext:     a.OverrideKubeContext,
 		overrideHelmBinary:      a.OverrideHelmBinary,
@@ -937,6 +972,11 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 	if err != nil {
 		return nil, err
 	}
+
+	// Per-release spans (pkg/state) parent under the load span.
+	st.SetTraceContext(loadCtx)
+	// Kubedog tracking / buffered helm subprocesses cancel with the app.
+	st.SetCancelContext(a.ctx)
 
 	st.SetKubeconfig(a.Kubeconfig)
 
@@ -983,6 +1023,7 @@ func (a *App) getHelm(st *state.HelmState) (helmexec.Interface, error) {
 			DisableForceUpdate:        a.DisableForceUpdate,
 			EnforcePluginVerification: a.EnforcePluginVerification,
 			HelmOCIPlainHTTP:          a.HelmOCIPlainHTTP,
+			RepoRetry:                 a.RepoRetry,
 		}, a.Logger, kubeconfig, kubectx, &helmexec.ShellRunner{
 			Logger:                     a.Logger,
 			Ctx:                        a.ctx,
@@ -1619,7 +1660,24 @@ func (a *App) WrapWithoutSelector(converge func(*state.HelmState, helmexec.Inter
 	}
 }
 
+// spanParentCtx returns the context app-layer spans attach to. Tests
+// construct App literals without a context, so nil falls back to Background
+// (with tracing disabled, span starts are no-ops anyway).
+func (a *App) spanParentCtx() goContext.Context {
+	if a.ctx != nil {
+		return a.ctx
+	}
+	return goContext.Background()
+}
+
 func (a *App) findDesiredStateFiles(specifiedPath string, opts LoadOpts) ([]string, error) {
+	_, span := telemetry.Tracer(telemetry.ScopeHelmfile).Start(a.spanParentCtx(), "helmfile.discover_states",
+		// specifiedPath is captured before Remote.Locate resolves it; it may
+		// be a remote reference carrying credentials in userinfo or query.
+		trace.WithAttributes(attribute.String("helmfile.path", helmexec.RedactedRef(specifiedPath))),
+	)
+	defer span.End()
+
 	path, err := a.remote.Locate(specifiedPath, "states")
 	if err != nil {
 		return nil, fmt.Errorf("locate: %v", err)
@@ -1831,24 +1889,25 @@ func (a *App) apply(r *Run, c ApplyConfigProvider) (bool, bool, []error) {
 	detectedKubeVersion := a.detectKubeVersion(st)
 
 	diffOpts := &state.DiffOpts{
-		Color:                   c.Color(),
-		NoColor:                 c.NoColor(),
-		Context:                 c.Context(),
-		Output:                  c.DiffOutput(),
-		Set:                     c.Set(),
-		SkipCleanup:             c.SkipCleanup(),
-		SkipDiffOnInstall:       c.SkipDiffOnInstall(),
-		ReuseValues:             c.ReuseValues(),
-		ResetValues:             c.ResetValues(),
-		DiffArgs:                c.DiffArgs(),
-		TemplateArgs:            c.TemplateArgs(),
-		PostRenderer:            c.PostRenderer(),
-		PostRendererArgs:        c.PostRendererArgs(),
-		SkipSchemaValidation:    c.SkipSchemaValidation(),
-		SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
-		TakeOwnership:           c.TakeOwnership(),
-		ServerSide:              c.ServerSide(),
-		DetectedKubeVersion:     detectedKubeVersion,
+		Color:                       c.Color(),
+		NoColor:                     c.NoColor(),
+		Context:                     c.Context(),
+		Output:                      c.DiffOutput(),
+		Set:                         c.Set(),
+		SkipCleanup:                 c.SkipCleanup(),
+		SkipDiffOnInstall:           c.SkipDiffOnInstall(),
+		SkipDiffValidationOnInstall: c.SkipDiffValidationOnInstall(),
+		ReuseValues:                 c.ReuseValues(),
+		ResetValues:                 c.ResetValues(),
+		DiffArgs:                    c.DiffArgs(),
+		TemplateArgs:                c.TemplateArgs(),
+		PostRenderer:                c.PostRenderer(),
+		PostRendererArgs:            c.PostRendererArgs(),
+		SkipSchemaValidation:        c.SkipSchemaValidation(),
+		SuppressOutputLineRegex:     c.SuppressOutputLineRegex(),
+		TakeOwnership:               c.TakeOwnership(),
+		ServerSide:                  c.ServerSide(),
+		DetectedKubeVersion:         detectedKubeVersion,
 	}
 
 	infoMsg, releasesToUpdate, releasesToDelete, diffErrs := r.diff(false, detailedExitCode, c, diffOpts)
@@ -2119,23 +2178,24 @@ func (a *App) diff(r *Run, c DiffConfigProvider) (*string, bool, bool, []error) 
 		detectedKubeVersion := a.detectKubeVersion(st)
 
 		opts := &state.DiffOpts{
-			Context:                 c.Context(),
-			Output:                  c.DiffOutput(),
-			Color:                   c.Color(),
-			NoColor:                 c.NoColor(),
-			Set:                     c.Set(),
-			DiffArgs:                c.DiffArgs(),
-			TemplateArgs:            c.TemplateArgs(),
-			SkipDiffOnInstall:       c.SkipDiffOnInstall(),
-			ReuseValues:             c.ReuseValues(),
-			ResetValues:             c.ResetValues(),
-			PostRenderer:            c.PostRenderer(),
-			PostRendererArgs:        c.PostRendererArgs(),
-			SkipSchemaValidation:    c.SkipSchemaValidation(),
-			SuppressOutputLineRegex: c.SuppressOutputLineRegex(),
-			TakeOwnership:           c.TakeOwnership(),
-			ServerSide:              c.ServerSide(),
-			DetectedKubeVersion:     detectedKubeVersion,
+			Context:                     c.Context(),
+			Output:                      c.DiffOutput(),
+			Color:                       c.Color(),
+			NoColor:                     c.NoColor(),
+			Set:                         c.Set(),
+			DiffArgs:                    c.DiffArgs(),
+			TemplateArgs:                c.TemplateArgs(),
+			SkipDiffOnInstall:           c.SkipDiffOnInstall(),
+			SkipDiffValidationOnInstall: c.SkipDiffValidationOnInstall(),
+			ReuseValues:                 c.ReuseValues(),
+			ResetValues:                 c.ResetValues(),
+			PostRenderer:                c.PostRenderer(),
+			PostRendererArgs:            c.PostRendererArgs(),
+			SkipSchemaValidation:        c.SkipSchemaValidation(),
+			SuppressOutputLineRegex:     c.SuppressOutputLineRegex(),
+			TakeOwnership:               c.TakeOwnership(),
+			ServerSide:                  c.ServerSide(),
+			DetectedKubeVersion:         detectedKubeVersion,
 		}
 
 		filtered := &Run{
@@ -2360,23 +2420,24 @@ func (a *App) SyncState(r *Run, c SyncConfigProvider) (bool, bool, []error) {
 		if diffC, ok := c.(DiffConfigProvider); ok {
 			detectedKubeVersion := a.detectKubeVersion(st)
 			diffOpts := &state.DiffOpts{
-				Context:                 diffC.Context(),
-				Output:                  diffC.DiffOutput(),
-				Color:                   diffC.Color(),
-				NoColor:                 diffC.NoColor(),
-				Set:                     diffC.Set(),
-				DiffArgs:                diffC.DiffArgs(),
-				TemplateArgs:            diffC.TemplateArgs(),
-				SkipDiffOnInstall:       diffC.SkipDiffOnInstall(),
-				ReuseValues:             diffC.ReuseValues(),
-				ResetValues:             diffC.ResetValues(),
-				PostRenderer:            diffC.PostRenderer(),
-				PostRendererArgs:        diffC.PostRendererArgs(),
-				SkipSchemaValidation:    diffC.SkipSchemaValidation(),
-				SuppressOutputLineRegex: diffC.SuppressOutputLineRegex(),
-				TakeOwnership:           diffC.TakeOwnership(),
-				ServerSide:              diffC.ServerSide(),
-				DetectedKubeVersion:     detectedKubeVersion,
+				Context:                     diffC.Context(),
+				Output:                      diffC.DiffOutput(),
+				Color:                       diffC.Color(),
+				NoColor:                     diffC.NoColor(),
+				Set:                         diffC.Set(),
+				DiffArgs:                    diffC.DiffArgs(),
+				TemplateArgs:                diffC.TemplateArgs(),
+				SkipDiffOnInstall:           diffC.SkipDiffOnInstall(),
+				SkipDiffValidationOnInstall: diffC.SkipDiffValidationOnInstall(),
+				ReuseValues:                 diffC.ReuseValues(),
+				ResetValues:                 diffC.ResetValues(),
+				PostRenderer:                diffC.PostRenderer(),
+				PostRendererArgs:            diffC.PostRendererArgs(),
+				SkipSchemaValidation:        diffC.SkipSchemaValidation(),
+				SuppressOutputLineRegex:     diffC.SuppressOutputLineRegex(),
+				TakeOwnership:               diffC.TakeOwnership(),
+				ServerSide:                  diffC.ServerSide(),
+				DetectedKubeVersion:         detectedKubeVersion,
 			}
 			infoMsgPtr, _, _, diffErrs := r.diff(false, diffC.DetailedExitcode(), diffC, diffOpts)
 			if len(diffErrs) > 0 {

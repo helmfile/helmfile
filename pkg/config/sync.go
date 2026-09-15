@@ -75,19 +75,20 @@ type SyncOptions struct {
 	TemplateArgs string
 
 	// Diff-related options for --interactive mode
-	SuppressOutputLineRegex []string
-	IncludeTests            bool
-	Suppress                []string
-	SuppressSecrets         bool
-	ShowSecrets             bool
-	NoHooks                 bool
-	SuppressDiff            bool
-	SkipDiffOnInstall       bool
-	DiffArgs                string
-	DetailedExitcode        bool
-	StripTrailingCR         bool
-	Context                 int
-	DiffOutput              string
+	SuppressOutputLineRegex     []string
+	IncludeTests                bool
+	Suppress                    []string
+	SuppressSecrets             bool
+	ShowSecrets                 bool
+	NoHooks                     bool
+	SuppressDiff                bool
+	SkipDiffOnInstall           bool
+	SkipDiffValidationOnInstall bool
+	DiffArgs                    string
+	DetailedExitcode            bool
+	StripTrailingCR             bool
+	Context                     int
+	DiffOutput                  string
 }
 
 // NewSyncOptions creates a new Apply
@@ -306,6 +307,11 @@ func (t *SyncImpl) SuppressDiff() bool {
 // SkipDiffOnInstall returns the SkipDiffOnInstall.
 func (t *SyncImpl) SkipDiffOnInstall() bool {
 	return t.SyncOptions.SkipDiffOnInstall
+}
+
+// SkipDiffValidationOnInstall returns the SkipDiffValidationOnInstall.
+func (t *SyncImpl) SkipDiffValidationOnInstall() bool {
+	return t.SyncOptions.SkipDiffValidationOnInstall
 }
 
 // DiffArgs returns the DiffArgs.

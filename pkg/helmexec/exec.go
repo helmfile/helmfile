@@ -3,15 +3,18 @@ package helmexec
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"github.com/Masterminds/semver/v3"
@@ -38,6 +41,9 @@ type HelmExecOptions struct {
 	DisableForceUpdate        bool // If true, do not force helm repos to update when executing "helm repo add" (Helm 3)
 	EnforcePluginVerification bool // If true, fail plugin installation if verification is not supported
 	HelmOCIPlainHTTP          bool // If true, use plain HTTP for OCI registries
+	// RepoRetry is the number of times to retry helm repo and registry login
+	// operations on failure, with exponential backoff. 0 disables retries.
+	RepoRetry int
 }
 
 type execer struct {
@@ -175,12 +181,20 @@ func GetPluginVersion(name, pluginsDir string) (*semver.Version, error) {
 	return nil, fmt.Errorf("plugin %s not installed", name)
 }
 
-func redactedURL(chart string) string {
-	chartURL, err := url.ParseRequestURI(chart)
+// RedactedURL returns ref with any password in the URL userinfo replaced,
+// matching helmfile's log redaction (url.URL.Redacted). Non-URL strings are
+// returned unchanged. Telemetry reuses it so span attributes are sanitized at
+// least as strictly as log output.
+func RedactedURL(ref string) string {
+	refURL, err := url.ParseRequestURI(ref)
 	if err != nil {
-		return chart
+		return ref
 	}
-	return chartURL.Redacted()
+	return refURL.Redacted()
+}
+
+func redactedURL(chart string) string {
+	return RedactedURL(chart)
 }
 
 // New for running helm commands
@@ -272,11 +286,91 @@ func (helm *execer) SetDisableForceUpdate(forceUpdate bool) {
 	helm.options.DisableForceUpdate = forceUpdate
 }
 
-func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {
-	var args []string
+// repoRetryBaseBackoff is the base unit for exponential backoff between repo
+// operation retries (doubles each attempt, capped at 30x). Exposed as a
+// package-level variable so tests can shrink it to avoid real sleeps.
+var repoRetryBaseBackoff = time.Second
+
+// retryRepoOp runs op, retrying up to helm.options.RepoRetry times on failure
+// with exponential backoff (1x, 2x, 4x, ..., capped at 30x the base unit). It
+// returns the output from the (last) attempt. A zero/negative RepoRetry
+// disables retrying — op runs exactly once.
+func (helm *execer) retryRepoOp(name string, op func() ([]byte, error)) ([]byte, error) {
+	maxRetries := helm.options.RepoRetry
 	var out []byte
 	var err error
+	for attempt := 0; ; attempt++ {
+		out, err = op()
+		if err == nil || maxRetries <= 0 || attempt >= maxRetries {
+			return out, err
+		}
+		// Cap the shift exponent at 5 (2^5 = 32x already exceeds the 30x cap)
+		// so very large --repo-retries values can't overflow time.Duration.
+		shift := attempt
+		if shift > 5 {
+			shift = 5
+		}
+		backoff := repoRetryBaseBackoff * time.Duration(1<<shift)
+		if backoff > 30*repoRetryBaseBackoff {
+			backoff = 30 * repoRetryBaseBackoff
+		}
+		helm.logger.Warnf("repo operation %q failed (%s); retry %d/%d in %v",
+			name, conciseError(err), attempt+1, maxRetries, backoff)
+		// sleepCtx returns false if interrupted by context cancellation; in that
+		// case stop retrying so a canceled context (Ctrl+C) doesn't spin into a
+		// tight loop of rapid helm invocations.
+		if !helm.sleepCtx(backoff) {
+			return out, err
+		}
+	}
+}
 
+// conciseError returns a short reason for logging. For a helm ExitError it
+// reports just the exit status, avoiding the very verbose PATH/ARGS/OUTPUT
+// dump that Error() produces.
+func conciseError(err error) string {
+	var ee ExitError
+	if errors.As(err, &ee) {
+		return fmt.Sprintf("exit status %d", ee.ExitStatus())
+	}
+	return err.Error()
+}
+
+// sleepCtx sleeps for d, returning early if the runner's context is canceled,
+// so an interrupt (Ctrl+C) aborts the retry loop promptly rather than blocking
+// until the full backoff elapses. It returns true if the full duration elapsed,
+// or false if it was interrupted by context cancellation. Falls back to
+// time.Sleep (returning true) for runners without a context (e.g. the test
+// mockRunner).
+func (helm *execer) sleepCtx(d time.Duration) bool {
+	ctx := helm.runnerContext()
+	if ctx == nil {
+		time.Sleep(d)
+		return true
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// runnerContext returns the ShellRunner's context if the runner is a
+// ShellRunner (pointer or value), else nil.
+func (helm *execer) runnerContext() context.Context {
+	switch r := helm.runner.(type) {
+	case *ShellRunner:
+		return r.Ctx
+	case ShellRunner:
+		return r.Ctx
+	}
+	return nil
+}
+
+func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, username, password string, managed string, passCredentials, skipTLSVerify bool) error {
 	if name == "" && repository != "" {
 		helm.logger.Infof("empty field name\n")
 		return fmt.Errorf("empty field name")
@@ -288,46 +382,52 @@ func (helm *execer) AddRepo(name, repository, cafile, certfile, keyfile, usernam
 		helm.extra = savedExtra
 	}()
 
+	var out []byte
+	var err error
 	switch managed {
 	case "acr":
 		helm.logger.Infof("Adding repo %v (acr)", name)
-		out, err = helm.azcli(name)
+		out, err = helm.retryRepoOp(fmt.Sprintf("add %s (acr)", name), func() ([]byte, error) {
+			return helm.azcli(name)
+		})
 	case "":
-		args = append(args, "repo", "add", name, repository)
-
-		// --force-update is needed for both Helm 3.3.2+ and Helm 4
-		// to ensure repository indexes are updated when a repository already exists
-		// See https://github.com/helm/helm/pull/8777
-		if !helm.options.DisableForceUpdate && (helm.IsHelm4() || helm.IsVersionAtLeast("3.3.2")) {
-			args = append(args, "--force-update")
-		}
-
-		if certfile != "" && keyfile != "" {
-			args = append(args, "--cert-file", certfile, "--key-file", keyfile)
-		}
-		if cafile != "" {
-			args = append(args, "--ca-file", cafile)
-		}
-
-		if passCredentials {
-			args = append(args, "--pass-credentials")
-		}
-		if skipTLSVerify {
-			args = append(args, "--insecure-skip-tls-verify")
-		}
 		helm.logger.Infof("Adding repo %v %v", name, repository)
-		if username != "" && password != "" {
-			args = append(args, "--username", username, "--password-stdin")
-			buffer := bytes.Buffer{}
-			fmt.Fprintf(&buffer, "%s\n", password)
-			out, err = helm.execStdIn(args, map[string]string{}, &buffer)
-		} else {
-			out, err = helm.exec(args, map[string]string{}, nil)
-		}
+		out, err = helm.retryRepoOp(fmt.Sprintf("add %s", name), func() ([]byte, error) {
+			// args is local to each attempt, so the username/password append
+			// below can't accumulate across retries.
+			args := []string{"repo", "add", name, repository}
+
+			// --force-update is needed for both Helm 3.3.2+ and Helm 4
+			// to ensure repository indexes are updated when a repository already exists
+			// See https://github.com/helm/helm/pull/8777
+			if !helm.options.DisableForceUpdate && (helm.IsHelm4() || helm.IsVersionAtLeast("3.3.2")) {
+				args = append(args, "--force-update")
+			}
+
+			if certfile != "" && keyfile != "" {
+				args = append(args, "--cert-file", certfile, "--key-file", keyfile)
+			}
+			if cafile != "" {
+				args = append(args, "--ca-file", cafile)
+			}
+
+			if passCredentials {
+				args = append(args, "--pass-credentials")
+			}
+			if skipTLSVerify {
+				args = append(args, "--insecure-skip-tls-verify")
+			}
+			if username != "" && password != "" {
+				args = append(args, "--username", username, "--password-stdin")
+				buffer := bytes.Buffer{}
+				fmt.Fprintf(&buffer, "%s\n", password)
+				return helm.execStdIn(args, map[string]string{}, &buffer)
+			}
+			return helm.exec(args, map[string]string{})
+		})
 	default:
 		helm.logger.Errorf("ERROR: unknown type '%v' for repository %v", managed, name)
-		out = nil
-		err = nil
+		err = fmt.Errorf("unknown managed type %q for repository %v", managed, name)
 	}
 
 	helm.info(out)
@@ -341,7 +441,9 @@ func (helm *execer) UpdateRepo() error {
 	defer func() {
 		helm.extra = savedExtra
 	}()
-	out, err := helm.exec([]string{"repo", "update"}, map[string]string{}, nil)
+	out, err := helm.retryRepoOp("update", func() ([]byte, error) {
+		return helm.exec([]string{"repo", "update"}, map[string]string{})
+	})
 	helm.info(out)
 	return err
 }
@@ -373,11 +475,15 @@ func (helm *execer) RegistryLogin(repository, username, password, caFile, certFi
 	}
 
 	args = append(args, "--username", username, "--password-stdin")
-	buffer := bytes.Buffer{}
-	fmt.Fprintf(&buffer, "%s\n", password)
 
 	helm.logger.Info("Logging in to registry")
-	out, err := helm.execStdIn(args, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
+	out, err := helm.retryRepoOp(fmt.Sprintf("registry login %s", repository), func() ([]byte, error) {
+		buffer := bytes.Buffer{}
+		fmt.Fprintf(&buffer, "%s\n", password)
+		// Copy args so execStdIn's internal append (for helm.extra) can't alias
+		// the shared slice across retries.
+		return helm.execStdIn(append([]string{}, args...), map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, &buffer)
+	})
 	helm.info(out)
 	return err
 }
@@ -526,7 +632,7 @@ func (helm *execer) BuildDeps(name, chart string, flags ...string) error {
 		args = append(args, "--plain-http")
 	}
 
-	out, err := helm.exec(args, map[string]string{}, nil)
+	out, err := helm.exec(args, map[string]string{})
 	helm.info(out)
 	return err
 }
@@ -548,7 +654,7 @@ func (helm *execer) UpdateDeps(chart string) error {
 		args = append(args, "--plain-http")
 	}
 
-	out, err := helm.exec(args, map[string]string{}, nil)
+	out, err := helm.exec(args, map[string]string{})
 	helm.info(out)
 	return err
 }
@@ -560,7 +666,7 @@ func (helm *execer) SyncRelease(context HelmContext, name, chart, namespace stri
 
 	flags = append(flags, "--history-max", strconv.Itoa(context.HistoryMax))
 
-	out, err := helm.exec(append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
+	out, err := helm.execWithContext(context.Ctx, append(append(preArgs, "upgrade", "--install", name, chart), flags...), env, nil)
 	helm.info(out)
 	return err
 }
@@ -569,7 +675,7 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 	helm.logger.Infof("Getting status %v", name)
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
-	out, err := helm.exec(append(append(preArgs, "status", name), flags...), env, nil)
+	out, err := helm.execWithContext(context.Ctx, append(append(preArgs, "status", name), flags...), env, nil)
 	helm.info(out)
 	return err
 }
@@ -581,7 +687,7 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 	args := []string{"list", "--filter", filter}
 
 	enableLiveOutput := false
-	out, err := helm.exec(append(append(preArgs, args...), flags...), env, &enableLiveOutput)
+	out, err := helm.execWithContext(context.Ctx, append(append(preArgs, args...), flags...), env, &enableLiveOutput)
 	// In v2 we have been expecting `helm list FILTER` prints nothing.
 	// In v3 helm still prints the header like `NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION`,
 	// which confuses helmfile's existing logic that treats any non-empty output from `helm list` is considered as the indication
@@ -636,7 +742,7 @@ func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...str
 			secretArg = "decrypt"
 		}
 		enableLiveOutput := false
-		secretBytes, err := helm.exec(append(append(preArgs, "secrets", secretArg, absPath), flags...), env, &enableLiveOutput)
+		secretBytes, err := helm.execWithContext(context.Ctx, append(append(preArgs, "secrets", secretArg, absPath), flags...), env, &enableLiveOutput)
 		if err != nil {
 			secret.err = err
 			return "", err
@@ -746,7 +852,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 			return fmt.Errorf("output dir not found for template command")
 		}
 
-		out, err := helm.exec(append(args, filteredFlags...), map[string]string{}, nil)
+		out, err := helm.exec(append(args, filteredFlags...), map[string]string{})
 		if err != nil {
 			return err
 		}
@@ -778,7 +884,7 @@ func (helm *execer) TemplateRelease(name string, chart string, flags ...string) 
 		return nil
 	}
 
-	out, err := helm.exec(append(args, flags...), map[string]string{}, nil)
+	out, err := helm.exec(append(args, flags...), map[string]string{})
 
 	if outputToFile {
 		// With --output-dir is passed to helm-template,
@@ -823,7 +929,7 @@ func (helm *execer) DiffRelease(context HelmContext, name, chart, namespace stri
 		flags = helm.filterColorFlagsForHelm4(flags, env)
 	}
 
-	out, err := helm.exec(append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
+	out, err := helm.execWithContext(context.Ctx, append(append(preArgs, "diff", "upgrade", "--allow-unreleased", name, chart), flags...), env, overrideEnableLiveOutput)
 	// Do our best to write STDOUT only when diff existed
 	// Unfortunately, this works only when you run helmfile with `--detailed-exitcode`
 	detailedExitcodeEnabled := false
@@ -880,7 +986,7 @@ func (helm *execer) filterColorFlagsForHelm4(flags []string, env map[string]stri
 
 func (helm *execer) Lint(name, chart string, flags ...string) error {
 	helm.logger.Infof("Linting release=%v, chart=%v", name, chart)
-	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{}, nil)
+	out, err := helm.exec(append([]string{"lint", chart}, flags...), map[string]string{})
 	// Always write to stdout to write the linting result to eg. a file
 	helm.write(nil, out)
 	return err
@@ -905,14 +1011,14 @@ func (helm *execer) Unittest(name, chart string, flags ...string) error {
 	}
 
 	helm.logger.Infof("Unit testing release=%v, chart=%v", name, chart)
-	out, err := helm.exec(append([]string{"unittest", chart}, flags...), map[string]string{}, nil)
+	out, err := helm.exec(append([]string{"unittest", chart}, flags...), map[string]string{})
 	helm.write(nil, out)
 	return err
 }
 
 func (helm *execer) Fetch(chart string, flags ...string) error {
 	helm.logger.Infof("Fetching %v", redactedURL(chart))
-	out, err := helm.exec(append([]string{"fetch", chart}, flags...), map[string]string{}, nil)
+	out, err := helm.exec(append([]string{"fetch", chart}, flags...), map[string]string{})
 	helm.info(out)
 	return err
 }
@@ -934,7 +1040,7 @@ func (helm *execer) ChartPull(chart string, path string, flags ...string) error 
 	} else {
 		helmArgs = []string{"chart", "pull", chart}
 	}
-	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
+	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
 	helm.info(out)
 	return err
 }
@@ -950,7 +1056,7 @@ func (helm *execer) ChartExport(chart string, path string) error {
 	helm.logger.Infof("Exporting %v", chart)
 	helmArgs = []string{"chart", "export", chart, "--destination", path}
 	// no extra flags for before v3.7.0, details in helm chart export --help
-	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"}, nil)
+	out, err := helm.exec(helmArgs, map[string]string{"HELM_EXPERIMENTAL_OCI": "1"})
 	helm.info(out)
 	return err
 }
@@ -959,7 +1065,7 @@ func (helm *execer) DeleteRelease(context HelmContext, name string, flags ...str
 	helm.logger.Infof("Deleting %v", name)
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
-	out, err := helm.exec(append(append(preArgs, "delete", name), flags...), env, nil)
+	out, err := helm.execWithContext(context.Ctx, append(append(preArgs, "delete", name), flags...), env, nil)
 	helm.info(out)
 	return err
 }
@@ -969,7 +1075,7 @@ func (helm *execer) TestRelease(context HelmContext, name string, flags ...strin
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
 	args := []string{"test", name}
-	out, err := helm.exec(append(append(preArgs, args...), flags...), env, nil)
+	out, err := helm.execWithContext(context.Ctx, append(append(preArgs, args...), flags...), env, nil)
 	helm.info(out)
 	return err
 }
@@ -983,7 +1089,7 @@ func (helm *execer) AddPlugin(name, path, version string) error {
 	}
 
 	// Try with verification first
-	out, err := helm.exec([]string{"plugin", "install", path, "--version", version}, map[string]string{}, nil)
+	out, err := helm.exec([]string{"plugin", "install", path, "--version", version}, map[string]string{})
 
 	// If verification fails, retry without verification (unless enforced)
 	if err != nil && strings.Contains(err.Error(), "does not support verification") {
@@ -992,7 +1098,7 @@ func (helm *execer) AddPlugin(name, path, version string) error {
 			return fmt.Errorf("plugin %s does not support verification (remove --enforce-plugin-verification flag to allow unverified plugins)", name)
 		}
 		helm.logger.Debugf("Plugin %v does not support verification, retrying with --verify=false", name)
-		out, err = helm.exec([]string{"plugin", "install", path, "--version", version, "--verify=false"}, map[string]string{}, nil)
+		out, err = helm.exec([]string{"plugin", "install", path, "--version", version, "--verify=false"}, map[string]string{})
 	}
 
 	helm.info(out)
@@ -1023,7 +1129,7 @@ func (helm *execer) installHelmSecretsV4(version string) error {
 			args = append(args, verifyFlag)
 		}
 
-		out, err := helm.exec(args, map[string]string{}, nil)
+		out, err := helm.exec(args, map[string]string{})
 		if err != nil {
 			return fmt.Errorf("failed to install %s: %w", plugin, err)
 		}
@@ -1037,6 +1143,18 @@ func (helm *execer) installHelmSecretsV4(version string) error {
 // split plugin architecture (secrets, secrets-getter, secrets-post-renderer) with Helm 4.
 var helmSecretsV4SplitMinVersion = semver.MustParse("4.7.0")
 
+// pluginMissingRe matches helm's "plugin absent" error emitted by `helm plugin
+// uninstall` when the plugin is not installed:
+//
+//	Helm 4: "plugin: <name> not found"
+//	Helm 3: "Plugin: <name> not found"
+//
+// It is intentionally specific so that unrelated failures that happen to contain
+// "not found" (e.g. a missing helm binary -> "executable file not found", or an
+// uninstall hook failing with "sh: ...: not found") are NOT mistaken for an
+// absent plugin. It is case-insensitive and scoped to a single line.
+var pluginMissingRe = regexp.MustCompile(`(?i)plugin: .* not found`)
+
 // helmSecretsRequiresSplitInstall returns true when the given helm-secrets version
 // requires the split plugin architecture introduced in v4.7.0 for Helm 4.
 func helmSecretsRequiresSplitInstall(version string) bool {
@@ -1049,7 +1167,7 @@ func helmSecretsRequiresSplitInstall(version string) bool {
 
 func (helm *execer) uninstallPlugin(name string) error {
 	helm.logger.Infof("Uninstalling helm plugin %v", name)
-	out, err := helm.exec([]string{"plugin", "uninstall", name}, map[string]string{}, nil)
+	out, err := helm.exec([]string{"plugin", "uninstall", name}, map[string]string{})
 	if err == nil {
 		helm.info(out)
 	}
@@ -1070,25 +1188,52 @@ func (helm *execer) UpdatePlugin(name, repo, version string) error {
 		return helm.installHelmSecretsV4(version)
 	}
 
-	// Try standard helm plugin update
-	out, err := helm.exec([]string{"plugin", "update", name}, map[string]string{}, nil)
-	helm.info(out)
-	if err != nil {
-		// If standard update failed, fall back to uninstall + reinstall with specific version
-		updateErr := err
-		helm.logger.Infof("helm plugin update %v failed (%v), falling back to reinstall with version %v", name, updateErr, version)
-		if uninstallErr := helm.uninstallPlugin(name); uninstallErr != nil {
-			return fmt.Errorf("helm plugin update failed (%w) and uninstall for reinstall also failed: %w", updateErr, uninstallErr)
+	// `helm plugin update` re-installs the plugin from its cached source WITHOUT the
+	// `--version` flag, so it does not reliably install the specific version we need.
+	// On many setups it reports success (exit code 0) while `helm plugin list` still
+	// shows the old version, because the cached source is re-downloaded unchanged.
+	// See https://github.com/helmfile/helmfile/issues/2726 and
+	// https://github.com/helmfile/helmfile/issues/2548.
+	//
+	// The reliable way to update to a pinned version is to uninstall the existing
+	// plugin and reinstall it at the requested version. Only the expected
+	// "plugin already absent" case is tolerated: helm reports it as
+	// "plugin: <name> not found" (Helm 4) / "Plugin: <name> not found" (Helm 3).
+	// We match that specific message rather than a bare "not found", so that other
+	// failures (permissions, a missing helm binary whose error contains
+	// "executable file not found", a plugin uninstall hook failing with
+	// "sh: ...: not found", ...) are surfaced instead of being silently ignored.
+	if err := helm.uninstallPlugin(name); err != nil {
+		if !pluginMissingRe.MatchString(err.Error()) {
+			return fmt.Errorf("failed to uninstall helm plugin %q for reinstall: %w", name, err)
 		}
-		if reinstallErr := helm.AddPlugin(name, repo, version); reinstallErr != nil {
-			return fmt.Errorf("helm plugin update failed (%w) and reinstall also failed: %w", updateErr, reinstallErr)
-		}
-		return nil
+		helm.logger.Debugf("helm plugin %v not present during update, proceeding to install: %v", name, err)
 	}
-	return nil
+	return helm.AddPlugin(name, repo, version)
 }
 
-func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
+func (helm *execer) exec(args []string, env map[string]string) ([]byte, error) {
+	return helm.execWithRunner(helm.runner, args, env, nil)
+}
+
+// execWithContext behaves like exec but attaches the span carried by ctx
+// (from HelmContext.Ctx) so the subprocess span nests under the per-release
+// span. Crucially, the subprocess keeps the runner's own context: replacing
+// it would override specialized cancellation contexts such as the kubedog
+// safety valve installed via execer.WithContext. A nil ctx is exactly exec.
+func (helm *execer) execWithContext(ctx context.Context, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
+	runner := helm.runner
+	if ctx != nil {
+		runner = withRunnerCtx(runner, func(runnerCtx context.Context) context.Context {
+			return spanAttachedContext(runnerCtx, ctx)
+		})
+	}
+	return helm.execWithRunner(runner, args, env, overrideEnableLiveOutput)
+}
+
+func (helm *execer) execWithRunner(runner Runner, args []string, env map[string]string, overrideEnableLiveOutput *bool) ([]byte, error) {
+	runner = markHelmRunner(runner)
+
 	cmdargs := args
 	if len(helm.extra) > 0 {
 		cmdargs = append(cmdargs, helm.extra...)
@@ -1105,7 +1250,7 @@ func (helm *execer) exec(args []string, env map[string]string, overrideEnableLiv
 	if overrideEnableLiveOutput != nil {
 		enableLiveOutput = *overrideEnableLiveOutput
 	}
-	outBytes, err := helm.runner.Execute(helm.helmBinary, cmdargs, env, enableLiveOutput)
+	outBytes, err := runner.Execute(helm.helmBinary, cmdargs, env, enableLiveOutput)
 	return outBytes, err
 }
 
@@ -1122,7 +1267,7 @@ func (helm *execer) execStdIn(args []string, env map[string]string, stdin io.Rea
 	}
 	cmd := fmt.Sprintf("exec: %s %s", helm.helmBinary, strings.Join(cmdargs, " "))
 	helm.logger.Debug(cmd)
-	outBytes, err := helm.runner.ExecuteStdIn(helm.helmBinary, cmdargs, env, stdin)
+	outBytes, err := markHelmRunner(helm.runner).ExecuteStdIn(helm.helmBinary, cmdargs, env, stdin)
 	return outBytes, err
 }
 
@@ -1232,15 +1377,24 @@ func resolveOciChart(ociChart string) (ociChartURL, ociChartTag string) {
 }
 
 func (helm *execer) ShowChart(chartPath string) (chart.Metadata, error) {
-	var helmArgs = []string{"show", "chart", chartPath}
-	out, error := helm.exec(helmArgs, map[string]string{}, nil)
-	if error != nil {
-		return chart.Metadata{}, error
+	return helm.ShowChartWithFlags(chartPath)
+}
+
+// ShowChartWithFlags runs `helm show chart` and unmarshals the resulting
+// Chart.yaml. Callers may pass additional helm flags (for example --version,
+// --plain-http, --registry-config, --ca-file, --insecure-skip-tls-verify).
+// When --version references a semver constraint, helm resolves it against the
+// registry and returns the concrete matching Chart.yaml, so callers can read
+// metadata.Version to obtain the resolved version.
+func (helm *execer) ShowChartWithFlags(chartPath string, flags ...string) (chart.Metadata, error) {
+	helmArgs := append([]string{"show", "chart", chartPath}, flags...)
+	out, err := helm.exec(helmArgs, map[string]string{})
+	if err != nil {
+		return chart.Metadata{}, err
 	}
 	var metadata chart.Metadata
-	error = yaml.Unmarshal(out, &metadata)
-	if error != nil {
-		return chart.Metadata{}, error
+	if err := yaml.Unmarshal(out, &metadata); err != nil {
+		return chart.Metadata{}, err
 	}
 	return metadata, nil
 }

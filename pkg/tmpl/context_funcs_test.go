@@ -38,12 +38,29 @@ func TestCreateFuncMap_DisabledInsecureFeatures(t *testing.T) {
 		funcMaps := ctx.createFuncMap()
 		args := make([]any, 0)
 		_, err1 := funcMaps["exec"].(func(command string, args []any, inputs ...string) (string, error))("ls", args)
-		require.ErrorIs(t, err1, DisableInsecureFeaturesErr)
+		require.ErrorIs(t, err1, DisableInsecureFunctionsErr)
 		_, err2 := funcMaps["readFile"].(func(filename string) (string, error))("context_funcs_test.go")
-		require.ErrorIs(t, err2, DisableInsecureFeaturesErr)
+		require.ErrorIs(t, err2, DisableInsecureFunctionsErr)
 	}
 
 	disableInsecureFeatures = currentVal
+}
+
+func TestCreateFuncMap_DisabledInsecureTemplateFunctions(t *testing.T) {
+	currentVal := disableInsecureTemplateFunctions
+
+	{
+		disableInsecureTemplateFunctions = true
+		ctx := &Context{basePath: "."}
+		funcMaps := ctx.createFuncMap()
+		args := make([]any, 0)
+		_, err1 := funcMaps["exec"].(func(command string, args []any, inputs ...string) (string, error))("ls", args)
+		require.ErrorIs(t, err1, DisableInsecureFunctionsErr)
+		_, err2 := funcMaps["readFile"].(func(filename string) (string, error))("context_funcs_test.go")
+		require.ErrorIs(t, err2, DisableInsecureFunctionsErr)
+	}
+
+	disableInsecureTemplateFunctions = currentVal
 }
 
 func newFSExpecting(expectedFilename string, expected string) *filesystem.FileSystem {

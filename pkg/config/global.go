@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"go.uber.org/zap"
 	"golang.org/x/term"
@@ -34,6 +35,8 @@ type GlobalOptions struct {
 	SkipDeps bool
 	// SkipRefresh is true if the running "helm repo update" should be skipped
 	SkipRefresh bool
+	// AllowFailedReleases is true if partial errors during release processing are allowed
+	AllowFailedReleases bool
 	// StripArgsValuesOnExitError is true if the ARGS output on exit error should be suppressed
 	StripArgsValuesOnExitError bool
 	// DisableForceUpdate is true if force updating repos is not desirable when executing "helm repo add" (Helm 3)
@@ -42,6 +45,11 @@ type GlobalOptions struct {
 	EnforcePluginVerification bool
 	// HelmOCIPlainHTTP is true if Helm should use plain HTTP for OCI registries
 	HelmOCIPlainHTTP bool
+	// RepoRetry is the number of times to retry "helm repo add/update" and
+	// "helm registry login" on failure with exponential backoff.
+	// A negative value (the CLI default sentinel) means "unset" and falls back
+	// to the HELMFILE_REPO_RETRIES env var; 0 explicitly disables retries.
+	RepoRetry int
 	// Quiet is true if the output should be quiet.
 	Quiet bool
 	// Kubeconfig is the path to the kubeconfig file to use.
@@ -76,6 +84,8 @@ type GlobalOptions struct {
 	LogOutput io.Writer
 	// SequentialHelmfiles is true if helmfile.d files should be processed sequentially instead of in parallel.
 	SequentialHelmfiles bool
+	// OtelTracing is true if OpenTelemetry tracing should be enabled for this run.
+	OtelTracing bool
 }
 
 // Logger returns the logger to use.
@@ -258,6 +268,11 @@ func (g *GlobalImpl) SkipRefresh() bool {
 	return g.GlobalOptions.SkipRefresh
 }
 
+// AllowFailedReleases returns true if partial errors during release processing are allowed
+func (g *GlobalImpl) AllowFailedReleases() bool {
+	return g.GlobalOptions.AllowFailedReleases
+}
+
 // StripArgsValuesOnExitError return if the ARGS output on exit error should be suppressed
 func (g *GlobalImpl) StripArgsValuesOnExitError() bool {
 	return g.GlobalOptions.StripArgsValuesOnExitError
@@ -276,6 +291,21 @@ func (g *GlobalImpl) EnforcePluginVerification() bool {
 // HelmOCIPlainHTTP returns whether to use plain HTTP for OCI registries
 func (g *GlobalImpl) HelmOCIPlainHTTP() bool {
 	return g.GlobalOptions.HelmOCIPlainHTTP
+}
+
+// RepoRetry returns the number of times to retry helm repo and registry login
+// operations on failure, with exponential backoff. A negative value means the
+// flag was not specified, so the HELMFILE_REPO_RETRIES env var is consulted;
+// this lets --repo-retries=0 explicitly disable retries even when the env var
+// is set.
+func (g *GlobalImpl) RepoRetry() int {
+	if g.GlobalOptions.RepoRetry >= 0 {
+		return g.GlobalOptions.RepoRetry
+	}
+	if v, err := strconv.Atoi(os.Getenv(envvar.RepoRetry)); err == nil && v > 0 {
+		return v
+	}
+	return 0
 }
 
 // SequentialHelmfiles returns whether to process helmfile.d files sequentially
@@ -353,6 +383,15 @@ func (g *GlobalImpl) Interactive() bool {
 		return true
 	}
 	return os.Getenv(envvar.Interactive) == "true"
+}
+
+// OtelTracing returns true if OpenTelemetry tracing is enabled via the
+// --otel-tracing flag or the HELMFILE_OTEL_TRACING environment variable.
+func (g *GlobalImpl) OtelTracing() bool {
+	if g.GlobalOptions.OtelTracing {
+		return true
+	}
+	return os.Getenv(envvar.OtelTracing) == "true"
 }
 
 // Args returns the args to use for helm

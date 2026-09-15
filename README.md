@@ -160,4 +160,4 @@ For more users, please see: [Users](https://helmfile.readthedocs.io/en/latest/us
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=helmfile/helmfile&type=Date)](https://star-history.com/#helmfile/helmfile&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=helmfile/helmfile&type=Date)](https://star-history.dera.page/#helmfile/helmfile&Date)

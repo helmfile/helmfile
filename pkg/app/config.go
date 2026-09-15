@@ -15,8 +15,10 @@ type ConfigProvider interface {
 	DisableForceUpdate() bool
 	EnforcePluginVerification() bool
 	HelmOCIPlainHTTP() bool
+	RepoRetry() int
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SequentialHelmfiles() bool
 
 	FileOrDir() string
@@ -61,6 +63,7 @@ type ApplyConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
@@ -85,6 +88,7 @@ type ApplyConfigProvider interface {
 	Validate() bool
 	SkipCleanup() bool
 	SkipDiffOnInstall() bool
+	SkipDiffValidationOnInstall() bool
 
 	DiffArgs() string
 	SyncArgs() string
@@ -124,6 +128,7 @@ type SyncConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Wait() bool
 	WaitRetries() int
 	WaitForJobs() bool
@@ -172,6 +177,7 @@ type DiffConfigProvider interface {
 	SkipCRDs() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 
 	IncludeTests() bool
 
@@ -181,6 +187,7 @@ type DiffConfigProvider interface {
 	NoHooks() bool
 	SuppressDiff() bool
 	SkipDiffOnInstall() bool
+	SkipDiffValidationOnInstall() bool
 	DiffArgs() string
 	TemplateArgs() string
 
@@ -228,6 +235,7 @@ type DestroyConfigProvider interface {
 
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCharts() bool
 	DeleteWait() bool
 	DeleteTimeout() int
@@ -243,6 +251,7 @@ type TestConfigProvider interface {
 
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	Timeout() int
 	Cleanup() bool
 	Logs() bool
@@ -257,6 +266,7 @@ type LintConfigProvider interface {
 	Set() []string
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 
 	DAGConfig
@@ -274,6 +284,7 @@ type UnittestConfigProvider interface {
 	DebugPlugin() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 
 	DAGConfig
@@ -284,6 +295,7 @@ type UnittestConfigProvider interface {
 type FetchConfigProvider interface {
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	OutputDir() string
 	OutputDirTemplate() string
 	WriteOutput() bool
@@ -303,6 +315,7 @@ type TemplateConfigProvider interface {
 	Validate() bool
 	SkipDeps() bool
 	SkipRefresh() bool
+	AllowFailedReleases() bool
 	SkipCleanup() bool
 	SkipTests() bool
 	OutputDir() string
@@ -338,6 +351,7 @@ type WriteValuesConfigProvider interface {
 
 type StatusesConfigProvider interface {
 	Args() string
+	AllowFailedReleases() bool
 
 	concurrencyConfig
 }

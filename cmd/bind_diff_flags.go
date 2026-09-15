@@ -32,6 +32,7 @@ func bindCommonDiffFlags(f *pflag.FlagSet, opts *config.DiffOptions, globalArgs 
 	f.BoolVar(&opts.EnforceNeedsAreInstalled, "enforce-needs-are-installed", false, "enforce that all 'needs' dependencies are installable before applying changes")
 	f.BoolVar(&opts.IncludeTransitiveNeeds, "include-transitive-needs", false, `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`)
 	f.BoolVar(&opts.SkipDiffOnInstall, "skip-diff-on-install", false, "Skips running helm-diff on releases being newly installed on this apply. Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all")
+	f.BoolVar(&opts.SkipDiffValidationOnInstall, "skip-diff-validation-on-install", false, "Disables K8s API validation (--disable-validation) when running helm-diff on releases being newly installed. Useful when charts include CRDs and CRs in the same release")
 	f.BoolVar(&opts.NoHooks, "no-hooks", false, "do not diff changes made by hooks.")
 	f.BoolVar(&opts.StripTrailingCR, "strip-trailing-cr", false, "strip trailing carriage return on input")
 	f.BoolVar(&opts.SuppressSecrets, "suppress-secrets", false, "suppress secrets in the output. highly recommended to specify on CI/CD use-cases")

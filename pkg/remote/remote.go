@@ -100,6 +100,13 @@ func (e InvalidURLError) Error() string {
 
 type Source struct {
 	Getter, Scheme, User, Host, Dir, File, RawQuery string
+
+	// HasSelector is true when the source URL contained an explicit "@<file>"
+	// selector marking where the repository/dir root ends and the file
+	// selector begins. Without it, Dir and File are inferred from the last
+	// path segment (see Parse), which loses the ability to reconstruct a
+	// valid getter source when File is itself a pattern.
+	HasSelector bool
 }
 
 func IsRemote(goGetterSrc string) bool {
@@ -110,6 +117,37 @@ func IsRemote(goGetterSrc string) bool {
 		return false
 	}
 	return true
+}
+
+// hasGlobMeta reports whether p contains a filepath.Match metacharacter. The
+// set matches filepath.Match's, which also backs local values-file globbing
+// (Storage.ExpandPaths), so remote and local glob syntax stay identical.
+//
+// In practice a raw "?" can never reach p when p is Source.File: url.Parse
+// splits the query string at the first unescaped "?", so it never survives
+// into u.Path. A "?" wildcard only reaches here percent-encoded ("%3F") in
+// the original URL, which url.Parse decodes back into a literal "?" in
+// u.Path/u.File. "?" is kept in this set anyway, for symmetry with
+// filepath.Match's metacharacters and to handle that percent-encoded case.
+func hasGlobMeta(p string) bool {
+	return strings.ContainsAny(p, `*?[`)
+}
+
+// HasGlobPattern reports whether the "@<file>" selector of a go-getter style
+// reference is a glob pattern, e.g.
+//
+//	git::https://github.com/org/repo.git@path/to/dir/*.yaml?ref=main
+//
+// Only the file selector is examined. The rest of a reference legitimately
+// contains glob metacharacters that are not patterns: "?" begins the query
+// string ("?ref=main") unless percent-encoded, and "[" appears in IPv6 hosts
+// and in placeholder values such as github.com/[$GITHUB_ORG]/repo.git.
+func HasGlobPattern(goGetterSrc string) bool {
+	u, err := Parse(goGetterSrc)
+	if err != nil {
+		return false
+	}
+	return hasGlobMeta(u.File)
 }
 
 func Parse(goGetterSrc string) (*Source, error) {
@@ -143,7 +181,8 @@ func Parse(goGetterSrc string) (*Source, error) {
 	}
 
 	pathComponents := strings.Split(u.Path, "@")
-	if len(pathComponents) != 2 {
+	hasSelector := len(pathComponents) == 2
+	if !hasSelector {
 		dir := filepath.Dir(u.Path)
 		if len(dir) > 0 {
 			dir = dir[1:]
@@ -152,13 +191,14 @@ func Parse(goGetterSrc string) (*Source, error) {
 	}
 
 	return &Source{
-		Getter:   getter,
-		User:     u.User.String(),
-		Scheme:   u.Scheme,
-		Host:     u.Host,
-		Dir:      pathComponents[0],
-		File:     pathComponents[1],
-		RawQuery: u.RawQuery,
+		Getter:      getter,
+		User:        u.User.String(),
+		Scheme:      u.Scheme,
+		Host:        u.Host,
+		Dir:         pathComponents[0],
+		File:        pathComponents[1],
+		RawQuery:    u.RawQuery,
+		HasSelector: hasSelector,
 	}, nil
 }
 
@@ -211,6 +251,34 @@ func (r *Remote) Fetch(path string, cacheDirOpt ...string) (string, error) {
 	// Block remote access if insecure features are disabled and the source is remote
 	if disableInsecureFeatures && IsRemote(path) {
 		return "", fmt.Errorf("remote sources are disabled due to 'HELMFILE_DISABLE_INSECURE_FEATURES'")
+	}
+
+	// A wildcard in the "@<file>" selector is expanded by the caller (e.g.
+	// Storage.resolveFile) against the directory downloaded below. Reject the
+	// shapes where that can never work, instead of letting it fail later with a
+	// confusing "file not found" naming a path that contains a literal "*".
+	//
+	// Only "*" is treated as an unambiguous wildcard signal here: "?" can never
+	// reach u.File (url.Parse splits the query string at the first "?"), and
+	// "[" legitimately appears in existing literal file names, so neither
+	// should make Fetch reject an otherwise-valid single-file reference.
+	if strings.Contains(u.File, "*") {
+		switch {
+		case u.Getter == "normal":
+			// Plain http(s):// and s3:// URLs (ParseNormal) always download a
+			// single object.
+			return "", fmt.Errorf("wildcards are not supported for %s:// sources, which fetch a single file: %s (use a directory-capable getter such as git::)", u.Scheme, path)
+		case u.Getter == "s3" && decompressorForFile(filepath.Base(u.Dir)) == nil:
+			// Forced s3:: also fetches a single object, unless it's an archive:
+			// S3Getter decompresses those into the cache dir, so a selector can
+			// still match a file inside.
+			return "", fmt.Errorf("wildcards are not supported for s3:: sources unless the object is an archive: %s", path)
+		case !u.HasSelector:
+			// Without an explicit "@" selector, Dir/File are inferred from the
+			// last path segment (see Parse), which can't tell a repository root
+			// from a wildcard file name.
+			return "", fmt.Errorf(`wildcards require an explicit "@" selector marking the repository root, e.g. git::https://host/org/repo.git@dir/*.yaml?ref=main: %s`, path)
+		}
 	}
 
 	srcDir := fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, u.Dir)

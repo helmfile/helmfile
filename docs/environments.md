@@ -222,6 +222,14 @@ environments:
       - http://$HOSTNAME/artifactory/example-repo-local/test.tgz@environments/production.secret.yaml
 ```
 
+Wildcards are supported in the file selector, the same way as for [remote values files](#loading-remote-environment-values-files):
+```yaml
+environments:
+  staging:
+    secrets:
+      - git::https://{{ env "GITHUB_PAT" }}@github.com/org/repo.git@environments/staging/secrets/*.yaml?ref=main
+```
+
 ### Loading remote Environment values files
 
 Since Helmfile v0.118.8, you can use `go-getter`-style URLs to refer to remote values files:
@@ -260,6 +268,26 @@ values:
 For more information about the supported protocols see: [go-getter Protocol-Specific Options](https://github.com/hashicorp/go-getter#protocol-specific-options-1).
 
 This is particularly useful when you co-locate helmfiles within your project repo but want to reuse the definitions in a global repo.
+
+##### Wildcards in remote values files
+
+The file selector (the part after `@`) can be a glob pattern, so a whole directory of values files can be referenced at once, without listing every file individually:
+
+```yaml
+environments:
+  production:
+    values:
+      - git::https://github.com/org/repo.git@config/production/*.yaml?ref=main
+```
+
+All matches are fetched from a single clone of the repository, then merged in the same sorted order as a local `values:` glob (see [Precedence](#environment-values-precedence)).
+
+Notes and limitations:
+- The pattern is matched with the same syntax as local values file globs (`filepath.Match`: `*`, `?`, `[abc]`), against a single path segment — there is no recursive `**`.
+- Wildcards require an explicit `@` selector to mark the repository root, as in the example above.
+- Wildcards are only supported with getters that download a whole directory, such as `git::`. Plain `https://`/`s3://` references and a non-archive `s3::` reference each fetch a single file and cannot be expanded; use `git::` (or an `s3::` archive URL) instead.
+- A raw `?` in the file selector can never work as a wildcard: it starts the URL's query string (e.g. `?ref=main`), so anything after it is parsed as part of the query, not the file selector. A `?` wildcard must be percent-encoded as `%3F` to survive as part of the path, e.g. `@dir/v%3F.yaml?ref=main`.
+- This applies to environment `values:`/`secrets:` only. In release-level `values:`/`secrets:`, a wildcard that matches exactly one file also works, but a wildcard matching more than one file still fails with "glob patterns in release values and secrets is not supported yet" — the same restriction that already applies to local glob patterns there.
 
 ### Environment values precedence
 With the introduction of HCL, a new value precedence was introduced over environment values.

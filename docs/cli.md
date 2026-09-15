@@ -54,7 +54,11 @@ Flags:
       --log-level string                      Set log level. Overrides "HELMFILE_LOG_LEVEL" OS environment variable when specified (default "info")
   -n, --namespace string                      Set namespace. Overrides "HELMFILE_NAMESPACE" OS environment variable when specified. Uses the namespace set in the context by default, and is available in templates as {{ .Namespace }}
       --no-color                              Output without color. Overrides "HELMFILE_NO_COLOR" and "NO_COLOR" OS environment variables when specified
+      --otel-tracing                          Enable OpenTelemetry tracing (experimental).
+                                              Configure the exporter with standard OTEL_* environment variables (e.g. OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_TRACES_EXPORTER).
+                                              Overrides "HELMFILE_OTEL_TRACING" OS environment variable when specified. See docs/otel.md
   -q, --quiet                                 Silence output. Equivalent to log-level warn. Overrides "HELMFILE_QUIET" OS environment variable when specified
+      --repo-retries int                      Number of times to retry "helm repo add/update" and "helm registry login" on failure, with exponential backoff (1s, 2s, 4s, ..., capped at 30s). Set to 0 to disable retries. Overrides "HELMFILE_REPO_RETRIES" OS environment variable when specified
   -l, --selector stringArray                  Only run using the releases that match labels. Labels can take the form of foo=bar or foo!=bar.
                                               A release must match all labels in a group in order to be used. Multiple groups can be specified at once.
                                               "--selector tier=frontend,tier!=proxy --selector tier=backend" will match all frontend, non-proxy releases AND all backend releases.
@@ -159,6 +163,11 @@ the charts/releases defined in the manifest.
 To supply the diff functionality Helmfile needs the [helm-diff](https://github.com/databus23/helm-diff) plugin v2.9.0+1 or greater installed. For Helm 2.3+
 you should be able to simply execute `helm plugin install https://github.com/databus23/helm-diff`. For more details
 please look at their [documentation](https://github.com/databus23/helm-diff#helm-diff-plugin).
+
+#### Notable diff flags
+
+* `--skip-diff-on-install` — skip running `helm diff` entirely for releases that are not yet installed. The release is treated as changed and will be synced on `apply` without showing a diff.
+* `--skip-diff-validation-on-install` — for releases that are not yet installed, pass `--disable-validation` to `helm diff` so the diff is shown without K8s API server validation. Useful when a chart bundles CRDs and CRs together: the CRs would fail API validation before the CRDs are installed. This is the CLI-flag equivalent of the per-release `disableValidationOnInstall` field.
 
 ### doctor
 
@@ -544,9 +553,11 @@ The following global flags are also available but not shown in the main help out
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--kubeconfig` | `""` | Use a particular kubeconfig file |
+| `--allow-failed-releases` | false | Continue preparing charts for other releases when chart preparation fails for a release; failed releases are skipped and all failures are reported at the end |
 | `--skip-refresh` | false | Skip running `helm repo update` (lighter than `--skip-deps` which also skips dependency build) |
 | `--enforce-plugin-verification` | false | Fail plugin installation if verification is not supported |
 | `--oci-plain-http` | false | Use plain HTTP for OCI registries (required for local/insecure registries in Helm 4) |
+| `--repo-retries` | `0` | Number of times to retry `helm repo add/update` and `helm registry login` on failure, with exponential backoff (1s, 2s, 4s, ..., capped at 30s). Set to 0 to disable retries. Overrides `HELMFILE_REPO_RETRIES` |
 
 #### fetch flags
 

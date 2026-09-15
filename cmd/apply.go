@@ -50,6 +50,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.EnforceNeedsAreInstalled, "enforce-needs-are-installed", false, "enforce that all 'needs' dependencies are installable before applying changes")
 	f.BoolVar(&applyOptions.IncludeTransitiveNeeds, "include-transitive-needs", false, `like --include-needs, but also includes transitive needs (needs of needs). Does nothing when --selector/-l flag is not provided. Overrides exclusions of other selectors and conditions.`)
 	f.BoolVar(&applyOptions.SkipDiffOnInstall, "skip-diff-on-install", false, "Skips running helm-diff on releases being newly installed on this apply. Useful when the release manifests are too huge to be reviewed, or it's too time-consuming to diff at all")
+	f.BoolVar(&applyOptions.SkipDiffValidationOnInstall, "skip-diff-validation-on-install", false, "Disables K8s API validation (--disable-validation) when running helm-diff on releases being newly installed. Useful when charts include CRDs and CRs in the same release")
 	f.BoolVar(&applyOptions.IncludeTests, "include-tests", false, "enable the diffing of the helm test hooks")
 	f.StringArrayVar(&applyOptions.Suppress, "suppress", nil, "suppress specified Kubernetes objects in the diff output. Can be provided multiple times. For example: --suppress KeycloakClient --suppress VaultSecret")
 	f.BoolVar(&applyOptions.SuppressSecrets, "suppress-secrets", false, "suppress secrets in the diff output. highly recommended to specify on CI/CD use-cases")

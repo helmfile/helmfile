@@ -131,4 +131,4 @@ Helmfile 已经被许多用户在生产环境中使用:
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=helmfile/helmfile&type=Date)](https://star-history.com/#helmfile/helmfile&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=helmfile/helmfile&type=Date)](https://star-history.dera.page/#helmfile/helmfile&Date)

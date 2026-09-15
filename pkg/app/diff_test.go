@@ -25,6 +25,7 @@ type diffConfig struct {
 	skipCRDs                 bool
 	skipDeps                 bool
 	skipRefresh              bool
+	allowFailedReleases      bool
 	includeTests             bool
 	skipNeeds                bool
 	includeNeeds             bool
@@ -85,6 +86,10 @@ func (a diffConfig) SkipDeps() bool {
 
 func (a diffConfig) SkipRefresh() bool {
 	return a.skipRefresh
+}
+
+func (a diffConfig) AllowFailedReleases() bool {
+	return a.allowFailedReleases
 }
 
 func (a diffConfig) IncludeTests() bool {
@@ -157,6 +162,10 @@ func (a diffConfig) Interactive() bool {
 
 func (a diffConfig) SkipDiffOnInstall() bool {
 	return a.skipDiffOnInstall
+}
+
+func (a diffConfig) SkipDiffValidationOnInstall() bool {
+	return false
 }
 
 func (a diffConfig) Logger() *zap.SugaredLogger {

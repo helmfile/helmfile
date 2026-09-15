@@ -1,7 +1,13 @@
 package envvar
 
 const (
-	DisableInsecureFeatures = "HELMFILE_DISABLE_INSECURE_FEATURES"
+	DisableInsecureFeatures          = "HELMFILE_DISABLE_INSECURE_FEATURES"
+	DisableInsecureTemplateFunctions = "HELMFILE_DISABLE_INSECURE_TEMPLATE_FUNCTIONS"
+	DisableHooks                     = "HELMFILE_DISABLE_HOOKS"
+	// DisableVals passes `ref+` values through unchanged for external vals processing
+	DisableVals = "HELMFILE_DISABLE_VALS"
+	// DisableValsStrict errors when any `ref+` value is detected
+	DisableValsStrict = "HELMFILE_DISABLE_VALS_STRICT"
 
 	// use helm status to check if a release exists before installing it
 	UseHelmStatusToCheckReleaseExistence = "HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE"
@@ -23,6 +29,9 @@ const (
 	GoYamlV3              = "HELMFILE_GO_YAML_V3"
 	CacheHome             = "HELMFILE_CACHE_HOME"
 	Interactive           = "HELMFILE_INTERACTIVE"
+	RepoRetry             = "HELMFILE_REPO_RETRIES"
+	OtelTracing           = "HELMFILE_OTEL_TRACING"
+	OtelMetricsPerRelease = "HELMFILE_OTEL_METRICS_PER_RELEASE"
 	RenderYaml            = "HELMFILE_RENDER_YAML" // force helmfile.yaml to be rendered as template regardless of extension, expecting "true" lower case
 
 	// AWSSDKLogLevel controls AWS SDK logging level

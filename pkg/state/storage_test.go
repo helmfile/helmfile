@@ -6,11 +6,15 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/remote"
+	"github.com/helmfile/helmfile/pkg/testhelper"
 )
 
 func TestStorage_resolveFile(t *testing.T) {
@@ -116,6 +120,19 @@ func TestStorage_resolveFile(t *testing.T) {
 			wantErr:     false,
 		},
 		{
+			// examples/values/ at this tag contains replica-values.yaml plus the
+			// dev/ and prod/ directories, so "*.yaml" matches exactly one file.
+			name: "wildcard remote value expands to a single match",
+			args: args{
+				path:               "git::https://github.com/helmfile/helmfile.git@examples/values/*.yaml?ref=v0.145.2",
+				title:              "values",
+				missingFileHandler: &infoHandler,
+			},
+			wantFiles:   []string{fmt.Sprintf("%s/%s", cacheDir, "values/https_github_com_helmfile_helmfile_git.ref=v0.145.2/examples/values/replica-values.yaml")},
+			wantSkipped: false,
+			wantErr:     false,
+		},
+		{
 			name: "non existing remote repo produce an error",
 			args: args{
 				path:               "https://github.com/helmfile/helmfiles.git@examples/values/replica-values.yaml?ref=v0.145.2",
@@ -144,6 +161,117 @@ func TestStorage_resolveFile(t *testing.T) {
 			}
 			if !reflect.DeepEqual(files, tt.wantFiles) {
 				t.Errorf("resolveFile() files = %v, want %v", files, tt.wantFiles)
+			}
+			if skipped != tt.wantSkipped {
+				t.Errorf("resolveFile() skipped = %v, want %v", skipped, tt.wantSkipped)
+			}
+		})
+	}
+}
+
+// TestStorage_resolveFile_RemoteGlob covers wildcard expansion of remote
+// references hermetically, with no network access. It relies on
+// Remote.Fetch's cache-hit path: pre-populating the fake filesystem with
+// files under the exact cache directory a real Fetch would compute makes
+// DirectoryExistsAt true for that directory, so Fetch never invokes a getter.
+func TestStorage_resolveFile_RemoteGlob(t *testing.T) {
+	cacheDir := "/path/to/helmfile-cache"
+	t.Setenv(envvar.CacheHome, cacheDir)
+
+	// Mirrors the cache key Remote.Fetch computes for
+	// "git::https://github.com/o/r.git@...?ref=main" (see remote.go's
+	// srcDir/cacheKey construction): scheme + host + repo dir, with the
+	// existing storage_test.go cases pinning the same replacer behavior.
+	base := filepath.Join(cacheDir, "values", "https_github_com_o_r_git.ref=main", "dir")
+	aFile := filepath.ToSlash(filepath.Join(base, "a.yaml"))
+	bFile := filepath.ToSlash(filepath.Join(base, "b.yaml"))
+	txtFile := filepath.ToSlash(filepath.Join(base, "c.txt"))
+	subFile := filepath.ToSlash(filepath.Join(base, "sub", "d.yaml"))
+
+	testfs := testhelper.NewTestFs(map[string]string{
+		aFile:   "a: 1",
+		bFile:   "b: 2",
+		txtFile: "c",
+		subFile: "d: 4",
+	})
+
+	infoHandler := MissingFileHandlerInfo
+	errorHandler := MissingFileHandlerError
+
+	tests := []struct {
+		name            string
+		path            string
+		handler         *string
+		wantFiles       []string
+		wantSkipped     bool
+		wantErr         bool
+		wantErrContains string
+	}{
+		{
+			name:      "literal file selector still resolves to itself",
+			path:      "git::https://github.com/o/r.git@dir/a.yaml?ref=main",
+			handler:   &infoHandler,
+			wantFiles: []string{aFile},
+		},
+		{
+			name:      "wildcard expands to every match, sorted, non-recursively",
+			path:      "git::https://github.com/o/r.git@dir/*.yaml?ref=main",
+			handler:   &infoHandler,
+			wantFiles: []string{aFile, bFile}, // c.txt excluded by extension, sub/d.yaml excluded: no "**"
+		},
+		{
+			name:        "wildcard matching nothing is skipped under Info handler",
+			path:        "git::https://github.com/o/r.git@dir/*.json?ref=main",
+			handler:     &infoHandler,
+			wantSkipped: true,
+		},
+		{
+			name:    "wildcard matching nothing errors under Error handler",
+			path:    "git::https://github.com/o/r.git@dir/*.json?ref=main",
+			handler: &errorHandler,
+			wantErr: true,
+		},
+		{
+			// An unclosed "[" is a legal filename character (e.g. a literal
+			// remote file named "values-[foo.yaml" that doesn't exist at the
+			// fetched ref), but it's also invalid filepath.Match syntax
+			// (filepath.ErrBadPattern). Before wildcard support this selector
+			// was only ever checked with FileExistsAt and simply treated as
+			// missing; that behavior must be preserved rather than surfacing a
+			// hard "syntax error in pattern" regardless of missingFileHandler.
+			name:        "unclosed bracket pattern is treated as no match, not a hard error, under Info handler",
+			path:        "git::https://github.com/o/r.git@dir/values-[foo.yaml?ref=main",
+			handler:     &infoHandler,
+			wantSkipped: true,
+		},
+		{
+			name:            "unclosed bracket pattern still respects the Error handler as a plain missing-file error",
+			path:            "git::https://github.com/o/r.git@dir/values-[foo.yaml?ref=main",
+			handler:         &errorHandler,
+			wantErr:         true,
+			wantErrContains: "does not exist",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := NewStorage(filepath.Join(cacheDir, "helmfile.yaml"), helmexec.NewLogger(io.Discard, "debug"), testfs.ToFileSystem())
+
+			files, skipped, err := st.resolveFile(tt.handler, "values", tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("resolveFile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Errorf("resolveFile() error = %q, want it to contain %q", err.Error(), tt.wantErrContains)
+				}
+				return
+			}
+
+			wantFiles := append([]string(nil), tt.wantFiles...)
+			sort.Strings(wantFiles)
+			if !reflect.DeepEqual(files, wantFiles) {
+				t.Errorf("resolveFile() files = %v, want %v", files, wantFiles)
 			}
 			if skipped != tt.wantSkipped {
 				t.Errorf("resolveFile() skipped = %v, want %v", skipped, tt.wantSkipped)

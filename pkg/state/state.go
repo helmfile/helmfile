@@ -145,6 +145,14 @@ type HelmState struct {
 	basePath string
 	FilePath string
 
+	// traceCtx parents per-release spans; set via SetTraceContext (see span.go).
+	traceCtx gocontext.Context
+
+	// cancelCtx is canceled with the app on SIGINT/SIGTERM. Kubedog tracking
+	// and its buffered helm subprocesses derive from it so Ctrl+C reaches them
+	// (see issue #2770). Set via SetCancelContext; nil falls back to Background.
+	cancelCtx gocontext.Context
+
 	ReleaseSetSpec `yaml:",inline"`
 
 	logger  *zap.SugaredLogger
@@ -240,6 +248,9 @@ type HelmSpec struct {
 	Force bool `yaml:"force"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic bool `yaml:"atomic"`
+	// RollbackOnFailure, when set to true, restores previous state on a failed install/upgrade via the
+	// Helm 4 --rollback-on-failure flag (the successor to the deprecated --atomic flag). Requires Helm 4 or greater.
+	RollbackOnFailure bool `yaml:"rollbackOnFailure"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
 	CleanupOnFail bool `yaml:"cleanupOnFail,omitempty"`
 	// ForceConflicts, when set to true, force server-side apply changes against conflicts (Helm 4 only)
@@ -257,6 +268,16 @@ type HelmSpec struct {
 	SkipDeps bool `yaml:"skipDeps"`
 	// SkipRefresh disables running `helm dependency up`
 	SkipRefresh bool `yaml:"skipRefresh"`
+	// ResolveOCIVersions, when set (default true), resolves an OCI chart's semver
+	// constraint version (e.g. "~1", "^2.0.0", "*") to a concrete registry tag
+	// before helmfile derives the on-disk cache path. This makes the shared chart
+	// cache under $XDG_CACHE_HOME/helmfile content-addressable by resolved version
+	// so that a newer tag matching the same constraint is picked up on the next
+	// invocation instead of returning a stale, previously-resolved version. Set
+	// to false to preserve the pre-fix behavior of caching under the raw
+	// constraint string. Exact-version releases (no constraint characters in
+	// `version:`) are unaffected. Ignored for non-OCI releases.
+	ResolveOCIVersions *bool `yaml:"resolveOCIVersions,omitempty"`
 	// on helm upgrade/diff, reuse values currently set in the release and merge them with the ones defined within helmfile
 	ReuseValues bool `yaml:"reuseValues"`
 	// Propagate '--post-renderer' to helmv3 template and helm install
@@ -364,6 +385,9 @@ type ReleaseSpec struct {
 	UpdateStrategy string `yaml:"updateStrategy,omitempty"`
 	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
 	Atomic *bool `yaml:"atomic,omitempty"`
+	// RollbackOnFailure, when set to true, restores previous state on a failed install/upgrade via the
+	// Helm 4 --rollback-on-failure flag (the successor to the deprecated --atomic flag). Requires Helm 4 or greater.
+	RollbackOnFailure *bool `yaml:"rollbackOnFailure,omitempty"`
 	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
 	CleanupOnFail *bool `yaml:"cleanupOnFail,omitempty"`
 	// ForceConflicts, when set to true, force server-side apply changes against conflicts (Helm 4 only)
@@ -488,6 +512,10 @@ type ReleaseSpec struct {
 
 	// SkipRefresh disables running `helm dependency up`
 	SkipRefresh *bool `yaml:"skipRefresh,omitempty"`
+
+	// ResolveOCIVersions overrides helmDefaults.resolveOCIVersions for this release.
+	// See HelmSpec.ResolveOCIVersions for details.
+	ResolveOCIVersions *bool `yaml:"resolveOCIVersions,omitempty"`
 
 	// Propagate '--post-renderer' to helmv3 template and helm install
 	PostRenderer *string `yaml:"postRenderer,omitempty"`
@@ -1138,9 +1166,12 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 		func(workerIndex int) {
 			for release := range jobQueue {
 				var relErr *ReleaseError
+				itemStart := time.Now()
+				relCtx, relSpan := st.startReleaseSpan("delete", release)
 				context := st.createHelmContext(release, workerIndex)
+				context.Ctx = relCtx
 
-				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+				if _, err := st.triggerPresyncEvent(release, "sync", relCtx); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else {
 					var args []string
@@ -1153,13 +1184,13 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 
 					m.Lock()
 					start := time.Now()
-					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
 						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
-					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
 						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -1169,13 +1200,15 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					m.Unlock()
 				}
 
-				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, relErr, "sync", relCtx); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
 
-				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, "sync", relCtx); err != nil {
 					st.logger.Warnf("warn: %v\n", err)
 				}
+
+				endReleaseSpan(relSpan, "delete", release, itemStart, releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -1252,10 +1285,12 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					chart = normalizeChart(st.basePath, chart)
 				}
 				var relErr *ReleaseError
+				relCtx, relSpan := st.startReleaseSpan("sync", release)
 				context := st.createHelmContext(release, workerIndex)
+				context.Ctx = relCtx
 
 				start := time.Now()
-				if _, err := st.triggerPresyncEvent(release, "sync"); err != nil {
+				if _, err := st.triggerPresyncEvent(release, "sync", relCtx); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else if !release.Desired() {
 					installed, err := st.isReleaseInstalled(context, helm, *release)
@@ -1265,13 +1300,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						var args []string
 						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
-						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
-						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
 							affectedReleases.Failed = append(affectedReleases.Failed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else {
@@ -1282,10 +1317,10 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
 					if relErr == nil {
-						relErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+						relErr = st.trackReleaseIfEnabled(st.releaseCancelContext(), release, helm, opts)
 					}
 				} else {
-					trackHandle, trackStarted := st.startBackgroundKubedogTracking(gocontext.Background(), release, helm, opts)
+					trackHandle, trackStarted := st.startBackgroundKubedogTracking(st.releaseCancelContext(), release, helm, opts)
 					// trackHandle.Helm is a logger-scoped helm clone that
 					// captures output to an in-memory buffer while tracking is
 					// active. When tracking isn't running it's the original
@@ -1338,7 +1373,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						if trackStarted {
 							trackErr = trackHandle.Wait()
 						} else {
-							trackErr = st.trackReleaseIfEnabled(gocontext.Background(), release, helm, opts)
+							trackErr = st.trackReleaseIfEnabled(st.releaseCancelContext(), release, helm, opts)
 						}
 						if trackErr != nil {
 							m.Lock()
@@ -1349,7 +1384,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 
-				if _, err := st.triggerPostsyncEvent(release, relErr, "sync"); err != nil {
+				if _, err := st.triggerPostsyncEvent(release, relErr, "sync", relCtx); err != nil {
 					if relErr == nil {
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -1357,7 +1392,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 
-				if _, err := st.TriggerCleanupEvent(release, "sync"); err != nil {
+				if _, err := st.TriggerCleanupEvent(release, "sync", relCtx); err != nil {
 					if relErr == nil {
 						relErr = newReleaseFailedError(release, err)
 					} else {
@@ -1365,6 +1400,8 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 					}
 				}
 				release.duration = time.Since(start)
+
+				endReleaseSpan(relSpan, "sync", release, start, releaseErrAsError(relErr))
 
 				if relErr == nil {
 					results <- syncResult{}
@@ -1433,13 +1470,13 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 		args = st.appendDeleteWaitFlags(args, release)
 		deletionFlags := st.appendConnectionFlags(args, release)
 		m.Lock()
-		if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync"); err != nil {
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, release)
 			return newReleaseFailedError(release, err)
 		} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, release)
 			return newReleaseFailedError(release, err)
-		} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync"); err != nil {
+		} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
 			affectedReleases.Failed = append(affectedReleases.Failed, release)
 			return newReleaseFailedError(release, err)
 		}
@@ -1556,11 +1593,16 @@ func filterReleasesSkippingChartify(releases []ReleaseSpec) []ReleaseSpec {
 
 type ChartPrepareOptions struct {
 	ForceDownload bool
-	SkipRepos     bool
-	SkipDeps      bool
-	SkipRefresh   bool
-	SkipResolve   bool
-	SkipCleanup   bool
+	// PrefetchSharedRemoteCharts forces a single materialized download for any remote chart
+	// (chart+version) used by more than one selected release, so those releases stop being
+	// serialized by withChartOperationLock during sync/diff. See issue #2741.
+	PrefetchSharedRemoteCharts bool
+	SkipRepos                  bool
+	SkipDeps                   bool
+	SkipRefresh                bool
+	AllowFailedReleases        bool
+	SkipResolve                bool
+	SkipCleanup                bool
 	// SkipSchemaValidation configures chartify to pass --skip-schema-validation to helm-template run by it.
 	SkipSchemaValidation bool
 	// Validate configures chartify to pass --validate to helm-template run by it.
@@ -2025,6 +2067,25 @@ func (st *HelmState) processLocalChart(normalizedChart, dir string, release *Rel
 	return chartPath, nil
 }
 
+// chartFetchFlags builds the `helm fetch` flags for a remote chart download, mirroring
+// the flags flagsForUpgrade applies for chart acquisition (version, verify, keyring,
+// TLS/plain-http) so a prefetched chart behaves identically to one helm would have
+// downloaded itself during `helm upgrade`. See issue #2741.
+func (st *HelmState) chartFetchFlags(release *ReleaseSpec) []string {
+	var flags []string
+	flags = st.appendChartVersionFlags(flags, release)
+
+	// non-OCI chart should be verified here, matching flagsForUpgrade.
+	if !st.IsOCIChart(release.Chart) {
+		flags = st.appendVerifyFlags(flags, release)
+		flags = st.appendKeyringFlags(flags, release)
+	}
+
+	flags = st.appendChartDownloadFlags(flags, release)
+
+	return flags
+}
+
 // forcedDownloadChart handles forced chart downloads.
 // Locks are acquired during download and released immediately after.
 // A per-chart+version mutex serializes downloads within the process so that
@@ -2082,8 +2143,7 @@ func (st *HelmState) forcedDownloadChart(chartName, dir string, release *Release
 	}
 
 	// Download the chart
-	var fetchFlags []string
-	fetchFlags = st.appendChartVersionFlags(fetchFlags, release)
+	fetchFlags := st.chartFetchFlags(release)
 	fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 	if err := helm.Fetch(chartName, fetchFlags...); err != nil {
 		lockResult.Release(st.logger)
@@ -2214,22 +2274,24 @@ func (st *HelmState) prepareChartForRelease(release *ReleaseSpec, helm helmexec.
 }
 
 // PrepareCharts downloads and prepares all charts for the selected releases.
-// Returns the chart paths and any errors encountered.
+// It returns the chart paths for the successfully prepared releases, the set of
+// releases that failed to prepare (keyed by release, with their errors), and any
+// errors encountered.
 //
 // Note: OCI chart locks are acquired and released during chart download within this function.
 // The tempDir cleanup is deferred until after helm operations complete in the caller,
 // so charts remain available during helm commands even though locks are released.
-func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, []error) {
+func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurrency int, helmfileCommand string, opts ChartPrepareOptions) (map[PrepareChartKey]string, map[PrepareChartKey]error, []error) {
 	if !opts.SkipResolve {
 		updated, err := st.ResolveDeps()
 		if err != nil {
-			return nil, []error{err}
+			return nil, nil, []error{err}
 		}
 		*st = *updated
 	}
 	selected, err := st.GetSelectedReleases(opts.IncludeTransitiveNeeds)
 	if err != nil {
-		return nil, []error{err}
+		return nil, nil, []error{err}
 	}
 
 	releases := releasesNeedCharts(selected)
@@ -2242,13 +2304,87 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		releases = filterReleasesSkippingChartify(releases)
 	}
 
+	// Apply -chart override here, before the shared-chart grouping below reads
+	// release.Chart. It was previously applied later inside prepareChartForRelease,
+	// which meant grouping ran on each release's original chart and never noticed
+	// that all of them resolve to the same overridden chart.
+	if st.OverrideChart != "" {
+		for i := range releases {
+			releases[i].Chart = st.OverrideChart
+		}
+	}
+
 	// Initialize the chartify temp dir tracker before concurrent workers start,
 	// so that all workers share a single tracker instance. See issue #1799.
 	st.chartifyTempDirs = &chartifyTempDirTracker{}
 
+	// Issue #2741: releases sharing a remote chart+version are otherwise serialized by
+	// withChartOperationLock for the whole sync/diff, not just the download. Force a
+	// single materialized download per shared chart key here so release.ChartPath gets
+	// populated and withChartOperationLock's ChartPath != "" guard skips the lock for them.
+	// Charts unique to one release are left alone to preserve current behavior.
+	sharedChartKeys := map[ChartCacheKey]bool{}
+	if opts.PrefetchSharedRemoteCharts {
+		type prefetchStats struct {
+			count       int
+			flagSigs    map[string]bool
+			sampleFlags []string
+		}
+		stats := map[ChartCacheKey]*prefetchStats{}
+		for i := range releases {
+			release := &releases[i]
+			key := st.getChartCacheKey(release)
+			s, ok := stats[key]
+			if !ok {
+				s = &prefetchStats{flagSigs: map[string]bool{}}
+				stats[key] = s
+			}
+			s.count++
+			flags := st.chartFetchFlags(release)
+			// NUL can't appear in an OS argument, so this join is injective —
+			// unlike a space-joined signature, it can't collide two different
+			// flag slices (e.g. a keyring path containing a space and a
+			// flag-like token) into the same string.
+			s.flagSigs[strings.Join(flags, "\x00")] = true
+			s.sampleFlags = flags
+		}
+		for key, s := range stats {
+			// The download cache (checkChartCache/addToChartCache) is keyed by
+			// chart+version alone, not by acquisition flags. If releases sharing a
+			// chart+version disagree on --verify/--keyring/--plain-http/
+			// --insecure-skip-tls-verify/--devel, whichever release's worker wins the
+			// download race would silently decide those settings for the others. Only
+			// prefetch when every release sharing this key resolves to identical flags;
+			// otherwise fall back to today's per-release fetch (still correct, just not
+			// deduplicated).
+			//
+			// Only chart strings that resolve to a configured repository (or an OCI
+			// reference) are unambiguously remote. A bare "dir/chart"-shaped string with
+			// no matching `repositories:` entry is conventionally a local chart path
+			// (e.g. "charts/frontend") and must be left to the existing local-directory
+			// resolution, not force-fetched as if it were a registry chart.
+			//
+			// --verify is also disqualifying: forcedDownloadChart untars the chart, and
+			// flagsForUpgrade later re-adds --verify for the upgrade itself (it can't
+			// tell the chart was already verified at fetch time). Helm's VerifyChart only
+			// accepts a packaged .tgz/provenance pair, not an unpacked directory, so
+			// upgrading a prefetched chart with verify enabled would fail. Leave verified
+			// charts on the existing serialized remote-chart path instead.
+			if s.count > 1 && len(s.flagSigs) == 1 && !slices.Contains(s.sampleFlags, "--verify") && st.isPrefetchEligibleChart(key.Chart) {
+				sharedChartKeys[key] = true
+			}
+		}
+	}
+
 	var prepareChartInfoMutex sync.Mutex
 
 	prepareChartInfo := make(map[PrepareChartKey]string, len(releases))
+
+	// Releases that failed to prepare. When opts.AllowFailedReleases is set,
+	// these releases are excluded from the returned chart paths so that callers
+	// can skip them instead of executing them against their un-prepared chart
+	// references.
+	failedReleases := make(map[PrepareChartKey]error)
 
 	errs := []error{}
 
@@ -2268,7 +2404,22 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		},
 		func(workerIndex int) {
 			for release := range jobQueue {
-				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, opts, workerIndex)
+				releaseOpts := opts
+				if sharedChartKeys[st.getChartCacheKey(release)] {
+					releaseOpts.ForceDownload = true
+				}
+				_, relSpan := st.startReleaseSpan("prepare", release)
+				prepareStart := time.Now()
+				result := st.prepareChartForRelease(release, helm, dir, helmfileCommand, releaseOpts, workerIndex)
+				endReleaseSpan(relSpan, "prepare", release, prepareStart, result.err)
+				if result.err != nil {
+					// Error results returned by prepareChartForRelease may lack the
+					// release identity. Complete it here, so that the failure can be
+					// attributed to the correct release in failedReleases below.
+					result.releaseName = release.Name
+					result.releaseNamespace = release.Namespace
+					result.releaseContext = release.KubeContext
+				}
 				results <- result
 			}
 		},
@@ -2278,7 +2429,15 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 
 				if downloadRes.err != nil {
 					errs = append(errs, downloadRes.err)
-					return
+
+					if !opts.AllowFailedReleases {
+						return
+					}
+
+					// Continue processing the other releases and record which one
+					// failed, so that the caller can skip it during execution.
+					failedReleases[chartPrepareResultKey(downloadRes)] = downloadRes.err
+					continue
 				}
 				func() {
 					prepareChartInfoMutex.Lock()
@@ -2298,21 +2457,40 @@ func (st *HelmState) PrepareCharts(helm helmexec.Interface, dir string, concurre
 		},
 	)
 
-	if len(errs) > 0 {
-		return nil, errs
+	if len(errs) > 0 && !opts.AllowFailedReleases {
+		return nil, nil, errs
 	}
 
 	if len(builds) > 0 {
-		if err := st.runHelmDepBuilds(helm, concurrency, builds, opts); err != nil {
-			return nil, []error{err}
+		if err := st.runHelmDepBuilds(helm, concurrency, builds, opts, failedReleases); err != nil {
+			if !opts.AllowFailedReleases {
+				return nil, nil, []error{err}
+			}
+			errs = append(errs, err)
 		}
 	}
 
-	return prepareChartInfo, nil
+	// Drop the chart paths of releases whose `helm dep build` failed (only
+	// possible with opts.AllowFailedReleases), so that callers skip them too.
+	for key := range failedReleases {
+		delete(prepareChartInfo, key)
+	}
+
+	return prepareChartInfo, failedReleases, errs
+}
+
+// chartPrepareResultKey returns the map key identifying the release a chart
+// preparation result belongs to.
+func chartPrepareResultKey(r *chartPrepareResult) PrepareChartKey {
+	return PrepareChartKey{
+		Name:        r.releaseName,
+		Namespace:   r.releaseNamespace,
+		KubeContext: r.releaseContext,
+	}
 }
 
 // nolint: unparam
-func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult, opts ChartPrepareOptions) error {
+func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, builds []*chartPrepareResult, opts ChartPrepareOptions, failedReleases map[PrepareChartKey]error) error {
 	// NOTES:
 	// 1. `helm dep build` fails when it was run concurrency on the same chart.
 	//    To avoid that, we run `helm dep build` only once per each local chart.
@@ -2336,7 +2514,15 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 
 	if anySkipRefresh && !opts.SkipRefresh && !st.HelmDefaults.SkipRefresh && st.NeedsRepoUpdate() {
 		if err := helm.UpdateRepo(); err != nil {
-			return fmt.Errorf("updating repo: %w", err)
+			err = fmt.Errorf("updating repo: %w", err)
+			if opts.AllowFailedReleases {
+				// None of the dep builds below can be trusted to produce usable
+				// charts: mark all of them as failed and let the caller skip them.
+				for _, r := range builds {
+					failedReleases[chartPrepareResultKey(r)] = err
+				}
+			}
+			return err
 		}
 	}
 
@@ -2365,7 +2551,14 @@ func (st *HelmState) runHelmDepBuilds(helm helmexec.Interface, concurrency int, 
 				continue
 			}
 
-			return fmt.Errorf("building dependencies of local chart: %w", err)
+			err = fmt.Errorf("building dependencies of local chart %q for release %q: %w", r.chartName, r.releaseName, err)
+			if opts.AllowFailedReleases {
+				// Record the failed release and keep building the remaining charts.
+				failedReleases[chartPrepareResultKey(r)] = err
+				continue
+			}
+
+			return err
 		}
 	}
 
@@ -2974,7 +3167,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				}
 
 				var disableValidation bool
-				if release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall {
+				if (release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall) || opt.SkipDiffValidationOnInstall {
 					installed, err := isInstalled(release)
 					if err != nil {
 						errs = append(errs, err)
@@ -3074,11 +3267,12 @@ type DiffOpts struct {
 	Color bool
 	// NoColor forces disabling the color output on helm-diff.
 	// If this is true, Color has no effect.
-	NoColor           bool
-	Set               []string
-	SkipCleanup       bool
-	SkipDiffOnInstall bool
-	DiffArgs          string
+	NoColor                     bool
+	Set                         []string
+	SkipCleanup                 bool
+	SkipDiffOnInstall           bool
+	SkipDiffValidationOnInstall bool
+	DiffArgs                    string
 	// TemplateArgs are extra args appended to the helm template/diff rendering
 	// (e.g. "--dry-run=server" to enable the helm lookup function during `helmfile
 	// apply`/`diff`, which render via helm-diff). See issue #1833.
@@ -3155,6 +3349,9 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				release := prep.release
 				buf := &bytes.Buffer{}
 
+				relCtx, relSpan := st.startReleaseSpan("diff", release)
+				diffStart := time.Now()
+
 				releaseSuppressDiff := suppressDiff
 				if prep.suppressDiff {
 					releaseSuppressDiff = true
@@ -3167,17 +3364,27 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					chartPath = normalizeChart(st.basePath, chartPath)
 				}
 
+				var diffSpanErr error
 				if prep.upgradeDueToSkippedDiff {
+					// Code 2 (changes detected) is an expected outcome, not a
+					// span/metric error.
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
 				} else if err := st.withChartOperationLock(release, chartPath, func() error {
-					return helm.DiffRelease(st.createHelmContextWithWriter(release, buf), release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
+					diffContext := st.createHelmContextWithWriter(release, buf)
+					diffContext.Ctx = relCtx
+					return helm.DiffRelease(diffContext, release.Name, chartPath, release.Namespace, releaseSuppressDiff, flags...)
 				}); err != nil {
+					var relErr *ReleaseError
 					switch e := err.(type) {
 					case helmexec.ExitError:
 						// Propagate any non-zero exit status from the external command like `helm` that is failed under the hood
-						results <- diffResult{release, &ReleaseError{release, err, e.ExitStatus()}, buf}
+						relErr = &ReleaseError{release, err, e.ExitStatus()}
 					default:
-						results <- diffResult{release, &ReleaseError{release, err, 0}, buf}
+						relErr = &ReleaseError{release, err, 0}
+					}
+					results <- diffResult{release, relErr, buf}
+					if relErr.Code != HelmDiffExitCodeChanged {
+						diffSpanErr = relErr
 					}
 				} else {
 					// diff succeeded, found no changes
@@ -3185,10 +3392,12 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 				}
 
 				if triggerCleanupEvents {
-					if _, err := st.TriggerCleanupEvent(prep.release, "diff"); err != nil {
+					if _, err := st.TriggerCleanupEvent(prep.release, "diff", relCtx); err != nil {
 						st.logger.Warnf("warn: %v\n", err)
 					}
 				}
+
+				endReleaseSpan(relSpan, "diff", release, diffStart, diffSpanErr)
 			}
 		},
 		func() {
@@ -3219,7 +3428,7 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 }
 
 func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) []error {
-	return st.scatterGatherReleases(helm, workerLimit, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, workerLimit, "status", skipUndesired, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3232,13 +3441,15 @@ func (st *HelmState) ReleaseStatuses(helm helmexec.Interface, workerLimit int) [
 		}
 		flags = st.appendConnectionFlags(flags, &release)
 
-		return helm.ReleaseStatus(st.createHelmContext(&release, workerIndex), release.Name, flags...)
+		statusContext := st.createHelmContext(&release, workerIndex)
+		statusContext.Ctx = ctx
+		return helm.ReleaseStatus(statusContext, release.Name, flags...)
 	})
 }
 
 // DeleteReleases wrapper for executing helm delete on the releases
 func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm helmexec.Interface, concurrency int, purge bool, cascade string) []error {
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "delete", nil, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		st.ApplyOverrides(&release)
 
 		flags := make([]string, 0)
@@ -3249,9 +3460,10 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			flags = append(flags, "--namespace", release.Namespace)
 		}
 		context := st.createHelmContext(&release, workerIndex)
+		context.Ctx = ctx
 
 		start := time.Now()
-		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete"); err != nil {
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete", ctx); err != nil {
 			release.duration = time.Since(start)
 
 			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
@@ -3266,7 +3478,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 			return err
 		}
 
-		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete"); err != nil {
+		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete", ctx); err != nil {
 			release.duration = time.Since(start)
 
 			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
@@ -3299,7 +3511,7 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		o(&opts)
 	}
 
-	return st.scatterGatherReleases(helm, concurrency, func(release ReleaseSpec, workerIndex int) error {
+	return st.scatterGatherReleases(helm, concurrency, "test", skipUndesired, func(ctx gocontext.Context, release ReleaseSpec, workerIndex int) error {
 		if !release.Desired() {
 			return nil
 		}
@@ -3323,7 +3535,9 @@ func (st *HelmState) TestReleases(helm helmexec.Interface, cleanup bool, timeout
 		flags = st.appendConnectionFlags(flags, &release)
 		flags = st.appendChartDownloadFlags(flags, &release)
 
-		return helm.TestRelease(st.createHelmContext(&release, workerIndex), release.Name, flags...)
+		testContext := st.createHelmContext(&release, workerIndex)
+		testContext.Ctx = ctx
+		return helm.TestRelease(testContext, release.Name, flags...)
 	})
 }
 
@@ -3539,7 +3753,7 @@ func (st *HelmState) TriggerGlobalCleanupEvent(helmfileCommand string, evtErr er
 	return st.triggerGlobalReleaseEvent("cleanup", evtErr, helmfileCommand)
 }
 
-func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfileCmd string) (bool, error) {
+func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfileCmd string, parent ...gocontext.Context) (bool, error) {
 	bus := &event.Bus{
 		Hooks:         st.Hooks,
 		StateFilePath: st.FilePath,
@@ -3549,6 +3763,7 @@ func (st *HelmState) triggerGlobalReleaseEvent(evt string, evtErr error, helmfil
 		Env:           st.Env,
 		Logger:        st.logger,
 		Fs:            st.fs,
+		Ctx:           traceOnlyContext(parent...),
 	}
 	data := map[string]any{
 		"HelmfileCommand": helmfileCmd,
@@ -3560,23 +3775,23 @@ func (st *HelmState) triggerPrepareEvent(r *ReleaseSpec, helmfileCommand string)
 	return st.triggerReleaseEvent("prepare", nil, r, helmfileCommand)
 }
 
-func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("cleanup", nil, r, helmfileCommand)
+func (st *HelmState) TriggerCleanupEvent(r *ReleaseSpec, helmfileCommand string, parent ...gocontext.Context) (bool, error) {
+	return st.triggerReleaseEvent("cleanup", nil, r, helmfileCommand, parent...)
 }
 
-func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("presync", nil, r, helmfileCommand)
+func (st *HelmState) triggerPresyncEvent(r *ReleaseSpec, helmfileCommand string, parent ...gocontext.Context) (bool, error) {
+	return st.triggerReleaseEvent("presync", nil, r, helmfileCommand, parent...)
 }
 
-func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfileCommand string) (bool, error) {
-	return st.triggerReleaseEvent("postsync", evtErr, r, helmfileCommand)
+func (st *HelmState) triggerPostsyncEvent(r *ReleaseSpec, evtErr error, helmfileCommand string, parent ...gocontext.Context) (bool, error) {
+	return st.triggerReleaseEvent("postsync", evtErr, r, helmfileCommand, parent...)
 }
 
 func (st *HelmState) TriggerPreapplyEvent(r *ReleaseSpec, helmfileCommand string) (bool, error) {
 	return st.triggerReleaseEvent("preapply", nil, r, helmfileCommand)
 }
 
-func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string) (bool, error) {
+func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpec, helmfileCmd string, parent ...gocontext.Context) (bool, error) {
 	bus := &event.Bus{
 		Hooks:         r.Hooks,
 		StateFilePath: st.FilePath,
@@ -3586,6 +3801,7 @@ func (st *HelmState) triggerReleaseEvent(evt string, evtErr error, r *ReleaseSpe
 		Env:           st.Env,
 		Logger:        st.logger,
 		Fs:            st.fs,
+		Ctx:           traceOnlyContext(parent...),
 	}
 	vals := st.Values()
 	data := map[string]any{
@@ -4040,8 +4256,26 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--recreate-pods")
 	}
 
-	if release.Atomic != nil && *release.Atomic || release.Atomic == nil && st.HelmDefaults.Atomic {
+	atomicEnabled := (release.Atomic != nil && *release.Atomic) || (release.Atomic == nil && st.HelmDefaults.Atomic)
+	rollbackOnFailureEnabled := (release.RollbackOnFailure != nil && *release.RollbackOnFailure) || (release.RollbackOnFailure == nil && st.HelmDefaults.RollbackOnFailure)
+
+	if atomicEnabled && rollbackOnFailureEnabled {
+		return nil, nil, fmt.Errorf("atomic and rollbackOnFailure are mutually exclusive (check both releases[].atomic/rollbackOnFailure and helmDefaults.atomic/rollbackOnFailure)")
+	}
+
+	// rollbackOnFailure maps to the Helm 4 --rollback-on-failure flag and is unsupported on older Helm.
+	if rollbackOnFailureEnabled && !helm.IsHelm4() {
+		return nil, nil, fmt.Errorf("rollbackOnFailure requires Helm 4 or greater (set via releases[].rollbackOnFailure or helmDefaults.rollbackOnFailure)")
+	}
+
+	// Helm 4 renamed --atomic to --rollback-on-failure; the former is deprecated (prints a warning)
+	// and slated for removal in Helm 5. Emit the new flag on Helm 4+ for both `atomic: true` and
+	// `rollbackOnFailure: true` so users migrate off it automatically; on older Helm, `atomic: true`
+	// still emits --atomic. See issue #2712.
+	if atomicEnabled && !helm.IsHelm4() {
 		flags = append(flags, "--atomic")
+	} else if atomicEnabled || rollbackOnFailureEnabled {
+		flags = append(flags, "--rollback-on-failure")
 	}
 
 	if release.CleanupOnFail != nil && *release.CleanupOnFail || release.CleanupOnFail == nil && st.HelmDefaults.CleanupOnFail {
@@ -5681,6 +5915,31 @@ func resetChartCacheForTest() {
 	downloadedCharts = make(map[ChartCacheKey]string)
 }
 
+// ociConstraintKey identifies one OCI constraint-resolution lookup: the
+// registry-qualified chart reference (without oci:// prefix, version tag, or
+// digest) plus the constraint string.
+type ociConstraintKey struct {
+	chartRef   string
+	constraint string
+}
+
+// resolvedOCIConstraints memoizes constraint -> concrete-version resolutions
+// for the lifetime of the process so that releases sharing the same OCI
+// chart+constraint trigger at most one `helm show chart` registry round-trip
+// per run, and consistently use one resolved version per chart+constraint
+// even if the registry would answer two concurrent workers differently. Only
+// successful resolutions are memoized — failures may be transient. Mirrors the
+// downloadedCharts pattern above.
+var resolvedOCIConstraints = make(map[ociConstraintKey]string)
+var resolvedOCIConstraintsMutex sync.RWMutex
+
+// resetResolvedOCIConstraintsForTest clears the resolution memo. For testing only.
+func resetResolvedOCIConstraintsForTest() {
+	resolvedOCIConstraintsMutex.Lock()
+	defer resolvedOCIConstraintsMutex.Unlock()
+	resolvedOCIConstraints = make(map[ociConstraintKey]string)
+}
+
 // isSharedCachePath returns true if the chartPath is within the shared cache directory.
 // Charts in the shared cache should not be deleted during refresh to prevent race conditions
 // when multiple processes are using the same cached chart.
@@ -5952,6 +6211,13 @@ func (st *HelmState) getOCIChart(release *ReleaseSpec, tempDir string, helm helm
 		return nil, nil
 	}
 
+	// Resolve a semver constraint (e.g. "~1", "^2.0.0") to a concrete registry
+	// tag BEFORE deriving the on-disk cache key. Without this step the cache
+	// path is a function of the raw constraint string (safeVersionPath("~1")
+	// => "_1"), so a stale first-resolution is served indefinitely even after
+	// the registry publishes a newer matching tag. See issue #2766.
+	release, qualifiedChartName, chartVersion = st.applyOCIConstraintResolution(release, qualifiedChartName, chartVersion, helm, opts)
+
 	cacheKey := st.getChartCacheKey(release)
 
 	// Fast path: check in-process cache without acquiring any lock.
@@ -6059,6 +6325,20 @@ func (st *HelmState) IsOCIChart(chart string) bool {
 		return false
 	}
 	return repo.OCI
+}
+
+// isPrefetchEligibleChart returns true if chart unambiguously refers to a
+// remote source: an OCI reference, or a "repo/chart" string whose repo prefix
+// matches a configured `repositories:` entry. Used by PrepareCharts to decide
+// which shared chart keys are safe to force-download (see issue #2741) -
+// local chart paths conventionally shaped like "dir/chart" (e.g.
+// "charts/frontend") must not be mistaken for registry references.
+func (st *HelmState) isPrefetchEligibleChart(chart string) bool {
+	if strings.HasPrefix(chart, "oci://") {
+		return true
+	}
+	repo, _ := st.GetRepositoryAndNameFromChartName(chart)
+	return repo != nil
 }
 
 // NeedsRepoUpdate returns true if there are any repositories that require `helm repo update`.
@@ -6230,4 +6510,175 @@ func (st *HelmState) getOCIChartPath(tempDir string, release *ReleaseSpec, chart
 	pathElems = append(pathElems, qName...)
 	pathElems = append(pathElems, safeVersionPath(chartVersion))
 	return filepath.Join(pathElems...), nil
+}
+
+// applyOCIConstraintResolution resolves a semver constraint version (e.g.
+// "~1", "^2.0.0") for an OCI release to a concrete registry tag and returns
+// the (possibly updated) release, qualified chart name, and chart version for
+// the downstream cache-key, cache-path, and `--version` derivation in
+// getOCIChart.
+//
+// It is a no-op — returning its inputs unchanged — when resolution is skipped
+// (see skipOCIConstraintResolution), opted out, when the version is not a
+// constraint, or when resolution fails. Every failure mode therefore degrades
+// to the pre-fix constraint-keyed caching behavior instead of failing the
+// render. See issue #2766.
+func (st *HelmState) applyOCIConstraintResolution(release *ReleaseSpec, qualifiedChartName, chartVersion string, helm helmexec.Interface, opts ChartPrepareOptions) (*ReleaseSpec, string, string) {
+	if st.skipOCIConstraintResolution(release, opts) {
+		return release, qualifiedChartName, chartVersion
+	}
+	resolved, changed, err := st.resolveOCIConstraintVersion(release, helm, qualifiedChartName, chartVersion)
+	if err != nil {
+		st.logger.Warnf("resolving OCI version constraint %q for release %q failed: %v; falling back to unresolved constraint for cache key (a stale cache may be served)", chartVersion, release.Name, err)
+		return release, qualifiedChartName, chartVersion
+	}
+	if !changed {
+		return release, qualifiedChartName, chartVersion
+	}
+	st.logger.Debugf("resolved OCI version constraint %q for release %q to %q", chartVersion, release.Name, resolved)
+
+	// Rewrite the release copy so the downstream cache key, path template,
+	// and --version flag all agree on the resolved value.
+	releaseCopy := *release
+	releaseCopy.Version = resolved
+	resolvedRelease := &releaseCopy
+
+	// Recompute the qualified chart ref so its embedded `:<version>` tag
+	// (added by getOCIQualifiedChartName when version came from the
+	// `version:` field) also carries the resolved value; otherwise
+	// `helm chart pull` would receive `<repo>/<chart>:<constraint>` alongside
+	// a `--version <resolved>` flag, which is at best redundant and at worst
+	// rejected by future Helm versions.
+	requalified, _, requalifiedVersion, requalifyErr := st.getOCIQualifiedChartName(resolvedRelease)
+	if requalifyErr != nil {
+		// Should not happen: the release already parsed once above with the
+		// raw constraint. Fall back to the pre-fix behavior entirely (raw
+		// constraint in the cache key, ref, and --version flag) rather than
+		// a half-resolved mix of the two.
+		st.logger.Warnf("re-qualifying OCI chart name for release %q after version resolution failed: %v; using pre-resolution values", release.Name, requalifyErr)
+		return release, qualifiedChartName, chartVersion
+	}
+	return resolvedRelease, requalified, requalifiedVersion
+}
+
+// resolveOCIConstraintVersion resolves a semver constraint version (e.g. "~1",
+// "^2.0", "*") for an OCI release to the concrete registry tag that helm would
+// download. It runs `helm show chart <ref> --version <constraint> [flags]`
+// which returns the resolved chart's Chart.yaml; the returned Version is the
+// concrete tag helm picked. The returned bool indicates whether the effective
+// version actually changed (false when the input was already a pinned semver,
+// resolution is opted out, the release is not OCI-backed, or the helm
+// implementation does not expose the ShowChartWithFlags capability).
+// Successful resolutions are memoized per chart+constraint for the lifetime
+// of the process, so repeated lookups cost no additional registry round-trips.
+//
+// This is a helper for getOCIChart. Callers should tolerate errors: a failed
+// resolution shouldn't break rendering; it just falls back to the pre-fix
+// caching behavior (cache path derived from the raw constraint).
+func (st *HelmState) resolveOCIConstraintVersion(release *ReleaseSpec, helm helmexec.Interface, qualifiedChartName, chartVersion string) (string, bool, error) {
+	if !st.resolveOCIVersionsEnabled(release) {
+		return chartVersion, false, nil
+	}
+	// Nothing to resolve for empty version (helm treats it as "latest") or
+	// pinned semver — safeVersionPath is a no-op on those and the cache key is
+	// already unambiguous.
+	if chartVersion == "" || !isVersionConstraint(chartVersion) {
+		return chartVersion, false, nil
+	}
+	// Only OCI releases hit this code path via getOCIChart, but double-check
+	// so this helper is safe to call from other contexts too.
+	if !st.IsOCIChart(release.Chart) {
+		return chartVersion, false, nil
+	}
+	// Digest-pinned references bypass version resolution: the digest is the
+	// authoritative content identifier and helm ignores --version in that case.
+	if strings.Contains(qualifiedChartName, "@") {
+		return chartVersion, false, nil
+	}
+	// Type-assert to the optional ChartInspector capability so third-party
+	// implementations of helmexec.Interface that predate this feature keep
+	// compiling and simply fall back to the pre-fix caching behavior.
+	inspector, ok := helm.(helmexec.ChartInspector)
+	if !ok {
+		return chartVersion, false, nil
+	}
+
+	// Strip any :<version> tag that getOCIQualifiedChartName may have embedded
+	// in the ref, so `helm show chart` uses --version alone to resolve the
+	// constraint. `helm show chart oci://...:X --version Y` resolves Y against
+	// the registry regardless of X, but the ref without a tag matches the shape
+	// of a normal `helm pull` invocation and is what helm's own docs recommend
+	// for constraint resolution. parseOCIChartRef splits off any digest first,
+	// then the last tag colon after the last slash, preserving registry ports.
+	base, _, _ := parseOCIChartRef(qualifiedChartName)
+	ref := "oci://" + base
+
+	// One registry round-trip per chart+constraint per process. The flags
+	// above do not influence WHICH tag a constraint matches (they only govern
+	// TLS/verification/registry credentials), so the memo key can ignore them.
+	// Concurrent misses may still race and both hit the registry; last write
+	// wins, which is harmless.
+	memoKey := ociConstraintKey{chartRef: base, constraint: chartVersion}
+	resolvedOCIConstraintsMutex.RLock()
+	memoized, hit := resolvedOCIConstraints[memoKey]
+	resolvedOCIConstraintsMutex.RUnlock()
+	if hit {
+		return memoized, memoized != chartVersion, nil
+	}
+
+	flags := st.chartOCIFlags(release)
+	flags = st.appendVerifyFlags(flags, release)
+	flags = st.appendKeyringFlags(flags, release)
+	flags = st.appendChartDownloadFlags(flags, release)
+	// --devel is deliberately omitted: helm ignores it whenever --version is
+	// set, and --version is always passed here.
+	flags = append(flags, "--version", chartVersion)
+
+	metadata, err := inspector.ShowChartWithFlags(ref, flags...)
+	if err != nil {
+		return chartVersion, false, err
+	}
+	if metadata.Version == "" {
+		return chartVersion, false, fmt.Errorf("helm show chart %s --version %s returned an empty Chart.yaml version", ref, chartVersion)
+	}
+	resolvedOCIConstraintsMutex.Lock()
+	resolvedOCIConstraints[memoKey] = metadata.Version
+	resolvedOCIConstraintsMutex.Unlock()
+	if metadata.Version == chartVersion {
+		return chartVersion, false, nil
+	}
+	return metadata.Version, true, nil
+}
+
+// skipOCIConstraintResolution reports whether OCI constraint resolution
+// should be skipped for this release, falling back to the constraint-keyed
+// cache path (the pre-fix behavior, which reuses whatever the previous
+// resolution cached). Resolution costs one `helm show chart` registry
+// round-trip per constraint-versioned OCI release; honoring --skip-refresh
+// (CLI flag, per-release skipRefresh, or helmDefaults.skipRefresh) keeps
+// offline and cache-only workflows free of network attempts. Precedence
+// mirrors the other skipRefresh consumers in prepareChartForRelease: the CLI
+// flag forces skipping, then an explicit per-release value, then
+// helmDefaults.
+func (st *HelmState) skipOCIConstraintResolution(release *ReleaseSpec, opts ChartPrepareOptions) bool {
+	if opts.SkipRefresh {
+		return true
+	}
+	if release.SkipRefresh != nil {
+		return *release.SkipRefresh
+	}
+	return st.HelmDefaults.SkipRefresh
+}
+
+// resolveOCIVersionsEnabled reports whether OCI constraint resolution is
+// enabled for this release. Per-release setting wins over helmDefaults; both
+// default to true (the fix is on unless explicitly opted out).
+func (st *HelmState) resolveOCIVersionsEnabled(release *ReleaseSpec) bool {
+	if release.ResolveOCIVersions != nil {
+		return *release.ResolveOCIVersions
+	}
+	if st.HelmDefaults.ResolveOCIVersions != nil {
+		return *st.HelmDefaults.ResolveOCIVersions
+	}
+	return true
 }

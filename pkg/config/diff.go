@@ -22,6 +22,8 @@ type DiffOptions struct {
 	EnforceNeedsAreInstalled bool
 	// SkipDiffOnInstall is the skip diff on install flag
 	SkipDiffOnInstall bool
+	// SkipDiffValidationOnInstall disables K8s API validation when running helm-diff on a release being newly installed
+	SkipDiffValidationOnInstall bool
 	// ShowSecrets is the show secrets flag
 	ShowSecrets bool
 	// NoHooks skips hooks during diff
@@ -166,6 +168,11 @@ func (t *DiffImpl) SkipCRDs() bool {
 // SkipDiffOnInstall returns the skip diff on install
 func (t *DiffImpl) SkipDiffOnInstall() bool {
 	return t.DiffOptions.SkipDiffOnInstall
+}
+
+// SkipDiffValidationOnInstall returns the skip diff validation on install
+func (t *DiffImpl) SkipDiffValidationOnInstall() bool {
+	return t.DiffOptions.SkipDiffValidationOnInstall
 }
 
 // DiffArgs returns the list of arguments to pass to helm-diff.

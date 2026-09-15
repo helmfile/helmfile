@@ -37,6 +37,8 @@ type ApplyOptions struct {
 	EnforceNeedsAreInstalled bool
 	// SkipDiffOnInstall is true if the diff should be skipped on install
 	SkipDiffOnInstall bool
+	// SkipDiffValidationOnInstall disables K8s API validation when running helm-diff on a release being newly installed
+	SkipDiffValidationOnInstall bool
 	// DiffArgs is the list of arguments to pass to the helm-diff.
 	DiffArgs string
 	// IncludeTests is true if the tests should be included
@@ -197,6 +199,11 @@ func (a *ApplyImpl) SkipCleanup() bool {
 // SkipDiffOnInstall returns the skip diff on install.
 func (a *ApplyImpl) SkipDiffOnInstall() bool {
 	return a.ApplyOptions.SkipDiffOnInstall
+}
+
+// SkipDiffValidationOnInstall returns the skip diff validation on install.
+func (a *ApplyImpl) SkipDiffValidationOnInstall() bool {
+	return a.ApplyOptions.SkipDiffValidationOnInstall
 }
 
 // DiffArgs is the list of arguments to pass to helm-diff.

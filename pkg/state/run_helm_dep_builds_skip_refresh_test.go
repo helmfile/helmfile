@@ -275,7 +275,7 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 				SkipRefresh: tt.optsSkipRefresh,
 			}
 
-			err := st.runHelmDepBuilds(helm, 1, builds, opts)
+			err := st.runHelmDepBuilds(helm, 1, builds, opts, nil)
 			require.NoError(t, err)
 
 			assert.NotNil(t, helm.buildDepsFlags, "BuildDeps should have been called")
@@ -336,7 +336,7 @@ func TestRunHelmDepBuilds_MultipleBuilds(t *testing.T) {
 
 	opts := ChartPrepareOptions{SkipRefresh: false}
 
-	err := st.runHelmDepBuilds(helm, 1, builds, opts)
+	err := st.runHelmDepBuilds(helm, 1, builds, opts, nil)
 	require.NoError(t, err)
 
 	assert.True(t, helm.updateRepoCalled, "UpdateRepo should have been called")
