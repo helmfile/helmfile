@@ -80,27 +80,25 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 			name: "oci chart with path prefix and underscores (issue #954)",
 			helmState: &HelmState{
 				FilePath: "helmfile.yaml",
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: []ReleaseSpec{
-						{
-							Name:      "example",
-							Chart:     "myrepo/path_with_underscores/example",
-							Version:   "1.0.0",
-							Namespace: "myns",
-						},
-						{
-							Name:      "another",
-							Chart:     "myrepo/another_path/chart",
-							Version:   "2.0.0",
-							Namespace: "myns",
-						},
+				Releases: []ReleaseSpec{
+					{
+						Name:      "example",
+						Chart:     "myrepo/path_with_underscores/example",
+						Version:   "1.0.0",
+						Namespace: "myns",
 					},
-					Repositories: []RepositorySpec{
-						{
-							Name: "myrepo",
-							URL:  "harbor.custom.com",
-							OCI:  true,
-						},
+					{
+						Name:      "another",
+						Chart:     "myrepo/another_path/chart",
+						Version:   "2.0.0",
+						Namespace: "myns",
+					},
+				},
+				Repositories: []RepositorySpec{
+					{
+						Name: "myrepo",
+						URL:  "harbor.custom.com",
+						OCI:  true,
 					},
 				},
 			},
@@ -130,34 +128,32 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 			name: "oci chart without path prefix (unchanged behavior)",
 			helmState: &HelmState{
 				FilePath: "helmfile.yaml",
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: []ReleaseSpec{
-						{
-							Name:      "foo",
-							Chart:     "chartsa/abc",
-							Version:   "0.1.0",
-							Namespace: "ns1",
-						},
-						{
-							Name:      "empty",
-							Chart:     "chartsb/empty",
-							Namespace: "ns2",
-						},
-						{
-							Name:  "empty",
-							Chart: "chartsb/empty",
-						},
+				Releases: []ReleaseSpec{
+					{
+						Name:      "foo",
+						Chart:     "chartsa/abc",
+						Version:   "0.1.0",
+						Namespace: "ns1",
 					},
-					Repositories: []RepositorySpec{
-						{
-							Name: "chartsa",
-							URL:  "localhost:5000/aaa",
-							OCI:  true,
-						},
-						{
-							Name: "chartsb",
-							URL:  "localhost:5000/bbb",
-						},
+					{
+						Name:      "empty",
+						Chart:     "chartsb/empty",
+						Namespace: "ns2",
+					},
+					{
+						Name:  "empty",
+						Chart: "chartsb/empty",
+					},
+				},
+				Repositories: []RepositorySpec{
+					{
+						Name: "chartsa",
+						URL:  "localhost:5000/aaa",
+						OCI:  true,
+					},
+					{
+						Name: "chartsb",
+						URL:  "localhost:5000/bbb",
 					},
 				},
 			},
@@ -191,31 +187,29 @@ func TestGetUnresolvedDependenciess(t *testing.T) {
 			name: "duplicate charts are differentiated by alias",
 			helmState: &HelmState{
 				FilePath: "helmfile.yaml",
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: []ReleaseSpec{
-						{
-							Name:      "foo",
-							Chart:     "myrepo/abc",
-							Version:   "> 0.2.0",
-							Namespace: "ns1",
-						},
-						{
-							Name:      "bar",
-							Chart:     "myrepo/abc",
-							Version:   "0.1.0",
-							Namespace: "ns2",
-						},
-						{
-							Name:    "baz",
-							Chart:   "myrepo/abc",
-							Version: "0.3.0",
-						},
+				Releases: []ReleaseSpec{
+					{
+						Name:      "foo",
+						Chart:     "myrepo/abc",
+						Version:   "> 0.2.0",
+						Namespace: "ns1",
 					},
-					Repositories: []RepositorySpec{
-						{
-							Name: "myrepo",
-							URL:  "localhost:5000/aaa",
-						},
+					{
+						Name:      "bar",
+						Chart:     "myrepo/abc",
+						Version:   "0.1.0",
+						Namespace: "ns2",
+					},
+					{
+						Name:    "baz",
+						Chart:   "myrepo/abc",
+						Version: "0.3.0",
+					},
+				},
+				Repositories: []RepositorySpec{
+					{
+						Name: "myrepo",
+						URL:  "localhost:5000/aaa",
 					},
 				},
 			},

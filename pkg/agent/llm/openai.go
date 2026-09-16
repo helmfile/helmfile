@@ -50,7 +50,10 @@ func (o *openaiClient) Analyze(ctx goContext.Context, diff string, extras Analyz
 	req := openai.ChatCompletionRequest{
 		Model:       o.cfg.Model,
 		Temperature: o.cfg.Temperature,
-		MaxTokens:   o.cfg.MaxTokens,
+		// SA1019: keep the deprecated MaxTokens field deliberately: `max_tokens` is the
+		// only form universally accepted by OpenAI-compatible backends (One-API,
+		// LiteLLM, Ollama shim); MaxCompletionTokens is not supported by all of them.
+		MaxTokens: o.cfg.MaxTokens, //nolint:staticcheck // SA1019
 		ResponseFormat: &openai.ChatCompletionResponseFormat{
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		},
@@ -166,8 +169,8 @@ func stripJSONCodeFence(s string) string {
 	// Case 2: fenced JSON.
 	if strings.HasPrefix(s, "```") {
 		rest := s[3:]
-		if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
-			s = rest[nl+1:]
+		if _, after, ok := strings.Cut(rest, "\n"); ok {
+			s = after
 		} else {
 			s = rest
 		}

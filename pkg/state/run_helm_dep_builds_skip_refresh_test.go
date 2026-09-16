@@ -3,6 +3,7 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -82,7 +83,7 @@ version: 0.1.0
 			name:                    "release-level skipDeps overrides helmDefaults",
 			helmDefaultsSkipDeps:    false,
 			helmDefaultsSkipRefresh: false,
-			releaseSkipDeps:         boolPtr(true),
+			releaseSkipDeps:         new(true),
 			chartPath:               "./chart",
 			isLocal:                 true,
 			expectedBuildDeps:       false, // release-level skipDeps=true
@@ -259,12 +260,10 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 
 			st := &HelmState{
 				logger: logger,
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: HelmSpec{
-						SkipRefresh: tt.helmDefaultsSkipRefresh,
-					},
-					Repositories: tt.repos,
+				HelmDefaults: HelmSpec{
+					SkipRefresh: tt.helmDefaultsSkipRefresh,
 				},
+				Repositories: tt.repos,
 			}
 
 			builds := []*chartPrepareResult{
@@ -283,13 +282,7 @@ func TestRunHelmDepBuilds_SkipRefreshBehaviors(t *testing.T) {
 			assert.Equal(t, tt.expectUpdateRepo, helm.updateRepoCalled,
 				"UpdateRepo called mismatch: expected %v, got %v", tt.expectUpdateRepo, helm.updateRepoCalled)
 
-			hasSkipRefreshFlag := false
-			for _, f := range helm.buildDepsFlags {
-				if f == "--skip-refresh" {
-					hasSkipRefreshFlag = true
-					break
-				}
-			}
+			hasSkipRefreshFlag := slices.Contains(helm.buildDepsFlags, "--skip-refresh")
 			assert.Equal(t, tt.expectSkipRefreshFlag, hasSkipRefreshFlag,
 				"--skip-refresh flag mismatch: expected %v, got %v (flags: %v)", tt.expectSkipRefreshFlag, hasSkipRefreshFlag, helm.buildDepsFlags)
 		})
@@ -322,11 +315,9 @@ func TestRunHelmDepBuilds_MultipleBuilds(t *testing.T) {
 	helm := &multiBuildTracker{}
 
 	st := &HelmState{
-		logger: logger,
-		ReleaseSetSpec: ReleaseSetSpec{
-			HelmDefaults: HelmSpec{SkipRefresh: false},
-			Repositories: []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
-		},
+		logger:       logger,
+		HelmDefaults: HelmSpec{SkipRefresh: false},
+		Repositories: []RepositorySpec{{Name: "stable", URL: "https://example.com"}},
 	}
 
 	builds := []*chartPrepareResult{
@@ -344,13 +335,7 @@ func TestRunHelmDepBuilds_MultipleBuilds(t *testing.T) {
 
 	expectedSkipRefresh := []bool{false, true}
 	for i, flags := range helm.buildDepsCalls {
-		hasSkipRefresh := false
-		for _, f := range flags {
-			if f == "--skip-refresh" {
-				hasSkipRefresh = true
-				break
-			}
-		}
+		hasSkipRefresh := slices.Contains(flags, "--skip-refresh")
 		assert.Equal(t, expectedSkipRefresh[i], hasSkipRefresh,
 			"build %d skip-refresh flag mismatch: expected %v, got %v (flags: %v)", i, expectedSkipRefresh[i], hasSkipRefresh, flags)
 	}
@@ -462,9 +447,7 @@ func TestNeedsRepoUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Repositories: tt.repos,
-				},
+				Repositories: tt.repos,
 			}
 			result := st.NeedsRepoUpdate()
 			assert.Equal(t, tt.expected, result,

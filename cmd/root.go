@@ -26,8 +26,7 @@ var globalUsage = "Declaratively deploy your Kubernetes manifests, Kustomize con
 
 func toCLIError(g *config.GlobalImpl, err error) error {
 	if err != nil {
-		var exitErr helmexec.ExitError
-		if stderrors.As(err, &exitErr) {
+		if exitErr, ok := stderrors.AsType[helmexec.ExitError](err); ok {
 			return errors.NewExitError(exitErr.Error(), exitErr.ExitStatus())
 		}
 		switch e := err.(type) {

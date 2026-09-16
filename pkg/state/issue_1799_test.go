@@ -130,7 +130,7 @@ func TestChartifyTempDirConcurrentTracking(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wg.Add(1)
 		go func(dir string) {
 			defer wg.Done()

@@ -538,7 +538,7 @@ func (c *StateCreator) scatterGatherEnvSecretFiles(st *HelmState, envSecretFiles
 		func() {
 			sortedSecrets := make([]secretResult, inputsSize)
 
-			for i := 0; i < inputsSize; i++ {
+			for range inputsSize {
 				result := <-results
 				sortedSecrets[result.id] = result
 			}

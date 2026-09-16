@@ -3,7 +3,9 @@ package state
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 
 	"dario.cat/mergo"
@@ -99,8 +101,7 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 
 		release, err := st.releaseWithInheritedTemplate(&rtWithDefaults, nil)
 		if err != nil {
-			var cyclicInheritanceErr CyclicReleaseTemplateInheritanceError
-			if errors.As(err, &cyclicInheritanceErr) {
+			if cyclicInheritanceErr, ok := errors.AsType[CyclicReleaseTemplateInheritanceError](err); ok {
 				return nil, fmt.Errorf("unable to load release %q with template: %w", rt.Name, cyclicInheritanceErr)
 			}
 			return nil, err
@@ -112,9 +113,7 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 		if release.Labels == nil {
 			release.Labels = map[string]string{}
 		}
-		for k, v := range st.CommonLabels {
-			release.Labels[k] = v
-		}
+		maps.Copy(release.Labels, st.CommonLabels)
 		if len(release.ApiVersions) == 0 {
 			release.ApiVersions = st.ApiVersions
 		}
@@ -179,11 +178,8 @@ func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePat
 		path = append(path, templateName)
 
 		var cycleFound bool
-		for _, t := range inheritancePath {
-			if t == templateName {
-				cycleFound = true
-				break
-			}
+		if slices.Contains(inheritancePath, templateName) {
+			cycleFound = true
 		}
 
 		if cycleFound {

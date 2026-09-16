@@ -648,10 +648,6 @@ func TestGetReleaseHardTimeout(t *testing.T) {
 	}
 }
 
-func strPtr(s string) *string {
-	return &s
-}
-
 func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 	type args struct {
 		flags    []string
@@ -691,7 +687,7 @@ func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 			args: args{
 				flags:    []string{},
 				helm:     testutil.NewHelmExec(true),
-				release:  &ReleaseSpec{ServerSide: strPtr("false")},
+				release:  &ReleaseSpec{ServerSide: new("false")},
 				opt:      &SyncOpts{},
 				expected: []string{"--server-side", "false"},
 			},
@@ -701,7 +697,7 @@ func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 			args: args{
 				flags:    []string{},
 				helm:     testutil.NewHelmExec(true),
-				helmSpec: HelmSpec{ServerSide: strPtr("auto")},
+				helmSpec: HelmSpec{ServerSide: new("auto")},
 				release:  &ReleaseSpec{},
 				opt:      &SyncOpts{},
 				expected: []string{"--server-side", "auto"},
@@ -712,7 +708,7 @@ func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 			args: args{
 				flags:    []string{},
 				helm:     testutil.NewHelmExec(true),
-				release:  &ReleaseSpec{ServerSide: strPtr("true")},
+				release:  &ReleaseSpec{ServerSide: new("true")},
 				opt:      &SyncOpts{ServerSide: "false"},
 				expected: []string{"--server-side", "true"},
 			},
@@ -722,7 +718,7 @@ func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 			args: args{
 				flags:    []string{},
 				helm:     testutil.NewHelmExec(true),
-				helmSpec: HelmSpec{ServerSide: strPtr("false")},
+				helmSpec: HelmSpec{ServerSide: new("false")},
 				release:  &ReleaseSpec{},
 				opt:      &SyncOpts{ServerSide: "true"},
 				expected: []string{"--server-side", "true"},
@@ -743,7 +739,7 @@ func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 			args: args{
 				flags:    []string{},
 				helm:     testutil.NewVersionHelmExec("3.17.0"),
-				release:  &ReleaseSpec{ServerSide: strPtr("true")},
+				release:  &ReleaseSpec{ServerSide: new("true")},
 				opt:      &SyncOpts{},
 				expected: []string{},
 				wantErr:  true,
@@ -754,7 +750,7 @@ func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 			args: args{
 				flags:    []string{},
 				helm:     testutil.NewVersionHelmExec("3.17.0"),
-				helmSpec: HelmSpec{ServerSide: strPtr("true")},
+				helmSpec: HelmSpec{ServerSide: new("true")},
 				release:  &ReleaseSpec{},
 				opt:      &SyncOpts{},
 				expected: []string{},
@@ -777,7 +773,7 @@ func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 			args: args{
 				flags:    []string{},
 				helm:     testutil.NewHelmExec(true),
-				release:  &ReleaseSpec{ServerSide: strPtr("")},
+				release:  &ReleaseSpec{ServerSide: new("")},
 				opt:      &SyncOpts{ServerSide: "auto"},
 				expected: []string{"--server-side", "auto"},
 			},

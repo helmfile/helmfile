@@ -208,16 +208,14 @@ func TestHelmState_executeTemplates(t *testing.T) {
 				fs: &filesystem.FileSystem{
 					Glob: func(s string) ([]string, error) { return nil, nil }},
 				basePath: ".",
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: HelmSpec{
-						KubeContext: "test_context",
-					},
-					Env:               environment.Environment{Name: "test_env"},
-					OverrideNamespace: "test-namespace_",
-					Repositories:      nil,
-					Releases: []ReleaseSpec{
-						tt.input,
-					},
+				HelmDefaults: HelmSpec{
+					KubeContext: "test_context",
+				},
+				Env:               environment.Environment{Name: "test_env"},
+				OverrideNamespace: "test-namespace_",
+				Repositories:      nil,
+				Releases: []ReleaseSpec{
+					tt.input,
 				},
 				RenderedValues: map[string]any{},
 			}
@@ -324,16 +322,14 @@ func TestHelmState_recursiveRefsTemplates(t *testing.T) {
 				fs: &filesystem.FileSystem{
 					Glob: func(s string) ([]string, error) { return nil, nil },
 				},
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: HelmSpec{
-						KubeContext: "test_context",
-					},
-					Env:               environment.Environment{Name: "test_env"},
-					OverrideNamespace: "test-namespace_",
-					Repositories:      nil,
-					Releases: []ReleaseSpec{
-						tt.input,
-					},
+				HelmDefaults: HelmSpec{
+					KubeContext: "test_context",
+				},
+				Env:               environment.Environment{Name: "test_env"},
+				OverrideNamespace: "test-namespace_",
+				Repositories:      nil,
+				Releases: []ReleaseSpec{
+					tt.input,
 				},
 				RenderedValues: map[string]any{},
 			}
@@ -411,9 +407,7 @@ func TestApplyDefaultInherit(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					DefaultInherit: tt.defaultInherit,
-				},
+				DefaultInherit: tt.defaultInherit,
 			}
 			got := st.applyDefaultInherit(tt.releaseInherit)
 			if len(got) != len(tt.want) {
@@ -439,31 +433,29 @@ func TestHelmState_executeTemplatesWithDefaultTemplates(t *testing.T) {
 			Glob: func(s string) ([]string, error) { return nil, nil },
 		},
 		basePath: ".",
-		ReleaseSetSpec: ReleaseSetSpec{
-			HelmDefaults: HelmSpec{
-				KubeContext: "test_context",
-			},
-			Env: environment.Environment{Name: "test_env"},
-			Templates: map[string]TemplateSpec{
-				"default": {
-					ReleaseSpec: ReleaseSpec{
-						Namespace: "default-ns",
-						Labels:    map[string]string{"managed": "true"},
-					},
+		HelmDefaults: HelmSpec{
+			KubeContext: "test_context",
+		},
+		Env: environment.Environment{Name: "test_env"},
+		Templates: map[string]TemplateSpec{
+			"default": {
+				ReleaseSpec: ReleaseSpec{
+					Namespace: "default-ns",
+					Labels:    map[string]string{"managed": "true"},
 				},
 			},
-			DefaultInherit: DefaultInherits{"default"},
-			Releases: []ReleaseSpec{
-				{
-					Name:  "app1",
-					Chart: "test-chart",
-				},
-				{
-					Name:  "app2",
-					Chart: "test-chart-2",
-					Inherit: Inherits{
-						{Template: "default", Except: []string{"labels"}},
-					},
+		},
+		DefaultInherit: DefaultInherits{"default"},
+		Releases: []ReleaseSpec{
+			{
+				Name:  "app1",
+				Chart: "test-chart",
+			},
+			{
+				Name:  "app2",
+				Chart: "test-chart-2",
+				Inherit: Inherits{
+					{Template: "default", Except: []string{"labels"}},
 				},
 			},
 		},

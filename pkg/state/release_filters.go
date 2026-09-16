@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -70,10 +71,8 @@ func SelectorsAreCompatible(selectorsA, selectorsB []string) (bool, error) {
 	}
 
 	for _, a := range filtersA {
-		for _, b := range filtersB {
-			if a.positiveLabelsCompatibleWith(b) {
-				return true, nil
-			}
+		if slices.ContainsFunc(filtersB, a.positiveLabelsCompatibleWith) {
+			return true, nil
 		}
 	}
 
@@ -116,8 +115,8 @@ func ParseLabels(l string) (LabelFilter, error) {
 	lf.positiveLabels = [][]string{}
 	lf.negativeLabels = [][]string{}
 	var err error
-	labels := strings.Split(l, ",")
-	for _, label := range labels {
+	labels := strings.SplitSeq(l, ",")
+	for label := range labels {
 		if match := reLabelMismatch.MatchString(label); match {
 			kv := strings.Split(label, "!=")
 			lf.negativeLabels = append(lf.negativeLabels, kv)

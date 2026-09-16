@@ -158,8 +158,7 @@ func finishExecSpan(span trace.Span, isHelm bool, args []string, start time.Time
 	if err == nil {
 		return
 	}
-	var exitErr ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[ExitError](err); ok {
 		span.SetAttributes(attribute.Int("exec.exit_code", exitErr.ExitStatus()))
 	}
 	// The raw error may embed command arguments and subprocess output; keep
