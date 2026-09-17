@@ -49,6 +49,7 @@ linters:
     goconst:
       min-len: 3
       min-occurrences: 8
+      ignore-tests: true
     gocritic:
       settings:
         captLocal:

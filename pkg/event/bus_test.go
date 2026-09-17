@@ -347,8 +347,7 @@ func TestTriggerCleanupEventWithNilError(t *testing.T) {
 }
 
 func TestBusDefaultRunnerUsesCtxWhenSet(t *testing.T) {
-	ctx, cancel := goContext.WithCancel(goContext.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	bus := &Bus{Ctx: ctx, Logger: zap.NewNop().Sugar()}
 

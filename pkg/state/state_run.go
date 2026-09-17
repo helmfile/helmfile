@@ -229,7 +229,7 @@ func GroupReleasesByDependency(releases []Release, opts PlanOptions) ([][]Releas
 
 	var result [][]Release
 
-	for groupIndex := 0; groupIndex < len(plan); groupIndex++ {
+	for groupIndex := range plan {
 		dagNodesInGroup := plan[groupIndex]
 
 		var idsInGroup []string

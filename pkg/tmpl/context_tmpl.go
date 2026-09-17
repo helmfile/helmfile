@@ -3,6 +3,7 @@ package tmpl
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -36,14 +37,10 @@ func (c *Context) CreateFuncMap() template.FuncMap {
 	}
 
 	// add functions from the Context's createFuncMap() method to the funcMap
-	for name, f := range c.createFuncMap() {
-		funcMap[name] = f
-	}
+	maps.Copy(funcMap, c.createFuncMap())
 
 	// add aliased functions to the funcMap
-	for name, f := range aliased {
-		funcMap[name] = f
-	}
+	maps.Copy(funcMap, aliased)
 
 	return funcMap
 }
@@ -90,7 +87,7 @@ func (c *Context) newTemplate() (*template.Template, error) {
 	includedNames := make(map[string]int)
 
 	// Add the 'include' function here so we can close over t.
-	funcMap["include"] = func(name string, data interface{}) (string, error) {
+	funcMap["include"] = func(name string, data any) (string, error) {
 		var buf strings.Builder
 		if v, ok := includedNames[name]; ok {
 			if v > recursionMaxNums {

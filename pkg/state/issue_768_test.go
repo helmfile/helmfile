@@ -69,7 +69,7 @@ func TestForcedDownloadChartSerializesSameChart(t *testing.T) {
 	numReleases := 5
 	var wg sync.WaitGroup
 
-	for i := 0; i < numReleases; i++ {
+	for i := range numReleases {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -164,7 +164,7 @@ func TestWithChartOperationLockSerializesSameChart(t *testing.T) {
 	numReleases := 5
 	var wg sync.WaitGroup
 
-	for i := 0; i < numReleases; i++ {
+	for i := range numReleases {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -216,7 +216,7 @@ func TestWithChartOperationLockNoLockForLocalChart(t *testing.T) {
 	numReleases := 5
 	var wg sync.WaitGroup
 
-	for i := 0; i < numReleases; i++ {
+	for i := range numReleases {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()

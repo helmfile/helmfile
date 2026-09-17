@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"dario.cat/mergo"
@@ -36,12 +37,7 @@ func AllowedInherits() []string {
 
 // IsValidInherit reports whether key is an allowed inherits: entry.
 func IsValidInherit(key string) bool {
-	for _, k := range allowedInherits {
-		if k == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowedInherits, key)
 }
 
 // InheritedConfig carries parent-helmfile config to a sub-helmfile. Only the

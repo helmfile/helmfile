@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -139,22 +140,16 @@ func TestHelmState_applyDefaultsTo(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath: tt.fields.BaseChartPath,
-				ReleaseSetSpec: ReleaseSetSpec{
-					OverrideNamespace: tt.fields.Namespace,
-					Repositories:      tt.fields.Repositories,
-					Releases:          tt.fields.Releases,
-				},
+				basePath:          tt.fields.BaseChartPath,
+				OverrideNamespace: tt.fields.Namespace,
+				Repositories:      tt.fields.Repositories,
+				Releases:          tt.fields.Releases,
 			}
 			if state.ApplyOverrides(&tt.args.spec); !reflect.DeepEqual(tt.args.spec, tt.want) {
 				t.Errorf("HelmState.ApplyOverrides() = %v, want %v", tt.args.spec, tt.want)
 			}
 		})
 	}
-}
-
-func boolValue(v bool) *bool {
-	return &v
 }
 
 func TestHelmState_flagsForUpgrade(t *testing.T) {
@@ -1430,12 +1425,10 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath: "./",
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases:     []ReleaseSpec{*tt.release},
-					HelmDefaults: tt.defaults,
-				},
-				valsRuntime: valsRuntime,
+				basePath:     "./",
+				Releases:     []ReleaseSpec{*tt.release},
+				HelmDefaults: tt.defaults,
+				valsRuntime:  valsRuntime,
 			}
 			helm := &exectest.Helm{
 				Version: tt.version,
@@ -1911,14 +1904,12 @@ func TestHelmState_flagsForTemplate(t *testing.T) {
 				environments = make(map[string]EnvironmentSpec)
 			}
 			state := &HelmState{
-				basePath: "./",
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases:     []ReleaseSpec{*tt.release},
-					HelmDefaults: tt.defaults,
-					Environments: environments,
-					Env:          environment.Environment{Name: envName},
-				},
-				valsRuntime: valsRuntime,
+				basePath:     "./",
+				Releases:     []ReleaseSpec{*tt.release},
+				HelmDefaults: tt.defaults,
+				Environments: environments,
+				Env:          environment.Environment{Name: envName},
+				valsRuntime:  valsRuntime,
 			}
 			helm := &exectest.Helm{
 				Version: tt.version,
@@ -2241,9 +2232,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 				t.Setenv(k, v)
 			}
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Repositories: tt.repos,
-				},
+				Repositories: tt.repos,
 			}
 			if _, _ = state.SyncRepos(tt.helm, map[string]bool{}); !reflect.DeepEqual(tt.helm.Repo, tt.want) {
 				t.Errorf("HelmState.SyncRepos() for [%s] = %v, want %v", tt.name, tt.helm.Repo, tt.want)
@@ -2387,9 +2376,7 @@ func TestHelmState_SyncReleases(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
-				},
+				Releases:       tt.releases,
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -2493,10 +2480,8 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				basePath: ".",
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: []ReleaseSpec{tt.release},
-				},
+				basePath:       ".",
+				Releases:       []ReleaseSpec{tt.release},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -2640,9 +2625,7 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
-				},
+				Releases:       tt.releases,
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -2743,9 +2726,7 @@ func TestHelmState_SyncReleasesAffectedReleasesWithReinstallIfForbidden(t *testi
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
-				},
+				Releases:       tt.releases,
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -2859,9 +2840,7 @@ func TestGetDeployedVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: []ReleaseSpec{tt.release},
-				},
+				Releases:       []ReleaseSpec{tt.release},
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -2978,9 +2957,7 @@ func TestHelmState_DiffReleases(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
-				},
+				Releases:       tt.releases,
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -3078,10 +3055,8 @@ func TestHelmState_DiffFlags(t *testing.T) {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases:     tt.releases,
-					HelmDefaults: tt.defaults,
-				},
+				Releases:       tt.releases,
+				HelmDefaults:   tt.defaults,
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -3156,9 +3131,7 @@ func TestHelmState_SyncReleasesCleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			numRemovedFiles := 0
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
-				},
+				Releases:       tt.releases,
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -3243,9 +3216,7 @@ func TestHelmState_DiffReleasesCleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			numRemovedFiles := 0
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
-				},
+				Releases:       tt.releases,
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
@@ -3310,31 +3281,29 @@ generated: 2019-05-16T15:42:45.50486+09:00
 	state := &HelmState{
 		basePath: basePath,
 		FilePath: filepath.Join(basePath, "helmfile.yaml"),
-		ReleaseSetSpec: ReleaseSetSpec{
-			Releases: []ReleaseSpec{
-				{
-					Chart: "/example",
-				},
-				{
-					Chart: "./example",
-				},
-				{
-					Chart: "published/deeper",
-				},
-				{
-					Chart:   "stable/envoy",
-					Version: "1.5.0",
-				},
-				{
-					Chart:   "stable/envoy",
-					Version: "1.4.0",
-				},
+		Releases: []ReleaseSpec{
+			{
+				Chart: "/example",
 			},
-			Repositories: []RepositorySpec{
-				{
-					Name: "stable",
-					URL:  "https://kubernetes-charts.storage.googleapis.com",
-				},
+			{
+				Chart: "./example",
+			},
+			{
+				Chart: "published/deeper",
+			},
+			{
+				Chart:   "stable/envoy",
+				Version: "1.5.0",
+			},
+			{
+				Chart:   "stable/envoy",
+				Version: "1.4.0",
+			},
+		},
+		Repositories: []RepositorySpec{
+			{
+				Name: "stable",
+				URL:  "https://kubernetes-charts.storage.googleapis.com",
 			},
 		},
 		tempDir: tempDir,
@@ -3407,21 +3376,19 @@ generated: 2023-08-01T23:04:02Z
 	state := &HelmState{
 		basePath: basePath,
 		FilePath: filepath.Join(basePath, "helmfile.yaml"),
-		ReleaseSetSpec: ReleaseSetSpec{
-			Releases: []ReleaseSpec{
-				{
-					Name:      "example",
-					Chart:     "myrepo/path_with_underscores/example",
-					Version:   "1.0.0",
-					Namespace: "myns",
-				},
+		Releases: []ReleaseSpec{
+			{
+				Name:      "example",
+				Chart:     "myrepo/path_with_underscores/example",
+				Version:   "1.0.0",
+				Namespace: "myns",
 			},
-			Repositories: []RepositorySpec{
-				{
-					Name: "myrepo",
-					URL:  "harbor.custom.com",
-					OCI:  true,
-				},
+		},
+		Repositories: []RepositorySpec{
+			{
+				Name: "myrepo",
+				URL:  "harbor.custom.com",
+				OCI:  true,
 			},
 		},
 		tempDir: tempDir,
@@ -3468,20 +3435,18 @@ generated: 2023-08-01T23:04:02Z
 	state := &HelmState{
 		basePath: basePath,
 		FilePath: filepath.Join(basePath, "helmfile.yaml"),
-		ReleaseSetSpec: ReleaseSetSpec{
-			Releases: []ReleaseSpec{
-				{
-					Name:    "example",
-					Chart:   "myrepo/path_with_underscores/example",
-					Version: "1.0.0",
-				},
+		Releases: []ReleaseSpec{
+			{
+				Name:    "example",
+				Chart:   "myrepo/path_with_underscores/example",
+				Version: "1.0.0",
 			},
-			Repositories: []RepositorySpec{
-				{
-					Name: "myrepo",
-					URL:  "harbor.custom.com",
-					OCI:  true,
-				},
+		},
+		Repositories: []RepositorySpec{
+			{
+				Name: "myrepo",
+				URL:  "harbor.custom.com",
+				OCI:  true,
 			},
 		},
 		logger: logger,
@@ -3502,32 +3467,30 @@ func TestHelmState_ResolveDeps_NoLockFile(t *testing.T) {
 	state := &HelmState{
 		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",
-		ReleaseSetSpec: ReleaseSetSpec{
-			Releases: []ReleaseSpec{
-				{
-					Chart: "./..",
-				},
-				{
-					Chart: "../examples",
-				},
-				{
-					Chart: "../../helmfile",
-				},
-				{
-					Chart: "published",
-				},
-				{
-					Chart: "published/deeper",
-				},
-				{
-					Chart: "stable/envoy",
-				},
+		Releases: []ReleaseSpec{
+			{
+				Chart: "./..",
 			},
-			Repositories: []RepositorySpec{
-				{
-					Name: "stable",
-					URL:  "https://kubernetes-charts.storage.googleapis.com",
-				},
+			{
+				Chart: "../examples",
+			},
+			{
+				Chart: "../../helmfile",
+			},
+			{
+				Chart: "published",
+			},
+			{
+				Chart: "published/deeper",
+			},
+			{
+				Chart: "stable/envoy",
+			},
+		},
+		Repositories: []RepositorySpec{
+			{
+				Name: "stable",
+				URL:  "https://kubernetes-charts.storage.googleapis.com",
 			},
 		},
 		logger: logger,
@@ -3552,33 +3515,31 @@ func TestHelmState_ResolveDeps_NoLockFile_WithCustomLockFile(t *testing.T) {
 	state := &HelmState{
 		basePath: "/src",
 		FilePath: "/src/helmfile.yaml",
-		ReleaseSetSpec: ReleaseSetSpec{
-			LockFile: "custom-lock-file",
-			Releases: []ReleaseSpec{
-				{
-					Chart: "./..",
-				},
-				{
-					Chart: "../examples",
-				},
-				{
-					Chart: "../../helmfile",
-				},
-				{
-					Chart: "published",
-				},
-				{
-					Chart: "published/deeper",
-				},
-				{
-					Chart: "stable/envoy",
-				},
+		LockFile: "custom-lock-file",
+		Releases: []ReleaseSpec{
+			{
+				Chart: "./..",
 			},
-			Repositories: []RepositorySpec{
-				{
-					Name: "stable",
-					URL:  "https://kubernetes-charts.storage.googleapis.com",
-				},
+			{
+				Chart: "../examples",
+			},
+			{
+				Chart: "../../helmfile",
+			},
+			{
+				Chart: "published",
+			},
+			{
+				Chart: "published/deeper",
+			},
+			{
+				Chart: "stable/envoy",
+			},
+		},
+		Repositories: []RepositorySpec{
+			{
+				Name: "stable",
+				URL:  "https://kubernetes-charts.storage.googleapis.com",
 			},
 		},
 		logger: logger,
@@ -3648,7 +3609,7 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 					Values: []any{
 						"foo.yaml",
 					},
-					Installed: boolValue(false),
+					Installed: new(false),
 				},
 			},
 			helm:    &exectest.Helm{},
@@ -3659,10 +3620,8 @@ func TestHelmState_ReleaseStatuses(t *testing.T) {
 		tt := tests[i]
 		f := func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
-				},
-				logger: logger,
+				Releases: tt.releases,
+				logger:   logger,
 				fs: &filesystem.FileSystem{
 					FileExists: func(f string) (bool, error) {
 						if f != "foo.yaml" {
@@ -3735,10 +3694,8 @@ func TestHelmState_TestReleasesNoCleanUp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: tt.releases,
-				},
-				logger: logger,
+				Releases: tt.releases,
+				logger:   logger,
 			}
 			errs := state.TestReleases(tt.helm, tt.cleanup, 1, 1)
 			if (errs != nil) != tt.wantErr {
@@ -3968,9 +3925,7 @@ func TestHelmState_NoReleaseMatched(t *testing.T) {
 		tt := tests[i]
 		f := func(t *testing.T) {
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: releases,
-				},
+				Releases:       releases,
 				logger:         logger,
 				RenderedValues: map[string]any{},
 			}
@@ -4004,7 +3959,7 @@ func TestHelmState_Delete(t *testing.T) {
 			name:       "delete wait enabled",
 			deleteWait: true,
 			wantErr:    false,
-			desired:    boolValue(true),
+			desired:    new(true),
 			installed:  true,
 			purge:      false,
 			deleted:    []exectest.Release{{Name: "releaseA", Flags: []string{"--wait"}}},
@@ -4014,7 +3969,7 @@ func TestHelmState_Delete(t *testing.T) {
 			deleteWait:    true,
 			deleteTimeout: 800,
 			wantErr:       false,
-			desired:       boolValue(true),
+			desired:       new(true),
 			installed:     true,
 			purge:         false,
 			deleted:       []exectest.Release{{Name: "releaseA", Flags: []string{"--wait", "--timeout", "800s"}}},
@@ -4022,7 +3977,7 @@ func TestHelmState_Delete(t *testing.T) {
 		{
 			name:      "desired and installed (purge=false)",
 			wantErr:   false,
-			desired:   boolValue(true),
+			desired:   new(true),
 			installed: true,
 			purge:     false,
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
@@ -4046,7 +4001,7 @@ func TestHelmState_Delete(t *testing.T) {
 		{
 			name:      "desired and installed (purge=true)",
 			wantErr:   false,
-			desired:   boolValue(true),
+			desired:   new(true),
 			installed: true,
 			purge:     true,
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
@@ -4054,7 +4009,7 @@ func TestHelmState_Delete(t *testing.T) {
 		{
 			name:      "desired but not installed (purge=false)",
 			wantErr:   false,
-			desired:   boolValue(true),
+			desired:   new(true),
 			installed: false,
 			purge:     false,
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
@@ -4062,7 +4017,7 @@ func TestHelmState_Delete(t *testing.T) {
 		{
 			name:      "desired but not installed (purge=true)",
 			wantErr:   false,
-			desired:   boolValue(true),
+			desired:   new(true),
 			installed: false,
 			purge:     true,
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
@@ -4070,7 +4025,7 @@ func TestHelmState_Delete(t *testing.T) {
 		{
 			name:      "installed but filtered (purge=false)",
 			wantErr:   false,
-			desired:   boolValue(false),
+			desired:   new(false),
 			installed: true,
 			purge:     false,
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
@@ -4078,7 +4033,7 @@ func TestHelmState_Delete(t *testing.T) {
 		{
 			name:      "installed but filtered (purge=true)",
 			wantErr:   false,
-			desired:   boolValue(false),
+			desired:   new(false),
 			installed: true,
 			purge:     true,
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
@@ -4086,7 +4041,7 @@ func TestHelmState_Delete(t *testing.T) {
 		{
 			name:      "not installed, and filtered (purge=false)",
 			wantErr:   false,
-			desired:   boolValue(false),
+			desired:   new(false),
 			installed: false,
 			purge:     false,
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
@@ -4094,7 +4049,7 @@ func TestHelmState_Delete(t *testing.T) {
 		{
 			name:      "not installed, and filtered (purge=true)",
 			wantErr:   false,
-			desired:   boolValue(false),
+			desired:   new(false),
 			installed: false,
 			purge:     true,
 			deleted:   []exectest.Release{{Name: "releaseA", Flags: []string{}}},
@@ -4147,14 +4102,12 @@ func TestHelmState_Delete(t *testing.T) {
 				release,
 			}
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: HelmSpec{
-						KubeContext:   tt.defKubeContext,
-						DeleteWait:    tt.deleteWait,
-						DeleteTimeout: tt.deleteTimeout,
-					},
-					Releases: releases,
+				HelmDefaults: HelmSpec{
+					KubeContext:   tt.defKubeContext,
+					DeleteWait:    tt.deleteWait,
+					DeleteTimeout: tt.deleteTimeout,
 				},
+				Releases:       releases,
 				logger:         logger,
 				RenderedValues: map[string]any{},
 			}
@@ -4248,12 +4201,10 @@ func TestDiffpareSyncReleases(t *testing.T) {
 			release,
 		}
 		state := &HelmState{
-			ReleaseSetSpec: ReleaseSetSpec{
-				Releases:     releases,
-				HelmDefaults: *tt.helmDefaults,
-			},
-			logger:      logger,
-			valsRuntime: valsRuntime,
+			Releases:     releases,
+			HelmDefaults: *tt.helmDefaults,
+			logger:       logger,
+			valsRuntime:  valsRuntime,
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
@@ -4313,15 +4264,13 @@ func TestPrepareDiffReleases_SkipDiffValidationOnInstall(t *testing.T) {
 				Chart: "stable/foo",
 			}
 			if tt.perReleaseDisableValidation {
-				release.DisableValidationOnInstall = boolValue(true)
+				release.DisableValidationOnInstall = new(true)
 			}
 			st := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases:     []ReleaseSpec{release},
-					HelmDefaults: HelmSpec{},
-				},
-				logger:      logger,
-				valsRuntime: valsRuntime,
+				Releases:     []ReleaseSpec{release},
+				HelmDefaults: HelmSpec{},
+				logger:       logger,
+				valsRuntime:  valsRuntime,
 			}
 			lists := map[exectest.ListKey]string{}
 			if tt.installed {
@@ -4337,13 +4286,7 @@ func TestPrepareDiffReleases_SkipDiffValidationOnInstall(t *testing.T) {
 			require.Len(t, results, 1)
 
 			flags := results[0].flags
-			hasDisableValidation := false
-			for _, f := range flags {
-				if f == "--disable-validation" {
-					hasDisableValidation = true
-					break
-				}
-			}
+			hasDisableValidation := slices.Contains(flags, "--disable-validation")
 			require.Equal(t, tt.wantDisableValidation, hasDisableValidation,
 				"--disable-validation presence mismatch for case %q; flags: %v", tt.name, flags)
 		})
@@ -4419,12 +4362,10 @@ func TestPrepareSyncReleases(t *testing.T) {
 			release,
 		}
 		state := &HelmState{
-			ReleaseSetSpec: ReleaseSetSpec{
-				Releases:     releases,
-				HelmDefaults: *tt.helmDefaults,
-			},
-			logger:      logger,
-			valsRuntime: valsRuntime,
+			Releases:     releases,
+			HelmDefaults: *tt.helmDefaults,
+			logger:       logger,
+			valsRuntime:  valsRuntime,
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
@@ -4444,7 +4385,7 @@ func TestReverse(t *testing.T) {
 	num := 8
 	st := &HelmState{}
 
-	for i := 0; i < num; i++ {
+	for i := range num {
 		name := fmt.Sprintf("%d", i)
 		st.Helmfiles = append(st.Helmfiles, SubHelmfileSpec{
 			Path: name,
@@ -4456,7 +4397,7 @@ func TestReverse(t *testing.T) {
 
 	st.Reverse()
 
-	for i := 0; i < num; i++ {
+	for i := range num {
 		j := num - 1 - i
 		want := fmt.Sprintf("%d", j)
 
@@ -4635,9 +4576,7 @@ func TestHelmState_SyncRepos_OCI(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			helm := &exectest.Helm{}
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Repositories: tt.repos,
-				},
+				Repositories: tt.repos,
 			}
 			_, err := state.SyncRepos(helm, map[string]bool{})
 			if err != nil {
@@ -4703,9 +4642,7 @@ func TestHelmState_SyncRepos_OCIOnly(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			helm := &exectest.Helm{}
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Repositories: tt.repos,
-				},
+				Repositories: tt.repos,
 			}
 			_, err := state.SyncRepos(helm, map[string]bool{}, tt.opts...)
 			if err != nil {
@@ -4755,10 +4692,8 @@ func TestGenerateOutputFilePath(t *testing.T) {
 		t.Run(tt.envName, func(t *testing.T) {
 			st := &HelmState{
 				FilePath: tt.envName,
-				ReleaseSetSpec: ReleaseSetSpec{
-					Env: environment.Environment{
-						Name: tt.envName,
-					},
+				Env: environment.Environment{
+					Name: tt.envName,
 				},
 			}
 			ra := &ReleaseSpec{
@@ -5285,13 +5220,11 @@ func TestGenerateChartPath(t *testing.T) {
 		},
 	}
 	st := &HelmState{
-		ReleaseSetSpec: ReleaseSetSpec{
-			Env: environment.Environment{
-				Name: "test-env",
-				Values: map[string]any{
-					"cluster": map[string]any{
-						"name": "my-test-cluster",
-					},
+		Env: environment.Environment{
+			Name: "test-env",
+			Values: map[string]any{
+				"cluster": map[string]any{
+					"name": "my-test-cluster",
 				},
 			},
 		},
@@ -5348,14 +5281,12 @@ func TestGenerateOutputDir(t *testing.T) {
 		t.Run(tt.testName, func(t *testing.T) {
 			st := &HelmState{
 				FilePath: "test.yaml",
-				ReleaseSetSpec: ReleaseSetSpec{
-					Env: environment.Environment{
-						Name:        "test-env",
-						KubeContext: "test-kubecontext",
-						Values: map[string]any{
-							"cluster": map[string]any{
-								"name": "my-test-cluster",
-							},
+				Env: environment.Environment{
+					Name:        "test-env",
+					KubeContext: "test-kubecontext",
+					Values: map[string]any{
+						"cluster": map[string]any{
+							"name": "my-test-cluster",
 						},
 					},
 				},
@@ -5562,9 +5493,7 @@ func TestNeedsPlainHttp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: tt.defaults,
-				},
+				HelmDefaults: tt.defaults,
 			}
 			require.Equal(t, tt.expected, st.needsPlainHttp(tt.release, tt.repo))
 		})
@@ -5608,9 +5537,7 @@ func TestNeedsInsecureSkipTLSVerify(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: tt.defaults,
-				},
+				HelmDefaults: tt.defaults,
 			}
 			require.Equal(t, tt.expected, st.needsInsecureSkipTLSVerify(tt.release, tt.repo))
 		})
@@ -5714,11 +5641,9 @@ func Test_appendExtraDiffFlags(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result := (&HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: HelmSpec{
-						DiffArgs:     test.inputDefaults,
-						TemplateArgs: test.inputTemplateDefaults,
-					},
+				HelmDefaults: HelmSpec{
+					DiffArgs:     test.inputDefaults,
+					TemplateArgs: test.inputTemplateDefaults,
 				},
 			}).appendExtraDiffFlags(test.inputFlags, test.inputOpts)
 			if !reflect.DeepEqual(result, test.expected) {
@@ -5763,10 +5688,8 @@ func Test_appendExtraSyncFlags(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result := (&HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: HelmSpec{
-						SyncArgs: test.inputDefaults,
-					},
+				HelmDefaults: HelmSpec{
+					SyncArgs: test.inputDefaults,
 				},
 			}).appendExtraSyncFlags(test.inputFlags, test.inputOpts)
 			if !reflect.DeepEqual(result, test.expected) {
@@ -5871,10 +5794,8 @@ func TestHelmState_appendApiVersionsFlags(t *testing.T) {
 				test.flags = []string{}
 			}
 			state := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					KubeVersion: test.stateKubeVersion,
-					ApiVersions: test.stateApiVersion,
-				},
+				KubeVersion: test.stateKubeVersion,
+				ApiVersions: test.stateApiVersion,
 			}
 			r := &ReleaseSpec{
 				KubeVersion: test.releaseKubeVersion,
@@ -6036,12 +5957,10 @@ func TestResolveOCIConstraintVersion(t *testing.T) {
 
 	newState := func(defaults HelmSpec) *HelmState {
 		return &HelmState{
-			ReleaseSetSpec: ReleaseSetSpec{
-				HelmDefaults: defaults,
-				Repositories: baseRepositories,
-			},
-			logger:      logger,
-			valsRuntime: valsRuntime,
+			HelmDefaults: defaults,
+			Repositories: baseRepositories,
+			logger:       logger,
+			valsRuntime:  valsRuntime,
 		}
 	}
 
@@ -6242,7 +6161,7 @@ func TestSkipOCIConstraintResolution(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := &HelmState{ReleaseSetSpec: ReleaseSetSpec{HelmDefaults: tt.defaults}}
+			st := &HelmState{HelmDefaults: tt.defaults}
 			require.Equal(t, tt.want, st.skipOCIConstraintResolution(&tt.release, tt.opts))
 		})
 	}
@@ -6268,11 +6187,9 @@ func TestResolveOCIConstraintVersion_Memoized(t *testing.T) {
 		},
 	}
 	st := &HelmState{
-		ReleaseSetSpec: ReleaseSetSpec{
-			Repositories: []RepositorySpec{{Name: "myrepo", URL: repoURL, OCI: true}},
-		},
-		logger:      logger,
-		valsRuntime: valsRuntime,
+		Repositories: []RepositorySpec{{Name: "myrepo", URL: repoURL, OCI: true}},
+		logger:       logger,
+		valsRuntime:  valsRuntime,
 	}
 
 	first, changed, err := st.resolveOCIConstraintVersion(&ReleaseSpec{Name: "app", Chart: chartRef, Version: "~1"}, helm, qualified, "~1")
@@ -6316,10 +6233,8 @@ func TestResolveOCIConstraintVersion_ChartInspectorFallback(t *testing.T) {
 		qualified = "registry.example.com/charts/fallbackchart"
 	)
 	st := &HelmState{
-		ReleaseSetSpec: ReleaseSetSpec{
-			Repositories: []RepositorySpec{
-				{Name: repoName, URL: repoURL, OCI: true},
-			},
+		Repositories: []RepositorySpec{
+			{Name: repoName, URL: repoURL, OCI: true},
 		},
 		logger:      logger,
 		valsRuntime: valsRuntime,
@@ -6563,13 +6478,11 @@ func TestIsOCIChart(t *testing.T) {
 		{&HelmState{}, "myrepo/mychart:1.0.0", false},
 		{
 			&HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Repositories: []RepositorySpec{
-						{
-							Name: "ocirepo",
-							URL:  "ocirepo.com",
-							OCI:  true,
-						},
+				Repositories: []RepositorySpec{
+					{
+						Name: "ocirepo",
+						URL:  "ocirepo.com",
+						OCI:  true,
 					},
 				},
 			},
@@ -6578,12 +6491,10 @@ func TestIsOCIChart(t *testing.T) {
 		},
 		{
 			&HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Repositories: []RepositorySpec{
-						{
-							Name: "nonocirepo",
-							URL:  "nonocirepo.com",
-						},
+				Repositories: []RepositorySpec{
+					{
+						Name: "nonocirepo",
+						URL:  "nonocirepo.com",
 					},
 				},
 			},
@@ -6612,14 +6523,14 @@ func TestAppendVerifyFlags(t *testing.T) {
 	}{
 		{
 			name:         "Release with true verify flag",
-			release:      &ReleaseSpec{Verify: boolValue(true)},
+			release:      &ReleaseSpec{Verify: new(true)},
 			repo:         nil,
 			helmDefaults: HelmSpec{},
 			expected:     []string{"--verify"},
 		},
 		{
 			name:         "Release with false verify flag",
-			release:      &ReleaseSpec{Verify: boolValue(false)},
+			release:      &ReleaseSpec{Verify: new(false)},
 			repo:         nil,
 			helmDefaults: HelmSpec{},
 			expected:     []string(nil),
@@ -6695,12 +6606,12 @@ func TestChartFetchFlags(t *testing.T) {
 		},
 		{
 			name:     "devel release",
-			release:  &ReleaseSpec{Chart: "myrepo/mychart", Devel: boolValue(true)},
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Devel: new(true)},
 			expected: []string{"--devel"},
 		},
 		{
 			name:     "release-level verify and keyring",
-			release:  &ReleaseSpec{Chart: "myrepo/mychart", Verify: boolValue(true), Keyring: "/keys/release.gpg"},
+			release:  &ReleaseSpec{Chart: "myrepo/mychart", Verify: new(true), Keyring: "/keys/release.gpg"},
 			expected: []string{"--verify", "--keyring", "/keys/release.gpg"},
 		},
 		{
@@ -6821,7 +6732,7 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 			helmDefaults: &HelmSpec{},
 			release: &ReleaseSpec{
 				Name:        "reuse-values-from-release",
-				ReuseValues: boolValue(true),
+				ReuseValues: new(true),
 			},
 		},
 		{
@@ -6832,7 +6743,7 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 			helmDefaults: &HelmSpec{},
 			release: &ReleaseSpec{
 				Name:        "reuse-values-from-cli",
-				ReuseValues: boolValue(false),
+				ReuseValues: new(false),
 			},
 		},
 		{
@@ -6845,7 +6756,7 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 			},
 			release: &ReleaseSpec{
 				Name:        "reuse-values-all",
-				ReuseValues: boolValue(true),
+				ReuseValues: new(true),
 			},
 		},
 		{
@@ -6856,7 +6767,7 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 			},
 			release: &ReleaseSpec{
 				Name:        "reset-values-from-helm-defaults",
-				ReuseValues: boolValue(false),
+				ReuseValues: new(false),
 			},
 		},
 		{
@@ -6865,7 +6776,7 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 			helmDefaults: &HelmSpec{},
 			release: &ReleaseSpec{
 				Name:        "reset-values-from-release",
-				ReuseValues: boolValue(false),
+				ReuseValues: new(false),
 			},
 		},
 		{
@@ -6876,7 +6787,7 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 			helmDefaults: &HelmSpec{},
 			release: &ReleaseSpec{
 				Name:        "reset-values-cli-overrides-release",
-				ReuseValues: boolValue(true),
+				ReuseValues: new(true),
 			},
 		},
 	}
@@ -6886,12 +6797,10 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 			*tt.release,
 		}
 		state := &HelmState{
-			ReleaseSetSpec: ReleaseSetSpec{
-				Releases:     releases,
-				HelmDefaults: *tt.helmDefaults,
-			},
-			logger:      logger,
-			valsRuntime: valsRuntime,
+			Releases:     releases,
+			HelmDefaults: *tt.helmDefaults,
+			logger:       logger,
+			valsRuntime:  valsRuntime,
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
@@ -6920,7 +6829,7 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 			helmDefaults: &HelmSpec{},
 			release: &ReleaseSpec{
 				Name:        "reuse-values-from-release",
-				ReuseValues: boolValue(true),
+				ReuseValues: new(true),
 			},
 		},
 		{
@@ -6931,7 +6840,7 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 			helmDefaults: &HelmSpec{},
 			release: &ReleaseSpec{
 				Name:        "reuse-values-from-cli",
-				ReuseValues: boolValue(false),
+				ReuseValues: new(false),
 			},
 		},
 		{
@@ -6944,7 +6853,7 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 			},
 			release: &ReleaseSpec{
 				Name:        "reuse-values-all",
-				ReuseValues: boolValue(true),
+				ReuseValues: new(true),
 			},
 		},
 		{
@@ -6955,7 +6864,7 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 			},
 			release: &ReleaseSpec{
 				Name:        "reset-values-from-helm-defaults",
-				ReuseValues: boolValue(false),
+				ReuseValues: new(false),
 			},
 		},
 		{
@@ -6964,7 +6873,7 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 			helmDefaults: &HelmSpec{},
 			release: &ReleaseSpec{
 				Name:        "reset-values-from-release",
-				ReuseValues: boolValue(false),
+				ReuseValues: new(false),
 			},
 		},
 		{
@@ -6975,7 +6884,7 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 			helmDefaults: &HelmSpec{},
 			release: &ReleaseSpec{
 				Name:        "reset-values-cli-overrides-release",
-				ReuseValues: boolValue(true),
+				ReuseValues: new(true),
 			},
 		},
 	}
@@ -6985,12 +6894,10 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 			*tt.release,
 		}
 		state := &HelmState{
-			ReleaseSetSpec: ReleaseSetSpec{
-				Releases:     releases,
-				HelmDefaults: *tt.helmDefaults,
-			},
-			logger:      logger,
-			valsRuntime: valsRuntime,
+			Releases:     releases,
+			HelmDefaults: *tt.helmDefaults,
+			logger:       logger,
+			valsRuntime:  valsRuntime,
 		}
 		helm := &exectest.Helm{
 			Lists: map[exectest.ListKey]string{},
@@ -7142,13 +7049,11 @@ func TestHelmState_getKubeContext(t *testing.T) {
 			}
 
 			state := &HelmState{
-				basePath: "./",
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: tt.defaults,
-					Environments: environments,
-					Env: environment.Environment{
-						Name: envName,
-					},
+				basePath:     "./",
+				HelmDefaults: tt.defaults,
+				Environments: environments,
+				Env: environment.Environment{
+					Name: envName,
 				},
 			}
 
@@ -7166,12 +7071,10 @@ func TestHelmState_getKubeContext(t *testing.T) {
 // through unchanged so we never disturb existing behavior.
 func TestResolveOCIAdhocDepChart(t *testing.T) {
 	state := &HelmState{
-		ReleaseSetSpec: ReleaseSetSpec{
-			Repositories: []RepositorySpec{
-				{Name: "ociregistry", URL: "registry.example.com:5000/charts", OCI: true},
-				{Name: "ociregistry-trailing", URL: "registry.example.com:5000/charts/", OCI: true},
-				{Name: "stable", URL: "https://charts.helm.sh/stable"},
-			},
+		Repositories: []RepositorySpec{
+			{Name: "ociregistry", URL: "registry.example.com:5000/charts", OCI: true},
+			{Name: "ociregistry-trailing", URL: "registry.example.com:5000/charts/", OCI: true},
+			{Name: "stable", URL: "https://charts.helm.sh/stable"},
 		},
 	}
 

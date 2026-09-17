@@ -31,7 +31,13 @@ jobs:
         run: df -h
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.11.4
+          version: v2.13.2
+      - name: Check for outdated Go patterns (go fix modernizers)
+        run: |
+          # Fails (exit 1) when any `go fix` modernizer produces a diff, i.e. the
+          # code contains outdated Go patterns that `go fix ./...` would rewrite.
+          # Fix locally with: go fix ./... && make fmt
+          go fix -diff ./...
 
   tests:
     runs-on: ubuntu-latest

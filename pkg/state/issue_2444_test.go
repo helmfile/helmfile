@@ -215,9 +215,7 @@ func TestEffectiveTemplateArgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: HelmSpec{TemplateArgs: tt.helmDefaults},
-				},
+				HelmDefaults: HelmSpec{TemplateArgs: tt.helmDefaults},
 			}
 			assert.Equal(t, tt.want, st.effectiveTemplateArgs(tt.cliArgs))
 		})
@@ -231,10 +229,8 @@ func TestEffectiveTemplateArgs(t *testing.T) {
 // command opt into server-side templating + kube-connection injection end-to-end.
 func TestHelmDefaultsTemplateArgsReachesChartify(t *testing.T) {
 	st := &HelmState{
-		kubeconfig: "/path/to/kubeconfig",
-		ReleaseSetSpec: ReleaseSetSpec{
-			HelmDefaults: HelmSpec{TemplateArgs: []string{"--dry-run=server"}},
-		},
+		kubeconfig:   "/path/to/kubeconfig",
+		HelmDefaults: HelmSpec{TemplateArgs: []string{"--dry-run=server"}},
 	}
 
 	// Mirror processChartification's exact call shape.

@@ -17,10 +17,7 @@ func RequireLog(t *testing.T, dir string, bs *bytes.Buffer) {
 	// Get the caller pkg used for instruction on rerunning the specific test
 	pc, _, _, _ := runtime.Caller(1)
 	funcName := runtime.FuncForPC(pc).Name()
-	lastSlash := strings.LastIndexByte(funcName, '/')
-	if lastSlash < 0 {
-		lastSlash = 0
-	}
+	lastSlash := max(strings.LastIndexByte(funcName, '/'), 0)
 	firstDot := strings.IndexByte(funcName[lastSlash:], '.') + lastSlash
 	callerPkg := funcName[:firstDot]
 

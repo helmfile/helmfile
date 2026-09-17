@@ -38,6 +38,12 @@ check:
 	go vet ${PKGS}
 .PHONY: check
 
+# check-modernize fails (exit 1) when any `go fix` modernizer would rewrite code,
+# i.e. the codebase contains outdated Go patterns. Run `go fix ./...` to fix, then `make fmt`.
+check-modernize:
+	go fix -diff ./...
+.PHONY: check-modernize
+
 build-test-tools:
 	go build test/diff-yamls/diff-yamls.go
 	curl --progress-bar --location https://github.com/homeport/dyff/releases/download/v1.5.6/dyff_1.5.6_linux_amd64.tar.gz  | tar -xzf - -C `pwd` dyff

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -143,10 +144,8 @@ func createPluginYAML(t *testing.T, pluginsDir, pluginDirName, name, version str
 func newHelmPluginMockRunner(pluginErr error) *initMockRunner {
 	return &initMockRunner{
 		executeFunc: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-			for _, a := range args {
-				if a == "--short" {
-					return []byte("v3.18.6"), nil
-				}
+			if slices.Contains(args, "--short") {
+				return []byte("v3.18.6"), nil
 			}
 			// Fail any "helm plugin ..." subcommand (install, update, etc.)
 			if len(args) > 0 && args[0] == "plugin" {
@@ -168,10 +167,8 @@ func TestCheckHelmPlugins_InstallErrorButPluginPresent(t *testing.T) {
 	// plugin.yaml on disk and then returns an error.
 	runner := &initMockRunner{
 		executeFunc: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-			for _, a := range args {
-				if a == "--short" {
-					return []byte("v3.18.6"), nil
-				}
+			if slices.Contains(args, "--short") {
+				return []byte("v3.18.6"), nil
 			}
 			if len(args) > 0 && args[0] == "plugin" && len(args) >= 3 && args[1] == "install" {
 				// Find which plugin is being installed by matching the repo URL.
@@ -228,10 +225,8 @@ func TestCheckHelmPlugins_UpdateUsesUninstallReinstall(t *testing.T) {
 	// that writes the required version to disk.
 	runner := &initMockRunner{
 		executeFunc: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-			for _, a := range args {
-				if a == "--short" {
-					return []byte("v3.18.6"), nil
-				}
+			if slices.Contains(args, "--short") {
+				return []byte("v3.18.6"), nil
 			}
 			if len(args) >= 2 && args[0] == "plugin" {
 				switch args[1] {
@@ -309,10 +304,8 @@ func TestCheckHelmPlugins_UpdateErrorButPluginAtRequiredVersion(t *testing.T) {
 	// verifies the version and warns instead of returning an error.
 	runner := &initMockRunner{
 		executeFunc: func(cmd string, args []string, env map[string]string, enableLiveOutput bool) ([]byte, error) {
-			for _, a := range args {
-				if a == "--short" {
-					return []byte("v3.18.6"), nil
-				}
+			if slices.Contains(args, "--short") {
+				return []byte("v3.18.6"), nil
 			}
 			if len(args) >= 2 && args[0] == "plugin" {
 				switch args[1] {
