@@ -983,6 +983,12 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		st.removeFiles(filesNeedCleaning)
 	}
 
+	// shouldRun is set to true below whenever this release requires chartify.
+	// NOTE: keep every site that sets shouldRun=true for anything other than a
+	// local directory (dependencies, jsonPatches, strategicMergePatches,
+	// transformers, forceNamespace) in sync with triggersChartifyHelmRun in
+	// state.go, which mirrors these conditions for the commands listed in
+	// commandsSkippingChartifyTriggers.
 	var shouldRun bool
 
 	dir := chart
