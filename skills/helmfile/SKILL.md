@@ -96,6 +96,7 @@ repositories:
 | `secrets` | list | | Encrypted values files (requires helm-secrets plugin) |
 | `installed` | bool | | Set false to uninstall on sync |
 | `condition` | string | | Direct `true`/`false` or values lookup key ending in `.enabled` for filtering releases |
+| `continueOnError` | bool | false | Continue independent releases after this release fails; dependent releases are skipped and Helmfile still exits non-zero |
 | `wait` | bool | false | Wait for resources to be ready |
 | `waitForJobs` | bool | false | Wait until all Jobs have completed |
 | `timeout` | int | 300 | Operation timeout in seconds |
@@ -119,6 +120,8 @@ repositories:
 | `skipRefresh` | bool | false | Per-release skip for `helm dependency up` |
 | `disableAutoDetectedKubeVersionForDiff` | bool | false | Disable auto-detected kubeVersion for diff |
 | `takeOwnership` | bool | false | Take ownership of existing resources |
+
+`continueOnError` is a release-level orchestration knob only. It lets `sync` and the sync phase of `apply` continue independent releases after one release fails, while still skipping releases that depend on the failure and still returning a non-zero exit code at the end. It does not change Helm's own rollback flags (`atomic`, `rollbackOnFailure`, `cleanupOnFail`) and it does not relax diff or chart-preparation failures.
 
 ### Helm Defaults
 ```yaml
