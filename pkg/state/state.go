@@ -427,6 +427,9 @@ type ReleaseSpec struct {
 
 	// Needs is the [KUBECONTEXT/][NS/]NAME representations of releases that this release depends on.
 	Needs []string `yaml:"needs,omitempty"`
+	// ContinueOnError, when set to true, allows helmfile to keep processing independent releases after this release fails.
+	// The default behavior remains fail-fast when the field is absent or false.
+	ContinueOnError *bool `yaml:"continueOnError,omitempty"`
 
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
 	Hooks []event.Hook `yaml:"hooks,omitempty"`

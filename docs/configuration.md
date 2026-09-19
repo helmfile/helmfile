@@ -473,6 +473,12 @@ The following `helmDefaults` fields are also available but not shown in the exam
 
 `condition` controls whether a release is enabled. An empty condition enables the release. A direct `true` or `false` value is treated as a literal boolean and bypasses values lookup. Any other condition must be a values lookup path ending in `.enabled`, such as `vault.enabled`.
 
+#### Continue On Error
+
+`continueOnError` defaults to `false`. When set to `true`, Helmfile keeps processing independent releases after this release fails, but any release that depends on it is skipped with an explicit error such as `release "backend" was skipped because dependency "database" failed`.
+
+This setting only changes Helmfile orchestration. It does not change Helm's per-release rollback behavior (`atomic`, `rollbackOnFailure`, `cleanupOnFail`, `wait`, `waitForJobs`, `trackMode`, hooks, or `reinstallIfForbidden`), and it does not turn a release failure into a successful command. `helmfile sync` and the sync phase of `helmfile apply` still exit with a non-zero status when any release fails. For `apply`, diff and chart-preparation failures remain fatal and are not converted into tolerated release errors.
+
 `conditionTemplate` is evaluated before `condition` is checked. It must render to a boolean value; when both `condition` and `conditionTemplate` are set, the rendered `conditionTemplate` value replaces `condition`. Like other `*Template` fields, `conditionTemplate` is not evaluated by the `list` command.
 
 The following per-release fields are also available:

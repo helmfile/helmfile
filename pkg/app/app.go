@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	goContext "context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1507,15 +1508,30 @@ func withBatches(purpose string, templated *state.HelmState, batches [][]state.R
 		purpose = "processing"
 	}
 
-	logger.Debugf("%s %d groups of releases in this order:\n%s", purpose, numBatches, printBatches(batches))
+	if logger != nil {
+		logger.Debugf("%s %d groups of releases in this order:\n%s", purpose, numBatches, printBatches(batches))
+	}
 
 	any := false
+	allErrs := []error{}
+	blockedByReleaseID := map[string]error{}
 
 	for i, batch := range batches {
 		var targets []state.ReleaseSpec
+		var skippedErrors []error
 
 		for _, marked := range batch {
-			targets = append(targets, marked.ReleaseSpec)
+			release := marked.ReleaseSpec
+			blockedDependencyID, blockedDependencyErr, blocked := firstBlockedDependency(&release, blockedByReleaseID)
+			if blocked {
+				skippedErr := fmt.Errorf("release %q was skipped because dependency %q failed: %w", release.Name, blockedDependencyID, blockedDependencyErr)
+				skippedErrors = append(skippedErrors, skippedErr)
+				allErrs = append(allErrs, skippedErr)
+				blockedByReleaseID[state.ReleaseToID(&release)] = skippedErr
+				continue
+			}
+
+			targets = append(targets, release)
 		}
 
 		var releaseIds []string
@@ -1524,21 +1540,65 @@ func withBatches(purpose string, templated *state.HelmState, batches [][]state.R
 			releaseIds = append(releaseIds, state.ReleaseToID(&release))
 		}
 
-		logger.Debugf("%s releases in group %d/%d: %s", purpose, i+1, numBatches, strings.Join(releaseIds, ", "))
+		if logger != nil {
+			logger.Debugf("%s releases in group %d/%d: %s", purpose, i+1, numBatches, strings.Join(releaseIds, ", "))
+		}
 
 		batchSt := *templated
 		batchSt.Releases = targets
 
-		processed, errs := converge(&batchSt, helm)
+		processed, batchErrs := converge(&batchSt, helm)
+		allErrs = append(allErrs, batchErrs...)
 
-		if len(errs) > 0 {
-			return false, errs
+		fatalErr := false
+		for _, err := range batchErrs {
+			releaseErr := releaseErrorForContinueOnError(err)
+			if releaseErr == nil {
+				fatalErr = true
+				continue
+			}
+
+			blockedByReleaseID[state.ReleaseToID(releaseErr.ReleaseSpec)] = err
+			if !continueOnErrorEnabled(releaseErr.ReleaseSpec) {
+				fatalErr = true
+			}
+		}
+
+		if fatalErr {
+			return false, allErrs
 		}
 
 		any = any || processed
 	}
 
+	if len(allErrs) > 0 {
+		return any, allErrs
+	}
+
 	return any, nil
+}
+
+func continueOnErrorEnabled(release *state.ReleaseSpec) bool {
+	return release != nil && release.ContinueOnError != nil && *release.ContinueOnError
+}
+
+func firstBlockedDependency(release *state.ReleaseSpec, blockedByReleaseID map[string]error) (string, error, bool) {
+	for _, need := range release.Needs {
+		if blockedErr, ok := blockedByReleaseID[need]; ok {
+			return need, blockedErr, true
+		}
+	}
+
+	return "", nil, false
+}
+
+func releaseErrorForContinueOnError(err error) *state.ReleaseError {
+	var releaseErr *state.ReleaseError
+	if !errors.As(err, &releaseErr) {
+		return nil
+	}
+
+	return releaseErr
 }
 
 type Opts struct {
