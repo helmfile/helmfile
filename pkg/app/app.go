@@ -1121,7 +1121,7 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 	processed, errs := converge(templated)
 
 	if len(errs) > 0 {
-		errChan <- errs[0]
+		errChan <- aggregateErrors(errs)
 		return
 	}
 	if cleanErr != nil {
@@ -1362,7 +1362,7 @@ func (a *App) visitStatesWithContext(fileOrDir string, defOpts LoadOpts, converg
 				processed, errs = converge(templated)
 
 				if len(errs) > 0 {
-					return errs[0]
+					return aggregateErrors(errs)
 				}
 
 				noMatchInHelmfiles = noMatchInHelmfiles && !processed
@@ -1508,41 +1508,22 @@ func withBatches(purpose string, templated *state.HelmState, batches [][]state.R
 		purpose = "processing"
 	}
 
-	if logger != nil {
-		logger.Debugf("%s %d groups of releases in this order:\n%s", purpose, numBatches, printBatches(batches))
-	}
+	logger.Debugf("%s %d groups of releases in this order:\n%s", purpose, numBatches, printBatches(batches))
 
 	any := false
-	allErrs := []error{}
-	blockedByReleaseID := map[string]error{}
+	var allErrs []error
+	blockedByID := map[string]blockedRelease{}
 
 	for i, batch := range batches {
-		var targets []state.ReleaseSpec
-		var skippedErrors []error
-
-		for _, marked := range batch {
-			release := marked.ReleaseSpec
-			blockedDependencyID, blockedDependencyErr, blocked := firstBlockedDependency(&release, blockedByReleaseID)
-			if blocked {
-				skippedErr := fmt.Errorf("release %q was skipped because dependency %q failed: %w", release.Name, blockedDependencyID, blockedDependencyErr)
-				skippedErrors = append(skippedErrors, skippedErr)
-				allErrs = append(allErrs, skippedErr)
-				blockedByReleaseID[state.ReleaseToID(&release)] = skippedErr
-				continue
-			}
-
-			targets = append(targets, release)
-		}
+		targets, skippedErrs := filterBlockedReleases(batch, blockedByID, logger)
+		allErrs = append(allErrs, skippedErrs...)
 
 		var releaseIds []string
 		for _, r := range targets {
-			release := r
-			releaseIds = append(releaseIds, state.ReleaseToID(&release))
+			releaseIds = append(releaseIds, state.ReleaseToID(&r))
 		}
 
-		if logger != nil {
-			logger.Debugf("%s releases in group %d/%d: %s", purpose, i+1, numBatches, strings.Join(releaseIds, ", "))
-		}
+		logger.Debugf("%s releases in group %d/%d: %s", purpose, i+1, numBatches, strings.Join(releaseIds, ", "))
 
 		batchSt := *templated
 		batchSt.Releases = targets
@@ -1550,51 +1531,102 @@ func withBatches(purpose string, templated *state.HelmState, batches [][]state.R
 		processed, batchErrs := converge(&batchSt, helm)
 		allErrs = append(allErrs, batchErrs...)
 
-		fatalErr := false
-		for _, err := range batchErrs {
-			releaseErr := releaseErrorForContinueOnError(err)
-			if releaseErr == nil {
-				fatalErr = true
-				continue
-			}
-
-			blockedByReleaseID[state.ReleaseToID(releaseErr.ReleaseSpec)] = err
-			if !continueOnErrorEnabled(releaseErr.ReleaseSpec) {
-				fatalErr = true
-			}
+		if toleratesBatchErrors(batchErrs, blockedByID) {
+			any = any || processed
+			continue
 		}
 
-		if fatalErr {
-			return false, allErrs
+		return false, allErrs
+	}
+
+	return any, allErrs
+}
+
+// blockedRelease remembers a release that failed or was skipped, so that its
+// dependents can be skipped transitively and reported with its plain name
+// (rather than the kubeContext/namespace-qualified `needs` id).
+type blockedRelease struct {
+	release *state.ReleaseSpec
+	err     error
+}
+
+// filterBlockedReleases partitions a batch into the releases that may still be
+// processed and those that must be skipped because one of their `needs`
+// dependencies already failed or was skipped. Skipped releases are recorded in
+// blockedByID (so that their own dependents are skipped transitively) and
+// reported as errors, so that a failed dependency never results in a
+// successful command.
+func filterBlockedReleases(batch []state.Release, blockedByID map[string]blockedRelease, logger *zap.SugaredLogger) ([]state.ReleaseSpec, []error) {
+	var targets []state.ReleaseSpec
+	var skippedErrs []error
+
+	for _, marked := range batch {
+		release := marked.ReleaseSpec
+
+		blocked, ok := firstBlockedDependency(&release, blockedByID)
+		if !ok {
+			targets = append(targets, release)
+			continue
 		}
 
-		any = any || processed
+		skippedErr := fmt.Errorf("release %q was skipped because dependency %q failed: %w", release.Name, blocked.release.Name, blocked.err)
+		skippedErrs = append(skippedErrs, skippedErr)
+		blockedByID[state.ReleaseToID(&release)] = blockedRelease{release: &release, err: skippedErr}
+
+		logger.Warnf("release %q was skipped because dependency %q failed: %v", release.Name, blocked.release.Name, blocked.err)
 	}
 
-	if len(allErrs) > 0 {
-		return any, allErrs
+	return targets, skippedErrs
+}
+
+// toleratesBatchErrors inspects the errors reported while processing a batch.
+// Each per-release failure is recorded in blockedByID so that its dependents
+// are skipped in subsequent batches. It returns true when every error is a
+// release failure whose release opted in to continueOnError, so that
+// independent branches of the DAG keep being processed. Any other error (a
+// non-release error, or a release failure without continueOnError) is fatal
+// and preserves the historical fail-fast behavior.
+func toleratesBatchErrors(batchErrs []error, blockedByID map[string]blockedRelease) bool {
+	for _, err := range batchErrs {
+		releaseErr := releaseErrorForContinueOnError(err)
+		if releaseErr == nil {
+			return false
+		}
+
+		blockedByID[state.ReleaseToID(releaseErr.ReleaseSpec)] = blockedRelease{release: releaseErr.ReleaseSpec, err: err}
+		if !continueOnErrorEnabled(releaseErr.ReleaseSpec) {
+			return false
+		}
 	}
 
-	return any, nil
+	return true
 }
 
 func continueOnErrorEnabled(release *state.ReleaseSpec) bool {
 	return release != nil && release.ContinueOnError != nil && *release.ContinueOnError
 }
 
-func firstBlockedDependency(release *state.ReleaseSpec, blockedByReleaseID map[string]error) (string, error, bool) {
+func firstBlockedDependency(release *state.ReleaseSpec, blockedByID map[string]blockedRelease) (blockedRelease, bool) {
 	for _, need := range release.Needs {
-		if blockedErr, ok := blockedByReleaseID[need]; ok {
-			return need, blockedErr, true
+		if blocked, ok := blockedByID[need]; ok {
+			return blocked, true
 		}
 	}
 
-	return "", nil, false
+	return blockedRelease{}, false
 }
 
+// releaseErrorForContinueOnError returns err as a *state.ReleaseError when it
+// is a plain release failure. Non-release errors, and release errors carrying
+// a non-failure code (e.g. the diff "changes detected" exit code 2), are not
+// tolerable failures and must keep failing fast.
 func releaseErrorForContinueOnError(err error) *state.ReleaseError {
 	var releaseErr *state.ReleaseError
 	if !errors.As(err, &releaseErr) {
+		return nil
+	}
+
+	if releaseErr.Code != state.ReleaseErrorCodeFailure {
 		return nil
 	}
 
@@ -2895,6 +2927,27 @@ func (e *Error) Code() int {
 
 func appError(msg string, err error) *Error {
 	return &Error{msg: msg, Errors: []error{err}}
+}
+
+// aggregateErrors combines multiple errors from processing a state file into a
+// single *Error that renders all of them. Rendering a single error is
+// identical to returning it directly, so aggregating does not change the
+// reported message for the single-error case — but it keeps errors that are
+// not the first one visible, which matters when continueOnError lets multiple
+// releases fail or be skipped within one run.
+func aggregateErrors(errs []error) error {
+	filtered := make([]error, 0, len(errs))
+	for _, err := range errs {
+		if err != nil {
+			filtered = append(filtered, err)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil
+	}
+
+	return &Error{Errors: filtered}
 }
 
 func (c context) clean(errs []error) error {
