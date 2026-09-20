@@ -46,6 +46,20 @@ On `helmfile [delete|destroy]`, deletions happen in the reverse order.
 
 That is, `myapp1` and `myapp2` are deleted first, then `servicemesh`, and finally `logging`.
 
+### Failure handling and `continueOnError`
+
+By default, `helmfile [sync|apply]` stops on the first release failure (fail-fast). Set `continueOnError: true` on a release to keep processing independent releases after it fails:
+
+```yaml
+  - name: myapp1
+    chart: charts/myapp
+    continueOnError: true
+    needs:
+    - servicemesh
+```
+
+When a release with `continueOnError` fails, releases in other branches of the DAG are still processed, while releases that (transitively) depend on the failed release are skipped with an error like `release "myapp2" was skipped because dependency "myapp1" failed`. The command still exits non-zero, and Helm's own rollback behavior (`atomic`, `rollbackOnFailure`, ...) is unaffected. See [Continue On Error](configuration.md#continue-on-error) for details.
+
 ### Selectors and `needs`
 
 When using selectors/labels, `needs` are ignored by default. This behaviour can be overruled with a few parameters:
