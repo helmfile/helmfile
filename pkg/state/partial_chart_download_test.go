@@ -53,11 +53,9 @@ func TestForcedDownloadChart_RemovesPartialDownloadOnFetchError(t *testing.T) {
 	cacheRoot := t.TempDir()
 
 	st := &HelmState{
-		fs:     filesystem.DefaultFileSystem(),
-		logger: zap.NewNop().Sugar(),
-		ReleaseSetSpec: ReleaseSetSpec{
-			Releases: []ReleaseSpec{{Name: "app", Chart: "myrepo/mychart"}},
-		},
+		fs:       filesystem.DefaultFileSystem(),
+		logger:   zap.NewNop().Sugar(),
+		Releases: []ReleaseSpec{{Name: "app", Chart: "myrepo/mychart"}},
 	}
 
 	release := &st.Releases[0]
