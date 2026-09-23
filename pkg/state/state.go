@@ -2114,6 +2114,14 @@ func (st *HelmState) forcedDownloadChart(chartName, dir string, release *Release
 	fetchFlags := st.chartFetchFlags(release)
 	fetchFlags = append(fetchFlags, "--untar", "--untardir", chartPath)
 	if err := helm.Fetch(chartName, fetchFlags...); err != nil {
+		// `helm pull --untar` extracts in place, so a failed fetch can leave a partially
+		// extracted chart behind. Chart.yaml is the first entry in a chart archive, so the
+		// leftover often contains a complete Chart.yaml and nothing else -- which
+		// findChartDirectory accepts, making the next run reuse it as a valid cache entry
+		// and render zero manifests without error. Remove it so the failure stays a failure.
+		if rmErr := os.RemoveAll(chartPath); rmErr != nil {
+			st.logger.Warnf("failed to remove partial chart download at %s: %v", chartPath, rmErr)
+		}
 		lockResult.Release(st.logger)
 		return "", err
 	}
