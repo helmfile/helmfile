@@ -3,7 +3,10 @@ package config
 import (
 	"fmt"
 	"slices"
+	"time"
 )
+
+const defaultTrackLogsInterval = 10 * time.Second
 
 // SyncOptions is the options for the build command
 type SyncOptions struct {
@@ -63,6 +66,8 @@ type SyncOptions struct {
 	TrackLogs bool
 	// TrackFailedLogs streams logs only for pods that enter a failed state.
 	TrackFailedLogs bool
+	// TrackLogsInterval is the interval between kubedog log output updates.
+	TrackLogsInterval time.Duration
 	// HelmStuckGrace, when > 0, enables the helm-killer safety valve. See
 	// ReleaseSpec.HelmStuckGrace for details. Value is in seconds.
 	HelmStuckGrace int
@@ -93,7 +98,7 @@ type SyncOptions struct {
 
 // NewSyncOptions creates a new Apply
 func NewSyncOptions() *SyncOptions {
-	return &SyncOptions{}
+	return &SyncOptions{TrackLogsInterval: defaultTrackLogsInterval}
 }
 
 // SyncImpl is impl for applyOptions
@@ -254,6 +259,11 @@ func (t *SyncImpl) TrackFailedLogs() bool {
 	return t.SyncOptions.TrackFailedLogs
 }
 
+// TrackLogsInterval returns the kubedog log output interval.
+func (t *SyncImpl) TrackLogsInterval() time.Duration {
+	return t.SyncOptions.TrackLogsInterval
+}
+
 // HelmStuckGrace returns the helm-stuck-grace value (seconds, 0 = disabled).
 func (t *SyncImpl) HelmStuckGrace() int {
 	return t.SyncOptions.HelmStuckGrace
@@ -348,6 +358,9 @@ func (t *SyncImpl) ValidateConfig() error {
 	validTrackModes := []string{"helm", "helm-legacy", "kubedog"}
 	if t.SyncOptions.TrackMode != "" && !slices.Contains(validTrackModes, t.SyncOptions.TrackMode) {
 		return fmt.Errorf("--track-mode must be 'helm', 'helm-legacy', or 'kubedog', got: %s", t.SyncOptions.TrackMode)
+	}
+	if t.SyncOptions.TrackLogsInterval < time.Second {
+		return fmt.Errorf("--track-logs-interval must be at least 1s, got: %s", t.SyncOptions.TrackLogsInterval)
 	}
 	return t.GlobalImpl.ValidateConfig()
 }

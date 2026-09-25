@@ -429,15 +429,11 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 	}()
 
 	captureLogsFromTime := time.Now().Add(-t.trackOptions.LogsSince)
-	// Capture logs whenever either flag wants them. The kubedog tracker
-	// records logs into the logStore unconditionally; the failed-only mode
-	// is enforced at print time by the printer.
+	// Capture logs for either output mode. Failed-only filtering happens in
+	// the printer, after kubedog has populated the log store.
 	wantLogsCapture := t.trackOptions.Logs || t.trackOptions.FailedLogsOnly
 	ignoreLogs := !wantLogsCapture
-	// failedLogsOnly takes effect only when full streaming isn't already on.
 	failedLogsOnly := t.trackOptions.FailedLogsOnly && !t.trackOptions.Logs
-	// skipLogsInPrinter mutes the printer entirely if neither mode is on.
-	skipLogsInPrinter := !wantLogsCapture
 
 	type trackerEntry struct {
 		target    trackTarget
@@ -456,7 +452,10 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 	}
 
 	gateStatuses := newGateStatuses()
-	printer := newProgressPrinter(t.logger, t.releaseName, taskStore, logStore, skipLogsInPrinter, failedLogsOnly, gateStatuses, t.skipped, t.trackOptions.Color)
+	printer := newProgressPrinter(t.logger, t.releaseName, taskStore, logStore, ignoreLogs, failedLogsOnly, gateStatuses, t.skipped, t.trackOptions.Color)
+	if t.trackOptions.LogsInterval > 0 {
+		printer.logsInterval = t.trackOptions.LogsInterval
+	}
 	printerDone := make(chan struct{})
 
 	// Spawn a parallel failure watchdog. It catches pods that genuinely
@@ -553,7 +552,7 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 		if t.releaseName != "" {
 			releaseLabel = fmt.Sprintf("release '%s'", t.releaseName)
 		}
-		t.logger.Warnf("kubedog tracker stopped for %s: %v — helmfile will continue waiting for helm to finish; no more progress/log output until then",
+		t.logger.Warnf("kubedog tracker stopped for %s: %v — helmfile will continue waiting for helm to finish; no more periodic progress/log output until then",
 			releaseLabel, err)
 		cancel()
 	case <-trackersDone:
@@ -564,6 +563,13 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 	cancel()
 	<-trackersDone
 	<-printerDone
+	// Flush after all producers and the periodic printer have stopped. This
+	// guarantees the last lines are printed even if cancellation wins the
+	// printer's select over trackersDone.
+	printer.flushProgress()
+	if !ignoreLogs {
+		printer.flushLogs()
+	}
 
 	// Drain remaining tracker errors so they're surfaced in logs.
 	close(errCh)
