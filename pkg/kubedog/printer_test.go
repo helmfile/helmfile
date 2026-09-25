@@ -855,8 +855,8 @@ func TestFlushHeartbeat_CapsResourceListAndShowsOverflow(t *testing.T) {
 		"progressing items beyond the cap must be summarized by overflow count, not listed")
 }
 
-func TestProgressPrinter_FullRun_CancelsAndDrainsOnContextDone(t *testing.T) {
-	// Smoke test that the run loop terminates cleanly on context cancel.
+func TestProgressPrinter_FullRun_StopsOnContextDone(t *testing.T) {
+	// The tracker performs the final drain after this loop has stopped.
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
 	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
 	logger, _, _ := newBufferedLogger(t)
@@ -874,6 +874,56 @@ func TestProgressPrinter_FullRun_CancelsAndDrainsOnContextDone(t *testing.T) {
 	case <-returned:
 	case <-time.After(2 * time.Second):
 		t.Fatal("printer.run did not return after ctx cancel")
+	}
+}
+
+func TestProgressPrinter_RunFlushesLogsAtConfiguredInterval(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	ts := statestore.NewReadinessTaskState("app", "ns", deploymentGVK, statestore.ReadinessTaskStateOptions{})
+	taskStore.RWTransaction(func(s *statestore.TaskStore) {
+		s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+	})
+
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false)
+	p.logsInterval = 20 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	returned := make(chan struct{})
+	go func() {
+		p.run(ctx, done)
+		close(returned)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-returned:
+		case <-time.After(2 * time.Second):
+			t.Error("printer.run did not return after ctx cancel")
+		}
+	})
+
+	addPodLogs(t, logStore, "app-pod", "interval-line-one")
+	require.Eventually(t, func() bool {
+		return strings.Contains(capturedOutput(buf, mu), "interval-line-one")
+	}, 2*time.Second, 5*time.Millisecond, "first line should appear before tracking finishes")
+
+	// Seeing the second line proves that another logs tick has occurred.
+	addPodLogs(t, logStore, "app-pod", "interval-line-two")
+	require.Eventually(t, func() bool {
+		return strings.Contains(capturedOutput(buf, mu), "interval-line-two")
+	}, 2*time.Second, 5*time.Millisecond)
+
+	out := capturedOutput(buf, mu)
+	assert.Equal(t, 1, strings.Count(out, "interval-line-one"), "a later tick must not repeat earlier lines")
+	assert.Equal(t, 1, strings.Count(out, "interval-line-two"))
+	assert.Equal(t, 1, strings.Count(out, "kubedog progress ("), "log ticks must not print extra progress blocks")
+	select {
+	case <-returned:
+		t.Fatal("printer.run returned before tracking finished")
+	default:
 	}
 }
 

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/agent/llm"
@@ -102,6 +104,7 @@ type ApplyConfigProvider interface {
 	TrackTimeout() int
 	TrackLogs() bool
 	TrackFailedLogs() bool
+	TrackLogsInterval() time.Duration
 	HelmStuckGrace() int
 	TrackFailOnError() bool
 
@@ -146,6 +149,7 @@ type SyncConfigProvider interface {
 	TrackTimeout() int
 	TrackLogs() bool
 	TrackFailedLogs() bool
+	TrackLogsInterval() time.Duration
 	HelmStuckGrace() int
 	TrackFailOnError() bool
 

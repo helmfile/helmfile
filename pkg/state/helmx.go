@@ -330,6 +330,9 @@ func (st *HelmState) buildReleaseTracker(release *ReleaseSpec, opts *SyncOpts, u
 		WithFailedLogsOnly(trackFailedLogs).
 		WithFilterConfig(filterConfig).
 		WithColor(useColor)
+	if opts != nil && opts.TrackLogsInterval > 0 {
+		trackOpts.WithLogsInterval(opts.TrackLogsInterval)
+	}
 
 	tracker, err := kubedog.NewTracker(&kubedog.TrackerConfig{
 		Logger:       st.logger,
