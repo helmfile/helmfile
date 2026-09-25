@@ -26,14 +26,19 @@ releases:
 Or use command-line flags:
 
 ```bash
-helmfile apply --track-mode kubedog --track-timeout 300 --track-logs
+helmfile apply --track-mode kubedog --track-timeout 300 --track-logs --track-logs-interval 1s
 ```
 
 ### Configuration Options
 
 - **`trackMode`**: Set to `kubedog` to enable kubedog tracking, or `helm-legacy` to use Helm v4's legacy wait mode (default: `helm`)
 - **`trackTimeout`**: Timeout in seconds for tracking resources (default: 300)
-- **`trackLogs`**: Enable real-time log streaming from tracked resources
+- **`trackLogs`**: Print logs from tracked resources during deployment
+- **`trackFailedLogs`**: Print collected logs only for pods that fail during deployment
+
+To see logs only for failed pods, set `trackFailedLogs: true` on a release or use `--track-failed-logs` with `helmfile apply` or `helmfile sync`. If both log options are enabled, logs from all tracked pods are printed.
+
+With kubedog tracking and either log option enabled, `helmfile apply` and `helmfile sync` print collected logs every 10 seconds by default. Use `--track-logs-interval` to change this interval (for example, `1s` above). The minimum is `1s`. Deployment progress is checked for changes every 10 seconds.
 
 ### Track Modes
 

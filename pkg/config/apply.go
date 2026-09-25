@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"slices"
+	"time"
 )
 
 // ApplyOptoons is the options for the apply command
@@ -95,6 +96,8 @@ type ApplyOptions struct {
 	TrackLogs bool
 	// TrackFailedLogs streams logs only for pods that enter a failed state.
 	TrackFailedLogs bool
+	// TrackLogsInterval is the interval between kubedog log output updates.
+	TrackLogsInterval time.Duration
 	// HelmStuckGrace, when > 0, enables the helm-killer safety valve. See
 	// ReleaseSpec.HelmStuckGrace for details. Value is in seconds.
 	HelmStuckGrace int
@@ -109,7 +112,7 @@ type ApplyOptions struct {
 
 // NewApply creates a new Apply
 func NewApplyOptions() *ApplyOptions {
-	return &ApplyOptions{}
+	return &ApplyOptions{TrackLogsInterval: defaultTrackLogsInterval}
 }
 
 // ApplyImpl is impl for applyOptions
@@ -346,6 +349,11 @@ func (a *ApplyImpl) TrackFailedLogs() bool {
 	return a.ApplyOptions.TrackFailedLogs
 }
 
+// TrackLogsInterval returns the kubedog log output interval.
+func (a *ApplyImpl) TrackLogsInterval() time.Duration {
+	return a.ApplyOptions.TrackLogsInterval
+}
+
 // HelmStuckGrace returns the helm-stuck-grace value (seconds, 0 = disabled).
 func (a *ApplyImpl) HelmStuckGrace() int {
 	return a.ApplyOptions.HelmStuckGrace
@@ -370,6 +378,9 @@ func (a *ApplyImpl) ValidateConfig() error {
 	validTrackModes := []string{"helm", "helm-legacy", "kubedog"}
 	if a.ApplyOptions.TrackMode != "" && !slices.Contains(validTrackModes, a.ApplyOptions.TrackMode) {
 		return fmt.Errorf("--track-mode must be 'helm', 'helm-legacy', or 'kubedog', got: %s", a.ApplyOptions.TrackMode)
+	}
+	if a.ApplyOptions.TrackLogsInterval < time.Second {
+		return fmt.Errorf("--track-logs-interval must be at least 1s, got: %s", a.ApplyOptions.TrackLogsInterval)
 	}
 	return a.GlobalImpl.ValidateConfig()
 }

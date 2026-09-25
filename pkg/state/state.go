@@ -1083,6 +1083,7 @@ type SyncOpts struct {
 	TrackTimeout         int
 	TrackLogs            bool
 	TrackFailedLogs      bool
+	TrackLogsInterval    time.Duration
 	HelmStuckGrace       int
 	TrackFailOnError     bool
 	Description          string

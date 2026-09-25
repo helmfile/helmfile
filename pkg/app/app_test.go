@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/helmfile/vals"
@@ -2556,6 +2557,7 @@ type applyConfig struct {
 	trackMode                string
 	trackTimeout             int
 	trackLogs                bool
+	trackLogsInterval        time.Duration
 	trackFailOnError         bool
 
 	// template-only options
@@ -2802,6 +2804,10 @@ func (a applyConfig) TrackLogs() bool {
 
 func (a applyConfig) TrackFailedLogs() bool {
 	return false
+}
+
+func (a applyConfig) TrackLogsInterval() time.Duration {
+	return a.trackLogsInterval
 }
 
 func (a applyConfig) HelmStuckGrace() int {
