@@ -45,3 +45,25 @@ jobs:
         with:
           version: latest
           args: release --clean ${{ env.SNAPSHOT }}
+
+  # Publish a signed packslip (https://packslip.dev) listing each archive's
+  # digest, the helmfile executable inside it, its shell completions, and the
+  # skill in skills/helmfile, signed with this workflow's identity so
+  # installers can verify a download without a key this project must hold.
+  # The 386 archives are left out until packslip reads "386" as i686.
+  packslip:
+    needs: goreleaser
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: jdx/packslip@v1
+        with:
+          download: helmfile_*_amd64.tar.gz helmfile_*_arm64.tar.gz
+          bin: helmfile
+          resources: |
+            completion/bash,zsh,fish,powershell=exec:helmfile completion {shell}
+            skill/helmfile=repo:skills/helmfile
