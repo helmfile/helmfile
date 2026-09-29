@@ -3726,6 +3726,7 @@ func TestConditionEnabled(t *testing.T) {
 		values    map[string]any
 		want      bool
 		wantErr   bool
+		errMsg    string
 	}{
 		{
 			name:      "enabled",
@@ -3757,6 +3758,7 @@ func TestConditionEnabled(t *testing.T) {
 			},
 			want:    false,
 			wantErr: true,
+			errMsg:  "environment values field 'fooo' not found",
 		},
 		{
 			name:      "missing enabled",
@@ -3776,6 +3778,7 @@ func TestConditionEnabled(t *testing.T) {
 			},
 			want:    false,
 			wantErr: true,
+			errMsg:  "environment values field 'foo' is not a map",
 		},
 		{
 			name:      "foo missing",
@@ -3783,6 +3786,7 @@ func TestConditionEnabled(t *testing.T) {
 			values:    map[string]any{},
 			want:      false,
 			wantErr:   true,
+			errMsg:    "environment values field 'foo' not found",
 		},
 		{
 			name:      "wrong suffix",
@@ -3827,6 +3831,7 @@ func TestConditionEnabled(t *testing.T) {
 			},
 			want:    false,
 			wantErr: true,
+			errMsg:  "environment values field 'rnd42.unknown' not found",
 		},
 		{
 			name:      "nested values invalid type",
@@ -3841,6 +3846,7 @@ func TestConditionEnabled(t *testing.T) {
 			},
 			want:    false,
 			wantErr: true,
+			errMsg:  "environment values field 'rnd42.invalid' is not a map",
 		},
 		{
 			name:      "empty",
@@ -3877,6 +3883,10 @@ func TestConditionEnabled(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("ConditionEnabled() for %s expected err response", tt.name)
+					return
+				}
+				if tt.errMsg != "" && err.Error() != tt.errMsg {
+					t.Errorf("ConditionEnabled() for %s err = %q, want %q", tt.name, err.Error(), tt.errMsg)
 				}
 				return
 			}
