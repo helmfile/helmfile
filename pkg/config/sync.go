@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// defaultTrackLogsInterval is the default --track-logs-interval shared by
+// the sync and apply commands. It mirrors kubedog's defaultLogsInterval;
+// keep the two in sync.
 const defaultTrackLogsInterval = 10 * time.Second
 
 // SyncOptions is the options for the build command

@@ -18,9 +18,8 @@ import (
 )
 
 const (
-	progressInterval    = 10 * time.Second
-	defaultLogsInterval = 10 * time.Second
-	heartbeatInterval   = 2 * time.Minute
+	progressInterval  = 10 * time.Second
+	heartbeatInterval = 2 * time.Minute
 )
 
 // ANSI escape codes. Hard-coded to keep the dependency list small — these are
@@ -207,6 +206,9 @@ type progressPrinter struct {
 	lastLogSource string
 }
 
+// newProgressPrinter builds the printer that renders progress blocks, log
+// streams, and heartbeats. logsInterval sets the log-flush cadence; a zero
+// value falls back to defaultLogsInterval.
 func newProgressPrinter(
 	logger *zap.SugaredLogger,
 	releaseName string,
@@ -217,7 +219,11 @@ func newProgressPrinter(
 	gates *gateStatuses,
 	skipped *skippedKeys,
 	useColor bool,
+	logsInterval time.Duration,
 ) *progressPrinter {
+	if logsInterval <= 0 {
+		logsInterval = defaultLogsInterval
+	}
 	return &progressPrinter{
 		logger:         logger,
 		releaseName:    releaseName,
@@ -228,7 +234,7 @@ func newProgressPrinter(
 		gates:          gates,
 		skipped:        skipped,
 		useColor:       useColor,
-		logsInterval:   defaultLogsInterval,
+		logsInterval:   logsInterval,
 		startTime:      time.Now(),
 		lastEmit:       time.Now(),
 		lastStatus:     make(map[string]string),

@@ -211,7 +211,7 @@ func TestFlushProgress_HidesStaleReadyPodWithoutAttr(t *testing.T) {
 	taskStore.RWTransaction(func(s *statestore.TaskStore) { s.AddReadinessTaskState(taskC) })
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, true /*skipLogs*/, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true /*skipLogs*/, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
@@ -238,7 +238,7 @@ func TestFlushProgress_PreReadyPhaseAttributeOverridesReady(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
@@ -266,7 +266,7 @@ func TestFlushProgress_KeepsNamespacesWhenReleaseSpansMultiple(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushProgress()
 	out := capturedOutput(buf, mu)
 
@@ -292,7 +292,7 @@ func TestFlushProgress_HidesEmptyNameChildPlaceholder(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
@@ -314,7 +314,7 @@ func TestFlushProgress_HeaderUsesReleaseName(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushProgress()
 	out := capturedOutput(buf, mu)
 	assert.Contains(t, out, "Release 'vray' progress (",
@@ -334,7 +334,7 @@ func TestFlushProgress_HeaderFallsBackWithoutReleaseName(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushProgress()
 	out := capturedOutput(buf, mu)
 	assert.Contains(t, out, "kubedog progress (")
@@ -356,7 +356,7 @@ func TestFlushProgress_NestingAndAlignment(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
@@ -392,7 +392,7 @@ func TestFlushProgress_RespectsGateAndSkip(t *testing.T) {
 	skips.add(kdutil.ResourceID("skipped", "ns", deploymentGVK))
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, gates, skips, false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, gates, skips, false, 0)
 	p.flushProgress()
 
 	out := capturedOutput(buf, mu)
@@ -420,7 +420,7 @@ func TestFlushLogs_FailedOnlyMode_GatesUnchanged(t *testing.T) {
 	addPodLogs(t, logStore, "init-bad", "bad line 1", "panic: boom")
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, false /*skipLogs*/, true /*failedLogsOnly*/, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false /*skipLogs*/, true /*failedLogsOnly*/, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushLogs()
 
 	out := capturedOutput(buf, mu)
@@ -445,7 +445,7 @@ func TestFlushLogs_FailedOnlyMode_DoesNotAdvanceCursorForSuccess(t *testing.T) {
 	addPodLogs(t, logStore, "flaky-pod", "early line A", "early line B")
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, false, true, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, true, newGateStatuses(), newSkippedKeys(), false, 0)
 
 	p.flushLogs()
 	assert.NotContains(t, capturedOutput(buf, mu), "early line",
@@ -474,7 +474,7 @@ func TestFlushLogs_AllPodsMode_EmitsEverything(t *testing.T) {
 	addPodLogs(t, logStore, "init-bad", "bad line 1")
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, false, false /*failedLogsOnly=off*/, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false /*failedLogsOnly=off*/, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.flushLogs()
 
 	out := capturedOutput(buf, mu)
@@ -493,7 +493,7 @@ func TestFlushLogs_HeaderDedupedAcrossFlushes(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false, 0)
 
 	addPodLogs(t, logStore, "app-pod", "line 1", "line 2")
 	p.flushLogs()
@@ -625,7 +625,7 @@ func TestFlushHeartbeat_EmitsWhenIdleWithInFlight(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	// Simulate the silent gap: pretend we last printed long enough ago that
 	// the heartbeat ticker would now fire.
 	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
@@ -664,7 +664,7 @@ func TestFlushHeartbeat_LabelsGatedTasksAsWaiting(t *testing.T) {
 	gates.set(BaselineKey("job", "ns", "queued-job"), "waiting for update (uid=abc gen=1)")
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false, 0)
 	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
 
 	p.flushHeartbeat()
@@ -705,7 +705,7 @@ func TestFlushHeartbeat_ProgressingItemsListedBeforeWaiting(t *testing.T) {
 	gates.set(BaselineKey("job", "ns", "bbb-queued"), "waiting for update (uid=b gen=1)")
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false, 0)
 	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
 
 	p.flushHeartbeat()
@@ -738,7 +738,7 @@ func TestFlushHeartbeat_AllWaitingShowsCountOnly(t *testing.T) {
 	}
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, gates, newSkippedKeys(), false, 0)
 	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
 
 	p.flushHeartbeat()
@@ -768,7 +768,7 @@ func TestFlushHeartbeat_DoesNotUpdateLastEmit(t *testing.T) {
 	})
 
 	logger, _, _ := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	pinned := time.Now().Add(-3 * heartbeatInterval)
 	p.lastEmit = pinned
 
@@ -789,7 +789,7 @@ func TestFlushHeartbeat_SuppressedWhenRecentEmit(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	// lastEmit is current — we just printed something, so the heartbeat
 	// should stay quiet.
 	p.lastEmit = time.Now()
@@ -816,7 +816,7 @@ func TestFlushHeartbeat_SuppressedWhenAllReady(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
 
 	p.flushHeartbeat()
@@ -841,7 +841,7 @@ func TestFlushHeartbeat_CapsResourceListAndShowsOverflow(t *testing.T) {
 	}
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "vray", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 	p.lastEmit = time.Now().Add(-3 * heartbeatInterval)
 
 	p.flushHeartbeat()
@@ -860,7 +860,7 @@ func TestProgressPrinter_FullRun_StopsOnContextDone(t *testing.T) {
 	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
 	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
 	logger, _, _ := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false)
+	p := newProgressPrinter(logger, "", taskStore, logStore, true, false, newGateStatuses(), newSkippedKeys(), false, 0)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -886,8 +886,7 @@ func TestProgressPrinter_RunFlushesLogsAtConfiguredInterval(t *testing.T) {
 	})
 
 	logger, buf, mu := newBufferedLogger(t)
-	p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false)
-	p.logsInterval = 20 * time.Millisecond
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false, 20*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

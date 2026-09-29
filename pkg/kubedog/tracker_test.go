@@ -33,6 +33,7 @@ func TestNewTrackOptions(t *testing.T) {
 	assert.Equal(t, 5*time.Minute, opts.Timeout)
 	assert.Equal(t, false, opts.Logs)
 	assert.Equal(t, 10*time.Minute, opts.LogsSince)
+	assert.Equal(t, 10*time.Second, opts.LogsInterval)
 }
 
 func TestTrackOptions_WithTimeout(t *testing.T) {
@@ -47,6 +48,13 @@ func TestTrackOptions_WithLogs(t *testing.T) {
 	opts = opts.WithLogs(true)
 
 	assert.True(t, opts.Logs)
+}
+
+func TestTrackOptions_WithLogsInterval(t *testing.T) {
+	opts := NewTrackOptions()
+	opts = opts.WithLogsInterval(3 * time.Second)
+
+	assert.Equal(t, 3*time.Second, opts.LogsInterval)
 }
 
 func TestTrackOptions_Chaining(t *testing.T) {
@@ -375,7 +383,8 @@ func TestTrackOptions_Chaining_AllSetters(t *testing.T) {
 		WithQPS(50).
 		WithBurst(80).
 		WithColor(true).
-		WithBaselines(baselines)
+		WithBaselines(baselines).
+		WithLogsInterval(30 * time.Second)
 
 	assert.Equal(t, 2*time.Minute, opts.Timeout)
 	assert.True(t, opts.Logs)
@@ -385,6 +394,7 @@ func TestTrackOptions_Chaining_AllSetters(t *testing.T) {
 	assert.Equal(t, 80, opts.Burst)
 	assert.True(t, opts.Color)
 	assert.Equal(t, baselines, opts.Baselines)
+	assert.Equal(t, 30*time.Second, opts.LogsInterval)
 }
 
 // makeObj builds an *unstructured.Unstructured with the given path/value

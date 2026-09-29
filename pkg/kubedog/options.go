@@ -26,6 +26,10 @@ const (
 	TrackModeKubedog    TrackMode = "kubedog"
 )
 
+// defaultLogsInterval is how often the printer flushes captured logs when
+// TrackOptions.LogsInterval is not set (zero).
+const defaultLogsInterval = 10 * time.Second
+
 type TrackOptions struct {
 	Timeout time.Duration
 	// Logs enables emitting logs for every pod kubedog observes.

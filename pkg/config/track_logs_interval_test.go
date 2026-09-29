@@ -43,6 +43,7 @@ func TestTrackLogsIntervalValidation(t *testing.T) {
 				wantErr  bool
 			}{
 				{name: "zero", interval: 0, wantErr: true},
+				{name: "negative", interval: -time.Second, wantErr: true},
 				{name: "below minimum", interval: 500 * time.Millisecond, wantErr: true},
 				{name: "minimum", interval: time.Second},
 			} {
