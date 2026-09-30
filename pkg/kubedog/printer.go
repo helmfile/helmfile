@@ -19,7 +19,6 @@ import (
 
 const (
 	progressInterval  = 10 * time.Second
-	logsInterval      = 10 * time.Second
 	heartbeatInterval = 2 * time.Minute
 )
 
@@ -191,6 +190,7 @@ type progressPrinter struct {
 	gates          *gateStatuses
 	skipped        *skippedKeys
 	useColor       bool
+	logsInterval   time.Duration
 	startTime      time.Time
 	// lastEmit tracks the most recent time we printed *anything* to the
 	// logger (progress block or log stream). The heartbeat ticker uses it to
@@ -206,6 +206,9 @@ type progressPrinter struct {
 	lastLogSource string
 }
 
+// newProgressPrinter builds the printer that renders progress blocks, log
+// streams, and heartbeats. logsInterval sets the log-flush cadence; a zero
+// value falls back to defaultLogsInterval.
 func newProgressPrinter(
 	logger *zap.SugaredLogger,
 	releaseName string,
@@ -216,7 +219,11 @@ func newProgressPrinter(
 	gates *gateStatuses,
 	skipped *skippedKeys,
 	useColor bool,
+	logsInterval time.Duration,
 ) *progressPrinter {
+	if logsInterval <= 0 {
+		logsInterval = defaultLogsInterval
+	}
 	return &progressPrinter{
 		logger:         logger,
 		releaseName:    releaseName,
@@ -227,6 +234,7 @@ func newProgressPrinter(
 		gates:          gates,
 		skipped:        skipped,
 		useColor:       useColor,
+		logsInterval:   logsInterval,
 		startTime:      time.Now(),
 		lastEmit:       time.Now(),
 		lastStatus:     make(map[string]string),
@@ -237,7 +245,7 @@ func newProgressPrinter(
 func (p *progressPrinter) run(ctx context.Context, done <-chan struct{}) {
 	progressTicker := time.NewTicker(progressInterval)
 	defer progressTicker.Stop()
-	logsTicker := time.NewTicker(logsInterval)
+	logsTicker := time.NewTicker(p.logsInterval)
 	defer logsTicker.Stop()
 	heartbeatTicker := time.NewTicker(heartbeatInterval)
 	defer heartbeatTicker.Stop()
@@ -248,9 +256,6 @@ func (p *progressPrinter) run(ctx context.Context, done <-chan struct{}) {
 		select {
 		case <-progressTicker.C:
 			p.flushProgress()
-			if !p.skipLogs {
-				p.flushLogs()
-			}
 		case <-logsTicker.C:
 			if !p.skipLogs {
 				p.flushLogs()
@@ -258,10 +263,6 @@ func (p *progressPrinter) run(ctx context.Context, done <-chan struct{}) {
 		case <-heartbeatTicker.C:
 			p.flushHeartbeat()
 		case <-done:
-			p.flushProgress()
-			if !p.skipLogs {
-				p.flushLogs()
-			}
 			return
 		case <-ctx.Done():
 			return

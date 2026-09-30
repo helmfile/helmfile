@@ -9,7 +9,7 @@ import (
 
 // NewApplyCmd returns apply subcmd
 func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
-	applyOptions := &config.ApplyOptions{}
+	applyOptions := config.NewApplyOptions()
 
 	cmd := &cobra.Command{
 		Use:   "apply",
@@ -75,6 +75,8 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.IntVar(&applyOptions.TrackTimeout, "track-timeout", 0, `Timeout in seconds for kubedog tracking (0 to use default 300s timeout)`)
 	f.BoolVar(&applyOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking (all pods)")
 	f.BoolVar(&applyOptions.TrackFailedLogs, "track-failed-logs", false, "Enable log streaming with kubedog tracking, but only emit logs for pods that enter a failed state. Overridden by --track-logs when both are set")
+	f.DurationVar(&applyOptions.TrackLogsInterval, "track-logs-interval", applyOptions.TrackLogsInterval,
+		"Interval between kubedog log output updates (minimum 1s)")
 	f.IntVar(&applyOptions.HelmStuckGrace, "helm-stuck-grace", 0, "When using --track-mode kubedog: if the cluster confirms all tracked resources have converged but the helm subprocess is still running, wait this many seconds before sending SIGINT to helm. Recovers from helm v4 hook waiter wedges. May leave the release secret in pending-install state requiring manual cleanup. 0 disables.")
 	f.BoolVar(&applyOptions.TrackFailOnError, "track-fail-on-error", false, "Fail with non-zero exit code when kubedog tracking fails")
 	f.StringVar(&applyOptions.Description, "description", "", `Set description for all releases. If set, overridesdescriptions in helmfile.yaml. Will be passed to "helm upgrade --description"`)

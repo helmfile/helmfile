@@ -26,6 +26,10 @@ const (
 	TrackModeKubedog    TrackMode = "kubedog"
 )
 
+// defaultLogsInterval is how often the printer flushes captured logs when
+// TrackOptions.LogsInterval is not set (zero).
+const defaultLogsInterval = 10 * time.Second
+
 type TrackOptions struct {
 	Timeout time.Duration
 	// Logs enables emitting logs for every pod kubedog observes.
@@ -34,10 +38,12 @@ type TrackOptions struct {
 	// them only for pods that enter a failed state (CrashLoopBackOff, Error,
 	// ImagePullBackOff, etc.). Has no effect when Logs is true.
 	FailedLogsOnly bool
-	LogsSince      time.Duration
-	Filter         *resource.FilterConfig
-	QPS            float32
-	Burst          int
+	// LogsInterval controls how often captured logs are printed.
+	LogsInterval time.Duration
+	LogsSince    time.Duration
+	Filter       *resource.FilterConfig
+	QPS          float32
+	Burst        int
 	// Baselines holds the pre-change state of each resource keyed by
 	// "Kind/Namespace/Name". When set, the tracker delays attaching kubedog
 	// to a resource until its UID changes or its generation increments past
@@ -51,10 +57,11 @@ type TrackOptions struct {
 
 func NewTrackOptions() *TrackOptions {
 	return &TrackOptions{
-		Timeout:   5 * time.Minute,
-		LogsSince: 10 * time.Minute,
-		QPS:       100,
-		Burst:     200,
+		Timeout:      5 * time.Minute,
+		LogsInterval: defaultLogsInterval,
+		LogsSince:    10 * time.Minute,
+		QPS:          100,
+		Burst:        200,
 	}
 }
 
@@ -65,6 +72,12 @@ func (o *TrackOptions) WithTimeout(timeout time.Duration) *TrackOptions {
 
 func (o *TrackOptions) WithLogs(logs bool) *TrackOptions {
 	o.Logs = logs
+	return o
+}
+
+// WithLogsInterval sets how often captured logs are printed.
+func (o *TrackOptions) WithLogsInterval(interval time.Duration) *TrackOptions {
+	o.LogsInterval = interval
 	return o
 }
 
