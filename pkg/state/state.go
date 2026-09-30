@@ -3624,9 +3624,8 @@ func ConditionEnabled(r ReleaseSpec, values map[string]any) (bool, error) {
 		return false, fmt.Errorf("Condition value must be in the form 'foo.enabled' where 'foo' can be modified as necessary")
 	}
 
-	currentKey := ""
-	for _, key := range keys[:len(keys)-1] {
-		currentKey = fmt.Sprintf("%s.%s", currentKey, key)
+	for i, key := range keys[:len(keys)-1] {
+		currentKey := strings.Join(keys[:i+1], ".")
 		value, ok := iValues[key]
 		if !ok {
 			return false, fmt.Errorf("environment values field '%s' not found", currentKey)
