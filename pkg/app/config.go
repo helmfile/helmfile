@@ -103,6 +103,7 @@ type ApplyConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackLogsUntilReady() bool
 	TrackFailedLogs() bool
 	TrackLogsInterval() time.Duration
 	HelmStuckGrace() int
@@ -148,6 +149,7 @@ type SyncConfigProvider interface {
 	TrackMode() string
 	TrackTimeout() int
 	TrackLogs() bool
+	TrackLogsUntilReady() bool
 	TrackFailedLogs() bool
 	TrackLogsInterval() time.Duration
 	HelmStuckGrace() int

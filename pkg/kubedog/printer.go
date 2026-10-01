@@ -187,6 +187,7 @@ type progressPrinter struct {
 	logStore       *kdutil.Concurrent[*logstore.LogStore]
 	skipLogs       bool
 	failedLogsOnly bool
+	podLogFilter   *podLogFilter
 	gates          *gateStatuses
 	skipped        *skippedKeys
 	useColor       bool
@@ -726,6 +727,7 @@ func (p *progressPrinter) flushLogs() {
 						return
 					}
 				}
+				cutoff := p.podLogFilter.cutoff(rl.Name(), rl.Namespace(), rl.GroupVersionKind())
 				for source, lines := range rl.LogLines() {
 					cursorKey := resourceKey + "|" + source
 					start := p.lastCounts[cursorKey]
@@ -733,6 +735,9 @@ func (p *progressPrinter) flushLogs() {
 						continue
 					}
 					for _, ll := range lines[start:] {
+						if !cutoff.IsZero() && ll.Time.After(cutoff) {
+							continue
+						}
 						pending = append(pending, entry{
 							resourceKey:  resourceKey,
 							displayLabel: displayLabel,

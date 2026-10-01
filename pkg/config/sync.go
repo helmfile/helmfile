@@ -67,6 +67,8 @@ type SyncOptions struct {
 	TrackTimeout int
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs bool
+	// TrackLogsUntilReady stops pod log streaming when each pod becomes ready. Requires TrackLogs.
+	TrackLogsUntilReady bool
 	// TrackFailedLogs streams logs only for pods that enter a failed state.
 	TrackFailedLogs bool
 	// TrackLogsInterval is the interval between kubedog log output updates.
@@ -255,6 +257,11 @@ func (t *SyncImpl) TrackTimeout() int {
 // TrackLogs returns the track logs flag.
 func (t *SyncImpl) TrackLogs() bool {
 	return t.SyncOptions.TrackLogs
+}
+
+// TrackLogsUntilReady returns the track-logs-until-ready flag.
+func (t *SyncImpl) TrackLogsUntilReady() bool {
+	return t.SyncOptions.TrackLogsUntilReady
 }
 
 // TrackFailedLogs returns the track-failed-logs flag.

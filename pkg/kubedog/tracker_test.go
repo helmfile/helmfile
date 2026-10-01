@@ -32,6 +32,7 @@ func TestNewTrackOptions(t *testing.T) {
 	assert.NotNil(t, opts)
 	assert.Equal(t, 5*time.Minute, opts.Timeout)
 	assert.Equal(t, false, opts.Logs)
+	assert.False(t, opts.LogsUntilReady)
 	assert.Equal(t, 10*time.Minute, opts.LogsSince)
 	assert.Equal(t, 10*time.Second, opts.LogsInterval)
 }
@@ -55,6 +56,12 @@ func TestTrackOptions_WithLogsInterval(t *testing.T) {
 	opts = opts.WithLogsInterval(3 * time.Second)
 
 	assert.Equal(t, 3*time.Second, opts.LogsInterval)
+}
+
+func TestTrackOptions_WithLogsUntilReady(t *testing.T) {
+	opts := NewTrackOptions().WithLogs(true).WithLogsUntilReady(true)
+	assert.True(t, opts.LogsUntilReady)
+	assert.True(t, opts.Logs)
 }
 
 func TestTrackOptions_Chaining(t *testing.T) {

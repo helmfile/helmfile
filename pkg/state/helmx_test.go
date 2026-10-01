@@ -2,12 +2,15 @@ package state
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testutil"
+	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
 func TestAppendWaitForJobsFlags(t *testing.T) {
@@ -794,6 +797,65 @@ func TestAppendServerSideFlagsForUpgrade(t *testing.T) {
 				require.NoError(t, err, "appendServerSideFlagsForUpgrade() should not return error")
 				require.Equalf(t, tt.args.expected, got, "appendServerSideFlagsForUpgrade() = %v, want %v", got, tt.args.expected)
 			}
+		})
+	}
+}
+
+func TestBuildReleaseTracker_LogsUntilReady(t *testing.T) {
+	kubeconfig := filepath.Join(t.TempDir(), "kubeconfig")
+	require.NoError(t, os.WriteFile(kubeconfig, []byte(`apiVersion: v1
+kind: Config
+clusters:
+- name: test
+  cluster:
+    server: http://127.0.0.1:1
+contexts:
+- name: test
+  context:
+    cluster: test
+current-context: test
+`), 0600))
+
+	tests := []struct {
+		name    string
+		release string
+		opts    *SyncOpts
+		want    bool
+	}{
+		{
+			name: "disabled by default",
+		},
+		{
+			name: "cli enables startup logs",
+			opts: &SyncOpts{TrackLogs: true, TrackLogsUntilReady: true},
+			want: true,
+		},
+		{
+			name:    "release enables startup logs",
+			release: "trackLogs: true\ntrackLogsUntilReady: true\n",
+			want:    true,
+		},
+		{
+			name:    "release false overrides cli true",
+			release: "trackLogsUntilReady: false\n",
+			opts:    &SyncOpts{TrackLogs: true, TrackLogsUntilReady: true},
+		},
+		{
+			name:    "release true overrides cli false",
+			release: "trackLogsUntilReady: true\n",
+			opts:    &SyncOpts{TrackLogs: true},
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var release ReleaseSpec
+			require.NoError(t, yaml.Unmarshal([]byte(tt.release), &release))
+			st := &HelmState{kubeconfig: kubeconfig}
+			_, opts, err := st.buildReleaseTracker(&release, tt.opts, false)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, opts.LogsUntilReady)
 		})
 	}
 }

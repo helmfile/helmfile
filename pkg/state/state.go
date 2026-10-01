@@ -561,9 +561,11 @@ type ReleaseSpec struct {
 	TrackTimeout *int `yaml:"trackTimeout,omitempty"`
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs *bool `yaml:"trackLogs,omitempty"`
+	// TrackLogsUntilReady stops pod log streaming when each pod becomes ready. Requires TrackLogs.
+	TrackLogsUntilReady *bool `yaml:"trackLogsUntilReady,omitempty"`
 	// TrackFailedLogs streams logs only for pods that enter a failed state
 	// (CrashLoopBackOff, Error, etc.). Pods that succeed produce no output.
-	// Has no effect when TrackLogs is true (full streaming wins).
+	// Has no effect when TrackLogs is true (TrackLogs wins).
 	TrackFailedLogs *bool `yaml:"trackFailedLogs,omitempty"`
 	// HelmStuckGrace, when > 0, enables the safety-valve helm-killer for
 	// kubedog tracking: if the cluster confirms every tracked resource has
@@ -1082,6 +1084,7 @@ type SyncOpts struct {
 	TrackMode            string
 	TrackTimeout         int
 	TrackLogs            bool
+	TrackLogsUntilReady  bool
 	TrackFailedLogs      bool
 	TrackLogsInterval    time.Duration
 	HelmStuckGrace       int
