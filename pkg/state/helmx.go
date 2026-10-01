@@ -313,6 +313,11 @@ func (st *HelmState) buildReleaseTracker(release *ReleaseSpec, opts *SyncOpts, u
 		trackLogs = opts.TrackLogs
 	}
 
+	trackLogsUntilReady := release.TrackLogsUntilReady != nil && *release.TrackLogsUntilReady
+	if release.TrackLogsUntilReady == nil && opts != nil {
+		trackLogsUntilReady = opts.TrackLogsUntilReady
+	}
+
 	trackFailedLogs := release.TrackFailedLogs != nil && *release.TrackFailedLogs
 	if release.TrackFailedLogs == nil && opts != nil {
 		trackFailedLogs = opts.TrackFailedLogs
@@ -327,6 +332,7 @@ func (st *HelmState) buildReleaseTracker(release *ReleaseSpec, opts *SyncOpts, u
 	trackOpts := kubedog.NewTrackOptions().
 		WithTimeout(timeout).
 		WithLogs(trackLogs).
+		WithLogsUntilReady(trackLogsUntilReady).
 		WithFailedLogsOnly(trackFailedLogs).
 		WithFilterConfig(filterConfig).
 		WithColor(useColor)

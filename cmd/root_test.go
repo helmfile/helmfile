@@ -82,3 +82,22 @@ func TestRootCmdRegistersOtelTracingFlag(t *testing.T) {
 	assert.Equal(t, "false", flag.DefValue)
 	assert.Contains(t, flag.Usage, "HELMFILE_OTEL_TRACING")
 }
+
+func TestTrackLogsUntilReadyFlag(t *testing.T) {
+	for _, command := range []string{"sync", "apply"} {
+		t.Run(command, func(t *testing.T) {
+			rootCmd, err := NewRootCmd(&config.GlobalOptions{})
+			require.NoError(t, err)
+			cmd, _, err := rootCmd.Find([]string{command})
+			require.NoError(t, err)
+
+			flag := cmd.Flags().Lookup("track-logs-until-ready")
+			require.NotNil(t, flag)
+			assert.Equal(t, "false", flag.DefValue)
+			require.NoError(t, cmd.ParseFlags([]string{"--track-logs", "--track-logs-until-ready"}))
+			enabled, err := cmd.Flags().GetBool("track-logs-until-ready")
+			require.NoError(t, err)
+			assert.True(t, enabled)
+		})
+	}
+}

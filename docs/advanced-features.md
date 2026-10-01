@@ -34,11 +34,38 @@ helmfile apply --track-mode kubedog --track-timeout 300 --track-logs --track-log
 - **`trackMode`**: Set to `kubedog` to enable kubedog tracking, or `helm-legacy` to use Helm v4's legacy wait mode (default: `helm`)
 - **`trackTimeout`**: Timeout in seconds for tracking resources (default: 300)
 - **`trackLogs`**: Print logs from tracked resources during deployment
+- **`trackLogsUntilReady`**: With `trackLogs: true`, stop routine pod logs once each pod first becomes ready (default: false)
 - **`trackFailedLogs`**: Print collected logs only for pods that fail during deployment
 
 To see logs only for failed pods, set `trackFailedLogs: true` on a release or use `--track-failed-logs` with `helmfile apply` or `helmfile sync`. If both log options are enabled, logs from all tracked pods are printed.
 
 With kubedog tracking and either log option enabled, `helmfile apply` and `helmfile sync` print collected logs every 10 seconds by default. Use `--track-logs-interval` to change this interval (for example, `1s` above). The minimum is `1s`. Deployment progress is checked for changes every 10 seconds.
+
+### Startup-Only Pod Logs
+
+Use `trackLogsUntilReady: true` to show startup logs without continuing to print application traffic from ready pods while other replicas are still starting:
+
+```yaml
+releases:
+  - name: myapp
+    chart: ./charts/myapp
+    trackMode: kubedog
+    trackTimeout: 600
+    trackLogs: true
+    trackLogsUntilReady: true
+```
+
+Or use command-line flags:
+
+```bash
+helmfile apply --track-mode kubedog --track-timeout 600 --track-logs --track-logs-until-ready
+```
+
+Logs captured before readiness are flushed. Log output remains limited to startup if the same pod later becomes unready or fails; readiness and failure tracking continue for every pod. Job logs retain their existing behavior.
+
+Kubernetes readiness timestamps have second precision, so logs from the readiness second are retained to avoid losing startup output.
+
+The option defaults to `false`, so `trackLogs: true` continues printing logs throughout tracking. It only applies when `trackLogs` is enabled; `trackFailedLogs: true` alone keeps its existing failed-only behavior. When both `trackLogs` and `trackFailedLogs` are enabled, `trackLogs` takes precedence.
 
 ### Track Modes
 

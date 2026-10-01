@@ -15,6 +15,7 @@ import (
 	kdutil "github.com/werf/kubedog/pkg/trackers/dyntracker/util"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -509,6 +510,94 @@ func TestFlushLogs_HeaderDedupedAcrossFlushes(t *testing.T) {
 		"log header must not carry a trailing colon")
 	assert.Contains(t, out, "line 1")
 	assert.Contains(t, out, "line 4")
+}
+
+func TestFlushLogs_LogsUntilReady(t *testing.T) {
+	for _, kind := range []string{"Deployment", "StatefulSet", "DaemonSet"} {
+		t.Run(kind, func(t *testing.T) {
+			taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+			logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+			gvk := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: kind}
+			ts := statestore.NewReadinessTaskState("app", "ns", gvk, statestore.ReadinessTaskStateOptions{})
+			// The real dyntracker leaves individual pod states unknown until
+			// the entire workload is ready, even when a replica is already Ready.
+			addPodChild(t, ts, "app-ready", "ns", statestore.ResourceStatusUnknown, "Running")
+			addPodChild(t, ts, "app-starting", "ns", statestore.ResourceStatusUnknown, "Running")
+			taskStore.RWTransaction(func(s *statestore.TaskStore) {
+				s.AddReadinessTaskState(kdutil.NewConcurrent(ts))
+			})
+
+			readyTime := time.Unix(100, 500)
+			filter := newPodLogFilter()
+			filter.update(newLogFilterPod("app-ready", "ns", "ready-uid", "True", readyTime))
+			filter.update(newLogFilterPod("app-starting", "ns", "starting-uid", "False", readyTime))
+			logger, buf, mu := newBufferedLogger(t)
+			p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false, 0)
+			p.podLogFilter = filter
+
+			readyLogs := kdutil.NewConcurrent(logstore.NewResourceLogs("app-ready", "ns", podGVK))
+			startingLogs := kdutil.NewConcurrent(logstore.NewResourceLogs("app-starting", "ns", podGVK))
+			logStore.RWTransaction(func(s *logstore.LogStore) {
+				s.AddResourceLogs(readyLogs)
+				s.AddResourceLogs(startingLogs)
+			})
+			readyLogs.RWTransaction(func(rl *logstore.ResourceLogs) {
+				rl.AddLogLine("successful startup", "container/main", readyTime.Add(-time.Second))
+				rl.AddLogLine("at readiness", "container/main", readyTime)
+				rl.AddLogLine("HTTP request", "container/main", readyTime.Add(time.Second))
+			})
+			startingLogs.RWTransaction(func(rl *logstore.ResourceLogs) {
+				rl.AddLogLine("still starting", "container/main", readyTime.Add(time.Second))
+			})
+			p.flushLogs()
+
+			// Late pre-readiness chunks from another container still flush;
+			// repeated traffic from the ready replica stays silent.
+			readyLogs.RWTransaction(func(rl *logstore.ResourceLogs) {
+				rl.AddLogLine("late startup chunk", "container/sidecar", readyTime.Add(-time.Millisecond))
+				rl.AddLogLine("background job", "container/sidecar", readyTime.Add(time.Second))
+				rl.AddLogLine("another HTTP request", "container/main", readyTime.Add(2*time.Second))
+			})
+			p.flushLogs()
+			out := capturedOutput(buf, mu)
+			assert.Contains(t, out, "successful startup")
+			assert.Contains(t, out, "at readiness")
+			assert.Contains(t, out, "late startup chunk")
+			assert.Contains(t, out, "still starting")
+			assert.NotContains(t, out, "HTTP request")
+			assert.NotContains(t, out, "background job")
+			assert.Equal(t, 4, p.lastCounts["Pod/ns/app-ready|container/main"])
+			assert.Equal(t, 2, p.lastCounts["Pod/ns/app-ready|container/sidecar"])
+			p.flushLogs()
+			assert.Equal(t, out, capturedOutput(buf, mu), "startup lines must not be duplicated")
+
+			// Filtering logs must not mutate readiness or hide a later failure.
+			assert.NotEqual(t, statestore.ReadinessTaskStatusReady, ts.Status())
+			flipPodPhase(t, ts, "app-ready", "ns", "CrashLoopBackOff")
+			p.flushProgress()
+			assert.Contains(t, capturedOutput(buf, mu), "CrashLoopBackOff")
+			assert.Contains(t, p.collectFailedPodIDs(), kdutil.ResourceID("app-ready", "ns", podGVK))
+		})
+	}
+}
+
+func TestFlushLogs_LogsUntilReady_JobLogs(t *testing.T) {
+	taskStore := kdutil.NewConcurrent(statestore.NewTaskStore())
+	logStore := kdutil.NewConcurrent(logstore.NewLogStore())
+	logger, buf, mu := newBufferedLogger(t)
+	p := newProgressPrinter(logger, "", taskStore, logStore, false, false, newGateStatuses(), newSkippedKeys(), false, 0)
+	p.podLogFilter = newPodLogFilter()
+	pod := newLogFilterPod("job-pod", "ns", "job-uid", "True", time.Unix(0, 0))
+	pod.SetOwnerReferences([]metav1.OwnerReference{{Kind: "Job", Name: "job"}})
+	p.podLogFilter.update(pod)
+	addPodLogs(t, logStore, "job-pod", "job started", "job still running")
+	p.flushLogs()
+	addPodLogs(t, logStore, "job-pod", "job completed")
+	p.flushLogs()
+	out := capturedOutput(buf, mu)
+	assert.Contains(t, out, "job started")
+	assert.Contains(t, out, "job still running")
+	assert.Contains(t, out, "job completed")
 }
 
 func TestHeaderDivider_FormatsBothBorders(t *testing.T) {

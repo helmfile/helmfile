@@ -454,6 +454,12 @@ func (t *Tracker) TrackResources(ctx context.Context, resources []*resource.Reso
 	gateStatuses := newGateStatuses()
 	printer := newProgressPrinter(t.logger, t.releaseName, taskStore, logStore, ignoreLogs,
 		failedLogsOnly, gateStatuses, t.skipped, t.trackOptions.Color, t.trackOptions.LogsInterval)
+	if t.trackOptions.Logs && t.trackOptions.LogsUntilReady {
+		printer.podLogFilter = newPodLogFilter()
+		if err := printer.podLogFilter.watch(informerFactory, targets); err != nil {
+			return err
+		}
+	}
 	printerDone := make(chan struct{})
 
 	// Spawn a parallel failure watchdog. It catches pods that genuinely
