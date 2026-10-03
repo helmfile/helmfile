@@ -76,6 +76,30 @@ Use "helmfile [command] --help" for more information about a command.
 
 **Note:** Each command has its own specific flags. Use `helmfile [command] --help` to see command-specific options. For example, `helmfile sync --help` shows operational flags like `--timeout`, `--wait`, and `--wait-for-jobs`.
 
+### State value overrides
+
+Use `--state-values-set` to override `.Values` within the Helmfile template. Separate
+assignments with commas, and escape a comma inside a value with `\,`:
+
+```bash
+helmfile --state-values-set 'message=hello\,world,replicas=2' build
+```
+
+This sets `message` to the string `hello,world` and `replicas` to the number `2`.
+Single quotes preserve the backslash when passing the argument through the shell.
+Backslashes before other characters and at the end of a value are preserved.
+
+`--state-values-set-string` accepts the same syntax but keeps every value as a
+string without type conversion. Its values may additionally be wrapped in
+single or double quotes, which allows commas without escaping:
+
+```bash
+helmfile --state-values-set-string 'zone="zone1,zone2",imageTag=1.23.3' build
+```
+
+Malformed assignments (missing `=`, empty key, or a trailing comma) are reported
+as errors instead of being partially applied.
+
 ### init
 
 The `helmfile init` sub-command checks the dependencies required for helmfile operation, such as `helm`, `helm diff plugin`, `helm secrets plugin`, `helm helm-git plugin`, `helm s3 plugin`. When it does not exist or the version is too low, it can be installed automatically.
