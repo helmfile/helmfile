@@ -168,3 +168,39 @@ func TestPodLogFilter_WatchesExistingPodsAndUpdatesUsingSharedInformer(t *testin
 	}, 5*time.Second, 10*time.Millisecond, "updates must stop logs independently of the other pod")
 	assert.EqualValues(t, 1, watches.Load(), "consumers and repeated targets must share one pod watch")
 }
+
+func TestCutoffTrackedKind(t *testing.T) {
+	for kind, want := range map[string]bool{
+		"deploy": true,
+		"sts":    true,
+		"ds":     true,
+		"job":    false,
+		"pvc":    false,
+		"canary": false,
+	} {
+		t.Run(kind, func(t *testing.T) {
+			assert.Equal(t, want, cutoffTrackedKind(kind))
+		})
+	}
+}
+
+func TestNewStartupLogFilter(t *testing.T) {
+	// Every combination below must yield a nil filter without touching the
+	// informer factory: startup-only cutoffs apply solely to full streaming.
+	nilFilterCases := []struct {
+		name    string
+		options *TrackOptions
+	}{
+		{name: "nil options", options: nil},
+		{name: "no log streaming", options: NewTrackOptions().WithLogsUntilReady(true)},
+		{name: "streaming without cutoff", options: NewTrackOptions().WithLogs(true)},
+		{name: "failed-only mode", options: NewTrackOptions().WithFailedLogsOnly(true).WithLogsUntilReady(true)},
+	}
+	for _, tt := range nilFilterCases {
+		t.Run(tt.name, func(t *testing.T) {
+			filter, err := newStartupLogFilter(tt.options, nil, nil)
+			require.NoError(t, err)
+			assert.Nil(t, filter)
+		})
+	}
+}
