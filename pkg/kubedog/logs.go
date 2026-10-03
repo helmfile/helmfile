@@ -29,38 +29,74 @@ func newPodLogFilter() *podLogFilter {
 	return &podLogFilter{cutoffs: make(map[string]podLogCutoff)}
 }
 
+// newStartupLogFilter returns a readiness-tracking log filter when log
+// streaming is limited to startup output, or nil otherwise.
+func newStartupLogFilter(options *TrackOptions, factory *kdutil.Concurrent[*informer.InformerFactory], targets []trackTarget) (*podLogFilter, error) {
+	if options == nil || !options.Logs || !options.LogsUntilReady {
+		return nil, nil
+	}
+	filter := newPodLogFilter()
+	if err := filter.watch(factory, targets); err != nil {
+		return nil, err
+	}
+	return filter, nil
+}
+
+// cutoffTrackedKind reports whether pods of the target kind are subject to
+// readiness-based log cutoff. Jobs are excluded: they can be Ready while
+// still executing.
+func cutoffTrackedKind(kind string) bool {
+	switch kind {
+	case "deploy", "sts", "ds":
+		return true
+	default:
+		return false
+	}
+}
+
+// watchNamespacePods attaches the readiness handler to the shared pod
+// informer for namespace and starts it.
+func (f *podLogFilter) watchNamespacePods(factory *kdutil.Concurrent[*informer.InformerFactory], gvr schema.GroupVersionResource, namespace string) error {
+	var podInformer *kdutil.Concurrent[*informer.Informer]
+	err := factory.RWTransactionErr(func(factory *informer.InformerFactory) error {
+		informer, err := factory.ForNamespace(gvr, namespace)
+		if err != nil {
+			return fmt.Errorf("create pod log informer: %w", err)
+		}
+		podInformer = informer
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return podInformer.RWTransactionErr(func(inf *informer.Informer) error {
+		_, err := inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: f.update,
+			UpdateFunc: func(_, obj any) {
+				f.update(obj)
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("watch pod readiness for logs: %w", err)
+		}
+		inf.Run()
+		return nil
+	})
+}
+
 func (f *podLogFilter) watch(factory *kdutil.Concurrent[*informer.InformerFactory], targets []trackTarget) error {
+	podGVR := schema.GroupVersionResource{Version: "v1", Resource: "pods"}
 	namespaces := make(map[string]struct{})
 	for _, target := range targets {
-		switch target.kind {
-		case "deploy", "sts", "ds":
-		default:
+		if !cutoffTrackedKind(target.kind) {
 			continue
 		}
 		if _, watched := namespaces[target.namespace]; watched {
 			continue
 		}
-		var podInformer *kdutil.Concurrent[*informer.Informer]
-		var err error
-		factory.RWTransaction(func(factory *informer.InformerFactory) {
-			podInformer, err = factory.ForNamespace(schema.GroupVersionResource{Version: "v1", Resource: "pods"}, target.namespace)
-		})
-		if err != nil {
-			return fmt.Errorf("create pod log informer: %w", err)
-		}
-		podInformer.RWTransaction(func(inf *informer.Informer) {
-			_, err = inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
-				AddFunc: f.update,
-				UpdateFunc: func(_, obj any) {
-					f.update(obj)
-				},
-			})
-			if err == nil {
-				inf.Run()
-			}
-		})
-		if err != nil {
-			return fmt.Errorf("watch pod readiness for logs: %w", err)
+		if err := f.watchNamespacePods(factory, podGVR, target.namespace); err != nil {
+			return err
 		}
 		namespaces[target.namespace] = struct{}{}
 	}
@@ -75,12 +111,13 @@ func (f *podLogFilter) update(obj any) {
 	id := kdutil.ResourceID(pod.GetName(), pod.GetNamespace(), watchdogPodGVK)
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if cutoff, found := f.cutoffs[id]; found {
-		if cutoff.uid == pod.GetUID() {
-			return
-		}
-		delete(f.cutoffs, id)
+	// Keep the first Ready transition recorded for this pod instance. A
+	// replacement pod reusing the name starts fresh; delete on a missing key
+	// is a no-op.
+	if cutoff, found := f.cutoffs[id]; found && cutoff.uid == pod.GetUID() {
+		return
 	}
+	delete(f.cutoffs, id)
 	// Job pods can be Ready while still executing; keep their complete output.
 	for _, owner := range pod.GetOwnerReferences() {
 		if owner.Kind == "Job" {
