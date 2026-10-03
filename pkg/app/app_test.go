@@ -2557,6 +2557,7 @@ type applyConfig struct {
 	trackMode                string
 	trackTimeout             int
 	trackLogs                bool
+	trackLogsUntilReady      bool
 	trackLogsInterval        time.Duration
 	trackFailOnError         bool
 
@@ -2800,6 +2801,10 @@ func (a applyConfig) TrackTimeout() int {
 
 func (a applyConfig) TrackLogs() bool {
 	return a.trackLogs
+}
+
+func (a applyConfig) TrackLogsUntilReady() bool {
+	return a.trackLogsUntilReady
 }
 
 func (a applyConfig) TrackFailedLogs() bool {

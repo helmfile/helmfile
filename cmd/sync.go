@@ -58,6 +58,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.StringVar(&syncOptions.TrackMode, "track-mode", "", "Track mode for releases: 'helm' (default), 'helm-legacy' (Helm v4 only), or 'kubedog'")
 	f.IntVar(&syncOptions.TrackTimeout, "track-timeout", 0, `Timeout in seconds for kubedog tracking (0 to use default 300s timeout)`)
 	f.BoolVar(&syncOptions.TrackLogs, "track-logs", false, "Enable log streaming with kubedog tracking (all pods)")
+	f.BoolVar(&syncOptions.TrackLogsUntilReady, "track-logs-until-ready", false, "Stop pod log streaming when each pod becomes ready (requires --track-logs)")
 	f.BoolVar(&syncOptions.TrackFailedLogs, "track-failed-logs", false, "Enable log streaming with kubedog tracking, but only emit logs for pods that enter a failed state. Overridden by --track-logs when both are set")
 	f.DurationVar(&syncOptions.TrackLogsInterval, "track-logs-interval", syncOptions.TrackLogsInterval,
 		"Interval between kubedog log output updates (minimum 1s)")
