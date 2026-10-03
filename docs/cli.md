@@ -89,6 +89,17 @@ This sets `message` to the string `hello,world` and `replicas` to the number `2`
 Single quotes preserve the backslash when passing the argument through the shell.
 Backslashes before other characters and at the end of a value are preserved.
 
+`--state-values-set-string` accepts the same syntax but keeps every value as a
+string without type conversion. Its values may additionally be wrapped in
+single or double quotes, which allows commas without escaping:
+
+```bash
+helmfile --state-values-set-string 'zone="zone1,zone2",imageTag=1.23.3' build
+```
+
+Malformed assignments (missing `=`, empty key, or a trailing comma) are reported
+as errors instead of being partially applied.
+
 ### init
 
 The `helmfile init` sub-command checks the dependencies required for helmfile operation, such as `helm`, `helm diff plugin`, `helm secrets plugin`, `helm helm-git plugin`, `helm s3 plugin`. When it does not exist or the version is too low, it can be installed automatically.
