@@ -34,6 +34,9 @@ type TrackOptions struct {
 	Timeout time.Duration
 	// Logs enables emitting logs for every pod kubedog observes.
 	Logs bool
+	// LogsUntilReady limits Logs to startup output through each pod's first
+	// Ready transition. Job logs are unaffected. Has no effect unless Logs is true.
+	LogsUntilReady bool
 	// FailedLogsOnly enables capturing logs in the background and emitting
 	// them only for pods that enter a failed state (CrashLoopBackOff, Error,
 	// ImagePullBackOff, etc.). Has no effect when Logs is true.
@@ -78,6 +81,12 @@ func (o *TrackOptions) WithLogs(logs bool) *TrackOptions {
 // WithLogsInterval sets how often captured logs are printed.
 func (o *TrackOptions) WithLogsInterval(interval time.Duration) *TrackOptions {
 	o.LogsInterval = interval
+	return o
+}
+
+// WithLogsUntilReady limits pod log output to startup when log streaming is enabled.
+func (o *TrackOptions) WithLogsUntilReady(v bool) *TrackOptions {
+	o.LogsUntilReady = v
 	return o
 }
 

@@ -172,6 +172,23 @@ releases:
     trackLogs: true  # Show pod logs during tracking
 ```
 
+### trackLogsUntilReady
+
+Limit pod log output to startup while continuing readiness and failure tracking:
+
+```yaml
+releases:
+  - name: my-app
+    trackMode: kubedog
+    trackTimeout: 600
+    trackLogs: true
+    trackLogsUntilReady: true
+```
+
+Each pod stops printing routine logs once it first becomes ready, even while other replicas are still starting. Logs captured before readiness are flushed. The same pod does not resume routine log output if it later becomes unready or fails. Job logging is unchanged. The default is `false`, which keeps full streaming when `trackLogs` is enabled. This option does not change `trackFailedLogs` when `trackLogs` is disabled.
+
+The equivalent CLI flags are `--track-logs --track-logs-until-ready` with `--track-mode kubedog`.
+
 ### trackKinds / skipKinds
 
 Control which resource types to track:
