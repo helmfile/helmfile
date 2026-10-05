@@ -18,6 +18,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/config"
 	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/errors"
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/runtime"
 	"github.com/helmfile/helmfile/pkg/state"
@@ -100,7 +101,7 @@ func NewRootCmd(globalConfig *config.GlobalOptions) (*cobra.Command, error) {
 	// Set the global options for the root command.
 	setGlobalOptionsForRootCmd(flags, globalConfig)
 
-	if err := cmd.RegisterFlagCompletionFunc("selector", selectorFlagCompletion); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("selector", selectorFlagCompletion(globalConfig)); err != nil {
 		return nil, fmt.Errorf("registering selector flag completion: %w", err)
 	}
 
@@ -158,58 +159,53 @@ func commandSpanAttributes(cmdName string, g *config.GlobalImpl) []attribute.Key
 
 // selectorFlagCompletion provides shell completion for `-l/--selector`.
 // When the user types a value whose last comma-separated condition starts with
-// `dir=`, this enumerates directories matching the partial path after `=`.
+// `dir=`, this enumerates directories matching the partial path after `=`,
+// relative to the root helmfile directory like the selector itself.
 // Other selector keys/values are too open-ended to enumerate, so the function
 // suppresses default file completion in that case.
-func selectorFlagCompletion(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	const dirPrefix = state.DirLabel + "="
+func selectorFlagCompletion(globalOptions *config.GlobalOptions) cobra.CompletionFunc {
+	return func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		const dirPrefix = state.DirLabel + "="
 
-	groups := strings.Split(toComplete, ",")
-	last := groups[len(groups)-1]
-	if !strings.HasPrefix(last, dirPrefix) {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	leading := strings.Join(groups[:len(groups)-1], ",")
-	if leading != "" {
-		leading += ","
-	}
-
-	partial := strings.TrimPrefix(last, dirPrefix)
-
-	var scanDir, matchPrefix string
-	switch {
-	case partial == "":
-		scanDir, matchPrefix = ".", ""
-	case strings.HasSuffix(partial, "/"):
-		scanDir, matchPrefix = filepath.FromSlash(partial), ""
-	default:
-		scanDir = filepath.FromSlash(filepath.Dir(partial))
-		matchPrefix = filepath.Base(partial)
-	}
-
-	entries, err := os.ReadDir(scanDir)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	suggestions := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
+		groups := strings.Split(toComplete, ",")
+		last := groups[len(groups)-1]
+		if !strings.HasPrefix(last, dirPrefix) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		name := entry.Name()
-		if !strings.HasPrefix(name, matchPrefix) {
-			continue
-		}
-		joined := name
-		if scanDir != "." {
-			joined = filepath.Join(scanDir, name)
-		}
-		suggestions = append(suggestions, leading+dirPrefix+filepath.ToSlash(joined))
-	}
 
-	return suggestions, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+		leading := strings.Join(groups[:len(groups)-1], ",")
+		if leading != "" {
+			leading += ","
+		}
+
+		partial := filepath.FromSlash(strings.TrimPrefix(last, dirPrefix))
+		if partial != "" && !filepath.IsLocal(partial) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		fileOrDir := config.NewGlobalImpl(globalOptions).FileOrDir()
+		rootDir, err := app.DirSelectorRoot(filesystem.DefaultFileSystem(), fileOrDir)
+		if err != nil || rootDir == "" {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		scanDir, matchPrefix := filepath.Split(partial)
+
+		entries, err := os.ReadDir(filepath.Join(rootDir, scanDir))
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		suggestions := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			if !entry.IsDir() || !strings.HasPrefix(entry.Name(), matchPrefix) {
+				continue
+			}
+			suggestions = append(suggestions, leading+dirPrefix+filepath.ToSlash(filepath.Join(scanDir, entry.Name())))
+		}
+
+		return suggestions, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+	}
 }
 
 func setGlobalOptionsForRootCmd(fs *pflag.FlagSet, globalOptions *config.GlobalOptions) {

@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
 )
@@ -30,26 +31,32 @@ func (a *App) resolveRootHelmfileDir() {
 }
 
 func (a *App) computeRootHelmfileDir() string {
-	if a.FileOrDir == "" {
-		wd, err := a.fs.Getwd()
-		if err != nil {
-			a.Logger.Debugf("dir selector unavailable: cannot resolve working directory: %v", err)
-			return ""
-		}
-		return wd
-	}
-	if remote.IsRemote(a.FileOrDir) {
-		return ""
-	}
-	absPath, err := a.fs.Abs(a.FileOrDir)
+	dir, err := DirSelectorRoot(a.fs, a.FileOrDir)
 	if err != nil {
-		a.Logger.Debugf("dir selector unavailable: cannot resolve %q: %v", a.FileOrDir, err)
-		return ""
+		a.Logger.Debugf("dir selector unavailable: cannot resolve root helmfile directory: %v", err)
 	}
-	if a.fs.DirectoryExistsAt(absPath) {
-		return absPath
+	return dir
+}
+
+// DirSelectorRoot returns the absolute directory that dir= selector values
+// are relative to for the given -f value: the working directory when it is
+// empty, the directory itself when it points to one, the file's directory
+// otherwise. Returns "" for a remote helmfile.
+func DirSelectorRoot(fs *filesystem.FileSystem, fileOrDir string) (string, error) {
+	if fileOrDir == "" {
+		return fs.Getwd()
 	}
-	return filepath.Dir(absPath)
+	if remote.IsRemote(fileOrDir) {
+		return "", nil
+	}
+	absPath, err := fs.Abs(fileOrDir)
+	if err != nil {
+		return "", err
+	}
+	if fs.DirectoryExistsAt(absPath) {
+		return absPath, nil
+	}
+	return filepath.Dir(absPath), nil
 }
 
 // dirSelectorGroup holds the positive dir= target values inside one -l
