@@ -25,42 +25,29 @@ type LabelFilter struct {
 
 // Match will match a release that has the same labels as the filter
 func (l LabelFilter) Match(r ReleaseSpec) bool {
-	if len(l.positiveLabels) > 0 {
-		for _, element := range l.positiveLabels {
-			k := element[0]
-			v := element[1]
-			if k == DirLabel {
-				if !matchDirPrefix(r.Labels[DirLabel], v) {
-					return false
-				}
-				continue
-			}
-			if rVal, ok := r.Labels[k]; !ok {
-				return false
-			} else if rVal != v {
-				return false
-			}
+	for _, element := range l.positiveLabels {
+		if !labelMatches(r.Labels, element[0], element[1]) {
+			return false
 		}
 	}
-
-	if len(l.negativeLabels) > 0 {
-		for _, element := range l.negativeLabels {
-			k := element[0]
-			v := element[1]
-			if k == DirLabel {
-				if matchDirPrefix(r.Labels[DirLabel], v) {
-					return false
-				}
-				continue
-			}
-			if rVal, ok := r.Labels[k]; !ok {
-
-			} else if rVal == v {
-				return false
-			}
+	for _, element := range l.negativeLabels {
+		if labelMatches(r.Labels, element[0], element[1]) {
+			return false
 		}
 	}
 	return true
+}
+
+// labelMatches reports whether the release's labels satisfy the single k=v
+// constraint: positive callers require a match, negative callers require no
+// match. The reserved "dir" key matches by directory prefix instead of
+// strict equality.
+func labelMatches(labels map[string]string, k, v string) bool {
+	if k == DirLabel {
+		return matchDirPrefix(labels[DirLabel], v)
+	}
+	val, ok := labels[k]
+	return ok && val == v
 }
 
 // DirLabel is the reserved selector key for path-based release filtering.
@@ -203,21 +190,25 @@ func parseLabelFilters(selectors []string) ([]LabelFilter, error) {
 func (l LabelFilter) positiveLabelsCompatibleWith(other LabelFilter) bool {
 	for _, a := range l.positiveLabels {
 		for _, b := range other.positiveLabels {
-			if a[0] != b[0] {
-				continue
-			}
-			if a[0] == DirLabel {
-				if !DirsCompatible(a[1], b[1]) {
-					return false
-				}
-				continue
-			}
-			if a[1] != b[1] {
+			if !positiveLabelPairCompatible(a, b) {
 				return false
 			}
 		}
 	}
 	return true
+}
+
+// positiveLabelPairCompatible reports whether two positive k=v constraints
+// could be satisfied by the same release. The "dir" key compares with
+// directory-prefix semantics, so overlapping subtrees are compatible.
+func positiveLabelPairCompatible(a, b []string) bool {
+	if a[0] != b[0] {
+		return true
+	}
+	if a[0] == DirLabel {
+		return DirsCompatible(a[1], b[1])
+	}
+	return a[1] == b[1]
 }
 
 // DirsCompatible reports whether two dir= values could both be satisfied by
@@ -236,33 +227,44 @@ var (
 
 // ParseLabels takes a label in the form foo=bar,baz!=bat and returns a LabelFilter that will match the labels
 func ParseLabels(l string) (LabelFilter, error) {
-	lf := LabelFilter{}
-	lf.positiveLabels = [][]string{}
-	lf.negativeLabels = [][]string{}
-	var err error
-	labels := strings.SplitSeq(l, ",")
-	for label := range labels {
-		if match := reLabelMismatch.MatchString(label); match {
-			kv := strings.Split(label, "!=")
-			if kv[0] == DirLabel {
-				if err := validateDirSelectorValue(kv[1]); err != nil {
-					return lf, err
-				}
-			}
+	lf := LabelFilter{
+		positiveLabels: [][]string{},
+		negativeLabels: [][]string{},
+	}
+	for label := range strings.SplitSeq(l, ",") {
+		kv, negative, err := parseOneLabel(label)
+		if err != nil {
+			return lf, err
+		}
+		if negative {
 			lf.negativeLabels = append(lf.negativeLabels, kv)
-		} else if match := reLabelMatch.MatchString(label); match {
-			kv := strings.Split(label, "=")
-			if kv[0] == DirLabel {
-				if err := validateDirSelectorValue(kv[1]); err != nil {
-					return lf, err
-				}
-			}
-			lf.positiveLabels = append(lf.positiveLabels, kv)
 		} else {
-			return lf, fmt.Errorf("malformed label: %s. Expected label in form k=v or k!=v", label)
+			lf.positiveLabels = append(lf.positiveLabels, kv)
 		}
 	}
-	return lf, err
+	return lf, nil
+}
+
+// parseOneLabel parses a single k=v or k!=v label. Values of the reserved
+// "dir" key are validated so unusable targets fail fast.
+func parseOneLabel(label string) (kv []string, negative bool, err error) {
+	sep := ""
+	if reLabelMismatch.MatchString(label) {
+		sep = "!="
+	} else if reLabelMatch.MatchString(label) {
+		sep = "="
+	}
+	if sep == "" {
+		return nil, false, fmt.Errorf("malformed label: %s. Expected label in form k=v or k!=v", label)
+	}
+	kv = strings.Split(label, sep)
+	if kv[0] != DirLabel {
+		return kv, sep == "!=", nil
+	}
+	if err := validateDirSelectorValue(kv[1]); err != nil {
+		return nil, false, err
+	}
+	return kv, sep == "!=", nil
 }
 
 // validateDirSelectorValue rejects dir= and dir!= values that cannot be
