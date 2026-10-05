@@ -1157,9 +1157,6 @@ func (a *App) processStateFileParallel(relPath string, defOpts LoadOpts, converg
 // It returns true if any nested helmfile successfully found matching releases,
 // which is used to update the caller's noMatchInHelmfiles tracking.
 func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, defOpts, opts LoadOpts, converge func(*state.HelmState) (bool, []error), sharedCtx *Context) (bool, error) {
-	rootDir := st.RootDir()
-	stateDir := absd
-
 	anyMatched := false
 	// Parent repo names are constant across sub-helmfiles; compute once for the
 	// "did you mean inherits: [repositories]?" footgun warning. These come from
@@ -1187,7 +1184,7 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 			effectiveSelectors = m.Selectors
 		}
 
-		if skipForDirFilter(rootDir, stateDir, m.Path, effectiveSelectors) {
+		if a.skipForDirFilter(absd, m.Path, effectiveSelectors) {
 			a.Logger.Debugf("skipping subhelmfile %q: outside dir= selector scope", m.Path)
 			continue
 		}
@@ -1660,8 +1657,8 @@ type Opts struct {
 
 func (a *App) visitStatesWithSelectorsAndRemoteSupportWithContext(fileOrDir string, converge func(*state.HelmState) (bool, []error), includeTransitiveNeeds bool, sharedCtx *Context, opt ...LoadOption) error {
 	// Resolve the root helmfile directory anchor for dir= filtering before
-	// any chdir or goroutine fan-out happens further down; computeRoot uses
-	// the process CWD at command start, which is the user's intent.
+	// any chdir or goroutine fan-out happens further down; it uses the
+	// process CWD at command start, which is the user's intent.
 	a.resolveRootHelmfileDir()
 
 	opts := LoadOpts{

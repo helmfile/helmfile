@@ -2,7 +2,7 @@ package app
 
 import (
 	"path/filepath"
-	"strings"
+	"slices"
 
 	"github.com/helmfile/helmfile/pkg/remote"
 	"github.com/helmfile/helmfile/pkg/state"
@@ -33,6 +33,7 @@ func (a *App) computeRootHelmfileDir() string {
 	if a.FileOrDir == "" {
 		wd, err := a.fs.Getwd()
 		if err != nil {
+			a.Logger.Debugf("dir selector unavailable: cannot resolve working directory: %v", err)
 			return ""
 		}
 		return wd
@@ -42,6 +43,7 @@ func (a *App) computeRootHelmfileDir() string {
 	}
 	absPath, err := a.fs.Abs(a.FileOrDir)
 	if err != nil {
+		a.Logger.Debugf("dir selector unavailable: cannot resolve %q: %v", a.FileOrDir, err)
 		return ""
 	}
 	if a.fs.DirectoryExistsAt(absPath) {
@@ -89,94 +91,55 @@ func extractDirSelectorTargets(selectors []string) []dirSelectorGroup {
 
 // skipForDirFilter reports whether a `helmfiles:` entry can be skipped for
 // the given selectors. Remote entries and unresolvable roots always descend.
-func skipForDirFilter(rootDir, stateDir, entryPath string, selectors []string) bool {
+func (a *App) skipForDirFilter(stateDir, entryPath string, selectors []string) bool {
+	rootDir := a.RootHelmfileDir()
 	if rootDir == "" || remote.IsRemote(entryPath) {
 		return false
 	}
-	dirTargets := extractDirSelectorTargets(selectors)
-	if len(dirTargets) == 0 {
+	groups := extractDirSelectorTargets(selectors)
+	if len(groups) == 0 {
 		return false
 	}
-	return !shouldDescendForDirFilter(rootDir, stateDir, entryPath, dirTargets)
+	entryDir, ok := a.entryDirRelativeToRoot(rootDir, stateDir, entryPath)
+	if !ok {
+		return false
+	}
+	return !shouldDescendForDirFilter(entryDir, groups)
 }
 
-// shouldDescendForDirFilter returns true when the sub-helmfile at entryPath
-// could contain a release matching at least one of the dir-selector groups.
-// On any path-computation failure or when entryPath escapes rootDir, returns
-// true: skipping a branch we cannot reason about would silently drop work.
-func shouldDescendForDirFilter(rootDir, stateDir, entryPath string, groups []dirSelectorGroup) bool {
-	if len(groups) == 0 {
-		return true
+// entryDirRelativeToRoot returns the directory holding the helmfile(s) of a
+// `helmfiles:` entry, relative to rootDir: the entry itself when it is a
+// directory, its parent otherwise. Returns false when the entry lies outside
+// rootDir, signaling the caller to descend conservatively.
+func (a *App) entryDirRelativeToRoot(rootDir, stateDir, entryPath string) (string, bool) {
+	abs := entryPath
+	if !filepath.IsAbs(abs) {
+		abs = filepath.Join(stateDir, entryPath)
 	}
+	if !a.fs.DirectoryExistsAt(abs) {
+		abs = filepath.Dir(abs)
+	}
+	return state.DirRelativeToRoot(rootDir, abs)
+}
 
-	rel, ok := relativeEntryPath(rootDir, stateDir, entryPath)
-	if !ok {
+// shouldDescendForDirFilter returns true when a sub-helmfile located in
+// entryDir (relative to the root) could contain a release matching at least
+// one of the dir-selector groups. A branch is relevant for a dir=target when
+// it lives at or below target, or when target lives below it (e.g. an
+// aggregator at apps/helmfile.yaml for target apps/x). The decision only
+// looks at the entry's own location, so it assumes nested entries stay inside
+// their parent's directory.
+func shouldDescendForDirFilter(entryDir string, groups []dirSelectorGroup) bool {
+	if len(groups) == 0 || entryDir == "." {
 		return true
 	}
-	parent := filepath.ToSlash(filepath.Dir(rel))
-	if parent == "." || parent == "" {
-		return true
-	}
-
 	for _, g := range groups {
-		if len(g.targets) == 0 {
-			return true
-		}
-		matched := true
-		for _, target := range g.targets {
-			if !couldContainDirMatch(rel, parent, target) {
-				matched = false
-				break
-			}
-		}
-		if matched {
+		conflicts := slices.ContainsFunc(g.targets, func(target string) bool {
+			return !state.DirsCompatible(entryDir, target)
+		})
+		if !conflicts {
 			return true
 		}
 	}
 	return false
-}
-
-// relativeEntryPath resolves entryPath (possibly relative to stateDir, or
-// already absolute) into a path relative to rootDir, in slash form. Returns
-// (_, false) when the entry escapes rootDir (rel begins with "..") or when
-// path computation fails, signaling the caller to descend conservatively.
-func relativeEntryPath(rootDir, stateDir, entryPath string) (string, bool) {
-	abs := entryPath
-	if !filepath.IsAbs(abs) {
-		base := stateDir
-		if !filepath.IsAbs(base) {
-			absBase, err := filepath.Abs(base)
-			if err != nil {
-				return "", false
-			}
-			base = absBase
-		}
-		abs = filepath.Join(base, entryPath)
-	}
-	rel, err := filepath.Rel(rootDir, abs)
-	if err != nil {
-		return "", false
-	}
-	rel = filepath.ToSlash(rel)
-	if strings.HasPrefix(rel, "..") {
-		return "", false
-	}
-	return rel, true
-}
-
-// couldContainDirMatch reports whether a release defined under the file at
-// entryPath (with parent directory entryParent) could possibly match a
-// dir=target selector, given target's directory-prefix semantics:
-//
-//   - target matches anything at or below target/, so descending into a
-//     branch under target is required.
-//   - the user's target may live below the current entry's parent (e.g. the
-//     entry is an aggregator file at apps/helmfile.yaml and target is
-//     apps/x); in that case descending may reach it.
-func couldContainDirMatch(entryPath, entryParent, target string) bool {
-	if entryPath == target || entryParent == target {
-		return true
-	}
-	return strings.HasPrefix(entryPath, target+"/") ||
-		strings.HasPrefix(target+"/", entryParent+"/")
 }

@@ -69,34 +69,58 @@ func (l LabelFilter) Match(r ReleaseSpec) bool {
 // semantics in LabelFilter rather than the strict equality of other keys.
 const DirLabel = "dir"
 
-// injectLabel returns a copy of r with the Labels map extended by a single
-// key/value. Used to attach state-derived labels (currently only "dir") for
-// matching, without mutating the source release or surfacing the value in
-// user-facing label output.
-func injectLabel(r ReleaseSpec, key, value string) ReleaseSpec {
+// withDirLabel returns r with the "dir" label set to the auto-populated dir
+// for matching, without mutating the source release or surfacing the value in
+// user-facing label output. A user-defined "dir" label is always shadowed:
+// when dir is empty (remote or outside-root helmfiles) it is dropped, so such
+// releases never take part in dir-based filtering.
+func withDirLabel(r ReleaseSpec, dir string) ReleaseSpec {
+	if _, userDefined := r.Labels[DirLabel]; dir == "" && !userDefined {
+		return r
+	}
 	cloned := r
 	cloned.Labels = make(map[string]string, len(r.Labels)+1)
 	maps.Copy(cloned.Labels, r.Labels)
-	cloned.Labels[key] = value
+	if dir == "" {
+		delete(cloned.Labels, DirLabel)
+	} else {
+		cloned.Labels[DirLabel] = dir
+	}
 	return cloned
 }
 
 // matchDirPrefix reports whether a release's dirLabel falls under the user's
 // target value, using directory-prefix semantics: the label must equal the
 // target or live under target/. Inputs are normalized so trailing slashes and
-// `./` prefixes do not matter; `dir=.` selects only releases defined at the
-// root helmfile itself. Empty dirLabel never matches (releases from remote
-// helmfiles or outside-root branches have no anchor).
+// `./` prefixes do not matter. Empty dirLabel never matches (releases from
+// remote helmfiles or outside-root branches have no anchor).
 func matchDirPrefix(dirLabel, value string) bool {
 	if dirLabel == "" {
 		return false
 	}
-	dirLabel = NormalizeDirValue(dirLabel)
-	value = NormalizeDirValue(value)
-	if dirLabel == value {
-		return true
+	return dirAtOrBelow(NormalizeDirValue(dirLabel), NormalizeDirValue(value))
+}
+
+func dirAtOrBelow(dir, ancestor string) bool {
+	return dir == ancestor || strings.HasPrefix(dir, ancestor+"/")
+}
+
+func escapesRoot(normalizedDir string) bool {
+	return normalizedDir == ".." || strings.HasPrefix(normalizedDir, "../")
+}
+
+// DirRelativeToRoot returns absDir relative to rootDir in normalized slash
+// form, or false when absDir lies outside rootDir.
+func DirRelativeToRoot(rootDir, absDir string) (string, bool) {
+	rel, err := filepath.Rel(rootDir, absDir)
+	if err != nil {
+		return "", false
 	}
-	return strings.HasPrefix(dirLabel, value+"/")
+	rel = NormalizeDirValue(rel)
+	if escapesRoot(rel) {
+		return "", false
+	}
+	return rel, true
 }
 
 // NormalizeDirValue canonicalizes a dir= selector value or a "dir" auto-label
@@ -183,7 +207,7 @@ func (l LabelFilter) positiveLabelsCompatibleWith(other LabelFilter) bool {
 				continue
 			}
 			if a[0] == DirLabel {
-				if !dirsCompatible(a[1], b[1]) {
+				if !DirsCompatible(a[1], b[1]) {
 					return false
 				}
 				continue
@@ -196,16 +220,13 @@ func (l LabelFilter) positiveLabelsCompatibleWith(other LabelFilter) bool {
 	return true
 }
 
-// dirsCompatible reports whether two dir= values could both be satisfied by
+// DirsCompatible reports whether two dir= values could both be satisfied by
 // the same release. Compatible when one is at-or-below the other in the
 // directory hierarchy; siblings or unrelated subtrees conflict.
-func dirsCompatible(a, b string) bool {
+func DirsCompatible(a, b string) bool {
 	a = NormalizeDirValue(a)
 	b = NormalizeDirValue(b)
-	if a == b {
-		return true
-	}
-	return strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/")
+	return dirAtOrBelow(a, b) || dirAtOrBelow(b, a)
 }
 
 var (
@@ -258,7 +279,7 @@ func validateDirSelectorValue(v string) error {
 	if strings.HasPrefix(n, "/") {
 		return fmt.Errorf("dir= selector value %q must be a path relative to the root helmfile, not absolute", v)
 	}
-	if n == ".." || strings.HasPrefix(n, "../") {
+	if escapesRoot(n) {
 		return fmt.Errorf("dir= selector value %q escapes the root helmfile directory", v)
 	}
 	return nil

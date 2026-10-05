@@ -123,14 +123,11 @@ func TestSelectorFlagCompletion_DirEnumeratesDirectories(t *testing.T) {
 	// `dir=` should suggest only the subdirs, prefixed with `dir=`.
 	root := t.TempDir()
 	for _, sub := range []string{"apps", "infra"} {
-		assert.NoError(t, os.MkdirAll(filepath.Join(root, sub), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, sub), 0o755))
 	}
-	assert.NoError(t, os.WriteFile(filepath.Join(root, "helmfile.yaml"), []byte("releases: []"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "helmfile.yaml"), []byte("releases: []"), 0o644))
 
-	prev, err := os.Getwd()
-	assert.NoError(t, err)
-	assert.NoError(t, os.Chdir(root))
-	t.Cleanup(func() { _ = os.Chdir(prev) })
+	t.Chdir(root)
 
 	suggestions, _ := selectorFlagCompletion(nil, nil, "dir=")
 	assert.ElementsMatch(t, []string{"dir=apps", "dir=infra"}, suggestions)
@@ -139,12 +136,9 @@ func TestSelectorFlagCompletion_DirEnumeratesDirectories(t *testing.T) {
 func TestSelectorFlagCompletion_DirPartialPath(t *testing.T) {
 	root := t.TempDir()
 	for _, sub := range []string{"apps/opencloud", "apps/openproject", "apps/xwiki"} {
-		assert.NoError(t, os.MkdirAll(filepath.Join(root, sub), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, sub), 0o755))
 	}
-	prev, err := os.Getwd()
-	assert.NoError(t, err)
-	assert.NoError(t, os.Chdir(root))
-	t.Cleanup(func() { _ = os.Chdir(prev) })
+	t.Chdir(root)
 
 	suggestions, _ := selectorFlagCompletion(nil, nil, "dir=apps/op")
 	assert.ElementsMatch(t, []string{"dir=apps/opencloud", "dir=apps/openproject"}, suggestions)
@@ -152,11 +146,8 @@ func TestSelectorFlagCompletion_DirPartialPath(t *testing.T) {
 
 func TestSelectorFlagCompletion_DirCarriesOverPriorGroups(t *testing.T) {
 	root := t.TempDir()
-	assert.NoError(t, os.MkdirAll(filepath.Join(root, "apps"), 0o755))
-	prev, err := os.Getwd()
-	assert.NoError(t, err)
-	assert.NoError(t, os.Chdir(root))
-	t.Cleanup(func() { _ = os.Chdir(prev) })
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "apps"), 0o755))
+	t.Chdir(root)
 
 	suggestions, _ := selectorFlagCompletion(nil, nil, "name=foo,dir=")
 	assert.ElementsMatch(t, []string{"name=foo,dir=apps"}, suggestions)

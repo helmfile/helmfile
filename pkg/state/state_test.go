@@ -7168,6 +7168,7 @@ func TestHelmState_dirLabel(t *testing.T) {
 		{name: "nested under root", rootDir: "/abs/root", basePath: "/abs/root/apps/x", want: "apps/x"},
 		{name: "deeply nested", rootDir: "/abs/root", basePath: "/abs/root/apps/x/sub", want: "apps/x/sub"},
 		{name: "escapes root via ..", rootDir: "/abs/root", basePath: "/abs/other", want: ""},
+		{name: "dir name starting with .. stays inside root", rootDir: "/abs/root", basePath: "/abs/root/..apps", want: "..apps"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -7205,6 +7206,15 @@ func TestHelmState_reservedLabelWarnings(t *testing.T) {
 			wantWarnings: 2,
 		},
 		{
+			name: "template labels use dir",
+			state: &HelmState{
+				Templates: map[string]TemplateSpec{
+					"default": {ReleaseSpec: ReleaseSpec{Labels: map[string]string{DirLabel: "backend"}}},
+				},
+			},
+			wantWarnings: 1,
+		},
+		{
 			name: "unrelated labels are fine",
 			state: &HelmState{
 				CommonLabels: map[string]string{"tier": "backend"},
@@ -7221,6 +7231,31 @@ func TestHelmState_reservedLabelWarnings(t *testing.T) {
 			for _, w := range warnings {
 				assert.Contains(t, w, "will be rejected in a future release")
 			}
+		})
+	}
+}
+
+func TestMarkExcludedReleases_UserDirLabelIsShadowed(t *testing.T) {
+	tests := []struct {
+		name         string
+		dirLabel     string
+		selector     string
+		wantSelected bool
+	}{
+		{name: "no auto label: user value does not match dir=", dirLabel: "", selector: "dir=apps", wantSelected: false},
+		{name: "no auto label: user value does not match dir!=", dirLabel: "", selector: "dir!=apps", wantSelected: true},
+		{name: "auto label wins over user value for dir=", dirLabel: "infra", selector: "dir=apps", wantSelected: false},
+		{name: "auto label is matched", dirLabel: "infra", selector: "dir=infra", wantSelected: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			releases := []ReleaseSpec{{Name: "foo", Labels: map[string]string{DirLabel: "apps/foo"}}}
+
+			got, err := markExcludedReleases(releases, []string{tt.selector}, nil, tt.dirLabel, false)
+			require.NoError(t, err)
+			require.Len(t, got, 1)
+			assert.Equal(t, tt.wantSelected, !got[0].Filtered)
+			assert.Equal(t, "apps/foo", got[0].Labels[DirLabel], "user-facing labels stay untouched")
 		})
 	}
 }

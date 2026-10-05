@@ -203,12 +203,6 @@ func (st *HelmState) SetRootDir(rootDir string) {
 	st.rootDir = rootDir
 }
 
-// RootDir returns the absolute directory of the top-level helmfile, or "" if
-// it has not been set (e.g. for remote roots).
-func (st *HelmState) RootDir() string {
-	return st.rootDir
-}
-
 // SubHelmfileSpec defines the subhelmfile path and options
 type SubHelmfileSpec struct {
 	//path or glob pattern for the sub helmfiles
@@ -3580,6 +3574,11 @@ func (st *HelmState) reservedLabelWarnings() []string {
 	if _, ok := st.CommonLabels[DirLabel]; ok {
 		warnings = append(warnings, fmt.Sprintf("commonLabels uses reserved key %q (auto-populated for dir-based filtering); it is ignored for selectors and will be rejected in a future release, rename it", DirLabel))
 	}
+	for _, name := range slices.Sorted(maps.Keys(st.Templates)) {
+		if _, ok := st.Templates[name].Labels[DirLabel]; ok {
+			warnings = append(warnings, fmt.Sprintf("template %q uses reserved label key %q (auto-populated for dir-based filtering); it is ignored for selectors and will be rejected in a future release, rename it", name, DirLabel))
+		}
+	}
 	for _, r := range st.Releases {
 		if _, ok := r.Labels[DirLabel]; ok {
 			warnings = append(warnings, fmt.Sprintf("release %q uses reserved label key %q (auto-populated for dir-based filtering); it is ignored for selectors and will be rejected in a future release, rename it", r.Name, DirLabel))
@@ -3607,14 +3606,11 @@ func (st *HelmState) dirLabel() string {
 		}
 		base = abs
 	}
-	rel, err := filepath.Rel(st.rootDir, base)
-	if err != nil {
+	rel, ok := DirRelativeToRoot(st.rootDir, base)
+	if !ok {
 		return ""
 	}
-	if strings.HasPrefix(rel, "..") {
-		return ""
-	}
-	return NormalizeDirValue(rel)
+	return rel
 }
 
 // absPath resolves p against the state's filesystem abstraction so paths
@@ -3648,10 +3644,7 @@ func markExcludedReleases(releases []ReleaseSpec, selectors []string, values map
 	}
 	for _, r := range releases {
 		var filterMatch bool
-		matchTarget := r
-		if dirLabel != "" {
-			matchTarget = injectLabel(r, DirLabel, dirLabel)
-		}
+		matchTarget := withDirLabel(r, dirLabel)
 		for _, f := range filters {
 			if f.Match(matchTarget) {
 				filterMatch = true

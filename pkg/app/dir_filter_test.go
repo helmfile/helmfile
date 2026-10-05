@@ -1,12 +1,12 @@
 package app
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/helmfile/helmfile/pkg/testhelper"
 )
@@ -70,84 +70,99 @@ func TestExtractDirSelectorTargets(t *testing.T) {
 	}
 }
 
-func TestCouldContainDirMatch(t *testing.T) {
-	tests := []struct {
-		name        string
-		entryPath   string
-		entryParent string
-		target      string
-		want        bool
-	}{
-		{"entry is inside target subtree", "apps/x/sub/helmfile.yaml", "apps/x/sub", "apps/x", true},
-		{"target is below entry parent", "apps/helmfile.yaml", "apps", "apps/x/sub", true},
-		{"target equals entry parent", "apps/x/helmfile.yaml", "apps/x", "apps/x", true},
-		{"entry parent equals target exactly", "apps/x", "apps", "apps", true},
-		{"entry is sibling of target", "apps/y/helmfile.yaml", "apps/y", "apps/x", false},
-		{"name-collision is not a match", "apps/xenial/helmfile.yaml", "apps/xenial", "apps/x", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, couldContainDirMatch(tt.entryPath, tt.entryParent, tt.target))
-		})
-	}
-}
-
 func TestShouldDescendForDirFilter(t *testing.T) {
-	rootDir, err := filepath.Abs("/workspace/proj")
-	assert.NoError(t, err)
-	stateDir := filepath.Join(rootDir, "opendesk")
+	const target = "opendesk/helmfile/apps/openproject"
 
 	tests := []struct {
 		name     string
-		entry    string
+		entryDir string
 		groups   []dirSelectorGroup
 		wantSkip bool
 	}{
 		{
-			name:   "no groups means caller skipped check; treat as descend",
-			entry:  "helmfile/apps/openproject/helmfile-child.yaml.gotmpl",
-			groups: nil,
+			name:     "no groups means caller skipped check; treat as descend",
+			entryDir: "opendesk/helmfile/apps/openproject",
+			groups:   nil,
 		},
 		{
-			name:   "target inside entry subtree → descend",
-			entry:  "helmfile/apps/openproject/helmfile-child.yaml.gotmpl",
-			groups: []dirSelectorGroup{{targets: []string{"opendesk/helmfile/apps/openproject"}}},
+			name:     "entry in target dir → descend",
+			entryDir: "opendesk/helmfile/apps/openproject",
+			groups:   []dirSelectorGroup{{targets: []string{target}}},
+		},
+		{
+			name:     "entry below target → descend",
+			entryDir: "opendesk/helmfile/apps/openproject/sub",
+			groups:   []dirSelectorGroup{{targets: []string{target}}},
 		},
 		{
 			name:     "sibling service → skip",
-			entry:    "helmfile/apps/xwiki/helmfile-child.yaml.gotmpl",
-			groups:   []dirSelectorGroup{{targets: []string{"opendesk/helmfile/apps/openproject"}}},
+			entryDir: "opendesk/helmfile/apps/xwiki",
+			groups:   []dirSelectorGroup{{targets: []string{target}}},
 			wantSkip: true,
 		},
 		{
-			name:   "entry is ancestor of target → descend",
-			entry:  "helmfile_generic.yaml.gotmpl",
-			groups: []dirSelectorGroup{{targets: []string{"opendesk/helmfile/apps/openproject"}}},
+			name:     "name-collision is not a match → skip",
+			entryDir: "opendesk/helmfile/apps/openproject-extras",
+			groups:   []dirSelectorGroup{{targets: []string{target}}},
+			wantSkip: true,
 		},
 		{
-			name:   "group with no targets is permissive",
-			entry:  "helmfile/apps/xwiki/helmfile-child.yaml.gotmpl",
-			groups: []dirSelectorGroup{{targets: nil}, {targets: []string{"opendesk/helmfile/apps/openproject"}}},
+			name:     "entry is ancestor of target → descend",
+			entryDir: "opendesk",
+			groups:   []dirSelectorGroup{{targets: []string{target}}},
+		},
+		{
+			name:     "entry in root dir → descend",
+			entryDir: ".",
+			groups:   []dirSelectorGroup{{targets: []string{target}}},
+		},
+		{
+			name:     "group with no targets is permissive",
+			entryDir: "opendesk/helmfile/apps/xwiki",
+			groups:   []dirSelectorGroup{{targets: nil}, {targets: []string{target}}},
 		},
 		{
 			name:     "multiple targets in one group: all must allow",
-			entry:    "helmfile/apps/openproject/helmfile-child.yaml.gotmpl",
-			groups:   []dirSelectorGroup{{targets: []string{"opendesk/helmfile/apps/openproject", "opendesk/helmfile/apps/xwiki"}}},
+			entryDir: "opendesk/helmfile/apps/openproject",
+			groups:   []dirSelectorGroup{{targets: []string{target, "opendesk/helmfile/apps/xwiki"}}},
 			wantSkip: true,
 		},
 		{
-			name:   "OR across groups: either matches descends",
-			entry:  "helmfile/apps/openproject/helmfile-child.yaml.gotmpl",
-			groups: []dirSelectorGroup{{targets: []string{"opendesk/helmfile/apps/xwiki"}}, {targets: []string{"opendesk/helmfile/apps/openproject"}}},
+			name:     "OR across groups: either matches descends",
+			entryDir: "opendesk/helmfile/apps/openproject",
+			groups:   []dirSelectorGroup{{targets: []string{"opendesk/helmfile/apps/xwiki"}}, {targets: []string{target}}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := shouldDescendForDirFilter(rootDir, stateDir, tt.entry, tt.groups)
-			assert.Equal(t, !tt.wantSkip, got)
+			assert.Equal(t, !tt.wantSkip, shouldDescendForDirFilter(tt.entryDir, tt.groups))
 		})
 	}
+}
+
+func newDirFilterTestApp(t *testing.T, files map[string]string, fileOrDir string, selectors []string) (*App, *testhelper.TestFs) {
+	t.Helper()
+
+	testFs := testhelper.NewTestFs(files)
+	testFs.Cwd = "/workspace"
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
+
+	app := &App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		OverrideKubeContext:             "default",
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "default",
+		Logger:                          newAppTestLogger(),
+		valsRuntime:                     valsRuntime,
+		FileOrDir:                       fileOrDir,
+		Selectors:                       selectors,
+	}
+	app = injectFs(app, testFs)
+	expectNoCallsToHelm(app)
+	return app, testFs
 }
 
 // TestProcessNestedHelmfiles_DirFilterSkipsSiblings drives the full visit
@@ -186,26 +201,9 @@ releases:
 `,
 	}
 
-	testFs := testhelper.NewTestFs(files)
-	testFs.Cwd = "/workspace"
+	app, testFs := newDirFilterTestApp(t, files, "/workspace/helmfile.yaml", []string{"dir=opendesk/apps/openproject"})
 
-	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
-	assert.NoError(t, err)
-
-	app := &App{
-		OverrideHelmBinary:              DefaultHelmBinary,
-		OverrideKubeContext:             "default",
-		DisableKubeVersionAutoDetection: true,
-		Env:                             "default",
-		Logger:                          newAppTestLogger(),
-		valsRuntime:                     valsRuntime,
-		FileOrDir:                       "/workspace/helmfile.yaml",
-		Selectors:                       []string{"dir=opendesk/apps/openproject"},
-	}
-	app = injectFs(app, testFs)
-	expectNoCallsToHelm(app)
-
-	err = app.ForEachState(Noop, false, SetFilter(true))
+	err := app.ForEachState(Noop, false, SetFilter(true))
 	assert.NoError(t, err)
 
 	childReads := 0
@@ -239,26 +237,9 @@ releases:
 `,
 	}
 
-	testFs := testhelper.NewTestFs(files)
-	testFs.Cwd = "/workspace"
+	app, testFs := newDirFilterTestApp(t, files, "/workspace/root.yaml", []string{"dir=apps/openproject"})
 
-	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
-	assert.NoError(t, err)
-
-	app := &App{
-		OverrideHelmBinary:              DefaultHelmBinary,
-		OverrideKubeContext:             "default",
-		DisableKubeVersionAutoDetection: true,
-		Env:                             "default",
-		Logger:                          newAppTestLogger(),
-		valsRuntime:                     valsRuntime,
-		FileOrDir:                       "/workspace/root.yaml",
-		Selectors:                       []string{"dir=apps/openproject"},
-	}
-	app = injectFs(app, testFs)
-	expectNoCallsToHelm(app)
-
-	err = app.ForEachState(Noop, false, SetFilter(true))
+	err := app.ForEachState(Noop, false, SetFilter(true))
 	assert.NoError(t, err)
 
 	reads := testFs.SuccessfulReads()
@@ -286,26 +267,9 @@ releases:
 	}
 	for _, selector := range []string{"dir=.", "dir=./", "dir=apps/.."} {
 		t.Run(selector, func(t *testing.T) {
-			testFs := testhelper.NewTestFs(files)
-			testFs.Cwd = "/workspace"
+			app, _ := newDirFilterTestApp(t, files, "/workspace/root.yaml", []string{selector})
 
-			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
-			assert.NoError(t, err)
-
-			app := &App{
-				OverrideHelmBinary:              DefaultHelmBinary,
-				OverrideKubeContext:             "default",
-				DisableKubeVersionAutoDetection: true,
-				Env:                             "default",
-				Logger:                          newAppTestLogger(),
-				valsRuntime:                     valsRuntime,
-				FileOrDir:                       "/workspace/root.yaml",
-				Selectors:                       []string{selector},
-			}
-			app = injectFs(app, testFs)
-			expectNoCallsToHelm(app)
-
-			err = app.ForEachState(Noop, false, SetFilter(true))
+			err := app.ForEachState(Noop, false, SetFilter(true))
 			assert.Error(t, err, "dir=. and equivalents should be rejected at parse time")
 		})
 	}
@@ -315,6 +279,11 @@ func TestSkipForDirFilter(t *testing.T) {
 	const rootDir = "/workspace"
 	const stateDir = "/workspace/opendesk"
 	selectors := []string{"dir=opendesk/apps/openproject"}
+
+	testFs := testhelper.NewTestFs(map[string]string{
+		"/workspace/opendesk/apps/openproject/helmfile.yaml": "",
+		"/workspace/opendesk/apps/xwiki/helmfile.yaml":       "",
+	})
 
 	tests := []struct {
 		name      string
@@ -326,13 +295,66 @@ func TestSkipForDirFilter(t *testing.T) {
 		{name: "matching entry descends", entryPath: "apps/openproject/helmfile.yaml", selectors: selectors, rootDir: rootDir, skip: false},
 		{name: "sibling entry is skipped", entryPath: "apps/xwiki/helmfile.yaml", selectors: selectors, rootDir: rootDir, skip: true},
 		{name: "remote entry is never short-circuited", entryPath: "git::https://github.com/example/xwiki.git@helmfile.yaml?ref=main", selectors: selectors, rootDir: rootDir, skip: false},
+		{name: "matching directory entry descends", entryPath: "apps/openproject", selectors: selectors, rootDir: rootDir, skip: false},
+		{name: "sibling directory entry is skipped", entryPath: "apps/xwiki", selectors: selectors, rootDir: rootDir, skip: true},
+		{name: "ancestor directory entry descends", entryPath: "apps", selectors: selectors, rootDir: rootDir, skip: false},
+		{name: "absolute sibling entry is skipped", entryPath: "/workspace/opendesk/apps/xwiki/helmfile.yaml", selectors: selectors, rootDir: rootDir, skip: true},
+		{name: "entry outside root descends", entryPath: "../../shared/helmfile.yaml", selectors: selectors, rootDir: rootDir, skip: false},
 		{name: "no dir selector descends", entryPath: "apps/xwiki/helmfile.yaml", selectors: []string{"tier=frontend"}, rootDir: rootDir, skip: false},
 		{name: "negative dir selector does not prune", entryPath: "apps/xwiki/helmfile.yaml", selectors: []string{"dir!=opendesk/apps/xwiki"}, rootDir: rootDir, skip: false},
 		{name: "unresolvable root descends", entryPath: "apps/xwiki/helmfile.yaml", selectors: selectors, rootDir: "", skip: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.skip, skipForDirFilter(tc.rootDir, stateDir, tc.entryPath, tc.selectors))
+			app := injectFs(&App{rootHelmfileDir: tc.rootDir}, testFs)
+			assert.Equal(t, tc.skip, app.skipForDirFilter(stateDir, tc.entryPath, tc.selectors))
 		})
 	}
+}
+
+func TestProcessNestedHelmfiles_DirFilterSkipsSiblingDirectoryEntries(t *testing.T) {
+	files := map[string]string{
+		"/workspace/helmfile.yaml": `
+helmfiles:
+  - apps/openproject
+  - apps/xwiki
+`,
+		"/workspace/apps/openproject/leaf.yaml": `
+releases:
+  - name: openproject-web
+    chart: stable/openproject
+`,
+		"/workspace/apps/xwiki/leaf.yaml": `
+releases:
+  - name: xwiki
+    chart: stable/xwiki
+`,
+	}
+
+	app, testFs := newDirFilterTestApp(t, files, "/workspace/helmfile.yaml", []string{"dir=apps/openproject"})
+	for _, dir := range []string{"/workspace/apps/openproject", "/workspace/apps/xwiki"} {
+		testFs.GlobFixtures[dir] = []string{dir}
+	}
+
+	var selected []string
+	err := app.ForEachState(func(run *Run) (bool, []error) {
+		releases, err := run.state.GetSelectedReleases(false)
+		if err != nil {
+			return false, []error{err}
+		}
+		for _, r := range releases {
+			selected = append(selected, r.Name)
+		}
+		return len(releases) > 0, nil
+	}, false, SetFilter(true))
+	require.NoError(t, err)
+
+	leafReads := 0
+	for _, r := range testFs.SuccessfulReads() {
+		if strings.HasSuffix(r, "leaf.yaml") {
+			leafReads++
+		}
+	}
+	assert.Equal(t, 1, leafReads, "only the matching directory entry should be read, got reads=%v", testFs.SuccessfulReads())
+	assert.Equal(t, []string{"openproject-web"}, selected)
 }

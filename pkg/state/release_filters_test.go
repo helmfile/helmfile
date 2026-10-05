@@ -333,7 +333,7 @@ func TestDirsCompatible(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, dirsCompatible(tt.a, tt.b))
+			assert.Equal(t, tt.want, DirsCompatible(tt.a, tt.b))
 		})
 	}
 }
@@ -370,6 +370,28 @@ func TestParseLabelsAcceptsValidDirValues(t *testing.T) {
 		t.Run(sel, func(t *testing.T) {
 			_, err := ParseLabels(sel)
 			assert.NoError(t, err, "expected ParseLabels to accept %q", sel)
+		})
+	}
+}
+
+func TestDirRelativeToRoot(t *testing.T) {
+	tests := []struct {
+		name   string
+		absDir string
+		want   string
+		wantOK bool
+	}{
+		{name: "root itself", absDir: "/abs/root", want: ".", wantOK: true},
+		{name: "nested", absDir: "/abs/root/apps/x", want: "apps/x", wantOK: true},
+		{name: "dir name starting with ..", absDir: "/abs/root/..apps", want: "..apps", wantOK: true},
+		{name: "sibling of root", absDir: "/abs/other", wantOK: false},
+		{name: "parent of root", absDir: "/abs", wantOK: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := DirRelativeToRoot("/abs/root", tt.absDir)
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

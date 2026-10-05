@@ -20,6 +20,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/errors"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/runtime"
+	"github.com/helmfile/helmfile/pkg/state"
 	"github.com/helmfile/helmfile/pkg/telemetry"
 )
 
@@ -161,7 +162,7 @@ func commandSpanAttributes(cmdName string, g *config.GlobalImpl) []attribute.Key
 // Other selector keys/values are too open-ended to enumerate, so the function
 // suppresses default file completion in that case.
 func selectorFlagCompletion(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	const dirPrefix = "dir="
+	const dirPrefix = state.DirLabel + "="
 
 	groups := strings.Split(toComplete, ",")
 	last := groups[len(groups)-1]
