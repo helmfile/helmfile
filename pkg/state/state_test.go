@@ -7190,20 +7190,16 @@ func TestHelmState_reservedLabelWarnings(t *testing.T) {
 		{
 			name: "commonLabels uses dir",
 			state: &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					CommonLabels: map[string]string{DirLabel: "backend"},
-				},
+				CommonLabels: map[string]string{DirLabel: "backend"},
 			},
 			wantWarnings: 1,
 		},
 		{
 			name: "release labels use dir",
 			state: &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					Releases: []ReleaseSpec{
-						{Name: "foo", Labels: map[string]string{DirLabel: "backend"}},
-						{Name: "bar", Labels: map[string]string{DirLabel: "frontend"}},
-					},
+				Releases: []ReleaseSpec{
+					{Name: "foo", Labels: map[string]string{DirLabel: "backend"}},
+					{Name: "bar", Labels: map[string]string{DirLabel: "frontend"}},
 				},
 			},
 			wantWarnings: 2,
@@ -7211,11 +7207,9 @@ func TestHelmState_reservedLabelWarnings(t *testing.T) {
 		{
 			name: "unrelated labels are fine",
 			state: &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					CommonLabels: map[string]string{"tier": "backend"},
-					Releases: []ReleaseSpec{
-						{Name: "foo", Labels: map[string]string{"team": "data"}},
-					},
+				CommonLabels: map[string]string{"tier": "backend"},
+				Releases: []ReleaseSpec{
+					{Name: "foo", Labels: map[string]string{"team": "data"}},
 				},
 			},
 		},

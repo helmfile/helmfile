@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"maps"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -75,9 +76,7 @@ const DirLabel = "dir"
 func injectLabel(r ReleaseSpec, key, value string) ReleaseSpec {
 	cloned := r
 	cloned.Labels = make(map[string]string, len(r.Labels)+1)
-	for k, v := range r.Labels {
-		cloned.Labels[k] = v
-	}
+	maps.Copy(cloned.Labels, r.Labels)
 	cloned.Labels[key] = value
 	return cloned
 }
