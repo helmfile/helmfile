@@ -1,2 +1,6 @@
 Building dependency release=installed, chart=../../../charts/httpbin
+Listing releases matching ^installed$
 Listing releases matching ^uninstalled$
+Affected releases are:
+  installed (../../../charts/httpbin) UPDATED
+
