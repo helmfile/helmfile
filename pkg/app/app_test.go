@@ -3483,15 +3483,16 @@ releases:
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
 				// delete frontend-v1 and backend-v1
-				{Filter: "^logging$", Flags: listFlags("", "default")}:        helmexec.HelmReleaseOutput{Chart: "fluent-bit-3.1.0", Status: "deployed"},
-				{Filter: "^front-proxy$", Flags: listFlags("", "default")}:    helmexec.HelmReleaseOutput{Chart: "envoy-3.1.0", Status: "deployed"},
-				{Filter: "^database$", Flags: listFlags("", "default")}:       helmexec.HelmReleaseOutput{Chart: "mysql-3.1.0", Status: "deployed"},
-				{Filter: "^servicemesh$", Flags: listFlags("", "default")}:    helmexec.HelmReleaseOutput{Chart: "istio-3.1.0", Status: "deployed"},
-				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "anotherbackend-3.1.0", Status: "deployed"},
-				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}:    helmexec.HelmReleaseOutput{Chart: "frontend-3.1.0", Status: "deployed"},
-				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}:    helmexec.HelmReleaseOutput{Chart: "frontend-3.1.0", Status: "deployed"},
-				{Filter: "^backend-v1$", Flags: listFlags("", "default")}:     helmexec.HelmReleaseOutput{Chart: "backend-3.1.0", Status: "deployed"},
-				{Filter: "^backend-v2$", Flags: listFlags("", "default")}:     helmexec.HelmReleaseOutput{Chart: "backend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v2$", Flags: listFlags("", "default")}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^logging$", Flags: listFlags("", "default")}:        {Chart: "fluent-bit-3.1.0", Status: "deployed"},
+				{Filter: "^front-proxy$", Flags: listFlags("", "default")}:    {Chart: "envoy-3.1.0", Status: "deployed"},
+				{Filter: "^database$", Flags: listFlags("", "default")}:       {Chart: "mysql-3.1.0", Status: "deployed"},
+				{Filter: "^servicemesh$", Flags: listFlags("", "default")}:    {Chart: "istio-3.1.0", Status: "deployed"},
+				{Filter: "^anotherbackend$", Flags: listFlags("", "default")}: {Chart: "anotherbackend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v1$", Flags: listFlags("", "default")}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v3$", Flags: listFlags("", "default")}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: listFlags("", "default")}:     {Chart: "backend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v2$", Flags: listFlags("", "default")}:     {Chart: "backend-3.1.0", Status: "deployed"},
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
@@ -3530,8 +3531,8 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-context default --reset-values --detailed-exitcode"}: nil,
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{},
 			deleted:  []exectest.Release{},
@@ -3560,7 +3561,11 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 				{Name: "baz", Chart: "stable/mychart3", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
-			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^baz$", Flags: listFlags("", "default")}: {},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {},
+			},
 			upgraded: []exectest.Release{
 				{Name: "baz", Flags: []string{}},
 				{Name: "bar", Flags: []string{}},
@@ -3597,9 +3602,9 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
-				{Filter: "^baz$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart3-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^baz$", Flags: listFlags("", "default")}: {Chart: "mychart3-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "baz", Flags: []string{"--kube-context", "default"}},
@@ -3637,9 +3642,9 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
-				{Filter: "^baz$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart3-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^baz$", Flags: listFlags("", "default")}: {Chart: "mychart3-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "baz", Flags: []string{"--kube-context", "default"}},
@@ -3679,9 +3684,9 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
-				{Filter: "^baz$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart3-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^baz$", Flags: listFlags("", "default")}: {Chart: "mychart3-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "baz", Flags: []string{"--kube-context", "default"}},
@@ -3721,9 +3726,9 @@ releases:
 				{Name: "bar", Chart: "stable/mychart2", Flags: "--disable-validation --kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
-				{Filter: "^baz$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart3-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^baz$", Flags: listFlags("", "default")}: {Chart: "mychart3-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "baz", Flags: []string{"--kube-context", "default"}},
@@ -3932,8 +3937,8 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart1-3.1.0", Status: "deployed"},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {Chart: "mychart1-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
 			},
 			deleted: []exectest.Release{
 				{Name: "foo", Flags: []string{}},
@@ -3961,8 +3966,8 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart1-3.1.0", Status: "deployed"},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {Chart: "mychart1-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
 			},
 			deleted: []exectest.Release{
 				{Name: "bar", Flags: []string{}},
@@ -3992,8 +3997,8 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart1-3.1.0", Status: "deployed"},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {Chart: "mychart1-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{}},
@@ -4022,8 +4027,8 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart1-3.1.0", Status: "deployed"},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {Chart: "mychart1-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{}},
@@ -4052,8 +4057,8 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart1-3.1.0", Status: "deployed"},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {Chart: "mychart1-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "bar", Flags: []string{}},
@@ -4082,8 +4087,8 @@ releases:
 				{Name: "foo", Chart: "stable/mychart1", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart1-3.1.0", Status: "deployed"},
-				{Filter: "^bar$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "mychart2-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("", "default")}: {Chart: "mychart1-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("", "default")}: {Chart: "mychart2-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo", Flags: []string{}},
@@ -4138,8 +4143,8 @@ releases:
 				{Name: "my-release", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "default")}:       helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}:       {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,

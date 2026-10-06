@@ -181,8 +181,8 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--namespace default --reset-values --detailed-exitcode"}:       helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "")}:       helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "")}:       {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -225,7 +225,8 @@ releases:
 				{Name: "external-secrets", Flags: []string{"--namespace", "default"}},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "")}:       {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -277,9 +278,9 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--namespace default --reset-values --detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^external-secrets$", Flags: listFlags("default", "")}:                helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "")}:                      helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}:                {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "")}:                      {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -327,8 +328,9 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--namespace default --reset-values --detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^external-secrets$", Flags: listFlags("default", "")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "")}:       helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}:                {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "")}:                      {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -372,9 +374,9 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: helmexec.HelmReleaseOutput{Chart: "kubernetes-external-secrets", Status: ""},
-				{Filter: "^external-secrets$", Flags: listFlags("default", "")}:                helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "")}:                      helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}:                {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "")}:                      {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -422,9 +424,9 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: helmexec.HelmReleaseOutput{},
-				{Filter: "^external-secrets$", Flags: listFlags("default", "")}:                helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "")}:                      helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "")}: {},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "")}:                {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "")}:                      {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},

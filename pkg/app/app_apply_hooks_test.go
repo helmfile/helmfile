@@ -385,8 +385,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^bar$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo"},
@@ -431,8 +431,8 @@ releases:
 			},
 			selectors: []string{"app=test"},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^bar$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{},
+				{Filter: "^foo$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("default", "default")}: {},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo"},
