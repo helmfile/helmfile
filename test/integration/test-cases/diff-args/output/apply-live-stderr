@@ -1,5 +1,6 @@
 Live output is enabled
 Building dependency release=installed, chart=../../../charts/httpbin
+Listing releases matching ^installed$
 Listing releases matching ^uninstalled$
 Upgrading release=installed, chart=../../../charts/httpbin, namespace=helmfile-tests
 Listing releases matching ^installed$
