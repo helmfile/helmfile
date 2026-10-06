@@ -35,7 +35,7 @@ func TestIsReleaseInstalled_HandlesConnectionError(t *testing.T) {
 	}
 
 	// This should return an error due to connection failure
-	_, err := state.isReleaseInstalled(helmexec.HelmContext{}, helm, release)
+	_, _, err := state.isReleaseInstalled(helmexec.HelmContext{}, helm, release)
 
 	// Verify that error was propagated
 	if err == nil {
@@ -58,6 +58,6 @@ type CustomFailingHelm struct {
 	*exectest.Helm
 }
 
-func (h *CustomFailingHelm) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
-	return "", errors.New("Kubernetes cluster unreachable: Get \"http://localhost:8080/version\": dial tcp [::1]:8080: connect: connection refused")
+func (h *CustomFailingHelm) List(context helmexec.HelmContext, filter string, flags ...string) (helmexec.HelmReleaseOutput, error) {
+	return helmexec.HelmReleaseOutput{}, errors.New("Kubernetes cluster unreachable: Get \"http://localhost:8080/version\": dial tcp [::1]:8080: connect: connection refused")
 }

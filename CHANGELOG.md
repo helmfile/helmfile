@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+### Changed
+
+- `helmfile apply` now always reruns `helm upgrade` for releases that exist in the cluster but are not in the `deployed` state (e.g. `failed` or `pending`), even when helm-diff reports no changes. Previously an unchanged failed release was silently skipped, giving the false impression of a successful deployment (#1043)
+- `helm list` is now invoked with `-o yaml` and its output is parsed into a structured release description instead of tab-separated text (#1043)
+
 ### Added
 
 - Add opt-in OpenTelemetry tracing and metrics (`--otel-tracing` / `HELMFILE_OTEL_TRACING`, experimental): command/state-load/release/hook spans with one span per helm subprocess, plus `helmfile.helm.exec.duration`, `helmfile.release.duration`, and `helmfile.release.count` metrics (per-release dimensions opt-in via `HELMFILE_OTEL_METRICS_PER_RELEASE`), exported via standard `OTEL_*` environment variables. See [docs/otel.md](docs/otel.md) and the [design proposal](docs/proposals/otel-tracing.md) (#2767)
