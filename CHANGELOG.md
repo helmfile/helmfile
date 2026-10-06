@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+### Changed
+
+- `helmfile apply` now always reruns `helm upgrade` for releases that exist in the cluster but are not in the `deployed` state (e.g. `failed` or `pending`), even when helm-diff reports no changes. Previously an unchanged failed release was silently skipped, giving the false impression of a successful deployment (#1043)
+- `helm list` is now invoked with `-o yaml` and its output is parsed into a structured release description instead of tab-separated text (#1043)
+
 ### Added
 
 - Add `condition` to release `dependencies:` entries, written to the generated `Chart.yaml`; it defaults to `<alias or chart name>.enabled` when empty (#1258)
