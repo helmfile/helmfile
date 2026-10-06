@@ -223,6 +223,12 @@ func (c *StateCreator) ParseAndLoad(content []byte, baseDir, file string, envNam
 	}
 	state.RenderedValues = vals
 
+	if evaluateBases {
+		for _, w := range state.reservedLabelWarnings() {
+			c.logger.Warnf("WARNING: %s", w)
+		}
+	}
+
 	return state, nil
 }
 

@@ -215,6 +215,25 @@ The `selector` parameter can be specified multiple times. Each parameter is reso
 
 In addition to user supplied labels, the name, the namespace, and the chart are available to be used as selectors.  The chart will just be the chart name excluding the repository (Example `stable/filebeat` would be selected using `--selector chart=filebeat`).
 
+### The `dir` selector
+
+The `dir=` selector key matches releases by the directory of their defining helmfile, relative to the root directory: the directory of the file passed via `-f` (or that directory itself when `-f` points to one), or the current directory when no `-f` is given. Unlike other selectors, `dir=` uses directory-prefix matching: `--selector dir=apps/opencloud` matches both releases defined directly in `apps/opencloud/` and those in any subdirectory below it. Values are normalized (trailing slashes and `./` prefixes are stripped). Absolute paths, `..` segments that escape the root, and the bare `.` are rejected at parse time; omit the selector entirely to match every release.
+
+The `dir` selector has a second, more important effect: **it short-circuits sub-helmfile traversal**. When `dir=` is set, helmfile inspects each `helmfiles:` entry's path *before* loading or templating it, and skips any branch whose location rules out a matching release. For projects that aggregate many services via nested helmfiles (e.g. opendesk's `helmfile_generic.yaml.gotmpl` lists ~13 services), running `helmfile -l dir=apps/<single-service> sync` becomes roughly as fast as targeting that single service directly, without the cost of parsing and templating the other branches.
+
+The label key `dir` is reserved. If `commonLabels`, a release's `labels` or a release template declares a key named `dir`, helmfile logs a warning and the user-defined value is ignored for selector matching (the auto-populated value shadows it, also for releases that have no auto-populated value). **Deprecation:** this will become a hard error in a future release, so rename such labels now.
+
+#### Interactions worth knowing
+
+* Releases loaded from remote (`git::…`) helmfiles do not receive a `dir` label and the optimization does not engage for them; they are always descended into. The same applies to sub-helmfiles located outside the root directory (e.g. `helmfiles: [../shared/helmfile.yaml]`).
+* The skip decision only looks at the location of the `helmfiles:` entry itself, so it assumes that nested helmfiles stay at or below their parent's directory. A branch that reaches the target via `..` (e.g. `stacks/prod/helmfile.yaml` listing `../../apps/foo/helmfile.yaml`) is skipped for `-l dir=apps/foo`, and its releases are not found.
+* Without `-f`, an auto-discovered `helmfile.d/` is anchored at the current directory, so its releases match `dir=helmfile.d`. With `-f helmfile.d` the anchor is `helmfile.d` itself.
+* **A nested `helmfiles:` entry that declares its own `selectors:` block replaces the CLI selectors for its sub-tree** per the existing inheritance model, so a CLI `-l dir=…` neither filters releases in that branch nor skips traversal below it.
+* Releases declared in a file loaded via `bases:` are merged into the *including* helmfile, so their `dir` value reflects the including helmfile's location rather than the base file's.
+  For example, with `apps/web/helmfile.yaml` containing `bases: [../../common/releases.yaml]`, every release declared in `common/releases.yaml` gets `dir=apps/web`, not `dir=common`; `-l dir=common` matches nothing.
+* Globs in `helmfiles:` (e.g. `apps/**/helmfile.yaml`) are expanded before the dir-skip check, so a missing-file error in an entry that the dir filter would have skipped still fails the parent load. Use `missingFileHandler: Warn` if this is a problem.
+* Cross-branch transitive `needs:` are not auto-resurrected across pruned branches. If a release in `apps/x` depends on one in `apps/y`, run with a `dir=` covering both subtrees.
+
 `commonLabels` can be used when you want to apply the same label to all releases and use [templating](templating.md) based on that.
 For instance, you install a number of charts on every customer but need to provide different values file per customer.
 
