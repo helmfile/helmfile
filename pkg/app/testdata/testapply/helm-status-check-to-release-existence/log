@@ -1,4 +1,5 @@
 merged environment: &{default  map[] map[] map[]}
 2 release(s) found in helmfile.yaml
 
+Checking release existence using `helm status` for release bar
 Checking release existence using `helm status` for release foo_notFound

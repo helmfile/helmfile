@@ -41,7 +41,7 @@ type Helm struct {
 	Linted               []Release
 	Unittested           []Release
 	Templated            []Release
-	Lists                map[ListKey]string
+	Lists                map[ListKey]helmexec.HelmReleaseOutput
 	Diffs                map[DiffKey]error
 	Diffed               []Release
 	FailOnUnexpectedDiff bool
@@ -187,11 +187,11 @@ func (helm *Helm) DeleteRelease(context helmexec.HelmContext, name string, flags
 	helm.Deleted = append(helm.Deleted, Release{Name: name, Flags: flags})
 	return nil
 }
-func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
+func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...string) (helmexec.HelmReleaseOutput, error) {
 	key := ListKey{Filter: filter, Flags: strings.Join(flags, " ")}
 
 	if helm.Lists == nil {
-		return "dummy non-empty helm-list output", nil
+		return helmexec.HelmReleaseOutput{Chart: "dummy-chart-1.0", Status: "deployed"}, nil
 	}
 
 	res, ok := helm.Lists[key]
@@ -200,7 +200,7 @@ func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...str
 		for k := range helm.Lists {
 			keys = append(keys, k.String())
 		}
-		return "", fmt.Errorf("unexpected list key: %v not found in %v", key, strings.Join(keys, ", "))
+		return helmexec.HelmReleaseOutput{}, fmt.Errorf("unexpected list key: %v not found in %v", key, strings.Join(keys, ", "))
 	}
 	return res, nil
 }

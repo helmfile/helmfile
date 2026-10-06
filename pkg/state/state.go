@@ -1017,7 +1017,14 @@ func (st *HelmState) prepareSyncReleases(helm helmexec.Interface, additionalValu
 	return res, errs
 }
 
-func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, error) {
+// isReleaseInstalled reports whether the release exists in the cluster, and
+// whether it is in the "deployed" state. apply uses the second value to force
+// an upgrade for releases that exist but never reached "deployed" (e.g.
+// failed or pending), so that an unchanged helm-diff does not silently skip
+// them. The `helm status` existence-check path cannot distinguish states, so
+// it conservatively reports deployed=true to preserve its historical
+// skip-on-no-change behavior.
+func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helmexec.Interface, release ReleaseSpec) (bool, bool, error) {
 	if os.Getenv(envvar.UseHelmStatusToCheckReleaseExistence) != "" {
 		st.logger.Debugf("Checking release existence using `helm status` for release %s", release.Name)
 
@@ -1027,16 +1034,19 @@ func (st *HelmState) isReleaseInstalled(context helmexec.HelmContext, helm helme
 		}
 		err := helm.ReleaseStatus(context, release.Name, flags...)
 		if err != nil && strings.Contains(err.Error(), "Error: release: not found") {
-			return false, nil
+			return false, false, nil
 		}
-		return true, err
+		return true, true, err
 	}
 
 	out, err := st.listReleases(context, helm, &release)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
-	return out != "", nil
+	if out.Status == "" {
+		return false, false, nil
+	}
+	return true, out.Status == "deployed", nil
 }
 
 func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, releases []ReleaseSpec) ([]ReleaseSpec, error) {
@@ -1045,7 +1055,7 @@ func (st *HelmState) DetectReleasesToBeDeletedForSync(helm helmexec.Interface, r
 		release := releases[i]
 
 		if !release.Desired() {
-			installed, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
+			installed, _, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
 			if err != nil {
 				return nil, err
 			}
@@ -1064,7 +1074,7 @@ func (st *HelmState) DetectReleasesToBeDeleted(helm helmexec.Interface, releases
 	for i := range releases {
 		release := releases[i]
 
-		installed, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
+		installed, _, err := st.isReleaseInstalled(st.createHelmContext(&release, 0), helm, release)
 		if err != nil {
 			return nil, err
 		} else if installed {
@@ -1314,7 +1324,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				if _, err := st.triggerPresyncEvent(release, "sync", relCtx); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else if !release.Desired() {
-					installed, err := st.isReleaseInstalled(context, helm, *release)
+					installed, _, err := st.isReleaseInstalled(context, helm, *release)
 					if err != nil {
 						relErr = newReleaseFailedError(release, err)
 					} else if installed {
@@ -1477,7 +1487,7 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 	}
 
 	st.logger.Infof("Failed to sync due to forbidden updates, attempting to reinstall %q allowed by update strategy", release.Name)
-	installed, err := st.isReleaseInstalled(context, helm, *release)
+	installed, _, err := st.isReleaseInstalled(context, helm, *release)
 	if err != nil {
 		return newReleaseFailedError(release, err)
 	}
@@ -1524,13 +1534,14 @@ func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedR
 	return nil
 }
 
-func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
+func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (helmexec.HelmReleaseOutput, error) {
 	flags := st.kubeConnectionFlags(release)
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
 	}
 	flags = append(flags, "--uninstalling")
 	flags = append(flags, "--deployed", "--failed", "--pending")
+	flags = append(flags, "-o", "yaml")
 	return helm.List(context, "^"+release.Name+"$", flags...)
 }
 
@@ -1538,9 +1549,8 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 	//retrieve the version
 	if out, err := st.listReleases(context, helm, release); err == nil {
 		chartName := filepath.Base(release.Chart)
-		//the regexp without escapes : .*\s.*\s.*\s.*\schartName-(.*?)\s
-		pat := regexp.MustCompile(".*\\s.*\\s.*\\s.*\\s" + chartName + "-(.*?)\\s")
-		versions := pat.FindStringSubmatch(out)
+		pat := regexp.MustCompile(chartName + "-(.*)")
+		versions := pat.FindStringSubmatch(out.Chart)
 		if len(versions) > 0 {
 			return versions[1], nil
 		} else {
@@ -3015,6 +3025,7 @@ type diffPrepareResult struct {
 	files                   []string
 	upgradeDueToSkippedDiff bool
 	suppressDiff            bool
+	deployed                bool
 }
 
 // commonDiffFlags returns common flags for helm diff, not in release-specific context
@@ -3080,26 +3091,29 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	}
 
 	mu := &sync.RWMutex{}
-	installedReleases := map[string]bool{}
+	deployedReleases := map[string]bool{}
 
-	isInstalled := func(r *ReleaseSpec) (bool, error) {
+	isDeployed := func(r *ReleaseSpec) (bool, error) {
 		id := ReleaseToID(r)
 
 		mu.RLock()
-		v, ok := installedReleases[id]
+		v, ok := deployedReleases[id]
 		mu.RUnlock()
 
 		if ok {
 			return v, nil
 		}
 
-		v, err := st.isReleaseInstalled(st.createHelmContext(r, 0), helm, *r)
+		// A release that exists but is not in the "deployed" state (failed,
+		// pending, ...) is reported as not-deployed so that the diff/apply
+		// pipeline below triggers the upgrade instead of skipping it.
+		_, v, err := st.isReleaseInstalled(st.createHelmContext(r, 0), helm, *r)
 		if err != nil {
 			return false, err
 		}
 
 		mu.Lock()
-		installedReleases[id] = v
+		deployedReleases[id] = v
 		mu.Unlock()
 
 		return v, nil
@@ -3148,10 +3162,10 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				}
 
 				if opt.SkipDiffOnInstall {
-					installed, err := isInstalled(release)
+					deployed, err := isDeployed(release)
 					if err != nil {
 						errs = append(errs, err)
-					} else if !installed {
+					} else if !deployed {
 						results <- diffPrepareResult{release: release, upgradeDueToSkippedDiff: true, suppressDiff: suppressDiff}
 						continue
 					}
@@ -3159,11 +3173,11 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				var disableValidation bool
 				if (release.DisableValidationOnInstall != nil && *release.DisableValidationOnInstall) || opt.SkipDiffValidationOnInstall {
-					installed, err := isInstalled(release)
+					deployed, err := isDeployed(release)
 					if err != nil {
 						errs = append(errs, err)
 					} else {
-						disableValidation = !installed
+						disableValidation = !deployed
 					}
 				}
 
@@ -3191,6 +3205,15 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				flags = st.appendValuesControlModeFlag(flags, opt.ReuseValues, opt.ResetValues, release)
 
+				// Determine the deployed state for every diffed release: a
+				// non-deployed (failed/pending) release must be re-upgraded
+				// even when the diff shows no changes. The isDeployed cache
+				// usually already holds the answer from the branches above.
+				deployed, err := isDeployed(release)
+				if err != nil {
+					errs = append(errs, err)
+				}
+
 				flags = append(flags, commonDiffFlags...)
 
 				if len(errs) > 0 {
@@ -3200,7 +3223,7 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 					}
 					results <- diffPrepareResult{errors: rsErrs, files: files, suppressDiff: suppressDiff}
 				} else {
-					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}, files: files, suppressDiff: suppressDiff}
+					results <- diffPrepareResult{release: release, flags: flags, errors: []*ReleaseError{}, files: files, suppressDiff: suppressDiff, deployed: deployed}
 				}
 			}
 		},
@@ -3377,6 +3400,12 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					if relErr.Code != HelmDiffExitCodeChanged {
 						diffSpanErr = relErr
 					}
+				} else if !prep.deployed {
+					// diff found no changes, but the release is not in the
+					// "deployed" state: report it as changed so that apply
+					// reruns the upgrade instead of silently skipping a
+					// failed release.
+					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
 				} else {
 					// diff succeeded, found no changes
 					results <- diffResult{release, nil, buf}
