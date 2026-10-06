@@ -2504,7 +2504,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 	tests := []struct {
 		name          string
 		release       ReleaseSpec
-		listResult    string
+		listResult    helmexec.HelmReleaseOutput
 		expectedError string
 	}{
 		{
@@ -2513,7 +2513,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Name:  "foo",
 				Chart: "../../foo-bar",
 			},
-			listResult:    ``,
+			listResult:    helmexec.HelmReleaseOutput{},
 			expectedError: ``,
 		},
 		{
@@ -2522,8 +2522,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Name:  "foo",
 				Chart: "../../foo-bar",
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			listResult:    helmexec.HelmReleaseOutput{Chart: "foo-bar-2.0.4", Status: "deployed"},
 			expectedError: ``,
 		},
 		{
@@ -2533,8 +2532,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Chart:     "../../foo-bar",
 				Installed: &no,
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			listResult:    helmexec.HelmReleaseOutput{Chart: "foo-bar-2.0.4", Status: "deployed"},
 			expectedError: ``,
 		},
 		{
@@ -2544,7 +2542,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Chart:  "../../foo-bar",
 				Values: []any{"noexistent.values.yaml"},
 			},
-			listResult:    ``,
+			listResult:    helmexec.HelmReleaseOutput{},
 			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist in "."`,
 		},
 		{
@@ -2554,8 +2552,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Chart:  "../../foo-bar",
 				Values: []any{"noexistent.values.yaml"},
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			listResult:    helmexec.HelmReleaseOutput{Chart: "foo-bar-2.0.4", Status: "deployed"},
 			expectedError: `failed processing release foo: values file matching "noexistent.values.yaml" does not exist in "."`,
 		},
 		{
@@ -2566,8 +2563,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 				Values:    []any{"noexistent.values.yaml"},
 				Installed: &no,
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			listResult:    helmexec.HelmReleaseOutput{Chart: "foo-bar-2.0.4", Status: "deployed"},
 			expectedError: ``,
 		},
 	}
@@ -2584,7 +2580,7 @@ func TestHelmState_SyncReleases_MissingValuesFileForUndesiredRelease(t *testing.
 			fs := testhelper.NewTestFs(map[string]string{})
 			state = injectFs(state, fs)
 			helm := &exectest.Helm{
-				Lists: map[exectest.ListKey]string{},
+				Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 			}
 			//simulate the helm.list call result
 			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$"}] = tt.listResult
@@ -2726,12 +2722,12 @@ func TestHelmState_SyncReleasesAffectedRealeases(t *testing.T) {
 				RenderedValues: map[string]any{},
 			}
 			helm := &exectest.Helm{
-				Lists: map[exectest.ListKey]string{},
+				Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 			}
 			//simulate the release is already installed
 			for i, release := range tt.releases {
 				if tt.installed != nil && tt.installed[i] {
-					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling --deployed --failed --pending"}] = release.Name
+					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling --deployed --failed --pending -o yaml"}] = helmexec.HelmReleaseOutput{Chart: release.Name, Status: "deployed"}
 				}
 			}
 
@@ -2827,12 +2823,12 @@ func TestHelmState_SyncReleasesAffectedReleasesWithReinstallIfForbidden(t *testi
 				RenderedValues: map[string]any{},
 			}
 			helm := &exectest.Helm{
-				Lists: map[exectest.ListKey]string{},
+				Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 			}
 			//simulate the release is already installed
 			for i, release := range tt.releases {
 				if tt.installed != nil && tt.installed[i] {
-					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling --deployed --failed --pending"}] = release.Name
+					helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling --deployed --failed --pending -o yaml"}] = helmexec.HelmReleaseOutput{Chart: release.Name, Status: "deployed"}
 				}
 			}
 
@@ -2878,7 +2874,7 @@ func TestGetDeployedVersion(t *testing.T) {
 	tests := []struct {
 		name             string
 		release          ReleaseSpec
-		listResult       string
+		listResult       helmexec.HelmReleaseOutput
 		installedVersion string
 	}{
 		{
@@ -2887,8 +2883,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				Name:  "foo",
 				Chart: "../../foo-bar",
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-2.0.4	0.1.0      	default`,
+			listResult:       helmexec.HelmReleaseOutput{Chart: "foo-bar-2.0.4", Status: "deployed"},
 			installedVersion: "2.0.4",
 		},
 		{
@@ -2897,8 +2892,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				Name:  "foo-bar",
 				Chart: "registry/foo-bar",
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha.1	0.1.0      	default`,
+			listResult:       helmexec.HelmReleaseOutput{Chart: "foo-bar-1.0.0-alpha.1", Status: "deployed"},
 			installedVersion: "1.0.0-alpha.1",
 		},
 		{
@@ -2907,8 +2901,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				Name:  "foo-bar",
 				Chart: "registry/foo-bar",
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha+001	0.1.0      	default`,
+			listResult:       helmexec.HelmReleaseOutput{Chart: "foo-bar-1.0.0-alpha+001", Status: "deployed"},
 			installedVersion: "1.0.0-alpha+001",
 		},
 		{
@@ -2917,8 +2910,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				Name:  "foo-bar",
 				Chart: "registry/foo-bar",
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo-bar-release	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar-1.0.0-alpha+001	0.1.0      	default`,
+			listResult:       helmexec.HelmReleaseOutput{Chart: "foo-bar-1.0.0-alpha+001", Status: "deployed"},
 			installedVersion: "1.0.0-alpha+001",
 		},
 		{
@@ -2927,8 +2919,7 @@ func TestGetDeployedVersion(t *testing.T) {
 				Name:  "foo",
 				Chart: "../../foo-bar",
 			},
-			listResult: `NAME 	REVISION	UPDATED                 	STATUS  	CHART                      	APP VERSION	NAMESPACE
-										foo	1       	Wed Apr 17 17:39:04 2019	DEPLOYED	foo-bar      	0.1.0      	default`,
+			listResult:       helmexec.HelmReleaseOutput{Chart: "foo-bar", Status: "deployed"},
 			installedVersion: "3.2.0",
 		},
 	}
@@ -2942,10 +2933,10 @@ func TestGetDeployedVersion(t *testing.T) {
 			}
 
 			helm := &exectest.Helm{
-				Lists: map[exectest.ListKey]string{},
+				Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 			}
 			// simulate the helm.list call result
-			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$", Flags: "--uninstalling --deployed --failed --pending"}] = tt.listResult
+			helm.Lists[exectest.ListKey{Filter: "^" + tt.release.Name + "$", Flags: "--uninstalling --deployed --failed --pending -o yaml"}] = tt.listResult
 
 			affectedReleases := AffectedReleases{}
 			state.SyncReleases(&affectedReleases, helm, []string{}, 1)
@@ -4245,11 +4236,11 @@ func TestHelmState_Delete(t *testing.T) {
 				RenderedValues: map[string]any{},
 			}
 			helm := &exectest.Helm{
-				Lists:   map[exectest.ListKey]string{},
+				Lists:   map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 				Deleted: []exectest.Release{},
 			}
 			if tt.installed {
-				helm.Lists[exectest.ListKey{Filter: "^" + name + "$", Flags: tt.flags}] = name
+				helm.Lists[exectest.ListKey{Filter: "^" + name + "$", Flags: tt.flags}] = helmexec.HelmReleaseOutput{Chart: name, Status: "deployed"}
 			}
 			affectedReleases := AffectedReleases{}
 			errs := state.DeleteReleases(&affectedReleases, helm, 1, tt.purge, "")
@@ -4340,7 +4331,7 @@ func TestDiffpareSyncReleases(t *testing.T) {
 			valsRuntime:  valsRuntime,
 		}
 		helm := &exectest.Helm{
-			Lists: map[exectest.ListKey]string{},
+			Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 		}
 		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
 
@@ -4354,8 +4345,8 @@ func TestDiffpareSyncReleases(t *testing.T) {
 }
 
 func TestPrepareDiffReleases_SkipDiffValidationOnInstall(t *testing.T) {
-	installedListOutput := "NAME\tNAMESPACE\tREVISION\tSTATUS\nfoo\tdefault\t1\tdeployed"
-	listFlags := "--uninstalling --deployed --failed --pending"
+	installedList := helmexec.HelmReleaseOutput{Chart: "foo", Status: "deployed"}
+	listFlags := "--uninstalling --deployed --failed --pending -o yaml"
 
 	tests := []struct {
 		name                        string
@@ -4405,9 +4396,9 @@ func TestPrepareDiffReleases_SkipDiffValidationOnInstall(t *testing.T) {
 				logger:       logger,
 				valsRuntime:  valsRuntime,
 			}
-			lists := map[exectest.ListKey]string{}
+			lists := map[exectest.ListKey]helmexec.HelmReleaseOutput{}
 			if tt.installed {
-				lists[exectest.ListKey{Filter: "^foo$", Flags: listFlags}] = installedListOutput
+				lists[exectest.ListKey{Filter: "^foo$", Flags: listFlags}] = installedList
 			}
 			helm := &exectest.Helm{Lists: lists}
 
@@ -4501,7 +4492,7 @@ func TestPrepareSyncReleases(t *testing.T) {
 			valsRuntime:  valsRuntime,
 		}
 		helm := &exectest.Helm{
-			Lists: map[exectest.ListKey]string{},
+			Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 		}
 		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
 
@@ -6981,7 +6972,7 @@ func TestPrepareDiffReleases_ValueControlReleaseOverride(t *testing.T) {
 			valsRuntime:  valsRuntime,
 		}
 		helm := &exectest.Helm{
-			Lists: map[exectest.ListKey]string{},
+			Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 		}
 		results, es := state.prepareDiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, tt.diffOptions)
 
@@ -7078,7 +7069,7 @@ func TestPrepareSyncReleases_ValueControlReleaseOverride(t *testing.T) {
 			valsRuntime:  valsRuntime,
 		}
 		helm := &exectest.Helm{
-			Lists: map[exectest.ListKey]string{},
+			Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 		}
 		results, es := state.prepareSyncReleases(helm, []string{}, 1, tt.syncOptions)
 
@@ -7432,6 +7423,63 @@ func TestMarkExcludedReleases_UserDirLabelIsShadowed(t *testing.T) {
 			require.Len(t, got, 1)
 			assert.Equal(t, tt.wantSelected, !got[0].Filtered)
 			assert.Equal(t, "apps/foo", got[0].Labels[DirLabel], "user-facing labels stay untouched")
+		})
+	}
+}
+
+func TestHelmState_DiffReleases_FailedReleaseForcesUpgrade(t *testing.T) {
+	// A release that exists in a non-deployed state (e.g. failed) must be
+	// reported as changed even when helm-diff detects no differences, so
+	// that `helmfile apply` reruns the upgrade instead of silently skipping
+	// a release that never succeeded. A deployed release with no diff
+	// changes must keep producing no errors and no upgrades.
+	tests := []struct {
+		name       string
+		listStatus string
+		wantChange bool
+	}{
+		{name: "deployed release with no diff changes is skipped", listStatus: "deployed"},
+		{name: "failed release with no diff changes is upgraded", listStatus: "failed", wantChange: true},
+		{name: "pending release with no diff changes is upgraded", listStatus: "pending-upgrade", wantChange: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				Releases: []ReleaseSpec{
+					{Name: "foo", Chart: "stable/foo"},
+				},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]any{},
+			}
+			helm := &exectest.Helm{
+				Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+					{Filter: "^foo$", Flags: "--uninstalling --deployed --failed --pending -o yaml"}: {Chart: "foo-1.0.0", Status: tt.listStatus},
+				},
+			}
+
+			rs, errs := state.DiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, false, false)
+
+			if !tt.wantChange {
+				if len(errs) > 0 {
+					t.Fatalf("expected no errors, got %v", errs)
+				}
+				if len(rs) > 0 {
+					t.Fatalf("expected no upgraded releases, got %v", rs)
+				}
+				return
+			}
+
+			if len(errs) != 1 {
+				t.Fatalf("expected exactly one changed-release error, got %v", errs)
+			}
+			relErr, ok := errs[0].(*ReleaseError)
+			if !ok || relErr.Code != 2 {
+				t.Fatalf("expected a ReleaseError with helm-diff exit code 2, got %v", errs[0])
+			}
+			if len(rs) != 1 || rs[0].Name != "foo" {
+				t.Fatalf("expected release foo to be marked for upgrade, got %v", rs)
+			}
 		})
 	}
 }
