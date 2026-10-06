@@ -387,7 +387,7 @@ releases:
 `,
 			selectors: []string{"name=a"},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^a$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^a$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffed: []exectest.Release{
 				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
@@ -409,7 +409,7 @@ releases:
 `,
 			selectors: []string{"name=a"},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^a$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{},
+				{Filter: "^a$", Flags: listFlags("default", "default")}: {},
 			},
 		})
 	})
@@ -428,7 +428,7 @@ releases:
 `,
 			selectors: []string{"name=a"},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^a$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^a$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffed: []exectest.Release{
 				{Name: "a", Flags: []string{"--kube-context", "default", "--namespace", "default", "--reset-values"}},
