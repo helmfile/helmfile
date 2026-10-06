@@ -17,7 +17,7 @@ require (
 	github.com/gookit/color v1.6.1
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/go-cty-funcs v0.1.0
-	github.com/hashicorp/go-getter/v2 v2.2.4
+	github.com/hashicorp/go-getter/v2 v2.2.5
 	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/helmfile/chartify v0.29.0
 	github.com/helmfile/vals v0.47.0
