@@ -183,8 +183,8 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}:       helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "default")}:       helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}:       {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -227,7 +227,8 @@ releases:
 				{Name: "external-secrets", Flags: []string{"--kube-context", "default", "--namespace", "default"}},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}:       {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -279,9 +280,9 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}:                helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "default")}:                      helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}:                {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}:                      {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -329,8 +330,9 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}:                      helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "default")}:       helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}:                {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}:                      {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -374,9 +376,9 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}:                helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "default")}:                      helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}:                {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}:                      {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -424,9 +426,9 @@ releases:
 			selectors: []string{"app=test"},
 			upgraded:  []exectest.Release{},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "default")}: helmexec.HelmReleaseOutput{},
-				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}:                helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
-				{Filter: "^my-release$", Flags: listFlags("default", "default")}:                      helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^kubernetes-external-secrets$", Flags: listFlags("kube-system", "default")}: {},
+				{Filter: "^external-secrets$", Flags: listFlags("default", "default")}:                {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}:                      {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			diffs: map[exectest.DiffKey]error{
 				{Name: "external-secrets", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
@@ -475,9 +477,9 @@ releases:
 				{Name: "serviceC", Chart: "my/chart", Flags: "--kube-context default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^serviceA$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "chart-3.1.0", Status: "deployed"},
-				{Filter: "^serviceB$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "chart-3.1.0", Status: "deployed"},
-				{Filter: "^serviceC$", Flags: listFlags("", "default")}: helmexec.HelmReleaseOutput{Chart: "chart-3.1.0", Status: "deployed"},
+				{Filter: "^serviceA$", Flags: listFlags("", "default")}: {Chart: "chart-3.1.0", Status: "deployed"},
+				{Filter: "^serviceB$", Flags: listFlags("", "default")}: {Chart: "chart-3.1.0", Status: "deployed"},
+				{Filter: "^serviceC$", Flags: listFlags("", "default")}: {Chart: "chart-3.1.0", Status: "deployed"},
 			},
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
 			concurrency: 1,
@@ -548,7 +550,7 @@ releases:
 				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -612,7 +614,7 @@ releases:
 				{Name: "foo", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^foo$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^foo$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			error: "",
 			// as we check for log output, set concurrency to 1 to avoid non-deterministic test result
@@ -639,7 +641,7 @@ releases:
 				{Name: "my-release", Chart: "incubator/raw", Flags: "--kube-context default --namespace default --reset-values --detailed-exitcode"}: helmexec.ExitError{Code: 2},
 			},
 			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-				{Filter: "^my-release$", Flags: listFlags("default", "default")}: helmexec.HelmReleaseOutput{Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^my-release$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 		})
 	})
