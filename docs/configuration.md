@@ -514,7 +514,8 @@ See [Advanced Features](advanced-features.md#resource-tracking-with-kubedog) for
 |-------|------|---------|-------------|
 | `trackMode` | string | `""` | Track mode: `helm`, `helm-legacy`, or `kubedog` |
 | `trackTimeout` | int | 300 | Tracking timeout in seconds |
-| `trackLogs` | bool | false | Print logs from tracked resources during deployment (every 10 seconds by default; see [`--track-logs-interval`](advanced-features.md#resource-tracking-with-kubedog)) |
+| `trackLogs` | bool | false | Print logs from tracked resources during deployment |
+| `trackLogsInterval` | duration | `10s` | Interval between log output updates for `trackLogs` or `trackFailedLogs` (e.g. `1s`; minimum `1s`); overrides the default, but an explicitly supplied `--track-logs-interval` takes precedence |
 | `trackLogsUntilReady` | bool | false | With `trackLogs: true`, stop routine pod logs once each pod first becomes ready; readiness and failure tracking continue. Job logs are unaffected |
 | `trackFailedLogs` | bool | false | Print collected logs only for pods that fail during deployment; overridden by `trackLogs` |
 | `trackKinds` | list | | Whitelist of resource kinds to track |

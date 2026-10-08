@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 // ApplyOptoons is the options for the apply command
@@ -121,6 +123,7 @@ func NewApplyOptions() *ApplyOptions {
 type ApplyImpl struct {
 	*GlobalImpl
 	*ApplyOptions
+	Cmd *cobra.Command
 }
 
 // NewApplyImpl creates a new ApplyImpl
@@ -356,8 +359,11 @@ func (a *ApplyImpl) TrackFailedLogs() bool {
 	return a.ApplyOptions.TrackFailedLogs
 }
 
-// TrackLogsInterval returns the kubedog log output interval.
+// TrackLogsInterval returns the CLI interval, or zero when the flag was not supplied.
 func (a *ApplyImpl) TrackLogsInterval() time.Duration {
+	if a.Cmd != nil && !a.Cmd.Flags().Changed("track-logs-interval") {
+		return 0
+	}
 	return a.ApplyOptions.TrackLogsInterval
 }
 
