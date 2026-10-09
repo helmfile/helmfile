@@ -4,3 +4,7 @@ Downloading raw from repo oci://localhost:$REGISTRY_PORT/myrepo
 Pulled: localhost:$REGISTRY_PORT/myrepo/raw:0.1.0
 Digest: sha256:$DIGEST
 Deleting outdated charts
+Linting release=foo, chart=$WD/temp2824/foo
+==> Linting .
+[INFO] Chart.yaml: icon is recommended
+1 chart(s) linted, 0 chart(s) failed
