@@ -1,0 +1,7 @@
+releases:
+- name: foo
+  chart: ../../charts/raw-0.1.0
+  dependencies:
+  - alias: dep
+    chart: oci://localhost:$REGISTRY_PORT/myrepo/raw
+    version: 0.1.0

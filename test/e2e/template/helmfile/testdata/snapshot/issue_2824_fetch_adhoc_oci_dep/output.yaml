@@ -1,0 +1,4 @@
+Building dependency release=foo, chart=$WD/temp2824/foo
+Saving 1 charts
+Downloading raw from repo oci://localhost:$REGISTRY_PORT/myrepo
+Deleting outdated charts

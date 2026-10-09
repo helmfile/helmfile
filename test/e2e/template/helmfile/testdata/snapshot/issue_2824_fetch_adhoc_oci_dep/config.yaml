@@ -1,0 +1,6 @@
+localDockerRegistry:
+  enabled: true
+  # Port is not specified, will be dynamically allocated to avoid conflicts
+chartifyTempDir: temp2824
+helmfileArgs:
+- fetch

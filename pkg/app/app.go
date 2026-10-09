@@ -192,6 +192,7 @@ func (a *App) Diff(c DiffConfigProvider) error {
 			Validate:                   c.Validate(),
 			Concurrency:                c.Concurrency(),
 			IncludeTransitiveNeeds:     c.IncludeNeeds(),
+			HelmOCIPlainHTTP:           a.HelmOCIPlainHTTP,
 			PrefetchSharedRemoteCharts: true,
 		}, func() []error {
 			msg, matched, affected, errs = a.diff(run, c)
@@ -350,6 +351,7 @@ func (a *App) Lint(c LintConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeNeeds(),
+			HelmOCIPlainHTTP:       a.HelmOCIPlainHTTP,
 		}, func() []error {
 			ok, lintErrs, errs = a.lint(run, c)
 			return append(errs, lintErrs...)
@@ -393,6 +395,7 @@ func (a *App) Unittest(c UnittestConfigProvider) error {
 			SkipCleanup:            c.SkipCleanup(),
 			Concurrency:            c.Concurrency(),
 			IncludeTransitiveNeeds: c.IncludeTransitiveNeeds(),
+			HelmOCIPlainHTTP:       a.HelmOCIPlainHTTP,
 		}, func() []error {
 			ok, unittestErrs, errs = a.unittest(run, c)
 			return append(errs, unittestErrs...)
@@ -473,6 +476,7 @@ func (a *App) Fetch(c FetchConfigProvider) error {
 			OutputDir:           c.OutputDir(),
 			OutputDirTemplate:   c.OutputDirTemplate(),
 			Concurrency:         c.Concurrency(),
+			HelmOCIPlainHTTP:    a.HelmOCIPlainHTTP,
 		}, func() []error {
 			if c.WriteOutput() {
 				for i := range run.state.Releases {
@@ -533,6 +537,7 @@ func (a *App) Sync(c SyncConfigProvider) error {
 			IncludeTransitiveNeeds:     c.IncludeNeeds(),
 			Validate:                   c.Validate(),
 			Concurrency:                c.Concurrency(),
+			HelmOCIPlainHTTP:           a.HelmOCIPlainHTTP,
 			TemplateArgs:               c.TemplateArgs(),
 			PrefetchSharedRemoteCharts: true,
 		}, func() []error {
@@ -592,6 +597,7 @@ func (a *App) Apply(c ApplyConfigProvider) error {
 			SkipCleanup:                c.SkipCleanup(),
 			Validate:                   c.Validate(),
 			Concurrency:                c.Concurrency(),
+			HelmOCIPlainHTTP:           a.HelmOCIPlainHTTP,
 			IncludeTransitiveNeeds:     c.IncludeNeeds(),
 			TemplateArgs:               c.TemplateArgs(),
 			PrefetchSharedRemoteCharts: true,
@@ -655,6 +661,7 @@ func (a *App) Destroy(c DestroyConfigProvider) error {
 				AllowFailedReleases: c.AllowFailedReleases(),
 				SkipDeps:            c.SkipDeps(),
 				Concurrency:         c.Concurrency(),
+				HelmOCIPlainHTTP:    a.HelmOCIPlainHTTP,
 				DeleteWait:          c.DeleteWait(),
 				DeleteTimeout:       c.DeleteTimeout(),
 			}, func() []error {
@@ -685,6 +692,7 @@ func (a *App) Test(c TestConfigProvider) error {
 			AllowFailedReleases: c.AllowFailedReleases(),
 			SkipDeps:            c.SkipDeps(),
 			Concurrency:         c.Concurrency(),
+			HelmOCIPlainHTTP:    a.HelmOCIPlainHTTP,
 		}, func() []error {
 			errs = a.test(run, c)
 			return errs
