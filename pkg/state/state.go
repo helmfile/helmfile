@@ -574,6 +574,8 @@ type ReleaseSpec struct {
 	TrackTimeout *int `yaml:"trackTimeout,omitempty"`
 	// TrackLogs enables log streaming with kubedog
 	TrackLogs *bool `yaml:"trackLogs,omitempty"`
+	// TrackLogsInterval specifies how often captured logs are printed. The minimum is 1s.
+	TrackLogsInterval *time.Duration `yaml:"trackLogsInterval,omitempty"`
 	// TrackLogsUntilReady stops pod log streaming when each pod becomes ready. Requires TrackLogs.
 	TrackLogsUntilReady *bool `yaml:"trackLogsUntilReady,omitempty"`
 	// TrackFailedLogs streams logs only for pods that enter a failed state

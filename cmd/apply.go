@@ -16,6 +16,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		Short: "Apply all resources from state file only when there are changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			applyImpl := config.NewApplyImpl(globalCfg, applyOptions)
+			applyImpl.Cmd = cmd
 
 			err := config.NewCLIConfigImpl(applyImpl.GlobalImpl)
 			if err != nil {
@@ -77,7 +78,7 @@ func NewApplyCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	f.BoolVar(&applyOptions.TrackLogsUntilReady, "track-logs-until-ready", false, "Stop pod log streaming when each pod becomes ready (requires --track-logs)")
 	f.BoolVar(&applyOptions.TrackFailedLogs, "track-failed-logs", false, "Enable log streaming with kubedog tracking, but only emit logs for pods that enter a failed state. Overridden by --track-logs when both are set")
 	f.DurationVar(&applyOptions.TrackLogsInterval, "track-logs-interval", applyOptions.TrackLogsInterval,
-		"Interval between kubedog log output updates (minimum 1s)")
+		"Interval between kubedog log output updates (minimum 1s); overrides trackLogsInterval")
 	f.IntVar(&applyOptions.HelmStuckGrace, "helm-stuck-grace", 0, "When using --track-mode kubedog: if the cluster confirms all tracked resources have converged but the helm subprocess is still running, wait this many seconds before sending SIGINT to helm. Recovers from helm v4 hook waiter wedges. May leave the release secret in pending-install state requiring manual cleanup. 0 disables.")
 	f.BoolVar(&applyOptions.TrackFailOnError, "track-fail-on-error", false, "Fail with non-zero exit code when kubedog tracking fails")
 	f.StringVar(&applyOptions.Description, "description", "", `Set description for all releases. If set, overridesdescriptions in helmfile.yaml. Will be passed to "helm upgrade --description"`)

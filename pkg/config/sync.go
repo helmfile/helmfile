@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 // defaultTrackLogsInterval is the default --track-logs-interval shared by
@@ -110,6 +112,7 @@ func NewSyncOptions() *SyncOptions {
 type SyncImpl struct {
 	*GlobalImpl
 	*SyncOptions
+	Cmd *cobra.Command
 }
 
 // NewSyncImpl creates a new SyncImpl
@@ -269,8 +272,11 @@ func (t *SyncImpl) TrackFailedLogs() bool {
 	return t.SyncOptions.TrackFailedLogs
 }
 
-// TrackLogsInterval returns the kubedog log output interval.
+// TrackLogsInterval returns the CLI interval, or zero when the flag was not supplied.
 func (t *SyncImpl) TrackLogsInterval() time.Duration {
+	if t.Cmd != nil && !t.Cmd.Flags().Changed("track-logs-interval") {
+		return 0
+	}
 	return t.SyncOptions.TrackLogsInterval
 }
 

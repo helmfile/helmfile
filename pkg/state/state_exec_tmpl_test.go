@@ -5,8 +5,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-test/deep"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"github.com/helmfile/helmfile/pkg/environment"
@@ -273,6 +275,65 @@ func TestHelmState_executeTemplates(t *testing.T) {
 			if actual.ConditionTemplate != nil {
 				t.Errorf("expected ConditionTemplate to be nil, got %q", *actual.ConditionTemplate)
 			}
+		})
+	}
+}
+
+func TestHelmState_executeTemplatesTrackLogsIntervalValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		interval time.Duration
+		wantErr  string
+	}{
+		{
+			name:     "minimum 1s is valid",
+			interval: time.Second,
+		},
+		{
+			name:     "above minimum is valid",
+			interval: 5 * time.Second,
+		},
+		{
+			name:     "below minimum is rejected",
+			interval: 500 * time.Millisecond,
+			wantErr:  `release "foo": trackLogsInterval must be at least 1s, got: 500ms`,
+		},
+		{
+			name:     "zero is rejected",
+			interval: 0,
+			wantErr:  `release "foo": trackLogsInterval must be at least 1s, got: 0s`,
+		},
+		{
+			name:     "negative is rejected",
+			interval: -time.Second,
+			wantErr:  `release "foo": trackLogsInterval must be at least 1s, got: -1s`,
+		},
+	}
+
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			interval := tt.interval
+			st := &HelmState{
+				fs:       &filesystem.FileSystem{Glob: func(s string) ([]string, error) { return nil, nil }},
+				basePath: ".",
+				Env:      environment.Environment{Name: "test_env"},
+				Releases: []ReleaseSpec{
+					{
+						Name:              "foo",
+						Chart:             "incubator/raw",
+						TrackLogsInterval: &interval,
+					},
+				},
+				RenderedValues: map[string]any{},
+			}
+
+			_, err := st.ExecuteTemplates()
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
 }

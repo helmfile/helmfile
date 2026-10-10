@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	"dario.cat/mergo"
 
@@ -146,6 +147,9 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 
 		if st.Releases[i].Chart == "" {
 			return nil, fmt.Errorf("encountered empty chart while reading release %q", st.Releases[i].Name)
+		}
+		if interval := st.Releases[i].TrackLogsInterval; interval != nil && *interval < time.Second {
+			return nil, fmt.Errorf("release %q: trackLogsInterval must be at least 1s, got: %s", st.Releases[i].Name, *interval)
 		}
 	}
 
