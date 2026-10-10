@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -856,6 +857,61 @@ current-context: test
 			_, opts, err := st.buildReleaseTracker(&release, tt.opts, false)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, opts.LogsUntilReady)
+		})
+	}
+}
+
+func TestBuildReleaseTracker_LogsInterval(t *testing.T) {
+	kubeconfig := filepath.Join(t.TempDir(), "kubeconfig")
+	require.NoError(t, os.WriteFile(kubeconfig, []byte(`apiVersion: v1
+kind: Config
+clusters:
+- name: test
+  cluster:
+    server: http://127.0.0.1:1
+contexts:
+- name: test
+  context:
+    cluster: test
+current-context: test
+`), 0600))
+
+	tests := []struct {
+		name    string
+		release string
+		opts    *SyncOpts
+		want    time.Duration
+	}{
+		{
+			name: "10s default when unset",
+			want: 10 * time.Second,
+		},
+		{
+			name:    "explicit cli interval overrides release setting",
+			release: "trackLogsInterval: 2s\n",
+			opts:    &SyncOpts{TrackLogsInterval: 30 * time.Second},
+			want:    30 * time.Second,
+		},
+		{
+			name:    "release interval used when cli flag absent",
+			release: "trackLogsInterval: 2s\n",
+			want:    2 * time.Second,
+		},
+		{
+			name: "cli interval used when release unset",
+			opts: &SyncOpts{TrackLogsInterval: 3 * time.Second},
+			want: 3 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var release ReleaseSpec
+			require.NoError(t, yaml.Unmarshal([]byte(tt.release), &release))
+			st := &HelmState{kubeconfig: kubeconfig}
+			_, opts, err := st.buildReleaseTracker(&release, tt.opts, false)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, opts.LogsInterval)
 		})
 	}
 }

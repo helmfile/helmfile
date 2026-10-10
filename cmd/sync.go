@@ -17,6 +17,7 @@ func NewSyncCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			syncImpl := config.NewSyncImpl(globalCfg, syncOptions)
 			syncImpl.Cmd = cmd
+
 			err := config.NewCLIConfigImpl(syncImpl.GlobalImpl)
 			if err != nil {
 				return err
