@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/helmfile/chartify v0.29.0
 	github.com/helmfile/vals v0.47.0
-	github.com/mattn/go-runewidth v0.0.30
+	github.com/mattn/go-runewidth v0.0.31
 	github.com/otiai10/copy v1.14.1
 	github.com/pkg/errors v0.9.1
 	github.com/sashabaranov/go-openai v1.43.0
