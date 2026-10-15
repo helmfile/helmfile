@@ -1481,6 +1481,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				basePath:     "./",
 				Releases:     []ReleaseSpec{*tt.release},
 				HelmDefaults: tt.defaults,
+				logger:       logger,
 				valsRuntime:  valsRuntime,
 			}
 			helm := &exectest.Helm{
