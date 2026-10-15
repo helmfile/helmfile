@@ -20,7 +20,7 @@ func TestDestroy_2(t *testing.T) {
 		error         string
 		files         map[string]string
 		selectors     []string
-		lists         map[exectest.ListKey]string
+		lists         map[exectest.ListKey]helmexec.HelmReleaseOutput
 		diffs         map[exectest.DiffKey]error
 		upgraded      []exectest.Release
 		deleted       []exectest.Release
@@ -210,35 +210,17 @@ releases:
 		check(t, testcase{
 			files: files,
 			diffs: map[exectest.DiffKey]error{},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^frontend-v2$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^frontend-v3$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^backend-v2$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^logging$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-logging	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
-`,
-				{Filter: "^front-proxy$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
-`,
-				{Filter: "^servicemesh$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
-`,
-				{Filter: "^database$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
-`,
-				{Filter: "^anotherbackend$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v2$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v3$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}:     {Chart: "backend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v2$", Flags: helmV3ListFlagsWithoutKubeContext}:     {Chart: "backend-3.1.0", Status: "deployed"},
+				{Filter: "^logging$", Flags: helmV3ListFlagsWithoutKubeContext}:        {Chart: "fluent-bit-3.1.0", Status: "deployed"},
+				{Filter: "^front-proxy$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "envoy-3.1.0", Status: "deployed"},
+				{Filter: "^servicemesh$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "istio-3.1.0", Status: "deployed"},
+				{Filter: "^database$", Flags: helmV3ListFlagsWithoutKubeContext}:       {Chart: "mysql-3.1.0", Status: "deployed"},
+				{Filter: "^anotherbackend$", Flags: helmV3ListFlagsWithoutKubeContext}: {Chart: "anotherbackend-3.1.0", Status: "deployed"},
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
@@ -263,35 +245,17 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 			files:     files,
 			selectors: []string{"name=logging"},
 			diffs:     map[exectest.DiffKey]error{},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^frontend-v2$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^frontend-v3$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-frontend-v3 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	frontend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^backend-v2$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-backend-v2 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	backend-3.1.0	3.1.0      	default
-`,
-				{Filter: "^logging$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-logging	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	fluent-bit-3.1.0	3.1.0      	default
-`,
-				{Filter: "^front-proxy$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-front-proxy 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	envoy-3.1.0	3.1.0      	default
-`,
-				{Filter: "^servicemesh$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-servicemesh 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	istio-3.1.0	3.1.0      	default
-`,
-				{Filter: "^database$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-database 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	mysql-3.1.0	3.1.0      	default
-`,
-				{Filter: "^anotherbackend$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	3.1.0      	default
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v2$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^frontend-v3$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}:     {Chart: "backend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v2$", Flags: helmV3ListFlagsWithoutKubeContext}:     {Chart: "backend-3.1.0", Status: "deployed"},
+				{Filter: "^logging$", Flags: helmV3ListFlagsWithoutKubeContext}:        {Chart: "fluent-bit-3.1.0", Status: "deployed"},
+				{Filter: "^front-proxy$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "envoy-3.1.0", Status: "deployed"},
+				{Filter: "^servicemesh$", Flags: helmV3ListFlagsWithoutKubeContext}:    {Chart: "istio-3.1.0", Status: "deployed"},
+				{Filter: "^database$", Flags: helmV3ListFlagsWithoutKubeContext}:       {Chart: "mysql-3.1.0", Status: "deployed"},
+				{Filter: "^anotherbackend$", Flags: helmV3ListFlagsWithoutKubeContext}: {Chart: "anotherbackend-3.1.0", Status: "deployed"},
 			},
 			// Enable wait and set timeout for destroy
 			deleteWait:    true,
@@ -309,11 +273,9 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 		check(t, testcase{
 			files: filesForTwoReleases,
 			diffs: map[exectest.DiffKey]error{},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}:  {Chart: "backend-3.1.0", Status: "deployed"},
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,
@@ -328,11 +290,9 @@ anotherbackend 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	anotherbackend-3.1.0	
 		check(t, testcase{
 			files: filesForTwoReleases,
 			diffs: map[exectest.DiffKey]error{},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
-				{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^frontend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}: {Chart: "frontend-3.1.0", Status: "deployed"},
+				{Filter: "^backend-v1$", Flags: helmV3ListFlagsWithoutKubeContext}:  {Chart: "backend-3.1.0", Status: "deployed"},
 			},
 			// Disable concurrency to avoid in-deterministic result
 			concurrency: 1,

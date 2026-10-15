@@ -28,7 +28,7 @@ func TestApply_hooks(t *testing.T) {
 		error             string
 		files             map[string]string
 		selectors         []string
-		lists             map[exectest.ListKey]string
+		lists             map[exectest.ListKey]helmexec.HelmReleaseOutput
 		diffs             map[exectest.DiffKey]error
 		upgraded          []exectest.Release
 		deleted           []exectest.Release
@@ -384,13 +384,9 @@ releases:
 `,
 			},
 			selectors: []string{"app=test"},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
-`,
-				{Filter: "^bar$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-bar 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
-`,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^foo$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo"},
@@ -434,11 +430,9 @@ releases:
 `,
 			},
 			selectors: []string{"app=test"},
-			lists: map[exectest.ListKey]string{
-				{Filter: "^foo$", Flags: listFlags("default", "default")}: `NAME	REVISION	UPDATED                 	STATUS  	CHART        	APP VERSION	NAMESPACE
-foo 	4       	Fri Nov  1 08:40:07 2019	DEPLOYED	raw-3.1.0	3.1.0      	default
-`,
-				{Filter: "^bar$", Flags: listFlags("default", "default")}: ``,
+			lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+				{Filter: "^foo$", Flags: listFlags("default", "default")}: {Chart: "raw-3.1.0", Status: "deployed"},
+				{Filter: "^bar$", Flags: listFlags("default", "default")}: {},
 			},
 			upgraded: []exectest.Release{
 				{Name: "foo"},

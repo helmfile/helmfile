@@ -669,7 +669,23 @@ func (helm *execer) ReleaseStatus(context HelmContext, name string, flags ...str
 	return err
 }
 
-func (helm *execer) List(context HelmContext, filter string, flags ...string) (string, error) {
+// HelmReleaseOutput is one entry of `helm list` output, parsed from the
+// yaml output format (`helm list -o yaml`). Field names follow the snake_case
+// keys emitted by helm.
+type HelmReleaseOutput struct {
+	Name       string `yaml:"name"`
+	Namespace  string `yaml:"namespace"`
+	Revision   string `yaml:"revision"`
+	Updated    string `yaml:"updated"`
+	Status     string `yaml:"status"`
+	Chart      string `yaml:"chart"`
+	AppVersion string `yaml:"app_version"`
+}
+
+// List runs `helm list` with the given filter and flags, and parses the yaml
+// output (callers must pass `-o yaml`) into a structured release description.
+// The zero HelmReleaseOutput means the release was not found.
+func (helm *execer) List(context HelmContext, filter string, flags ...string) (HelmReleaseOutput, error) {
 	helm.logger.Infof("Listing releases matching %v", filter)
 	preArgs := make([]string, 0)
 	env := make(map[string]string)
@@ -677,17 +693,24 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (s
 
 	enableLiveOutput := false
 	out, err := helm.execWithContext(context.Ctx, append(append(preArgs, args...), flags...), env, &enableLiveOutput)
-	// In v2 we have been expecting `helm list FILTER` prints nothing.
-	// In v3 helm still prints the header like `NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION`,
-	// which confuses helmfile's existing logic that treats any non-empty output from `helm list` is considered as the indication
-	// of the release to exist.
-	//
-	// This fixes it by removing the header from the v3 output, so that the output is formatted the same as that of v2.
-	lines := strings.Split(string(out), "\n")
-	lines = lines[1:]
-	out = []byte(strings.Join(lines, "\n"))
-	helm.info(out)
-	return string(out), err
+	if err != nil {
+		return HelmReleaseOutput{}, err
+	}
+
+	var releases []HelmReleaseOutput
+	if err := yaml.Unmarshal(out, &releases); err != nil {
+		return HelmReleaseOutput{}, fmt.Errorf("parsing `helm list` output: %w", err)
+	}
+	if len(releases) == 0 {
+		return HelmReleaseOutput{}, nil
+	}
+
+	// The filter is an exact-match regex (^name$), so at most one entry is
+	// expected; log it in the historical tabular format for parity.
+	release := releases[0]
+	helm.info([]byte(fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s",
+		release.Name, release.Namespace, release.Revision, release.Updated, release.Status, release.Chart, release.AppVersion)))
+	return release, nil
 }
 
 func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...string) (string, error) {
