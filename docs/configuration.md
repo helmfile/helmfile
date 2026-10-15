@@ -116,7 +116,8 @@ helmDefaults:
   waitForJobs: true
   # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
   timeout: 600
-  # performs pods restart for the resource if applicable (default false)
+  # performs pods restart for the resource if applicable (default false).
+  # Ignored with a warning on Helm 4, which removed --recreate-pods.
   recreatePods: true
   # forces resource update through delete/recreate if needed (default false)
   force: false
@@ -254,7 +255,7 @@ releases:
     # waitRetries: 3
     waitForJobs: true
     timeout: 60
-    recreatePods: true
+    recreatePods: true # ignored with a warning on Helm 4
     force: false
     reuseValues: false
     # set `false` to uninstall this release on sync.  (default true)
