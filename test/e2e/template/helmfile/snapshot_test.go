@@ -112,6 +112,18 @@ func prepareInputFile(t *testing.T, originalFile, tmpDir string, hostPort int, c
 	// breaking relative paths like ../../charts/raw-0.1.0
 	inputStr = strings.ReplaceAll(inputStr, "../../charts/", chartsDir+"/")
 
+	// Convert test-case-local chart references like `./chart/` to an absolute
+	// path pointing at the `chart` directory shipped next to the case's input
+	// file. This lets a case bundle chart fixtures that cannot live in the
+	// shared ../../charts directory — e.g. a directory without Chart.yaml,
+	// which must stay unpackaged because setupLocalDockerRegistry runs
+	// `helm package` on every chart under testdata/charts.
+	caseDir, err := filepath.Abs(filepath.Dir(originalFile))
+	if err != nil {
+		t.Fatalf("Failed to determine test case directory for %s: %v", originalFile, err)
+	}
+	inputStr = strings.ReplaceAll(inputStr, "./chart/", filepath.Join(caseDir, "chart")+"/")
+
 	// Convert relative postrenderer paths to absolute paths for Helm 3 only
 	// Helm 3 resolves postrenderer paths relative to the helmfile location.
 	// When the input file is copied to a temp directory, relative paths break.

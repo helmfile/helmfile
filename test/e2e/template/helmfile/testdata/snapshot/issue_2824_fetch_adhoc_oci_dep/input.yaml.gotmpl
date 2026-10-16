@@ -1,0 +1,21 @@
+# The primary chart is a local directory WITHOUT Chart.yaml. That is the only
+# chart shape for which `helmfile fetch` enters chartification
+# (NeedsChartifyForLocalDir in pkg/state). Chartify then materializes a
+# temporary chart and resolves the adhoc OCI dependency with its own
+# `helm dependency up`, which requires the propagated --oci-plain-http on
+# Helm 4. Fetching a packaged or regular local chart never chartifies, so this
+# case uses a manifest-only directory to protect the Fetch wiring.
+#
+# After chartify renders the adhoc dependency into the chart, it strips the
+# Chart.yaml dependencies field and removes charts/, so the follow-up
+# `helm dependency build` is a silent no-op (helm3/helm4 return early when
+# Chart.yaml declares no dependencies) — the golden is just its "Building
+# dependency" log line. The regression signal is the command itself failing
+# when chartify's `helm dependency up` lacks --plain-http on Helm 4.
+releases:
+- name: foo
+  chart: ./chart/
+  dependencies:
+  - alias: dep
+    chart: oci://localhost:$REGISTRY_PORT/myrepo/raw
+    version: 0.1.0
