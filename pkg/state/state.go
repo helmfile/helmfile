@@ -4296,7 +4296,14 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 		flags = append(flags, "--force-conflicts")
 	}
 
-	if release.RecreatePods != nil && *release.RecreatePods || release.RecreatePods == nil && st.HelmDefaults.RecreatePods {
+	recreatePodsEnabled := (release.RecreatePods != nil && *release.RecreatePods) || (release.RecreatePods == nil && st.HelmDefaults.RecreatePods)
+
+	// Helm 4 removed --recreate-pods (helm/helm#31023) and fails with "unknown flag".
+	// It has no replacement flag; Helm recommends a checksum annotation on the pod template.
+	switch {
+	case recreatePodsEnabled && helm.IsHelm4():
+		st.logger.Warnf("recreatePods is not supported by Helm 4, ignoring it for release %s", release.Name)
+	case recreatePodsEnabled:
 		flags = append(flags, "--recreate-pods")
 	}
 

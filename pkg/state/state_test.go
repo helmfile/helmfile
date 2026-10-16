@@ -1,12 +1,14 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -459,10 +461,12 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			wantErr: "force and forceConflicts are mutually exclusive (check both releases[].force/forceConflicts and helmDefaults.force/forceConflicts)",
 		},
 		{
-			name: "recreate-pods",
+			name: "recreate-pods-helm3",
 			defaults: HelmSpec{
-				RecreatePods: false,
+				RecreatePods:    false,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:        "test/chart",
 				Version:      "0.1",
@@ -477,16 +481,55 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			},
 		},
 		{
-			name: "recreate-pods-from-default",
+			name: "recreate-pods-from-default-helm3",
 			defaults: HelmSpec{
-				RecreatePods: true,
+				RecreatePods:    true,
+				CreateNamespace: &disable,
 			},
+			version: semver.MustParse("3.10.0"),
 			release: &ReleaseSpec{
 				Chart:        "test/chart",
 				Version:      "0.1",
 				RecreatePods: &disable,
 				Name:         "test-charts",
 				Namespace:    "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "recreate-pods-helm4",
+			defaults: HelmSpec{
+				RecreatePods:    false,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:        "test/chart",
+				Version:      "0.1",
+				RecreatePods: &enable,
+				Name:         "test-charts",
+				Namespace:    "test-namespace",
+			},
+			want: []string{
+				"--version", "0.1",
+				"--namespace", "test-namespace",
+			},
+		},
+		{
+			name: "recreate-pods-from-default-helm4",
+			defaults: HelmSpec{
+				RecreatePods:    true,
+				CreateNamespace: &disable,
+			},
+			version: semver.MustParse("4.0.0"),
+			release: &ReleaseSpec{
+				Chart:     "test/chart",
+				Version:   "0.1",
+				Name:      "test-charts",
+				Namespace: "test-namespace",
 			},
 			want: []string{
 				"--version", "0.1",
@@ -1438,6 +1481,7 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 				basePath:     "./",
 				Releases:     []ReleaseSpec{*tt.release},
 				HelmDefaults: tt.defaults,
+				logger:       logger,
 				valsRuntime:  valsRuntime,
 			}
 			helm := &exectest.Helm{
@@ -1453,6 +1497,47 @@ func TestHelmState_flagsForUpgrade(t *testing.T) {
 			}
 			if !reflect.DeepEqual(args, tt.want) {
 				t.Errorf("flagsForUpgrade returned = %v, want %v", args, tt.want)
+			}
+		})
+	}
+}
+
+func TestHelmState_flagsForUpgrade_RecreatePodsWarning(t *testing.T) {
+	enable := true
+	disable := false
+	tests := []struct {
+		name     string
+		version  *semver.Version
+		wantWarn bool
+	}{
+		{name: "helm4", version: semver.MustParse("4.0.0"), wantWarn: true},
+		{name: "helm3", version: semver.MustParse("3.10.0"), wantWarn: false},
+	}
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			release := &ReleaseSpec{
+				Chart:        "test/chart",
+				RecreatePods: &enable,
+				Name:         "test-charts",
+				Namespace:    "test-namespace",
+			}
+			state := &HelmState{
+				basePath:     "./",
+				Releases:     []ReleaseSpec{*release},
+				HelmDefaults: HelmSpec{CreateNamespace: &disable},
+				logger:       helmexec.NewLogger(&logs, "warn"),
+				valsRuntime:  valsRuntime,
+			}
+
+			if _, _, err := state.flagsForUpgrade(&exectest.Helm{Version: tt.version}, release, 0, &SyncOpts{}); err != nil {
+				t.Fatalf("unexpected error flagsForUpgrade: %v", err)
+			}
+
+			warned := strings.Contains(logs.String(), "recreatePods is not supported by Helm 4, ignoring it for release test-charts")
+			if warned != tt.wantWarn {
+				t.Errorf("warning logged = %v, want %v; logs: %q", warned, tt.wantWarn, logs.String())
 			}
 		})
 	}
