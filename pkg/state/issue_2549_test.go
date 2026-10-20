@@ -8,6 +8,7 @@ import (
 
 func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 	enable := true
+	disable := false
 
 	tests := []struct {
 		name         string
@@ -31,6 +32,15 @@ func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 			},
 			release: &ReleaseSpec{},
 			want:    "--skip-schema-validation",
+		},
+		{
+			name: "release setting disables helm defaults",
+			defaults: HelmSpec{
+				SkipSchemaValidation: &enable,
+			},
+			release: &ReleaseSpec{
+				SkipSchemaValidation: &disable,
+			},
 		},
 		{
 			name: "appends flag to existing args",
@@ -62,6 +72,14 @@ func TestAppendSkipSchemaValidationFlagToChartifyTemplateArgs(t *testing.T) {
 			fromCLI:      true,
 			templateArgs: "--kube-context default",
 			want:         "--kube-context default --skip-schema-validation",
+		},
+		{
+			name: "cli setting overrides release setting",
+			release: &ReleaseSpec{
+				SkipSchemaValidation: &disable,
+			},
+			fromCLI: true,
+			want:    "--skip-schema-validation",
 		},
 		{
 			name:         "does not add flag when disabled",

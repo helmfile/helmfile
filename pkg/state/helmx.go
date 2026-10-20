@@ -185,8 +185,8 @@ func (st *HelmState) shouldSkipSchemaValidation(release *ReleaseSpec, skipSchema
 	// Check if skipSchemaValidation argument is true.
 	case skipSchemaValidation:
 		return true
-	// Check if SkipSchemaValidation is true in HelmDefaults.
-	case st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation:
+	// Check if SkipSchemaValidation is true in HelmDefaults and not set in the release spec.
+	case release.SkipSchemaValidation == nil && st.HelmDefaults.SkipSchemaValidation != nil && *st.HelmDefaults.SkipSchemaValidation:
 		return true
 	default:
 		return false
