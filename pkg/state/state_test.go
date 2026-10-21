@@ -5470,9 +5470,7 @@ func TestAppendTakeOwnershipFlagsForDiff(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := &HelmState{
-				ReleaseSetSpec: ReleaseSetSpec{
-					HelmDefaults: HelmSpec{TakeOwnership: tt.defaults},
-				},
+				HelmDefaults: HelmSpec{TakeOwnership: tt.defaults},
 			}
 			got, err := st.appendTakeOwnershipFlagsForDiff([]string{}, &ReleaseSpec{TakeOwnership: tt.release}, false, pluginsDir)
 
