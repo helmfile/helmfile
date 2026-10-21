@@ -14,6 +14,57 @@ import (
 	"github.com/helmfile/helmfile/pkg/yaml"
 )
 
+func TestAppendLabelsFlags(t *testing.T) {
+	enabled := true
+	disabled := false
+	tests := []struct {
+		name     string
+		defaults *bool
+		release  *bool
+		fromCLI  bool
+		expected []string
+	}{
+		{
+			name:     "release false overrides helm defaults",
+			defaults: &enabled,
+			release:  &disabled,
+			expected: []string{},
+		},
+		{
+			name:     "helm defaults applies when release is unset",
+			defaults: &enabled,
+			expected: []string{"--labels", "app=test"},
+		},
+		{
+			name:     "release true overrides helm defaults",
+			defaults: &disabled,
+			release:  &enabled,
+			expected: []string{"--labels", "app=test"},
+		},
+		{
+			name:     "does not append labels when unset",
+			expected: []string{},
+		},
+		{
+			name:     "cli flag overrides release false",
+			release:  &disabled,
+			fromCLI:  true,
+			expected: []string{"--labels", "app=test"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{HelmDefaults: HelmSpec{SyncReleaseLabels: tt.defaults}}
+			release := &ReleaseSpec{SyncReleaseLabels: tt.release, Labels: map[string]string{"app": "test"}}
+
+			got := st.appendLabelsFlags([]string{}, testutil.NewVersionHelmExec("3.13.0"), release, tt.fromCLI)
+
+			require.Equal(t, tt.expected, got)
+		})
+	}
+}
+
 func TestAppendWaitForJobsFlags(t *testing.T) {
 	tests := []struct {
 		name     string

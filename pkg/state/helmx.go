@@ -75,7 +75,7 @@ func (st *HelmState) appendLabelsFlags(flags []string, helm helmexec.Interface, 
 	case syncReleaseLabels:
 		isSyncReleaseLabels = true
 	// Check if SyncReleaseLabels is true in HelmDefaults.
-	case st.HelmDefaults.SyncReleaseLabels != nil && *st.HelmDefaults.SyncReleaseLabels:
+	case release.SyncReleaseLabels == nil && st.HelmDefaults.SyncReleaseLabels != nil && *st.HelmDefaults.SyncReleaseLabels:
 		isSyncReleaseLabels = true
 	}
 	if isSyncReleaseLabels {
