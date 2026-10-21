@@ -835,7 +835,7 @@ func (st *HelmState) appendTakeOwnershipFlagsForUpgrade(flags []string, helm hel
 		flags = append(flags, "--take-ownership")
 	case takeOwnership:
 		flags = append(flags, "--take-ownership")
-	case st.HelmDefaults.TakeOwnership != nil && *st.HelmDefaults.TakeOwnership:
+	case release.TakeOwnership == nil && st.HelmDefaults.TakeOwnership != nil && *st.HelmDefaults.TakeOwnership:
 		flags = append(flags, "--take-ownership")
 	}
 	return flags
