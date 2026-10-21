@@ -5435,6 +5435,51 @@ func TestCommonDiffFlags(t *testing.T) {
 	}
 }
 
+func TestAppendTakeOwnershipFlagsForDiff(t *testing.T) {
+	pluginsDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(pluginsDir, "diff"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(pluginsDir, "diff", "plugin.yaml"),
+		[]byte("name: diff\nversion: 3.11.0\n"),
+		0o600,
+	))
+
+	tests := []struct {
+		name     string
+		defaults *bool
+		release  *bool
+		expected []string
+	}{
+		{
+			name:     "release false overrides helm defaults",
+			defaults: &[]bool{true}[0],
+			release:  &[]bool{false}[0],
+			expected: []string{},
+		},
+		{
+			name:     "take-ownership from helm defaults",
+			defaults: &[]bool{true}[0],
+			expected: []string{"--take-ownership"},
+		},
+		{
+			name:     "no take-ownership when unset",
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := &HelmState{
+				HelmDefaults: HelmSpec{TakeOwnership: tt.defaults},
+			}
+			got, err := st.appendTakeOwnershipFlagsForDiff([]string{}, &ReleaseSpec{TakeOwnership: tt.release}, false, pluginsDir)
+
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, got)
+		})
+	}
+}
+
 func TestAppendChartDownloadFlags(t *testing.T) {
 	tests := []struct {
 		name     string

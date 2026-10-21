@@ -4624,7 +4624,7 @@ func (st *HelmState) appendTakeOwnershipFlagsForDiff(flags []string, release *Re
 		isAppendTakeOwnership = true
 	case takeOwnership:
 		isAppendTakeOwnership = true
-	case st.HelmDefaults.TakeOwnership != nil && *st.HelmDefaults.TakeOwnership:
+	case release.TakeOwnership == nil && st.HelmDefaults.TakeOwnership != nil && *st.HelmDefaults.TakeOwnership:
 		isAppendTakeOwnership = true
 	}
 	if isAppendTakeOwnership {

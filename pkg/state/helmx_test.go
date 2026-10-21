@@ -528,6 +528,48 @@ func TestAppendTakeOwnershipFlagsForUpgrade(t *testing.T) {
 				expected: []string{"--take-ownership"},
 			},
 		},
+		{
+			name: "release false overrides helm defaults",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.17.0"),
+				helmSpec: HelmSpec{
+					TakeOwnership: &[]bool{true}[0],
+				},
+				release: &ReleaseSpec{
+					TakeOwnership: &[]bool{false}[0],
+				},
+				opt:      &SyncOpts{},
+				expected: []string{},
+			},
+		},
+		{
+			name: "take-ownership from helm defaults",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.17.0"),
+				helmSpec: HelmSpec{
+					TakeOwnership: &[]bool{true}[0],
+				},
+				release:  &ReleaseSpec{},
+				opt:      &SyncOpts{},
+				expected: []string{"--take-ownership"},
+			},
+		},
+		{
+			name: "cmd flag overrides release false",
+			args: args{
+				flags: []string{},
+				helm:  testutil.NewVersionHelmExec("3.17.0"),
+				release: &ReleaseSpec{
+					TakeOwnership: &[]bool{false}[0],
+				},
+				opt: &SyncOpts{
+					TakeOwnership: true,
+				},
+				expected: []string{"--take-ownership"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
