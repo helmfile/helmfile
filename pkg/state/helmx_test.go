@@ -55,7 +55,7 @@ func TestAppendLabelsFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := &HelmState{ReleaseSetSpec: ReleaseSetSpec{HelmDefaults: HelmSpec{SyncReleaseLabels: tt.defaults}}}
+			st := &HelmState{HelmDefaults: HelmSpec{SyncReleaseLabels: tt.defaults}}
 			release := &ReleaseSpec{SyncReleaseLabels: tt.release, Labels: map[string]string{"app": "test"}}
 
 			got := st.appendLabelsFlags([]string{}, testutil.NewVersionHelmExec("3.13.0"), release, tt.fromCLI)
