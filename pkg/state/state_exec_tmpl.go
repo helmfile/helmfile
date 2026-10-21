@@ -109,7 +109,7 @@ func (st *HelmState) ExecuteTemplates() (*HelmState, error) {
 		}
 
 		if release.KubeContext == "" {
-			release.KubeContext = r.HelmDefaults.KubeContext
+			release.KubeContext = st.getKubeContext(release)
 		}
 		if release.Labels == nil {
 			release.Labels = map[string]string{}

@@ -88,6 +88,8 @@ lockFilePath: path/to/lock.file
 # In other words, unset values results in no flags passed to helm.
 # See the helm usage (helm SUBCOMMAND -h) for more info on default values when those flags aren't provided.
 helmDefaults:
+  # --kube-context, the top-level kubeContext, a release's own kubeContext and an environment's
+  # kubeContext take precedence over this one.
   kubeContext: kube-context          #dedicated default key for kube-context (--kube-context)
   cleanupOnFail: false               #dedicated default key for helm flag --cleanup-on-fail
   # additional and global args passed to helm (default "")
@@ -414,7 +416,9 @@ environments:
       # Ignores missing git branch error so that the Debug/Info/Warn handler can treat a missing branch as non-error.
       # See https://github.com/helmfile/helmfile/issues/392
       ignoreMissingGitBranch: true
-    # kubeContext to use for this environment
+    # kubeContext to use for this environment. It takes precedence over helmDefaults.kubeContext;
+    # a release's own kubeContext, the top-level kubeContext and the --kube-context flag take
+    # precedence over it.
     kubeContext: kube-context
 
 #

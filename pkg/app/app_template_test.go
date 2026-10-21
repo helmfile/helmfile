@@ -765,3 +765,52 @@ releases:
 		})
 	})
 }
+
+func TestTemplateNeedsWithEnvironmentKubeContext(t *testing.T) {
+	files := map[string]string{
+		"/path/to/helmfile.yaml": `
+environments:
+  prod:
+    kubeContext: prod-ctx
+---
+releases:
+- name: a
+  namespace: ns
+  chart: incubator/raw
+- name: b
+  namespace: ns
+  chart: incubator/raw
+  needs:
+  - prod-ctx/ns/a
+`,
+	}
+
+	helm := &exectest.Helm{
+		FailOnUnexpectedList: true,
+		FailOnUnexpectedDiff: true,
+		DiffMutex:            &sync.Mutex{},
+		ChartsMutex:          &sync.Mutex{},
+		ReleasesMutex:        &sync.Mutex{},
+	}
+
+	valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+	require.NoError(t, err)
+
+	app := appWithFs(&App{
+		OverrideHelmBinary:              DefaultHelmBinary,
+		fs:                              &ffs.FileSystem{Glob: filepath.Glob},
+		DisableKubeVersionAutoDetection: true,
+		Env:                             "prod",
+		Logger:                          zap.NewNop().Sugar(),
+		helms: map[helmKey]helmexec.Interface{
+			createHelmKey("helm", ""): helm,
+		},
+		valsRuntime: valsRuntime,
+	}, files)
+
+	require.NoError(t, app.Template(applyConfig{concurrency: 1, logger: zap.NewNop().Sugar()}))
+	require.Equal(t, []exectest.Release{
+		{Name: "a", Flags: []string{"--kube-context", "prod-ctx", "--namespace", "ns"}},
+		{Name: "b", Flags: []string{"--kube-context", "prod-ctx", "--namespace", "ns"}},
+	}, helm.Templated)
+}

@@ -4153,9 +4153,13 @@ func (st *HelmState) appendEnableDNSFlags(flags []string, release *ReleaseSpec) 
 }
 
 // getKubeContext returns the effective kube-context for a release.
-// It follows the priority: release.KubeContext > environment.KubeContext > helmDefaults.KubeContext
+// It follows the priority: --kube-context (or the top-level kubeContext) > release.KubeContext >
+// environment.KubeContext > helmDefaults.KubeContext. The override comes first, as in ApplyOverrides.
 // Issue #2309: This is the single source of truth for kube-context resolution
 func (st *HelmState) getKubeContext(release *ReleaseSpec) string {
+	if st.OverrideKubeContext != "" {
+		return st.OverrideKubeContext
+	}
 	if release.KubeContext != "" {
 		return release.KubeContext
 	}
