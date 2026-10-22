@@ -3078,6 +3078,7 @@ func TestHelmState_DiffFlags(t *testing.T) {
 		releases      []ReleaseSpec
 		helm          *exectest.Helm
 		wantDiffFlags []string
+		diffOpts      *DiffOpts
 	}{
 		{
 			name:     "release with api version and kubeversion",
@@ -3092,6 +3093,33 @@ func TestHelmState_DiffFlags(t *testing.T) {
 			},
 			helm:          &exectest.Helm{},
 			wantDiffFlags: []string{"--api-versions", "helmfile.test/v1", "--api-versions", "helmfile.test/v2", "--kube-version", "1.21"},
+		},
+		{
+			name:     "detected kubeversion is passed when none is configured",
+			defaults: HelmSpec{},
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+				},
+			},
+			helm:          &exectest.Helm{},
+			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
+			wantDiffFlags: []string{"--kube-version", "1.30.2"},
+		},
+		{
+			name:     "release kubeversion beats the detected kubeversion",
+			defaults: HelmSpec{},
+			releases: []ReleaseSpec{
+				{
+					Name:        "releaseName",
+					Chart:       "foo",
+					KubeVersion: "1.28",
+				},
+			},
+			helm:          &exectest.Helm{},
+			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
+			wantDiffFlags: []string{"--kube-version", "1.28"},
 		},
 		{
 			name:     "release with kubeversion and plain http which is ignored",
@@ -3157,7 +3185,7 @@ func TestHelmState_DiffFlags(t *testing.T) {
 				RenderedValues: map[string]any{},
 			}
 			for j := range tt.releases {
-				flags, _, errs := state.flagsForDiff(tt.helm, &tt.releases[j], false, 1, nil)
+				flags, _, errs := state.flagsForDiff(tt.helm, &tt.releases[j], false, 1, tt.diffOpts)
 				if errs != nil {
 					t.Errorf("unexpected error: %v", errs)
 				}
