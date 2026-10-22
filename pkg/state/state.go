@@ -1208,13 +1208,13 @@ func (st *HelmState) DeleteReleasesForSync(affectedReleases *AffectedReleases, h
 					m.Lock()
 					start := time.Now()
 					if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
-						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
-						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
-						affectedReleases.DeleteFailed = append(affectedReleases.Failed, release)
+						affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
 						relErr = newReleaseFailedError(release, err)
 					} else {
 						affectedReleases.Deleted = append(affectedReleases.Deleted, release)
@@ -3459,7 +3459,7 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		if _, err := st.triggerReleaseEvent("preuninstall", nil, &release, "delete", ctx); err != nil {
 			release.duration = time.Since(start)
 
-			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
+			affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, &release)
 
 			return err
 		}
@@ -3467,14 +3467,14 @@ func (st *HelmState) DeleteReleases(affectedReleases *AffectedReleases, helm hel
 		if err := helm.DeleteRelease(context, release.Name, flags...); err != nil {
 			release.duration = time.Since(start)
 
-			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
+			affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, &release)
 			return err
 		}
 
 		if _, err := st.triggerReleaseEvent("postuninstall", nil, &release, "delete", ctx); err != nil {
 			release.duration = time.Since(start)
 
-			affectedReleases.DeleteFailed = append(affectedReleases.Failed, &release)
+			affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, &release)
 			return err
 		}
 		release.duration = time.Since(start)

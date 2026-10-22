@@ -18,6 +18,7 @@ import (
 	chart "helm.sh/helm/v4/pkg/chart/v2"
 
 	"github.com/helmfile/helmfile/pkg/environment"
+	"github.com/helmfile/helmfile/pkg/event"
 	"github.com/helmfile/helmfile/pkg/exectest"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
@@ -4262,6 +4263,71 @@ func TestHelmState_Delete(t *testing.T) {
 				t.Errorf("unexpected deletions happened: expected %v, got %v", tt.deleted, helm.Deleted)
 			}
 		})
+	}
+}
+
+func TestHelmState_DeleteFailedReleases(t *testing.T) {
+	// The hook command does not exist, so the hook fails when its event fires.
+	failingHook := func(evt string) []event.Hook {
+		return []event.Hook{{Events: []string{evt}, Command: "no-such-hook-command"}}
+	}
+
+	tests := []struct {
+		name     string
+		releases []ReleaseSpec
+	}{
+		{
+			name:     "uninstall fails",
+			releases: []ReleaseSpec{{Name: "a-error"}, {Name: "b-error"}, {Name: "c"}},
+		},
+		{
+			name:     "preuninstall hook fails",
+			releases: []ReleaseSpec{{Name: "a", Hooks: failingHook("preuninstall")}, {Name: "b", Hooks: failingHook("preuninstall")}, {Name: "c"}},
+		},
+		{
+			name:     "postuninstall hook fails",
+			releases: []ReleaseSpec{{Name: "a", Hooks: failingHook("postuninstall")}, {Name: "b", Hooks: failingHook("postuninstall")}, {Name: "c"}},
+		},
+	}
+
+	commands := []struct {
+		name   string
+		delete func(st *HelmState, helm helmexec.Interface, ar *AffectedReleases) []error
+	}{
+		{"destroy", func(st *HelmState, helm helmexec.Interface, ar *AffectedReleases) []error {
+			return st.DeleteReleases(ar, helm, 1, true, "")
+		}},
+		{"sync", func(st *HelmState, helm helmexec.Interface, ar *AffectedReleases) []error {
+			return st.DeleteReleasesForSync(ar, helm, 1, "")
+		}},
+	}
+
+	names := func(releases []*ReleaseSpec) []string {
+		var got []string
+		for _, r := range releases {
+			got = append(got, r.Name)
+		}
+		return got
+	}
+
+	for _, cmd := range commands {
+		for _, tt := range tests {
+			t.Run(cmd.name+" "+tt.name, func(t *testing.T) {
+				state := &HelmState{
+					Releases:       tt.releases,
+					logger:         logger,
+					fs:             filesystem.DefaultFileSystem(),
+					RenderedValues: map[string]any{},
+				}
+				ar := AffectedReleases{}
+
+				errs := cmd.delete(state, &exectest.Helm{}, &ar)
+
+				require.Len(t, errs, 2)
+				assert.Equal(t, []string{tt.releases[0].Name, tt.releases[1].Name}, names(ar.DeleteFailed))
+				assert.Empty(t, ar.Failed)
+			})
+		}
 	}
 }
 
