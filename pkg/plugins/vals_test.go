@@ -19,6 +19,13 @@ func resetInstance() {
 	instance = nil
 }
 
+// resetExcludeSecretInstance resets the ExcludeSecret singleton for testing
+func resetExcludeSecretInstance() {
+	mu.Lock()
+	defer mu.Unlock()
+	excludeSecretInstance = nil
+}
+
 // setenvForTest sets the environment variable to value, or unsets it when value is empty,
 // restoring the original value when the test finishes.
 func setenvForTest(t *testing.T, key, value string) {
@@ -575,5 +582,57 @@ func TestBuildValsOptionsIntegration(t *testing.T) {
 		rt, err := vals.New(opts)
 		require.NoError(t, err)
 		assert.NotNil(t, rt)
+	})
+}
+
+func TestValsInstanceExcludeSecret(t *testing.T) {
+	t.Run("returns a cached singleton distinct from the default instance", func(t *testing.T) {
+		resetInstance()
+		resetExcludeSecretInstance()
+		defer func() {
+			resetInstance()
+			resetExcludeSecretInstance()
+		}()
+
+		setenvForTest(t, envvar.DisableVals, "")
+		setenvForTest(t, envvar.DisableValsStrict, "")
+
+		i, err := ValsInstanceExcludeSecret()
+		require.NoError(t, err)
+
+		i2, err := ValsInstanceExcludeSecret()
+		require.NoError(t, err)
+		assert.Same(t, i, i2, "exclude-secret instances should be cached")
+
+		def, err := ValsInstance()
+		require.NoError(t, err)
+		assert.NotSame(t, i, def, "exclude-secret instance must not be shared with the default instance")
+	})
+
+	t.Run("leaves secretref unresolved while expanding plain ref", func(t *testing.T) {
+		resetInstance()
+		resetExcludeSecretInstance()
+		defer func() {
+			resetInstance()
+			resetExcludeSecretInstance()
+		}()
+
+		setenvForTest(t, envvar.DisableVals, "")
+		setenvForTest(t, envvar.DisableValsStrict, "")
+
+		i, err := ValsInstanceExcludeSecret()
+		require.NoError(t, err)
+
+		rendered, err := i.Eval(map[string]any{
+			"values": map[string]any{
+				"secretPassword": "secretref+echo://topsecret",
+				"plainValue":     "ref+echo://plainvisible",
+			},
+		})
+		require.NoError(t, err)
+
+		values := rendered["values"].(map[string]any)
+		assert.Equal(t, "plainvisible", values["plainValue"], "plain ref+ must still be expanded")
+		assert.Equal(t, "secretref+echo://topsecret", values["secretPassword"], "secretref+ must stay unresolved")
 	})
 }

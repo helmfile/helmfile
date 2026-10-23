@@ -64,6 +64,8 @@ type App struct {
 
 	valsRuntime vals.Evaluator
 
+	valsExcludeSecretRuntime vals.Evaluator
+
 	helms      map[helmKey]helmexec.Interface
 	helmsMutex sync.Mutex
 
@@ -128,6 +130,10 @@ func Init(app *App) *App {
 	app.valsRuntime, err = plugins.ValsInstance()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize vals runtime: %v", err))
+	}
+	app.valsExcludeSecretRuntime, err = plugins.ValsInstanceExcludeSecret()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize vals runtime with ExcludeSecret: %v", err))
 	}
 
 	if app.EnableLiveOutput {

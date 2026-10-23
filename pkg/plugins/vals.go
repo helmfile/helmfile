@@ -22,6 +22,7 @@ const (
 )
 
 var instance vals.Evaluator
+var excludeSecretInstance vals.Evaluator
 var mu sync.Mutex
 
 // ErrValsDisabled is returned by the evaluator when HELMFILE_DISABLE_VALS_STRICT is set
@@ -173,37 +174,63 @@ func buildValsOptions() (vals.Options, error) {
 	return opts, nil
 }
 
-func ValsInstance() (vals.Evaluator, error) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if instance != nil {
-		return instance, nil
-	}
-
+// newValsInstance creates a fresh vals evaluator. When excludeSecret is true,
+// the evaluator is created with vals' ExcludeSecret option so that
+// `secretref+...` entries are left unresolved instead of being expanded to
+// their secret values. Plain `ref+...` entries are still expanded.
+func newValsInstance(excludeSecret bool) (vals.Evaluator, error) {
 	// HELMFILE_DISABLE_VALS_STRICT: error on ref+ usage
 	strict, _ := strconv.ParseBool(os.Getenv(envvar.DisableValsStrict))
 	if strict {
-		instance = &strictEvaluator{}
-		return instance, nil
+		return &strictEvaluator{}, nil
 	}
 
 	// HELMFILE_DISABLE_VALS: pass-through for external vals
 	disabled, _ := strconv.ParseBool(os.Getenv(envvar.DisableVals))
 	if disabled {
-		instance = &passthroughEvaluator{}
-		return instance, nil
+		return &passthroughEvaluator{}, nil
 	}
 
 	opts, err := buildValsOptions()
 	if err != nil {
 		return nil, err
 	}
+	opts.ExcludeSecret = excludeSecret
 
-	instance, err = vals.New(opts)
-	if err != nil {
-		return nil, err
+	return vals.New(opts)
+}
+
+func ValsInstance() (vals.Evaluator, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if instance == nil {
+		var err error
+		instance, err = newValsInstance(false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return instance, nil
+}
+
+// ValsInstanceExcludeSecret returns a vals evaluator with ExcludeSecret enabled:
+// `secretref+...` entries are passed through unresolved so that secret values
+// never reach temporary values files (e.g. while diffing), while plain
+// `ref+...` entries are still expanded.
+// See https://github.com/helmfile/helmfile/issues/2738
+func ValsInstanceExcludeSecret() (vals.Evaluator, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if excludeSecretInstance == nil {
+		var err error
+		excludeSecretInstance, err = newValsInstance(true)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return excludeSecretInstance, nil
 }

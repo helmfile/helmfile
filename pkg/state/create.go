@@ -60,6 +60,13 @@ type StateCreator struct {
 
 	valsRuntime vals.Evaluator
 
+	// ValsExcludeSecretRuntime is an optional vals evaluator created with
+	// vals' ExcludeSecret option (see plugins.ValsInstanceExcludeSecret).
+	// When set, `helmfile diff` without --show-secrets keeps `secretref+...`
+	// entries unresolved in temporary values files.
+	// See https://github.com/helmfile/helmfile/issues/2738
+	ValsExcludeSecretRuntime vals.Evaluator
+
 	Strict bool
 
 	LoadFile func(inheritedEnv, overrodeEnv *environment.Environment, baseDir, file string, evaluateBases bool) (*HelmState, error)
@@ -133,6 +140,7 @@ func (c *StateCreator) Parse(content []byte, baseDir, file string) (*HelmState, 
 
 	state.logger = c.logger
 	state.valsRuntime = c.valsRuntime
+	state.valsExcludeSecretRuntime = c.ValsExcludeSecretRuntime
 
 	return &state, nil
 }

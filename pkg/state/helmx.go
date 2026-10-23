@@ -1118,7 +1118,7 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 
 	if shouldRun {
 		st.logger.Debugf("Chartify process for %s", dir)
-		generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
+		generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex, false)
 		if err != nil {
 			return nil, clean, err
 		}
