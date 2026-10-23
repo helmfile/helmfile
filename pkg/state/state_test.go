@@ -4331,6 +4331,35 @@ func TestHelmState_DeleteFailedReleases(t *testing.T) {
 	}
 }
 
+func TestHelmState_DeleteFailedReleasesConcurrently(t *testing.T) {
+	state := &HelmState{
+		Releases: []ReleaseSpec{
+			{Name: "a-error"}, {Name: "b-error"}, {Name: "c-error"}, {Name: "d-error"}, {Name: "e-error"},
+		},
+		logger:         logger,
+		fs:             filesystem.DefaultFileSystem(),
+		RenderedValues: map[string]any{},
+	}
+	ar := AffectedReleases{}
+
+	names := func(releases []*ReleaseSpec) []string {
+		var got []string
+		for _, r := range releases {
+			got = append(got, r.Name)
+		}
+		return got
+	}
+
+	// A concurrency above 1 deletes releases in parallel, like `helmfile
+	// destroy` does with its default, unlimited concurrency.
+	errs := state.DeleteReleases(&ar, &exectest.Helm{}, 3, true, "")
+
+	require.Len(t, errs, 5)
+	assert.ElementsMatch(t, []string{"a-error", "b-error", "c-error", "d-error", "e-error"}, names(ar.DeleteFailed))
+	assert.Empty(t, ar.Deleted)
+	assert.Empty(t, ar.Failed)
+}
+
 func TestDiffpareSyncReleases(t *testing.T) {
 	tests := []struct {
 		name         string
