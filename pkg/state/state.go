@@ -4515,9 +4515,9 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 			kubeVersionForDiff = st.KubeVersion
 		}
 	} else {
-		// Pass auto-detected version (default behavior)
+		// Pass auto-detected version (default behavior) unless the release sets its own kubeVersion
 		kubeVersionForDiff = ""
-		if opt != nil && opt.DetectedKubeVersion != "" {
+		if release.KubeVersion == "" && opt != nil && opt.DetectedKubeVersion != "" {
 			kubeVersionForDiff = opt.DetectedKubeVersion
 		}
 	}
