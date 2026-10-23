@@ -4808,12 +4808,14 @@ func (st *HelmState) mergedReleaseTemplateData(release *ReleaseSpec) (releaseTem
 	return st.createReleaseTemplateData(release, mergedVals), nil
 }
 
-// valsRuntimeWithoutSecrets returns the vals evaluator to use when secret
-// values must not be resolved: `secretref+...` entries stay as-is. Falls back
-// to the regular evaluator when no ExcludeSecret runtime is wired (e.g. in
-// tests that don't exercise secret exclusion).
-func (st *HelmState) valsRuntimeWithoutSecrets() vals.Evaluator {
-	if st.valsExcludeSecretRuntime != nil {
+// valsEvaluator returns the vals evaluator to use when rendering values.
+// When excludeSecrets is true, `secretref+...` entries are left unresolved so
+// that secret values never reach temporary values files or diff command lines
+// while diffing without --show-secrets. It falls back to the regular evaluator
+// when no ExcludeSecret runtime is wired (e.g. in tests that don't exercise
+// secret exclusion). See https://github.com/helmfile/helmfile/issues/2738
+func (st *HelmState) valsEvaluator(excludeSecrets bool) vals.Evaluator {
+	if excludeSecrets && st.valsExcludeSecretRuntime != nil {
 		return st.valsExcludeSecretRuntime
 	}
 	return st.valsRuntime
@@ -4836,12 +4838,7 @@ func (st *HelmState) prepareReleaseValuesEntries(release *ReleaseSpec, excludeSe
 		}
 	}
 
-	valsRuntime := st.valsRuntime
-	if excludeSecrets {
-		valsRuntime = st.valsRuntimeWithoutSecrets()
-	}
-
-	valuesMapSecretsRendered, err := valsRuntime.Eval(map[string]any{"values": values})
+	valuesMapSecretsRendered, err := st.valsEvaluator(excludeSecrets).Eval(map[string]any{"values": values})
 	if err != nil {
 		return nil, err
 	}
@@ -4932,12 +4929,7 @@ func (st *HelmState) renderValuesFileToBytesWithData(path string, templateData r
 			return nil, err
 		}
 
-		valsRuntime := st.valsRuntime
-		if excludeSecrets {
-			valsRuntime = st.valsRuntimeWithoutSecrets()
-		}
-
-		parsedYaml, err := valsRuntime.Eval(rawYaml)
+		parsedYaml, err := st.valsEvaluator(excludeSecrets).Eval(rawYaml)
 		if err != nil {
 			return nil, err
 		}
@@ -5388,7 +5380,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	}
 
 	if len(release.SetValues) > 0 {
-		setFlags, err := st.setFlags(release.SetValues)
+		setFlags, err := st.setFlags(release.SetValues, excludeSecrets)
 		if err != nil {
 			return nil, files, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
 		}
@@ -5397,7 +5389,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	}
 
 	if len(release.SetStringValues) > 0 {
-		setStringFlags, err := st.setStringFlags(release.SetStringValues)
+		setStringFlags, err := st.setStringFlags(release.SetStringValues, excludeSecrets)
 		if err != nil {
 			return nil, files, fmt.Errorf("Failed to render set string value entry in %s for release %s: %v", st.FilePath, release.Name, err)
 		}
@@ -5435,12 +5427,14 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	return flags, files, nil
 }
 
-func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
+// setFlags generates the --set flags for helm. When excludeSecrets is true,
+// `secretref+...` entries are left unresolved (see issue #2738).
+func (st *HelmState) setFlags(setValues []SetValue, excludeSecrets bool) ([]string, error) {
 	var flags []string
 
 	for _, set := range setValues {
 		if set.Value != "" {
-			renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
+			renderedValue, err := renderValsSecrets(st.valsEvaluator(excludeSecrets), set.Value)
 			if err != nil {
 				return nil, err
 			}
@@ -5448,7 +5442,7 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 		} else if set.File != "" {
 			flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizeSetFilePath(set.File, runtime.GOOS)))
 		} else if len(set.Values) > 0 {
-			renderedValues, err := renderValsSecretsAny(st.valsRuntime, set.Values)
+			renderedValues, err := renderValsSecretsAny(st.valsEvaluator(excludeSecrets), set.Values)
 			if err != nil {
 				return nil, err
 			}
@@ -5464,19 +5458,21 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 	return flags, nil
 }
 
-// setStringFlags is to generate the set-string flags for helm
-func (st *HelmState) setStringFlags(setValues []SetValue) ([]string, error) {
+// setStringFlags is to generate the set-string flags for helm. When
+// excludeSecrets is true, `secretref+...` entries are left unresolved (see
+// issue #2738).
+func (st *HelmState) setStringFlags(setValues []SetValue, excludeSecrets bool) ([]string, error) {
 	var flags []string
 
 	for _, set := range setValues {
 		if set.Value != "" {
-			renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
+			renderedValue, err := renderValsSecrets(st.valsEvaluator(excludeSecrets), set.Value)
 			if err != nil {
 				return nil, err
 			}
 			flags = append(flags, "--set-string", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
 		} else if len(set.Values) > 0 {
-			renderedValues, err := renderValsSecretsAny(st.valsRuntime, set.Values)
+			renderedValues, err := renderValsSecretsAny(st.valsEvaluator(excludeSecrets), set.Values)
 			if err != nil {
 				return nil, err
 			}

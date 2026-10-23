@@ -57,6 +57,24 @@ service:
 ```
 
 
+## Secrets in diff output
+
+`secretref+` references in release values (values files, inline values, and
+`set`/`set-string` entries) are resolved by helmfile itself before the values
+are handed to `helm`. While running `helmfile diff` (and the confirmation diff
+printed by `helmfile apply`), `secretref+...` entries are kept unresolved by
+default, so secret values never leak into the diff output: helm-diff compares
+the literal `secretref+...` string against the value already stored in the
+cluster. Plain `ref+...` entries are still resolved.
+
+Note that this may make the diff report changes for releases whose charts
+render the referenced secret into non-Secret manifests, even when the release
+is otherwise up to date.
+
+Pass `--show-secrets` to `helmfile diff` to restore the previous behavior and
+resolve `secretref+...` entries to their secret values in the diff output. This
+flag should be used for debug purposes only. See issue #2738.
+
 ## Disabling vals
 
 You can disable the built-in vals processing using environment variables:

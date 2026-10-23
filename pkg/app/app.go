@@ -979,12 +979,13 @@ func (a *App) loadDesiredStateFromYamlWithBaseDir(file string, baseDir string, o
 		baseDir:   baseDir,
 		traceCtx:  loadCtx,
 
-		overrideKubeContext:     a.OverrideKubeContext,
-		overrideHelmBinary:      a.OverrideHelmBinary,
-		overrideKustomizeBinary: a.OverrideKustomizeBinary,
-		enableLiveOutput:        a.EnableLiveOutput,
-		getHelm:                 a.getHelm,
-		valsRuntime:             a.valsRuntime,
+		overrideKubeContext:      a.OverrideKubeContext,
+		overrideHelmBinary:       a.OverrideHelmBinary,
+		overrideKustomizeBinary:  a.OverrideKustomizeBinary,
+		enableLiveOutput:         a.EnableLiveOutput,
+		getHelm:                  a.getHelm,
+		valsRuntime:              a.valsRuntime,
+		valsExcludeSecretRuntime: a.valsExcludeSecretRuntime,
 	}
 
 	st, err := ld.Load(file, op)

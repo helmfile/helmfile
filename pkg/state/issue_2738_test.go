@@ -216,3 +216,56 @@ plainValue: ref+echo://plainvisible
 		})
 	}
 }
+
+// TestSetFlags_SecretExclusion covers the --set/--set-string flag generation:
+// while diffing without --show-secrets (excludeSecrets=true), `secretref+...`
+// set values must stay unresolved so that secret values never leak into the
+// diff output or the helm-diff command line. With --show-secrets
+// (excludeSecrets=false), everything is resolved to plaintext as before.
+func TestSetFlags_SecretExclusion(t *testing.T) {
+	st := newIssue2738TestState(t, map[string]string{})
+
+	tests := []struct {
+		name           string
+		excludeSecrets bool
+		wantSecret     string
+		wantPlain      string
+	}{
+		{
+			name:           "diff without show-secrets keeps secretref unresolved",
+			excludeSecrets: true,
+			wantSecret:     "secretref+echo://topsecret",
+			wantPlain:      "plainvisible",
+		},
+		{
+			name:           "diff with show-secrets resolves secretref to plaintext",
+			excludeSecrets: false,
+			wantSecret:     "topsecret",
+			wantPlain:      "plainvisible",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := st.setFlags([]SetValue{
+				{Name: "secretPassword", Value: "secretref+echo://topsecret"},
+				{Name: "plainValue", Value: "ref+echo://plainvisible"},
+			}, tt.excludeSecrets)
+			require.NoError(t, err)
+			assert.Equal(t, []string{
+				"--set", "secretPassword=" + tt.wantSecret,
+				"--set", "plainValue=" + tt.wantPlain,
+			}, got)
+
+			gotString, err := st.setStringFlags([]SetValue{
+				{Name: "secretPassword", Value: "secretref+echo://topsecret"},
+				{Name: "plainValue", Value: "ref+echo://plainvisible"},
+			}, tt.excludeSecrets)
+			require.NoError(t, err)
+			assert.Equal(t, []string{
+				"--set-string", "secretPassword=" + tt.wantSecret,
+				"--set-string", "plainValue=" + tt.wantPlain,
+			}, gotString)
+		})
+	}
+}
