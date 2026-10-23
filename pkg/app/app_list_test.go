@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/helmfile/vals"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	ffs "github.com/helmfile/helmfile/pkg/filesystem"
@@ -303,6 +304,82 @@ func TestListWithJSONOutput(t *testing.T) {
 	t.Run("with skipCharts=true", func(t *testing.T) {
 		testListWithJSONOutput(t, configImpl{skipCharts: true})
 	})
+}
+
+// TestListKubeContextPrecedence goes through the desired state loader, which also writes
+// --kube-context into helmDefaults.kubeContext, and reads the release's context back from a
+// namespace templated with .Release.KubeContext.
+func TestListKubeContextPrecedence(t *testing.T) {
+	const environment = `
+environments:
+  prod:
+    kubeContext: env-context
+---
+`
+	const releases = `
+releases:
+- name: app
+  namespace: ns-{{ .Release.KubeContext }}
+  chart: incubator/raw
+`
+	const helmDefaults = `
+helmDefaults:
+  kubeContext: default-context
+`
+
+	tests := []struct {
+		name          string
+		helmfile      string
+		kubeContext   string
+		wantNamespace string
+	}{
+		{
+			name:          "environment over helmDefaults",
+			helmfile:      environment + helmDefaults + releases,
+			wantNamespace: "ns-env-context",
+		},
+		{
+			name:          "environment only",
+			helmfile:      environment + releases,
+			wantNamespace: "ns-env-context",
+		},
+		{
+			name:          "--kube-context over environment",
+			helmfile:      environment + helmDefaults + releases,
+			kubeContext:   "cli-context",
+			wantNamespace: "ns-cli-context",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buffer bytes.Buffer
+			logger := helmexec.NewLogger(testhelper.NewSyncWriter(&buffer), "debug")
+
+			app := appWithFs(&App{
+				OverrideHelmBinary:              DefaultHelmBinary,
+				fs:                              ffs.DefaultFileSystem(),
+				OverrideKubeContext:             tt.kubeContext,
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "prod",
+				Logger:                          logger,
+			}, map[string]string{"/path/to/helmfile.yaml": tt.helmfile})
+
+			expectNoCallsToHelm(app)
+
+			out, err := testutil.CaptureStdout(func() {
+				require.NoError(t, app.ListReleases(configImpl{output: "json"}))
+			})
+			require.NoError(t, err)
+
+			var releases []struct {
+				Namespace string `json:"namespace"`
+			}
+			require.NoError(t, json.Unmarshal([]byte(out), &releases))
+			require.Len(t, releases, 1)
+			require.Equal(t, tt.wantNamespace, releases[0].Namespace)
+		})
+	}
 }
 
 // TestListWithManyStates guards against a deadlock in ListReleases: per-state

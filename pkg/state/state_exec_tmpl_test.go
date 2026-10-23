@@ -606,3 +606,101 @@ func TestDefaultInherits_UnmarshalYAML(t *testing.T) {
 		})
 	}
 }
+
+func TestHelmState_executeTemplatesKubeContext(t *testing.T) {
+	tests := []struct {
+		name         string
+		override     string
+		helmDefaults string
+		environment  string
+		release      string
+		want         string
+		wantStored   string
+	}{
+		{
+			name:         "helmDefaults only",
+			helmDefaults: "default-context",
+			want:         "default-context",
+			wantStored:   "default-context",
+		},
+		{
+			name:         "environment over helmDefaults",
+			helmDefaults: "default-context",
+			environment:  "env-context",
+			want:         "env-context",
+			wantStored:   "env-context",
+		},
+		{
+			name:         "release over environment and helmDefaults",
+			helmDefaults: "default-context",
+			environment:  "env-context",
+			release:      "release-context",
+			want:         "release-context",
+			wantStored:   "release-context",
+		},
+		{
+			name:        "environment only",
+			environment: "env-context",
+			want:        "env-context",
+			wantStored:  "env-context",
+		},
+		{
+			name: "no kubeContext anywhere keeps the release field empty",
+		},
+		{
+			name:         "top-level kubeContext over helmDefaults",
+			override:     "top-context",
+			helmDefaults: "default-context",
+			want:         "top-context",
+			wantStored:   "top-context",
+		},
+		{
+			name:       "--kube-context leaves a release's own kubeContext in templates",
+			override:   "cli-context",
+			release:    "release-context",
+			want:       "cli-context",
+			wantStored: "release-context",
+		},
+		{
+			name:         "--kube-context over environment",
+			override:     "cli-context",
+			helmDefaults: "cli-context",
+			environment:  "env-context",
+			want:         "cli-context",
+			wantStored:   "cli-context",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				logger:              zap.NewNop().Sugar(),
+				fs:                  &filesystem.FileSystem{Glob: func(s string) ([]string, error) { return nil, nil }},
+				basePath:            ".",
+				OverrideKubeContext: tt.override,
+				HelmDefaults: HelmSpec{
+					KubeContext: tt.helmDefaults,
+				},
+				Environments: map[string]EnvironmentSpec{
+					"production": {KubeContext: tt.environment},
+				},
+				Env: environment.Environment{Name: "production"},
+				Releases: []ReleaseSpec{{
+					Name:        "app",
+					Chart:       "test-chart",
+					Namespace:   "ns-{{ .Release.KubeContext }}",
+					KubeContext: tt.release,
+				}},
+				RenderedValues: map[string]any{},
+			}
+
+			r, err := state.ExecuteTemplates()
+			require.NoError(t, err)
+
+			release := &r.Releases[0]
+			require.Equal(t, tt.want, r.getKubeContext(release))
+			require.Equal(t, tt.wantStored, release.KubeContext)
+			require.Equal(t, "ns-"+tt.wantStored, release.Namespace)
+		})
+	}
+}

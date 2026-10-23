@@ -7126,6 +7126,7 @@ func TestHelmState_getKubeContext(t *testing.T) {
 		defaults     HelmSpec
 		environments map[string]EnvironmentSpec
 		envName      string
+		override     string
 		release      *ReleaseSpec
 		want         string
 	}{
@@ -7185,6 +7186,22 @@ func TestHelmState_getKubeContext(t *testing.T) {
 			},
 			want: "release-context",
 		},
+		{
+			name: "--kube-context overrides release and environment",
+			defaults: HelmSpec{
+				KubeContext: "cli-context",
+			},
+			environments: map[string]EnvironmentSpec{
+				"production": {KubeContext: "env-context"},
+			},
+			envName:  "production",
+			override: "cli-context",
+			release: &ReleaseSpec{
+				Name:        "test",
+				KubeContext: "release-context",
+			},
+			want: "cli-context",
+		},
 	}
 
 	for _, tt := range tests {
@@ -7199,9 +7216,10 @@ func TestHelmState_getKubeContext(t *testing.T) {
 			}
 
 			state := &HelmState{
-				basePath:     "./",
-				HelmDefaults: tt.defaults,
-				Environments: environments,
+				basePath:            "./",
+				OverrideKubeContext: tt.override,
+				HelmDefaults:        tt.defaults,
+				Environments:        environments,
 				Env: environment.Environment{
 					Name: envName,
 				},
