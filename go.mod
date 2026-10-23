@@ -1,6 +1,6 @@
 module github.com/helmfile/helmfile
 
-go 1.27.1
+go 1.27.2
 
 require (
 	dario.cat/mergo v1.0.2
@@ -19,7 +19,7 @@ require (
 	github.com/hashicorp/go-cty-funcs v0.1.0
 	github.com/hashicorp/go-getter/v2 v2.2.5
 	github.com/hashicorp/hcl/v2 v2.25.0
-	github.com/helmfile/chartify v0.29.0
+	github.com/helmfile/chartify v0.30.0
 	github.com/helmfile/vals v0.47.0
 	github.com/mattn/go-runewidth v0.0.31
 	github.com/otiai10/copy v1.14.1
