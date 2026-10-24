@@ -4193,6 +4193,18 @@ func (st *HelmState) getKubeContext(release *ReleaseSpec) string {
 	if st.Environments[st.Env.Name].KubeContext != "" {
 		return st.Environments[st.Env.Name].KubeContext
 	}
+	// Issue #2847: sub-helmfiles with `inherits: [environments]` receive the
+	// parent environment's kubeContext only through st.Env, because
+	// st.Environments holds solely the environments this helmfile declares
+	// itself (see loadEnvValues in create.go, where the inherited context is
+	// merged into the resolved environment). Falling back to st.Env.KubeContext
+	// makes the inherited context apply to releases. The environment declared
+	// by this helmfile is checked above, so its own kubeContext wins over the
+	// inherited one. For helmfiles that do not inherit environments, st.Env and
+	// st.Environments hold the same kubeContext, so this fallback is a no-op.
+	if st.Env.KubeContext != "" {
+		return st.Env.KubeContext
+	}
 	if st.HelmDefaults.KubeContext != "" {
 		return st.HelmDefaults.KubeContext
 	}

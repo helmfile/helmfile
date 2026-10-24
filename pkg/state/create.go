@@ -449,7 +449,12 @@ func (c *StateCreator) loadEnvValues(st *HelmState, name string, failOnMissingEn
 		if ctxEnv.Name != "" {
 			newEnv.Name = ctxEnv.Name
 		}
-		if ctxEnv.KubeContext != "" {
+		// A kubeContext declared by this helmfile's own environment spec wins
+		// over the inherited one; the inherited context only fills the gap
+		// (issue #2847). This mirrors the later-layer-wins semantics used for
+		// the Values merge above, so the resolved environment always carries
+		// the effective context.
+		if newEnv.KubeContext == "" && ctxEnv.KubeContext != "" {
 			newEnv.KubeContext = ctxEnv.KubeContext
 		}
 	}
