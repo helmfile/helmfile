@@ -1330,13 +1330,13 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 						deletionFlags := st.appendConnectionFlags(args, release)
 						m.Lock()
 						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
-							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
-							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
-							affectedReleases.Failed = append(affectedReleases.Failed, release)
+							affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
 							relErr = newReleaseFailedError(release, err)
 						} else {
 							affectedReleases.Deleted = append(affectedReleases.Deleted, release)

@@ -57,6 +57,7 @@ type Helm struct {
 	DiffMutex     *sync.Mutex
 	ChartsMutex   *sync.Mutex
 	ReleasesMutex *sync.Mutex
+	DeletedMutex  *sync.Mutex
 
 	Helm3 bool
 	Helm4 bool
@@ -184,7 +185,9 @@ func (helm *Helm) DeleteRelease(context helmexec.HelmContext, name string, flags
 	if strings.Contains(name, "error") {
 		return errors.New("error")
 	}
-	helm.Deleted = append(helm.Deleted, Release{Name: name, Flags: flags})
+	helm.sync(helm.DeletedMutex, func() {
+		helm.Deleted = append(helm.Deleted, Release{Name: name, Flags: flags})
+	})
 	return nil
 }
 func (helm *Helm) List(context helmexec.HelmContext, filter string, flags ...string) (string, error) {
