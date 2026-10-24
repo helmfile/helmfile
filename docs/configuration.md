@@ -493,7 +493,7 @@ The following per-release fields are also available:
 | `valuesTemplate` | list | | Like `values` but template expressions are rendered before being passed to Helm |
 | `setTemplate` | list | | Like `set` but template expressions are rendered before being passed to Helm |
 | `apiVersions` | list | | Per-release API versions (overrides top-level `apiVersions`) |
-| `kubeVersion` | string | | Per-release kube version (overrides top-level `kubeVersion`) |
+| `kubeVersion` | string | | Per-release kube version (overrides top-level `kubeVersion`). For `helm diff`, a release-level `kubeVersion` takes precedence over the auto-detected cluster version |
 | `valuesPathPrefix` | string | | Prefix for values file paths |
 | `verifyTemplate` | string | | Templated verify flag (e.g., `{{ .Values.verify \| default "false" }}`) |
 | `waitTemplate` | string | | Templated wait flag |
