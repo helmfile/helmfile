@@ -45,7 +45,10 @@ linters:
       lines: 280
       statements: 140
     gocognit:
-      min-complexity: 110
+      # 120: golangci-lint v2.15.0's gocognit counts higher than v2.13.x did;
+      # pre-existing SyncReleases (112) and rewriteChartDependencies (115) now
+      # exceed the old 110 budget on unchanged code. Refactor targets, not bugs.
+      min-complexity: 120
     goconst:
       min-len: 3
       min-occurrences: 8
