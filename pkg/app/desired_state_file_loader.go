@@ -53,6 +53,8 @@ type desiredStateLoader struct {
 	logger      *zap.SugaredLogger
 	valsRuntime vals.Evaluator
 
+	valsExcludeSecretRuntime vals.Evaluator
+
 	lockFilePath string
 }
 
@@ -229,6 +231,7 @@ func (ld *desiredStateLoader) loadFileWithOverrides(inheritedEnv, overrodeEnv *e
 
 func (a *desiredStateLoader) underlying() *state.StateCreator {
 	c := state.NewCreator(a.logger, a.fs, a.valsRuntime, a.getHelm, a.overrideHelmBinary, a.overrideKustomizeBinary, a.remote, a.enableLiveOutput, a.lockFilePath)
+	c.ValsExcludeSecretRuntime = a.valsExcludeSecretRuntime
 	c.LoadFile = a.loadFile
 	return c
 }

@@ -6886,7 +6886,7 @@ func TestHelmState_setStringFlags(t *testing.T) {
 			st := &HelmState{
 				valsRuntime: valsRuntime,
 			}
-			got, err := st.setStringFlags(tt.setStringValues)
+			got, err := st.setStringFlags(tt.setStringValues, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("setStringFlags() error = %v, wantErr %v", err, tt.wantErr)
 				return

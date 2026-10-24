@@ -1348,7 +1348,7 @@ image:
 	release := &ReleaseSpec{Name: "myrelease", Chart: "mychart"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
 
-	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData)
+	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData, false)
 	require.NoError(t, err)
 	assert.Contains(t, string(result), "replicaCount: 2")
 	assert.Contains(t, string(result), "repository: nginx")
@@ -1371,7 +1371,7 @@ enabled: {{ .Values.ingress.enabled }}
 		},
 	})
 
-	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData)
+	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData, false)
 	require.NoError(t, err)
 	assert.Contains(t, string(result), "replicaCount: 3")
 	assert.Contains(t, string(result), "enabled: true")
@@ -1389,7 +1389,7 @@ releaseNamespace: {{ .Release.Namespace }}
 	release := &ReleaseSpec{Name: "myapp", Chart: "mychart", Namespace: "production"}
 	tmplData := st.createReleaseTemplateData(release, map[string]any{})
 
-	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData)
+	result, err := st.renderValuesFileToBytesWithData(valuesFile, tmplData, false)
 	require.NoError(t, err)
 	assert.Contains(t, string(result), "releaseName: myapp")
 	assert.Contains(t, string(result), "releaseNamespace: production")

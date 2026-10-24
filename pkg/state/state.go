@@ -168,6 +168,12 @@ type HelmState struct {
 
 	valsRuntime vals.Evaluator
 
+	// valsExcludeSecretRuntime is a vals evaluator created with vals'
+	// ExcludeSecret option: `secretref+...` entries stay unresolved so that
+	// secret values never reach temporary values files (used while diffing
+	// without --show-secrets). See https://github.com/helmfile/helmfile/issues/2738
+	valsExcludeSecretRuntime vals.Evaluator
+
 	kubeconfig string
 
 	// chartifyTempDirs tracks temporary directories created by chartify during
@@ -2705,7 +2711,7 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 
 		st.ApplyOverrides(release)
 
-		generatedFiles, err := st.generateValuesFiles(helm, release, i)
+		generatedFiles, err := st.generateValuesFiles(helm, release, i, false)
 		if err != nil {
 			return []error{err}
 		}
@@ -3080,6 +3086,10 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 	for _, o := range opts {
 		o.Apply(opt)
 	}
+	// While diffing without --show-secrets, keep `secretref+...` entries
+	// unresolved in temporary values files so secret values don't leak into
+	// the diff output. See https://github.com/helmfile/helmfile/issues/2738
+	opt.ExcludeSecrets = !showSecrets
 
 	mu := &sync.RWMutex{}
 	installedReleases := map[string]bool{}
@@ -3281,6 +3291,12 @@ type DiffOpts struct {
 	// DetectedKubeVersion is the Kubernetes version detected from the cluster.
 	// This is used when kubeVersion is not specified in helmfile.yaml
 	DetectedKubeVersion string
+	// ExcludeSecrets makes vals leave `secretref+...` entries in values
+	// unresolved while rendering temporary values files for diffing, so that
+	// secret values never leak into the diff output. Enabled for
+	// `helmfile diff` unless --show-secrets is set.
+	// See https://github.com/helmfile/helmfile/issues/2738
+	ExcludeSecrets bool
 }
 
 func (o *DiffOpts) Apply(opts *DiffOpts) {
@@ -4408,7 +4424,7 @@ func (st *HelmState) flagsForUpgrade(helm helmexec.Interface, release *ReleaseSp
 
 	flags = st.appendExtraSyncFlags(flags, opt)
 
-	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	common, clean, err := st.namespaceAndValuesFlags(helm, release, workerIndex, false)
 	if err != nil {
 		return nil, clean, err
 	}
@@ -4451,7 +4467,7 @@ func (st *HelmState) flagsForTemplate(helm helmexec.Interface, release *ReleaseS
 		}
 	}
 
-	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex, false)
 	if err != nil {
 		return nil, files, err
 	}
@@ -4612,7 +4628,7 @@ func (st *HelmState) flagsForDiff(helm helmexec.Interface, release *ReleaseSpec,
 		return nil, nil, err
 	}
 
-	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	common, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex, opt != nil && opt.ExcludeSecrets)
 	if err != nil {
 		return nil, files, err
 	}
@@ -4768,7 +4784,7 @@ func (st *HelmState) isDevelopment(release *ReleaseSpec) bool {
 }
 
 func (st *HelmState) flagsForLint(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
-	flags, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex)
+	flags, files, err := st.namespaceAndValuesFlags(helm, release, workerIndex, false)
 	if err != nil {
 		return nil, files, err
 	}
@@ -4792,9 +4808,25 @@ func (st *HelmState) mergedReleaseTemplateData(release *ReleaseSpec) (releaseTem
 	return st.createReleaseTemplateData(release, mergedVals), nil
 }
 
+// valsEvaluator returns the vals evaluator to use when rendering values.
+// When excludeSecrets is true, `secretref+...` entries are left unresolved so
+// that secret values never reach temporary values files or diff command lines
+// while diffing without --show-secrets. It falls back to the regular evaluator
+// when no ExcludeSecret runtime is wired (e.g. in tests that don't exercise
+// secret exclusion). See https://github.com/helmfile/helmfile/issues/2738
+func (st *HelmState) valsEvaluator(excludeSecrets bool) vals.Evaluator {
+	if excludeSecrets && st.valsExcludeSecretRuntime != nil {
+		return st.valsExcludeSecretRuntime
+	}
+	return st.valsRuntime
+}
+
 // prepareReleaseValuesEntries normalizes release.Values path entries (applying ValuesPathPrefix)
 // and evaluates any vals ref+ secrets, returning the fully-rendered values slice ready for processing.
-func (st *HelmState) prepareReleaseValuesEntries(release *ReleaseSpec) ([]any, error) {
+// When excludeSecrets is true, `secretref+...` entries are left unresolved so
+// that secret values don't leak into temporary values files.
+// See https://github.com/helmfile/helmfile/issues/2738
+func (st *HelmState) prepareReleaseValuesEntries(release *ReleaseSpec, excludeSecrets bool) ([]any, error) {
 	values := []any{}
 	for _, v := range release.Values {
 		switch typedValue := v.(type) {
@@ -4806,7 +4838,7 @@ func (st *HelmState) prepareReleaseValuesEntries(release *ReleaseSpec) ([]any, e
 		}
 	}
 
-	valuesMapSecretsRendered, err := st.valsRuntime.Eval(map[string]any{"values": values})
+	valuesMapSecretsRendered, err := st.valsEvaluator(excludeSecrets).Eval(map[string]any{"values": values})
 	if err != nil {
 		return nil, err
 	}
@@ -4822,7 +4854,7 @@ func (st *HelmState) prepareReleaseValuesEntries(release *ReleaseSpec) ([]any, e
 func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any, error) {
 	merged := map[string]any{}
 
-	valuesSecretsRendered, err := st.prepareReleaseValuesEntries(release)
+	valuesSecretsRendered, err := st.prepareReleaseValuesEntries(release, false)
 	if err != nil {
 		return nil, err
 	}
@@ -4877,7 +4909,7 @@ func (st *HelmState) resolveReleaseValues(release *ReleaseSpec) (map[string]any,
 	return merged, nil
 }
 
-func (st *HelmState) renderValuesFileToBytesWithData(path string, templateData releaseTemplateData) ([]byte, error) {
+func (st *HelmState) renderValuesFileToBytesWithData(path string, templateData releaseTemplateData, excludeSecrets bool) ([]byte, error) {
 	r := tmpl.NewFileRenderer(st.fs, filepath.Dir(path), templateData)
 	rawBytes, err := r.RenderToBytes(path)
 	if err != nil {
@@ -4897,7 +4929,7 @@ func (st *HelmState) renderValuesFileToBytesWithData(path string, templateData r
 			return nil, err
 		}
 
-		parsedYaml, err := st.valsRuntime.Eval(rawYaml)
+		parsedYaml, err := st.valsEvaluator(excludeSecrets).Eval(rawYaml)
 		if err != nil {
 			return nil, err
 		}
@@ -4914,7 +4946,7 @@ func (st *HelmState) generateTemporaryReleaseValuesFilesWithData(release *Releas
 		if err != nil {
 			return nil, err
 		}
-		return st.renderValuesFileToBytesWithData(path, templateData)
+		return st.renderValuesFileToBytesWithData(path, templateData, false)
 	})
 }
 
@@ -4926,7 +4958,7 @@ func (st *HelmState) newReleaseTemplateFuncMap(dir string) template.FuncMap {
 
 func (st *HelmState) RenderReleaseValuesFileToBytes(release *ReleaseSpec, path string) ([]byte, error) {
 	templateData := st.newReleaseTemplateData(release)
-	return st.renderValuesFileToBytesWithData(path, templateData)
+	return st.renderValuesFileToBytesWithData(path, templateData, false)
 }
 
 func (st *HelmState) storage() *Storage {
@@ -5226,13 +5258,19 @@ func (st *HelmState) generateTemporaryReleaseValuesFilesCore(release *ReleaseSpe
 	return generatedFiles, nil
 }
 
-func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec) ([]string, error) {
-	valuesSecretsRendered, err := st.prepareReleaseValuesEntries(release)
+func (st *HelmState) generateVanillaValuesFiles(release *ReleaseSpec, excludeSecrets bool) ([]string, error) {
+	valuesSecretsRendered, err := st.prepareReleaseValuesEntries(release, excludeSecrets)
 	if err != nil {
 		return nil, err
 	}
 
-	generatedFiles, err := st.generateTemporaryReleaseValuesFiles(release, valuesSecretsRendered)
+	// Same as generateTemporaryReleaseValuesFiles, but with the option to keep
+	// `secretref+...` entries unresolved (see issue #2738) so that secret
+	// values don't leak into temporary values files while diffing.
+	generatedFiles, err := st.generateTemporaryReleaseValuesFilesCore(release, valuesSecretsRendered, func(path string) ([]byte, error) {
+		templateData := st.newReleaseTemplateData(release)
+		return st.renderValuesFileToBytesWithData(path, templateData, excludeSecrets)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -5306,8 +5344,8 @@ func (st *HelmState) generateSecretValuesFiles(helm helmexec.Interface, release 
 	return generatedFiles, nil
 }
 
-func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, error) {
-	valuesFiles, err := st.generateVanillaValuesFiles(release)
+func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, excludeSecrets bool) ([]string, error) {
+	valuesFiles, err := st.generateVanillaValuesFiles(release, excludeSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -5322,7 +5360,7 @@ func (st *HelmState) generateValuesFiles(helm helmexec.Interface, release *Relea
 	return files, nil
 }
 
-func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int) ([]string, []string, error) {
+func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *ReleaseSpec, workerIndex int, excludeSecrets bool) ([]string, []string, error) {
 	flags := []string{}
 	if release.Namespace != "" {
 		flags = append(flags, "--namespace", release.Namespace)
@@ -5330,7 +5368,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 
 	var files []string
 
-	generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex)
+	generatedFiles, err := st.generateValuesFiles(helm, release, workerIndex, excludeSecrets)
 	if err != nil {
 		return nil, files, err
 	}
@@ -5342,7 +5380,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	}
 
 	if len(release.SetValues) > 0 {
-		setFlags, err := st.setFlags(release.SetValues)
+		setFlags, err := st.setFlags(release.SetValues, excludeSecrets)
 		if err != nil {
 			return nil, files, fmt.Errorf("Failed to render set value entry in %s for release %s: %v", st.FilePath, release.Name, err)
 		}
@@ -5351,7 +5389,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	}
 
 	if len(release.SetStringValues) > 0 {
-		setStringFlags, err := st.setStringFlags(release.SetStringValues)
+		setStringFlags, err := st.setStringFlags(release.SetStringValues, excludeSecrets)
 		if err != nil {
 			return nil, files, fmt.Errorf("Failed to render set string value entry in %s for release %s: %v", st.FilePath, release.Name, err)
 		}
@@ -5389,12 +5427,14 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 	return flags, files, nil
 }
 
-func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
+// setFlags generates the --set flags for helm. When excludeSecrets is true,
+// `secretref+...` entries are left unresolved (see issue #2738).
+func (st *HelmState) setFlags(setValues []SetValue, excludeSecrets bool) ([]string, error) {
 	var flags []string
 
 	for _, set := range setValues {
 		if set.Value != "" {
-			renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
+			renderedValue, err := renderValsSecrets(st.valsEvaluator(excludeSecrets), set.Value)
 			if err != nil {
 				return nil, err
 			}
@@ -5402,7 +5442,7 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 		} else if set.File != "" {
 			flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizeSetFilePath(set.File, runtime.GOOS)))
 		} else if len(set.Values) > 0 {
-			renderedValues, err := renderValsSecretsAny(st.valsRuntime, set.Values)
+			renderedValues, err := renderValsSecretsAny(st.valsEvaluator(excludeSecrets), set.Values)
 			if err != nil {
 				return nil, err
 			}
@@ -5418,19 +5458,21 @@ func (st *HelmState) setFlags(setValues []SetValue) ([]string, error) {
 	return flags, nil
 }
 
-// setStringFlags is to generate the set-string flags for helm
-func (st *HelmState) setStringFlags(setValues []SetValue) ([]string, error) {
+// setStringFlags is to generate the set-string flags for helm. When
+// excludeSecrets is true, `secretref+...` entries are left unresolved (see
+// issue #2738).
+func (st *HelmState) setStringFlags(setValues []SetValue, excludeSecrets bool) ([]string, error) {
 	var flags []string
 
 	for _, set := range setValues {
 		if set.Value != "" {
-			renderedValue, err := renderValsSecrets(st.valsRuntime, set.Value)
+			renderedValue, err := renderValsSecrets(st.valsEvaluator(excludeSecrets), set.Value)
 			if err != nil {
 				return nil, err
 			}
 			flags = append(flags, "--set-string", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
 		} else if len(set.Values) > 0 {
-			renderedValues, err := renderValsSecretsAny(st.valsRuntime, set.Values)
+			renderedValues, err := renderValsSecretsAny(st.valsEvaluator(excludeSecrets), set.Values)
 			if err != nil {
 				return nil, err
 			}
