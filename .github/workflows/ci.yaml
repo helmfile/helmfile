@@ -31,7 +31,7 @@ jobs:
         run: df -h
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.13.2
+          version: v2.15.0
       - name: Check for outdated Go patterns (go fix modernizers)
         run: |
           # Fails (exit 1) when any `go fix` modernizer produces a diff, i.e. the
