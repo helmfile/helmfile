@@ -11,8 +11,9 @@ import (
 // stateValuesSetStringRE matches a single key=value assignment within one
 // --state-values-set-string flag value. The value is either a quoted string,
 // which may contain commas, or a run of plain or backslash-escaped characters
-// ending at the next unescaped comma.
-var stateValuesSetStringRE = regexp.MustCompile(`(?s)(?:,|^)([^\s=]+)=(['"][^'"]*['"]|(?:\\.|[^,\\])*\\?)`)
+// ending at the next unescaped comma. A key may hold an escaped comma but no
+// bare one, so a missing "=" cannot merge two assignments into one key.
+var stateValuesSetStringRE = regexp.MustCompile(`(?s)(?:,|^)((?:\\,|[^\s=,])+)=(['"][^'"]*['"]|(?:\\.|[^,\\])*\\?)`)
 
 // NewCLIConfigImpl parses the raw --state-values-set-string and
 // --state-values-set flag values into state value overrides on g.
@@ -25,7 +26,8 @@ func NewCLIConfigImpl(g *GlobalImpl) error {
 
 // parseStateValuesSetString applies the --state-values-set-string flag values
 // to g. Unlike --state-values-set, values are kept as strings without type
-// conversion.
+// conversion. Text that no assignment matches (a missing "=", an empty key or
+// a trailing comma) is reported as an error.
 func parseStateValuesSetString(g *GlobalImpl) error {
 	optsSet := g.RawStateValuesSetString()
 	if len(optsSet) == 0 {
@@ -34,6 +36,11 @@ func parseStateValuesSetString(g *GlobalImpl) error {
 
 	set := map[string]any{}
 	for _, raw := range optsSet {
+		for _, unmatched := range stateValuesSetStringRE.Split(raw, -1) {
+			if unmatched != "" {
+				return fmt.Errorf("--state-values-set-string: invalid assignment %q: expected <key>=<value>", strings.TrimPrefix(unmatched, ","))
+			}
+		}
 		for _, match := range stateValuesSetStringRE.FindAllStringSubmatch(raw, -1) {
 			key, value := match[1], match[2]
 			maputil.Set(set, maputil.ParseKey(key), unescapeCommas(value), true)

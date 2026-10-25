@@ -167,6 +167,31 @@ func TestNewCLIConfigImplStateValuesSetString(t *testing.T) {
 				"annotations": map[string]any{"example.com/key": "first,second"},
 			},
 		},
+		{
+			name: "escaped commas in keys",
+			set:  []string{`a\,b=1,c=2`},
+			want: map[string]any{"a,b": "1", "c": "2"},
+		},
+		{
+			name:    "assignment without equals sign is rejected",
+			set:     []string{"count=2,message"},
+			wantErr: `--state-values-set-string: invalid assignment "message": expected <key>=<value>`,
+		},
+		{
+			name:    "assignment without equals sign before another assignment is rejected",
+			set:     []string{"count=2,message,zone=a"},
+			wantErr: `--state-values-set-string: invalid assignment "message": expected <key>=<value>`,
+		},
+		{
+			name:    "empty key is rejected",
+			set:     []string{"=hello"},
+			wantErr: `--state-values-set-string: invalid assignment "=hello": expected <key>=<value>`,
+		},
+		{
+			name:    "trailing comma is rejected",
+			set:     []string{"message=hello,"},
+			wantErr: `--state-values-set-string: invalid assignment "": expected <key>=<value>`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -175,6 +200,7 @@ func TestNewCLIConfigImplStateValuesSetString(t *testing.T) {
 			err := NewCLIConfigImpl(g)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
+				assert.Empty(t, g.StateValuesSet())
 				return
 			}
 			require.NoError(t, err)
