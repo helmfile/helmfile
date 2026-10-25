@@ -2339,6 +2339,7 @@ func TestHelmState_SyncRepos(t *testing.T) {
 
 func TestHelmState_SyncReleases(t *testing.T) {
 	postRenderer := "foo.sh"
+	t.Setenv("HELMFILE_TEST_SET_PATH", `C:\temp\new`)
 	tests := []struct {
 		name          string
 		releases      []ReleaseSpec
@@ -2377,6 +2378,82 @@ func TestHelmState_SyncReleases(t *testing.T) {
 			},
 			helm:         &exectest.Helm{},
 			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", "someList=a\\,b\\,c", "--set", "json=\\{\"name\": \"john\"\\}", "--reset-values"}}},
+		},
+		{
+			name: "backslash in value",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  "path",
+							Value: `C:\temp\new`,
+						},
+						{
+							Name:  "trailing",
+							Value: `trailing\`,
+						},
+						{
+							Name:  "list",
+							Value: `a\,b`,
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", `path=C:\\temp\\new`, "--set", `trailing=trailing\\`, "--set", `list=a\\\,b`, "--reset-values"}}},
+		},
+		{
+			name: "backslash in value list item",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:   "list",
+							Values: []any{`z\`, "second"},
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", `list={z\\,second}`, "--reset-values"}}},
+		},
+		{
+			name: "backslash in name is kept",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					SetValues: []SetValue{
+						{
+							Name:  `a\.b`,
+							Value: "v",
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", `a\.b=v`, "--reset-values"}}},
+		},
+		{
+			name: "backslash in env value",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+					EnvValues: []SetValue{
+						{
+							Name:  "path",
+							Value: "HELMFILE_TEST_SET_PATH",
+						},
+					},
+				},
+			},
+			helm:         &exectest.Helm{},
+			wantReleases: []exectest.Release{{Name: "releaseName", Flags: []string{"--set", `path=C:\\temp\\new`, "--reset-values"}}},
 		},
 		{
 			name: "set single value from file",
@@ -6961,6 +7038,28 @@ func TestHelmState_setStringFlags(t *testing.T) {
 				},
 			},
 			want:    []string{"--set-string", "key={value1,value2}"},
+			wantErr: false,
+		},
+		{
+			name: "backslash in value",
+			setStringValues: []SetValue{
+				{
+					Name:  "key",
+					Value: `C:\temp\new`,
+				},
+			},
+			want:    []string{"--set-string", `key=C:\\temp\\new`},
+			wantErr: false,
+		},
+		{
+			name: "backslash in value list item",
+			setStringValues: []SetValue{
+				{
+					Name:   "key",
+					Values: []any{`z\`, "second"},
+				},
+			},
+			want:    []string{"--set-string", `key={z\\,second}`},
 			wantErr: false,
 		},
 		{
