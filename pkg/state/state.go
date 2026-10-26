@@ -5418,7 +5418,7 @@ func (st *HelmState) namespaceAndValuesFlags(helm helmexec.Interface, release *R
 		for _, set := range release.EnvValues {
 			value, isSet := os.LookupEnv(set.Value)
 			if isSet {
-				val = append(val, fmt.Sprintf("%s=%s", escape(set.Name), escape(value)))
+				val = append(val, fmt.Sprintf("%s=%s", escape(set.Name), escapeValue(value)))
 			} else {
 				errMsg := fmt.Sprintf("\t%s", set.Value)
 				envValErrs = append(envValErrs, errMsg)
@@ -5449,7 +5449,7 @@ func (st *HelmState) setFlags(setValues []SetValue, excludeSecrets bool) ([]stri
 			if err != nil {
 				return nil, err
 			}
-			flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
+			flags = append(flags, "--set", fmt.Sprintf("%s=%s", escape(set.Name), escapeValue(renderedValue[0])))
 		} else if set.File != "" {
 			flags = append(flags, "--set-file", fmt.Sprintf("%s=%s", escape(set.Name), st.storage().normalizeSetFilePath(set.File, runtime.GOOS)))
 		} else if len(set.Values) > 0 {
@@ -5459,7 +5459,7 @@ func (st *HelmState) setFlags(setValues []SetValue, excludeSecrets bool) ([]stri
 			}
 			items := make([]string, len(renderedValues))
 			for i, raw := range renderedValues {
-				items[i] = escape(raw)
+				items[i] = escapeValue(raw)
 			}
 			v := strings.Join(items, ",")
 			flags = append(flags, "--set", fmt.Sprintf("%s={%s}", escape(set.Name), v))
@@ -5481,7 +5481,7 @@ func (st *HelmState) setStringFlags(setValues []SetValue, excludeSecrets bool) (
 			if err != nil {
 				return nil, err
 			}
-			flags = append(flags, "--set-string", fmt.Sprintf("%s=%s", escape(set.Name), escape(renderedValue[0])))
+			flags = append(flags, "--set-string", fmt.Sprintf("%s=%s", escape(set.Name), escapeValue(renderedValue[0])))
 		} else if len(set.Values) > 0 {
 			renderedValues, err := renderValsSecretsAny(st.valsEvaluator(excludeSecrets), set.Values)
 			if err != nil {
@@ -5489,7 +5489,7 @@ func (st *HelmState) setStringFlags(setValues []SetValue, excludeSecrets bool) (
 			}
 			items := make([]string, len(renderedValues))
 			for i, raw := range renderedValues {
-				items[i] = escape(raw)
+				items[i] = escapeValue(raw)
 			}
 			v := strings.Join(items, ",")
 			flags = append(flags, "--set-string", fmt.Sprintf("%s={%s}", escape(set.Name), v))
@@ -5676,6 +5676,12 @@ func escape(value string) string {
 	intermediate := strings.ReplaceAll(value, "{", "\\{")
 	intermediate = strings.ReplaceAll(intermediate, "}", "\\}")
 	return strings.ReplaceAll(intermediate, ",", "\\,")
+}
+
+// escapeValue escapes a --set value. Helm's parser also treats a backslash as an
+// escape, so it is doubled first and escape then adds its own.
+func escapeValue(value string) string {
+	return escape(strings.ReplaceAll(value, "\\", "\\\\"))
 }
 
 // MarshalYAML will ensure we correctly marshal SubHelmfileSpec structure correctly so it can be unmarshalled at some
