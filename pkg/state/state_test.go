@@ -7063,6 +7063,17 @@ func TestHelmState_setStringFlags(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "backslash with braces and comma in value",
+			setStringValues: []SetValue{
+				{
+					Name:  "key",
+					Value: `C:\temp\{a,b}`,
+				},
+			},
+			want:    []string{"--set-string", `key=C:\\temp\\\{a\,b\}`},
+			wantErr: false,
+		},
+		{
 			name: "rendered value error",
 			setStringValues: []SetValue{
 				{
