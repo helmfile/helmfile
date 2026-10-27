@@ -513,8 +513,8 @@ github.com/hashicorp/go-cleanhttp v0.5.2 h1:035FKYIWjmULyFRBKPs8TBQoi0x6d9G4xc9n
 github.com/hashicorp/go-cleanhttp v0.5.2/go.mod h1:kO/YDlP8L1346E6Sodw+PrpBSV4/SoxCXGY6BqNFT48=
 github.com/hashicorp/go-cty-funcs v0.1.0 h1:TRO/6x1unvTPpotTgrTU7qlcbd99JBLt+vmF6dMF6lY=
 github.com/hashicorp/go-cty-funcs v0.1.0/go.mod h1:crc3afXAsjGOJ+12LNX8PImH+ejyxOjnjvsUteKcFIw=
-github.com/hashicorp/go-getter/v2 v2.2.5 h1:kfj7TeF3Mpq6UZcZxXfz7sgig85sTmPYwfGHd8UfTII=
-github.com/hashicorp/go-getter/v2 v2.2.5/go.mod h1:aZFhc+xmYUqWNxvBhlVi5ZJinWvSjelAFIeCDE5uIkM=
+github.com/hashicorp/go-getter/v2 v2.2.6 h1:YPh3bAPQPFKYBu0i253xalk/dxZyoUnC4HbwDYPCYZw=
+github.com/hashicorp/go-getter/v2 v2.2.6/go.mod h1:ijhzM8T7li5y5Jl3E6FZG7wajPtg/6XCI7w0U0DPo80=
 github.com/hashicorp/go-hclog v1.6.3 h1:Qr2kF+eVWjTiYmU7Y31tYlP1h0q/X3Nl3tPGdaB11/k=
 github.com/hashicorp/go-hclog v1.6.3/go.mod h1:W4Qnvbt70Wk/zYJryRzDRU/4r0kIg0PVHBcfoyhpF5M=
 github.com/hashicorp/go-multierror v1.1.1 h1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+lD48awMYo=
