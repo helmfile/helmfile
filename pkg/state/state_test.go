@@ -3151,12 +3151,13 @@ func TestHelmState_DiffFlags(t *testing.T) {
 	disable := false
 
 	tests := []struct {
-		name          string
-		defaults      HelmSpec
-		releases      []ReleaseSpec
-		helm          *exectest.Helm
-		wantDiffFlags []string
-		diffOpts      *DiffOpts
+		name             string
+		defaults         HelmSpec
+		stateKubeVersion string
+		releases         []ReleaseSpec
+		helm             *exectest.Helm
+		wantDiffFlags    []string
+		diffOpts         *DiffOpts
 	}{
 		{
 			name:     "release with api version and kubeversion",
@@ -3198,6 +3199,91 @@ func TestHelmState_DiffFlags(t *testing.T) {
 			helm:          &exectest.Helm{},
 			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
 			wantDiffFlags: []string{"--kube-version", "1.28"},
+		},
+		{
+			name:     "release disableAutoDetectedKubeVersionForDiff=true passes the release kubeversion, not the detected one",
+			defaults: HelmSpec{},
+			releases: []ReleaseSpec{
+				{
+					Name:                                  "releaseName",
+					Chart:                                 "foo",
+					KubeVersion:                           "1.27",
+					DisableAutoDetectedKubeVersionForDiff: &enable,
+				},
+			},
+			helm:          &exectest.Helm{},
+			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
+			wantDiffFlags: []string{"--kube-version", "1.27"},
+		},
+		{
+			name:             "release disableAutoDetectedKubeVersionForDiff=true passes the top-level kubeversion, not the detected one",
+			defaults:         HelmSpec{},
+			stateKubeVersion: "1.26",
+			releases: []ReleaseSpec{
+				{
+					Name:                                  "releaseName",
+					Chart:                                 "foo",
+					DisableAutoDetectedKubeVersionForDiff: &enable,
+				},
+			},
+			helm:          &exectest.Helm{},
+			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
+			wantDiffFlags: []string{"--kube-version", "1.26"},
+		},
+		{
+			name:     "release disableAutoDetectedKubeVersionForDiff=true passes no kube-version when none is configured",
+			defaults: HelmSpec{},
+			releases: []ReleaseSpec{
+				{
+					Name:                                  "releaseName",
+					Chart:                                 "foo",
+					DisableAutoDetectedKubeVersionForDiff: &enable,
+				},
+			},
+			helm:          &exectest.Helm{},
+			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
+			wantDiffFlags: nil,
+		},
+		{
+			name:             "helmDefaults disableAutoDetectedKubeVersionForDiff=true passes the top-level kubeversion, not the detected one",
+			defaults:         HelmSpec{DisableAutoDetectedKubeVersionForDiff: &enable},
+			stateKubeVersion: "1.26",
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+				},
+			},
+			helm:          &exectest.Helm{},
+			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
+			wantDiffFlags: []string{"--kube-version", "1.26"},
+		},
+		{
+			name:     "helmDefaults disableAutoDetectedKubeVersionForDiff=true passes no kube-version when none is configured",
+			defaults: HelmSpec{DisableAutoDetectedKubeVersionForDiff: &enable},
+			releases: []ReleaseSpec{
+				{
+					Name:  "releaseName",
+					Chart: "foo",
+				},
+			},
+			helm:          &exectest.Helm{},
+			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
+			wantDiffFlags: nil,
+		},
+		{
+			name:     "release disableAutoDetectedKubeVersionForDiff=false overrides helmDefaults=true so the detected kubeversion is passed",
+			defaults: HelmSpec{DisableAutoDetectedKubeVersionForDiff: &enable},
+			releases: []ReleaseSpec{
+				{
+					Name:                                  "releaseName",
+					Chart:                                 "foo",
+					DisableAutoDetectedKubeVersionForDiff: &disable,
+				},
+			},
+			helm:          &exectest.Helm{},
+			diffOpts:      &DiffOpts{DetectedKubeVersion: "1.30.2"},
+			wantDiffFlags: []string{"--kube-version", "1.30.2"},
 		},
 		{
 			name:     "release with kubeversion and plain http which is ignored",
@@ -3258,6 +3344,7 @@ func TestHelmState_DiffFlags(t *testing.T) {
 			state := &HelmState{
 				Releases:       tt.releases,
 				HelmDefaults:   tt.defaults,
+				KubeVersion:    tt.stateKubeVersion,
 				logger:         logger,
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
