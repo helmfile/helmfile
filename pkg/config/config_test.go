@@ -188,6 +188,16 @@ func TestNewCLIConfigImplStateValuesSetString(t *testing.T) {
 			wantErr: `--state-values-set-string: invalid assignment "=hello": expected <key>=<value>`,
 		},
 		{
+			name:    "leading comma is rejected",
+			set:     []string{",count=2"},
+			wantErr: `--state-values-set-string: invalid assignment "": expected <key>=<value>`,
+		},
+		{
+			name: "empty flag value is ignored",
+			set:  []string{""},
+			want: map[string]any{},
+		},
+		{
 			name:    "trailing comma is rejected",
 			set:     []string{"message=hello,"},
 			wantErr: `--state-values-set-string: invalid assignment "": expected <key>=<value>`,

@@ -27,7 +27,7 @@ func NewCLIConfigImpl(g *GlobalImpl) error {
 // parseStateValuesSetString applies the --state-values-set-string flag values
 // to g. Unlike --state-values-set, values are kept as strings without type
 // conversion. Text that no assignment matches (a missing "=", an empty key or
-// a trailing comma) is reported as an error.
+// a leading or trailing comma) is reported as an error.
 func parseStateValuesSetString(g *GlobalImpl) error {
 	optsSet := g.RawStateValuesSetString()
 	if len(optsSet) == 0 {
@@ -36,6 +36,11 @@ func parseStateValuesSetString(g *GlobalImpl) error {
 
 	set := map[string]any{}
 	for _, raw := range optsSet {
+		// A leading comma otherwise merges into the following assignment's
+		// match and goes unreported.
+		if strings.HasPrefix(raw, ",") {
+			return fmt.Errorf("--state-values-set-string: invalid assignment %q: expected <key>=<value>", "")
+		}
 		for _, unmatched := range stateValuesSetStringRE.Split(raw, -1) {
 			if unmatched != "" {
 				return fmt.Errorf("--state-values-set-string: invalid assignment %q: expected <key>=<value>", strings.TrimPrefix(unmatched, ","))
