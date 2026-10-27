@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -4522,6 +4523,109 @@ func TestHelmState_DeleteFailedReleasesConcurrently(t *testing.T) {
 	assert.ElementsMatch(t, []string{"a-error", "b-error", "c-error", "d-error", "e-error"}, names(ar.DeleteFailed))
 	assert.Empty(t, ar.Deleted)
 	assert.Empty(t, ar.Failed)
+}
+
+// TestHelmState_SyncReleasesUndesiredDeleteFailureReportsDeleteFailed verifies
+// that when SyncReleases uninstalls an `installed: false` release and the
+// uninstall fails, the release is reported as a failed deletion
+// (AffectedReleases.DeleteFailed, rendered under "Failed to Delete Releases")
+// rather than as a generic sync failure, matching DeleteReleasesForSync and
+// DeleteReleases.
+func TestHelmState_SyncReleasesUndesiredDeleteFailureReportsDeleteFailed(t *testing.T) {
+	no := false
+	tests := []struct {
+		name     string
+		releases []ReleaseSpec
+	}{
+		{
+			name: "1 removed release fails to uninstall",
+			releases: []ReleaseSpec{
+				{Name: "removed-error", Chart: "foo", Installed: &no},
+			},
+		},
+		{
+			name: "2 removed releases fail to uninstall",
+			releases: []ReleaseSpec{
+				{Name: "a-error", Chart: "foo", Installed: &no},
+				{Name: "b-error", Chart: "foo", Installed: &no},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				Releases:       tt.releases,
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]any{},
+			}
+			helm := &exectest.Helm{
+				Lists: map[exectest.ListKey]string{},
+			}
+			// Simulate every release being already installed, so that the
+			// `installed: false` path in SyncReleases attempts to uninstall it.
+			for _, release := range tt.releases {
+				helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling --deployed --failed --pending"}] = release.Name
+			}
+
+			names := func(releases []*ReleaseSpec) []string {
+				var got []string
+				for _, r := range releases {
+					got = append(got, r.Name)
+				}
+				return got
+			}
+			wantNames := []string{}
+			for _, r := range tt.releases {
+				wantNames = append(wantNames, r.Name)
+			}
+
+			affectedReleases := AffectedReleases{}
+			errs := state.SyncReleases(&affectedReleases, helm, []string{}, 1)
+
+			require.Len(t, errs, len(tt.releases))
+			assert.ElementsMatch(t, wantNames, names(affectedReleases.DeleteFailed))
+			assert.Empty(t, affectedReleases.Failed)
+			assert.Empty(t, affectedReleases.Deleted)
+		})
+	}
+}
+
+// TestHelmState_DeleteReleasesConcurrently verifies that successful
+// concurrent deletions are all recorded in AffectedReleases.Deleted and in
+// exectest.Helm.Deleted without data races under -race, exercising
+// exectest.Helm's DeletedMutex. It is the successful-deletion counterpart of
+// TestHelmState_DeleteFailedReleasesConcurrently, which only uses failing
+// releases.
+func TestHelmState_DeleteReleasesConcurrently(t *testing.T) {
+	state := &HelmState{
+		Releases: []ReleaseSpec{
+			{Name: "a"}, {Name: "b"}, {Name: "c"}, {Name: "d"}, {Name: "e"},
+		},
+		logger:         logger,
+		fs:             filesystem.DefaultFileSystem(),
+		RenderedValues: map[string]any{},
+	}
+	ar := AffectedReleases{}
+	helm := &exectest.Helm{DeletedMutex: &sync.Mutex{}}
+
+	names := func(releases []*ReleaseSpec) []string {
+		var got []string
+		for _, r := range releases {
+			got = append(got, r.Name)
+		}
+		return got
+	}
+
+	// A concurrency above 1 deletes releases in parallel, like `helmfile
+	// destroy` does with its default, unlimited concurrency.
+	errs := state.DeleteReleases(&ar, helm, 3, true, "")
+
+	require.Empty(t, errs)
+	assert.ElementsMatch(t, []string{"a", "b", "c", "d", "e"}, names(ar.Deleted))
+	assert.Empty(t, ar.DeleteFailed)
+	assert.Empty(t, ar.Failed)
+	assert.Len(t, helm.Deleted, 5)
 }
 
 func TestDiffpareSyncReleases(t *testing.T) {
