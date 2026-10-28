@@ -13,7 +13,7 @@ import (
 // which may contain commas, or a run of plain or backslash-escaped characters
 // ending at the next unescaped comma. A key may hold an escaped comma but no
 // bare one, so a missing "=" cannot merge two assignments into one key.
-var stateValuesSetStringRE = regexp.MustCompile(`(?s)(?:,|^)((?:\\,|[^\s=,])+)=(['"][^'"]*['"]|(?:\\.|[^,\\])*\\?)`)
+var stateValuesSetStringRE = regexp.MustCompile(`(?s)(?:,|^)((?:\\[^\s=]|[^\s=,\\])+\\?)=(['"][^'"]*['"]|(?:\\.|[^,\\])*\\?)`)
 
 // NewCLIConfigImpl parses the raw --state-values-set-string and
 // --state-values-set flag values into state value overrides on g.
