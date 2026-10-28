@@ -4551,12 +4551,12 @@ func TestHelmState_SyncReleasesUndesiredDeleteFailureReportsDeleteFailed(t *test
 				RenderedValues: map[string]any{},
 			}
 			helm := &exectest.Helm{
-				Lists: map[exectest.ListKey]string{},
+				Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
 			}
 			// Simulate every release being already installed, so that the
 			// `installed: false` path in SyncReleases attempts to uninstall it.
 			for _, release := range tt.releases {
-				helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling --deployed --failed --pending"}] = release.Name
+				helm.Lists[exectest.ListKey{Filter: "^" + release.Name + "$", Flags: "--uninstalling --deployed --failed --pending -o yaml"}] = helmexec.HelmReleaseOutput{Name: release.Name, Status: "deployed"}
 			}
 
 			names := func(releases []*ReleaseSpec) []string {
