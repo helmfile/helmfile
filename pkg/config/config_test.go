@@ -173,6 +173,16 @@ func TestNewCLIConfigImplStateValuesSetString(t *testing.T) {
 			want: map[string]any{"a,b": "1", "c": "2"},
 		},
 		{
+			name:    "even backslashes before comma expose malformed assignment",
+			set:     []string{`a\\,b=1`},
+			wantErr: `--state-values-set-string: invalid assignment "a\\\\": expected <key>=<value>`,
+		},
+		{
+			name: "odd backslashes escape comma in key",
+			set:  []string{`a\\\,b=1,c=2`},
+			want: map[string]any{`a\,b`: "1", "c": "2"},
+		},
+		{
 			name:    "assignment without equals sign is rejected",
 			set:     []string{"count=2,message"},
 			wantErr: `--state-values-set-string: invalid assignment "message": expected <key>=<value>`,
