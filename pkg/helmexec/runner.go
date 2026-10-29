@@ -26,7 +26,7 @@ type Runner interface {
 	ExecuteStdIn(cmd string, args []string, env map[string]string, stdin io.Reader) ([]byte, error)
 }
 
-// ShellRunner implemention for shell commands
+// ShellRunner implementation for shell commands
 type ShellRunner struct {
 	Dir string
 

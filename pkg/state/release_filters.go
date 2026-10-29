@@ -16,7 +16,7 @@ type ReleaseFilter interface {
 	Match(r ReleaseSpec) bool
 }
 
-// LabelFilter matches a release with the given positive lables. Negative labels
+// LabelFilter matches a release with the given positive labels. Negative labels
 // invert the match for cases such as tier!=backend
 type LabelFilter struct {
 	positiveLabels [][]string

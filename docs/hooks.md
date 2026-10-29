@@ -120,7 +120,7 @@ Hooks can also be used in combination with small tasks using `kubectl` directly,
 e.g.: in order to install a custom storage class.
 
 In the following example, a specific release depends on a custom storage class.
-Further, all enviroments have a default kube context configured where releases are deployed into.
+Further, all environments have a default kube context configured where releases are deployed into.
 The `.Environment.KubeContext` is used in order to apply / remove the YAML to the correct context depending on the environment.
 
 `environments.yaml`:

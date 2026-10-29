@@ -7,7 +7,7 @@ import (
 	"github.com/helmfile/helmfile/pkg/config"
 )
 
-// NewTemplateCmd returm template subcmd
+// NewTemplateCmd returns the template subcmd
 func NewTemplateCmd(globalCfg *config.GlobalImpl) *cobra.Command {
 	templateOptions := config.NewTemplateOptions()
 

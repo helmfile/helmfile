@@ -149,7 +149,7 @@ helmDefaults:
   # issue #2766.
   resolveOCIVersions: true
   # If set to true, reuses the last release's values and merges them with ones provided in helmfile.
-  # This attribute, can be overriden in CLI with --reset/reuse-values flag of apply/sync/diff subcommands
+  # This attribute, can be overridden in CLI with --reset/reuse-values flag of apply/sync/diff subcommands
   reuseValues: false
   # propagate `--post-renderer` to helmv3 template and helm install
   postRenderer: "path/to/postRenderer"
