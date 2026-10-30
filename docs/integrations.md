@@ -151,6 +151,13 @@ OCI charts are automatically cached in the shared cache directory (`~/.cache/hel
 
 See the [cache](cli.md#cache) section for more details on cache management.
 
+## Editor / IDE integrations
+
+* [Helmfile for IntelliJ](https://plugins.jetbrains.com/plugin/35395-helmfile) is a community-maintained
+  IntelliJ IDEA plugin with Helmfile YAML and Go template support, environment-aware values completion
+  and navigation, chart browsing, and release commands with native IDE diff viewing.
+  See the [source code and documentation](https://github.com/k3rnL/helmfile-intellij-plugin).
+
 ## Attribution
 
 We use:
