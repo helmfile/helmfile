@@ -65,6 +65,9 @@ func parseStateValuesSet(g *GlobalImpl) error {
 
 	set := map[string]any{}
 	for _, raw := range optsSet {
+		if raw == "" {
+			continue
+		}
 		for _, assignment := range splitOnUnescapedCommas(raw) {
 			if err := setAssignment(set, assignment); err != nil {
 				return err
@@ -79,7 +82,7 @@ func parseStateValuesSet(g *GlobalImpl) error {
 // error instead of panicking when the assignment is malformed.
 func setAssignment(set map[string]any, assignment string) error {
 	key, value, found := strings.Cut(unescapeCommas(assignment), "=")
-	if !found || key == "" {
+	if !found || key == "" || strings.TrimLeft(key, " \t\r\n\f") != key {
 		return fmt.Errorf("--state-values-set: invalid assignment %q: expected <key>=<value>", assignment)
 	}
 
