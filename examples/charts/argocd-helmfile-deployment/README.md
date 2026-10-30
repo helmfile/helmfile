@@ -14,9 +14,9 @@ The helm chart in this repo can be deployed with Helmfile, if you follow the pre
 
 # Deployment planning
 
-* Getting started: https://argoproj.github.io/argo-cd/getting_started/
+* Getting started: https://argo-cd.readthedocs.io/en/stable/getting_started/
 * Helm Chart: https://github.com/argoproj/argo-helm/tree/master/charts/argo-cd
-* SSO Setup: https://argoproj.github.io/argo-cd/operator-manual/user-management/microsoft/#azure-ad-app-registration-auth-using-oidc
+* SSO Setup: https://argo-cd.readthedocs.io/en/stable/operator-manual/user-management/microsoft/#entra-id-app-registration-auth-using-oidc
 * RBAC: https://medium.com/dzerolabs/configuring-sso-with-azure-active-directory-on-argocd-d20be4ba753b
 * Vault
 * Private Chartmuseum (Harbor)
