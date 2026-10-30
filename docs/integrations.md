@@ -18,7 +18,7 @@ The reasons may vary:
 1. You do want to manage applications with ArgoCD, while letting Helmfile manage infrastructure-related components like Calico/Cilium/WeaveNet, Linkerd/Istio, and ArgoCD itself.
 
 * This way, any application deployed by ArgoCD has access to all the infrastructure.
-* Of course, you can use ArgoCD's [Sync Waves and Phases](https://argoproj.github.io/argo-cd/user-guide/sync-waves/) for ordering the infrastructure and application installations. But it may be difficult to separate the concern between the infrastructure and apps and annotate K8s resources consistently when you have different teams for managing infra and apps.
+* Of course, you can use ArgoCD's [Sync Waves and Phases](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/) for ordering the infrastructure and application installations. But it may be difficult to separate the concern between the infrastructure and apps and annotate K8s resources consistently when you have different teams for managing infra and apps.
 
 2. You want to review the exact K8s manifests being applied on pull-request time, before ArgoCD syncs.
 
