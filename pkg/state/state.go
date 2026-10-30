@@ -782,7 +782,7 @@ func (st *HelmState) reformat(spec *ReleaseSpec) []string {
 		// This is intentionally `kubecontext != "" || ns != ""`, but "ns != ""
 		// To avoid conflating kubecontext=,namespace=foo,name=bar and kubecontext=foo,namespace=,name=bar
 		// as they are both `foo/bar`, we explicitly differentiate each with `foo//bar` and `foo/bar`.
-		// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is depedent on
+		// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is dependent on
 		// the user's kubeconfig.
 		if kubecontext != "" || ns != "" {
 			componentsAfterOverride = append(componentsAfterOverride, ns)
@@ -1141,7 +1141,7 @@ func ReleaseToID(r *ReleaseSpec) string {
 			// Before https://github.com/roboll/helmfile/pull/1823 they were both `foo/bar` which turned out to break `needs` in many ways.
 			//
 			// We now explicitly differentiate each with `foo//bar` and `foo/bar`.
-			// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is depedent on
+			// Note that `foo//bar` is not always a equivalent to `foo/default/bar` as the default namespace is dependent on
 			// the user's kubeconfig.
 			// That's why we use `foo//bar` even if it looked unintuitive.
 			id += "/"

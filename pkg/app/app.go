@@ -946,7 +946,7 @@ func (a *App) within(dir string, do func() error) error {
 		if appErr != nil {
 			a.Logger.Warnf("%v", appErr)
 		}
-		return fmt.Errorf("failed chaging working directory back to \"%s\": %v", prev, chdirBackErr)
+		return fmt.Errorf("failed changing working directory back to \"%s\": %v", prev, chdirBackErr)
 	}
 
 	return appErr

@@ -691,7 +691,7 @@ yamlencode({array = [1, 2, 3], hello = "world"})
 ```
 #### zipmap
 `zipmap` constructs a map from a list of keys and a corresponding list of values.
-The lenght of each list must be equal
+The length of each list must be equal
 ```
 zipmap(keysList, valuesList)
 ```
