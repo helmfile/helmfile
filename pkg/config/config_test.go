@@ -52,6 +52,22 @@ func TestNewCLIConfigImplStateValuesSet(t *testing.T) {
 			set:  []string{"message=,count=2"},
 			want: map[string]any{"message": "", "count": int64(2)},
 		},
+		// Follow-up to #2855: empty flags are no-ops and space-led keys are errors.
+		{
+			name: "empty flag value is ignored",
+			set:  []string{""},
+			want: map[string]any{},
+		},
+		{
+			name: "empty flag does not discard other flags",
+			set:  []string{"count=1", "", "count=2"},
+			want: map[string]any{"count": int64(2)},
+		},
+		{
+			name: "spaces within values are preserved",
+			set:  []string{"message= hello world ,count=2"},
+			want: map[string]any{"message": " hello world ", "count": int64(2)},
+		},
 		{
 			name: "backslashes before other characters are preserved",
 			set:  []string{`path=C:\tmp\config`},
@@ -102,6 +118,21 @@ func TestNewCLIConfigImplStateValuesSet(t *testing.T) {
 			set:     []string{"=hello"},
 			wantErr: `invalid assignment "=hello": expected <key>=<value>`,
 		},
+		{
+			name:    "leading space in first key is rejected",
+			set:     []string{" count=2"},
+			wantErr: `--state-values-set: invalid assignment " count=2": expected <key>=<value>`,
+		},
+		{
+			name:    "leading space after comma is rejected",
+			set:     []string{"a=1, b=2"},
+			wantErr: `--state-values-set: invalid assignment " b=2": expected <key>=<value>`,
+		},
+		{
+			name:    "leading tab after comma is rejected",
+			set:     []string{"a=1,\tb=2"},
+			wantErr: `--state-values-set: invalid assignment "\tb=2": expected <key>=<value>`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -110,6 +141,7 @@ func TestNewCLIConfigImplStateValuesSet(t *testing.T) {
 			err := NewCLIConfigImpl(g)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
+				assert.Empty(t, g.StateValuesSet())
 				return
 			}
 			require.NoError(t, err)

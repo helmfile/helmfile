@@ -100,6 +100,8 @@ helmfile --state-values-set-string 'zone="zone1,zone2",imageTag=1.23.3' build
 
 Malformed assignments (missing `=`, empty key, or a trailing comma) are reported
 as errors instead of being partially applied.
+An empty flag value is ignored. Do not put spaces before a key; spaces inside
+values are preserved.
 
 ### init
 
