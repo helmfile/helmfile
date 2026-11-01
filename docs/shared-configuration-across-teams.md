@@ -215,6 +215,11 @@ avoids ambiguity around the directory that relative values files resolve against
 (the parent resolves them once). The child's own `environments:` block, if any,
 still takes precedence per key.
 
+The parent environment's `kubeContext` is inherited too and applies to the
+child's releases. If the child's own `environments:` block sets a `kubeContext`
+for the active environment, the child's value wins over the inherited one
+(see [#2847](https://github.com/helmfile/helmfile/issues/2847)).
+
 ### Transitive inheritance
 
 Inheritance is opt-in at **every** level but the values propagate. If a parent
