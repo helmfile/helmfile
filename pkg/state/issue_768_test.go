@@ -247,3 +247,51 @@ func TestWithChartOperationLockNoLockForLocalChart(t *testing.T) {
 	assert.Greater(t, maxConcurrent.Load(), int32(1),
 		"local/pre-fetched charts should not be serialized")
 }
+
+// TestWithChartOperationLockNoLockForRelativeLocalChart verifies that
+// withChartOperationLock does NOT serialize operations for a relative local
+// chart whose ChartPath stays empty because normalization left it unchanged.
+func TestWithChartOperationLockNoLockForRelativeLocalChart(t *testing.T) {
+	logger, err := zap.NewDevelopment()
+	require.NoError(t, err)
+
+	chartName := "../charts/app"
+
+	st := &HelmState{
+		logger: logger.Sugar(),
+	}
+
+	var concurrentCount atomic.Int32
+	var maxConcurrent atomic.Int32
+
+	numReleases := 5
+	var wg sync.WaitGroup
+
+	for i := range numReleases {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			release := &ReleaseSpec{
+				Name:  fmt.Sprintf("release-%d", idx),
+				Chart: chartName,
+			}
+			_ = st.withChartOperationLock(release, chartName, func() error {
+				cur := concurrentCount.Add(1)
+				for {
+					old := maxConcurrent.Load()
+					if cur <= old || maxConcurrent.CompareAndSwap(old, cur) {
+						break
+					}
+				}
+				time.Sleep(20 * time.Millisecond)
+				concurrentCount.Add(-1)
+				return nil
+			})
+		}(i)
+	}
+
+	wg.Wait()
+
+	assert.Greater(t, maxConcurrent.Load(), int32(1),
+		"local charts should not be serialized")
+}
