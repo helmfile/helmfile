@@ -1692,8 +1692,8 @@ func (st *HelmState) getNamedRWMutex(name string) *sync.RWMutex {
 // remote chart, concurrent `helm upgrade`/`helm diff` calls race on helm's
 // internal cache file rename, causing "Access is denied" errors on Windows.
 //
-// For local or pre-fetched charts (release.ChartPath is set), no lock is
-// acquired because the chart is already available locally and helm won't
+// For local charts or pre-fetched charts (release.ChartPath is set), no lock
+// is acquired because the chart is already available locally and helm won't
 // download it.
 //
 // Trade-off: the lock wraps the entire helm operation (download + template +
@@ -1704,7 +1704,7 @@ func (st *HelmState) getNamedRWMutex(name string) *sync.RWMutex {
 // lock is acquired, so a release waiting on the lock may have its kubedog
 // watcher active before helm begins.
 func (st *HelmState) withChartOperationLock(release *ReleaseSpec, chart string, fn func() error) error {
-	if release.ChartPath != "" {
+	if release.ChartPath != "" || isLocalChart(chart) {
 		return fn()
 	}
 	mu := st.getNamedRWMutex("helm-op:" + chart + ":" + release.Version)
