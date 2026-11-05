@@ -43,7 +43,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.1
 	go.szostok.io/version v1.2.0
 	go.uber.org/zap v1.28.0
-	go.yaml.in/yaml/v2 v2.4.4
+	go.yaml.in/yaml/v2 v2.4.5
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/sync v0.24.0
 	golang.org/x/term v0.47.0
