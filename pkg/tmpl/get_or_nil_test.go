@@ -171,3 +171,24 @@ func TestGetOrNilMap(t *testing.T) {
 		t.Errorf("unexpected value for path Foo.baz in %v: expected=nil, actual=%v", obj, v2)
 	}
 }
+
+func TestGetWithDefaultThroughNilValue(t *testing.T) {
+	obj := map[string]any{
+		"foo": nil,
+	}
+
+	v, err := get("foo.bar", "default", obj)
+	require.NoError(t, err)
+	require.Equal(t, "default", v)
+
+	v, err = get("foo.bar.baz", "default", obj)
+	require.NoError(t, err)
+	require.Equal(t, "default", v)
+
+	_, err = get("foo.bar", obj)
+	require.Error(t, err)
+
+	v, err = getOrNil("foo.bar", obj)
+	require.NoError(t, err)
+	require.Nil(t, v)
+}
