@@ -145,6 +145,7 @@ func (a indexedKeyArg) getArray(m map[string]any) []any {
 			t2 := make([]any, a.index+1)
 			copy(t2, t)
 			t = t2
+			m[a.key] = t
 		}
 		return t
 	default:

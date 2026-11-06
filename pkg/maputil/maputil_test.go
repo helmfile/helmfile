@@ -1004,3 +1004,20 @@ func TestDeepCopyMap_AnyKeysNormalises(t *testing.T) {
 		t.Errorf("string key should be preserved; got: %v", mixed)
 	}
 }
+
+func TestSet_GrowsExistingArrayForNestedKey(t *testing.T) {
+	m := map[string]any{}
+
+	Set(m, []string{"servers[0]", "host"}, "a", false)
+	Set(m, []string{"servers[1]", "host"}, "b", false)
+
+	expected := map[string]any{
+		"servers": []any{
+			map[string]any{"host": "a"},
+			map[string]any{"host": "b"},
+		},
+	}
+	if !reflect.DeepEqual(m, expected) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", expected, m)
+	}
+}
