@@ -67,6 +67,11 @@ func get(path string, varArgs ...any) (any, error) {
 			}
 			return nil, &noValueError{fmt.Sprintf("no value exist for key \"%s\" in %v", keys[0], typedObj)}
 		}
+	case nil:
+		if defSet {
+			return def, nil
+		}
+		return nil, &noValueError{fmt.Sprintf("no value exist for key \"%s\": the parent value is nil", keys[0])}
 	default:
 		maybeStruct := reflect.ValueOf(typedObj)
 		if maybeStruct.Kind() != reflect.Struct {
