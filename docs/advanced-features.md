@@ -442,6 +442,18 @@ dependencies:
   condition: baz.enabled
 ```
 
+The `condition` defaults to `<alias or chart name>.enabled`. Set `condition` on the dependency to use another values path, for example one under `global` that a parent chart and its subcharts share:
+
+```yaml
+releases:
+- name: foo
+  chart: ./path/to/foo
+  dependencies:
+  - chart: stable/envoy
+    version: 1.5
+    condition: global.envoy.enabled
+```
+
 Please see #649 for more context around this feature.
 
 After the support for adhoc dependency to local chart (#1765),

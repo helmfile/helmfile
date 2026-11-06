@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/helmfile/chartify"
 	"github.com/stretchr/testify/require"
 
+	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testutil"
 	"github.com/helmfile/helmfile/pkg/yaml"
@@ -1007,4 +1009,36 @@ current-context: test
 			require.Equal(t, tt.want, opts.LogsInterval)
 		})
 	}
+}
+
+func TestPrepareChartify_DependencyCondition(t *testing.T) {
+	var release ReleaseSpec
+	require.NoError(t, yaml.Unmarshal([]byte(`name: foo
+chart: stable/foo
+dependencies:
+- chart: stable/envoy
+  version: "1.5"
+  alias: bar
+  condition: global.bar.enabled
+- chart: stable/envoy
+  version: "1.5"
+  alias: baz
+`), &release))
+
+	st := &HelmState{
+		basePath:       t.TempDir(),
+		fs:             filesystem.DefaultFileSystem(),
+		logger:         logger,
+		valsRuntime:    valsRuntime,
+		RenderedValues: map[string]any{},
+	}
+
+	c, clean, err := st.PrepareChartify(testutil.NewVersionHelmExec("3.15.0"), &release, release.Chart, 0)
+	require.NoError(t, err)
+	t.Cleanup(clean)
+
+	require.Equal(t, []chartify.ChartDependency{
+		{Alias: "bar", Chart: "stable/envoy", Version: "1.5", Condition: "global.bar.enabled"},
+		{Alias: "baz", Chart: "stable/envoy", Version: "1.5"},
+	}, c.Opts.AdhocChartDependencies)
 }
