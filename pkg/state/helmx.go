@@ -26,9 +26,10 @@ import (
 )
 
 type Dependency struct {
-	Chart   string `yaml:"chart"`
-	Version string `yaml:"version"`
-	Alias   string `yaml:"alias"`
+	Chart     string `yaml:"chart"`
+	Version   string `yaml:"version"`
+	Alias     string `yaml:"alias"`
+	Condition string `yaml:"condition"`
 }
 
 func (st *HelmState) appendHelmXFlags(flags []string, release *ReleaseSpec) []string {
@@ -1041,9 +1042,10 @@ func (st *HelmState) PrepareChartify(helm helmexec.Interface, release *ReleaseSp
 		}
 
 		c.Opts.AdhocChartDependencies = append(c.Opts.AdhocChartDependencies, chartify.ChartDependency{
-			Alias:   d.Alias,
-			Chart:   chart,
-			Version: d.Version,
+			Alias:     d.Alias,
+			Chart:     chart,
+			Version:   d.Version,
+			Condition: d.Condition,
 		})
 
 		shouldRun = true
