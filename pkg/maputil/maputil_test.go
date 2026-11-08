@@ -1021,3 +1021,49 @@ func TestSet_GrowsExistingArrayForNestedKey(t *testing.T) {
 		t.Errorf("unexpected result: expected=%v, actual=%v", expected, m)
 	}
 }
+
+func TestSet_LaterAssignmentReplacesValueOfAnotherType(t *testing.T) {
+	tests := []struct {
+		name     string
+		ops      [][]string
+		expected map[string]any
+	}{
+		{
+			name:     "scalar replaced by map",
+			ops:      [][]string{{"foo", "1"}, {"foo.bar", "2"}},
+			expected: map[string]any{"foo": map[string]any{"bar": int64(2)}},
+		},
+		{
+			name:     "scalar replaced by array",
+			ops:      [][]string{{"foo", "1"}, {"foo[0]", "2"}},
+			expected: map[string]any{"foo": []any{int64(2)}},
+		},
+		{
+			name:     "map replaced by array",
+			ops:      [][]string{{"foo.bar", "1"}, {"foo[0]", "2"}},
+			expected: map[string]any{"foo": []any{int64(2)}},
+		},
+		{
+			name:     "array element scalar replaced by map",
+			ops:      [][]string{{"foo[0]", "1"}, {"foo[0].bar", "2"}},
+			expected: map[string]any{"foo": []any{map[string]any{"bar": int64(2)}}},
+		},
+		{
+			name:     "array replaced by map",
+			ops:      [][]string{{"foo[0]", "1"}, {"foo.bar", "2"}},
+			expected: map[string]any{"foo": map[string]any{"bar": int64(2)}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := map[string]any{}
+			for _, op := range tt.ops {
+				Set(m, ParseKey(op[0]), op[1], false)
+			}
+			if !reflect.DeepEqual(m, tt.expected) {
+				t.Errorf("unexpected result: expected=%v, actual=%v", tt.expected, m)
+			}
+		})
+	}
+}
