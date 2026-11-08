@@ -7853,10 +7853,19 @@ func TestHelmState_DiffReleases_FailedReleaseForcesUpgrade(t *testing.T) {
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
 			}
-			helm := &exectest.Helm{
-				Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
-					{Filter: "^foo$", Flags: "--uninstalling --deployed --failed --pending -o yaml"}: {Chart: "foo-1.0.0", Status: tt.listStatus},
-				},
+			var helm *exectest.Helm
+			if tt.detailedExitCode {
+				helm = &exectest.Helm{
+					Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{
+						{Filter: "^foo$", Flags: "--uninstalling --deployed --failed --pending -o yaml"}: {Chart: "foo-1.0.0", Status: tt.listStatus},
+					},
+				}
+			} else {
+				// A plain diff must not probe the deployed state at all.
+				helm = &exectest.Helm{
+					Lists:                map[exectest.ListKey]helmexec.HelmReleaseOutput{},
+					FailOnUnexpectedList: true,
+				}
 			}
 
 			rs, errs := state.DiffReleases(helm, []string{}, 1, tt.detailedExitCode, false, false, []string{}, false, false, false, false, false)

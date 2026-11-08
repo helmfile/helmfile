@@ -3222,9 +3222,11 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 				// (helmfile apply, or diff --detailed-exitcode): a non-deployed
 				// (failed/pending) release must be re-upgraded even when the
 				// diff shows no changes. A plain `helmfile diff` never acts on
-				// the result, so it skips the extra `helm list` call entirely.
-				// The isDeployed cache usually already holds the answer from
-				// the branches above.
+				// the result, so it skips this extra, unconditional `helm list`
+				// probe (the flag-specific isDeployed calls in the branches
+				// above remain, as they predate this behavior). The isDeployed
+				// cache usually already holds the answer from the branches
+				// above.
 				var deployed bool
 				if detailedExitCode && len(errs) == 0 {
 					deployed, err = isDeployed(release)
