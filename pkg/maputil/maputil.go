@@ -112,17 +112,16 @@ type keyArg struct {
 	key string
 }
 
+// getMap returns the map stored at a.key, replacing any value of another
+// type so that a later assignment such as foo.bar=2 wins over an earlier
+// foo=1 instead of panicking.
 func (a keyArg) getMap(m map[string]any) map[string]any {
-	_, ok := m[a.key]
+	t, ok := m[a.key].(map[string]any)
 	if !ok {
-		m[a.key] = map[string]any{}
+		t = map[string]any{}
+		m[a.key] = t
 	}
-	switch t := m[a.key].(type) {
-	case map[string]any:
-		return t
-	default:
-		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
-	}
+	return t
 }
 
 func (a keyArg) set(m map[string]any, value any) {
@@ -134,36 +133,33 @@ type indexedKeyArg struct {
 	index int
 }
 
+// getArray returns the array stored at a.key, grown to hold a.index. A value
+// of another type is replaced by a new array, so the later assignment wins.
 func (a indexedKeyArg) getArray(m map[string]any) []any {
-	_, ok := m[a.key]
+	t, ok := m[a.key].([]any)
 	if !ok {
-		m[a.key] = make([]any, a.index+1)
+		t = make([]any, a.index+1)
+		m[a.key] = t
 	}
-	switch t := m[a.key].(type) {
-	case []any:
-		if len(t) <= a.index {
-			t2 := make([]any, a.index+1)
-			copy(t2, t)
-			t = t2
-			m[a.key] = t
-		}
-		return t
-	default:
-		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
+	if len(t) <= a.index {
+		t2 := make([]any, a.index+1)
+		copy(t2, t)
+		t = t2
+		m[a.key] = t
 	}
+	return t
 }
 
+// getMap returns the map stored at a.key[a.index], replacing a missing value
+// or a value of another type with a new map.
 func (a indexedKeyArg) getMap(m map[string]any) map[string]any {
 	t := a.getArray(m)
-	if t[a.index] == nil {
-		t[a.index] = map[string]any{}
+	elem, ok := t[a.index].(map[string]any)
+	if !ok {
+		elem = map[string]any{}
+		t[a.index] = elem
 	}
-	switch t := t[a.index].(type) {
-	case map[string]any:
-		return t
-	default:
-		panic(fmt.Errorf("unexpected type: %v(%T)", t, t))
-	}
+	return elem
 }
 
 func (a indexedKeyArg) set(m map[string]any, value any) {
