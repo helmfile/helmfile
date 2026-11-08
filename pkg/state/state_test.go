@@ -7825,18 +7825,23 @@ func TestMarkExcludedReleases_UserDirLabelIsShadowed(t *testing.T) {
 
 func TestHelmState_DiffReleases_FailedReleaseForcesUpgrade(t *testing.T) {
 	// A release that exists in a non-deployed state (e.g. failed) must be
-	// reported as changed even when helm-diff detects no differences, so
-	// that `helmfile apply` reruns the upgrade instead of silently skipping
-	// a release that never succeeded. A deployed release with no diff
-	// changes must keep producing no errors and no upgrades.
+	// reported as changed even when helm-diff detects no differences when
+	// the caller acts on the result (helmfile apply, or diff
+	// --detailed-exitcode), so that apply reruns the upgrade instead of
+	// silently skipping a release that never succeeded. A plain
+	// `helmfile diff` must keep reporting no changes in that case. A
+	// deployed release with no diff changes must keep producing no errors
+	// and no upgrades.
 	tests := []struct {
-		name       string
-		listStatus string
-		wantChange bool
+		name             string
+		listStatus       string
+		detailedExitCode bool
+		wantChange       bool
 	}{
-		{name: "deployed release with no diff changes is skipped", listStatus: "deployed"},
-		{name: "failed release with no diff changes is upgraded", listStatus: "failed", wantChange: true},
-		{name: "pending release with no diff changes is upgraded", listStatus: "pending-upgrade", wantChange: true},
+		{name: "deployed release with no diff changes is skipped", listStatus: "deployed", detailedExitCode: true},
+		{name: "failed release with no diff changes is upgraded", listStatus: "failed", detailedExitCode: true, wantChange: true},
+		{name: "pending release with no diff changes is upgraded", listStatus: "pending-upgrade", detailedExitCode: true, wantChange: true},
+		{name: "failed release is not reported as changed by a plain diff", listStatus: "failed"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -7854,7 +7859,7 @@ func TestHelmState_DiffReleases_FailedReleaseForcesUpgrade(t *testing.T) {
 				},
 			}
 
-			rs, errs := state.DiffReleases(helm, []string{}, 1, false, false, false, []string{}, false, false, false, false, false)
+			rs, errs := state.DiffReleases(helm, []string{}, 1, tt.detailedExitCode, false, false, []string{}, false, false, false, false, false)
 
 			if !tt.wantChange {
 				if len(errs) > 0 {

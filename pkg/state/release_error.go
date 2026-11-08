@@ -13,6 +13,9 @@ type ReleaseError struct {
 }
 
 func (e *ReleaseError) Error() string {
+	if e.err == nil {
+		return fmt.Sprintf("release %s failed with exit code %d", e.Name, e.Code)
+	}
 	return e.err.Error()
 }
 

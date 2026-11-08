@@ -1557,7 +1557,7 @@ func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helme
 	//retrieve the version
 	if out, err := st.listReleases(context, helm, release); err == nil {
 		chartName := filepath.Base(release.Chart)
-		pat := regexp.MustCompile(chartName + "-(.*)")
+		pat := regexp.MustCompile(regexp.QuoteMeta(chartName) + "-(.*)")
 		versions := pat.FindStringSubmatch(out.Chart)
 		if len(versions) > 0 {
 			return versions[1], nil
@@ -3217,13 +3217,20 @@ func (st *HelmState) prepareDiffReleases(helm helmexec.Interface, additionalValu
 
 				flags = st.appendValuesControlModeFlag(flags, opt.ReuseValues, opt.ResetValues, release)
 
-				// Determine the deployed state for every diffed release: a
-				// non-deployed (failed/pending) release must be re-upgraded
-				// even when the diff shows no changes. The isDeployed cache
-				// usually already holds the answer from the branches above.
-				deployed, err := isDeployed(release)
-				if err != nil {
-					errs = append(errs, err)
+				// Determine the deployed state for every diffed release, but
+				// only when the caller treats a "changed" result as actionable
+				// (helmfile apply, or diff --detailed-exitcode): a non-deployed
+				// (failed/pending) release must be re-upgraded even when the
+				// diff shows no changes. A plain `helmfile diff` never acts on
+				// the result, so it skips the extra `helm list` call entirely.
+				// The isDeployed cache usually already holds the answer from
+				// the branches above.
+				var deployed bool
+				if detailedExitCode && len(errs) == 0 {
+					deployed, err = isDeployed(release)
+					if err != nil {
+						errs = append(errs, err)
+					}
 				}
 
 				flags = append(flags, commonDiffFlags...)
@@ -3418,11 +3425,12 @@ func (st *HelmState) DiffReleases(helm helmexec.Interface, additionalValues []st
 					if relErr.Code != HelmDiffExitCodeChanged {
 						diffSpanErr = relErr
 					}
-				} else if !prep.deployed {
+				} else if detailedExitCode && !prep.deployed {
 					// diff found no changes, but the release is not in the
 					// "deployed" state: report it as changed so that apply
 					// reruns the upgrade instead of silently skipping a
 					// failed release.
+					st.logger.Infof("Release %s is not in the deployed state; treating it as changed", release.Name)
 					results <- diffResult{release, &ReleaseError{ReleaseSpec: release, err: nil, Code: HelmDiffExitCodeChanged}, buf}
 				} else {
 					// diff succeeded, found no changes
