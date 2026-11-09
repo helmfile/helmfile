@@ -2203,3 +2203,86 @@ func Test_dedupeWroteLines(t *testing.T) {
 		})
 	}
 }
+
+func Test_List_ParsesYamlOutput(t *testing.T) {
+	tests := []struct {
+		name       string
+		output     string
+		want       HelmReleaseOutput
+		wantWarned bool
+	}{
+		{
+			name: "single release",
+			output: `- name: foo
+  namespace: default
+  revision: "3"
+  updated: 2026-11-03T10:00:00Z
+  status: failed
+  chart: foo-1.0.0
+  app_version: 1.0.0
+`,
+			want: HelmReleaseOutput{
+				Name:       "foo",
+				Namespace:  "default",
+				Revision:   "3",
+				Updated:    "2026-11-03T10:00:00Z",
+				Status:     "failed",
+				Chart:      "foo-1.0.0",
+				AppVersion: "1.0.0",
+			},
+		},
+		{
+			name:   "no releases",
+			output: "[]\n",
+			want:   HelmReleaseOutput{},
+		},
+		{
+			name: "multiple releases warns and uses the first",
+			output: `- name: foo
+  namespace: default
+  status: deployed
+  chart: foo-1.0.0
+  app_version: 1.0.0
+- name: foo
+  namespace: other
+  status: failed
+  chart: foo-2.0.0
+  app_version: 2.0.0
+`,
+			want: HelmReleaseOutput{
+				Name:       "foo",
+				Namespace:  "default",
+				Status:     "deployed",
+				Chart:      "foo-1.0.0",
+				AppVersion: "1.0.0",
+			},
+			wantWarned: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buffer bytes.Buffer
+			logger := NewLogger(&buffer, "debug")
+			helm, err := New("helm", HelmExecOptions{}, logger, "config", "dev", &mockRunner{
+				versionOutput: []byte("v4.0.1+g12500dd"),
+				output:        []byte(tt.output),
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, err := helm.List(HelmContext{}, "^foo$", "-o", "yaml")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("List() = %+v, want %+v", got, tt.want)
+			}
+			warned := strings.Contains(buffer.String(), "returned 2 releases")
+			if warned != tt.wantWarned {
+				t.Errorf("warning logged = %v, want %v (log: %q)", warned, tt.wantWarned, buffer.String())
+			}
+		})
+	}
+}

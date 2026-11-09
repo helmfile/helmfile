@@ -13,6 +13,15 @@ type ReleaseError struct {
 }
 
 func (e *ReleaseError) Error() string {
+	// e.err is nil for synthetic errors that signal a helm-diff exit
+	// status rather than a failure (see DiffReleases); formatting those
+	// must not panic.
+	if e.ReleaseSpec == nil {
+		return fmt.Sprintf("release error: exit code %d", e.Code)
+	}
+	if e.err == nil {
+		return fmt.Sprintf("release %s: exit code %d", e.Name, e.Code)
+	}
 	return e.err.Error()
 }
 
