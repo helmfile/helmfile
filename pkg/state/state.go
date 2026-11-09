@@ -1550,7 +1550,10 @@ func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.In
 	flags = append(flags, "--uninstalling")
 	flags = append(flags, "--deployed", "--failed", "--pending")
 	flags = append(flags, "-o", "yaml")
-	return helm.List(context, "^"+release.Name+"$", flags...)
+	// helm treats --filter as a regexp; quote the name so that release names
+	// containing regex metacharacters (e.g. ".") match exactly.
+	filter := "^" + regexp.QuoteMeta(release.Name) + "$"
+	return helm.List(context, filter, flags...)
 }
 
 func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
@@ -3033,7 +3036,10 @@ type diffPrepareResult struct {
 	files                   []string
 	upgradeDueToSkippedDiff bool
 	suppressDiff            bool
-	deployed                bool
+	// deployed reports whether the release exists in the "deployed" state.
+	// It is only populated when the caller acts on the diff result
+	// (detailedExitCode); it is always false for a plain diff.
+	deployed bool
 }
 
 // commonDiffFlags returns common flags for helm diff, not in release-specific context

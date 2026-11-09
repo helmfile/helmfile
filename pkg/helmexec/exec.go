@@ -704,9 +704,13 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (H
 	if len(releases) == 0 {
 		return HelmReleaseOutput{}, nil
 	}
+	if len(releases) > 1 {
+		// Callers filter with an exact-match regex (^name$), so this should
+		// not happen; warn rather than silently act on the wrong entry.
+		helm.logger.Warnf("`helm list --filter %s` returned %d releases where one was expected; using the first", filter, len(releases))
+	}
 
-	// The filter is an exact-match regex (^name$), so at most one entry is
-	// expected; log it in the historical tabular format for parity.
+	// Log it in the historical tabular format for parity.
 	release := releases[0]
 	helm.info([]byte(fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s",
 		release.Name, release.Namespace, release.Revision, release.Updated, release.Status, release.Chart, release.AppVersion)))
