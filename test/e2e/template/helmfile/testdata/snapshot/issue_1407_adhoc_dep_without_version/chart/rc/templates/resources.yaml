@@ -1,0 +1,6 @@
+{{- range $i, $r := $.Values.templates }}
+{{- if gt $i 0 }}
+---
+{{- end }}
+{{- (tpl $r $) }}
+{{- end }}

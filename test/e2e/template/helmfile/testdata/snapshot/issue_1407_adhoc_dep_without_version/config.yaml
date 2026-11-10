@@ -1,0 +1,6 @@
+localChartRepoServer:
+  enabled: true
+  port: 18085
+chartifyTempDir: temp1407
+helmfileArgs:
+- template
