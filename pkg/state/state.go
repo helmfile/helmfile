@@ -1591,7 +1591,8 @@ func releasesNeedCharts(releases []ReleaseSpec) []ReleaseSpec {
 func filterReleasesForBuild(releases []ReleaseSpec) []ReleaseSpec {
 	var filteredReleases []ReleaseSpec
 	for _, r := range releases {
-		if len(r.JSONPatches) == 0 && len(r.StrategicMergePatches) == 0 && len(r.Transformers) == 0 {
+		if len(r.Dependencies) == 0 && r.ForceNamespace == "" &&
+			len(r.JSONPatches) == 0 && len(r.StrategicMergePatches) == 0 && len(r.Transformers) == 0 {
 			filteredReleases = append(filteredReleases, r)
 		}
 	}
