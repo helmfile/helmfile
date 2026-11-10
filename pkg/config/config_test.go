@@ -133,6 +133,16 @@ func TestNewCLIConfigImplStateValuesSet(t *testing.T) {
 			set:     []string{"a=1,\tb=2"},
 			wantErr: `--state-values-set: invalid assignment "\tb=2": expected <key>=<value>`,
 		},
+		{
+			name:    "negative list index is rejected",
+			set:     []string{"servers[-1].host=a"},
+			wantErr: `--state-values-set: invalid assignment "servers[-1].host=a": negative index -1 not allowed in "servers[-1]"`,
+		},
+		{
+			name:    "list index above the maximum is rejected",
+			set:     []string{"servers[65537]=a"},
+			wantErr: `--state-values-set: invalid assignment "servers[65537]=a": index 65537 in "servers[65537]" is greater than the maximum supported index of 65536`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -243,6 +253,11 @@ func TestNewCLIConfigImplStateValuesSetString(t *testing.T) {
 			name:    "trailing comma is rejected",
 			set:     []string{"message=hello,"},
 			wantErr: `--state-values-set-string: invalid assignment "": expected <key>=<value>`,
+		},
+		{
+			name:    "negative list index is rejected",
+			set:     []string{"servers[-1]=a"},
+			wantErr: `--state-values-set-string: invalid assignment "servers[-1]=a": negative index -1 not allowed in "servers[-1]"`,
 		},
 	}
 

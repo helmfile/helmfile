@@ -215,16 +215,37 @@ func ParseKey(key string) []string {
 	return r
 }
 
-func Set(m map[string]any, key []string, value string, stringBool bool) {
+// MaxIndex is the largest list index accepted by Set, the same limit Helm
+// applies to --set.
+const MaxIndex = 65536
+
+// Set assigns value at key in m. It returns an error, leaving m unchanged,
+// when a list index in key is negative or greater than MaxIndex.
+func Set(m map[string]any, key []string, value string, stringBool bool) error {
 	if len(key) == 0 {
 		panic(fmt.Errorf("bug: unexpected length of key: %d", len(key)))
 	}
 
-	for len(key) > 1 {
-		m, key = getCursor(key[0]).getMap(m), key[1:]
+	cursors := make([]arg, len(key))
+	for i, k := range key {
+		cursor := getCursor(k)
+		if indexed, ok := cursor.(indexedKeyArg); ok {
+			if indexed.index < 0 {
+				return fmt.Errorf("negative index %d not allowed in %q", indexed.index, k)
+			}
+			if indexed.index > MaxIndex {
+				return fmt.Errorf("index %d in %q is greater than the maximum supported index of %d", indexed.index, k, MaxIndex)
+			}
+		}
+		cursors[i] = cursor
 	}
 
-	getCursor(key[0]).set(m, typedVal(value, stringBool))
+	for _, cursor := range cursors[:len(cursors)-1] {
+		m = cursor.getMap(m)
+	}
+
+	cursors[len(cursors)-1].set(m, typedVal(value, stringBool))
+	return nil
 }
 
 func typedVal(val string, st bool) any {

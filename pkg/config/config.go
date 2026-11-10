@@ -48,7 +48,9 @@ func parseStateValuesSetString(g *GlobalImpl) error {
 		}
 		for _, match := range stateValuesSetStringRE.FindAllStringSubmatch(raw, -1) {
 			key, value := match[1], match[2]
-			maputil.Set(set, maputil.ParseKey(key), unescapeCommas(value), true)
+			if err := maputil.Set(set, maputil.ParseKey(key), unescapeCommas(value), true); err != nil {
+				return fmt.Errorf("--state-values-set-string: invalid assignment %q: %w", key+"="+value, err)
+			}
 		}
 	}
 	g.SetSet(set)
@@ -86,7 +88,9 @@ func setAssignment(set map[string]any, assignment string) error {
 		return fmt.Errorf("--state-values-set: invalid assignment %q: expected <key>=<value>", assignment)
 	}
 
-	maputil.Set(set, maputil.ParseKey(key), value, false)
+	if err := maputil.Set(set, maputil.ParseKey(key), value, false); err != nil {
+		return fmt.Errorf("--state-values-set: invalid assignment %q: %w", assignment, err)
+	}
 	return nil
 }
 

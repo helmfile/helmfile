@@ -69,7 +69,9 @@ func TestMapUtil_KeyArg(t *testing.T) {
 
 	key := []string{"a", "b", "c"}
 
-	Set(m, key, "C", false)
+	if err := Set(m, key, "C", false); err != nil {
+		t.Fatal(err)
+	}
 
 	c := (((m["a"].(map[string]any))["b"]).(map[string]any))["c"]
 
@@ -83,7 +85,9 @@ func TestMapUtil_IndexedKeyArg(t *testing.T) {
 
 	key := []string{"a", "b[0]", "c"}
 
-	Set(m, key, "C", false)
+	if err := Set(m, key, "C", false); err != nil {
+		t.Fatal(err)
+	}
 
 	c := (((m["a"].(map[string]any))["b"].([]any))[0].(map[string]any))["c"]
 
@@ -124,7 +128,9 @@ func TestMapUtil_IndexedKeyArg2(t *testing.T) {
 					k := ParseKey(op[0])
 					v := op[1]
 
-					Set(set, k, v, false)
+					if err := Set(set, k, v, false); err != nil {
+						t.Fatal(err)
+					}
 				}
 			}
 			if !reflect.DeepEqual(set, c.want) {
@@ -409,7 +415,9 @@ func TestMapUtil_Issue2281_ArrayMerging(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.initialMap
 			for _, op := range tt.operations {
-				Set(result, op.key, op.value, false)
+				if err := Set(result, op.key, op.value, false); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			if !reflect.DeepEqual(result, tt.expected) {
@@ -430,7 +438,9 @@ func TestMapUtil_Issue2281_EmptyMapScenario(t *testing.T) {
 		set := map[string]any{}
 
 		// Simulating: --state-values-set top.array[0]=cmdlinething1
-		Set(set, []string{"top", "array[0]"}, "cmdlinething1", false)
+		if err := Set(set, []string{"top", "array[0]"}, "cmdlinething1", false); err != nil {
+			t.Fatal(err)
+		}
 
 		// Check what we got
 		topArray := set["top"].(map[string]any)["array"].([]any)
@@ -450,7 +460,9 @@ func TestMapUtil_Issue2281_EmptyMapScenario(t *testing.T) {
 
 		// Simulating: --state-values-set top.complexArray[1].anotherThing=cmdline
 		// WITHOUT first defining complexArray[0]
-		Set(set, []string{"top", "complexArray[1]", "anotherThing"}, "cmdline", false)
+		if err := Set(set, []string{"top", "complexArray[1]", "anotherThing"}, "cmdline", false); err != nil {
+			t.Fatal(err)
+		}
 
 		// Check what we got
 		topComplexArray := set["top"].(map[string]any)["complexArray"].([]any)
@@ -1008,8 +1020,12 @@ func TestDeepCopyMap_AnyKeysNormalises(t *testing.T) {
 func TestSet_GrowsExistingArrayForNestedKey(t *testing.T) {
 	m := map[string]any{}
 
-	Set(m, []string{"servers[0]", "host"}, "a", false)
-	Set(m, []string{"servers[1]", "host"}, "b", false)
+	if err := Set(m, []string{"servers[0]", "host"}, "a", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := Set(m, []string{"servers[1]", "host"}, "b", false); err != nil {
+		t.Fatal(err)
+	}
 
 	expected := map[string]any{
 		"servers": []any{
@@ -1059,11 +1075,52 @@ func TestSet_LaterAssignmentReplacesValueOfAnotherType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := map[string]any{}
 			for _, op := range tt.ops {
-				Set(m, ParseKey(op[0]), op[1], false)
+				if err := Set(m, ParseKey(op[0]), op[1], false); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if !reflect.DeepEqual(m, tt.expected) {
 				t.Errorf("unexpected result: expected=%v, actual=%v", tt.expected, m)
 			}
 		})
+	}
+}
+
+func TestSet_RejectsOutOfRangeIndex(t *testing.T) {
+	tests := []struct {
+		key     string
+		wantErr string
+	}{
+		{key: "foo[-1]", wantErr: `negative index -1 not allowed in "foo[-1]"`},
+		{key: "foo[0].bar[-2]", wantErr: `negative index -2 not allowed in "bar[-2]"`},
+		{key: "foo[65537]", wantErr: `index 65537 in "foo[65537]" is greater than the maximum supported index of 65536`},
+		{key: "foo[-1].bar", wantErr: `negative index -1 not allowed in "foo[-1]"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			m := map[string]any{"keep": "me"}
+
+			err := Set(m, ParseKey(tt.key), "x", false)
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("Set(%q) error = %v, want %q", tt.key, err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(m, map[string]any{"keep": "me"}) {
+				t.Errorf("Set(%q) modified the map: %v", tt.key, m)
+			}
+		})
+	}
+}
+
+func TestSet_AcceptsMaxIndex(t *testing.T) {
+	m := map[string]any{}
+
+	if err := Set(m, ParseKey("foo[65536]"), "x", false); err != nil {
+		t.Fatal(err)
+	}
+
+	list, ok := m["foo"].([]any)
+	if !ok || len(list) != MaxIndex+1 || list[MaxIndex] != "x" {
+		t.Fatalf("foo has %d elements, want the last of %d to be \"x\"", len(list), MaxIndex+1)
 	}
 }
