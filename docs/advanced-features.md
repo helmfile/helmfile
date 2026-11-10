@@ -37,6 +37,8 @@ helmfile apply --track-mode kubedog --track-timeout 300 --track-logs --track-log
 - **`trackLogsInterval`**: Interval between log output updates, as a duration such as `1s` or `30s` (default: `10s`; minimum: `1s`)
 - **`trackLogsUntilReady`**: With `trackLogs: true`, stop routine pod logs once each pod first becomes ready (default: false)
 - **`trackFailedLogs`**: Print collected logs only for pods that fail during deployment
+- **`trackFailOnError`**: Exit with an error when tracking fails (default: false). The release setting takes precedence over `--track-fail-on-error`
+- **`helmStuckGrace`**: Seconds to wait, once every tracked resource has converged, for the helm process to exit before helmfile sends it SIGINT (default: `0`, disabled). Also available as `helmDefaults.helmStuckGrace` and `--helm-stuck-grace`
 
 To see logs only for failed pods, set `trackFailedLogs: true` on a release or use `--track-failed-logs` with `helmfile apply` or `helmfile sync`. If both log options are enabled, logs from all tracked pods are printed.
 

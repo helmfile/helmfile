@@ -470,6 +470,7 @@ The following `helmDefaults` fields are also available but not shown in the exam
 | `takeOwnership` | bool | false | Take ownership of existing resources |
 | `serverSide` | string | | Controls the helm 4 `--server-side` flag. Must be `"true"`, `"false"`, or `"auto"` (Helm 4 only) |
 | `trackMode` | string | `""` | Default tracking mode for resources. See [Advanced Features](advanced-features.md#resource-tracking-with-kubedog) |
+| `helmStuckGrace` | int | 0 | With `trackMode: kubedog`, seconds to wait after every tracked resource has converged while the helm process is still running, before helmfile sends SIGINT to helm. `0` disables it. Used when neither the release nor `--helm-stuck-grace` sets a value greater than 0 |
 | `disableAutoDetectedKubeVersionForDiff` | bool | false | Disable auto-detected kubeVersion being passed to helm diff |
 
 ### Additional release fields
@@ -528,6 +529,8 @@ See [Advanced Features](advanced-features.md#resource-tracking-with-kubedog) for
 | `trackResources` | list | | Specific resources to track (objects with `kind`, `name`, `namespace`) |
 | `kubedogQPS` | float | | QPS for kubedog kubernetes client |
 | `kubedogBurst` | int | | Burst for kubedog kubernetes client |
+| `trackFailOnError` | bool | false | Exit with an error when kubedog tracking fails. When set, it takes precedence over `--track-fail-on-error`, so `false` on a release keeps tracking failures non-fatal even with the flag |
+| `helmStuckGrace` | int | 0 | Seconds to wait after every tracked resource has converged while the helm process is still running, before helmfile sends SIGINT to helm (works around Helm v4 hook waits that never return). `0` disables it. A value greater than 0 takes precedence over `--helm-stuck-grace` and `helmDefaults.helmStuckGrace`. The release secret may be left in a pending state that needs manual cleanup |
 
 ### Hook kubectlApply
 
