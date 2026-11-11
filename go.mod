@@ -32,7 +32,7 @@ require (
 	github.com/tj/assert v0.0.3
 	github.com/variantdev/dag v1.1.0
 	github.com/werf/kubedog v0.13.1-0.20260217150136-ed58edf34eac
-	github.com/zclconf/go-cty v1.19.0
+	github.com/zclconf/go-cty v1.20.0
 	github.com/zclconf/go-cty-yaml v1.2.0
 	go.opentelemetry.io/contrib/exporters/autoexport v0.72.0
 	go.opentelemetry.io/otel v1.47.0
