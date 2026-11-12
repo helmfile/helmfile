@@ -10,6 +10,7 @@ import (
 	"github.com/helmfile/chartify"
 	"github.com/stretchr/testify/require"
 
+	"github.com/helmfile/helmfile/pkg/envvar"
 	"github.com/helmfile/helmfile/pkg/filesystem"
 	"github.com/helmfile/helmfile/pkg/helmexec"
 	"github.com/helmfile/helmfile/pkg/testutil"
@@ -1041,4 +1042,87 @@ dependencies:
 		{Alias: "bar", Chart: "stable/envoy", Version: "1.5", Condition: "global.bar.enabled"},
 		{Alias: "baz", Chart: "stable/envoy", Version: "1.5"},
 	}, c.Opts.AdhocChartDependencies)
+}
+
+func TestPrepareChartify_DependencyDefaultVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		chart   func(t *testing.T, basePath string) string
+		version string
+		want    string
+	}{
+		{
+			name:  "repository chart without version",
+			chart: func(*testing.T, string) string { return "stable/envoy" },
+			want:  "*",
+		},
+		{
+			name:  "oci chart without version",
+			chart: func(*testing.T, string) string { return "oci://registry.example.com/charts/envoy" },
+			want:  "*",
+		},
+		{
+			name:    "repository chart with version",
+			chart:   func(*testing.T, string) string { return "stable/envoy" },
+			version: "1.5",
+			want:    "1.5",
+		},
+		{
+			name: "local chart without version",
+			chart: func(t *testing.T, basePath string) string {
+				chartDir := filepath.Join(basePath, "charts", "child")
+				require.NoError(t, os.MkdirAll(chartDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(chartDir, "Chart.yaml"), []byte("apiVersion: v2\nname: child\nversion: 1.2.3-rc.1\n"), 0o644))
+				return "./charts/child"
+			},
+			want: ">=0.0.0-0",
+		},
+		{
+			name: "local chart with version",
+			chart: func(t *testing.T, basePath string) string {
+				chartDir := filepath.Join(basePath, "charts", "child")
+				require.NoError(t, os.MkdirAll(chartDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(chartDir, "Chart.yaml"), []byte("apiVersion: v2\nname: child\nversion: 1.2.3\n"), 0o644))
+				return "./charts/child"
+			},
+			version: "~1.2.0",
+			want:    "~1.2.0",
+		},
+		{
+			name: "go-getter chart without version",
+			chart: func(t *testing.T, _ string) string {
+				t.Setenv(envvar.CacheHome, t.TempDir())
+				return initGitRepo(t, t.TempDir(), "charts/mychart", "main")
+			},
+			want: ">=0.0.0-0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			basePath := t.TempDir()
+			release := ReleaseSpec{
+				Name:  "foo",
+				Chart: "stable/foo",
+				Dependencies: []Dependency{
+					{Chart: tt.chart(t, basePath), Version: tt.version},
+				},
+			}
+
+			st := &HelmState{
+				basePath:       basePath,
+				fs:             filesystem.DefaultFileSystem(),
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]any{},
+			}
+
+			c, clean, err := st.PrepareChartify(testutil.NewVersionHelmExec("3.15.0"), &release, release.Chart, 0)
+			require.NoError(t, err)
+			t.Cleanup(clean)
+
+			require.Len(t, c.Opts.AdhocChartDependencies, 1)
+			require.Equal(t, tt.want, c.Opts.AdhocChartDependencies[0].Version)
+		})
+	}
 }

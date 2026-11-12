@@ -477,9 +477,12 @@ dependencies:
   name: bar
   repo: file:///abs/path/to/bar
   condition: bar.enabled
+  version: ">=0.0.0-0"
 ```
 
 Please read https://github.com/roboll/helmfile/issues/1762#issuecomment-816341251 for more details.
+
+The `version` of a dependency is optional. When it is empty, Helmfile writes `>=0.0.0-0` for a local chart or a chart fetched with go-getter, which accepts the chart's version even when it is a prerelease such as `1.2.3-rc.1`, and `*` for a chart from a repository or an OCI registry, which selects the latest version that is not a prerelease.
 
 ### OCI chart dependencies
 
