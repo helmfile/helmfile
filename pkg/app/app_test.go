@@ -4548,6 +4548,74 @@ releases:
 		"state should contain releases:\n%s\n", out)
 }
 
+func TestPrint_WithChartifyConfiguration(t *testing.T) {
+	tests := []struct {
+		name          string
+		configuration string
+		want          string
+	}{
+		{
+			name: "dependencies",
+			configuration: `  dependencies:
+  - chart: examples/subchart
+    version: 1.0.0
+`,
+			want: "dependencies:",
+		},
+		{
+			name:          "force namespace",
+			configuration: "  forceNamespace: overridden\n",
+			want:          "forceNamespace: overridden",
+		},
+		{
+			name:          "transformer",
+			configuration: "  transformers:\n  - transformer.yaml\n",
+			want:          "transformer.yaml",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			valsRuntime, err := vals.New(vals.Options{CacheSize: 32})
+			require.NoError(t, err)
+			files := map[string]string{
+				"/path/to/helmfile.yaml": `repositories:
+- name: examples
+  url: https://example.invalid/charts
+releases:
+- name: hello
+  chart: examples/hello-world
+  version: 0.1.0
+` + tt.configuration + `- name: plain
+  chart: examples/hello-world
+  version: 0.1.0
+`,
+			}
+			app := appWithFs(&App{
+				// Chartify invokes the binary directly, outside the Helm mock.
+				OverrideHelmBinary:              filepath.Join(t.TempDir(), "unexpected-helm"),
+				OverrideKubeContext:             "default",
+				DisableKubeVersionAutoDetection: true,
+				Env:                             "default",
+				Logger:                          newAppTestLogger(),
+				valsRuntime:                     valsRuntime,
+			}, files)
+			expectNoCallsToHelm(app)
+
+			var printErr error
+			out, err := testutil.CaptureStdout(func() {
+				printErr = app.PrintState(configImpl{})
+			})
+			require.NoError(t, err)
+			require.NoError(t, printErr)
+			assert.Contains(t, out, "name: hello")
+			assert.Contains(t, out, "name: plain")
+			assert.Contains(t, out, "chart: examples/hello-world")
+			assert.Contains(t, out, tt.want)
+			assert.NotContains(t, out, "chartPath:")
+		})
+	}
+}
+
 func TestPrint_MultiStateFile(t *testing.T) {
 	files := map[string]string{
 		"/path/to/helmfile.d/first.yaml": `

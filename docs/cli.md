@@ -103,6 +103,13 @@ as errors instead of being partially applied.
 An empty flag value is ignored. Do not put spaces before a key; spaces inside
 values are preserved.
 
+### build
+
+`helmfile build` prints the rendered Helmfile state. Release options such as
+`dependencies`, `forceNamespace`, `jsonPatches`, `strategicMergePatches`, and
+`transformers` remain in that output without triggering chart rendering during
+the build. Use `helmfile template` to render the resulting Kubernetes manifests.
+
 ### init
 
 The `helmfile init` sub-command checks the dependencies required for helmfile operation, such as `helm`, `helm diff plugin`, `helm secrets plugin`, `helm helm-git plugin`, `helm s3 plugin`. When it does not exist or the version is too low, it can be installed automatically.
