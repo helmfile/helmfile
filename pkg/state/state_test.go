@@ -4518,15 +4518,17 @@ func TestHelmState_DeleteFailedReleasesConcurrently(t *testing.T) {
 
 // TestHelmState_SyncReleasesUndesiredDeleteFailureReportsDeleteFailed verifies
 // that when SyncReleases uninstalls an `installed: false` release and the
-// uninstall fails, the release is reported as a failed deletion
+// uninstall or an uninstall hook fails, the release is reported as a failed deletion
 // (AffectedReleases.DeleteFailed, rendered under "Failed to Delete Releases")
 // rather than as a generic sync failure, matching DeleteReleasesForSync and
 // DeleteReleases.
 func TestHelmState_SyncReleasesUndesiredDeleteFailureReportsDeleteFailed(t *testing.T) {
 	no := false
 	tests := []struct {
-		name     string
-		releases []ReleaseSpec
+		name          string
+		releases      []ReleaseSpec
+		hookEvent     string
+		helmDeletions int
 	}{
 		{
 			name: "1 removed release fails to uninstall",
@@ -4541,14 +4543,40 @@ func TestHelmState_SyncReleasesUndesiredDeleteFailureReportsDeleteFailed(t *test
 				{Name: "b-error", Chart: "foo", Installed: &no},
 			},
 		},
+		{
+			name: "preuninstall hook failures",
+			releases: []ReleaseSpec{
+				{Name: "a", Chart: "foo", Installed: &no},
+				{Name: "b", Chart: "foo", Installed: &no},
+			},
+			hookEvent: "preuninstall",
+		},
+		{
+			name: "postuninstall hook failures",
+			releases: []ReleaseSpec{
+				{Name: "a", Chart: "foo", Installed: &no},
+				{Name: "b", Chart: "foo", Installed: &no},
+			},
+			hookEvent:     "postuninstall",
+			helmDeletions: 2,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &HelmState{
 				Releases:       tt.releases,
 				logger:         logger,
+				fs:             filesystem.DefaultFileSystem(),
 				valsRuntime:    valsRuntime,
 				RenderedValues: map[string]any{},
+			}
+			if tt.hookEvent != "" {
+				hookCommand := filepath.Join(t.TempDir(), "no-such-hook-command")
+				for i := range state.Releases {
+					state.Releases[i].Hooks = []event.Hook{{
+						Events: []string{tt.hookEvent}, Command: hookCommand,
+					}}
+				}
 			}
 			helm := &exectest.Helm{
 				Lists: map[exectest.ListKey]helmexec.HelmReleaseOutput{},
@@ -4578,6 +4606,7 @@ func TestHelmState_SyncReleasesUndesiredDeleteFailureReportsDeleteFailed(t *test
 			assert.ElementsMatch(t, wantNames, names(affectedReleases.DeleteFailed))
 			assert.Empty(t, affectedReleases.Failed)
 			assert.Empty(t, affectedReleases.Deleted)
+			assert.Len(t, helm.Deleted, tt.helmDeletions)
 		})
 	}
 }
