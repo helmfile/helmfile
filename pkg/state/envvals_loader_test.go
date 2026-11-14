@@ -140,6 +140,26 @@ func TestEnvValsLoad_OverwriteNilValue_Issue1150(t *testing.T) {
 	}
 }
 
+func TestEnvValsLoad_NonStringKeys(t *testing.T) {
+	l := newLoader()
+
+	actual, err := l.LoadEnvironmentValues(nil, []any{"testdata/values.10.yaml"}, nil, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := map[string]any{
+		"errorPages": map[string]any{
+			"404": "not-found",
+			"503": "unavailable",
+		},
+	}
+
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Error(diff)
+	}
+}
+
 // See https://github.com/roboll/helmfile/issues/1154
 func TestEnvValsLoad_OverwriteWithNilValue_Issue1154(t *testing.T) {
 	l := newLoader()

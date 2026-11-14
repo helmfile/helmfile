@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func TestMapUtil_StrKeys(t *testing.T) {
@@ -1122,5 +1124,30 @@ func TestSet_AcceptsMaxIndex(t *testing.T) {
 	list, ok := m["foo"].([]any)
 	if !ok || len(list) != MaxIndex+1 || list[MaxIndex] != "x" {
 		t.Fatalf("foo has %d elements, want the last of %d to be \"x\"", len(list), MaxIndex+1)
+	}
+}
+
+func TestMapUtil_NonStringKeys(t *testing.T) {
+	var m any
+	if err := yaml.Unmarshal([]byte("errorPages:\n  404: not-found\n  503: unavailable\nflags:\n  true: enabled\n"), &m); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := CastKeysToStrings(m)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := map[string]any{
+		"errorPages": map[string]any{
+			"404": "not-found",
+			"503": "unavailable",
+		},
+		"flags": map[string]any{
+			"true": "enabled",
+		},
+	}
+	if !reflect.DeepEqual(r, expected) {
+		t.Errorf("unexpected result: expected=%v, got=%v", expected, r)
 	}
 }
