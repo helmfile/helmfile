@@ -1332,27 +1332,7 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 				if _, err := st.triggerPresyncEvent(release, "sync", relCtx); err != nil {
 					relErr = newReleaseFailedError(release, err)
 				} else if !release.Desired() {
-					installed, _, err := st.isReleaseInstalled(context, helm, *release)
-					if err != nil {
-						relErr = newReleaseFailedError(release, err)
-					} else if installed {
-						var args []string
-						deletionFlags := st.appendConnectionFlags(args, release)
-						m.Lock()
-						if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
-							affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
-							relErr = newReleaseFailedError(release, err)
-						} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
-							affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
-							relErr = newReleaseFailedError(release, err)
-						} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
-							affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
-							relErr = newReleaseFailedError(release, err)
-						} else {
-							affectedReleases.Deleted = append(affectedReleases.Deleted, release)
-						}
-						m.Unlock()
-					}
+					relErr = st.syncUninstallRelease(affectedReleases, helm, context, release, m)
 				} else if release.UpdateStrategy == UpdateStrategyReinstallIfForbidden {
 					relErr = st.performSyncOrReinstallOfRelease(affectedReleases, helm, context, release, chart, m, flags...)
 					if relErr == nil {
@@ -1465,6 +1445,32 @@ func (st *HelmState) SyncReleases(affectedReleases *AffectedReleases, helm helme
 		return errs
 	}
 	return nil
+}
+
+func (st *HelmState) syncUninstallRelease(affectedReleases *AffectedReleases, helm helmexec.Interface, context helmexec.HelmContext, release *ReleaseSpec, m *sync.Mutex) *ReleaseError {
+	var relErr *ReleaseError
+	installed, _, err := st.isReleaseInstalled(context, helm, *release)
+	if err != nil {
+		relErr = newReleaseFailedError(release, err)
+	} else if installed {
+		var args []string
+		deletionFlags := st.appendConnectionFlags(args, release)
+		m.Lock()
+		if _, err := st.triggerReleaseEvent("preuninstall", nil, release, "sync", context.Ctx); err != nil {
+			affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
+			relErr = newReleaseFailedError(release, err)
+		} else if err := helm.DeleteRelease(context, release.Name, deletionFlags...); err != nil {
+			affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
+			relErr = newReleaseFailedError(release, err)
+		} else if _, err := st.triggerReleaseEvent("postuninstall", nil, release, "sync", context.Ctx); err != nil {
+			affectedReleases.DeleteFailed = append(affectedReleases.DeleteFailed, release)
+			relErr = newReleaseFailedError(release, err)
+		} else {
+			affectedReleases.Deleted = append(affectedReleases.Deleted, release)
+		}
+		m.Unlock()
+	}
+	return relErr
 }
 
 func (st *HelmState) performSyncOrReinstallOfRelease(affectedReleases *AffectedReleases, helm helmexec.Interface, context helmexec.HelmContext, release *ReleaseSpec, chart string, m *sync.Mutex, flags ...string) *ReleaseError {
@@ -1883,23 +1889,7 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 				req = append(req, dep)
 			}
 
-			// Mirror the rewritten file:// repository URLs onto matching lock entries.
-			// Without this, `helm dependency build` would resolve the lock's relative
-			// file:// paths against the (moved) chart directory and fail with
-			// "directory ... not found". Versions in the lock are left untouched.
-			// Match on Name + Alias to handle charts with duplicate dependency names
-			// distinguished by alias.
-			for _, ld := range lock.Dependencies {
-				if !strings.HasPrefix(ld.Repository, "file://") {
-					continue
-				}
-				for _, rd := range req {
-					if rd.Name == ld.Name && rd.Alias == ld.Alias && strings.HasPrefix(rd.Repository, "file://") {
-						ld.Repository = rd.Repository
-						break
-					}
-				}
-			}
+			rewriteLockedDependencyRepositories(lock.Dependencies, req)
 
 			// Normalize lock.Dependencies ImportValues to avoid json.Marshal failures
 			// when go-yaml v2 decodes nested maps as map[interface{}]interface{}.
@@ -1941,6 +1931,25 @@ func (st *HelmState) rewriteChartDependencies(chartPath string) (string, func(),
 	}
 
 	return tempDir, cleanup, nil
+}
+
+// rewriteLockedDependencyRepositories mirrors rewritten file:// repository URLs
+// onto matching lock entries. Without this, helm dependency build would resolve
+// relative paths against the moved chart directory and fail. Versions in the lock
+// are left untouched. Match on Name + Alias to distinguish dependencies with the
+// same name.
+func rewriteLockedDependencyRepositories(locked, requested []*helmchart.Dependency) {
+	for _, ld := range locked {
+		if !strings.HasPrefix(ld.Repository, "file://") {
+			continue
+		}
+		for _, rd := range requested {
+			if rd.Name == ld.Name && rd.Alias == ld.Alias && strings.HasPrefix(rd.Repository, "file://") {
+				ld.Repository = rd.Repository
+				break
+			}
+		}
+	}
 }
 
 // Otherwise, if a chart is not a helm chart, it will call "chartify" to turn it into a chart.
