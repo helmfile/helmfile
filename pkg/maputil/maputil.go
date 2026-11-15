@@ -12,13 +12,9 @@ func CastKeysToStrings(s any) (map[string]any, error) {
 	switch src := s.(type) {
 	case map[any]any:
 		for k, v := range src {
-			var strK string
-			switch typedK := k.(type) {
-			case string:
-				strK = typedK
-			default:
-				return nil, fmt.Errorf("unexpected type of key in map: expected string, got %T: value=%v, map=%v", typedK, typedK, src)
-			}
+			// YAML allows keys such as 404 or true, which decode to int or
+			// bool. Helm turns them into strings, so do the same here.
+			strK := fmt.Sprintf("%v", k)
 
 			castedV, err := RecursivelyStringifyMapKey(v)
 			if err != nil {

@@ -1,0 +1,3 @@
+errorPages:
+  404: not-found
+  503: unavailable
