@@ -1212,6 +1212,20 @@ func (a *App) processNestedHelmfiles(st *state.HelmState, absd, file string, def
 			Selectors:         effectiveSelectors,
 		}
 
+		if entries := m.Environment.OverrideValues; len(entries) > 0 {
+			storage := state.NewStorage(optsForNestedState.CalleePath, a.Logger, a.fs)
+			loader := state.NewEnvironmentValuesLoader(storage, a.fs, a.Logger, a.remote)
+			handler := state.MissingFileHandlerError
+			parentEnv := st.Env.DeepCopy()
+			values, err := loader.LoadEnvironmentValues(&handler, entries, &parentEnv, a.Env, "")
+			if err != nil {
+				return anyMatched, appError(fmt.Sprintf("in .helmfiles[%d]", i), err)
+			}
+			// Render explicit arguments in the parent's context before passing
+			// them to the child, without inheriting the rest of the parent's values.
+			optsForNestedState.Environment.OverrideValues = []any{values}
+		}
+
 		// Carry parent config requested via `inherits:`, and parent repo names
 		// for the warning, down to the sub-helmfile load path.
 		optsForNestedState.ParentRepoNames = parentRepoNames

@@ -151,6 +151,33 @@ $ PRODUCT_ID=1 helmfile -f product/helmfile.yaml apply
 $ PRODUCT_ID=2 helmfile -f product/helmfile.yaml apply
 ```
 
+## Passing state values to sub-helmfiles
+
+Templates listed in a sub-helmfile's `values:` are rendered with the parent's
+`.Values` and `.Environment`, including command-line state value overrides:
+
+```yaml
+environments:
+  default:
+    values:
+    - replicas: 3
+helmfiles:
+- path: apps/helmfile.yaml
+  values:
+  - values/app.yaml.gotmpl
+```
+
+The parent can pass selected values through `values/app.yaml.gotmpl`:
+
+```yaml
+replicas: {{ .Values.replicas }}
+```
+
+The child receives the keys produced by the values file, merged over its own
+state values. Its remaining defaults continue to apply, including when it is
+run independently. Values file paths are relative to the parent helmfile;
+`readFile` paths within a values template are relative to that template.
+
 ## Inheriting parent configuration with `inherits:`
 
 By default a sub-helmfile is independent: it does **not** see the `repositories:`,
