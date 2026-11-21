@@ -1,4 +1,4 @@
-HELM_VERSION ?= v4.3.1
+HELM_VERSION ?= v4.3.2
 KUSTOMIZE_VERSION ?= v5.8.0
 K8S_VERSION ?= v1.34.0
 MINIKUBE_VERSION ?= v1.37.0
@@ -20,14 +20,14 @@ KUSTOMIZE_FILENAME := kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz
 all: vault sops helm kustomize minikube/destroy minikube
 
 helm:
-	curl -sSLo $(tmp)/${HELM_FILENAME} "https://get.helm.sh/${HELM_FILENAME}"
+	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 -o $(tmp)/${HELM_FILENAME} "https://get.helm.sh/${HELM_FILENAME}"
 	tar zxf $(tmp)/${HELM_FILENAME} --directory ${tmp} linux-amd64/helm
 	chmod +x ${tmp}/linux-amd64/helm
 	sudo mv ${tmp}/linux-amd64/helm /usr/local/bin/
 .PHONY: helm
 
 kustomize:
-	curl -sSLo $(tmp)/${KUSTOMIZE_FILENAME} "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}"
+	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 -o $(tmp)/${KUSTOMIZE_FILENAME} "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/${KUSTOMIZE_FILENAME}"
 	tar zxf $(tmp)/${KUSTOMIZE_FILENAME} --directory ${tmp} kustomize
 	chmod +x ${tmp}/kustomize
 	sudo mv ${tmp}/kustomize /usr/local/bin/
@@ -41,9 +41,9 @@ minikube/destroy:
 .EXPORT_ALL_VARIABLES: minikube/destroy
 
 minikube:
-	curl -sSLo ${tmp}/kubectl https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl
+	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 -o ${tmp}/kubectl https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl
 	chmod +x ${tmp}/kubectl && sudo mv ${tmp}/kubectl /usr/local/bin/
-	curl -sSLo ${tmp}/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
+	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 -o ${tmp}/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64
 	chmod +x ${tmp}/minikube && sudo mv ${tmp}/minikube /usr/local/bin/
 	sudo -E minikube delete || true
 	sudo -E rm -rf /etc/kubernetes || true
@@ -62,7 +62,7 @@ vault:
 .PHONY: vault
 
 sops:
-	curl -sSLo $(tmp)/sops "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
+	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 -o $(tmp)/sops "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
 	chmod +x $(tmp)/sops
 	sudo mv ${tmp}/sops /usr/local/bin/
 .PHONY: sops
