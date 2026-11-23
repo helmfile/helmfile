@@ -98,3 +98,24 @@ Usage:  helm template [NAME] [CHART] [flags]
 		})
 	}
 }
+
+func TestOutput_CanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	for range 100 {
+		_, _ = Output(ctx, exec.Command("true"), false)
+	}
+
+	_, err := Output(ctx, exec.Command("sleep", "10"), false)
+	if err == nil {
+		t.Fatal("Output() with a canceled context returned no error, want the interrupted command's error")
+	}
+}
+
+func TestOutput_StartError(t *testing.T) {
+	_, err := Output(context.Background(), exec.Command("helmfile-test-missing-binary"), false)
+	if err == nil || !strings.Contains(err.Error(), "unexpected error: exec: \"helmfile-test-missing-binary\": executable file not found") {
+		t.Fatalf("Output() error = %v, want the start error of the missing binary", err)
+	}
+}
