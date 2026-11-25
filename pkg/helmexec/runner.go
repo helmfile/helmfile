@@ -117,16 +117,19 @@ func Output(ctx context.Context, c *exec.Cmd, stripArgsValuesOnExitError bool, l
 	c.Stdout = io.MultiWriter(append([]io.Writer{&stdout, &combined}, logWriters...)...)
 	c.Stderr = io.MultiWriter(append([]io.Writer{&stderr, &combined}, logWriters...)...)
 
-	var err error
-	ch := make(chan error)
-	go func() {
-		ch <- c.Run()
-	}()
-	select {
-	case err = <-ch:
-	case <-ctx.Done():
-		_ = c.Process.Signal(os.Interrupt)
-		err = <-ch
+	err := c.Start()
+
+	if err == nil {
+		ch := make(chan error)
+		go func() {
+			ch <- c.Wait()
+		}()
+		select {
+		case err = <-ch:
+		case <-ctx.Done():
+			_ = c.Process.Signal(os.Interrupt)
+			err = <-ch
+		}
 	}
 
 	if err != nil {
