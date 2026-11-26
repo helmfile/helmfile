@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap"
 	helmchart "helm.sh/helm/v3/pkg/chart"
 	cliv3 "helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/strvals"
 	cliv4 "helm.sh/helm/v4/pkg/cli"
 
 	"github.com/helmfile/helmfile/pkg/agent/llm"
@@ -2781,6 +2782,16 @@ func (st *HelmState) WriteReleasesValues(helm helmexec.Interface, additionalValu
 
 			if err := mergo.Merge(&merged, &src, mergo.WithOverride); err != nil {
 				return []error{fmt.Errorf("merging %s: %w", f, err)}
+			}
+		}
+
+		if len(opts.Set) > 0 {
+			// Normalize nested YAML maps to the string keys Helm's parser expects.
+			merged = maputil.DeepCopyMap(merged)
+			for _, value := range opts.Set {
+				if err := strvals.ParseInto(value, merged); err != nil {
+					return []error{fmt.Errorf("applying --set for release %s: %w", release.Name, err)}
+				}
 			}
 		}
 

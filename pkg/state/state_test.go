@@ -7922,3 +7922,43 @@ func TestHelmState_DiffReleases_FailedReleaseForcesUpgrade(t *testing.T) {
 		})
 	}
 }
+
+func TestWriteReleasesValuesAppliesSet(t *testing.T) {
+	dir := t.TempDir()
+	st := &HelmState{
+		RenderedValues: map[string]any{},
+		FilePath:       filepath.Join(dir, "helmfile.yaml"),
+		logger:         logger,
+		fs:             filesystem.DefaultFileSystem(),
+		valsRuntime:    valsRuntime,
+	}
+	st.Releases = []ReleaseSpec{{
+		Name: "example",
+		Values: []any{map[string]any{
+			"replicas": 1,
+			"image":    map[string]any{"tag": "release", "repository": "example"},
+		}},
+	}}
+
+	additional := filepath.Join(dir, "additional.yaml")
+	require.NoError(t, os.WriteFile(additional, []byte("replicas: 3\n"), 0600))
+	output := filepath.Join(dir, "output.yaml")
+	require.Empty(t, st.WriteReleasesValues(nil, []string{additional}, &WriteValuesOpts{
+		Set:                []string{"replicas=2", "image.tag=override"},
+		OutputFileTemplate: output,
+	}))
+
+	data, err := os.ReadFile(output)
+	require.NoError(t, err)
+	var got struct {
+		Replicas int
+		Image    struct {
+			Tag        string
+			Repository string
+		}
+	}
+	require.NoError(t, yaml.Unmarshal(data, &got))
+	assert.Equal(t, 2, got.Replicas)
+	assert.Equal(t, "override", got.Image.Tag)
+	assert.Equal(t, "example", got.Image.Repository)
+}

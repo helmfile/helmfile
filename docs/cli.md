@@ -576,6 +576,11 @@ helmfile print-env --output json
 helmfile print-env -e production
 ```
 
+### write-values
+
+Use `helmfile write-values --set replicas=2` to override values in the generated YAML.
+The command applies `--set` overrides after merging the release values and any files passed with `--values`.
+
 ### status
 
 The `helmfile status` sub-command retrieves the status of releases in the state file by running `helm status` for each release.
