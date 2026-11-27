@@ -8,7 +8,7 @@ NAMESPACE: helmfile-tests
 STATUS: deployed
 REVISION: 1
 TEST SUITE: None
-Listing releases matching ^installed$
+Getting latest revision of installed
 
 [1m[34m=========================== Updated Releases ============================[0m
 NAME        NAMESPACE        CHART                     VERSION   DURATION
