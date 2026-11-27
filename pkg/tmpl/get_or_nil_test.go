@@ -30,6 +30,14 @@ func TestComplexStruct(t *testing.T) {
 	noExistValueWithDefault, err := get("Bar.baz", "default", obj)
 	require.NoErrorf(t, err, "unexpected error: %v", err)
 	require.Equalf(t, noExistValueWithDefault, "default", "unexpected value for path Bar.baz in %v: expected=default, actual=%v", obj, noExistValueWithDefault)
+
+	pathPastValue, err := get("Bar.foo.baz", obj)
+	require.Errorf(t, err, "expected error but was not occurred")
+	require.Nilf(t, pathPastValue, "expected nil but was not occurred")
+
+	pathPastValueOrNil, err := getOrNil("Bar.foo.baz", obj)
+	require.NoErrorf(t, err, "unexpected error: %v", err)
+	require.Nilf(t, pathPastValueOrNil, "expected nil but was not occurred")
 }
 
 func TestGetSimpleStruct(t *testing.T) {

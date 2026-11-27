@@ -58,7 +58,6 @@ func get(path string, varArgs ...any) (any, error) {
 			}
 			return nil, &noValueError{fmt.Sprintf("no value exist for key \"%s\" in %v", keys[0], typedObj)}
 		}
-		return v, nil
 	case map[any]any:
 		v, ok = typedObj[keys[0]]
 		if !ok {
