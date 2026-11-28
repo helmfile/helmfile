@@ -1563,9 +1563,28 @@ func (st *HelmState) listReleases(context helmexec.HelmContext, helm helmexec.In
 	return helm.List(context, filter, flags...)
 }
 
+// latestReleaseRevision returns the latest revision of the release. It prefers
+// `helm history <name> --max 1`, which only reads the records of this release,
+// over `helm list --filter`, which makes helm fetch and decode every release
+// record in the namespace. With many releases in a namespace and a concurrent
+// sync, running one such list per release puts a large, avoidable load on the
+// API server. Falls back to listReleases when the helm implementation does not
+// implement helmexec.ReleaseHistoryReader.
+func (st *HelmState) latestReleaseRevision(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (helmexec.HelmReleaseOutput, error) {
+	reader, ok := helm.(helmexec.ReleaseHistoryReader)
+	if !ok {
+		return st.listReleases(context, helm, release)
+	}
+	flags := st.kubeConnectionFlags(release)
+	if release.Namespace != "" {
+		flags = append(flags, "--namespace", release.Namespace)
+	}
+	return reader.LatestRevision(context, release.Name, flags...)
+}
+
 func (st *HelmState) getDeployedVersion(context helmexec.HelmContext, helm helmexec.Interface, release *ReleaseSpec) (string, error) {
 	//retrieve the version
-	if out, err := st.listReleases(context, helm, release); err == nil {
+	if out, err := st.latestReleaseRevision(context, helm, release); err == nil {
 		chartName := filepath.Base(release.Chart)
 		pat := regexp.MustCompile(regexp.QuoteMeta(chartName) + "-(.*)")
 		versions := pat.FindStringSubmatch(out.Chart)

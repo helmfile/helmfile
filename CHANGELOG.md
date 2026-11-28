@@ -4,6 +4,7 @@
 
 - `helmfile apply` now always reruns `helm upgrade` for releases that exist in the cluster but are not in the `deployed` state (e.g. `failed` or `pending`), even when helm-diff reports no changes. Previously an unchanged failed release was silently skipped, giving the false impression of a successful deployment. `helmfile diff --detailed-exitcode` likewise reports such releases as changed (exit code 2); a plain `helmfile diff` is unaffected. Releases checked through the `HELMFILE_USE_HELM_STATUS_TO_CHECK_RELEASE_EXISTENCE` environment variable keep the previous behavior, because `helm status` cannot distinguish release states (#1043)
 - `helm list` is now invoked with `-o yaml` and its output is parsed into a structured release description instead of tab-separated text (#1043)
+- `helmfile sync` and `helmfile apply` now read the deployed chart version for the end-of-run summary via `helm history <release> --max 1` instead of a namespace-wide `helm list --filter ^<release>$` scan, which listed every release in the namespace after each installed release and slowed runs with many or history-heavy releases (#2915)
 
 ### Added
 

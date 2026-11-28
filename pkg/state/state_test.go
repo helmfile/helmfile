@@ -3027,6 +3027,82 @@ func TestGetDeployedVersion(t *testing.T) {
 	}
 }
 
+// historyHelm adds helmexec.ReleaseHistoryReader to exectest.Helm, so that the
+// post-sync version probe takes the `helm history` path instead of `helm list`.
+type historyHelm struct {
+	*exectest.Helm
+	revisions map[string]helmexec.HelmReleaseOutput
+	calls     []string
+}
+
+func (h *historyHelm) LatestRevision(_ helmexec.HelmContext, name string, flags ...string) (helmexec.HelmReleaseOutput, error) {
+	h.calls = append(h.calls, strings.TrimSpace(name+" "+strings.Join(flags, " ")))
+	return h.revisions[name], nil
+}
+
+func TestGetDeployedVersion_PrefersHelmHistory(t *testing.T) {
+	tests := []struct {
+		name             string
+		release          ReleaseSpec
+		revision         helmexec.HelmReleaseOutput
+		installedVersion string
+		wantCall         string
+	}{
+		{
+			name:             "chart version from latest revision",
+			release:          ReleaseSpec{Name: "foo", Chart: "registry/foo-bar", Namespace: "ns"},
+			revision:         helmexec.HelmReleaseOutput{Chart: "foo-bar-1.2.3", Status: "deployed"},
+			installedVersion: "1.2.3",
+			wantCall:         "foo --namespace ns",
+		},
+		{
+			name:             "kube context is passed through",
+			release:          ReleaseSpec{Name: "foo", Chart: "registry/foo-bar", KubeContext: "ctx"},
+			revision:         helmexec.HelmReleaseOutput{Chart: "foo-bar-1.0.0-alpha+001", Status: "deployed"},
+			installedVersion: "1.0.0-alpha+001",
+			wantCall:         "foo --kube-context ctx",
+		},
+		{
+			name:             "falls back to helm show chart",
+			release:          ReleaseSpec{Name: "foo", Chart: "../../foo-bar"},
+			revision:         helmexec.HelmReleaseOutput{Chart: "foo-bar", Status: "deployed"},
+			installedVersion: "3.2.0",
+			wantCall:         "foo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &HelmState{
+				Releases:       []ReleaseSpec{tt.release},
+				logger:         logger,
+				valsRuntime:    valsRuntime,
+				RenderedValues: map[string]any{},
+			}
+
+			helm := &historyHelm{
+				// Any `helm list` call fails: the version must come from `helm history`.
+				Helm: &exectest.Helm{
+					Lists:                map[exectest.ListKey]helmexec.HelmReleaseOutput{},
+					FailOnUnexpectedList: true,
+				},
+				revisions: map[string]helmexec.HelmReleaseOutput{tt.release.Name: tt.revision},
+			}
+
+			affectedReleases := AffectedReleases{}
+			if errs := state.SyncReleases(&affectedReleases, helm, []string{}, 1); len(errs) > 0 {
+				t.Fatalf("unexpected sync errors: %v", errs)
+			}
+
+			if got := state.Releases[0].installedVersion; got != tt.installedVersion {
+				t.Errorf("installedVersion = %q, want %q", got, tt.installedVersion)
+			}
+			if want := []string{tt.wantCall}; !reflect.DeepEqual(helm.calls, want) {
+				t.Errorf("LatestRevision calls = %q, want %q", helm.calls, want)
+			}
+		})
+	}
+}
+
 func TestHelmState_DiffReleases(t *testing.T) {
 	tests := []struct {
 		name         string

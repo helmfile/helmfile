@@ -2286,3 +2286,102 @@ func Test_List_ParsesYamlOutput(t *testing.T) {
 		})
 	}
 }
+
+func Test_LatestRevision(t *testing.T) {
+	tests := []struct {
+		name    string
+		output  string
+		err     error
+		want    HelmReleaseOutput
+		wantErr bool
+	}{
+		{
+			name: "single revision with integer revision field",
+			output: `- revision: 42
+  updated: 2026-11-03T10:00:00Z
+  status: deployed
+  chart: foo-1.0.0
+  app_version: 1.0.0
+  description: Upgrade complete
+`,
+			want: HelmReleaseOutput{
+				Name:       "foo",
+				Revision:   "42",
+				Updated:    "2026-11-03T10:00:00Z",
+				Status:     "deployed",
+				Chart:      "foo-1.0.0",
+				AppVersion: "1.0.0",
+			},
+		},
+		{
+			name: "multiple revisions uses the latest",
+			output: `- revision: 1
+  status: superseded
+  chart: foo-1.0.0
+- revision: 2
+  status: failed
+  chart: foo-2.0.0
+`,
+			want: HelmReleaseOutput{Name: "foo", Revision: "2", Status: "failed", Chart: "foo-2.0.0"},
+		},
+		{
+			name:   "no revisions",
+			output: "[]\n",
+			want:   HelmReleaseOutput{},
+		},
+		{
+			name: "release not found is not an error",
+			err:  fmt.Errorf("Error: release: not found"),
+			want: HelmReleaseOutput{},
+		},
+		{
+			name:    "malformed yaml output is an error",
+			output:  "not: [valid\n",
+			wantErr: true,
+		},
+		{
+			name:    "other errors are returned",
+			err:     fmt.Errorf("Error: Kubernetes cluster unreachable"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buffer bytes.Buffer
+			logger := NewLogger(&buffer, "debug")
+			runner := &mockRunner{
+				versionOutput: []byte("v4.0.1+g12500dd"),
+				output:        []byte(tt.output),
+				err:           tt.err,
+			}
+			helm, err := New("helm", HelmExecOptions{}, logger, "config", "dev", runner)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, err := helm.LatestRevision(HelmContext{}, "foo", "--namespace", "ns")
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got %+v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("LatestRevision() = %+v, want %+v", got, tt.want)
+			}
+
+			wantArgs := []string{"--kubeconfig", "config", "--kube-context", "dev", "history", "foo", "--max", "1", "-o", "yaml", "--namespace", "ns"}
+			if len(runner.execArgs) != 1 || !reflect.DeepEqual(runner.execArgs[0], wantArgs) {
+				t.Errorf("helm args = %q, want %q", runner.execArgs, wantArgs)
+			}
+		})
+	}
+}
+
+// The concrete execer must satisfy the capability interface, otherwise
+// HelmState silently falls back to the namespace-wide `helm list`.
+var _ ReleaseHistoryReader = (*execer)(nil)

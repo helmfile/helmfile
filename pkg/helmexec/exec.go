@@ -717,6 +717,58 @@ func (helm *execer) List(context HelmContext, filter string, flags ...string) (H
 	return release, nil
 }
 
+// helmHistoryEntry is one entry of `helm history -o yaml` output. Unlike
+// `helm list`, helm emits the revision as an integer here.
+type helmHistoryEntry struct {
+	Revision   int    `yaml:"revision"`
+	Updated    string `yaml:"updated"`
+	Status     string `yaml:"status"`
+	Chart      string `yaml:"chart"`
+	AppVersion string `yaml:"app_version"`
+}
+
+// LatestRevision implements ReleaseHistoryReader. It runs
+// `helm history <name> --max 1 -o yaml` and returns the latest revision.
+// A missing release is not an error: the zero HelmReleaseOutput is returned,
+// mirroring List.
+func (helm *execer) LatestRevision(context HelmContext, name string, flags ...string) (HelmReleaseOutput, error) {
+	helm.logger.Infof("Getting latest revision of %v", name)
+	env := make(map[string]string)
+	args := []string{"history", name, "--max", "1", "-o", "yaml"}
+
+	enableLiveOutput := false
+	out, err := helm.execWithContext(context.Ctx, append(args, flags...), env, &enableLiveOutput)
+	if err != nil {
+		if strings.Contains(err.Error(), "release: not found") {
+			return HelmReleaseOutput{}, nil
+		}
+		return HelmReleaseOutput{}, err
+	}
+
+	var entries []helmHistoryEntry
+	if err := yaml.Unmarshal(out, &entries); err != nil {
+		return HelmReleaseOutput{}, fmt.Errorf("parsing `helm history` output: %w", err)
+	}
+	if len(entries) == 0 {
+		return HelmReleaseOutput{}, nil
+	}
+
+	// helm prints history in ascending revision order; with --max 1 there is
+	// a single entry, but take the last one in case a helm version ignores it.
+	latest := entries[len(entries)-1]
+	release := HelmReleaseOutput{
+		Name:       name,
+		Revision:   strconv.Itoa(latest.Revision),
+		Updated:    latest.Updated,
+		Status:     latest.Status,
+		Chart:      latest.Chart,
+		AppVersion: latest.AppVersion,
+	}
+	helm.info([]byte(fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s",
+		release.Name, release.Revision, release.Updated, release.Status, release.Chart, release.AppVersion)))
+	return release, nil
+}
+
 func (helm *execer) DecryptSecret(context HelmContext, name string, flags ...string) (string, error) {
 	absPath, err := filepath.Abs(name)
 	if err != nil {

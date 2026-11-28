@@ -61,3 +61,21 @@ type ChartInspector interface {
 	// OCI registry to a concrete semver.
 	ShowChartWithFlags(chart string, flags ...string) (chart.Metadata, error)
 }
+
+// ReleaseHistoryReader is a capability interface exposing the latest revision
+// of a single release via `helm history`. It is implemented by helmexec's
+// concrete execer. Callers should type-assert Interface to ReleaseHistoryReader
+// and fall back to List when the implementation does not satisfy it, so that
+// third-party implementations of helmexec.Interface keep compiling.
+//
+// Unlike `helm list --filter`, which makes helm's storage driver fetch and
+// decode every release record in the namespace before filtering client-side,
+// `helm history <name>` queries only the records of that release (a
+// label-selected request), so its cost does not grow with the number of
+// releases in the namespace.
+type ReleaseHistoryReader interface {
+	// LatestRevision runs `helm history <name> --max 1 -o yaml [flags...]`
+	// and returns the latest revision of the release. The zero
+	// HelmReleaseOutput means the release was not found.
+	LatestRevision(context HelmContext, name string, flags ...string) (HelmReleaseOutput, error)
+}
