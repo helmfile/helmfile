@@ -4033,14 +4033,16 @@ type DependencyError struct {
 
 // hasTransitiveDependencyWithInstallFalse checks if a release has a transitive dependency with Install set to false.
 func (st *HelmState) HasTransitiveDependencyWithInstalledFalse(release ReleaseSpec, visited map[string]bool) *DependencyError {
-	if visited[release.Name] {
+	id := ReleaseToID(&release)
+	if visited[id] {
 		return nil
 	}
-	visited[release.Name] = true
+	visited[id] = true
 
 	for _, dep := range release.Needs {
 		for _, r := range st.Releases {
-			if r.Name == dep {
+			// needs are rewritten to release IDs by ApplyOverrides
+			if ReleaseToID(&r) == dep {
 				if r.Installed != nil && !*r.Installed {
 					return &DependencyError{Release: release, Dependency: r}
 				}
