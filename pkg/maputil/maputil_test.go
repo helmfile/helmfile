@@ -1127,6 +1127,100 @@ func TestSet_AcceptsMaxIndex(t *testing.T) {
 	}
 }
 
+// Helm's --set reads each further [n] after a list index as an index into a
+// nested list, so foo[0][1]=x sets foo to [[null, x]].
+func TestSet_NestedListIndexes(t *testing.T) {
+	tests := []struct {
+		name     string
+		ops      [][]string
+		expected map[string]any
+	}{
+		{
+			name:     "two indexes",
+			ops:      [][]string{{"foo[0][1]", "x"}},
+			expected: map[string]any{"foo": []any{[]any{nil, "x"}}},
+		},
+		{
+			name:     "three indexes",
+			ops:      [][]string{{"foo[1][0][1]", "x"}},
+			expected: map[string]any{"foo": []any{nil, []any{[]any{nil, "x"}}}},
+		},
+		{
+			name:     "grows an existing nested list",
+			ops:      [][]string{{"foo[1][0]", "a"}, {"foo[1][2]", "b"}},
+			expected: map[string]any{"foo": []any{nil, []any{"a", nil, "b"}}},
+		},
+		{
+			name:     "map inside a nested list",
+			ops:      [][]string{{"foo[0][1].bar", "x"}},
+			expected: map[string]any{"foo": []any{[]any{nil, map[string]any{"bar": "x"}}}},
+		},
+		{
+			name:     "scalar element replaced by a nested list",
+			ops:      [][]string{{"foo[0]", "1"}, {"foo[0][1]", "x"}},
+			expected: map[string]any{"foo": []any{[]any{nil, "x"}}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := map[string]any{}
+			for _, op := range tt.ops {
+				if err := Set(m, ParseKey(op[0]), op[1], false); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !reflect.DeepEqual(m, tt.expected) {
+				t.Errorf("unexpected result: expected=%v, actual=%v", tt.expected, m)
+			}
+		})
+	}
+}
+
+// The override is what Set makes of foo[0][1]=x. CLI overrides merge lists
+// element by element, so it changes only that element of the nested list.
+func TestMergeMaps_MergeStrategyMergesNestedLists(t *testing.T) {
+	base := map[string]any{"foo": []any{[]any{"a", "b"}, "c"}}
+	override := map[string]any{"foo": []any{[]any{nil, "x"}}}
+
+	got := MergeMaps(base, override, MergeOptions{ArrayStrategy: ArrayMergeStrategyMerge})
+
+	expected := map[string]any{"foo": []any{[]any{"a", "x"}, "c"}}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("unexpected result: expected=%v, actual=%v", expected, got)
+	}
+}
+
+// A malformed list index is reported instead of being silently dropped or
+// turned into a map key. Helm's --set also rejects foo[0]bar and foo[a].
+func TestSet_RejectsMalformedListIndex(t *testing.T) {
+	tests := []struct {
+		key     string
+		wantErr string
+	}{
+		{key: "foo[0]bar", wantErr: `invalid list index in "foo[0]bar": expected <key>[<index>]`},
+		{key: "foo[0]bar[1]", wantErr: `invalid list index in "foo[0]bar[1]": expected <key>[<index>]`},
+		{key: "foo[a]", wantErr: `invalid list index in "foo[a]": expected <key>[<index>]`},
+		{key: "foo[0", wantErr: `invalid list index in "foo[0": expected <key>[<index>]`},
+		{key: "foo[0][-1]", wantErr: `negative index -1 not allowed in "foo[0][-1]"`},
+		{key: "foo[0][65537]", wantErr: `index 65537 in "foo[0][65537]" is greater than the maximum supported index of 65536`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			m := map[string]any{"keep": "me"}
+
+			err := Set(m, ParseKey(tt.key), "x", false)
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("Set(%q) error = %v, want %q", tt.key, err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(m, map[string]any{"keep": "me"}) {
+				t.Errorf("Set(%q) modified the map: %v", tt.key, m)
+			}
+		})
+	}
+}
+
 func TestMapUtil_NonStringKeys(t *testing.T) {
 	var m any
 	if err := yaml.Unmarshal([]byte("errorPages:\n  404: not-found\n  503: unavailable\nflags:\n  true: enabled\n"), &m); err != nil {

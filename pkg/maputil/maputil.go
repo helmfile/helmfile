@@ -124,64 +124,91 @@ func (a keyArg) set(m map[string]any, value any) {
 	m[a.key] = value
 }
 
+// indexedKeyArg is a key followed by one or more list indexes, such as
+// foo[0] or foo[0][1]. As in Helm's --set, each index after the first one
+// addresses a list nested in the element that the previous index addresses.
 type indexedKeyArg struct {
-	key   string
-	index int
+	key     string
+	indexes []int
 }
 
-// getArray returns the array stored at a.key, grown to hold a.index. A value
-// of another type is replaced by a new array, so the later assignment wins.
+// getArray returns the innermost array that a addresses, the one that holds
+// the last index, creating or growing it and every array on the way so that
+// each index fits. A value of another type is replaced by a new array, so the
+// later assignment wins.
 func (a indexedKeyArg) getArray(m map[string]any) []any {
-	t, ok := m[a.key].([]any)
-	if !ok {
-		t = make([]any, a.index+1)
-		m[a.key] = t
-	}
-	if len(t) <= a.index {
-		t2 := make([]any, a.index+1)
-		copy(t2, t)
-		t = t2
-		m[a.key] = t
+	t := growArray(m[a.key], a.indexes[0])
+	m[a.key] = t
+	for n := 1; n < len(a.indexes); n++ {
+		nested := growArray(t[a.indexes[n-1]], a.indexes[n])
+		t[a.indexes[n-1]] = nested
+		t = nested
 	}
 	return t
 }
 
-// getMap returns the map stored at a.key[a.index], replacing a missing value
-// or a value of another type with a new map.
+// growArray returns v as an array that is long enough to hold index. A value
+// of another type is replaced by a new array.
+func growArray(v any, index int) []any {
+	t, _ := v.([]any)
+	if len(t) <= index {
+		t2 := make([]any, index+1)
+		copy(t2, t)
+		t = t2
+	}
+	return t
+}
+
+func (a indexedKeyArg) lastIndex() int {
+	return a.indexes[len(a.indexes)-1]
+}
+
+// getMap returns the map stored at the element that a addresses, replacing a
+// missing value or a value of another type with a new map.
 func (a indexedKeyArg) getMap(m map[string]any) map[string]any {
 	t := a.getArray(m)
-	elem, ok := t[a.index].(map[string]any)
+	elem, ok := t[a.lastIndex()].(map[string]any)
 	if !ok {
 		elem = map[string]any{}
-		t[a.index] = elem
+		t[a.lastIndex()] = elem
 	}
 	return elem
 }
 
 func (a indexedKeyArg) set(m map[string]any, value any) {
 	t := a.getArray(m)
-	t[a.index] = value
-	m[a.key] = t
+	t[a.lastIndex()] = value
 }
 
-func getCursor(key string) arg {
-	key = strings.ReplaceAll(key, "[", " ")
-	key = strings.ReplaceAll(key, "]", " ")
-	k := key
-	idx := 0
+// getCursor parses one part of a key: either a map key such as "foo", or a
+// key followed by list indexes such as "foo[0]" or "foo[0][1]". Anything else
+// after the first "[", such as "foo[a]" or "foo[0]bar", is an error, as it is
+// in Helm's --set.
+func getCursor(key string) (arg, error) {
+	name, rest, found := strings.Cut(key, "[")
+	if !found {
+		return keyArg{key: key}, nil
+	}
 
-	n, err := fmt.Sscanf(key, "%s %d", &k, &idx)
-
-	if n == 2 && err == nil {
-		return indexedKeyArg{
-			key:   k,
-			index: idx,
+	var indexes []int
+	for {
+		digits, after, closed := strings.Cut(rest, "]")
+		index, err := strconv.Atoi(digits)
+		if !closed || err != nil {
+			return nil, invalidListIndexError(key)
+		}
+		indexes = append(indexes, index)
+		if after == "" {
+			return indexedKeyArg{key: name, indexes: indexes}, nil
+		}
+		if rest, found = strings.CutPrefix(after, "["); !found {
+			return nil, invalidListIndexError(key)
 		}
 	}
+}
 
-	return keyArg{
-		key: key,
-	}
+func invalidListIndexError(key string) error {
+	return fmt.Errorf("invalid list index in %q: expected <key>[<index>]", key)
 }
 
 func ParseKey(key string) []string {
@@ -216,7 +243,7 @@ func ParseKey(key string) []string {
 const MaxIndex = 65536
 
 // Set assigns value at key in m. It returns an error, leaving m unchanged,
-// when a list index in key is negative or greater than MaxIndex.
+// when a list index in key is malformed, negative or greater than MaxIndex.
 func Set(m map[string]any, key []string, value string, stringBool bool) error {
 	if len(key) == 0 {
 		panic(fmt.Errorf("bug: unexpected length of key: %d", len(key)))
@@ -224,13 +251,18 @@ func Set(m map[string]any, key []string, value string, stringBool bool) error {
 
 	cursors := make([]arg, len(key))
 	for i, k := range key {
-		cursor := getCursor(k)
+		cursor, err := getCursor(k)
+		if err != nil {
+			return err
+		}
 		if indexed, ok := cursor.(indexedKeyArg); ok {
-			if indexed.index < 0 {
-				return fmt.Errorf("negative index %d not allowed in %q", indexed.index, k)
-			}
-			if indexed.index > MaxIndex {
-				return fmt.Errorf("index %d in %q is greater than the maximum supported index of %d", indexed.index, k, MaxIndex)
+			for _, index := range indexed.indexes {
+				if index < 0 {
+					return fmt.Errorf("negative index %d not allowed in %q", index, k)
+				}
+				if index > MaxIndex {
+					return fmt.Errorf("index %d in %q is greater than the maximum supported index of %d", index, k, MaxIndex)
+				}
 			}
 		}
 		cursors[i] = cursor
@@ -357,8 +389,10 @@ type MergeOptions struct {
 //     explicitly setting an empty array should clear the base array.
 //   - Explicit `[null, value]` in YAML is treated as sparse (rare but correct).
 //
-// Recursive behavior: When merging maps within array elements, the same strategy
-// is propagated to nested MergeMaps calls, maintaining consistent merge semantics.
+// Recursive behavior: When merging maps or arrays within array elements, the
+// same strategy is propagated to the nested MergeMaps and mergeSlices calls,
+// maintaining consistent merge semantics. With ArrayMergeStrategyMerge, a CLI
+// override such as foo[0][1]=x therefore keeps the other elements of foo[0].
 func mergeSlices(base, override []any, strategy ArrayMergeStrategy) []any {
 	if strategy == ArrayMergeStrategyReplace {
 		return override
@@ -393,6 +427,15 @@ func mergeSlices(base, override []any, strategy ArrayMergeStrategy) []any {
 			if i < len(base) {
 				if baseMap, ok := base[i].(map[string]any); ok {
 					result[i] = MergeMaps(baseMap, overrideMap, MergeOptions{ArrayStrategy: strategy})
+					continue
+				}
+			}
+		}
+
+		if overrideSlice, ok := overrideVal.([]any); ok {
+			if i < len(base) {
+				if baseSlice, ok := base[i].([]any); ok {
+					result[i] = mergeSlices(baseSlice, overrideSlice, strategy)
 					continue
 				}
 			}
