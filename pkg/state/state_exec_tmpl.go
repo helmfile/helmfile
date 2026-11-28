@@ -223,18 +223,36 @@ func (st *HelmState) releaseWithInheritedTemplate(r *ReleaseSpec, inheritancePat
 			st.logger.Debugf("excluded field %q when inheriting template %q to release %q", k, templateName, r.Name)
 		}
 
-		if err := mergo.Merge(&merged, src, mergo.WithAppendSlice, mergo.WithSliceDeepCopy); err != nil {
+		if err := mergo.Merge(&merged, src, mergo.WithAppendSlice, mergo.WithSliceDeepCopy, mergo.WithTransformers(replacePointers{})); err != nil {
 			return nil, fmt.Errorf("unable to inherit release template %q: %w", templateName, err)
 		}
 	}
 
-	if err := mergo.Merge(&merged, r, mergo.WithAppendSlice, mergo.WithSliceDeepCopy); err != nil {
+	if err := mergo.Merge(&merged, r, mergo.WithAppendSlice, mergo.WithSliceDeepCopy, mergo.WithTransformers(replacePointers{})); err != nil {
 		return nil, fmt.Errorf("unable to load release %q: %w", r.Name, err)
 	}
 
 	merged.Inherit = nil
 
 	return &merged, nil
+}
+
+// replacePointers makes mergo replace a pointer field with the source's when
+// the source sets it, instead of merging into the value both point to. Merging
+// through the pointer dropped an explicit false, 0 or "" set on a release, and
+// wrote the release's value into the template that shares the pointer.
+type replacePointers struct{}
+
+func (replacePointers) Transformer(t reflect.Type) func(dst, src reflect.Value) error {
+	if t.Kind() != reflect.Pointer {
+		return nil
+	}
+	return func(dst, src reflect.Value) error {
+		if dst.CanSet() && !src.IsNil() {
+			dst.Set(src)
+		}
+		return nil
+	}
 }
 
 // applyDefaultInherit prepends default inherit templates to the release's inherit list.

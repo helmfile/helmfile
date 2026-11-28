@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-test/deep"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -543,6 +544,65 @@ func TestHelmState_executeTemplatesWithDefaultTemplates(t *testing.T) {
 	if _, ok := app2.Labels["managed"]; ok {
 		t.Errorf("app2: expected labels to be excluded, but got %v", app2.Labels)
 	}
+}
+
+func TestHelmState_executeTemplatesInheritedPointerFields(t *testing.T) {
+	state := &HelmState{
+		logger: zap.NewNop().Sugar(),
+		fs: &filesystem.FileSystem{
+			Glob: func(s string) ([]string, error) { return nil, nil },
+		},
+		basePath: ".",
+		Env:      environment.Environment{Name: "test_env"},
+		Templates: map[string]TemplateSpec{
+			"default": {
+				ReleaseSpec: ReleaseSpec{
+					Chart:     "test-chart",
+					Wait:      new(false),
+					Installed: new(true),
+					Timeout:   new(600),
+				},
+			},
+		},
+		Releases: []ReleaseSpec{
+			{
+				Name:    "app1",
+				Wait:    new(true),
+				Timeout: new(60),
+				Inherit: Inherits{{Template: "default"}},
+			},
+			{
+				Name:    "app2",
+				Inherit: Inherits{{Template: "default"}},
+			},
+			{
+				Name:      "app3",
+				Installed: new(false),
+				Inherit:   Inherits{{Template: "default"}},
+			},
+		},
+		RenderedValues: map[string]any{},
+	}
+
+	r, err := state.ExecuteTemplates()
+	require.NoError(t, err)
+
+	app1 := r.Releases[0]
+	assert.True(t, *app1.Wait, "app1: wait")
+	assert.Equal(t, 60, *app1.Timeout, "app1: timeout")
+
+	// app1's values must not leak into the template and from there into app2.
+	app2 := r.Releases[1]
+	assert.False(t, *app2.Wait, "app2: wait")
+	assert.Equal(t, 600, *app2.Timeout, "app2: timeout")
+
+	app3 := r.Releases[2]
+	assert.False(t, *app3.Installed, "app3: installed")
+
+	tmpl := state.Templates["default"]
+	assert.False(t, *tmpl.Wait, "template: wait")
+	assert.True(t, *tmpl.Installed, "template: installed")
+	assert.Equal(t, 600, *tmpl.Timeout, "template: timeout")
 }
 
 func TestDefaultInherits_UnmarshalYAML(t *testing.T) {
