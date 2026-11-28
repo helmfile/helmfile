@@ -100,6 +100,9 @@ helmfile --state-values-set-string 'zone="zone1,zone2",imageTag=1.23.3' build
 
 Malformed assignments (missing `=`, empty key, or a trailing comma) are reported
 as errors instead of being partially applied.
+List indexes follow Helm's `--set` syntax: `servers[0].host=a` sets a field of
+the first list element, and `matrix[0][1]=x` sets an element of a nested list.
+A malformed index such as `servers[a]` or `servers[0]host` is reported as an error.
 An empty flag value is ignored. Do not put spaces before a key; spaces inside
 values are preserved.
 
