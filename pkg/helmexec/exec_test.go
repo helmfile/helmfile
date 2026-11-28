@@ -2335,6 +2335,11 @@ func Test_LatestRevision(t *testing.T) {
 			want: HelmReleaseOutput{},
 		},
 		{
+			name:    "malformed yaml output is an error",
+			output:  "not: [valid\n",
+			wantErr: true,
+		},
+		{
 			name:    "other errors are returned",
 			err:     fmt.Errorf("Error: Kubernetes cluster unreachable"),
 			wantErr: true,
