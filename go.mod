@@ -24,7 +24,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.31
 	github.com/otiai10/copy v1.14.1
 	github.com/pkg/errors v0.9.1
-	github.com/sashabaranov/go-openai v1.43.0
+	github.com/sashabaranov/go-openai v1.44.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	github.com/stretchr/testify v1.12.1
